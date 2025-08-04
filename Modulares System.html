@@ -398,13 +398,27 @@
     });
   }
   function createUniversalModule(mod, pos, moduleDirHandle, attachments, modulename) {
-    const id = 'mod_' + Math.random().toString(36).slice(2,8);
+    const id = 'mod_' + Math.random().toString(36).slice(2, 8);
     const color = mod.color || '#005983';
-    const icon = mod.icon ? `<span class="text-2xl mr-2">${mod.icon}</span> ` : '';
+    const textColor = mod.textColor || 'white';
+    const noRounding = (mod.rounded === false);
+    const roundingClass = noRounding ? '' : 'rounded-3xl';
+    const extraClasses = mod.extraClasses || '';
+    const extraStyle = mod.extraStyle || '';
+  
+    // build inline style (background, text color, optional override for rounding, plus any extras)
+    const styleParts = [`background: ${color}`, `color: ${textColor}`];
+    if (noRounding) styleParts.push('border-radius: 0 !important');
+    if (extraStyle) styleParts.push(extraStyle);
+    const styleAttr = styleParts.join(';') + ';';
+  
+    const iconHTML = mod.icon ? `<span class="text-2xl mr-2">${mod.icon}</span>` : '';
+    const titleText = mod.name || modulename || '';
     const el = document.createElement('div');
     el.classList.add('grid-stack-item');
-    let html = `<div class="grid-stack-item-content rounded-3xl p-6" style="background:${color}">`;
-    html += `<div class="text-center font-bold text-xl mb-4">${icon}${mod.name || modulename}</div>`;
+  
+    let html = `<div class="grid-stack-item-content ${roundingClass} p-6 ${extraClasses}" style="${styleAttr}">`;
+    html += `<div class="text-center font-bold text-xl mb-4">${iconHTML}${titleText}</div>`;
     html += `<form id="${id}-form" class="unimod-form grid grid-cols-2 gap-4 mb-2">`;
     (mod.fields || []).forEach(field => {
       const colSpan = field.width === 2 ? 'col-span-2' : 'col-span-1';
@@ -414,7 +428,11 @@
         html += `<textarea name="${field.key}" class="w-full"></textarea>`;
       } else if (field.type === 'select') {
         html += `<select name="${field.key}" class="w-full">`;
-        (field.options||[]).forEach(opt => html += `<option>${opt}</option>`);
+        (field.options || []).forEach(opt => {
+          const value = typeof opt === 'object' ? (opt.value || '') : opt;
+          const label = typeof opt === 'object' ? (opt.label || opt) : opt;
+          html += `<option value="${value}">${label}</option>`;
+        });
         html += `</select>`;
       } else {
         html += `<input type="${field.type}" name="${field.key}" class="w-full" />`;
@@ -423,38 +441,40 @@
     });
     html += `</form>`;
     if (attachments && attachments.length) {
-      html += `<div class="text-xs text-blue-200 mb-1">📎 <b>${modulename}:</b> ${attachments.join(', ')}</div>`;
+      html += `<div class="text-xs mb-1">📎 <b>${modulename}:</b> ${attachments.join(', ')}</div>`;
     }
     if (mod.actions && mod.actions.length) {
       html += `<div class="unimod-actions flex gap-2 mb-2">`;
-      mod.actions.forEach((act,i) => {
+      mod.actions.forEach((act, i) => {
         html += `<button type="button" class="action-btn unimod-btn bg-indigo-500 hover:bg-indigo-600 text-white rounded px-4 py-2" data-script-idx="${i}">${act.label}</button>`;
       });
       html += `</div>`;
     }
     html += `<button class="remove-module bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded mt-2 float-right">🗑️ Modul entfernen</button>`;
     html += `</div>`;
+  
     el.innerHTML = html;
-    grid.addWidget(el, pos || { x:0, y:0, w:8, h:8 });
-
+    grid.addWidget(el, pos || { x: 0, y: 0, w: 8, h: 8 });
+  
     const form = el.querySelector('form');
     const fields = {};
     (mod.fields || []).forEach(f => {
-      fields[f.key] = form.elements[f.key];
+      if (form && form.elements) fields[f.key] = form.elements[f.key];
     });
-
+  
     el.querySelector('.remove-module').onclick = () => grid.removeWidget(el);
-
+  
     if (mod.actions && mod.actions.length) {
       el.querySelectorAll('.action-btn').forEach(btn => {
         btn.onclick = () => {
           const i = btn.dataset.scriptIdx;
-          if (mod.actions[i].script) {
+          if (mod.actions[i] && mod.actions[i].script) {
             runUserScript(mod.actions[i].script, fields, { moduleDirHandle, el, modulename });
           }
         };
       });
     }
+  
     if (mod.script) {
       form.addEventListener('input', () => {
         try {
@@ -463,8 +483,13 @@
           console.error('Script-Fehler:', e);
         }
       });
+      // initial execution if desired
+      try {
+        runUserScript(mod.script, fields, { moduleDirHandle, el, modulename });
+      } catch {}
     }
   }
+
   function runUserScript(script, fields, context) {
     const helpers = {
       exportAsCSV: (fields) => {
@@ -607,3 +632,4 @@
 </script>
 </body>
 </html>
+
