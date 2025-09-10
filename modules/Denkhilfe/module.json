@@ -1,0 +1,13 @@
+{
+  "name": "Denkhilfe",
+  "icon": "⚪",
+  "script": "renderPhysicsCircle",
+  "minW": 2,
+  "minH": 2,
+  "w": 2,
+  "h": 2,
+  "settings": {
+    "gravity": 0.5,
+    "friction": 0.05
+  }
+}
