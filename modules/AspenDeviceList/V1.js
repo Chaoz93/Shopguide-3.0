@@ -73,18 +73,26 @@
   const GROUP_NAME='deviceBoardGroup';
   const TITLE_FIELD='MELDUNGS_NO';
   const MELDUNG_FIELD='Meldung';
+  const LS_DOC='module_data_v1';
+  const CUSTOM_BROADCAST='deviceBoard:update';
+
+  const parse=s=>{try{return JSON.parse(s)||{};}catch{return{};}};
+  const loadDoc=()=>parse(localStorage.getItem(LS_DOC));
+  const saveDoc=doc=>localStorage.setItem(LS_DOC,JSON.stringify(doc));
+  const getActiveMeldung=()=>loadDoc().general?.Meldung||'';
 
   window.renderAspenDeviceList=async function(targetDiv,opts){
     const root=document.createElement('div');
     root.className='db-root';
     const title=opts.moduleJson?.settings?.title||'';
-    root.innerHTML=`${title?`<div class="db-titlebar">${title}</div>`:''}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row"><label>Untertitel-Feld<select class="db-sel-sub"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`${title?`<div class="db-titlebar">${title}</div>`:''}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row"><label>Untertitel-Feld<select class="db-sel-sub"></select></label></div><div class="row"><label>Partnummer-Feld<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
     targetDiv.appendChild(root);
     const list=root.querySelector('.db-list');
 
     const modal=root.querySelector('.db-modal');
     const titleInput=root.querySelector('.db-title-input');
     const selSub=root.querySelector('.db-sel-sub');
+    const selPart=root.querySelector('.db-sel-part');
     const saveBtn=root.querySelector('.db-save');
     const closeBtn=root.querySelector('.db-close');
     const cBg=root.querySelector('.db-c-bg');
@@ -99,12 +107,13 @@
     document.body.appendChild(menu);
 
     let fields=[];
-    let config={subField:'AUFTRAGS_NO',title:title,colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'}};
+    let config={subField:'AUFTRAGS_NO',partField:TITLE_FIELD,title:title,colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'}};
     let items=[]; // {id, part, meldung, data:{}}
     let excluded=new Set();
 
     function populateFieldSelects(){
       selSub.innerHTML=fields.map(f=>`<option value="${f}" ${f===config.subField?'selected':''}>${f}</option>`).join('');
+      selPart.innerHTML=fields.map(f=>`<option value="${f}" ${f===config.partField?'selected':''}>${f}</option>`).join('');
     }
 
     function applyColors(colors){
@@ -131,6 +140,7 @@
           <div class="db-handle" title="Ziehen">⋮⋮</div>
         </div>`;
       }).join('');
+      updateHighlights();
     }
 
     function syncFromDOM(){
@@ -140,9 +150,10 @@
         const part=rawPart.split(':')[0].trim();
         const meldung=(el.dataset.meldung||'').split(':')[0].trim();
         const data={};
-        data[TITLE_FIELD]=part;
-        data[MELDUNG_FIELD]=meldung;
+        data[TITLE_FIELD]=el.querySelector('.db-title')?.textContent||'';
         data[config.subField]=el.querySelector('.db-sub')?.textContent||'';
+        data[config.partField]=part;
+        data[MELDUNG_FIELD]=meldung;
         return {id,part,meldung,data};
       });
     }
@@ -160,6 +171,14 @@
       });
     }
 
+    function updateHighlights(){
+      const active=getActiveMeldung();
+      list.querySelectorAll('.db-card').forEach(node=>{
+        const m=(node.dataset.meldung||'').trim();
+        node.classList.toggle('active',active&&m===active);
+      });
+    }
+
     async function pick(){
       closeMenu();
       try{
@@ -173,12 +192,14 @@
         const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
         fields=Object.keys(rows[0]||{});
         if(!fields.includes(config.subField)) config.subField=fields.find(f=>f!==TITLE_FIELD)||TITLE_FIELD;
+        if(!fields.includes(config.partField)) config.partField=fields.find(f=>/part/i.test(f))||TITLE_FIELD;
         items=rows.map(r=>{
-          const raw=String(r[TITLE_FIELD]).trim();
-          const part=raw.split(':')[0].trim();
+          const titleVal=String(r[TITLE_FIELD]||'').trim();
+          const rawPart=String(r[config.partField]||'').trim();
+          const part=rawPart.split(':')[0].trim();
           const meldung=String(r[MELDUNG_FIELD]||'').trim();
-          if(!part&&!meldung) return null;
-          const data={...r,[TITLE_FIELD]:part,[MELDUNG_FIELD]:meldung};
+          if(!titleVal&&!part&&!meldung) return null;
+          const data={...r,[TITLE_FIELD]:titleVal,[config.partField]:part,[MELDUNG_FIELD]:meldung};
           return {id:'it-'+Math.random().toString(36).slice(2),part,meldung,data};
         }).filter(Boolean);
         excluded.clear();
@@ -210,6 +231,24 @@
     });
     menu.querySelector('.mi-opt').addEventListener('click',openOptions);
 
+    list.addEventListener('click',e=>{
+      if(e.target.closest('.db-handle'))return;
+      const card=e.target.closest('.db-card');
+      if(!card)return;
+      const m=(card.dataset.meldung||'').trim();
+      const doc=loadDoc();
+      doc.general||={};
+      if(doc.general.Meldung!==m){
+        doc.general.Meldung=m;
+        saveDoc(doc);
+        updateHighlights();
+        window.dispatchEvent(new Event(CUSTOM_BROADCAST));
+      }
+    });
+
+    window.addEventListener('storage',e=>{if(e.key===LS_DOC)updateHighlights();});
+    window.addEventListener(CUSTOM_BROADCAST,updateHighlights);
+
     function openOptions(){
       closeMenu();
       titleInput.value=config.title;
@@ -225,6 +264,7 @@
     saveBtn.addEventListener('click',()=>{
       config.title=titleInput.value.trim();
       config.subField=selSub.value;
+      config.partField=selPart.value;
       config.colors={bg:cBg.value,item:cItem.value,title:cTitle.value,sub:cSub.value,active:cActive.value};
       const tb=root.querySelector('.db-titlebar');
       if(config.title){
