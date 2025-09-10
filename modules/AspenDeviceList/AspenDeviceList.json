@@ -1,0 +1,9 @@
+{
+  "name": "Aspen Device List",
+  "icon": "🧾",
+  "script": "renderAspenDeviceList",
+  "minW": 2,
+  "minH": 2,
+  "w": 4,
+  "h": 4
+}
