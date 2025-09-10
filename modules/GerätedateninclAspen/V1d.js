@@ -34,6 +34,7 @@
   const IDB_STORE='fs-handles';
   const SHEET_NAME='records';
   const WATCH_INTERVAL=300;
+  const ASPEN_POLL=300000; // 5 Minuten
 
   const parse=(s,fb)=>{try{return JSON.parse(s)||fb;}catch{return fb;}};
   const loadDoc=()=>parse(localStorage.getItem(LS_DOC),{__meta:{v:1},general:{},instances:{}});
@@ -136,6 +137,13 @@
             </div>
           </div>
           <div class="db-field" style="margin-top:1rem;">
+            <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Aspen-Datei</label>
+            <div class="db-row" style="display:flex;gap:.5rem;align-items:center">
+              <button class="db-btn rs-aspen-pick" style="background:var(--button-bg);color:var(--button-text);border-radius:.5rem;padding:.35rem .6rem">Excel wählen</button>
+              <span class="rs-aspen-file db-file"></span>
+            </div>
+          </div>
+          <div class="db-field" style="margin-top:1rem;">
             <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Felder</label>
             <ul class="rs-list" style="list-style:none;margin:0;padding:0;"></ul>
             <div style="font-size:.8rem;opacity:.7;margin-top:.25rem;">Klicken zum Aktivieren/Deaktivieren, ziehen zum Sortieren.</div>
@@ -162,6 +170,8 @@
       mFile:root.querySelector('.rs-file'),
       mRulePick:root.querySelector('.rs-rule-pick'),
       mRuleFile:root.querySelector('.rs-rule-file'),
+      mAspenPick:root.querySelector('.rs-aspen-pick'),
+      mAspenFile:root.querySelector('.rs-aspen-file'),
       mList:root.querySelector('.rs-list'),
       mCols:root.querySelector('.rs-cols'),
       menu
@@ -188,6 +198,7 @@
     const instanceId=instanceIdOf(root);
     const idbKey=`recordSheet:${instanceId}`;
     const ruleIdbKey=`recordSheetRules:${instanceId}`;
+    const aspenIdbKey=`recordSheetAspen:${instanceId}`;
 
     function cloneFields(a){return a.map(f=>({key:f.key,label:f.label,enabled:!!f.enabled}));}
     function loadCfg(){
@@ -198,6 +209,8 @@
         fileName:cfg.fileName||'',
         ruleIdbKey:cfg.ruleIdbKey||ruleIdbKey,
         ruleFileName:cfg.ruleFileName||'',
+        aspenIdbKey:cfg.aspenIdbKey||aspenIdbKey,
+        aspenFileName:cfg.aspenFileName||'',
         fields:Array.isArray(cfg.fields)?cfg.fields:cloneFields(defaultFields),
         columns:cfg.columns||defaultColumns
       };
@@ -208,10 +221,15 @@
     let cfg=loadCfg();
     els.mFile.textContent=cfg.fileName?`• ${cfg.fileName}`:'Keine Datei gewählt';
     els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
+    els.mAspenFile.textContent=cfg.aspenFileName?`• ${cfg.aspenFileName}`:'Keine Aspen-Datei';
     els.head.style.display='none';
     HEAD=cfg.fields.map(f=>f.key);
     let handle=null;
     let ruleHandle=null;
+    let aspenHandle=null;
+    let aspenRows=[];
+    let aspenTimer=null;
+    let aspenLast=0;
     let rules=[];
     let cache=[];
 
@@ -266,15 +284,88 @@
 
     async function bindHandle(h){const ok=await ensureRWPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}handle=h;await idbSet(cfg.idbKey,h);cfg.fileName=h.name||'Dictionary.xlsx';saveCfg(cfg);els.mFile.textContent=`• ${cfg.fileName}`;return true;}
     async function bindRuleHandle(h){const ok=await ensureRPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}ruleHandle=h;await idbSet(cfg.ruleIdbKey,h);cfg.ruleFileName=h.name||'Rules.xlsx';saveCfg(cfg);els.mRuleFile.textContent=`• ${cfg.ruleFileName}`;try{rules=await readRulesFromHandle(h);}catch{rules=[];}updateName();return true;}
+
+    async function readAspenFromHandle(h){
+      await ensureXLSX();
+      const f=await h.getFile();
+      if(f.size===0){aspenRows=[];return;}
+      const buf=await f.arrayBuffer();
+      const wb=XLSX.read(buf,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      if(!ws){aspenRows=[];return;}
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const hdr=rows[0]?.map(h=>String(h||'').toLowerCase().trim())||[];
+      const idx={
+        meldung:hdr.indexOf('meldungs_no'),
+        auftrag:hdr.indexOf('auftrags_no'),
+        part:hdr.indexOf('part_no'),
+        serial:hdr.indexOf('serial_no'),
+        repairorder:hdr.indexOf('repair_order')
+      };
+      aspenRows=rows.slice(1).map(r=>({
+        meldung:idx.meldung>=0?String(r[idx.meldung]||'').trim():'',
+        auftrag:idx.auftrag>=0?String(r[idx.auftrag]||'').trim():'',
+        part:idx.part>=0?String(r[idx.part]||'').split(':')[0].trim():'',
+        serial:idx.serial>=0?String(r[idx.serial]||'').trim():'',
+        repairorder:idx.repairorder>=0?String(r[idx.repairorder]||'').trim():''
+      }));
+    }
+
+    async function readAspen(){
+      if(!aspenHandle)return;
+      try{
+        const f=await aspenHandle.getFile();
+        if(f.lastModified===aspenLast && aspenRows.length) return;
+        aspenLast=f.lastModified;
+        await readAspenFromHandle(aspenHandle);
+        fillFromAspen();
+      }catch(e){console.warn('Lesen der Aspen-Datei fehlgeschlagen:',e);}
+    }
+
+    function scheduleAspenPoll(){
+      if(aspenTimer)clearInterval(aspenTimer);
+      aspenTimer=setInterval(readAspen,ASPEN_POLL);
+    }
+
+    function fillFromAspen(){
+      if(!aspenRows.length) return;
+      const m=activeMeldung();
+      if(!m) return;
+      const row=aspenRows.find(r=>r.meldung===m || r.auftrag===m);
+      if(!row) return;
+      ['auftrag','part','serial','repairorder'].forEach(k=>{
+        const el=fieldEls[k]?.input;
+        if(!el) return;
+        if(!el.value){
+          const val=row[k];
+          if(val){el.value=val;putField(k,val);}
+        }
+      });
+    }
+
+    async function bindAspenHandle(h){
+      const ok=await ensureRPermission(h);
+      if(!ok){setNote('Berechtigung verweigert.');return false;}
+      aspenHandle=h;
+      await idbSet(cfg.aspenIdbKey,h);
+      cfg.aspenFileName=h.name||'Aspen.xlsx';
+      saveCfg(cfg);
+      els.mAspenFile.textContent=`• ${cfg.aspenFileName}`;
+      await readAspen();
+      scheduleAspenPoll();
+      return true;
+    }
     els.mPick.onclick=async()=>{try{const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(h&&await bindHandle(h)){cache=await readAll(h);setNote('Datei geladen.');refreshFromCache();}}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
     els.mCreate.onclick=async()=>{try{const h=await showSaveFilePicker({suggestedName:'Dictionary.xlsx',types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});if(h&&await bindHandle(h)){cache=[];await writeAll(h,cache);setNote('Datei erstellt.');refreshFromCache();}}catch(e){if(e?.name!=='AbortError')setNote('Erstellen fehlgeschlagen.');}};
     els.mRulePick.onclick=async()=>{try{const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(h)await bindRuleHandle(h);}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
+    els.mAspenPick.onclick=async()=>{try{const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(h)await bindAspenHandle(h);}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
 
     (async()=>{try{const h=await idbGet(cfg.idbKey);if(h&&await ensureRWPermission(h)){handle=h;cache=await readAll(h);refreshFromCache();}}catch(e){}})();
     (async()=>{try{const h=await idbGet(cfg.ruleIdbKey);if(h&&await ensureRPermission(h)){ruleHandle=h;rules=await readRulesFromHandle(h);els.mRuleFile.textContent=`• ${cfg.ruleFileName||h.name||'Rules.xlsx'}`;updateName();}}catch(e){}})();
+    (async()=>{try{const h=await idbGet(cfg.aspenIdbKey);if(h&&await ensureRPermission(h)){aspenHandle=h;els.mAspenFile.textContent=`• ${cfg.aspenFileName||h.name||'Aspen.xlsx'}`;await readAspen();scheduleAspenPoll();}}catch(e){}})();
 
     function activeMeldung(){return(loadDoc()?.general?.Meldung||'').trim();}
-    function refreshFromCache(){const m=activeMeldung();const row=cache.find(r=>(r.meldung||'').trim()===m);cfg.fields.forEach(f=>{const el=fieldEls[f.key];if(!el)return;if(f.key==='meldung')el.input.value=m;else el.input.value=row?.[f.key]||'';});updateName();}
+    function refreshFromCache(){const m=activeMeldung();const row=cache.find(r=>(r.meldung||'').trim()===m);cfg.fields.forEach(f=>{const el=fieldEls[f.key];if(!el)return;if(f.key==='meldung')el.input.value=m;else el.input.value=row?.[f.key]||'';});updateName();fillFromAspen();}
 
     addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromCache();});
     addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromCache();});
@@ -286,7 +377,7 @@
 
     renderFields();
 
-    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);els.menu?.remove();(async()=>{try{await idbDel(cfg.idbKey);}catch{}try{await idbDel(cfg.ruleIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
+    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);clearInterval(aspenTimer);els.menu?.remove();(async()=>{try{await idbDel(cfg.idbKey);}catch{}try{await idbDel(cfg.ruleIdbKey);}catch{}try{await idbDel(cfg.aspenIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
   };
 })();
