@@ -4,7 +4,14 @@
     .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
     .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;overflow:auto;}
     .db-list{display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;}
-    .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:0 2px 6px rgba(0,0,0,.06);}
+    .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:0 2px 6px rgba(0,0,0,.06);display:flex;align-items:center;gap:.75rem;user-select:none;}
+    .db-flex{flex:1;display:flex;flex-direction:column;}
+    .db-title{color:var(--dl-title,#2563eb);font-weight:600;line-height:1.1;}
+    .db-sub{color:var(--dl-sub,#4b5563);font-size:.85rem;margin-top:.15rem;}
+    .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:.45rem;background:rgba(0,0,0,.06);cursor:grab;color:inherit;}
+    .db-handle:active{cursor:grabbing;}
+    .db-ghost{opacity:.4;}
+    .db-chosen{transform:scale(1.01);}
     .db-menu{position:fixed;z-index:1000;display:none;min-width:200px;padding:.25rem;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
     .db-menu.open{display:block;}
     .db-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
@@ -35,7 +42,28 @@
     return window.__XLSX_LOAD_PROMISE__;
   }
 
-  window.renderAspenDeviceList=function(targetDiv,opts){
+  async function ensureSortable(){
+    if(window.Sortable) return;
+    if(window.__SORTABLE_LOAD_PROMISE__) return window.__SORTABLE_LOAD_PROMISE__;
+    const urls=[
+      'https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js'
+    ];
+    window.__SORTABLE_LOAD_PROMISE__=(async()=>{
+      let last;for(const url of urls){
+        try{
+          await new Promise((ok,err)=>{const s=document.createElement('script');s.src=url;s.async=true;s.onload=ok;s.onerror=()=>err(new Error('load '+url));document.head.appendChild(s);});
+          if(window.Sortable)return;
+        }catch(e){last=e;}
+      }
+      throw last||new Error('Sortable load failed');
+    })();
+    return window.__SORTABLE_LOAD_PROMISE__;
+  }
+
+  const GROUP_NAME='deviceBoardGroup';
+
+  window.renderAspenDeviceList=async function(targetDiv,opts){
     const root=document.createElement('div');
     root.className='db-root';
     const title=opts.moduleJson?.settings?.title||'';
@@ -48,13 +76,29 @@
     menu.innerHTML='<div class="mi mi-pick">Excel-Datei wählen</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
-    let items=[];
+    let items=[]; // {id, part, name}
     let excluded=new Set();
 
     function render(){
       const shown=items.filter(it=>!excluded.has(it.part));
       if(!shown.length){list.innerHTML='<div style="opacity:.6;">Keine Geräte</div>';return;}
-      list.innerHTML=shown.map(it=>`<div class="db-card">${it.part}${it.name?` - ${it.name}`:''}</div>`).join('');
+      list.innerHTML=shown.map(it=>`
+        <div class="db-card" data-id="${it.id}" data-meldung="${it.part}" data-part="${it.part}" data-name="${it.name}">
+          <div class="db-flex">
+            <div class="db-title">${it.part}</div>
+            <div class="db-sub">${it.name}</div>
+          </div>
+          <div class="db-handle" title="Ziehen">⋮⋮</div>
+        </div>
+      `).join('');
+    }
+
+    function syncFromDOM(){
+      items=Array.from(list.querySelectorAll('.db-card')).map(el=>({
+        id:el.dataset.id||('it-'+Math.random().toString(36).slice(2)),
+        part:el.dataset.part||el.dataset.meldung||'',
+        name:el.dataset.name||''
+      }));
     }
 
     function refreshMenu(){
@@ -84,7 +128,7 @@
         const hdr=rows[0]||[];
         const idxPart=hdr.findIndex(h=>String(h).toLowerCase().includes('part'));
         const idxName=hdr.findIndex(h=>String(h).toLowerCase().includes('name'));
-        items=rows.slice(1).filter(r=>r.length && r[idxPart]!==undefined && String(r[idxPart]).trim()!=='').map(r=>({part:String(r[idxPart]),name:idxName>=0?String(r[idxName]):''}));
+        items=rows.slice(1).filter(r=>r.length && r[idxPart]!==undefined && String(r[idxPart]).trim()!=='').map(r=>({id:'it-'+Math.random().toString(36).slice(2),part:String(r[idxPart]),name:idxName>=0?String(r[idxName]):''}));
         excluded.clear();
         refreshMenu();
         render();
@@ -109,6 +153,19 @@
 
     const mo=new MutationObserver(()=>{if(!document.body.contains(root)){menu.remove();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
+
+    await ensureSortable();
+    new Sortable(list,{
+      group:{name:GROUP_NAME,pull:true,put:true},
+      animation:150,
+      handle:'.db-handle',
+      draggable:'.db-card',
+      ghostClass:'db-ghost',
+      chosenClass:'db-chosen',
+      onSort:()=>{syncFromDOM();render();refreshMenu();},
+      onAdd:()=>{syncFromDOM();render();refreshMenu();},
+      onRemove:()=>{syncFromDOM();render();refreshMenu();}
+    });
 
     render();
   };
