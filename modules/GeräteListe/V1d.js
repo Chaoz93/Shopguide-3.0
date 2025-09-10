@@ -372,8 +372,10 @@
     let dictHandle = null;
     let dictData = {};
     let dictFields = DEFAULT_DICT_FIELDS.slice();
+    let dictLoaded = false;
     let nameHandle = null;
     let nameRules = [];
+    let nameLoaded = false;
     let items = []; // {id, meldung}
 
     // load per-instance config
@@ -485,20 +487,16 @@
       const valid = dictFields.map(f=>f.key);
       if(nameRules.length>0) valid.push('name');
       let changed = false;
-      if(!valid.includes(cfg.titleField) && !(cfg.titleField === 'name' && nameRules.length === 0)){
+      if(dictLoaded && !valid.includes(cfg.titleField) && !(cfg.titleField === 'name' && !nameLoaded)){
         cfg.titleField = valid[0] || 'meldung';
         changed = true;
       }
-      if(!valid.includes(cfg.subField) || cfg.subField===cfg.titleField){
-        if(!(cfg.subField === 'name' && nameRules.length === 0)){
-          const second = valid.find(v=>v!==cfg.titleField);
-          cfg.subField = second || cfg.titleField;
-          changed = true;
-        }
+      if(dictLoaded && !valid.includes(cfg.subField) && !(cfg.subField === 'name' && !nameLoaded)){
+        cfg.subField = valid.includes(cfg.titleField) ? cfg.titleField : (valid[0] || 'meldung');
+        changed = true;
       }
       els.selTitle.value = valid.includes(cfg.titleField) ? cfg.titleField : (valid[0] || 'meldung');
-      const second = valid.find(v=>v!==els.selTitle.value);
-      els.selSub.value = valid.includes(cfg.subField) && cfg.subField!==els.selTitle.value ? cfg.subField : (second || els.selTitle.value);
+      els.selSub.value = valid.includes(cfg.subField) ? cfg.subField : (valid[0] || 'meldung');
       if(changed) saveCfg(cfg);
     }
     function syncFromDOM(){
@@ -562,6 +560,7 @@
         dictData = res.map;
         dictFields = res.fields;
       } catch(e){ console.warn('Dict read failed', e); dictData = {}; dictFields = DEFAULT_DICT_FIELDS.slice(); }
+      dictLoaded = true;
       updateFieldOptions();
       renderList();
       return true;
@@ -586,6 +585,7 @@
       els.nameLabel.textContent = `• ${cfg.nameFileName}`;
       saveCfg(cfg);
       try { nameRules = await readNameRulesFromHandle(h); } catch(e){ console.warn('Name rules read failed', e); nameRules = []; }
+      nameLoaded = true;
       updateFieldOptions();
       renderList();
       return true;
@@ -700,6 +700,7 @@
           dictData = res.map;
           dictFields = res.fields;
           els.dictLabel.textContent = `• ${cfg.dictFileName || h.name || 'dictionary.xlsx'}`;
+          dictLoaded = true;
           updateFieldOptions();
           renderList();
         }
@@ -712,6 +713,7 @@
           nameHandle = h;
           nameRules = await readNameRulesFromHandle(h);
           els.nameLabel.textContent = `• ${cfg.nameFileName || h.name || 'namerules.xlsx'}`;
+          nameLoaded = true;
           updateFieldOptions();
           renderList();
         }
