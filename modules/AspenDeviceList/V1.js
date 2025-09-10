@@ -10,6 +10,7 @@
     .db-sub{color:var(--dl-sub,#4b5563);font-size:.85rem;margin-top:.15rem;}
     .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:.45rem;background:rgba(0,0,0,.06);cursor:grab;color:inherit;}
     .db-handle:active{cursor:grabbing;}
+    .db-card.active{box-shadow:0 0 0 2px var(--dl-active,#10b981) inset,0 8px 20px rgba(0,0,0,.12);transform:translateY(-1px);}
     .db-ghost{opacity:.4;}
     .db-chosen{transform:scale(1.01);}
     .db-menu{position:fixed;z-index:1000;display:none;min-width:200px;padding:.25rem;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
@@ -24,6 +25,7 @@
     .db-panel .row{margin-bottom:.75rem;}
     .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
     .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-color{width:100%;height:2.25rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;}
     .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
   `;
   if(!document.getElementById('db-styles')){
@@ -74,7 +76,7 @@
     const root=document.createElement('div');
     root.className='db-root';
     const title=opts.moduleJson?.settings?.title||'';
-    root.innerHTML=`${title?`<div class="db-titlebar">${title}</div>`:''}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row"><label>Titel-Feld<select class="db-sel-title"></select></label></div><div class="row"><label>Untertitel-Feld<select class="db-sel-sub"></select></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`${title?`<div class="db-titlebar">${title}</div>`:''}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row"><label>Titel-Feld<select class="db-sel-title"></select></label></div><div class="row"><label>Untertitel-Feld<select class="db-sel-sub"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
     targetDiv.appendChild(root);
     const list=root.querySelector('.db-list');
 
@@ -84,6 +86,11 @@
     const selSub=root.querySelector('.db-sel-sub');
     const saveBtn=root.querySelector('.db-save');
     const closeBtn=root.querySelector('.db-close');
+    const cBg=root.querySelector('.db-c-bg');
+    const cItem=root.querySelector('.db-c-item');
+    const cTitle=root.querySelector('.db-c-title');
+    const cSub=root.querySelector('.db-c-sub');
+    const cActive=root.querySelector('.db-c-active');
 
     const menu=document.createElement('div');
     menu.className='db-menu';
@@ -92,13 +99,21 @@
 
     let fields=[];
     let partField='part';
-    let config={titleField:'part',subField:'name',title:title};
+    let config={titleField:'part',subField:'name',title:title,colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'}};
     let items=[]; // {id, part, data:{}}
     let excluded=new Set();
 
     function populateFieldSelects(){
       selTitle.innerHTML=fields.map(f=>`<option value="${f}" ${f===config.titleField?'selected':''}>${f}</option>`).join('');
       selSub.innerHTML=fields.map(f=>`<option value="${f}" ${f===config.subField?'selected':''}>${f}</option>`).join('');
+    }
+
+    function applyColors(colors){
+      root.style.setProperty('--dl-bg', colors.bg);
+      root.style.setProperty('--dl-item-bg', colors.item);
+      root.style.setProperty('--dl-title', colors.title);
+      root.style.setProperty('--dl-sub', colors.sub);
+      root.style.setProperty('--dl-active', colors.active);
     }
 
     function render(){
@@ -199,6 +214,11 @@
       closeMenu();
       titleInput.value=config.title;
       populateFieldSelects();
+      cBg.value=config.colors.bg;
+      cItem.value=config.colors.item;
+      cTitle.value=config.colors.title;
+      cSub.value=config.colors.sub;
+      cActive.value=config.colors.active;
       modal.classList.add('open');
     }
     function closeOptions(){modal.classList.remove('open');}
@@ -206,12 +226,14 @@
       config.title=titleInput.value.trim();
       config.titleField=selTitle.value;
       config.subField=selSub.value;
+      config.colors={bg:cBg.value,item:cItem.value,title:cTitle.value,sub:cSub.value,active:cActive.value};
       const tb=root.querySelector('.db-titlebar');
       if(config.title){
         if(tb)tb.textContent=config.title;else{
           const nb=document.createElement('div');nb.className='db-titlebar';nb.textContent=config.title;root.insertBefore(nb,root.firstChild);
         }
       }else if(tb){tb.remove();}
+      applyColors(config.colors);
       render();
       refreshMenu();
       closeOptions();
@@ -234,6 +256,7 @@
       onRemove:()=>{syncFromDOM();render();refreshMenu();}
     });
 
+    applyColors(config.colors);
     render();
   };
 })();
