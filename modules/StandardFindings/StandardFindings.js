@@ -2,7 +2,23 @@
 (function(){
   window.renderStandardFindings = function(root){
     let items = [];
-    let selectsEl, findOut, actionOut, copyFind, copyAction;
+    let selectsEl, findOut, actionOut, copyFind, copyAction, headEl;
+
+    const LS_KEY='module_data_v1';
+    const WATCH_INTERVAL=300;
+
+    const getPart=()=>{
+      try{
+        const doc=JSON.parse(localStorage.getItem(LS_KEY)||'{}');
+        const g=doc.general||{};
+        return (g.PartNo||g.part||'').trim();
+      }catch{return '';}  
+    };
+    const updateHead=()=>{if(headEl) headEl.textContent=getPart();};
+    const storageHandler=e=>{if(e.key===LS_KEY) updateHead();};
+    let lastDoc=localStorage.getItem(LS_KEY);
+    const watcher=setInterval(()=>{const now=localStorage.getItem(LS_KEY);if(now!==lastDoc){lastDoc=now;updateHead();}},WATCH_INTERVAL);
+    window.addEventListener('storage',storageHandler);
 
     // --- styles for context menu ---
     (function injectCSS(){
@@ -28,7 +44,14 @@
     window.addEventListener('click',()=>menu.classList.remove('open'));
     window.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open');});
     menu.querySelector('.mi-open').addEventListener('click',()=>{menu.classList.remove('open');pickFile();});
-    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){menu.remove();mo.disconnect();}});
+    const mo=new MutationObserver(()=>{
+      if(!document.body.contains(root)){
+        menu.remove();
+        clearInterval(watcher);
+        window.removeEventListener('storage',storageHandler);
+        mo.disconnect();
+      }
+    });
     mo.observe(document.body,{childList:true,subtree:true});
 
     async function pickFile(){
@@ -111,24 +134,26 @@
     }
 
     function render(){
-      if(!items.length){
-        root.innerHTML='<div class="p-2 text-sm opacity-80 text-center">Rechtsklick → Excel wählen<br>Spalten: B=Auswahl, C=Finding, D=Action</div>';
-        return;
-      }
-
       root.innerHTML=`<div class="p-2 space-y-2">
-        <div id="sf-selects" class="space-y-2"></div>
-        <div class="space-y-2">
-          <div>
-            <textarea id="sf-find" class="w-full h-24 p-1 rounded text-black"></textarea>
-            <button id="sf-copy-find" class="mt-1 bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">📋 Finding kopieren</button>
-          </div>
-          <div>
-            <textarea id="sf-action" class="w-full h-24 p-1 rounded text-black"></textarea>
-            <button id="sf-copy-action" class="mt-1 bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">📋 Action kopieren</button>
-          </div>
-        </div>
+        <div id="sf-head" class="text-center font-bold"></div>
+        ${!items.length?
+          '<div class="text-sm opacity-80 text-center">Rechtsklick → Excel wählen<br>Spalten: B=Auswahl, C=Finding, D=Action</div>' :
+          `<div id="sf-selects" class="space-y-2"></div>
+          <div class="space-y-2">
+            <div>
+              <textarea id="sf-find" class="w-full h-24 p-1 rounded text-black"></textarea>
+              <button id="sf-copy-find" class="mt-1 bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">📋 Finding kopieren</button>
+            </div>
+            <div>
+              <textarea id="sf-action" class="w-full h-24 p-1 rounded text-black"></textarea>
+              <button id="sf-copy-action" class="mt-1 bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">📋 Action kopieren</button>
+            </div>
+          </div>`}
       </div>`;
+
+      headEl=root.querySelector('#sf-head');
+      updateHead();
+      if(!items.length) return;
 
       selectsEl=root.querySelector('#sf-selects');
       findOut=root.querySelector('#sf-find');
