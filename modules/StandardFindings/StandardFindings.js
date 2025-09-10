@@ -18,7 +18,7 @@
       const row=dict.find(r=>r.meldung===meld);
       return (row?.part||'').trim();
     };
-    const updateHead=()=>{if(headEl) headEl.textContent=getPart();};
+    const updateHead=()=>{if(headEl) headEl.textContent=getPart()?`P/N: ${getPart()}`:'';};
     const storageHandler=e=>{if(e.key===LS_KEY) updateHead();};
     let lastDoc=localStorage.getItem(LS_KEY);
     const watcher=setInterval(()=>{const now=localStorage.getItem(LS_KEY);if(now!==lastDoc){lastDoc=now;updateHead();}},WATCH_INTERVAL);
@@ -45,13 +45,25 @@
     menu.className='db-menu';
     menu.innerHTML='<button class="mi mi-open">📂 Excel wählen</button>';
     document.body.appendChild(menu);
-    root.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();const pad=8,vw=innerWidth,vh=innerHeight;const rect=menu.getBoundingClientRect();const w=rect.width||200,h=rect.height||44;menu.style.left=clamp(e.clientX,pad,vw-w-pad)+'px';menu.style.top=clamp(e.clientY,pad,vh-h-pad)+'px';menu.classList.add('open');});
+    const openMenu=e=>{
+      if(!root.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const pad=8,vw=innerWidth,vh=innerHeight;
+      const rect=menu.getBoundingClientRect();
+      const w=rect.width||200,h=rect.height||44;
+      menu.style.left=clamp(e.clientX,pad,vw-w-pad)+'px';
+      menu.style.top=clamp(e.clientY,pad,vh-h-pad)+'px';
+      menu.classList.add('open');
+    };
+    document.addEventListener('contextmenu',openMenu);
     window.addEventListener('click',()=>menu.classList.remove('open'));
     window.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open');});
     menu.querySelector('.mi-open').addEventListener('click',()=>{menu.classList.remove('open');pickFile();});
     const mo=new MutationObserver(()=>{
       if(!document.body.contains(root)){
         menu.remove();
+        document.removeEventListener('contextmenu',openMenu);
         clearInterval(watcher);
         window.removeEventListener('storage',storageHandler);
         mo.disconnect();
@@ -61,37 +73,55 @@
 
     async function pickFile(){
       try{
-        const [fh]=await window.showOpenFilePicker({
-          types:[{
-            description:'Excel oder CSV',
-            accept:{
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx','.xls','.xlsm'],
-              'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
-              'text/csv':['.csv']
-            }
-          }]
-        });
-        const file=await fh.getFile();
-        const buf=await file.arrayBuffer();
-        if(file.name.toLowerCase().endsWith('.csv')){
-          items=parseCSV(new TextDecoder().decode(buf));
+        if('showOpenFilePicker' in window){
+          const [fh]=await window.showOpenFilePicker({
+            types:[{
+              description:'Excel oder CSV',
+              accept:{
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx','.xls','.xlsm'],
+                'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
+                'text/csv':['.csv']
+              }
+            }]
+          });
+          const file=await fh.getFile();
+          await handleFile(file);
         }else{
-          if(typeof XLSX==='undefined') await loadXLSX();
-          const wb=XLSX.read(buf,{type:'array'});
-          const ws=wb.Sheets[wb.SheetNames[0]];
-          const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-          items=rows.slice(1).map(r=>({
-            label:String(r[1]||'').trim(),
-            finding:String(r[2]||'').trim(),
-            action:String(r[3]||'').trim()
-          })).filter(r=>r.label);
+          const inp=document.createElement('input');
+          inp.type='file';
+          inp.accept='.xlsx,.xls,.xlsm,.csv';
+          inp.onchange=async()=>{
+            const file=inp.files&&inp.files[0];
+            if(file) await handleFile(file);
+          };
+          inp.click();
         }
-        render();
       }catch(e){console.warn('Datei konnte nicht geladen werden',e);}
     }
 
+    async function handleFile(file){
+      const buf=await file.arrayBuffer();
+      if(file.name.toLowerCase().endsWith('.csv')){
+        items=parseCSV(new TextDecoder().decode(buf));
+      }else{
+        if(typeof XLSX==='undefined') await loadXLSX();
+        const wb=XLSX.read(buf,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        items=rows.slice(1).map(r=>({
+          label:String(r[1]||'').trim(),
+          finding:String(r[2]||'').trim(),
+          action:String(r[3]||'').trim()
+        })).filter(r=>r.label);
+      }
+      render();
+    }
+
     async function loadDefault(){
-      const candidates=['Findings.xslx','Findings.xlsx','findings.xslx','findings.xlsx'];
+      const candidates=[
+        'Findings.xslx','Findings.xlsx','Findings.xls',
+        'findings.xslx','findings.xlsx','findings.xls'
+      ];
       for(const url of candidates){
         try{
           const res=await fetch(url);
@@ -113,13 +143,17 @@
     }
 
     async function loadDict(){
-      const candidates=['dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx','dictionary.csv','Dictionary.csv'];
+      const candidates=[
+        'dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx',
+        'dictionary.xls','Dictionary.xls','dictionary.csv','Dictionary.csv'
+      ];
       for(const url of candidates){
         try{
           const res=await fetch(url);
           if(!res.ok) continue;
           const buf=await res.arrayBuffer();
-          if(url.toLowerCase().endsWith('.csv')){
+          const lower=url.toLowerCase();
+          if(lower.endsWith('.csv')){
             const text=new TextDecoder().decode(buf);
             const lines=text.split(/\r?\n/).filter(Boolean);
             const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
