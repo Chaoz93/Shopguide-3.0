@@ -26,25 +26,26 @@
 
     // --- styles for context menu ---
     (function injectCSS(){
-      const css = `
-      .sf-menu{position:fixed;z-index:1000;display:none;min-width:160px;padding:.25rem;
+      const css=`
+      .db-menu{position:fixed;z-index:1000;display:none;min-width:200px;padding:.25rem;
         background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);
         border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
-      .sf-menu.open{display:block}
-      .sf-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;background:transparent;}
-      .sf-menu .mi:hover{background:rgba(0,0,0,.06)}
+      .db-menu.open{display:block;}
+      .db-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
+      .db-menu .mi:hover{background:rgba(0,0,0,.06);}
       `;
-      let tag=document.getElementById('sf-menu-styles');
-      if(!tag){ tag=document.createElement('style'); tag.id='sf-menu-styles'; document.head.appendChild(tag); }
+      let tag=document.getElementById('sf-styles');
+      if(!tag){tag=document.createElement('style');tag.id='sf-styles';document.head.appendChild(tag);} 
       tag.textContent=css;
     })();
 
     // --- context menu ---
+    function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
     const menu=document.createElement('div');
-    menu.className='sf-menu';
+    menu.className='db-menu';
     menu.innerHTML='<button class="mi mi-open">📂 Excel wählen</button>';
     document.body.appendChild(menu);
-    root.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();const pad=8,vw=innerWidth,vh=innerHeight;const rect=menu.getBoundingClientRect();const w=rect.width||160,h=rect.height||44;menu.style.left=Math.min(Math.max(e.clientX,pad),vw-w-pad)+'px';menu.style.top=Math.min(Math.max(e.clientY,pad),vh-h-pad)+'px';menu.classList.add('open');});
+    root.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();const pad=8,vw=innerWidth,vh=innerHeight;const rect=menu.getBoundingClientRect();const w=rect.width||200,h=rect.height||44;menu.style.left=clamp(e.clientX,pad,vw-w-pad)+'px';menu.style.top=clamp(e.clientY,pad,vh-h-pad)+'px';menu.classList.add('open');});
     window.addEventListener('click',()=>menu.classList.remove('open'));
     window.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open');});
     menu.querySelector('.mi-open').addEventListener('click',()=>{menu.classList.remove('open');pickFile();});
@@ -90,7 +91,7 @@
     }
 
     async function loadDefault(){
-      const candidates=['Findings.xslx','Findings.xlsx'];
+      const candidates=['Findings.xslx','Findings.xlsx','findings.xslx','findings.xlsx'];
       for(const url of candidates){
         try{
           const res=await fetch(url);
@@ -112,7 +113,7 @@
     }
 
     async function loadDict(){
-      const candidates=['dictionary.xlsx','Dictionary.xlsx','dictionary.csv','Dictionary.csv'];
+      const candidates=['dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx','dictionary.csv','Dictionary.csv'];
       for(const url of candidates){
         try{
           const res=await fetch(url);
