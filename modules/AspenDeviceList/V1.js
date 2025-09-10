@@ -73,7 +73,7 @@
 
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<div class="mi mi-pick">Excel-Datei wählen</div><div class="db-part-list"></div>';
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Excel-Datei wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     let items=[]; // {id, part, name}
@@ -150,6 +150,27 @@
     root.addEventListener('contextmenu',e=>{e.preventDefault();openMenu(e.clientX,e.clientY);});
     document.addEventListener('click',e=>{if(!menu.contains(e.target))closeMenu();});
     menu.querySelector('.mi-pick').addEventListener('click',pick);
+    menu.querySelector('.mi-disable').addEventListener('click',()=>{
+      excluded=new Set(items.map(it=>it.part));
+      render();
+      refreshMenu();
+    });
+    menu.querySelector('.mi-opt').addEventListener('click',()=>{
+      closeMenu();
+      const tb=root.querySelector('.db-titlebar');
+      const current=tb?tb.textContent:'';
+      const t=prompt('Titel',current);
+      if(t!==null){
+        if(tb){
+          if(t.trim())tb.textContent=t; else tb.remove();
+        }else if(t.trim()){
+          const nb=document.createElement('div');
+          nb.className='db-titlebar';
+          nb.textContent=t;
+          root.insertBefore(nb,root.firstChild);
+        }
+      }
+    });
 
     const mo=new MutationObserver(()=>{if(!document.body.contains(root)){menu.remove();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
