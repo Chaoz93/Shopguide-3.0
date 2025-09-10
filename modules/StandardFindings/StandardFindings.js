@@ -90,7 +90,7 @@
     }
 
     async function loadDefault(){
-      const candidates=['/Findings.xslx','/Findings.xlsx'];
+      const candidates=['Findings.xslx','Findings.xlsx'];
       for(const url of candidates){
         try{
           const res=await fetch(url);
@@ -112,7 +112,7 @@
     }
 
     async function loadDict(){
-      const candidates=['/dictionary.xlsx','/Dictionary.xlsx','/dictionary.csv','/Dictionary.csv'];
+      const candidates=['dictionary.xlsx','Dictionary.xlsx','dictionary.csv','Dictionary.csv'];
       for(const url of candidates){
         try{
           const res=await fetch(url);
@@ -121,7 +121,7 @@
           if(url.toLowerCase().endsWith('.csv')){
             const text=new TextDecoder().decode(buf);
             const lines=text.split(/\r?\n/).filter(Boolean);
-            const delim=text.includes(';')?';':(text.includes(String.fromCharCode(9))?'	':',');
+            const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
             const rows=lines.map(line=>line.split(delim));
             const hdr=rows[0].map(h=>h.toLowerCase().trim());
             const mi=hdr.indexOf('meldung');
@@ -147,7 +147,7 @@
 
     function parseCSV(text){
       const lines=text.split(/\r?\n/).filter(Boolean);
-      const delim=text.includes(';')?';':(text.includes(String.fromCharCode(9))?'	':',');
+      const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
       const rows=lines.map(line=>line.split(delim));
       return rows.slice(1).map(r=>({
         label:(r[1]||'').trim(),
