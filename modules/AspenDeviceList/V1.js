@@ -18,6 +18,13 @@
     .db-menu .mi:hover{background:rgba(0,0,0,.06);}
     .db-part-list{max-height:240px;overflow:auto;padding:.25rem .5rem;display:flex;flex-direction:column;gap:.25rem;}
     .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
+    .db-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:1000;}
+    .db-modal.open{display:flex;}
+    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radius:.75rem;min-width:260px;box-shadow:0 10px 24px rgba(0,0,0,.18);}
+    .db-panel .row{margin-bottom:.75rem;}
+    .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
+    .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
   `;
   if(!document.getElementById('db-styles')){
     const tag=document.createElement('style');
@@ -67,38 +74,60 @@
     const root=document.createElement('div');
     root.className='db-root';
     const title=opts.moduleJson?.settings?.title||'';
-    root.innerHTML=`${title?`<div class="db-titlebar">${title}</div>`:''}<div class="db-surface"><div class="db-list"></div></div>`;
+    root.innerHTML=`${title?`<div class="db-titlebar">${title}</div>`:''}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row"><label>Titel-Feld<select class="db-sel-title"></select></label></div><div class="row"><label>Untertitel-Feld<select class="db-sel-sub"></select></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
     targetDiv.appendChild(root);
     const list=root.querySelector('.db-list');
+
+    const modal=root.querySelector('.db-modal');
+    const titleInput=root.querySelector('.db-title-input');
+    const selTitle=root.querySelector('.db-sel-title');
+    const selSub=root.querySelector('.db-sel-sub');
+    const saveBtn=root.querySelector('.db-save');
+    const closeBtn=root.querySelector('.db-close');
 
     const menu=document.createElement('div');
     menu.className='db-menu';
     menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Excel-Datei wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
-    let items=[]; // {id, part, name}
+    let fields=[];
+    let partField='part';
+    let config={titleField:'part',subField:'name',title:title};
+    let items=[]; // {id, part, data:{}}
     let excluded=new Set();
+
+    function populateFieldSelects(){
+      selTitle.innerHTML=fields.map(f=>`<option value="${f}" ${f===config.titleField?'selected':''}>${f}</option>`).join('');
+      selSub.innerHTML=fields.map(f=>`<option value="${f}" ${f===config.subField?'selected':''}>${f}</option>`).join('');
+    }
 
     function render(){
       const shown=items.filter(it=>!excluded.has(it.part));
       if(!shown.length){list.innerHTML='<div style="opacity:.6;">Keine Geräte</div>';return;}
-      list.innerHTML=shown.map(it=>`
-        <div class="db-card" data-id="${it.id}" data-meldung="${it.part}" data-part="${it.part}" data-name="${it.name}">
+      list.innerHTML=shown.map(it=>{
+        const t=it.data[config.titleField]||'';
+        const s=it.data[config.subField]||'';
+        return `
+        <div class="db-card" data-id="${it.id}" data-meldung="${it.part}">
           <div class="db-flex">
-            <div class="db-title">${it.part}</div>
-            <div class="db-sub">${it.name}</div>
+            <div class="db-title">${t}</div>
+            <div class="db-sub">${s}</div>
           </div>
           <div class="db-handle" title="Ziehen">⋮⋮</div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
 
     function syncFromDOM(){
-      items=Array.from(list.querySelectorAll('.db-card')).map(el=>({
-        id:el.dataset.id||('it-'+Math.random().toString(36).slice(2)),
-        part:el.dataset.part||el.dataset.meldung||'',
-        name:el.dataset.name||''
-      }));
+      items=Array.from(list.querySelectorAll('.db-card')).map(el=>{
+        const id=el.dataset.id||('it-'+Math.random().toString(36).slice(2));
+        const part=el.dataset.meldung||'';
+        const data={};
+        data[partField]=part;
+        data[config.titleField]=el.querySelector('.db-title')?.textContent||'';
+        data[config.subField]=el.querySelector('.db-sub')?.textContent||'';
+        return {id,part,data};
+      });
     }
 
     function refreshMenu(){
@@ -124,14 +153,16 @@
         const buf=await f.arrayBuffer();
         const wb=XLSX.read(buf,{type:'array'});
         const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        const hdr=rows[0]||[];
-        const idxPart=hdr.findIndex(h=>String(h).toLowerCase().includes('part'));
-        const idxName=hdr.findIndex(h=>String(h).toLowerCase().includes('name'));
-        items=rows.slice(1).filter(r=>r.length && r[idxPart]!==undefined && String(r[idxPart]).trim()!=='').map(r=>({id:'it-'+Math.random().toString(36).slice(2),part:String(r[idxPart]),name:idxName>=0?String(r[idxName]):''}));
+        const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+        fields=Object.keys(rows[0]||{});
+        partField=fields.find(h=>h.toLowerCase().includes('part'))||fields[0]||'part';
+        if(!fields.includes(config.titleField)) config.titleField=partField;
+        if(!fields.includes(config.subField)) config.subField=fields.find(f=>f!==partField)||partField;
+        items=rows.filter(r=>String(r[partField]).trim()!=='').map(r=>({id:'it-'+Math.random().toString(36).slice(2),part:String(r[partField]),data:r}));
         excluded.clear();
-        refreshMenu();
+        populateFieldSelects();
         render();
+        refreshMenu();
       }catch(e){console.error(e);}
     }
 
@@ -155,22 +186,30 @@
       render();
       refreshMenu();
     });
-    menu.querySelector('.mi-opt').addEventListener('click',()=>{
+    menu.querySelector('.mi-opt').addEventListener('click',openOptions);
+
+    function openOptions(){
       closeMenu();
+      titleInput.value=config.title;
+      populateFieldSelects();
+      modal.classList.add('open');
+    }
+    function closeOptions(){modal.classList.remove('open');}
+    saveBtn.addEventListener('click',()=>{
+      config.title=titleInput.value.trim();
+      config.titleField=selTitle.value;
+      config.subField=selSub.value;
       const tb=root.querySelector('.db-titlebar');
-      const current=tb?tb.textContent:'';
-      const t=prompt('Titel',current);
-      if(t!==null){
-        if(tb){
-          if(t.trim())tb.textContent=t; else tb.remove();
-        }else if(t.trim()){
-          const nb=document.createElement('div');
-          nb.className='db-titlebar';
-          nb.textContent=t;
-          root.insertBefore(nb,root.firstChild);
+      if(config.title){
+        if(tb)tb.textContent=config.title;else{
+          const nb=document.createElement('div');nb.className='db-titlebar';nb.textContent=config.title;root.insertBefore(nb,root.firstChild);
         }
-      }
+      }else if(tb){tb.remove();}
+      render();
+      refreshMenu();
+      closeOptions();
     });
+    closeBtn.addEventListener('click',closeOptions);
 
     const mo=new MutationObserver(()=>{if(!document.body.contains(root)){menu.remove();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
