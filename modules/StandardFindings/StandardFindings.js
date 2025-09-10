@@ -2,17 +2,21 @@
 (function(){
   window.renderStandardFindings = function(root){
     let items = [];
+    let dict = [];
     let selectsEl, findOut, actionOut, copyFind, copyAction, headEl;
 
     const LS_KEY='module_data_v1';
     const WATCH_INTERVAL=300;
 
     const getPart=()=>{
+      let meld='';
       try{
         const doc=JSON.parse(localStorage.getItem(LS_KEY)||'{}');
-        const g=doc.general||{};
-        return (g.PartNo||g.part||'').trim();
-      }catch{return '';}  
+        meld=(doc.general?.Meldung||'').trim();
+      }catch{}
+      if(!meld) return '';
+      const row=dict.find(r=>r.meldung===meld);
+      return (row?.part||'').trim();
     };
     const updateHead=()=>{if(headEl) headEl.textContent=getPart();};
     const storageHandler=e=>{if(e.key===LS_KEY) updateHead();};
@@ -107,9 +111,43 @@
       }
     }
 
+    async function loadDict(){
+      const candidates=['/dictionary.xlsx','/Dictionary.xlsx','/dictionary.csv','/Dictionary.csv'];
+      for(const url of candidates){
+        try{
+          const res=await fetch(url);
+          if(!res.ok) continue;
+          const buf=await res.arrayBuffer();
+          if(url.toLowerCase().endsWith('.csv')){
+            const text=new TextDecoder().decode(buf);
+            const lines=text.split(/\r?\n/).filter(Boolean);
+            const delim=text.includes(';')?';':(text.includes(String.fromCharCode(9))?'	':',');
+            const rows=lines.map(line=>line.split(delim));
+            const hdr=rows[0].map(h=>h.toLowerCase().trim());
+            const mi=hdr.indexOf('meldung');
+            const pi=hdr.indexOf('part');
+            if(mi<0||pi<0) continue;
+            dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
+          }else{
+            if(typeof XLSX==='undefined') await loadXLSX();
+            const wb=XLSX.read(buf,{type:'array'});
+            const ws=wb.Sheets[wb.SheetNames[0]];
+            const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+            const hdr=rows[0].map(h=>String(h||'').toLowerCase().trim());
+            const mi=hdr.indexOf('meldung');
+            const pi=hdr.indexOf('part');
+            if(mi<0||pi<0) continue;
+            dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
+          }
+          updateHead();
+          return;
+        }catch(e){/* try next */}
+      }
+    }
+
     function parseCSV(text){
       const lines=text.split(/\r?\n/).filter(Boolean);
-      const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
+      const delim=text.includes(';')?';':(text.includes(String.fromCharCode(9))?'	':',');
       const rows=lines.map(line=>line.split(delim));
       return rows.slice(1).map(r=>({
         label:(r[1]||'').trim(),
@@ -201,6 +239,7 @@
       };
     }
 
+    loadDict();
     loadDefault();
     render();
   };
