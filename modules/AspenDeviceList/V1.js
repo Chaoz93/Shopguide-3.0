@@ -72,7 +72,7 @@
 
   const GROUP_NAME='deviceBoardGroup';
   const TITLE_FIELD='MELDUNGS_NO';
-  const MELDUNG_FIELD='Meldung';
+  const MELDUNG_FIELD='MELDUNGS_NO';
   const LS_DOC='module_data_v1';
   const CUSTOM_BROADCAST='deviceBoard:update';
 
@@ -130,7 +130,7 @@
       list.innerHTML=shown.map(it=>{
         const t=it.data[TITLE_FIELD]||'';
         const s=it.data[config.subField]||'';
-        const m=it.data[MELDUNG_FIELD]||'';
+        const m=it.meldung||'';
         return `
         <div class="db-card" data-id="${it.id}" data-meldung="${m}" data-part="${it.part}">
           <div class="db-flex">
