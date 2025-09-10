@@ -1,0 +1,12 @@
+{
+  "name": "Aspen Device List",
+  "icon": "🧾",
+  "script": "renderAspenDeviceList",
+  "minW": 2,
+  "minH": 2,
+  "w": 2,
+  "h": 2,
+  "settings": {
+    "title": "Aspen Device List"
+  }
+}
