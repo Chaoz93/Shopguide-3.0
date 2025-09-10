@@ -85,7 +85,7 @@
     const root=document.createElement('div');
     root.className='db-root';
     const title=opts.moduleJson?.settings?.title||'';
-    root.innerHTML=`${title?`<div class="db-titlebar">${title}</div>`:''}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row"><label>Untertitel-Feld<select class="db-sel-sub"></select></label></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`${title?`<div class="db-titlebar">${title}</div>`:''}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row"><label>Untertitel-Feld<select class="db-sel-sub"></select></label></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-sort">Nach Untertitel sortieren</button><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
     targetDiv.appendChild(root);
     const list=root.querySelector('.db-list');
 
@@ -95,6 +95,7 @@
     const selPart=root.querySelector('.db-sel-part');
     const saveBtn=root.querySelector('.db-save');
     const closeBtn=root.querySelector('.db-close');
+    const sortBtn=root.querySelector('.db-sort');
     const cBg=root.querySelector('.db-c-bg');
     const cItem=root.querySelector('.db-c-item');
     const cTitle=root.querySelector('.db-c-title');
@@ -289,6 +290,12 @@
       closeOptions();
     });
     closeBtn.addEventListener('click',closeOptions);
+    sortBtn.addEventListener('click',()=>{
+      syncFromDOM();
+      items.sort((a,b)=>String(a.data[config.subField]||'').localeCompare(String(b.data[config.subField]||'')));
+      render();
+      refreshMenu();
+    });
 
     const mo=new MutationObserver(()=>{if(!document.body.contains(root)){menu.remove();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
