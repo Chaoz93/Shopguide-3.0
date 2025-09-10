@@ -1,0 +1,9 @@
+{
+  "name": "Findings Text",
+  "icon": "🩺",
+  "script": "renderStandardFindings",
+  "w": 4,
+  "h": 6,
+  "minW": 3,
+  "minH": 3
+}
