@@ -1,18 +1,20 @@
 (function(){
   const CSS = `
-    .adl-root{height:100%;display:flex;flex-direction:column;}
-    .adl-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.35rem;padding:.25rem;}
-    .adl-item{padding:.4rem .6rem;border:1px solid var(--module-border-color,#d1d5db);border-radius:.4rem;background:var(--sidebar-module-card-bg,#fff);color:var(--text-color,#111);}
-    .adl-menu{position:fixed;z-index:1000;display:none;min-width:200px;padding:.25rem;background:var(--sidebar-module-card-bg,#fff);color:var(--text-color,#111);border:1px solid var(--module-border-color,#d1d5db);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
-    .adl-menu.open{display:block;}
-    .adl-mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
-    .adl-mi:hover{background:rgba(0,0,0,.06);}
-    .adl-part-list{max-height:240px;overflow:auto;padding:.25rem .5rem;display:flex;flex-direction:column;gap:.25rem;}
-    .adl-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
+    .db-root{height:100%;display:flex;flex-direction:column;}
+    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
+    .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;overflow:auto;}
+    .db-list{display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;}
+    .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:0 2px 6px rgba(0,0,0,.06);}
+    .db-menu{position:fixed;z-index:1000;display:none;min-width:200px;padding:.25rem;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
+    .db-menu.open{display:block;}
+    .db-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
+    .db-menu .mi:hover{background:rgba(0,0,0,.06);}
+    .db-part-list{max-height:240px;overflow:auto;padding:.25rem .5rem;display:flex;flex-direction:column;gap:.25rem;}
+    .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
   `;
-  if(!document.getElementById('adl-styles')){
+  if(!document.getElementById('db-styles')){
     const tag=document.createElement('style');
-    tag.id='adl-styles';
+    tag.id='db-styles';
     tag.textContent=CSS;
     document.head.appendChild(tag);
   }
@@ -35,14 +37,15 @@
 
   window.renderAspenDeviceList=function(targetDiv,opts){
     const root=document.createElement('div');
-    root.className='adl-root';
-    root.innerHTML='<div class="adl-list"></div>';
+    root.className='db-root';
+    const title=opts.moduleJson?.settings?.title||'';
+    root.innerHTML=`${title?`<div class="db-titlebar">${title}</div>`:''}<div class="db-surface"><div class="db-list"></div></div>`;
     targetDiv.appendChild(root);
-    const list=root.querySelector('.adl-list');
+    const list=root.querySelector('.db-list');
 
     const menu=document.createElement('div');
-    menu.className='adl-menu';
-    menu.innerHTML='<div class="adl-mi adl-pick">Excel-Datei wählen</div><div class="adl-part-list"></div>';
+    menu.className='db-menu';
+    menu.innerHTML='<div class="mi mi-pick">Excel-Datei wählen</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     let items=[];
@@ -51,13 +54,13 @@
     function render(){
       const shown=items.filter(it=>!excluded.has(it.part));
       if(!shown.length){list.innerHTML='<div style="opacity:.6;">Keine Geräte</div>';return;}
-      list.innerHTML=shown.map(it=>`<div class="adl-item">${it.part}${it.name?` - ${it.name}`:''}</div>`).join('');
+      list.innerHTML=shown.map(it=>`<div class="db-card">${it.part}${it.name?` - ${it.name}`:''}</div>`).join('');
     }
 
     function refreshMenu(){
-      const partList=menu.querySelector('.adl-part-list');
+      const partList=menu.querySelector('.db-part-list');
       const parts=Array.from(new Set(items.map(it=>it.part))).sort();
-      partList.innerHTML=parts.map(p=>`<label class="adl-check"><input type="checkbox" data-part="${p}" ${excluded.has(p)?'':'checked'}> ${p}</label>`).join('');
+      partList.innerHTML=parts.map(p=>`<label class="db-check"><input type="checkbox" data-part="${p}" ${excluded.has(p)?'':'checked'}> ${p}</label>`).join('');
       partList.querySelectorAll('input').forEach(inp=>{
         inp.addEventListener('change',()=>{
           const p=inp.dataset.part;
@@ -88,12 +91,21 @@
       }catch(e){console.error(e);}
     }
 
-    function openMenu(x,y){refreshMenu();menu.style.left=x+'px';menu.style.top=y+'px';menu.classList.add('open');}
+    function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+    function openMenu(x,y){
+      refreshMenu();
+      const pad=8;
+      const vw=window.innerWidth,vh=window.innerHeight;
+      const rect=menu.getBoundingClientRect();
+      menu.style.left=clamp(x,pad,vw-rect.width-pad)+'px';
+      menu.style.top=clamp(y,pad,vh-rect.height-pad)+'px';
+      menu.classList.add('open');
+    }
     function closeMenu(){menu.classList.remove('open');}
 
     root.addEventListener('contextmenu',e=>{e.preventDefault();openMenu(e.clientX,e.clientY);});
     document.addEventListener('click',e=>{if(!menu.contains(e.target))closeMenu();});
-    menu.querySelector('.adl-pick').addEventListener('click',pick);
+    menu.querySelector('.mi-pick').addEventListener('click',pick);
 
     const mo=new MutationObserver(()=>{if(!document.body.contains(root)){menu.remove();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
