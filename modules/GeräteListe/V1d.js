@@ -69,6 +69,8 @@
   const IDB_STORE = 'fs-handles';
   const GROUP_NAME = 'deviceBoardGroup'; // cross-instance DnD
   const CUSTOM_BROADCAST = 'deviceBoard:update';
+  const GLOBAL_DICT_KEY = 'globalDict';
+  const GLOBAL_NAME_KEY = 'globalNameRules';
 
   const parse = (s, fb) => { try { return JSON.parse(s) ?? fb; } catch { return fb; } };
   const loadDoc = () => parse(localStorage.getItem(LS_DOC), { __meta:{v:1}, general:{}, instances:{} });
@@ -91,6 +93,9 @@
     const q = await handle.queryPermission({mode:'read'}); if (q==='granted') return true;
     const r = await handle.requestPermission({mode:'read'}); return r==='granted';
   }
+
+  async function saveGlobalDict(h,name){try{await idbSet(GLOBAL_DICT_KEY,h);}catch{}const doc=loadDoc();doc.general ||= {};doc.general.dictFileName=name;saveDoc(doc);}
+  async function saveGlobalName(h,name){try{await idbSet(GLOBAL_NAME_KEY,h);}catch{}const doc=loadDoc();doc.general ||= {};doc.general.nameFileName=name;saveDoc(doc);}
 
   // Robust SheetJS loader (multiple CDNs, memoized)
   async function ensureXLSX(){
@@ -382,13 +387,14 @@
     function loadCfg(){
       const doc = loadDoc();
       const cfg = doc?.instances?.[instanceId]?.deviceBoard || {};
+      const g = doc.general || {};
       return {
         idbKey: cfg.idbKey || idbKey,
         dictIdbKey: cfg.dictIdbKey || dictIdbKey,
         nameIdbKey: cfg.nameIdbKey || nameIdbKey,
         fileName: cfg.fileName || '',
-        dictFileName: cfg.dictFileName || '',
-        nameFileName: cfg.nameFileName || '',
+        dictFileName: cfg.dictFileName || g.dictFileName || '',
+        nameFileName: cfg.nameFileName || g.nameFileName || '',
         titleField: cfg.titleField || 'meldung',
         subField: cfg.subField || 'auftrag',
         title: cfg.title || '',
@@ -555,6 +561,7 @@
       cfg.dictFileName = h.name || 'dictionary.xlsx';
       els.dictLabel.textContent = `• ${cfg.dictFileName}`;
       saveCfg(cfg);
+      saveGlobalDict(h,cfg.dictFileName);
       try {
         const res = await readDictFromHandle(h);
         dictData = res.map;
@@ -584,6 +591,7 @@
       cfg.nameFileName = h.name || 'namerules.xlsx';
       els.nameLabel.textContent = `• ${cfg.nameFileName}`;
       saveCfg(cfg);
+      saveGlobalName(h,cfg.nameFileName);
       try { nameRules = await readNameRulesFromHandle(h); } catch(e){ console.warn('Name rules read failed', e); nameRules = []; }
       nameLoaded = true;
       updateFieldOptions();
@@ -693,7 +701,14 @@
     })();
     (async () => {
       try {
-        const h = await idbGet(cfg.dictIdbKey);
+        let h = await idbGet(cfg.dictIdbKey);
+        if(!h){
+          h = await idbGet(GLOBAL_DICT_KEY);
+          if(h){
+            await idbSet(cfg.dictIdbKey,h);
+            if(!cfg.dictFileName){const g=loadDoc().general||{};cfg.dictFileName=g.dictFileName||h.name||'dictionary.xlsx';saveCfg(cfg);els.dictLabel.textContent = `• ${cfg.dictFileName}`;}
+          }
+        }
         if (h && await ensureRPermission(h)) {
           dictHandle = h;
           const res = await readDictFromHandle(h);
@@ -708,7 +723,14 @@
     })();
     (async () => {
       try {
-        const h = await idbGet(cfg.nameIdbKey);
+        let h = await idbGet(cfg.nameIdbKey);
+        if(!h){
+          h = await idbGet(GLOBAL_NAME_KEY);
+          if(h){
+            await idbSet(cfg.nameIdbKey,h);
+            if(!cfg.nameFileName){const g=loadDoc().general||{};cfg.nameFileName=g.nameFileName||h.name||'namerules.xlsx';saveCfg(cfg);els.nameLabel.textContent = `• ${cfg.nameFileName}`;}
+          }
+        }
         if (h && await ensureRPermission(h)) {
           nameHandle = h;
           nameRules = await readNameRulesFromHandle(h);
