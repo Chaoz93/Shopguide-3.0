@@ -118,28 +118,21 @@
     }
 
     async function loadDefault(){
-      const candidates=[
-        'Findings.xslx','Findings.xlsx','Findings.xls',
-        'findings.xslx','findings.xlsx','findings.xls'
-      ];
-      for(const url of candidates){
-        try{
-          const res=await fetch(url);
-          if(!res.ok) continue;
-          const buf=await res.arrayBuffer();
-          if(typeof XLSX==='undefined') await loadXLSX();
-          const wb=XLSX.read(buf,{type:'array'});
-          const ws=wb.Sheets[wb.SheetNames[0]];
-          const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-          items=rows.slice(1).map(r=>({
-            label:String(r[1]||'').trim(),
-            finding:String(r[2]||'').trim(),
-            action:String(r[3]||'').trim()
-          })).filter(r=>r.label);
-          render();
-          return;
-        }catch(e){/* try next */}
-      }
+      try{
+        const res=await fetch('Findings.xlsx');
+        if(!res.ok) return;
+        const buf=await res.arrayBuffer();
+        if(typeof XLSX==='undefined') await loadXLSX();
+        const wb=XLSX.read(buf,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        items=rows.slice(1).map(r=>({
+          label:String(r[1]||'').trim(),
+          finding:String(r[2]||'').trim(),
+          action:String(r[3]||'').trim()
+        })).filter(r=>r.label);
+        render();
+      }catch(e){/* ignore */}
     }
 
     async function loadDict(){
