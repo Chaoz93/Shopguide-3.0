@@ -3,10 +3,14 @@
   window.renderStandardFindings = function(root){
     let items = [];
     let dict = [];
+    let findName = '';
+    let dictName = '';
     let selectsEl, findOut, actionOut, copyFind, copyAction, headEl;
 
     try{ items=JSON.parse(localStorage.getItem('sf-findings-data')||'[]'); }catch{}
     try{ dict=JSON.parse(localStorage.getItem('sf-dict-data')||'[]'); }catch{}
+    try{ findName=localStorage.getItem('sf-findings-name')||''; }catch{}
+    try{ dictName=localStorage.getItem('sf-dict-name')||''; }catch{}
 
     const LS_KEY='module_data_v1';
     const WATCH_INTERVAL=300;
@@ -36,6 +40,8 @@
       .db-menu.open{display:block;}
       .db-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
       .db-menu .mi:hover{background:rgba(0,0,0,.06);}
+      .db-menu .mi.noclick{cursor:default;opacity:.7;}
+      .db-menu .mi.noclick:hover{background:none;}
       `;
       let tag=document.getElementById('sf-styles');
       if(!tag){tag=document.createElement('style');tag.id='sf-styles';document.head.appendChild(tag);} 
@@ -46,8 +52,16 @@
     function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<button class="mi mi-find">📂 Findings wählen</button><button class="mi mi-dict">📂 Dictionary wählen</button>';
+    menu.innerHTML='<button class="mi mi-find">📂 Findings wählen</button><div class="mi mi-find-name noclick"></div><button class="mi mi-dict">📂 Dictionary wählen</button><div class="mi mi-dict-name noclick"></div>';
     document.body.appendChild(menu);
+
+    const updateMenuLabels=()=>{
+      const fnEl=menu.querySelector('.mi-find-name');
+      const dnEl=menu.querySelector('.mi-dict-name');
+      if(fnEl) fnEl.textContent=findName?`• ${findName}`:'';
+      if(dnEl) dnEl.textContent=dictName?`• ${dictName}`:'';
+    };
+    updateMenuLabels();
     const openMenu=e=>{
       if(!root.contains(e.target)) return;
       e.preventDefault();
@@ -146,7 +160,10 @@
           action:String(r[3]||'').trim()
         })).filter(r=>r.label);
       }
+      findName=file.name||'';
       try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
+      try{localStorage.setItem('sf-findings-name',findName);}catch{}
+      updateMenuLabels();
       render();
     }
 
@@ -176,7 +193,10 @@
           dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
         }
       }
+      dictName=file.name||'';
       try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
+      try{localStorage.setItem('sf-dict-name',dictName);}catch{}
+      updateMenuLabels();
       updateHead();
     }
 
@@ -194,7 +214,10 @@
           finding:String(r[2]||'').trim(),
           action:String(r[3]||'').trim()
         })).filter(r=>r.label);
+        findName='Findings.xlsx';
         try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
+        try{localStorage.setItem('sf-findings-name',findName);}catch{}
+        updateMenuLabels();
         render();
       }catch(e){/* ignore */}
     }
@@ -231,7 +254,10 @@
             if(mi<0||pi<0) continue;
             dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
           }
+          dictName=url;
           try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
+          try{localStorage.setItem('sf-dict-name',dictName);}catch{}
+          updateMenuLabels();
           updateHead();
           return;
         }catch(e){/* try next */}
