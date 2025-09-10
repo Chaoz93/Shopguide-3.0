@@ -9,7 +9,8 @@
           types: [{
             description: 'Excel oder CSV',
             accept: {
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xls'],
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xls', '.xlsm'],
+              'application/vnd.ms-excel.sheet.macroEnabled.12': ['.xlsm'],
               'text/csv': ['.csv']
             }
           }]
@@ -70,28 +71,47 @@
           <option value="">-- Auswahl --</option>
           ${items.map((it,i)=>`<option value="${i}">${escapeHtml(it.finding)}</option>`).join('')}
         </select>
-        <textarea id="sf-out" class="w-full h-32 p-1 rounded text-black"></textarea>
-        <button id="sf-copy" class="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">📋 Kopieren</button>
+        <div class="space-y-2">
+          <div>
+            <textarea id="sf-find" class="w-full h-24 p-1 rounded text-black"></textarea>
+            <button id="sf-copy-find" class="mt-1 bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">📋 Finding kopieren</button>
+          </div>
+          <div>
+            <textarea id="sf-action" class="w-full h-24 p-1 rounded text-black"></textarea>
+            <button id="sf-copy-action" class="mt-1 bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">📋 Action kopieren</button>
+          </div>
+        </div>
       </div>`;
 
       const sel = root.querySelector('#sf-select');
-      const out = root.querySelector('#sf-out');
-      const copyBtn = root.querySelector('#sf-copy');
+      const findOut = root.querySelector('#sf-find');
+      const actionOut = root.querySelector('#sf-action');
+      const copyFind = root.querySelector('#sf-copy-find');
+      const copyAction = root.querySelector('#sf-copy-action');
 
       sel.onchange = () => {
         const idx = parseInt(sel.value,10);
         if (!isNaN(idx)) {
           const it = items[idx];
-          out.value = `${it.finding}\n${it.action}`.trim();
+          findOut.value = it.finding || '';
+          actionOut.value = it.action || '';
         } else {
-          out.value = '';
+          findOut.value = '';
+          actionOut.value = '';
         }
       };
 
-      copyBtn.onclick = () => {
-        navigator.clipboard.writeText(out.value || '').then(()=>{
-          copyBtn.textContent = '✅';
-          setTimeout(()=>copyBtn.textContent='📋 Kopieren',1000);
+      copyFind.onclick = () => {
+        navigator.clipboard.writeText(findOut.value || '').then(()=>{
+          copyFind.textContent = '✅';
+          setTimeout(()=>copyFind.textContent='📋 Finding kopieren',1000);
+        }).catch(()=>{});
+      };
+
+      copyAction.onclick = () => {
+        navigator.clipboard.writeText(actionOut.value || '').then(()=>{
+          copyAction.textContent = '✅';
+          setTimeout(()=>copyAction.textContent='📋 Action kopieren',1000);
         }).catch(()=>{});
       };
     }
