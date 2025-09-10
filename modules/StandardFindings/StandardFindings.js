@@ -5,6 +5,9 @@
     let dict = [];
     let selectsEl, findOut, actionOut, copyFind, copyAction, headEl;
 
+    try{ items=JSON.parse(localStorage.getItem('sf-findings-data')||'[]'); }catch{}
+    try{ dict=JSON.parse(localStorage.getItem('sf-dict-data')||'[]'); }catch{}
+
     const LS_KEY='module_data_v1';
     const WATCH_INTERVAL=300;
 
@@ -43,7 +46,7 @@
     function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<button class="mi mi-open">📂 Excel wählen</button>';
+    menu.innerHTML='<button class="mi mi-find">📂 Findings wählen</button><button class="mi mi-dict">📂 Dictionary wählen</button>';
     document.body.appendChild(menu);
     const openMenu=e=>{
       if(!root.contains(e.target)) return;
@@ -59,7 +62,8 @@
     document.addEventListener('contextmenu',openMenu);
     window.addEventListener('click',()=>menu.classList.remove('open'));
     window.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open');});
-    menu.querySelector('.mi-open').addEventListener('click',()=>{menu.classList.remove('open');pickFile();});
+    menu.querySelector('.mi-find').addEventListener('click',()=>{menu.classList.remove('open');pickFindings();});
+    menu.querySelector('.mi-dict').addEventListener('click',()=>{menu.classList.remove('open');pickDict();});
     const mo=new MutationObserver(()=>{
       if(!document.body.contains(root)){
         menu.remove();
@@ -71,7 +75,7 @@
     });
     mo.observe(document.body,{childList:true,subtree:true});
 
-    async function pickFile(){
+    async function pickFindings(){
       try{
         if('showOpenFilePicker' in window){
           const [fh]=await window.showOpenFilePicker({
@@ -84,22 +88,50 @@
               }
             }]
           });
-          const file=await fh.getFile();
-          await handleFile(file);
+          const file=fh?await fh.getFile():null;
+          if(file) await handleFindingsFile(file);
         }else{
           const inp=document.createElement('input');
           inp.type='file';
           inp.accept='.xlsx,.xls,.xlsm,.csv';
           inp.onchange=async()=>{
             const file=inp.files&&inp.files[0];
-            if(file) await handleFile(file);
+            if(file) await handleFindingsFile(file);
           };
           inp.click();
         }
-      }catch(e){console.warn('Datei konnte nicht geladen werden',e);}
+      }catch(e){console.warn('Findings nicht geladen',e);}
     }
 
-    async function handleFile(file){
+    async function pickDict(){
+      try{
+        if('showOpenFilePicker' in window){
+          const [fh]=await window.showOpenFilePicker({
+            types:[{
+              description:'Excel oder CSV',
+              accept:{
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx','.xls','.xlsm'],
+                'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
+                'text/csv':['.csv']
+              }
+            }]
+          });
+          const file=fh?await fh.getFile():null;
+          if(file) await handleDictFile(file);
+        }else{
+          const inp=document.createElement('input');
+          inp.type='file';
+          inp.accept='.xlsx,.xls,.xlsm,.csv';
+          inp.onchange=async()=>{
+            const file=inp.files&&inp.files[0];
+            if(file) await handleDictFile(file);
+          };
+          inp.click();
+        }
+      }catch(e){console.warn('Dictionary nicht geladen',e);}
+    }
+
+    async function handleFindingsFile(file){
       const buf=await file.arrayBuffer();
       if(file.name.toLowerCase().endsWith('.csv')){
         items=parseCSV(new TextDecoder().decode(buf));
@@ -114,7 +146,38 @@
           action:String(r[3]||'').trim()
         })).filter(r=>r.label);
       }
+      try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
       render();
+    }
+
+    async function handleDictFile(file){
+      const buf=await file.arrayBuffer();
+      const lower=file.name.toLowerCase();
+      if(lower.endsWith('.csv')){
+        const text=new TextDecoder().decode(buf);
+        const lines=text.split(/\r?\n/).filter(Boolean);
+        const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
+        const rows=lines.map(line=>line.split(delim));
+        const hdr=rows[0].map(h=>h.toLowerCase().trim());
+        const mi=hdr.indexOf('meldung');
+        const pi=hdr.indexOf('part');
+        if(mi>=0&&pi>=0){
+          dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
+        }
+      }else{
+        if(typeof XLSX==='undefined') await loadXLSX();
+        const wb=XLSX.read(buf,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        const hdr=rows[0].map(h=>String(h||'').toLowerCase().trim());
+        const mi=hdr.indexOf('meldung');
+        const pi=hdr.indexOf('part');
+        if(mi>=0&&pi>=0){
+          dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
+        }
+      }
+      try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
+      updateHead();
     }
 
     async function loadDefault(){
@@ -131,11 +194,12 @@
           finding:String(r[2]||'').trim(),
           action:String(r[3]||'').trim()
         })).filter(r=>r.label);
+        try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
         render();
       }catch(e){/* ignore */}
     }
 
-    async function loadDict(){
+    async function loadDefaultDict(){
       const candidates=[
         'dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx',
         'dictionary.xls','Dictionary.xls','dictionary.csv','Dictionary.csv'
@@ -167,6 +231,7 @@
             if(mi<0||pi<0) continue;
             dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
           }
+          try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
           updateHead();
           return;
         }catch(e){/* try next */}
@@ -267,8 +332,8 @@
       };
     }
 
-    loadDict();
-    loadDefault();
+    if(!dict.length) loadDefaultDict();
+    if(!items.length) loadDefault();
     render();
   };
 })();
