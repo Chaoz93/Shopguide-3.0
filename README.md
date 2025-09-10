@@ -1,10 +1,10 @@
 # Shopguide 3.0
 
-## Overview
+## Überblick
 
-This project contains a single-page web application (`V3-1-7.html`) and a collection of pluggable modules under the `modules/` directory. The HTML file provides the main UI shell (top bar, sidebar, and grid layout). Modules are loaded dynamically and can render custom widgets inside the grid.
+Dieses Projekt enthält eine Single-Page-Webanwendung (`V3-1-7.html`) und eine Sammlung von einsteckbaren Modulen im Verzeichnis `modules/`. Die HTML-Datei stellt die Hauptoberfläche bereit (obere Leiste, Seitenleiste und Rasterlayout). Module werden dynamisch geladen und können eigene Widgets innerhalb des Rasters rendern.
 
-Each module is described by a JSON manifest (name, icon, script, default size, etc.) and, if necessary, accompanying JavaScript implementing `window.render*` functions. Example:
+Jedes Modul wird durch ein JSON-Manifest beschrieben (name, icon, script, Standardgröße usw.) und gegebenenfalls durch zugehöriges JavaScript, das `window.render*`-Funktionen implementiert. Beispiel:
 
 ```json
 {
@@ -22,38 +22,38 @@ Each module is described by a JSON manifest (name, icon, script, default size, e
 }
 ```
 
-## Modules
+## Module
 
-- **Browser** (`Browser/Browser.json`) – static description of a file explorer starting at a fixed path.
-- **DatenTest** (`DatenTest`) – shared/local text editor persisted via `module_data.json` and `localStorage`.
-- **DeviceList** (`DeviceList`) – sortable list using jQuery UI.
-- **Filebrowser** (`Filebrowser`) – minimal directory browser using the File System Access API.
-- **Gerätedaten** (`Gerätedaten`) – record sheet stored in an Excel workbook; per‑instance config saved in `localStorage` and IndexedDB.
-- **GeräteListe** (`GeräteListe`) – Excel‑backed device board with drag‑and‑drop and colour options.
-- **Komplexes Modul** (`Komplexes Modul`) – JSON-defined workorder form with configurable fields and actions.
-- **LinkButtons** (`LinkButtons`) – operations panel that opens maintenance links based on Excel lookup data.
-- **MarkdownViewer** (`MarkdownViewer`) – loads and displays a chosen Markdown file.
-- **Namensregeln** (`Namensregeln`) – prefix‑to‑name mapping managed via Excel and `localStorage`.
-- **SavedEvents** (`SavedEvents`) – helper to navigate a Saved Events directory structure.
-- **Workorder** (`Workorder`) – editable workorder viewer that watches an Aspen CSV and keeps notes in IndexedDB.
+- **Browser** (`Browser/Browser.json`) – statische Beschreibung eines Dateibrowsers, der an einem festen Pfad startet.
+- **DatenTest** (`DatenTest`) – geteilter/ lokaler Texteditor, der über `module_data.json` und `localStorage` gespeichert wird.
+- **DeviceList** (`DeviceList`) – sortierbare Liste mit jQuery UI.
+- **Filebrowser** (`Filebrowser`) – minimaler Verzeichnisbrowser mit der File System Access API.
+- **Gerätedaten** (`Gerätedaten`) – Datenblatt, das in einer Excel-Arbeitsmappe gespeichert wird; pro Instanz werden Konfigurationen in `localStorage` und IndexedDB abgelegt.
+- **GeräteListe** (`GeräteListe`) – Excel-basierte Gerätetafel mit Drag-and-Drop und Farboptionen.
+- **Komplexes Modul** (`Komplexes Modul`) – JSON-definiertes Arbeitsauftragsformular mit konfigurierbaren Feldern und Aktionen.
+- **LinkButtons** (`LinkButtons`) – Bedienpanel, das Wartungslinks anhand von Excel-Suchdaten öffnet.
+- **MarkdownViewer** (`MarkdownViewer`) – lädt und zeigt eine ausgewählte Markdown-Datei an.
+- **Namensregeln** (`Namensregeln`) – Zuordnung von Präfixen zu Namen, verwaltet über Excel und `localStorage`.
+- **SavedEvents** (`SavedEvents`) – Hilfsmodul zum Navigieren in einer Saved-Events-Verzeichnisstruktur.
+- **Workorder** (`Workorder`) – bearbeitbarer Arbeitsauftragsbetrachter, der eine Aspen-CSV überwacht und Notizen in IndexedDB speichert.
 
-## Data Storage
+## Datenspeicherung
 
 ### Browser `localStorage`
 
-`V3-1-7.html` stores user data under several keys:
+`V3-1-7.html` speichert Benutzerdaten unter mehreren Schlüsseln:
 
-- `rememberRootMeta` – last chosen module root folder.
-- `appSettings` – colours, layout, and other preferences.
-- `modulesLayout` – tabs and grid layout information.
+- `rememberRootMeta` – zuletzt gewählter Modulstammordner.
+- `appSettings` – Farben, Layout und andere Einstellungen.
+- `modulesLayout` – Informationen zu Tabs und Rasterlayout.
 
-Modules persist their own documents in keys such as:
+Module speichern ihre eigenen Dokumente unter Schlüsseln wie:
 
 - `module_data_json_v1` (Shared & Local Text)
-- `module_data_v1` (Record Sheet, Link Buttons, etc.)
+- `module_data_v1` (Record Sheet, Link Buttons usw.)
 - `namingRulesDoc` (Naming Rules)
 
-These documents share a structure like:
+Diese Dokumente haben eine Struktur wie:
 
 ```json
 {
@@ -63,16 +63,16 @@ These documents share a structure like:
 }
 ```
 
-### External Files
+### Externe Dateien
 
-Many modules optionally persist data outside the browser using the File System Access API:
+Viele Module speichern optional Daten außerhalb des Browsers über die File System Access API:
 
-- JSON data file `module_data.json` (Shared & Local Text).
-- Excel workbooks (`records.xlsx`, `naming-rules.xlsx`, dictionaries) for device data, naming rules, and link lookups.
-- CSV file watched by the Workorder module.
+- JSON-Datei `module_data.json` (Shared & Local Text).
+- Excel-Arbeitsmappen (`records.xlsx`, `naming-rules.xlsx`, Dictionaries) für Gerätedaten, Namensregeln und Link-Nachschlagen.
+- CSV-Datei, die vom Workorder-Modul überwacht wird.
 
-File handles for these resources are stored in IndexedDB (`modulesApp` or `mw-db`) so the app can reconnect on subsequent loads.
+Dateihandles für diese Ressourcen werden in IndexedDB (`modulesApp` oder `mw-db`) gespeichert, damit die App bei späteren Ladevorgängen wieder darauf zugreifen kann.
 
-## Running / Testing
+## Ausführen / Testen
 
-This repository contains only static assets; there are no automated tests or build steps. Attempting `npm test` fails because no `package.json` is present.
+Dieses Repository enthält nur statische Assets; es gibt keine automatisierten Tests oder Build-Schritte. Der Versuch, `npm test` auszuführen, schlägt fehl, weil keine `package.json` vorhanden ist.
