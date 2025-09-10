@@ -85,6 +85,28 @@
       }catch(e){console.warn('Datei konnte nicht geladen werden',e);}
     }
 
+    async function loadDefault(){
+      const candidates=['/Findings.xslx','/Findings.xlsx'];
+      for(const url of candidates){
+        try{
+          const res=await fetch(url);
+          if(!res.ok) continue;
+          const buf=await res.arrayBuffer();
+          if(typeof XLSX==='undefined') await loadXLSX();
+          const wb=XLSX.read(buf,{type:'array'});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+          items=rows.slice(1).map(r=>({
+            label:String(r[1]||'').trim(),
+            finding:String(r[2]||'').trim(),
+            action:String(r[3]||'').trim()
+          })).filter(r=>r.label);
+          render();
+          return;
+        }catch(e){/* try next */}
+      }
+    }
+
     function parseCSV(text){
       const lines=text.split(/\r?\n/).filter(Boolean);
       const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
@@ -179,6 +201,7 @@
       };
     }
 
+    loadDefault();
     render();
   };
 })();
