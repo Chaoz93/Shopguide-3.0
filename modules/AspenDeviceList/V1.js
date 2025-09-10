@@ -121,7 +121,8 @@
     function syncFromDOM(){
       items=Array.from(list.querySelectorAll('.db-card')).map(el=>{
         const id=el.dataset.id||('it-'+Math.random().toString(36).slice(2));
-        const part=el.dataset.meldung||'';
+        const rawPart=el.dataset.meldung||'';
+        const part=rawPart.split(':')[0].trim();
         const data={};
         data[partField]=part;
         data[config.titleField]=el.querySelector('.db-title')?.textContent||'';
@@ -158,7 +159,13 @@
         partField=fields.find(h=>h.toLowerCase().includes('part'))||fields[0]||'part';
         if(!fields.includes(config.titleField)) config.titleField=partField;
         if(!fields.includes(config.subField)) config.subField=fields.find(f=>f!==partField)||partField;
-        items=rows.filter(r=>String(r[partField]).trim()!=='').map(r=>({id:'it-'+Math.random().toString(36).slice(2),part:String(r[partField]),data:r}));
+        items=rows.map(r=>{
+          const raw=String(r[partField]).trim();
+          const part=raw.split(':')[0].trim();
+          if(!part) return null;
+          const data={...r,[partField]:part};
+          return {id:'it-'+Math.random().toString(36).slice(2),part,data};
+        }).filter(Boolean);
         excluded.clear();
         populateFieldSelects();
         render();
