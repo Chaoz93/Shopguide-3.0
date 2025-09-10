@@ -1,76 +1,123 @@
-// Module to convert standard findings to standard text from Excel/CSV
+// Module to convert standard findings to standard text from Excel/CSV with context menu and multi-selection
 (function(){
   window.renderStandardFindings = function(root){
     let items = [];
+    let selectsEl, findOut, actionOut, copyFind, copyAction;
+
+    // --- styles for context menu ---
+    (function injectCSS(){
+      const css = `
+      .sf-menu{position:fixed;z-index:1000;display:none;min-width:160px;padding:.25rem;
+        background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);
+        border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
+      .sf-menu.open{display:block}
+      .sf-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;background:transparent;}
+      .sf-menu .mi:hover{background:rgba(0,0,0,.06)}
+      `;
+      let tag=document.getElementById('sf-menu-styles');
+      if(!tag){ tag=document.createElement('style'); tag.id='sf-menu-styles'; document.head.appendChild(tag); }
+      tag.textContent=css;
+    })();
+
+    // --- context menu ---
+    const menu=document.createElement('div');
+    menu.className='sf-menu';
+    menu.innerHTML='<button class="mi mi-open">📂 Excel wählen</button>';
+    document.body.appendChild(menu);
+    root.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();const pad=8,vw=innerWidth,vh=innerHeight;const rect=menu.getBoundingClientRect();const w=rect.width||160,h=rect.height||44;menu.style.left=Math.min(Math.max(e.clientX,pad),vw-w-pad)+'px';menu.style.top=Math.min(Math.max(e.clientY,pad),vh-h-pad)+'px';menu.classList.add('open');});
+    window.addEventListener('click',()=>menu.classList.remove('open'));
+    window.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open');});
+    menu.querySelector('.mi-open').addEventListener('click',()=>{menu.classList.remove('open');pickFile();});
+    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){menu.remove();mo.disconnect();}});
+    mo.observe(document.body,{childList:true,subtree:true});
 
     async function pickFile(){
-      try {
-        const [fh] = await window.showOpenFilePicker({
-          types: [{
-            description: 'Excel oder CSV',
-            accept: {
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xls', '.xlsm'],
-              'application/vnd.ms-excel.sheet.macroEnabled.12': ['.xlsm'],
-              'text/csv': ['.csv']
+      try{
+        const [fh]=await window.showOpenFilePicker({
+          types:[{
+            description:'Excel oder CSV',
+            accept:{
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx','.xls','.xlsm'],
+              'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
+              'text/csv':['.csv']
             }
           }]
         });
-        const file = await fh.getFile();
-        const buf = await file.arrayBuffer();
-        if (file.name.toLowerCase().endsWith('.csv')) {
-          items = parseCSV(new TextDecoder().decode(buf));
-        } else {
-          if (typeof XLSX === 'undefined') await loadXLSX();
-          const wb = XLSX.read(buf, { type: 'array' });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
-          items = rows.slice(1).map(r => ({ finding: r[1] || '', action: r[3] || '' }))
-                        .filter(r => r.finding || r.action);
+        const file=await fh.getFile();
+        const buf=await file.arrayBuffer();
+        if(file.name.toLowerCase().endsWith('.csv')){
+          items=parseCSV(new TextDecoder().decode(buf));
+        }else{
+          if(typeof XLSX==='undefined') await loadXLSX();
+          const wb=XLSX.read(buf,{type:'array'});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+          items=rows.slice(1).map(r=>({
+            label:String(r[1]||'').trim(),
+            finding:String(r[2]||'').trim(),
+            action:String(r[3]||'').trim()
+          })).filter(r=>r.label);
         }
         render();
-      } catch(e) {
-        console.warn('Datei konnte nicht geladen werden', e);
-      }
+      }catch(e){console.warn('Datei konnte nicht geladen werden',e);}
     }
 
     function parseCSV(text){
-      const lines = text.split(/\r?\n/).filter(Boolean);
-      const delim = text.includes(';') ? ';' : (text.includes('\t') ? '\t' : ',');
-      const rows = lines.map(line => line.split(delim));
-      return rows.slice(1).map(r => ({ finding: r[1] || '', action: r[3] || '' }))
-                 .filter(r => r.finding || r.action);
+      const lines=text.split(/\r?\n/).filter(Boolean);
+      const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
+      const rows=lines.map(line=>line.split(delim));
+      return rows.slice(1).map(r=>({
+        label:(r[1]||'').trim(),
+        finding:(r[2]||'').trim(),
+        action:(r[3]||'').trim()
+      })).filter(r=>r.label);
     }
 
     function escapeHtml(str){
-      const map = {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"};
-      return str.replace(/[&<>\"']/g, m => map[m]);
+      const map={"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"};
+      return str.replace(/[&<>\"']/g,m=>map[m]);
     }
 
     function loadXLSX(){
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
+      return new Promise((resolve,reject)=>{
+        const s=document.createElement('script');
+        s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
       });
     }
 
+    function updateOutputs(){
+      const ids=Array.from(selectsEl.querySelectorAll('select')).map(s=>parseInt(s.value,10)).filter(n=>!isNaN(n));
+      const finds=ids.map(i=>items[i].finding).filter(Boolean);
+      const acts=ids.map(i=>items[i].action).filter(Boolean);
+      findOut.value=finds.join('\n\n');
+      actionOut.value=acts.join('\n\n');
+    }
+
+    function addSelect(){
+      const used=Array.from(selectsEl.querySelectorAll('select')).map(s=>parseInt(s.value,10)).filter(n=>!isNaN(n));
+      const remaining=items.filter((_,i)=>!used.includes(i));
+      if(!remaining.length) return;
+      const sel=document.createElement('select');
+      sel.className='w-full p-1 rounded text-black';
+      sel.innerHTML='<option value="">-- Auswahl --</option>'+
+        items.map((it,i)=>used.includes(i)?'':`<option value="${i}">${escapeHtml(it.label)}</option>`).join('');
+      sel.onchange=()=>{
+        let next=sel.nextSibling; while(next){next.remove(); next=sel.nextSibling;}
+        if(sel.value!=='') addSelect();
+        updateOutputs();
+      };
+      selectsEl.appendChild(sel);
+    }
+
     function render(){
-      if (!items.length){
-        root.innerHTML = `<div class="p-2 text-center">
-          <button id="sf-load" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Excel laden…</button>
-          <div class="text-xs mt-2 opacity-80">Spalten: B = Findings, D = Actions</div>
-        </div>`;
-        root.querySelector('#sf-load').onclick = pickFile;
+      if(!items.length){
+        root.innerHTML='<div class="p-2 text-sm opacity-80 text-center">Rechtsklick → Excel wählen<br>Spalten: B=Auswahl, C=Finding, D=Action</div>';
         return;
       }
 
-      root.innerHTML = `<div class="p-2 space-y-2">
-        <select id="sf-select" class="w-full p-1 rounded text-black">
-          <option value="">-- Auswahl --</option>
-          ${items.map((it,i)=>`<option value="${i}">${escapeHtml(it.finding)}</option>`).join('')}
-        </select>
+      root.innerHTML=`<div class="p-2 space-y-2">
+        <div id="sf-selects" class="space-y-2"></div>
         <div class="space-y-2">
           <div>
             <textarea id="sf-find" class="w-full h-24 p-1 rounded text-black"></textarea>
@@ -83,34 +130,25 @@
         </div>
       </div>`;
 
-      const sel = root.querySelector('#sf-select');
-      const findOut = root.querySelector('#sf-find');
-      const actionOut = root.querySelector('#sf-action');
-      const copyFind = root.querySelector('#sf-copy-find');
-      const copyAction = root.querySelector('#sf-copy-action');
+      selectsEl=root.querySelector('#sf-selects');
+      findOut=root.querySelector('#sf-find');
+      actionOut=root.querySelector('#sf-action');
+      copyFind=root.querySelector('#sf-copy-find');
+      copyAction=root.querySelector('#sf-copy-action');
 
-      sel.onchange = () => {
-        const idx = parseInt(sel.value,10);
-        if (!isNaN(idx)) {
-          const it = items[idx];
-          findOut.value = it.finding || '';
-          actionOut.value = it.action || '';
-        } else {
-          findOut.value = '';
-          actionOut.value = '';
-        }
-      };
+      selectsEl.innerHTML='';
+      addSelect();
+      updateOutputs();
 
-      copyFind.onclick = () => {
-        navigator.clipboard.writeText(findOut.value || '').then(()=>{
-          copyFind.textContent = '✅';
+      copyFind.onclick=()=>{
+        navigator.clipboard.writeText(findOut.value||'').then(()=>{
+          copyFind.textContent='✅';
           setTimeout(()=>copyFind.textContent='📋 Finding kopieren',1000);
         }).catch(()=>{});
       };
-
-      copyAction.onclick = () => {
-        navigator.clipboard.writeText(actionOut.value || '').then(()=>{
-          copyAction.textContent = '✅';
+      copyAction.onclick=()=>{
+        navigator.clipboard.writeText(actionOut.value||'').then(()=>{
+          copyAction.textContent='✅';
           setTimeout(()=>copyAction.textContent='📋 Action kopieren',1000);
         }).catch(()=>{});
       };
