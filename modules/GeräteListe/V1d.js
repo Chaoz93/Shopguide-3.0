@@ -484,14 +484,22 @@
       });
       const valid = dictFields.map(f=>f.key);
       if(nameRules.length>0) valid.push('name');
-      if(!valid.includes(cfg.titleField)) cfg.titleField = valid[0] || 'meldung';
-      if(!valid.includes(cfg.subField) || cfg.subField===cfg.titleField){
-        const second = valid.find(v=>v!==cfg.titleField);
-        cfg.subField = second || cfg.titleField;
+      let changed = false;
+      if(!valid.includes(cfg.titleField) && !(cfg.titleField === 'name' && nameRules.length === 0)){
+        cfg.titleField = valid[0] || 'meldung';
+        changed = true;
       }
-      els.selTitle.value = cfg.titleField;
-      els.selSub.value = cfg.subField;
-      saveCfg(cfg);
+      if(!valid.includes(cfg.subField) || cfg.subField===cfg.titleField){
+        if(!(cfg.subField === 'name' && nameRules.length === 0)){
+          const second = valid.find(v=>v!==cfg.titleField);
+          cfg.subField = second || cfg.titleField;
+          changed = true;
+        }
+      }
+      els.selTitle.value = valid.includes(cfg.titleField) ? cfg.titleField : (valid[0] || 'meldung');
+      const second = valid.find(v=>v!==els.selTitle.value);
+      els.selSub.value = valid.includes(cfg.subField) && cfg.subField!==els.selTitle.value ? cfg.subField : (second || els.selTitle.value);
+      if(changed) saveCfg(cfg);
     }
     function syncFromDOM(){
       items = Array.from(els.list.children).map(el => ({
