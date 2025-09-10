@@ -1,0 +1,12 @@
+{
+  "name": "Workorder",
+  "icon": "📝",
+  "script": "renderWorkorderEditable",
+  "w": 4,
+  "h": 7,
+  "minW": 1,
+  "minH": 5,
+  "maxW": 10,
+  "maxH": 50
+}
+

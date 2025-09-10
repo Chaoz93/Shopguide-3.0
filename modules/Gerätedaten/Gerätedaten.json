@@ -1,0 +1,19 @@
+{
+  "name": "Gerätedaten",
+  "icon": "📋",
+  "script": "renderRecordSheet",
+  "minW": 2,
+  "minH": 2,
+  "w": 4,
+  "h": 4,
+  "settings": {
+    "columns": 2,
+    "fields": [
+      { "key": "meldung", "label": "Meldung", "enabled": true },
+      { "key": "auftrag", "label": "Auftrag", "enabled": true },
+      { "key": "part", "label": "P/N", "enabled": true },
+      { "key": "serial", "label": "S/N", "enabled": true },
+      { "key": "repairorder", "label": "Repairorder", "enabled": true }
+    ]
+  }
+}
