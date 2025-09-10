@@ -85,6 +85,7 @@
   const IDB_NAME = 'modulesApp';
   const IDB_STORE = 'fs-handles';
   const WATCH_INTERVAL = 300;
+  const GLOBAL_DICT_KEY = 'globalDict';
 
   function loadDoc(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || {general:{}}; } catch { return {general:{}}; } }
   const getDocString = () => localStorage.getItem(LS_KEY) || '';
@@ -105,6 +106,8 @@
     const q = await handle.queryPermission({mode:'readwrite'}); if (q==='granted') return true;
     const r = await handle.requestPermission({mode:'readwrite'}); return r==='granted';
   }
+
+  async function saveGlobalDict(h,name){ try{ await idbSet(GLOBAL_DICT_KEY,h); }catch{} const d=loadDoc(); d.general ||= {}; d.general.dictFileName=name; localStorage.setItem(LS_KEY, JSON.stringify(d)); }
 
   // Robust XLSX loader
   async function ensureXLSX(){
@@ -215,7 +218,8 @@
     function loadCfg(){
       const d = loadDoc();
       const cfg = d?.instances?.[instanceId]?.opsPanel || {};
-      return { idbKey: cfg.idbKey || idbKey, fileName: cfg.fileName || '' };
+      const g = d.general || {};
+      return { idbKey: cfg.idbKey || idbKey, fileName: cfg.fileName || g.dictFileName || '' };
     }
     function saveCfg(cfg){
       const d = loadDoc(); d.instances ||= {}; d.instances[instanceId] ||= {};
@@ -243,6 +247,7 @@
       fileHandle = h; await idbSet(cfg.idbKey, h);
       cfg.fileName = h.name || 'Dictionary.xlsx'; saveCfg(cfg);
       fileLbl.textContent = `• ${cfg.fileName}`;
+      saveGlobalDict(h,cfg.fileName);
       return true;
     }
 
@@ -268,8 +273,15 @@
     // restore
     (async () => {
       try {
-        const h = await idbGet(cfg.idbKey);
-        if (h && await ensureRWPermission(h)) { fileHandle = h; cache = await readAll(h); }
+        let h = await idbGet(cfg.idbKey);
+        if(!h){
+          h = await idbGet(GLOBAL_DICT_KEY);
+          if(h){
+            await idbSet(cfg.idbKey,h);
+            if(!cfg.fileName){ const d=loadDoc(); cfg.fileName=d.general?.dictFileName||h.name||'Dictionary.xlsx'; saveCfg(cfg); fileLbl.textContent = `• ${cfg.fileName}`; }
+          }
+        }
+        if (h && await ensureRWPermission(h)) { fileHandle = h; cache = await readAll(h); fileLbl.textContent = `• ${cfg.fileName || h.name || 'Dictionary.xlsx'}`; }
       } catch(e){ /* ignore */ }
     })();
 

@@ -56,9 +56,13 @@
   const LS_DOC='namingRulesDoc';
   const IDB_NAME='modulesApp';
   const IDB_STORE='fs-handles';
+  const GLOBAL_NAME_KEY='globalNameRules';
+  const GLOBAL_DOC='module_data_v1';
   const parse=(s,fb)=>{try{return JSON.parse(s)??fb;}catch{return fb;}};
   const loadDoc=()=>parse(localStorage.getItem(LS_DOC),{__meta:{v:1},instances:{}});
   const saveDoc=(doc)=>{doc.__meta={v:1,updatedAt:new Date().toISOString()};localStorage.setItem(LS_DOC,JSON.stringify(doc));};
+  const loadGlobal=()=>parse(localStorage.getItem(GLOBAL_DOC),{__meta:{v:1},general:{},instances:{}});
+  const saveGlobal=(doc)=>{doc.__meta={v:1,updatedAt:new Date().toISOString()};localStorage.setItem(GLOBAL_DOC,JSON.stringify(doc));};
   const instanceIdOf=root=>root.closest('.grid-stack-item')?.dataset?.instanceId||('inst-'+Math.random().toString(36).slice(2));
   const debounce=(ms,fn)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};};
 
@@ -71,6 +75,8 @@
   async function idbGet(k){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(IDB_STORE,'readonly');const rq=tx.objectStore(IDB_STORE).get(k);rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>rej(rq.error);});}
   async function idbDel(k){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).delete(k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
   async function ensureRWPermission(handle){if(!handle?.queryPermission)return true;const q=await handle.queryPermission({mode:'readwrite'});if(q==='granted')return true;const r=await handle.requestPermission({mode:'readwrite'});return r==='granted';}
+
+  async function saveGlobalName(h,name){try{await idbSet(GLOBAL_NAME_KEY,h);}catch{}const g=loadGlobal();g.general ||= {};g.general.nameFileName=name;saveGlobal(g);}
 
   // SheetJS loader
   async function ensureXLSX(){
@@ -232,8 +238,9 @@
     let cfg=getCfg(instanceId)||{};
     cfg.colors=cfg.colors||{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563'};
     cfg.title=cfg.title||'';
+    const g=loadGlobal().general||{};
     cfg.idbKey=cfg.idbKey||('nr-'+instanceId);
-    cfg.fileName=cfg.fileName||'';
+    cfg.fileName=cfg.fileName||g.nameFileName||'';
     let fileHandle=null;
     let items=[];
 
@@ -271,8 +278,8 @@
     // file pick/create
     els.pick.addEventListener('click',pickExcel);
     els.create.addEventListener('click',createExcel);
-    async function pickExcel(){try{const [h]=await window.showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});if(!h)return;if(await ensureRWPermission(h)){fileHandle=h;cfg.fileName=h.name;saveCfg(instanceId,cfg);await idbSet(cfg.idbKey,h);items=await readItemsFromHandle(h);renderList();els.fLabel.textContent='• '+(cfg.fileName||h.name);}}catch(e){console.warn('pickExcel',e);}}
-    async function createExcel(){try{const h=await window.showSaveFilePicker({suggestedName:'naming-rules.xlsx',types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});if(await ensureRWPermission(h)){fileHandle=h;cfg.fileName=h.name;saveCfg(instanceId,cfg);await idbSet(cfg.idbKey,h);items=[];await writeItemsToHandle(h,items);renderList();els.fLabel.textContent='• '+(cfg.fileName||h.name);}}catch(e){console.warn('createExcel',e);}}
+    async function pickExcel(){try{const [h]=await window.showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});if(!h)return;if(await ensureRWPermission(h)){fileHandle=h;cfg.fileName=h.name;saveCfg(instanceId,cfg);await idbSet(cfg.idbKey,h);await saveGlobalName(h,cfg.fileName);items=await readItemsFromHandle(h);renderList();els.fLabel.textContent='• '+(cfg.fileName||h.name);}}catch(e){console.warn('pickExcel',e);}}
+    async function createExcel(){try{const h=await window.showSaveFilePicker({suggestedName:'naming-rules.xlsx',types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});if(await ensureRWPermission(h)){fileHandle=h;cfg.fileName=h.name;saveCfg(instanceId,cfg);await idbSet(cfg.idbKey,h);await saveGlobalName(h,cfg.fileName);items=[];await writeItemsToHandle(h,items);renderList();els.fLabel.textContent='• '+(cfg.fileName||h.name);}}catch(e){console.warn('createExcel',e);}}
 
     // context menu
     function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
@@ -282,7 +289,7 @@
     window.addEventListener('keydown',e=>{if(e.key==='Escape')els.menu.classList.remove('open');});
 
     // restore previous handle + items
-    (async()=>{try{const h=await idbGet(cfg.idbKey);if(h&&await ensureRWPermission(h)){fileHandle=h;cfg.fileName=h.name;saveCfg(instanceId,cfg);items=await readItemsFromHandle(h);renderList();els.fLabel.textContent='• '+(cfg.fileName||h.name);}}catch(e){console.warn('Restore failed',e);}})();
+    (async()=>{try{let h=await idbGet(cfg.idbKey);if(!h){h=await idbGet(GLOBAL_NAME_KEY);if(h){await idbSet(cfg.idbKey,h);if(!cfg.fileName){const gg=loadGlobal().general||{};cfg.fileName=gg.nameFileName||h.name||'';saveCfg(instanceId,cfg);} }}if(h&&await ensureRWPermission(h)){fileHandle=h;items=await readItemsFromHandle(h);renderList();els.fLabel.textContent='• '+(cfg.fileName||h.name);}}catch(e){console.warn('Restore failed',e);}})();
 
     // cleanup when removed
     const mo=new MutationObserver(()=>{if(!document.body.contains(root)){try{sortable.destroy();}catch{};els.menu?.remove();(async()=>{try{await idbDel(cfg.idbKey);}catch{};try{removeCfg(instanceId);}catch{};})();mo.disconnect();}});

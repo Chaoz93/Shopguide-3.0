@@ -34,6 +34,8 @@
   const IDB_STORE='fs-handles';
   const SHEET_NAME='records';
   const WATCH_INTERVAL=300;
+  const GLOBAL_DICT_KEY='globalDict';
+  const GLOBAL_NAME_KEY='globalNameRules';
 
   const parse=(s,fb)=>{try{return JSON.parse(s)||fb;}catch{return fb;}};
   const loadDoc=()=>parse(localStorage.getItem(LS_DOC),{__meta:{v:1},general:{},instances:{}});
@@ -48,6 +50,9 @@
   async function idbDel(k){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).delete(k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
   async function ensureRWPermission(handle){if(!handle?.queryPermission)return true;const q=await handle.queryPermission({mode:'readwrite'});if(q==='granted')return true;const r=await handle.requestPermission({mode:'readwrite'});return r==='granted';}
   async function ensureRPermission(handle){if(!handle?.queryPermission)return true;const q=await handle.queryPermission({mode:'read'});if(q==='granted')return true;const r=await handle.requestPermission({mode:'read'});return r==='granted';}
+
+  async function saveGlobalDict(h,name){try{await idbSet(GLOBAL_DICT_KEY,h);}catch{}const doc=loadDoc();doc.general ||= {};doc.general.dictFileName=name;saveDoc(doc);}
+  async function saveGlobalRules(h,name){try{await idbSet(GLOBAL_NAME_KEY,h);}catch{}const doc=loadDoc();doc.general ||= {};doc.general.nameFileName=name;saveDoc(doc);}
 
   async function ensureXLSX(){
     if(window.XLSX) return;
@@ -193,11 +198,12 @@
     function loadCfg(){
       const doc=loadDoc();
       const cfg=doc?.instances?.[instanceId]?.recordSheet||{};
+      const g=doc.general||{};
       return{
         idbKey:cfg.idbKey||idbKey,
-        fileName:cfg.fileName||'',
+        fileName:cfg.fileName||g.dictFileName||'',
         ruleIdbKey:cfg.ruleIdbKey||ruleIdbKey,
-        ruleFileName:cfg.ruleFileName||'',
+        ruleFileName:cfg.ruleFileName||g.nameFileName||'',
         fields:Array.isArray(cfg.fields)?cfg.fields:cloneFields(defaultFields),
         columns:cfg.columns||defaultColumns
       };
@@ -264,14 +270,14 @@
     addEventListener('keydown',e=>{if(e.key==='Escape')els.menu.classList.remove('open');});
     els.menu.querySelector('.mi-opt').addEventListener('click',()=>{els.menu.classList.remove('open');openModal();});
 
-    async function bindHandle(h){const ok=await ensureRWPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}handle=h;await idbSet(cfg.idbKey,h);cfg.fileName=h.name||'Dictionary.xlsx';saveCfg(cfg);els.mFile.textContent=`• ${cfg.fileName}`;return true;}
-    async function bindRuleHandle(h){const ok=await ensureRPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}ruleHandle=h;await idbSet(cfg.ruleIdbKey,h);cfg.ruleFileName=h.name||'Rules.xlsx';saveCfg(cfg);els.mRuleFile.textContent=`• ${cfg.ruleFileName}`;try{rules=await readRulesFromHandle(h);}catch{rules=[];}updateName();return true;}
+    async function bindHandle(h){const ok=await ensureRWPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}handle=h;await idbSet(cfg.idbKey,h);cfg.fileName=h.name||'Dictionary.xlsx';saveCfg(cfg);els.mFile.textContent=`• ${cfg.fileName}`;saveGlobalDict(h,cfg.fileName);return true;}
+    async function bindRuleHandle(h){const ok=await ensureRPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}ruleHandle=h;await idbSet(cfg.ruleIdbKey,h);cfg.ruleFileName=h.name||'Rules.xlsx';saveCfg(cfg);els.mRuleFile.textContent=`• ${cfg.ruleFileName}`;saveGlobalRules(h,cfg.ruleFileName);try{rules=await readRulesFromHandle(h);}catch{rules=[];}updateName();return true;}
     els.mPick.onclick=async()=>{try{const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(h&&await bindHandle(h)){cache=await readAll(h);setNote('Datei geladen.');refreshFromCache();}}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
     els.mCreate.onclick=async()=>{try{const h=await showSaveFilePicker({suggestedName:'Dictionary.xlsx',types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});if(h&&await bindHandle(h)){cache=[];await writeAll(h,cache);setNote('Datei erstellt.');refreshFromCache();}}catch(e){if(e?.name!=='AbortError')setNote('Erstellen fehlgeschlagen.');}};
     els.mRulePick.onclick=async()=>{try{const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(h)await bindRuleHandle(h);}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
 
-    (async()=>{try{const h=await idbGet(cfg.idbKey);if(h&&await ensureRWPermission(h)){handle=h;cache=await readAll(h);refreshFromCache();}}catch(e){}})();
-    (async()=>{try{const h=await idbGet(cfg.ruleIdbKey);if(h&&await ensureRPermission(h)){ruleHandle=h;rules=await readRulesFromHandle(h);els.mRuleFile.textContent=`• ${cfg.ruleFileName||h.name||'Rules.xlsx'}`;updateName();}}catch(e){}})();
+    (async()=>{try{let h=await idbGet(cfg.idbKey);if(!h){h=await idbGet(GLOBAL_DICT_KEY);if(h){await idbSet(cfg.idbKey,h);if(!cfg.fileName){const g=loadDoc().general||{};cfg.fileName=g.dictFileName||h.name||'Dictionary.xlsx';saveCfg(cfg);els.mFile.textContent=`• ${cfg.fileName}`;}}}if(h&&await ensureRWPermission(h)){handle=h;cache=await readAll(h);refreshFromCache();}}catch(e){}})();
+    (async()=>{try{let h=await idbGet(cfg.ruleIdbKey);if(!h){h=await idbGet(GLOBAL_NAME_KEY);if(h){await idbSet(cfg.ruleIdbKey,h);if(!cfg.ruleFileName){const g=loadDoc().general||{};cfg.ruleFileName=g.nameFileName||h.name||'Rules.xlsx';saveCfg(cfg);els.mRuleFile.textContent=`• ${cfg.ruleFileName}`;}}}if(h&&await ensureRPermission(h)){ruleHandle=h;rules=await readRulesFromHandle(h);els.mRuleFile.textContent=`• ${cfg.ruleFileName||h.name||'Rules.xlsx'}`;updateName();}}catch(e){}})();
 
     function activeMeldung(){return(loadDoc()?.general?.Meldung||'').trim();}
     function refreshFromCache(){const m=activeMeldung();const row=cache.find(r=>(r.meldung||'').trim()===m);cfg.fields.forEach(f=>{const el=fieldEls[f.key];if(!el)return;if(f.key==='meldung')el.input.value=m;else el.input.value=row?.[f.key]||'';});updateName();}
