@@ -6,6 +6,9 @@
     let findName = '';
     let dictName = '';
     let selectsEl, findOut, actionOut, copyFind, copyAction, headEl;
+    let currentItems = [];
+    let partNumber = '';
+    let rendering = false;
 
     try{ items=JSON.parse(localStorage.getItem('sf-findings-data')||'[]'); }catch{}
     try{ dict=JSON.parse(localStorage.getItem('sf-dict-data')||'[]'); }catch{}
@@ -25,10 +28,18 @@
       const row=dict.find(r=>r.meldung===meld);
       return (row?.part||'').trim();
     };
-    const updateHead=()=>{if(headEl) headEl.textContent=getPart()?`P/N: ${getPart()}`:'';};
-    const storageHandler=e=>{if(e.key===LS_KEY) updateHead();};
+    const refreshPart=()=>{
+      const pn=getPart();
+      if(headEl) headEl.textContent=pn?`P/N: ${pn}`:'';
+      if(pn!==partNumber){
+        partNumber=pn;
+        if(!rendering) render();
+      }
+    };
+    partNumber=getPart();
+    const storageHandler=e=>{if(e.key===LS_KEY) refreshPart();};
     let lastDoc=localStorage.getItem(LS_KEY);
-    const watcher=setInterval(()=>{const now=localStorage.getItem(LS_KEY);if(now!==lastDoc){lastDoc=now;updateHead();}},WATCH_INTERVAL);
+    const watcher=setInterval(()=>{const now=localStorage.getItem(LS_KEY);if(now!==lastDoc){lastDoc=now;refreshPart();}},WATCH_INTERVAL);
     window.addEventListener('storage',storageHandler);
 
     // --- styles for context menu ---
@@ -155,6 +166,7 @@
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
         items=rows.slice(1).map(r=>({
+          part:String(r[0]||'').trim(),
           label:String(r[1]||'').trim(),
           finding:String(r[2]||'').trim(),
           action:String(r[3]||'').trim()
@@ -197,7 +209,7 @@
       try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
       try{localStorage.setItem('sf-dict-name',dictName);}catch{}
       updateMenuLabels();
-      updateHead();
+      refreshPart();
     }
 
     async function loadDefault(){
@@ -210,6 +222,7 @@
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
         items=rows.slice(1).map(r=>({
+          part:String(r[0]||'').trim(),
           label:String(r[1]||'').trim(),
           finding:String(r[2]||'').trim(),
           action:String(r[3]||'').trim()
@@ -258,7 +271,7 @@
           try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
           try{localStorage.setItem('sf-dict-name',dictName);}catch{}
           updateMenuLabels();
-          updateHead();
+          refreshPart();
           return;
         }catch(e){/* try next */}
       }
@@ -269,6 +282,7 @@
       const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
       const rows=lines.map(line=>line.split(delim));
       return rows.slice(1).map(r=>({
+        part:(r[0]||'').trim(),
         label:(r[1]||'').trim(),
         finding:(r[2]||'').trim(),
         action:(r[3]||'').trim()
@@ -290,20 +304,20 @@
 
     function updateOutputs(){
       const ids=Array.from(selectsEl.querySelectorAll('select')).map(s=>parseInt(s.value,10)).filter(n=>!isNaN(n));
-      const finds=ids.map(i=>items[i].finding).filter(Boolean);
-      const acts=ids.map(i=>items[i].action).filter(Boolean);
+      const finds=ids.map(i=>currentItems[i].finding).filter(Boolean);
+      const acts=ids.map(i=>currentItems[i].action).filter(Boolean);
       findOut.value=finds.join('\n\n');
       actionOut.value=acts.join('\n\n');
     }
 
     function addSelect(){
       const used=Array.from(selectsEl.querySelectorAll('select')).map(s=>parseInt(s.value,10)).filter(n=>!isNaN(n));
-      const remaining=items.filter((_,i)=>!used.includes(i));
+      const remaining=currentItems.filter((_,i)=>!used.includes(i));
       if(!remaining.length) return;
       const sel=document.createElement('select');
       sel.className='w-full p-1 rounded text-black';
       sel.innerHTML='<option value="">-- Auswahl --</option>'+
-        items.map((it,i)=>used.includes(i)?'':`<option value="${i}">${escapeHtml(it.label)}</option>`).join('');
+        currentItems.map((it,i)=>used.includes(i)?'':`<option value="${i}">${escapeHtml(it.label)}</option>`).join('');
       sel.onchange=()=>{
         let next=sel.nextSibling; while(next){next.remove(); next=sel.nextSibling;}
         if(sel.value!=='') addSelect();
@@ -313,9 +327,13 @@
     }
 
     function render(){
+      rendering=true;
+      const part=partNumber;
+      currentItems=part?items.filter(it=>it.part===part):items;
+      const hasItems=currentItems.length>0;
       root.innerHTML=`<div class="p-2 space-y-2">
         <div id="sf-head" class="text-center font-bold"></div>
-        ${!items.length?
+        ${!hasItems?
           '<div class="text-sm opacity-80 text-center">Rechtsklick → Excel wählen<br>Spalten: B=Auswahl, C=Finding, D=Action</div>' :
           `<div id="sf-selects" class="space-y-2"></div>
           <div class="space-y-2">
@@ -331,8 +349,8 @@
       </div>`;
 
       headEl=root.querySelector('#sf-head');
-      updateHead();
-      if(!items.length) return;
+      headEl.textContent=part?`P/N: ${part}`:'';
+      if(!hasItems){rendering=false;return;}
 
       selectsEl=root.querySelector('#sf-selects');
       findOut=root.querySelector('#sf-find');
@@ -356,6 +374,7 @@
           setTimeout(()=>copyAction.textContent='📋 Action kopieren',1000);
         }).catch(()=>{});
       };
+      rendering=false;
     }
 
     if(!dict.length) loadDefaultDict();
