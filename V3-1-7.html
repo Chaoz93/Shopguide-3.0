@@ -986,7 +986,27 @@ async function buildTreeFromFileList(files, rootName) {
 /** Reset and recreate tabs using saved layout */
 async function loadAndInitTabs() {
   resetTabs();
-  const saved = await loadLayout();
+  let saved = await loadLayout();
+  let migrated = false;
+
+  if (saved && saved.length) {
+    for (const tabData of saved) {
+      if (!Array.isArray(tabData.modules)) continue;
+      for (const mod of tabData.modules) {
+        const name = mod.subdir || mod.name;
+        const exists = name && liveModuleTemplates.find(t => t.subdir === name);
+        if (!exists && name) {
+          const base = name.split('/').pop();
+          const found = liveModuleTemplates.find(t => t.subdir.split('/').pop() === base);
+          if (found) {
+            mod.subdir = found.subdir;
+            delete mod.name;
+            migrated = true;
+          }
+        }
+      }
+    }
+  }
 
   // Seed used IDs and counter from saved layout
   usedInstanceIds = new Set();
@@ -1010,6 +1030,8 @@ async function loadAndInitTabs() {
   }
   renderTabs();
   activateTab(0);
+
+  if (migrated) saveLayout();
 
   // ensure initial state reflects current sidebar state
   updateModuleDraggable();
