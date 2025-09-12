@@ -1,0 +1,12 @@
+{
+  "name": "Arbeitszeit", 
+  "icon": "⏱️", 
+  "script": "renderArbeitszeit",
+  "w": 3,
+  "h": 4,
+  "minW": 2,
+  "minH": 3,
+  "settings": {
+    "regularHours": 7.5
+  }
+}

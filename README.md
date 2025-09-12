@@ -36,6 +36,7 @@ Jedes Modul wird durch ein JSON-Manifest beschrieben (name, icon, script, Standa
 - **Namensregeln** (`Namensregeln`) – Zuordnung von Präfixen zu Namen, verwaltet über Excel und `localStorage`.
 - **SavedEvents** (`SavedEvents`) – Hilfsmodul zum Navigieren in einer Saved-Events-Verzeichnisstruktur.
 - **Workorder** (`Workorder`) – bearbeitbarer Arbeitsauftragsbetrachter, der eine Aspen-CSV überwacht und Notizen in IndexedDB speichert.
+- **Arbeitszeit** (`Arbeitszeit`) – berechnet mögliche Gehzeiten anhand der Einstempelzeit und markiert Überschreitungen nach 20:00 Uhr.
 
 ## Datenspeicherung
 
