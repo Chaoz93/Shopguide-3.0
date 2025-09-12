@@ -143,6 +143,9 @@ window.renderArbeitszeitOverview = async function (targetDiv, ctx = {}) {
     } else {
       if (!data[oldDate]) data[oldDate] = {};
       data[oldDate][field] = value;
+      if (['start', 'ende', 'pause'].includes(field)) {
+        recalcDiff(data[oldDate]);
+      }
     }
     await saveData();
     render();
@@ -187,6 +190,32 @@ window.renderArbeitszeitOverview = async function (targetDiv, ctx = {}) {
       })
       .sort()
       .map(d => ({ date: d, ...data[d] }));
+  }
+
+  function recalcDiff(entry) {
+    const start = entry.start;
+    const end = entry.ende;
+    const pause = entry.pause;
+    if (!start || !end || pause == null) {
+      entry.diff = '';
+      return;
+    }
+    const toMinutes = t => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const startMin = toMinutes(start);
+    const endMin = toMinutes(end);
+    const pauseMin = pause.toString().includes(':')
+      ? toMinutes(pause)
+      : parseInt(pause, 10) || 0;
+    const work = endMin - startMin - pauseMin;
+    const diff = work - 8 * 60;
+    const sign = diff >= 0 ? '+' : '-';
+    const abs = Math.abs(diff);
+    const h = Math.floor(abs / 60);
+    const m = String(abs % 60).padStart(2, '0');
+    entry.diff = `${sign}${h}:${m}`;
   }
 
   function calcSaldo(entries) {
