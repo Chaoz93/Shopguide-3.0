@@ -1,0 +1,9 @@
+{
+  "name": "Arbeitszeit Übersicht",
+  "icon": "📅",
+  "script": "renderArbeitszeitOverview",
+  "w": 4,
+  "h": 5,
+  "minW": 3,
+  "minH": 3
+}
