@@ -98,6 +98,11 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   function renderTimes(){
     [t5El,t615El,tregEl,tmaxEl,diffEl].forEach(el=>{el.textContent='';el.classList.remove('text-red-500');});
     warnEl.textContent='';
+
+    const rawPause = pause.value.trim();
+    const pauseMin = rawPause === '' ? 45 : Number(rawPause);
+    pauseMsg.textContent = rawPause ? '' : 'Standardpausen gemacht';
+
     if(!start.value) return;
     const s=parseTime(start.value);
 
@@ -108,16 +113,12 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
     if(end.value){
       const e=parseTime(end.value);
-      const pauseMin = pause.value ? parseInt(pause.value,10) : 45;
-      pauseMsg.textContent = pause.value ? '' : 'Standardpausen gemacht';
       const actualWork = (e - s)/60000 - pauseMin;
       const diffMin = Math.round(actualWork - regularHours*60 + dressTime);
       const sign = diffMin>=0?'+':'-';
       const abs = Math.abs(diffMin);
       diffEl.textContent=sign+pad(Math.floor(abs/60))+':'+pad(abs%60);
       if(e.getHours()>=20) warnEl.textContent='⚠️ Gehzeit nach 20:00';
-    } else {
-      pauseMsg.textContent = pause.value ? '' : 'Standardpausen gemacht';
     }
   }
 
@@ -155,7 +156,10 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     menu.classList.add('open');
   }
   targetDiv.addEventListener('contextmenu',openMenu);
-  window.addEventListener('click',()=>menu.classList.remove('open'));
+  menu.addEventListener('click',e=>e.stopPropagation());
+  menu.addEventListener('contextmenu',e=>e.stopPropagation());
+  window.addEventListener('click',e=>{if(!menu.contains(e.target))menu.classList.remove('open');});
+  window.addEventListener('contextmenu',e=>{if(!menu.contains(e.target))menu.classList.remove('open');});
   window.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open');});
 
   regInput.addEventListener('input',()=>{
