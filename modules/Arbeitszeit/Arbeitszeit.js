@@ -11,7 +11,6 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const DRESS_KEY = 'az-dress-' + inst;
   const START_KEY = 'az-start-' + inst;
   const END_KEY = 'az-end-' + inst;
-  const PAUSE_KEY = 'az-pause-' + inst;
   let regularHours = Number(localStorage.getItem(LS_KEY) || settings.regularHours || 7.5);
   let dressTime = Number(localStorage.getItem(DRESS_KEY) || settings.dressTime || 2);
 
@@ -40,15 +39,11 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       </label>
       <div class="space-y-1 times">
         <div class="az-row row-5"><span>Ohne Pause (5h)</span><span class="t5 font-semibold"></span></div>
-        <div class="az-row row-615"><span>Nach 6:15&nbsp;+&nbsp;30 min Pause</span><span class="t615 font-semibold"></span></div>
+        <div class="az-row row-615"><span>Nach 6:15&nbsp;+&nbsp;45 min Pause</span><span class="t615 font-semibold"></span></div>
         <div class="az-row row-reg"><span class="label"></span><span class="treg font-semibold"></span></div>
         <div class="az-row row-max"><span>Max. 10h&nbsp;+&nbsp;45 min Pause</span><span class="tmax font-semibold"></span></div>
       </div>
-      <label class="block">
-        <span class="opacity-90">Pausen (min, optional)</span>
-        <input type="number" class="pause w-full text-black p-1 rounded" />
-      </label>
-      <div class="pause-msg text-xs opacity-75"></div>
+      <div class="pause-msg text-xs opacity-75">Pause wird automatisch berechnet</div>
       <label class="block">
         <span class="opacity-90">Gehzeit</span>
         <input type="time" class="end w-full text-black p-1 rounded" />
@@ -60,7 +55,6 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
   const start = targetDiv.querySelector('.start');
   const end = targetDiv.querySelector('.end');
-  const pause = targetDiv.querySelector('.pause');
   const pauseMsg = targetDiv.querySelector('.pause-msg');
   const t5Row = targetDiv.querySelector('.row-5');
   const t615Row = targetDiv.querySelector('.row-615');
@@ -76,12 +70,18 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
   start.value = localStorage.getItem(START_KEY) || '';
   end.value = localStorage.getItem(END_KEY) || '';
-  pause.value = localStorage.getItem(PAUSE_KEY) || '';
-  pauseMsg.textContent = 'Standardpausen gemacht';
 
   function toHHMM(hours){ const h=Math.floor(hours); const m=Math.round((hours-h)*60); return pad(h)+':'+pad(m); }
   function timeToHours(val){ const [h,m]=val.split(':').map(Number); return h + m/60; }
-  function updateLabel(){ labelEl.textContent = `Regelzeit (${toHHMM(regularHours)} + 45 min Pause)`; }
+  function legalPause(mins){
+    if(mins < 5*60) return 0;
+    if(mins < 6*60+15) return 30;
+    return 45;
+  }
+  function updateLabel(){
+    const pauseMin = legalPause(regularHours*60);
+    labelEl.textContent = `Regelzeit (${toHHMM(regularHours)} + ${pauseMin} min Pause)`;
+  }
   function updateDiffLabel(){ diffLabel.textContent = `Differenz zur Regelzeit (+${dressTime} min)`; }
   function updateVisibility(){
     const totalMin = regularHours * 60;
@@ -99,26 +99,27 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     [t5El,t615El,tregEl,tmaxEl,diffEl].forEach(el=>{el.textContent='';el.classList.remove('text-red-500');});
     warnEl.textContent='';
 
-    const rawPause = pause.value.trim();
-    const pauseMin = rawPause === '' ? 45 : Number(rawPause);
-    pauseMsg.textContent = rawPause ? '' : 'Standardpausen gemacht';
-
     if(!start.value) return;
     const s=parseTime(start.value);
 
     const t5=addMin(s,5*60); t5El.textContent=fmt(t5); updateColor(t5El,t5);
-    const t615=addMin(s,6*60+15+30); t615El.textContent=fmt(t615); updateColor(t615El,t615);
-    const treg=addMin(s,regularHours*60+45); tregEl.textContent=fmt(treg); updateColor(tregEl,treg);
-    const tmax=addMin(s,10*60+45); tmaxEl.textContent=fmt(tmax); updateColor(tmaxEl,tmax);
+    const t615=addMin(s,6*60+15+legalPause(6*60+15)); t615El.textContent=fmt(t615); updateColor(t615El,t615);
+    const treg=addMin(s,regularHours*60+legalPause(regularHours*60)); tregEl.textContent=fmt(treg); updateColor(tregEl,treg);
+    const tmax=addMin(s,10*60+legalPause(10*60)); tmaxEl.textContent=fmt(tmax); updateColor(tmaxEl,tmax);
 
     if(end.value){
       const e=parseTime(end.value);
-      const actualWork = (e - s)/60000 - pauseMin;
+      const totalMin = (e - s)/60000;
+      const pauseMin = legalPause(totalMin);
+      pauseMsg.textContent = `Berechnete Pause: ${pauseMin} min`;
+      const actualWork = totalMin - pauseMin;
       const diffMin = Math.round(actualWork - regularHours*60 + dressTime);
       const sign = diffMin>=0?'+':'-';
       const abs = Math.abs(diffMin);
       diffEl.textContent=sign+pad(Math.floor(abs/60))+':'+pad(abs%60);
       if(e.getHours()>=20) warnEl.textContent='⚠️ Gehzeit nach 20:00';
+    } else {
+      pauseMsg.textContent = 'Pause wird automatisch berechnet';
     }
   }
 
@@ -126,7 +127,6 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
   start.addEventListener('input',()=>{ store(START_KEY,start.value); renderTimes(); });
   end.addEventListener('input',()=>{ store(END_KEY,end.value); renderTimes(); });
-  pause.addEventListener('input',()=>{ store(PAUSE_KEY,pause.value); renderTimes(); });
 
   updateLabel();
   updateDiffLabel();
