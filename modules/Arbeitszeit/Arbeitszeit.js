@@ -12,6 +12,9 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const START_KEY = 'az-start-' + inst;
   const END_KEY = 'az-end-' + inst;
   const PAUSE_KEY = 'az-pause-' + inst;
+  const LAST_DATE_KEY = 'az-last-date'; // day-reset
+  const FILE_PATH_KEY = 'az-json-path'; // auto-save JSON
+  let fileHandle = null;
   let regularHours = Number(localStorage.getItem(LS_KEY) || settings.regularHours || 7.5);
   let dressTime = Number(localStorage.getItem(DRESS_KEY) || settings.dressTime || 2);
 
@@ -82,11 +85,13 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   end.value = localStorage.getItem(END_KEY) || '';
   pauseInput.value = localStorage.getItem(PAUSE_KEY) || '';
 
+  checkNewDay(); // day-reset
+
   function toHHMM(hours){ const h=Math.floor(hours); const m=Math.round((hours-h)*60); return pad(h)+':'+pad(m); }
   function timeToHours(val){ const [h,m]=val.split(':').map(Number); return h + m/60; }
-  function legalPause(mins){
-    if(mins < 5*60) return 0;
-    if(mins < 6*60+15) return 30;
+  function legalPause(workMins){
+    if(workMins < 5*60) return 0;
+    if(workMins < 6*60+15) return 30;
     return 45;
   }
   function updateLabel(){
@@ -122,8 +127,8 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     if(end.value){
       const e=parseTime(end.value);
       const totalMin = (e - s)/60000;
-      const autoPause = legalPause(totalMin);
       const userPause = pauseInput.value ? parseInt(pauseInput.value,10) : 0;
+      const autoPause = legalPause(totalMin - userPause);
       const pauseMin = userPause > autoPause ? userPause : autoPause;
       pauseMsg.textContent = userPause > autoPause
         ? `Manuelle Pause: ${pauseMin} min`
@@ -144,6 +149,68 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
         pauseMsg.textContent = 'Standardpausen gemacht';
       }
     }
+
+    if(start.value && end.value) autoSaveEntry(); // auto-save JSON
+  }
+
+  // auto-save JSON
+  async function autoSaveEntry(){
+    if(!start.value || !end.value) return;
+    try{
+      if(!fileHandle){
+        const storedPath = localStorage.getItem(FILE_PATH_KEY);
+        try{
+          [fileHandle] = await window.showOpenFilePicker({
+            multiple:false,
+            mode:'readwrite',
+            types:[{description:'JSON', accept:{'application/json':['.json']}}],
+            suggestedName: storedPath || 'arbeitszeit.json'
+          });
+        }catch(e){
+          try{
+            fileHandle = await window.showSaveFilePicker({
+              suggestedName: storedPath || 'arbeitszeit.json',
+              types:[{description:'JSON', accept:{'application/json':['.json']}}]
+            });
+          }catch(err){
+            fileHandle = null;
+          }
+        }
+        if(fileHandle) localStorage.setItem(FILE_PATH_KEY, fileHandle.name);
+      }
+      if(!fileHandle) return;
+      const file = await fileHandle.getFile();
+      let data={};
+      try{ const txt = await file.text(); data = txt?JSON.parse(txt):{}; }catch(e){}
+      const today=new Date().toISOString().slice(0,10);
+      const entry={
+        start:start.value,
+        ende:end.value,
+        pause:pauseInput.value||'0',
+        diff:diffEl.textContent,
+        hinweis:warnEl.textContent.replace(/⚠️ /g,'').trim()
+      };
+      data[today]=entry;
+      const writable=await fileHandle.createWritable();
+      await writable.write(JSON.stringify(data,null,2));
+      await writable.close();
+      localStorage.setItem(FILE_PATH_KEY, fileHandle.name);
+    }catch(err){
+      console.warn('autoSaveEntry failed',err);
+    }
+  }
+
+  // day-reset
+  function checkNewDay(){
+    const today=new Date().toISOString().slice(0,10);
+    const last=localStorage.getItem(LAST_DATE_KEY);
+    if(last===today) return;
+    localStorage.setItem(LAST_DATE_KEY,today);
+    [START_KEY,END_KEY,PAUSE_KEY].forEach(k=>localStorage.removeItem(k));
+    start.value='';
+    end.value='';
+    pauseInput.value='';
+    renderTimes();
   }
 
   function store(key,val){ if(val) localStorage.setItem(key,val); else localStorage.removeItem(key); }
@@ -168,6 +235,10 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   updateDiffLabel();
   updateVisibility();
   renderTimes();
+
+  const visHandler=()=>{ if(document.visibilityState==='visible') checkNewDay(); }; // day-reset
+  document.addEventListener('visibilitychange',visHandler);
+  const dayInterval=setInterval(checkNewDay,5*60*1000); // day-reset
 
   // ---- context menu for configurable options ----
   const menu=document.createElement('div');
@@ -219,6 +290,8 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const mo=new MutationObserver(()=>{
     if(!document.body.contains(targetDiv)){
       menu.remove();
+      document.removeEventListener('visibilitychange',visHandler); // day-reset
+      clearInterval(dayInterval); // day-reset
       mo.disconnect();
     }
   });
