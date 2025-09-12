@@ -13,7 +13,6 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const END_KEY = 'az-end-' + inst;
   const PAUSE_KEY = 'az-pause-' + inst;
   const LAST_DATE_KEY = 'az-last-date'; // day-reset
-  const FILE_HANDLE_KEY = 'az-json-handle'; // auto-save JSON
   const FILE_PATH_KEY = 'az-json-path'; // auto-save JSON
   let fileHandle = null;
   let regularHours = Number(localStorage.getItem(LS_KEY) || settings.regularHours || 7.5);
@@ -159,23 +158,25 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     if(!start.value || !end.value) return;
     try{
       if(!fileHandle){
-        const stored = localStorage.getItem(FILE_HANDLE_KEY);
         const storedPath = localStorage.getItem(FILE_PATH_KEY);
-        if(stored){
-          try{
-            fileHandle = await window.showSaveFilePicker({id: stored, suggestedName: storedPath || 'arbeitszeit.json'});
-          }catch(e){}
-        }
-        if(!fileHandle){
-          fileHandle = await window.showSaveFilePicker({
-            suggestedName: storedPath || 'arbeitszeit.json',
-            types:[{description:'JSON', accept:{'application/json':['.json']}}]
+        try{
+          [fileHandle] = await window.showOpenFilePicker({
+            multiple:false,
+            mode:'readwrite',
+            types:[{description:'JSON', accept:{'application/json':['.json']}}],
+            suggestedName: storedPath || 'arbeitszeit.json'
           });
-          localStorage.setItem(FILE_HANDLE_KEY,'1');
+        }catch(e){
+          try{
+            fileHandle = await window.showSaveFilePicker({
+              suggestedName: storedPath || 'arbeitszeit.json',
+              types:[{description:'JSON', accept:{'application/json':['.json']}}]
+            });
+          }catch(err){
+            fileHandle = null;
+          }
         }
-        if(fileHandle){
-          localStorage.setItem(FILE_PATH_KEY, fileHandle.name);
-        }
+        if(fileHandle) localStorage.setItem(FILE_PATH_KEY, fileHandle.name);
       }
       if(!fileHandle) return;
       const file = await fileHandle.getFile();
