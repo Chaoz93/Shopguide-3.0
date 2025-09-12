@@ -41,10 +41,10 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
         <input type="time" class="start w-full text-black p-1 rounded" />
       </label>
       <div class="space-y-1 times">
-        <div class="az-row row-5 clickable"><span>Ohne Pause (5h)</span><span class="t5 font-semibold"></span></div>
-        <div class="az-row row-615 clickable"><span>Nach 6:15&nbsp;+&nbsp;30 min Pause</span><span class="t615 font-semibold"></span></div>
+        <div class="az-row row-5 clickable"><span>Ohne Pause</span><span class="t5 font-semibold"></span></div>
+        <div class="az-row row-615 clickable"><span>min 30min Pause</span><span class="t615 font-semibold"></span></div>
         <div class="az-row row-reg clickable"><span class="label"></span><span class="treg font-semibold"></span></div>
-        <div class="az-row row-max clickable"><span>Max. 10h&nbsp;+&nbsp;45 min Pause</span><span class="tmax font-semibold"></span></div>
+        <div class="az-row row-max clickable"><span>10h Arbeitszeit</span><span class="tmax font-semibold"></span></div>
       </div>
       <label class="block">
         <span class="opacity-90">Pause (min, optional)</span>
@@ -91,7 +91,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   }
   function updateLabel(){
     const pauseMin = legalPause(regularHours*60);
-    labelEl.textContent = `Regelzeit (${toHHMM(regularHours)} + ${pauseMin} min Pause)`;
+    labelEl.textContent = pauseMin === 0 ? 'Ohne Pause' : `min ${pauseMin}min Pause`;
   }
   function updateDiffLabel(){ diffLabel.textContent = `Differenz zur Regelzeit (+${dressTime} min)`; }
   function updateVisibility(){
@@ -135,7 +135,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       diffEl.textContent=sign+pad(Math.floor(abs/60))+':'+pad(abs%60);
       const warns=[];
       if(e.getHours()>=20) warns.push('Gehzeit nach 20:00');
-      if(totalMin > 10*60+45) warns.push('über 10h + 45 min');
+      if(totalMin > 10*60+45) warns.push('über 10h Arbeitszeit');
       warnEl.textContent = warns.map(w=>'⚠️ '+w).join(' ');
     } else {
       if(pauseInput.value){
