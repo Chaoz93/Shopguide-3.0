@@ -11,6 +11,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const DRESS_KEY = 'az-dress-' + inst;
   const START_KEY = 'az-start-' + inst;
   const END_KEY = 'az-end-' + inst;
+  const PAUSE_KEY = 'az-pause-' + inst;
   let regularHours = Number(localStorage.getItem(LS_KEY) || settings.regularHours || 7.5);
   let dressTime = Number(localStorage.getItem(DRESS_KEY) || settings.dressTime || 2);
 
@@ -43,7 +44,11 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
         <div class="az-row row-reg"><span class="label"></span><span class="treg font-semibold"></span></div>
         <div class="az-row row-max"><span>Max. 10h&nbsp;+&nbsp;45 min Pause</span><span class="tmax font-semibold"></span></div>
       </div>
-      <div class="pause-msg text-xs opacity-75">Pause wird automatisch berechnet</div>
+      <label class="block">
+        <span class="opacity-90">Pause (min, optional)</span>
+        <input type="number" class="pause w-full text-black p-1 rounded" />
+      </label>
+      <div class="pause-msg text-xs opacity-75">Standardpausen gemacht</div>
       <label class="block">
         <span class="opacity-90">Gehzeit</span>
         <input type="time" class="end w-full text-black p-1 rounded" />
@@ -55,6 +60,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
   const start = targetDiv.querySelector('.start');
   const end = targetDiv.querySelector('.end');
+  const pauseInput = targetDiv.querySelector('.pause');
   const pauseMsg = targetDiv.querySelector('.pause-msg');
   const t5Row = targetDiv.querySelector('.row-5');
   const t615Row = targetDiv.querySelector('.row-615');
@@ -70,6 +76,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
   start.value = localStorage.getItem(START_KEY) || '';
   end.value = localStorage.getItem(END_KEY) || '';
+  pauseInput.value = localStorage.getItem(PAUSE_KEY) || '';
 
   function toHHMM(hours){ const h=Math.floor(hours); const m=Math.round((hours-h)*60); return pad(h)+':'+pad(m); }
   function timeToHours(val){ const [h,m]=val.split(':').map(Number); return h + m/60; }
@@ -110,8 +117,12 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     if(end.value){
       const e=parseTime(end.value);
       const totalMin = (e - s)/60000;
-      const pauseMin = legalPause(totalMin);
-      pauseMsg.textContent = `Berechnete Pause: ${pauseMin} min`;
+      const autoPause = legalPause(totalMin);
+      const userPause = pauseInput.value ? parseInt(pauseInput.value,10) : 0;
+      const pauseMin = userPause > autoPause ? userPause : autoPause;
+      pauseMsg.textContent = userPause > autoPause
+        ? `Manuelle Pause: ${pauseMin} min`
+        : `Berechnete Pause: ${pauseMin} min`;
       const actualWork = totalMin - pauseMin;
       const diffMin = Math.round(actualWork - regularHours*60 + dressTime);
       const sign = diffMin>=0?'+':'-';
@@ -119,7 +130,11 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       diffEl.textContent=sign+pad(Math.floor(abs/60))+':'+pad(abs%60);
       if(e.getHours()>=20) warnEl.textContent='⚠️ Gehzeit nach 20:00';
     } else {
-      pauseMsg.textContent = 'Pause wird automatisch berechnet';
+      if(pauseInput.value){
+        pauseMsg.textContent = `Manuelle Pause: ${pauseInput.value} min`;
+      } else {
+        pauseMsg.textContent = 'Standardpausen gemacht';
+      }
     }
   }
 
@@ -127,6 +142,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
   start.addEventListener('input',()=>{ store(START_KEY,start.value); renderTimes(); });
   end.addEventListener('input',()=>{ store(END_KEY,end.value); renderTimes(); });
+  pauseInput.addEventListener('input',()=>{ store(PAUSE_KEY,pauseInput.value); renderTimes(); });
 
   updateLabel();
   updateDiffLabel();

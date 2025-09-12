@@ -36,7 +36,7 @@ Jedes Modul wird durch ein JSON-Manifest beschrieben (name, icon, script, Standa
 - **Namensregeln** (`Namensregeln`) – Zuordnung von Präfixen zu Namen, verwaltet über Excel und `localStorage`.
 - **SavedEvents** (`SavedEvents`) – Hilfsmodul zum Navigieren in einer Saved-Events-Verzeichnisstruktur.
 - **Workorder** (`Workorder`) – bearbeitbarer Arbeitsauftragsbetrachter, der eine Aspen-CSV überwacht und Notizen in IndexedDB speichert.
-- **Arbeitszeit** (`Arbeitszeit`) – berechnet mögliche Gehzeiten anhand der Einstempelzeit, zeigt 5 h- und 6:15 h-Grenzen sofern die gewählte Regelzeit darüber liegt, berücksichtigt Pausen automatisch (0 / 30 / 45 min je nach Arbeitsdauer), speichert alle Eingaben lokal, warnt nach 20 Uhr und bietet ein Kontextmenü mit Eingabefeldern für Regelarbeits- und Umziehzeit.
+- **Arbeitszeit** (`Arbeitszeit`) – berechnet mögliche Gehzeiten anhand der Einstempelzeit, zeigt 5 h- und 6:15 h-Grenzen sofern die gewählte Regelzeit darüber liegt, ermittelt Pausen automatisch (0 / 30 / 45 min je nach Arbeitsdauer) und verwendet eine manuell eingetragene längere Pause, speichert alle Eingaben lokal, warnt nach 20 Uhr und bietet ein Kontextmenü mit Eingabefeldern für Regelarbeits- und Umziehzeit.
 
 ## Datenspeicherung
 
