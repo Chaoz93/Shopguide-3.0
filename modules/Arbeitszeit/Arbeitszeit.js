@@ -8,7 +8,9 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   }
   const inst = instanceIdOf(targetDiv);
   const LS_KEY = 'az-reg-' + inst;
+  const DRESS_KEY = 'az-dress-' + inst;
   let regularHours = Number(localStorage.getItem(LS_KEY) || settings.regularHours || 7.5);
+  let dressTime = Number(localStorage.getItem(DRESS_KEY) || settings.dressTime || 2);
 
   if(!document.getElementById('az-styles')){
     const css = `
@@ -40,16 +42,23 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
         <div class="az-row row-max"><span>Max. 10h&nbsp;+&nbsp;45 min Pause</span><span class="tmax font-semibold"></span></div>
       </div>
       <label class="block">
+        <span class="opacity-90">Pausen (min, optional)</span>
+        <input type="number" class="pause w-full text-black p-1 rounded" />
+      </label>
+      <div class="pause-msg text-xs opacity-75"></div>
+      <label class="block">
         <span class="opacity-90">Gehzeit</span>
         <input type="time" class="end w-full text-black p-1 rounded" />
       </label>
-      <div class="az-row"><span>Differenz zur Regelzeit (+2 min)</span><span class="diff font-semibold"></span></div>
+      <div class="az-row"><span class="diff-label"></span><span class="diff font-semibold"></span></div>
       <div class="warn text-red-500 text-xs"></div>
     </div>
   `;
 
   const start = targetDiv.querySelector('.start');
   const end = targetDiv.querySelector('.end');
+  const pause = targetDiv.querySelector('.pause');
+  const pauseMsg = targetDiv.querySelector('.pause-msg');
   const t5Row = targetDiv.querySelector('.row-5');
   const t615Row = targetDiv.querySelector('.row-615');
   const tregRow = targetDiv.querySelector('.row-reg');
@@ -60,11 +69,15 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const diffEl = targetDiv.querySelector('.diff');
   const warnEl = targetDiv.querySelector('.warn');
   const labelEl = tregRow.querySelector('.label');
+  const diffLabel = targetDiv.querySelector('.diff-label');
+
+  pauseMsg.textContent = 'Standardpausen gemacht';
 
   function regularLabel(){
     return regularHours===8?'8:00':regularHours===6.25?'6:15':regularHours===5?'5:00':'7:30';
   }
   function updateLabel(){ labelEl.textContent = `Regelzeit (${regularLabel()} + 45 min Pause)`; }
+  function updateDiffLabel(){ diffLabel.textContent = `Differenz zur Regelzeit (+${dressTime} min)`; }
   function updateVisibility(){
     const hideEarly = regularHours <= 6.25;
     t5Row.style.display = hideEarly ? 'none' : '';
@@ -90,28 +103,39 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
     if(end.value){
       const e=parseTime(end.value);
-      const diffMin=Math.round((e-treg)/60000)+2;
-      const sign=diffMin>=0?'+':'-';
-      const abs=Math.abs(diffMin);
+      const pauseMin = pause.value ? parseInt(pause.value,10) : 45;
+      pauseMsg.textContent = pause.value ? '' : 'Standardpausen gemacht';
+      const actualWork = (e - s)/60000 - pauseMin;
+      const diffMin = Math.round(actualWork - regularHours*60 + dressTime);
+      const sign = diffMin>=0?'+':'-';
+      const abs = Math.abs(diffMin);
       diffEl.textContent=sign+pad(Math.floor(abs/60))+':'+pad(abs%60);
       if(e.getHours()>=20) warnEl.textContent='⚠️ Gehzeit nach 20:00';
+    } else {
+      pauseMsg.textContent = pause.value ? '' : 'Standardpausen gemacht';
     }
   }
 
   start.addEventListener('input',renderTimes);
   end.addEventListener('input',renderTimes);
+  pause.addEventListener('input',renderTimes);
 
   updateLabel();
+  updateDiffLabel();
   updateVisibility();
 
   // ---- context menu to set regular hours ----
   const menu=document.createElement('div');
   menu.className='az-menu';
   menu.innerHTML=`
-    <button class="mi" data-val="5">Regelzeit 5:00</button>
-    <button class="mi" data-val="6.25">Regelzeit 6:15</button>
-    <button class="mi" data-val="7.5">Regelzeit 7:30</button>
-    <button class="mi" data-val="8">Regelzeit 8:00</button>`;
+    <button class="mi" data-reg="5">Regelzeit 5:00</button>
+    <button class="mi" data-reg="6.25">Regelzeit 6:15</button>
+    <button class="mi" data-reg="7.5">Regelzeit 7:30</button>
+    <button class="mi" data-reg="8">Regelzeit 8:00</button>
+    <div style="margin:.25rem 0;border-top:1px solid var(--border-color,#e5e7eb);"></div>
+    <button class="mi" data-dress="0">Umziehzeit 0 min</button>
+    <button class="mi" data-dress="2">Umziehzeit 2 min</button>
+    <button class="mi" data-dress="5">Umziehzeit 5 min</button>`;
   document.body.appendChild(menu);
 
   function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
@@ -126,12 +150,19 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   targetDiv.addEventListener('contextmenu',openMenu);
   window.addEventListener('click',()=>menu.classList.remove('open'));
   window.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open');});
-  menu.querySelectorAll('.mi').forEach(btn=>btn.addEventListener('click',()=>{
+  menu.querySelectorAll('[data-reg]').forEach(btn=>btn.addEventListener('click',()=>{
     menu.classList.remove('open');
-    regularHours=parseFloat(btn.dataset.val);
+    regularHours=parseFloat(btn.dataset.reg);
     localStorage.setItem(LS_KEY,String(regularHours));
     updateLabel();
     updateVisibility();
+    renderTimes();
+  }));
+  menu.querySelectorAll('[data-dress]').forEach(btn=>btn.addEventListener('click',()=>{
+    menu.classList.remove('open');
+    dressTime=parseInt(btn.dataset.dress,10);
+    localStorage.setItem(DRESS_KEY,String(dressTime));
+    updateDiffLabel();
     renderTimes();
   }));
 

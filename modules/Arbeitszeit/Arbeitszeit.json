@@ -7,6 +7,7 @@
   "minW": 2,
   "minH": 3,
   "settings": {
-    "regularHours": 7.5
+    "regularHours": 7.5,
+    "dressTime": 2
   }
 }
