@@ -89,9 +89,9 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
   function toHHMM(hours){ const h=Math.floor(hours); const m=Math.round((hours-h)*60); return pad(h)+':'+pad(m); }
   function timeToHours(val){ const [h,m]=val.split(':').map(Number); return h + m/60; }
-  function legalPause(mins){
-    if(mins < 5*60) return 0;
-    if(mins < 6*60+15) return 30;
+  function legalPause(workMins){
+    if(workMins <= 6*60) return 0;
+    if(workMins <= 9*60) return 30;
     return 45;
   }
   function updateLabel(){
@@ -127,8 +127,8 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     if(end.value){
       const e=parseTime(end.value);
       const totalMin = (e - s)/60000;
-      const autoPause = legalPause(totalMin);
       const userPause = pauseInput.value ? parseInt(pauseInput.value,10) : 0;
+      const autoPause = legalPause(totalMin - userPause);
       const pauseMin = userPause > autoPause ? userPause : autoPause;
       pauseMsg.textContent = userPause > autoPause
         ? `Manuelle Pause: ${pauseMin} min`
