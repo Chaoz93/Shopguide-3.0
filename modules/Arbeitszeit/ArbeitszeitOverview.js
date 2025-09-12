@@ -21,8 +21,55 @@ window.renderArbeitszeitOverview = async function (targetDiv, ctx = {}) {
   const FILE_KEY = 'az-overview-file';
   const CACHE_KEY = 'az-overview-cache';
   let fileHandle;
+  let data;
 
-  let data = await loadFile();
+  const onFileChange = async () => {
+    if (!fileHandle) return;
+    try {
+      data = await readHandle(fileHandle);
+      render();
+    } catch (e) {
+      console.warn('Konnte geänderte Datei nicht lesen', e);
+    }
+  };
+
+  // context menu for reloading/choosing file
+  const menu = document.createElement('div');
+  menu.className = 'az-overview-menu';
+  menu.innerHTML = `<div><button class="pick w-full text-left px-2 py-1">Datei wählen…</button></div>`;
+  document.body.appendChild(menu);
+  const pickBtn = menu.querySelector('.pick');
+
+  function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+  function openMenu(e) {
+    e.preventDefault(); e.stopPropagation();
+    const pad = 8; const vw = window.innerWidth, vh = window.innerHeight;
+    const rect = menu.getBoundingClientRect();
+    const w = rect.width || 150, h = rect.height || 24;
+    menu.style.left = clamp(e.clientX, pad, vw - w - pad) + 'px';
+    menu.style.top = clamp(e.clientY, pad, vh - h - pad) + 'px';
+    menu.classList.add('open');
+  }
+  targetDiv.addEventListener('contextmenu', openMenu);
+  pickBtn.addEventListener('click', async () => { menu.classList.remove('open'); await chooseFile(); });
+  window.addEventListener('click', e => { if (!menu.contains(e.target)) menu.classList.remove('open'); });
+  window.addEventListener('contextmenu', e => { if (!menu.contains(e.target)) menu.classList.remove('open'); });
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') menu.classList.remove('open'); });
+
+  if (!document.getElementById('az-overview-styles')) {
+    const style = document.createElement('style');
+    style.id = 'az-overview-styles';
+    style.textContent = `
+      .az-overview-menu{position:fixed;z-index:1000;display:none;min-width:150px;padding:.25rem;
+        background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);
+        border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
+      .az-overview-menu.open{display:block;}
+      .az-overview-menu button{display:block;width:100%;padding:.25rem .5rem;text-align:left;}
+    `;
+    document.head.appendChild(style);
+  }
+
+  data = await loadFile();
   let viewMode = 'week';
   let weekOffset = 0;
   let monthOffset = 0;
@@ -67,12 +114,9 @@ window.renderArbeitszeitOverview = async function (targetDiv, ctx = {}) {
         return {};
       }
     }
-    fileHandle = handle;
+    attachWatcher(handle);
     try {
-      const file = await handle.getFile();
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ path: handle.name, data: parsed }));
+      const parsed = await readHandle(handle);
       return parsed;
     } catch (e) {
       console.warn('Datei nicht lesbar', e);
@@ -82,6 +126,38 @@ window.renderArbeitszeitOverview = async function (targetDiv, ctx = {}) {
       } catch (_) {
         return {};
       }
+    }
+  }
+
+  async function readHandle(handle) {
+    const file = await handle.getFile();
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ path: handle.name, data: parsed }));
+    return parsed;
+  }
+
+  function attachWatcher(handle) {
+    if (fileHandle && fileHandle.removeEventListener) {
+      fileHandle.removeEventListener('change', onFileChange);
+    }
+    fileHandle = handle;
+    if (fileHandle && fileHandle.addEventListener) {
+      fileHandle.addEventListener('change', onFileChange);
+    }
+  }
+
+  async function chooseFile() {
+    try {
+      const [handle] = await window.showOpenFilePicker({ types: [{ description: 'Arbeitszeit JSON', accept: { 'application/json': ['.json'] } }] });
+      if (handle) {
+        attachWatcher(handle);
+        localStorage.setItem(FILE_KEY, window.serializeHandle?.(handle) || handle);
+        data = await readHandle(handle);
+        render();
+      }
+    } catch (e) {
+      console.warn('Datei nicht neu geladen', e);
     }
   }
 
@@ -232,4 +308,13 @@ window.renderArbeitszeitOverview = async function (targetDiv, ctx = {}) {
     const m = String(abs % 60).padStart(2, '0');
     return `${sign}${h}:${m}`;
   }
+
+  const mo = new MutationObserver(() => {
+    if (!document.body.contains(targetDiv)) {
+      if (fileHandle && fileHandle.removeEventListener) fileHandle.removeEventListener('change', onFileChange);
+      menu.remove();
+      mo.disconnect();
+    }
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
 };
