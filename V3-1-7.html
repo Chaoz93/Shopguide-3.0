@@ -98,7 +98,7 @@
     #sidebar.collapsed #module-list { pointer-events: none; }
     /* Topbar, sidebar and buttons use variables */
     #top-bar { background-color: var(--top-bar-bg) !important; border-bottom: 1px solid var(--border-color) !important; }
-    #sidebar { background-color: var(--sidebar-bg) !important; border-right: 1px solid var(--border-color) !important; color: var(--sidebar-text); }
+    #sidebar { background-color: var(--sidebar-bg) !important; border-right: 1px solid var(--border-color) !important; color: var(--sidebar-text); overflow-y: auto; }
     #select-root { background-color: var(--button-bg) !important; color: var(--button-text) !important; }
     button.remove { background-color: var(--danger-bg) !important; color: var(--danger-text) !important; }
     /* Tabs */
@@ -772,12 +772,10 @@ async function loadAppSettings() {
 
 /** Update card draggability */
 function updateModuleDraggable() {
-  listEl.querySelectorAll('.module-card').forEach(card => {
+  listEl.querySelectorAll('.module-card[data-subdir]').forEach(card => {
     card.draggable = isSidebarOpen;
     card.style.webkitUserDrag = isSidebarOpen ? 'element' : 'none';
     card.style.cursor = isSidebarOpen ? 'grab' : 'default';
-    const delBtn = card.querySelector('.mod-delete');
-    if (delBtn) delBtn.style.display = isSidebarOpen ? '' : 'none';
   });
 }
 function updateGridDraggable() {
@@ -812,26 +810,9 @@ async function loadModulesFromRoot(rootHandle) {
     alert('Kein "modules" Unterordner im gewählten Root gefunden.');
     return;
   }
-  const templates = [];
-  for await (const entry of modulesDirHandle.values()) {
-    if (entry.kind !== 'directory') continue;
-    const dirHandle = entry;
-    let moduleJson = null;
-    const attachments = [];
-    for await (const fileEntry of dirHandle.values()) {
-      if (fileEntry.kind === 'file') {
-        if (fileEntry.name.endsWith('.json')) {
-          const f = await fileEntry.getFile();
-          try { moduleJson = JSON.parse(await f.text()); } catch {}
-        } else {
-          attachments.push(fileEntry.name);
-        }
-      }
-    }
-    if (moduleJson) templates.push({ template: moduleJson, subdir: entry.name, attachments, dirHandle });
-  }
-  liveModuleTemplates = templates;
-  renderSidebar(templates);
+  const { tree, modules } = await buildTreeFromHandle(modulesDirHandle);
+  liveModuleTemplates = modules;
+  renderSidebar(tree);
 
   // Apply a fade-in animation to grids container when modules load
   if (gridsContainer) {
@@ -842,31 +823,9 @@ async function loadModulesFromRoot(rootHandle) {
 
 /** Fallback load modules via file list */
 async function loadModulesFromFileList(files, rootName) {
-  const byDir = new Map();
-  for (const f of files) {
-    const rel = f.webkitRelativePath;
-    const parts = rel.split('/');
-    if (parts.length < 3) continue;
-    if (parts[0] !== rootName || parts[1] !== 'modules') continue;
-    const moduleDir = parts[2];
-    if (!byDir.has(moduleDir)) byDir.set(moduleDir, []);
-    byDir.get(moduleDir).push(f);
-  }
-  const templates = [];
-  for (const [subdir, list] of byDir.entries()) {
-    let moduleJson = null;
-    const attachments = [];
-    for (const file of list) {
-      if (file.name.endsWith('.json')) {
-        try { moduleJson = JSON.parse(await file.text()); } catch {}
-      } else {
-        attachments.push(file.name);
-      }
-    }
-    if (moduleJson) templates.push({ template: moduleJson, subdir, attachments, fileList: list });
-  }
-  liveModuleTemplates = templates;
-  renderSidebar(templates);
+  const { tree, modules } = await buildTreeFromFileList(files, rootName);
+  liveModuleTemplates = modules;
+  renderSidebar(tree);
 
   // Apply fade-in to grids container when modules load via fallback
   if (gridsContainer) {
@@ -876,18 +835,43 @@ async function loadModulesFromFileList(files, rootName) {
 }
 
 /** Render sidebar module cards */
-function renderSidebar(templates) {
+function renderSidebar(tree) {
   listEl.innerHTML = '';
-  if (!templates.length) {
+  if (!tree.length) {
     listEl.innerHTML = '<div class="text-gray-400">Keine Module gefunden.</div>';
     return;
   }
-  templates.forEach(modObj => {
-    const { template, subdir, attachments } = modObj;
+  tree.forEach(node => renderSidebarNode(node, listEl));
+  updateModuleDraggable();
+}
+
+function renderSidebarNode(node, container) {
+  if (node.type === 'folder') {
+    const header = document.createElement('div');
+    header.className = 'module-card rounded p-3 cursor-pointer shadow transition flex items-center';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'font-semibold flex-1';
+    nameSpan.textContent = node.name;
+    const arrow = document.createElement('span');
+    arrow.textContent = '▼';
+    header.appendChild(nameSpan);
+    header.appendChild(arrow);
+    container.appendChild(header);
+    const childrenContainer = document.createElement('div');
+    childrenContainer.className = 'pl-4 flex flex-col gap-2 mt-2';
+    childrenContainer.style.display = 'none';
+    container.appendChild(childrenContainer);
+    node.children.forEach(child => renderSidebarNode(child, childrenContainer));
+    header.addEventListener('click', () => {
+      const open = childrenContainer.style.display !== 'none';
+      childrenContainer.style.display = open ? 'none' : '';
+      arrow.textContent = open ? '▼' : '▲';
+    });
+  } else {
+    const { template, subdir, attachments } = node;
     const card = document.createElement('div');
     card.className = 'module-card rounded p-3 cursor-grab shadow transition flex flex-col';
     card.dataset.subdir = subdir;
-    // header
     const header = document.createElement('div');
     header.className = 'flex items-center gap-2';
     if (template.icon) {
@@ -900,15 +884,6 @@ function renderSidebar(templates) {
     nameSpan.className = 'font-semibold flex-1';
     nameSpan.textContent = template.name || subdir;
     header.appendChild(nameSpan);
-    const delBtn = document.createElement('button');
-    delBtn.className = 'mod-delete text-red-600 hover:text-red-800 ml-auto';
-    delBtn.title = 'Modul aus der Liste entfernen';
-    delBtn.textContent = '🗑';
-    delBtn.addEventListener('click', ev => {
-      ev.stopPropagation();
-      deleteModule(subdir);
-    });
-    header.appendChild(delBtn);
     card.appendChild(header);
     if (attachments?.length) {
       const att = document.createElement('div');
@@ -927,24 +902,111 @@ function renderSidebar(templates) {
       card.classList.add('dragging');
     });
     card.addEventListener('dragend', () => card.classList.remove('dragging'));
-    listEl.appendChild(card);
-  });
-  updateModuleDraggable();
+    container.appendChild(card);
+  }
 }
 
-/** Delete module from sidebar array */
-function deleteModule(subdir) {
-  const idx = liveModuleTemplates.findIndex(t => t.subdir === subdir);
-  if (idx >= 0) {
-    liveModuleTemplates.splice(idx, 1);
-    renderSidebar(liveModuleTemplates);
+async function buildTreeFromHandle(dirHandle, basePath = '') {
+  const modules = [];
+  async function scan(handle, relPath) {
+    let moduleJson = null;
+    const attachments = [];
+    let hasJson = false, hasJs = false;
+    const children = [];
+    for await (const entry of handle.values()) {
+      if (entry.kind === 'file') {
+        if (entry.name.endsWith('.json')) {
+          hasJson = true;
+          const f = await entry.getFile();
+          try { moduleJson = JSON.parse(await f.text()); } catch {}
+        } else {
+          if (entry.name.endsWith('.js')) hasJs = true;
+          attachments.push(entry.name);
+        }
+      } else if (entry.kind === 'directory') {
+        const child = await scan(entry, relPath ? `${relPath}/${entry.name}` : entry.name);
+        if (child) children.push(child);
+      }
+    }
+    if (hasJson && hasJs && moduleJson) {
+      const node = { type: 'module', template: moduleJson, subdir: relPath, attachments, dirHandle: handle };
+      modules.push(node);
+      return node;
+    }
+    return { type: 'folder', name: handle.name, children };
   }
+  const root = await scan(dirHandle, basePath);
+  return { tree: root.children || [], modules };
+}
+
+async function buildTreeFromFileList(files, rootName) {
+  const root = { name: 'modules', files: [], children: {} };
+  for (const f of files) {
+    const rel = f.webkitRelativePath.split('/');
+    if (rel.length < 3) continue;
+    if (rel[0] !== rootName || rel[1] !== 'modules') continue;
+    insert(root, rel.slice(2), f);
+  }
+  const modules = [];
+  async function finalize(node, relPath) {
+    const hasJson = node.files.some(f => f.name.endsWith('.json'));
+    const hasJs = node.files.some(f => f.name.endsWith('.js'));
+    let moduleJson = null;
+    const attachments = [];
+    if (hasJson && hasJs) {
+      for (const f of node.files) {
+        if (f.name.endsWith('.json')) { try { moduleJson = JSON.parse(await f.text()); } catch {} }
+        else attachments.push(f.name);
+      }
+      const subdir = relPath;
+      const modNode = { type: 'module', template: moduleJson, subdir, attachments, fileList: node.files };
+      modules.push(modNode);
+      return modNode;
+    }
+    const children = [];
+    for (const [name, child] of Object.entries(node.children)) {
+      const childNode = await finalize(child, relPath ? `${relPath}/${name}` : name);
+      if (childNode) children.push(childNode);
+    }
+    return { type: 'folder', name: node.name, children };
+  }
+  function insert(node, parts, file) {
+    if (parts.length === 1) {
+      node.files.push(file);
+    } else {
+      const [folder, ...rest] = parts;
+      if (!node.children[folder]) node.children[folder] = { name: folder, files: [], children: {} };
+      insert(node.children[folder], rest, file);
+    }
+  }
+  const tree = await finalize(root, '');
+  return { tree: tree.children || [], modules };
 }
 
 /** Reset and recreate tabs using saved layout */
 async function loadAndInitTabs() {
   resetTabs();
-  const saved = await loadLayout();
+  let saved = await loadLayout();
+  let migrated = false;
+
+  if (saved && saved.length) {
+    for (const tabData of saved) {
+      if (!Array.isArray(tabData.modules)) continue;
+      for (const mod of tabData.modules) {
+        const name = mod.subdir || mod.name;
+        const exists = name && liveModuleTemplates.find(t => t.subdir === name);
+        if (!exists && name) {
+          const base = name.split('/').pop();
+          const found = liveModuleTemplates.find(t => t.subdir.split('/').pop() === base);
+          if (found) {
+            mod.subdir = found.subdir;
+            delete mod.name;
+            migrated = true;
+          }
+        }
+      }
+    }
+  }
 
   // Seed used IDs and counter from saved layout
   usedInstanceIds = new Set();
@@ -968,6 +1030,8 @@ async function loadAndInitTabs() {
   }
   renderTabs();
   activateTab(0);
+
+  if (migrated) saveLayout();
 
   // ensure initial state reflects current sidebar state
   updateModuleDraggable();
