@@ -84,9 +84,9 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   function updateLabel(){ labelEl.textContent = `Regelzeit (${toHHMM(regularHours)} + 45 min Pause)`; }
   function updateDiffLabel(){ diffLabel.textContent = `Differenz zur Regelzeit (+${dressTime} min)`; }
   function updateVisibility(){
-    const hideEarly = regularHours*60 <= 375;
-    t5Row.style.display = hideEarly ? 'none' : '';
-    t615Row.style.display = hideEarly ? 'none' : '';
+    const totalMin = regularHours * 60;
+    t5Row.style.display = totalMin <= 300 ? 'none' : '';
+    t615Row.style.display = totalMin <= 375 ? 'none' : '';
   }
 
   function parseTime(val){ const [h,m]=val.split(':').map(Number); const d=new Date(); d.setHours(h,m,0,0); return d; }
