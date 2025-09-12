@@ -1,96 +1,147 @@
+// Arbeitszeit Modul – berechnet mögliche Gehzeiten und erlaubt die Wahl der Regelarbeitszeit über ein Kontextmenü
 window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const settings = ctx.moduleJson?.settings || {};
-  const regularHours = Number(settings.regularHours ?? 7.5); // 7.5 or 8 hours of work
-  const regularLabel = regularHours === 8 ? '8:00' : '7:30';
 
+  // ---- helper & persistence ----
+  function instanceIdOf(root){
+    return root.closest('.grid-stack-item')?.dataset?.instanceId || 'inst-' + Math.random().toString(36).slice(2);
+  }
+  const inst = instanceIdOf(targetDiv);
+  const LS_KEY = 'az-reg-' + inst;
+  let regularHours = Number(localStorage.getItem(LS_KEY) || settings.regularHours || 7.5);
+
+  if(!document.getElementById('az-styles')){
+    const css = `
+      .az-row{display:flex;justify-content:space-between;padding:.25rem .5rem;background:rgba(255,255,255,.1);border-radius:.25rem;}
+      .az-menu{position:fixed;z-index:1000;display:none;min-width:150px;padding:.25rem;
+        background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);
+        border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
+      .az-menu.open{display:block;}
+      .az-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;}
+      .az-menu .mi:hover{background:rgba(0,0,0,.06);}
+    `;
+    const tag=document.createElement('style');
+    tag.id='az-styles';
+    tag.textContent=css;
+    document.head.appendChild(tag);
+  }
+
+  // ---- UI ----
   targetDiv.innerHTML = `
-    <div class="p-2 space-y-2 text-white text-sm">
+    <div class="p-2 space-y-3 text-white text-sm">
       <label class="block">
         <span class="opacity-90">Einstempelzeit</span>
         <input type="time" class="start w-full text-black p-1 rounded" />
       </label>
-      <div class="space-y-1">
-        <div>Ohne Pause (5h): <span class="t5 font-semibold"></span></div>
-        <div>Nach 6:15&nbsp;+&nbsp;30 min Pause: <span class="t615 font-semibold"></span></div>
-        <div>Regelzeit (${regularLabel} + 45 min Pause): <span class="treg font-semibold"></span></div>
-        <div>Max. 10h + 45 min Pause: <span class="tmax font-semibold"></span></div>
+      <div class="space-y-1 times">
+        <div class="az-row row-5"><span>Ohne Pause (5h)</span><span class="t5 font-semibold"></span></div>
+        <div class="az-row row-615"><span>Nach 6:15&nbsp;+&nbsp;30 min Pause</span><span class="t615 font-semibold"></span></div>
+        <div class="az-row row-reg"><span class="label"></span><span class="treg font-semibold"></span></div>
+        <div class="az-row row-max"><span>Max. 10h&nbsp;+&nbsp;45 min Pause</span><span class="tmax font-semibold"></span></div>
       </div>
       <label class="block">
         <span class="opacity-90">Gehzeit</span>
         <input type="time" class="end w-full text-black p-1 rounded" />
       </label>
-      <div>Differenz zur Regelzeit (+2 min): <span class="diff font-semibold"></span></div>
+      <div class="az-row"><span>Differenz zur Regelzeit (+2 min)</span><span class="diff font-semibold"></span></div>
       <div class="warn text-red-500 text-xs"></div>
     </div>
   `;
 
   const start = targetDiv.querySelector('.start');
   const end = targetDiv.querySelector('.end');
+  const t5Row = targetDiv.querySelector('.row-5');
+  const t615Row = targetDiv.querySelector('.row-615');
+  const tregRow = targetDiv.querySelector('.row-reg');
   const t5El = targetDiv.querySelector('.t5');
   const t615El = targetDiv.querySelector('.t615');
   const tregEl = targetDiv.querySelector('.treg');
   const tmaxEl = targetDiv.querySelector('.tmax');
   const diffEl = targetDiv.querySelector('.diff');
   const warnEl = targetDiv.querySelector('.warn');
+  const labelEl = tregRow.querySelector('.label');
 
-  function parseTime(val) {
-    const [h, m] = val.split(':').map(Number);
-    const d = new Date();
-    d.setHours(h, m, 0, 0);
-    return d;
+  function regularLabel(){
+    return regularHours===8?'8:00':regularHours===6.25?'6:15':regularHours===5?'5:00':'7:30';
   }
-  function fmt(date) {
-    return date.toTimeString().slice(0,5);
-  }
-  function addMin(date, mins) {
-    return new Date(date.getTime() + mins * 60000);
-  }
-  function updateColor(el, date) {
-    if (date.getHours() >= 20) {
-      el.classList.add('text-red-500');
-    } else {
-      el.classList.remove('text-red-500');
-    }
-  }
-  function pad(n){
-    return n.toString().padStart(2, '0');
+  function updateLabel(){ labelEl.textContent = `Regelzeit (${regularLabel()} + 45 min Pause)`; }
+  function updateVisibility(){
+    const hideEarly = regularHours <= 6.25;
+    t5Row.style.display = hideEarly ? 'none' : '';
+    t615Row.style.display = hideEarly ? 'none' : '';
   }
 
-  function renderTimes() {
-    [t5El, t615El, tregEl, tmaxEl, diffEl].forEach(el => { el.textContent=''; el.classList.remove('text-red-500'); });
-    warnEl.textContent = '';
-    if (!start.value) return;
-    const s = parseTime(start.value);
+  function parseTime(val){ const [h,m]=val.split(':').map(Number); const d=new Date(); d.setHours(h,m,0,0); return d; }
+  function fmt(date){ return date.toTimeString().slice(0,5); }
+  function addMin(date,mins){ return new Date(date.getTime()+mins*60000); }
+  function updateColor(el,date){ if(date.getHours()>=20) el.classList.add('text-red-500'); else el.classList.remove('text-red-500'); }
+  function pad(n){ return n.toString().padStart(2,'0'); }
 
-    const t5 = addMin(s, 5 * 60);
-    t5El.textContent = fmt(t5);
-    updateColor(t5El, t5);
+  function renderTimes(){
+    [t5El,t615El,tregEl,tmaxEl,diffEl].forEach(el=>{el.textContent='';el.classList.remove('text-red-500');});
+    warnEl.textContent='';
+    if(!start.value) return;
+    const s=parseTime(start.value);
 
-    const t615 = addMin(s, 6 * 60 + 15 + 30); // 6h15 work + 30min pause
-    t615El.textContent = fmt(t615);
-    updateColor(t615El, t615);
+    const t5=addMin(s,5*60); t5El.textContent=fmt(t5); updateColor(t5El,t5);
+    const t615=addMin(s,6*60+15+30); t615El.textContent=fmt(t615); updateColor(t615El,t615);
+    const treg=addMin(s,regularHours*60+45); tregEl.textContent=fmt(treg); updateColor(tregEl,treg);
+    const tmax=addMin(s,10*60+45); tmaxEl.textContent=fmt(tmax); updateColor(tmaxEl,tmax);
 
-    const treg = addMin(s, regularHours * 60 + 45);
-    tregEl.textContent = fmt(treg);
-    updateColor(tregEl, treg);
-
-    const tmax = addMin(s, 10 * 60 + 45);
-    tmaxEl.textContent = fmt(tmax);
-    updateColor(tmaxEl, tmax);
-
-    if (end.value) {
-      const e = parseTime(end.value);
-      const expected = treg;
-      const diffMin = Math.round((e - expected) / 60000) + 2;
-      const sign = diffMin >= 0 ? '+' : '-';
-      const abs = Math.abs(diffMin);
-      diffEl.textContent = sign + pad(Math.floor(abs/60)) + ':' + pad(abs%60);
-      if (e.getHours() >= 20) {
-        warnEl.textContent = '⚠️ Gehzeit nach 20:00';
-      }
+    if(end.value){
+      const e=parseTime(end.value);
+      const diffMin=Math.round((e-treg)/60000)+2;
+      const sign=diffMin>=0?'+':'-';
+      const abs=Math.abs(diffMin);
+      diffEl.textContent=sign+pad(Math.floor(abs/60))+':'+pad(abs%60);
+      if(e.getHours()>=20) warnEl.textContent='⚠️ Gehzeit nach 20:00';
     }
   }
 
-  start.addEventListener('input', renderTimes);
-  end.addEventListener('input', renderTimes);
+  start.addEventListener('input',renderTimes);
+  end.addEventListener('input',renderTimes);
+
+  updateLabel();
+  updateVisibility();
+
+  // ---- context menu to set regular hours ----
+  const menu=document.createElement('div');
+  menu.className='az-menu';
+  menu.innerHTML=`
+    <button class="mi" data-val="5">Regelzeit 5:00</button>
+    <button class="mi" data-val="6.25">Regelzeit 6:15</button>
+    <button class="mi" data-val="7.5">Regelzeit 7:30</button>
+    <button class="mi" data-val="8">Regelzeit 8:00</button>`;
+  document.body.appendChild(menu);
+
+  function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+  function openMenu(e){
+    e.preventDefault(); e.stopPropagation();
+    const pad=8,vw=window.innerWidth,vh=window.innerHeight;const rect=menu.getBoundingClientRect();
+    const w=rect.width||150,h=rect.height||44;
+    menu.style.left=clamp(e.clientX,pad,vw-w-pad)+'px';
+    menu.style.top=clamp(e.clientY,pad,vh-h-pad)+'px';
+    menu.classList.add('open');
+  }
+  targetDiv.addEventListener('contextmenu',openMenu);
+  window.addEventListener('click',()=>menu.classList.remove('open'));
+  window.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open');});
+  menu.querySelectorAll('.mi').forEach(btn=>btn.addEventListener('click',()=>{
+    menu.classList.remove('open');
+    regularHours=parseFloat(btn.dataset.val);
+    localStorage.setItem(LS_KEY,String(regularHours));
+    updateLabel();
+    updateVisibility();
+    renderTimes();
+  }));
+
+  // cleanup when element removed
+  const mo=new MutationObserver(()=>{
+    if(!document.body.contains(targetDiv)){
+      menu.remove();
+      mo.disconnect();
+    }
+  });
+  mo.observe(document.body,{childList:true,subtree:true});
 };
+
