@@ -18,6 +18,8 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   if(!document.getElementById('az-styles')){
     const css = `
       .az-row{display:flex;justify-content:space-between;padding:.25rem .5rem;background:rgba(255,255,255,.1);border-radius:.25rem;}
+      .az-row.clickable{cursor:pointer;}
+      .az-row.clickable:hover{background:rgba(255,255,255,.2);}
       .az-menu{position:fixed;z-index:1000;display:none;min-width:150px;padding:.25rem;
         background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);
         border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
@@ -39,9 +41,9 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
         <input type="time" class="start w-full text-black p-1 rounded" />
       </label>
       <div class="space-y-1 times">
-        <div class="az-row row-5"><span>Ohne Pause (5h)</span><span class="t5 font-semibold"></span></div>
-        <div class="az-row row-615"><span>Nach 6:15&nbsp;+&nbsp;45 min Pause</span><span class="t615 font-semibold"></span></div>
-        <div class="az-row row-reg"><span class="label"></span><span class="treg font-semibold"></span></div>
+        <div class="az-row row-5 clickable"><span>Ohne Pause (5h)</span><span class="t5 font-semibold"></span></div>
+        <div class="az-row row-615 clickable"><span>Nach 6:15&nbsp;+&nbsp;30 min Pause</span><span class="t615 font-semibold"></span></div>
+        <div class="az-row row-reg clickable"><span class="label"></span><span class="treg font-semibold"></span></div>
         <div class="az-row row-max"><span>Max. 10h&nbsp;+&nbsp;45 min Pause</span><span class="tmax font-semibold"></span></div>
       </div>
       <label class="block">
@@ -73,6 +75,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const warnEl = targetDiv.querySelector('.warn');
   const labelEl = tregRow.querySelector('.label');
   const diffLabel = targetDiv.querySelector('.diff-label');
+  let lastT5, lastT615, lastTreg;
 
   start.value = localStorage.getItem(START_KEY) || '';
   end.value = localStorage.getItem(END_KEY) || '';
@@ -105,13 +108,14 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   function renderTimes(){
     [t5El,t615El,tregEl,tmaxEl,diffEl].forEach(el=>{el.textContent='';el.classList.remove('text-red-500');});
     warnEl.textContent='';
+    lastT5=lastT615=lastTreg=undefined;
 
     if(!start.value) return;
     const s=parseTime(start.value);
 
-    const t5=addMin(s,5*60); t5El.textContent=fmt(t5); updateColor(t5El,t5);
-    const t615=addMin(s,6*60+15+legalPause(6*60+15)); t615El.textContent=fmt(t615); updateColor(t615El,t615);
-    const treg=addMin(s,regularHours*60+legalPause(regularHours*60)); tregEl.textContent=fmt(treg); updateColor(tregEl,treg);
+    lastT5=addMin(s,5*60); t5El.textContent=fmt(lastT5); updateColor(t5El,lastT5);
+    lastT615=addMin(s,6*60+15+30); t615El.textContent=fmt(lastT615); updateColor(t615El,lastT615);
+    lastTreg=addMin(s,regularHours*60+legalPause(regularHours*60)); tregEl.textContent=fmt(lastTreg); updateColor(tregEl,lastTreg);
     const tmax=addMin(s,10*60+legalPause(10*60)); tmaxEl.textContent=fmt(tmax); updateColor(tmaxEl,tmax);
 
     if(end.value){
@@ -143,6 +147,17 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   start.addEventListener('input',()=>{ store(START_KEY,start.value); renderTimes(); });
   end.addEventListener('input',()=>{ store(END_KEY,end.value); renderTimes(); });
   pauseInput.addEventListener('input',()=>{ store(PAUSE_KEY,pauseInput.value); renderTimes(); });
+
+  function pick(date){
+    if(!date) return;
+    const val=fmt(addMin(date,-5));
+    end.value=val;
+    store(END_KEY,val);
+    renderTimes();
+  }
+  t5Row.addEventListener('click',()=>pick(lastT5));
+  t615Row.addEventListener('click',()=>pick(lastT615));
+  tregRow.addEventListener('click',()=>pick(lastTreg));
 
   updateLabel();
   updateDiffLabel();
