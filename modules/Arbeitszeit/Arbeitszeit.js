@@ -46,7 +46,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       </label>
       <div class="space-y-1 times">
         <div class="az-row row-5 clickable"><span>Ohne Pause</span><span class="t5 font-semibold"></span></div>
-        <div class="az-row row-615 clickable"><span>min 45min Pause</span><span class="t615 font-semibold"></span></div>
+        <div class="az-row row-615 clickable"><span>min 30min Pause</span><span class="t615 font-semibold"></span></div>
         <div class="az-row row-reg clickable"><span class="label"></span><span class="treg font-semibold"></span></div>
         <div class="az-row row-max clickable"><span>10h Arbeitszeit</span><span class="tmax font-semibold"></span></div>
       </div>
@@ -121,7 +121,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     const s=parseTime(start.value);
 
     lastT5=addMin(s,5*60); t5El.textContent=fmt(lastT5); updateColor(t5El,lastT5);
-    lastT615=addMin(s,6*60+15+45); t615El.textContent=fmt(lastT615); updateColor(t615El,lastT615);
+    lastT615=addMin(s,6*60+15+30); t615El.textContent=fmt(lastT615); updateColor(t615El,lastT615);
     lastTreg=addMin(s,regularHours*60+legalPause(regularHours*60)); tregEl.textContent=fmt(lastTreg); updateColor(tregEl,lastTreg);
     lastTmax=addMin(s,10*60+legalPause(10*60)); tmaxEl.textContent=fmt(lastTmax); updateColor(tmaxEl,lastTmax);
 
