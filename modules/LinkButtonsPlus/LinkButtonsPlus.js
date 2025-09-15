@@ -49,6 +49,10 @@
     .ops-menu.open{display:block;}
     .ops-menu label{display:flex; align-items:center; gap:.4rem; padding:.35rem .6rem; cursor:pointer;}
     .ops-menu label:hover{background:rgba(0,0,0,.06);}
+    .ops-menu hr{border:none; border-top:1px solid var(--border-color,#e5e7eb); margin:.25rem;}
+    .ops-menu button{display:block; width:100%; margin:.25rem 0 0; padding:.35rem .6rem; border:none; border-radius:.4rem;
+      background:var(--button-bg); color:var(--button-text); cursor:pointer;}
+    .ops-menu .ops-file{display:block; font-size:.75rem; opacity:.8; padding:.2rem .6rem 0;}
     `;
     const tag = document.createElement('style');
     tag.id = 'ops-panel-styles';
@@ -56,13 +60,64 @@
     document.head.appendChild(tag);
   }
 
-  // ---------- storage helpers ----------
+  // ---------- storage & dictionary helpers ----------
   const LS_KEY = 'module_data_v1';
-  function loadDoc(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch { return {}; } }
-  function getGeneral(name){
-    const d = loadDoc();
-    const v = d && d.general ? d.general[name] : '';
-    return (typeof v === 'string') ? v : '';
+  const IDB_NAME = 'modulesApp';
+  const IDB_STORE = 'fs-handles';
+  const GLOBAL_DICT_KEY = 'globalDict';
+  const SHEET_NAME = 'records';
+  const HEAD = ['meldung','auftrag','part','serial'];
+
+  function loadDoc(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || {general:{}}; } catch { return {general:{}}; } }
+  function saveDoc(doc){ try{ localStorage.setItem(LS_KEY, JSON.stringify(doc)); }catch{} }
+  function activeMeldung(){ return (loadDoc().general.Meldung || '').trim(); }
+  function saveDictFileName(name){ const d=loadDoc(); d.general ||= {}; d.general.dictFileName=name; saveDoc(d); }
+  function loadDictFileName(){ return loadDoc().general.dictFileName || ''; }
+
+  function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open(IDB_NAME,1); r.onupgradeneeded=()=>r.result.createObjectStore(IDB_STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  async function idbSet(k,v){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readwrite'); tx.objectStore(IDB_STORE).put(v,k); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+  async function idbGet(k){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readonly'); const rq=tx.objectStore(IDB_STORE).get(k); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); }); }
+  async function ensureRWPermission(handle){ if(!handle?.queryPermission) return true; const q=await handle.queryPermission({mode:'readwrite'}); if(q==='granted') return true; const r=await handle.requestPermission({mode:'readwrite'}); return r==='granted'; }
+
+  async function ensureXLSX(){
+    if (window.XLSX) return;
+    if (window.__XLSX_LOAD_PROMISE__) return window.__XLSX_LOAD_PROMISE__;
+    const urls = [
+      'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js',
+      'https://cdn.jsdelivr.net/npm/xlsx@0.20.2/dist/xlsx.full.min.js',
+      'https://unpkg.com/xlsx@0.20.2/dist/xlsx.full.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.2/xlsx.full.min.js'
+    ];
+    window.__XLSX_LOAD_PROMISE__ = (async()=>{
+      let last;
+      for(const url of urls){
+        try{
+          await new Promise((ok,err)=>{ const s=document.createElement('script'); s.src=url; s.async=true; s.onload=ok; s.onerror=()=>err(new Error('load '+url)); document.head.appendChild(s); });
+          if(window.XLSX) return;
+        }catch(e){ last=e; }
+      }
+      throw last || new Error('XLSX load failed');
+    })();
+    return window.__XLSX_LOAD_PROMISE__;
+  }
+
+  async function readAll(handle){
+    await ensureXLSX();
+    const f = await handle.getFile();
+    if(f.size===0) return [];
+    const buf = await f.arrayBuffer();
+    const wb = XLSX.read(buf,{type:'array'});
+    const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
+    if(!ws) return [];
+    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    const hdr = rows[0]?.map(h=>String(h||'').toLowerCase().trim()) || [];
+    const idx = Object.fromEntries(HEAD.map(h=>[h, hdr.indexOf(h)]));
+    return rows.slice(1).map(r=>({
+      meldung:String(r[idx.meldung]??''),
+      auftrag:String(r[idx.auftrag]??''),
+      part:String(r[idx.part]??''),
+      serial:String(r[idx.serial]??'')
+    })).filter(r=>r.meldung||r.auftrag||r.part||r.serial);
   }
 
   // UTF-8 safe Base64
@@ -85,13 +140,13 @@
     root.innerHTML = `
       <div class="ops-outer">
         <div class="ops-grid">
-          <div class="ops-card leftTop">${leftTop}</div>
-          <div class="ops-card leftBot">${leftBottom}</div>
-          <div class="ops-card r0">${r[0] || ''}</div>
-          <div class="ops-card r1">${r[1] || ''}</div>
-          <div class="ops-card r2">${r[2] || ''}</div>
-          <div class="ops-card r3">${r[3] || ''}</div>
-          <div class="ops-card r4">${r[4] || ''}</div>
+          <div class="ops-card leftTop" data-slot="left0">${leftTop}</div>
+          <div class="ops-card leftBot" data-slot="left1">${leftBottom}</div>
+          <div class="ops-card r0" data-slot="r0">${r[0] || ''}</div>
+          <div class="ops-card r1" data-slot="r1">${r[1] || ''}</div>
+          <div class="ops-card r2" data-slot="r2">${r[2] || ''}</div>
+          <div class="ops-card r3" data-slot="r3">${r[3] || ''}</div>
+          <div class="ops-card r4" data-slot="r4">${r[4] || ''}</div>
         </div>
       </div>
     `;
@@ -108,98 +163,117 @@
     };
     const openNew = (url) => window.open(url, '_blank', 'noopener,noreferrer');
 
+    // ---- Dictionary state ----
+    let fileHandle = null;
+    let cache = [];
+
+    function lookup(){
+      const m = activeMeldung();
+      if(!m) return {m:'',aun:'',part:'',serial:''};
+      const row = cache.find(r => (r.meldung||'').trim() === m);
+      return { m, aun:(row?.auftrag||'').trim(), part:(row?.part||'').trim(), serial:(row?.serial||'').trim() };
+    }
+
     // ---- Click behavior ----
     root.querySelectorAll('.ops-card').forEach(el => {
       el.addEventListener('click', () => {
         const label = (el.textContent || '').trim().toUpperCase();
+        const { m, aun, part, serial } = lookup();
 
-        // EVENT (leftTop): Base64 deeplink with AUN as JobOrderNo
         if (label === 'EVENT') {
-          const aun = (getGeneral('AUN') || '').trim();
-          if (!aun) return alert('AUN is not set in module_data_v1.general.AUN');
+          if (!aun) return;
           const raw = `func=deeplinksearch&searchTab=event&OPRange=&JobOrderNo=${aun}`;
           const b64 = b64encode(raw);
           openNew(URLS.EDOC_BASE + encodeURIComponent(b64) + '&b64=t');
           return;
         }
-
-        // CMDS (leftBot): Base64 deeplink with PartNo as Component
         if (label === 'CMDS') {
-          const partNo = (getGeneral('PartNo') || '').trim();
-          if (!partNo) return alert('PartNo is not set in module_data_v1.general.PartNo');
-          const raw = `func=deeplinksearch&searchTab=maint&DocumentType=CMDS&Status=eRL&Component=${partNo}`;
+          if (!part) return;
+          const raw = `func=deeplinksearch&searchTab=maint&DocumentType=CMDS&Status=eRL&Component=${part}`;
           const b64 = b64encode(raw);
           openNew(URLS.EDOC_BASE + encodeURIComponent(b64) + '&b64=t');
           return;
         }
+        if (label === 'ZIAUF3') { if (!aun) return; openNew(URLS.ZIAUF3_BASE + encodeURIComponent(aun)); return; }
+        if (label === 'ZILLK')  { if (!m)   return; openNew(URLS.ZILLK_BASE  + encodeURIComponent(m) + URLS.ZILLK_TAIL); return; }
+        if (label === 'ZIKV')   { if (!aun) return; openNew(URLS.ZIKV_BASE   + encodeURIComponent(aun)); return; }
+        if (label === 'ZIQA')   { if (!aun) return; openNew(URLS.ZIQA_BASE   + encodeURIComponent(aun)); return; }
+        if (label === 'REPORT') { if (!part || !serial) return; openNew(URLS.TRV_BASE + encodeURIComponent(part) + '&sn=' + encodeURIComponent(serial)); return; }
 
-        // ZIAUF3 → AUN
-        if (label === 'ZIAUF3') {
-          const aun = (getGeneral('AUN') || '').trim();
-          if (!aun) return alert('AUN is not set in module_data_v1.general.AUN');
-          openNew(URLS.ZIAUF3_BASE + encodeURIComponent(aun));
-          return;
-        }
-
-        // ZILLK → Meldung (+ tail)
-        if (label === 'ZILLK') {
-          const meldung = (getGeneral('Meldung') || '').trim();
-          if (!meldung) return alert('Meldung is not set in module_data_v1.general.Meldung');
-          openNew(URLS.ZILLK_BASE + encodeURIComponent(meldung) + URLS.ZILLK_TAIL);
-          return;
-        }
-
-        // ZIKV → AUN
-        if (label === 'ZIKV') {
-          const aun = (getGeneral('AUN') || '').trim();
-          if (!aun) return alert('AUN is not set in module_data_v1.general.AUN');
-          openNew(URLS.ZIKV_BASE + encodeURIComponent(aun));
-          return;
-        }
-
-        // ZIQA → AUN
-        if (label === 'ZIQA') {
-          const aun = (getGeneral('AUN') || '').trim();
-          if (!aun) return alert('AUN is not set in module_data_v1.general.AUN');
-          openNew(URLS.ZIQA_BASE + encodeURIComponent(aun));
-          return;
-        }
-
-        // REPORT → Testreport Viewer with PartNo + SerialNo
-        if (label === 'REPORT') {
-          const pn = (getGeneral('PartNo') || '').trim();
-          const sn = (getGeneral('SerialNo') || '').trim();
-          if (!pn || !sn) return alert('PartNo or SerialNo missing in module_data_v1.general');
-          openNew(URLS.TRV_BASE + encodeURIComponent(pn) + '&sn=' + encodeURIComponent(sn));
-          return;
-        }
-
-        // default: click-to-copy the tile label
         if (navigator.clipboard) navigator.clipboard.writeText(label).catch(()=>{});
         el.classList.add('ops-bounce');
         setTimeout(()=>el.classList.remove('ops-bounce'), 260);
       });
     });
 
-    // ---- Context menu to enable/disable buttons ----
+    // ---- Context menu ----
     const DIS_KEY = 'linkbuttonsplus-disabled';
     function loadDisabled(){ try { return JSON.parse(localStorage.getItem(DIS_KEY)) || {}; } catch { return {}; } }
     function saveDisabled(d){ localStorage.setItem(DIS_KEY, JSON.stringify(d)); }
     const disabled = loadDisabled();
+
+    function reposition(){
+      const right = Array.from(root.querySelectorAll('[data-slot^="r"]'))
+        .filter(el => el.style.display !== 'none');
+      right.forEach((el, idx) => {
+        el.classList.remove('r0','r1','r2','r3','r4');
+        el.classList.add('r'+idx);
+      });
+      const left = Array.from(root.querySelectorAll('[data-slot^="left"]'))
+        .filter(el => el.style.display !== 'none');
+      left.forEach((el, idx) => {
+        el.classList.remove('leftTop','leftBot');
+        el.classList.add(idx === 0 ? 'leftTop' : 'leftBot');
+      });
+    }
 
     function applyDisabled(){
       root.querySelectorAll('.ops-card').forEach(el => {
         const lbl = (el.textContent || '').trim();
         el.style.display = disabled[lbl] ? 'none' : '';
       });
+      reposition();
     }
     applyDisabled();
 
     const menu = document.createElement('div');
     menu.className = 'ops-menu';
     const allLabels = [leftTop, leftBottom, ...r].filter(Boolean);
-    menu.innerHTML = allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('');
+    menu.innerHTML = allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('') +
+      '<hr><button class="ops-pick">Dictionary wählen</button><div class="ops-file"></div>';
     document.body.appendChild(menu);
+    const fileLbl = menu.querySelector('.ops-file');
+    fileLbl.textContent = loadDictFileName() ? `• ${loadDictFileName()}` : 'Kein Dictionary';
+
+    async function pickDict(){
+      try{
+        alert('Bitte wählen Sie die Dictionary-Datei aus');
+        const [h] = await showOpenFilePicker({
+          types:[{description:'Dictionary (Excel)', accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
+          excludeAcceptAllOption:false, multiple:false
+        });
+        if(h && await ensureRWPermission(h)){
+          fileHandle = h;
+          await idbSet(GLOBAL_DICT_KEY,h);
+          saveDictFileName(h.name || 'Dictionary.xlsx');
+          fileLbl.textContent = `• ${h.name || 'Dictionary.xlsx'}`;
+          cache = await readAll(h);
+        }
+      }catch(e){/* ignore */}
+    }
+
+    menu.querySelector('.ops-pick').addEventListener('click', ()=>{ menu.classList.remove('open'); pickDict(); });
+
+    (async()=>{
+      try{
+        const h = await idbGet(GLOBAL_DICT_KEY);
+        if(h && await ensureRWPermission(h)){
+          fileHandle = h;
+          cache = await readAll(h);
+          fileLbl.textContent = `• ${loadDictFileName() || h.name || 'Dictionary.xlsx'}`;
+        }
+      }catch{}
+    })();
 
     menu.querySelectorAll('input').forEach(chk => {
       const lbl = chk.dataset.label;
