@@ -140,13 +140,13 @@
     root.innerHTML = `
       <div class="ops-outer">
         <div class="ops-grid">
-          <div class="ops-card leftTop">${leftTop}</div>
-          <div class="ops-card leftBot">${leftBottom}</div>
-          <div class="ops-card r0">${r[0] || ''}</div>
-          <div class="ops-card r1">${r[1] || ''}</div>
-          <div class="ops-card r2">${r[2] || ''}</div>
-          <div class="ops-card r3">${r[3] || ''}</div>
-          <div class="ops-card r4">${r[4] || ''}</div>
+          <div class="ops-card leftTop" data-slot="left0">${leftTop}</div>
+          <div class="ops-card leftBot" data-slot="left1">${leftBottom}</div>
+          <div class="ops-card r0" data-slot="r0">${r[0] || ''}</div>
+          <div class="ops-card r1" data-slot="r1">${r[1] || ''}</div>
+          <div class="ops-card r2" data-slot="r2">${r[2] || ''}</div>
+          <div class="ops-card r3" data-slot="r3">${r[3] || ''}</div>
+          <div class="ops-card r4" data-slot="r4">${r[4] || ''}</div>
         </div>
       </div>
     `;
@@ -212,11 +212,27 @@
     function saveDisabled(d){ localStorage.setItem(DIS_KEY, JSON.stringify(d)); }
     const disabled = loadDisabled();
 
+    function reposition(){
+      const right = Array.from(root.querySelectorAll('[data-slot^="r"]'))
+        .filter(el => el.style.display !== 'none');
+      right.forEach((el, idx) => {
+        el.classList.remove('r0','r1','r2','r3','r4');
+        el.classList.add('r'+idx);
+      });
+      const left = Array.from(root.querySelectorAll('[data-slot^="left"]'))
+        .filter(el => el.style.display !== 'none');
+      left.forEach((el, idx) => {
+        el.classList.remove('leftTop','leftBot');
+        el.classList.add(idx === 0 ? 'leftTop' : 'leftBot');
+      });
+    }
+
     function applyDisabled(){
       root.querySelectorAll('.ops-card').forEach(el => {
         const lbl = (el.textContent || '').trim();
         el.style.display = disabled[lbl] ? 'none' : '';
       });
+      reposition();
     }
     applyDisabled();
 
