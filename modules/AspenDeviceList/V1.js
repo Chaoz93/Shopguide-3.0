@@ -74,6 +74,7 @@
   const TITLE_FIELD='MELDUNGS_NO';
   const MELDUNG_FIELD='MELDUNGS_NO';
   const LS_DOC='module_data_v1';
+  const LS_STATE='aspenDeviceListState';
   const CUSTOM_BROADCAST='deviceBoard:update';
 
   const parse=s=>{try{return JSON.parse(s)||{};}catch{return{};}};
@@ -111,6 +112,26 @@
     let config={subField:'AUFTRAGS_NO',partField:TITLE_FIELD,title:title,colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'}};
     let items=[]; // {id, part, meldung, data:{}}
     let excluded=new Set();
+    let filePath='';
+
+    function saveState(){
+      const state={fields,config,items,excluded:Array.from(excluded),filePath};
+      try{localStorage.setItem(LS_STATE,JSON.stringify(state));}catch(e){}
+    }
+    function restoreState(){
+      const raw=localStorage.getItem(LS_STATE);
+      if(!raw) return;
+      try{
+        const state=JSON.parse(raw);
+        fields=state.fields||fields;
+        config=state.config||config;
+        items=state.items||[];
+        excluded=new Set(state.excluded||[]);
+        filePath=state.filePath||'';
+        items.sort((a,b)=>String(a.data[config.subField]||'').localeCompare(String(b.data[config.subField]||'')));
+      }catch(e){}
+    }
+    restoreState();
 
     function populateFieldSelects(){
       selSub.innerHTML=fields.map(f=>`<option value="${f}" ${f===config.subField?'selected':''}>${f}</option>`).join('');
@@ -127,7 +148,7 @@
 
     function render(){
       const shown=items.filter(it=>!excluded.has(it.part));
-      if(!shown.length){list.innerHTML='<div style="opacity:.6;">Keine Geräte</div>';return;}
+      if(!shown.length){list.innerHTML='<div style="opacity:.6;">Keine Geräte</div>';saveState();return;}
       list.innerHTML=shown.map(it=>{
         const t=it.data[TITLE_FIELD]||'';
         const s=it.data[config.subField]||'';
@@ -142,6 +163,7 @@
         </div>`;
       }).join('');
       updateHighlights();
+      saveState();
     }
 
     function syncFromDOM(){
@@ -187,22 +209,25 @@
         if(!handle)return;
         await ensureXLSX();
         const f=await handle.getFile();
+        filePath=handle.name||'';
         const buf=await f.arrayBuffer();
         const wb=XLSX.read(buf,{type:'array'});
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
         fields=Object.keys(rows[0]||{});
-        if(!fields.includes(config.subField)) config.subField=fields.find(f=>f!==TITLE_FIELD)||TITLE_FIELD;
-        if(!fields.includes(config.partField)) config.partField=fields.find(f=>/part/i.test(f))||TITLE_FIELD;
+        const partField=fields.find(f=>/part/i.test(f))||fields[0]||TITLE_FIELD;
+        config.partField=partField;
+        config.subField=partField;
         items=rows.map(r=>{
           const titleVal=String(r[TITLE_FIELD]||'').trim();
-          const rawPart=String(r[config.partField]||'').trim();
+          const rawPart=String(r[partField]||'').trim();
           const part=rawPart.split(':')[0].trim();
           const meldung=String(r[MELDUNG_FIELD]||'').trim();
           if(!titleVal&&!part&&!meldung) return null;
-          const data={...r,[TITLE_FIELD]:titleVal,[config.partField]:part,[MELDUNG_FIELD]:meldung};
+          const data={...r,[TITLE_FIELD]:titleVal,[partField]:part,[MELDUNG_FIELD]:meldung};
           return {id:'it-'+Math.random().toString(36).slice(2),part,meldung,data};
         }).filter(Boolean);
+        items.sort((a,b)=>String(a.data[config.subField]||'').localeCompare(String(b.data[config.subField]||'')));
         excluded.clear();
         populateFieldSelects();
         render();
@@ -314,6 +339,8 @@
     });
 
     applyColors(config.colors);
+    populateFieldSelects();
     render();
+    refreshMenu();
   };
 })();
