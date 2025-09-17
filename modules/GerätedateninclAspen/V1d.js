@@ -7,20 +7,51 @@
 (function(){
   // ----- styles -----
   const CSS = `
-  .rs-root{height:100%;display:flex;flex-direction:column;gap:.6rem}
+  .rs-root{height:100%;display:flex;flex-direction:column;gap:.6rem;position:relative}
   .rs-head{font-weight:700;font-size:1.35rem;text-align:center;margin:.2rem 0 .2rem;user-select:none;color:var(--text-color)}
-  .rs-form{flex:1;overflow:auto;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none}
+  .rs-form{flex:1;overflow:auto;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none;display:flex;flex-direction:column;gap:.6rem}
   .rs-form::-webkit-scrollbar{width:0;height:0;display:none}
+  .rs-searchwrap{padding:0 .25rem}
+  .rs-search{width:100%;padding:.35rem .55rem;border-radius:.45rem;border:1px solid var(--module-border-color);background:rgba(255,255,255,.08);color:var(--text-color);font-size:.9rem}
   .rs-grid{display:grid;gap:.9rem}
-  .rs-field{display:flex;flex-direction:column;gap:.35rem}
+  .rs-field{display:flex;flex-direction:column;gap:.35rem;padding:.65rem .6rem;border-radius:.75rem;border:1px solid transparent;background:rgba(255,255,255,.04);transition:border-color .2s ease,background .2s ease}
+  .rs-field.rs-group-base{border-color:#3b82f6}
+  .rs-field.rs-group-extra{border-color:#9ca3af}
+  .rs-field.rs-group-aspen{border-color:#10b981}
   .rs-label{font-weight:600;opacity:.95;color:var(--text-color)}
   .rs-inputwrap{display:grid;grid-template-columns:auto 38px;align-items:center}
   .rs-input{width:100%;background:rgba(255,255,255,.08);border:1px solid var(--module-border-color);color:var(--text-color);padding:.45rem .55rem;border-radius:.4rem}
   .rs-copy{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid var(--module-border-color);border-radius:.35rem;background:rgba(255,255,255,.08);cursor:pointer;color:var(--text-color)}
   .rs-copy:active{transform:scale(.98)}
   .rs-note{font-size:.85rem;opacity:.75;margin-top:.15rem;color:var(--text-color)}
-  .rs-item{display:flex;justify-content:space-between;align-items:center;padding:.35rem .5rem;margin-bottom:.3rem;border:1px solid #d1d5db;border-radius:.4rem;cursor:pointer}
-  .rs-item.off{opacity:.5}
+  .rs-footer{display:flex;justify-content:space-between;align-items:center;padding:0 .25rem .4rem;color:var(--text-color);font-size:.8rem;gap:.5rem}
+  .rs-aspen-status{opacity:.7}
+  .rs-autosave{position:absolute;bottom:.45rem;right:.55rem;width:14px;height:14px;border-radius:50%;border:2px solid rgba(0,0,0,.35);box-shadow:0 0 6px rgba(0,0,0,.25)}
+  .rs-autosave.clean{background:#16a34a}
+  .rs-autosave.dirty{background:#dc2626}
+  .rs-input.rs-delta{background:rgba(250,204,21,.18);border-color:#facc15}
+  .rs-field.hidden-by-search{display:none}
+  .rs-item{display:flex;align-items:center;justify-content:space-between;padding:.35rem .55rem;margin-bottom:.3rem;border:1px solid #d1d5db;border-radius:.4rem;background:#f9fafb;color:#111827;gap:.5rem;cursor:grab}
+  .rs-item.off{opacity:.55;background:#f3f4f6}
+  .rs-item .rs-item-info{display:flex;align-items:center;gap:.45rem}
+  .rs-item .rs-item-actions{display:flex;align-items:center;gap:.6rem;font-size:.8rem}
+  .rs-item .rs-item-actions label{display:flex;align-items:center;gap:.25rem;cursor:pointer}
+  .rs-item .rs-fav-indicator{color:#facc15;font-size:1rem}
+  .db-menu{position:absolute;z-index:60;min-width:220px;background:#fff;color:#111827;border-radius:.6rem;box-shadow:0 14px 30px rgba(15,23,42,.2);padding:.35rem .4rem;display:none;flex-direction:column;gap:.35rem}
+  .db-menu.open{display:flex}
+  .rs-menu-section{border-top:1px solid #e5e7eb;padding-top:.35rem;margin-top:.35rem}
+  .rs-menu-section:first-child{border-top:none;padding-top:0;margin-top:0}
+  .rs-menu-title{font-weight:600;font-size:.85rem;margin-bottom:.2rem}
+  .rs-menu-actions button{width:100%;text-align:left;padding:.32rem .45rem;border:none;background:transparent;border-radius:.35rem;cursor:pointer;font-size:.85rem}
+  .rs-menu-actions button:hover{background:#e5e7eb}
+  .rs-menu-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.2rem}
+  .rs-menu-item{display:flex;align-items:center;justify-content:space-between;gap:.4rem;padding:.3rem .35rem;border:1px solid #e5e7eb;border-radius:.35rem;background:#f9fafb;cursor:grab}
+  .rs-menu-item.off{opacity:.55;background:#f3f4f6}
+  .rs-menu-item .rs-menu-label{display:flex;align-items:center;gap:.35rem;font-size:.85rem}
+  .rs-menu-item input[type="checkbox"]{cursor:pointer}
+  .rs-menu-item .rs-menu-actions{display:flex;align-items:center;gap:.4rem;font-size:.75rem}
+  .rs-menu-item .rs-fav-toggle{display:flex;align-items:center;gap:.25rem}
+  .rs-menu-item .rs-fav-indicator{color:#facc15;font-size:.95rem}
   `;
   (function inject(){
     let tag=document.getElementById('record-sheet-styles');
@@ -29,6 +60,36 @@
   })();
 
   // ----- utilities -----
+  const BASE_FIELD_KEYS=['meldung','auftrag','part','serial'];
+  const EXTRA_FIELD_KEYS=['repairorder','comments','status'];
+  const FIELD_INFO={
+    meldung:{label:'Meldung'},
+    auftrag:{label:'Auftrag'},
+    part:{label:'P/N'},
+    serial:{label:'S/N'},
+    repairorder:{label:'Repair Order'},
+    comments:{label:'Kommentare'},
+    status:{label:'Status'}
+  };
+  const GROUP_LABEL={base:'Basisfeld',extra:'Zusatzfeld',aspen:'Aspen-Importfeld'};
+  const ASPEN_GROUP_MATCH=/aspen/i;
+
+  function fieldGroup(key){
+    if(BASE_FIELD_KEYS.includes(key)) return 'base';
+    if(EXTRA_FIELD_KEYS.includes(key)) return 'extra';
+    if(ASPEN_GROUP_MATCH.test(key)) return 'aspen';
+    return 'extra';
+  }
+  function labelFromKey(key){
+    if(FIELD_INFO[key]?.label) return FIELD_INFO[key].label;
+    return key.replace(/_/g,' ').replace(/\b\w/g,s=>s.toUpperCase());
+  }
+  function tooltipForField(field){
+    const group=fieldGroup(field.key);
+    const base=`${field.label||labelFromKey(field.key)}`;
+    const suffix=GROUP_LABEL[group]||'Feld';
+    return `${base} – ${suffix}`+(field.favorite?' (Favorit)':'');
+  }
   const LS_DOC='module_data_v1';
   const IDB_NAME='modulesApp';
   const IDB_STORE='fs-handles';
@@ -111,9 +172,14 @@
       <div class="rs-root">
         <div class="rs-head" style="display:none"></div>
         <div class="rs-form">
+          <div class="rs-searchwrap"><input class="rs-search" type="search" placeholder="Felder durchsuchen..." /></div>
           <div class="rs-grid"></div>
           <div class="rs-note"></div>
         </div>
+        <div class="rs-footer">
+          <div class="rs-aspen-status">Zuletzt aktualisiert: –</div>
+        </div>
+        <div class="rs-autosave clean" title="Auto-Save Status"></div>
       </div>
       <div class="db-modal rs-modal" style="position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.35);z-index:50;">
         <div class="db-panel" style="background:#fff;color:#111827;width:min(92vw,720px);border-radius:.9rem;padding:1rem;">
@@ -152,12 +218,42 @@
             <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Spalten</label>
             <input type="number" min="1" max="6" class="rs-cols" style="width:4rem;padding:.25rem .4rem;border:1px solid #ccc;border-radius:.25rem;" />
           </div>
+          <div class="db-field" style="margin-top:1rem;">
+            <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Presets</label>
+            <div style="display:flex;flex-direction:column;gap:.45rem;">
+              <select class="rs-preset-select" style="padding:.35rem .5rem;border-radius:.45rem;border:1px solid #d1d5db;font-size:.9rem;"></select>
+              <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;">
+                <input type="text" class="rs-preset-name" placeholder="Neuer Preset-Name" style="flex:1 1 160px;padding:.35rem .5rem;border-radius:.45rem;border:1px solid #d1d5db;font-size:.9rem;" />
+                <button class="db-btn rs-preset-save" style="background:rgba(59,130,246,.12);color:#1d4ed8;border-radius:.5rem;padding:.35rem .6rem;">Speichern</button>
+                <button class="db-btn secondary rs-preset-delete" style="background:#f3f4f6;border-radius:.5rem;padding:.35rem .6rem;">Löschen</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML=`<button class="mi mi-opt">⚙️ Optionen</button>`;
+    menu.innerHTML=`
+      <div class="rs-menu-actions">
+        <button class="mi mi-opt">⚙️ Optionen</button>
+        <button class="mi mi-base">Alle Basisfelder aktivieren</button>
+        <button class="mi mi-ps">Nur Part &amp; Serial</button>
+        <button class="mi mi-min">Minimalansicht</button>
+      </div>
+      <div class="rs-menu-section" data-section="base">
+        <div class="rs-menu-title">Basisfelder</div>
+        <ul class="rs-menu-list" data-group="base"></ul>
+      </div>
+      <div class="rs-menu-section" data-section="extra">
+        <div class="rs-menu-title">Zusatzfelder</div>
+        <ul class="rs-menu-list" data-group="extra"></ul>
+      </div>
+      <div class="rs-menu-section" data-section="aspen">
+        <div class="rs-menu-title">Aspen</div>
+        <ul class="rs-menu-list" data-group="aspen"></ul>
+      </div>
+    `;
     document.body.appendChild(menu);
     return {
       grid:root.querySelector('.rs-grid'),
@@ -174,6 +270,13 @@
       mAspenFile:root.querySelector('.rs-aspen-file'),
       mList:root.querySelector('.rs-list'),
       mCols:root.querySelector('.rs-cols'),
+      mPresetSelect:root.querySelector('.rs-preset-select'),
+      mPresetName:root.querySelector('.rs-preset-name'),
+      mPresetSave:root.querySelector('.rs-preset-save'),
+      mPresetDelete:root.querySelector('.rs-preset-delete'),
+      search:root.querySelector('.rs-search'),
+      aspenStatus:root.querySelector('.rs-aspen-status'),
+      autoSave:root.querySelector('.rs-autosave'),
       menu
     };
   }
@@ -186,39 +289,130 @@
     }
 
     const defaults=ctx?.moduleJson?.settings||{};
-    const defaultFields=Array.isArray(defaults.fields)&&defaults.fields.length?defaults.fields.map(f=>({key:f.key,label:f.label,enabled:!!f.enabled})):[
+    const defaultFieldDefs=Array.isArray(defaults.fields)&&defaults.fields.length?defaults.fields:[
       {key:'meldung',label:'Meldung',enabled:true},
       {key:'auftrag',label:'Auftrag',enabled:true},
       {key:'part',label:'P/N',enabled:true},
       {key:'serial',label:'S/N',enabled:true}
     ];
+    const defaultFields=defaultFieldDefs
+      .filter(f=>f&&f.key)
+      .map(f=>({key:f.key,label:f.label||labelFromKey(f.key),enabled:f.enabled!==false,favorite:!!f.favorite}));
     const defaultColumns=defaults.columns||2;
+    const builtinPresetTemplates={
+      Standard:{fields:defaultFields.filter(f=>f.enabled).map(f=>f.key),columns:defaultColumns},
+      Reparaturansicht:{fields:['meldung','auftrag','part','serial','repairorder','status','comments'],columns:2},
+      Minimal:{fields:['meldung','auftrag'],columns:1}
+    };
 
     const els=buildUI(root);
     const instanceId=instanceIdOf(root);
     const idbKey=`recordSheet:${instanceId}`;
     const ruleIdbKey=`recordSheetRules:${instanceId}`;
     const aspenIdbKey=`recordSheetAspen:${instanceId}`;
+    if(els.search)els.search.addEventListener('input',applyFieldFilter);
 
-    function cloneFields(a){return a.map(f=>({key:f.key,label:f.label,enabled:!!f.enabled}));}
+    function normalizeFieldEntry(field){
+      if(!field||!field.key) return null;
+      const label=field.label||labelFromKey(field.key);
+      const favorite=!!field.favorite;
+      const enabled=favorite?true:field.enabled!==false;
+      return {key:field.key,label,favorite,enabled};
+    }
+    function cloneFields(list){
+      const seen=new Set();
+      const result=[];
+      (Array.isArray(list)?list:[]).forEach(f=>{
+        const nf=normalizeFieldEntry(f);
+        if(!nf||seen.has(nf.key)) return;
+        seen.add(nf.key);
+        result.push(nf);
+      });
+      defaultFields.forEach(f=>{
+        if(seen.has(f.key)) return;
+        const nf=normalizeFieldEntry(f);
+        if(nf){seen.add(nf.key);result.push(nf);}
+      });
+      BASE_FIELD_KEYS.forEach(key=>{
+        if(seen.has(key)) return;
+        const nf=normalizeFieldEntry({key,label:labelFromKey(key),enabled:key==='meldung'||key==='auftrag'});
+        if(nf){seen.add(key);result.push(nf);} 
+      });
+      return result;
+    }
+    function clonePresets(presets){
+      const out={};
+      if(presets&&typeof presets==='object'){
+        for(const [name,val] of Object.entries(presets)){
+          if(!name) continue;
+          if(!val||typeof val!=='object') continue;
+          const fields=Array.isArray(val.fields)?val.fields.filter(Boolean):[];
+          const columns=Math.max(1,parseInt(val.columns)||1);
+          out[name]={fields,columns};
+        }
+      }
+      return out;
+    }
+    function ensureFavoritePlacement(list){
+      list.forEach(f=>{if(f.favorite)f.enabled=true;});
+      const favs=list.filter(f=>f.favorite);
+      const rest=list.filter(f=>!f.favorite);
+      return [...favs,...rest];
+    }
     function loadCfg(){
       const doc=loadDoc();
-      const cfg=doc?.instances?.[instanceId]?.recordSheet||{};
+      const raw=doc?.instances?.[instanceId]?.recordSheet||{};
+      const fields=ensureFavoritePlacement(cloneFields(Array.isArray(raw.fields)?raw.fields:defaultFields));
       return{
-        idbKey:cfg.idbKey||idbKey,
-        fileName:cfg.fileName||'',
-        ruleIdbKey:cfg.ruleIdbKey||ruleIdbKey,
-        ruleFileName:cfg.ruleFileName||'',
-        aspenIdbKey:cfg.aspenIdbKey||aspenIdbKey,
-        aspenFileName:cfg.aspenFileName||'',
-        fields:Array.isArray(cfg.fields)?cfg.fields:cloneFields(defaultFields),
-        columns:cfg.columns||defaultColumns
+        idbKey:raw.idbKey||idbKey,
+        fileName:raw.fileName||'',
+        ruleIdbKey:raw.ruleIdbKey||ruleIdbKey,
+        ruleFileName:raw.ruleFileName||'',
+        aspenIdbKey:raw.aspenIdbKey||aspenIdbKey,
+        aspenFileName:raw.aspenFileName||'',
+        fields,
+        columns:raw.columns||defaultColumns,
+        presets:clonePresets(raw.presets),
+        activePreset:raw.activePreset||''
       };
     }
-    function saveCfg(cfg){const doc=loadDoc();doc.instances||={};doc.instances[instanceId]||={};doc.instances[instanceId].recordSheet=cfg;saveDoc(doc);}
+    function serializeFields(fields){return fields.map(f=>({key:f.key,label:f.label,favorite:!!f.favorite,enabled:!!f.enabled}));}
+    function saveCfg(current){
+      const doc=loadDoc();
+      doc.instances||={};
+      doc.instances[instanceId]||={};
+      doc.instances[instanceId].recordSheet={
+        idbKey:current.idbKey,
+        fileName:current.fileName,
+        ruleIdbKey:current.ruleIdbKey,
+        ruleFileName:current.ruleFileName,
+        aspenIdbKey:current.aspenIdbKey,
+        aspenFileName:current.aspenFileName,
+        fields:serializeFields(current.fields),
+        columns:current.columns,
+        presets:clonePresets(current.presets),
+        activePreset:current.activePreset||''
+      };
+      saveDoc(doc);
+      cfgSignature=snapshotConfig(current);
+    }
+    const snapshotConfig=data=>{
+      const presetsObj=clonePresets(data.presets);
+      const presetEntries=Object.entries(presetsObj).sort((a,b)=>a[0].localeCompare(b[0],'de'));
+      return JSON.stringify({
+        fields:serializeFields(data.fields||[]),
+        columns:data.columns,
+        presets:presetEntries,
+        activePreset:data.activePreset||'',
+        fileName:data.fileName||'',
+        ruleFileName:data.ruleFileName||'',
+        aspenFileName:data.aspenFileName||''
+      });
+    };
     function removeCfg(){const doc=loadDoc();if(doc?.instances?.[instanceId]){delete doc.instances[instanceId].recordSheet;if(!Object.keys(doc.instances[instanceId]).length)delete doc.instances[instanceId];saveDoc(doc);}}
 
     let cfg=loadCfg();
+    let cfgSignature=snapshotConfig(cfg);
     els.mFile.textContent=cfg.fileName?`• ${cfg.fileName}`:'Keine Datei gewählt';
     els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
     els.mAspenFile.textContent=cfg.aspenFileName?`• ${cfg.aspenFileName}`:'Keine Aspen-Datei';
@@ -230,8 +424,16 @@
     let aspenRows=[];
     let aspenTimer=null;
     let aspenLast=0;
+    let aspenUpdatedAt=0;
     let rules=[];
     let cache=[];
+    let currentAspenRow=null;
+    let autoSaveDirty=false;
+    let saveToken=0;
+    let modalSortable=null;
+    let menuSortables=[];
+    updateAutoSaveIndicator();
+    updateAspenStatus();
 
     const setNote=s=>els.note.textContent=s||'';
     const copy=async val=>{try{await navigator.clipboard.writeText(val||'');setNote('Kopiert.');setTimeout(()=>setNote(''),800);}catch{setNote('Kopieren fehlgeschlagen');}};
@@ -244,43 +446,361 @@
       HEAD=cfg.fields.map(f=>f.key);
       els.grid.innerHTML='';fieldEls={};
       cfg.fields.filter(f=>f.enabled).forEach(f=>{
+        const group=fieldGroup(f.key);
         const wrap=document.createElement('div');
-        wrap.className='rs-field';
-        wrap.innerHTML=`<label class="rs-label">${f.label}</label><div class="rs-inputwrap"><input class="rs-input" type="text" ${f.key==='meldung'?'readonly':''}/><button class="rs-copy" title="Kopieren">⧉</button></div>`;
+        const tooltip=tooltipForField(f);
+        wrap.className=`rs-field rs-group-${group}`;
+        wrap.dataset.key=f.key;
+        wrap.dataset.label=(f.label||'').toLowerCase();
+        wrap.title=tooltip;
+        wrap.innerHTML=`<label class="rs-label" title="${tooltip}">${f.label}</label><div class="rs-inputwrap"><input class="rs-input" type="text" ${f.key==='meldung'?'readonly':''}/><button class="rs-copy" title="Kopieren">⧉</button></div>`;
         const input=wrap.querySelector('input');
         const btn=wrap.querySelector('.rs-copy');
         btn.addEventListener('click',()=>copy(input.value));
-        if(f.key!=='meldung'){input.addEventListener('input',()=>{putField(f.key,input.value);if(f.key==='part')updateName();});}
+        input.addEventListener('input',()=>{
+          if(f.key!=='meldung'){putField(f.key,input.value);if(f.key==='part')updateName();}
+          updateAspenDeltas();
+        });
         els.grid.appendChild(wrap);
-        fieldEls[f.key]={input};
+        fieldEls[f.key]={input,wrap,label:f.label||labelFromKey(f.key),group};
       });
       applyColumns();
       refreshFromCache();
+      applyFieldFilter();
+      updateAspenDeltas();
     }
 
     function renderFieldList(){
       const list=els.mList;list.innerHTML='';
+      if(modalSortable){modalSortable.destroy();modalSortable=null;}
       cfg.fields.forEach(f=>{
         const li=document.createElement('li');
         li.className='rs-item'+(f.enabled?'':' off');
         li.dataset.key=f.key;
-        li.innerHTML=`<span>${f.key}</span><span>${f.label}</span>`;
-        li.addEventListener('click',()=>{f.enabled=!f.enabled;li.classList.toggle('off',!f.enabled);});
+        li.innerHTML=`<div class="rs-item-info"><span class="rs-fav-indicator" style="${f.favorite?'':'visibility:hidden'}">★</span><span>${f.label}</span></div><div class="rs-item-actions"><label><input type="checkbox" class="rs-item-fav" ${f.favorite?'checked':''}/> Favorit</label><label><input type="checkbox" class="rs-item-toggle" ${f.enabled?'checked':''} ${f.favorite?'disabled':''}/> Sichtbar</label></div>`;
+        const favToggle=li.querySelector('.rs-item-fav');
+        const visToggle=li.querySelector('.rs-item-toggle');
+        favToggle.addEventListener('change',()=>{
+          f.favorite=favToggle.checked;
+          if(f.favorite) f.enabled=true;
+          cfg.fields=ensureFavoritePlacement(cfg.fields);
+          cfg.activePreset='';
+          saveCfg(cfg);
+          renderFields();
+          renderMenuFields();
+          renderFieldList();
+          if(els.modal.style.display==='grid')populatePresetSelect();
+        });
+        visToggle.addEventListener('change',()=>{
+          if(f.favorite){visToggle.checked=true;return;}
+          f.enabled=visToggle.checked;
+          li.classList.toggle('off',!f.enabled);
+          cfg.activePreset='';
+          saveCfg(cfg);
+          renderFields();
+          renderMenuFields();
+          if(els.modal.style.display==='grid')populatePresetSelect();
+        });
         list.appendChild(li);
       });
-      new Sortable(list,{animation:150,onEnd:()=>{const order=Array.from(list.children).map(li=>li.dataset.key);cfg.fields.sort((a,b)=>order.indexOf(a.key)-order.indexOf(b.key));}});
+      modalSortable=new Sortable(list,{animation:150,handle:'.rs-item-info',onEnd:()=>{const order=Array.from(list.children).map(li=>li.dataset.key);reorderFields(order);cfg.activePreset='';saveCfg(cfg);renderFields();renderMenuFields();renderFieldList();if(els.modal.style.display==='grid')populatePresetSelect();}});
     }
 
-    function openModal(){renderFieldList();els.mCols.value=cfg.columns;els.modal.style.display='grid';}
-    function closeModal(){els.modal.style.display='none';saveCfg(cfg);renderFields();}
+    function reorderFields(orderKeys){
+      const keys=Array.isArray(orderKeys)?orderKeys:[];
+      const map=new Map(cfg.fields.map(f=>[f.key,f]));
+      const ordered=[];
+      keys.forEach(key=>{const entry=map.get(key);if(entry&&!ordered.includes(entry))ordered.push(entry);});
+      cfg.fields.forEach(f=>{if(!keys.includes(f.key))ordered.push(f);});
+      cfg.fields=ensureFavoritePlacement(ordered);
+    }
+
+    function renderMenuFields(){
+      const lists={
+        base:els.menu.querySelector('[data-group="base"]'),
+        extra:els.menu.querySelector('[data-group="extra"]'),
+        aspen:els.menu.querySelector('[data-group="aspen"]')
+      };
+      const sections={
+        base:els.menu.querySelector('[data-section="base"]'),
+        extra:els.menu.querySelector('[data-section="extra"]'),
+        aspen:els.menu.querySelector('[data-section="aspen"]')
+      };
+      menuSortables.forEach(s=>s.destroy());
+      menuSortables=[];
+      Object.values(lists).forEach(list=>{if(list)list.innerHTML='';});
+      const groupOrder=['base','extra','aspen'];
+      cfg.fields.forEach(f=>{
+        const group=fieldGroup(f.key);
+        const target=lists[group]||lists.extra;
+        if(!target) return;
+        const li=document.createElement('li');
+        li.className='rs-menu-item'+(f.enabled?'':' off');
+        li.dataset.key=f.key;
+        li.innerHTML=`<div class="rs-menu-label"><span class="rs-fav-indicator" style="${f.favorite?'':'visibility:hidden'}">★</span><span>${f.label}</span></div><div class="rs-menu-actions"><label class="rs-fav-toggle"><input type="checkbox" ${f.favorite?'checked':''}/> Favorit</label><label><input type="checkbox" class="rs-menu-toggle" ${f.enabled?'checked':''} ${f.favorite?'disabled':''}/> Aktiv</label></div>`;
+        const fav=li.querySelector('.rs-fav-toggle input');
+        const toggle=li.querySelector('.rs-menu-toggle');
+        fav.addEventListener('change',()=>{
+          f.favorite=fav.checked;
+          if(f.favorite)f.enabled=true;
+          cfg.fields=ensureFavoritePlacement(cfg.fields);
+          cfg.activePreset='';
+          saveCfg(cfg);
+          renderFields();
+          renderFieldList();
+          renderMenuFields();
+          if(els.modal.style.display==='grid')populatePresetSelect();
+        });
+        toggle.addEventListener('change',()=>{
+          if(f.favorite){toggle.checked=true;return;}
+          f.enabled=toggle.checked;
+          li.classList.toggle('off',!f.enabled);
+          cfg.activePreset='';
+          saveCfg(cfg);
+          renderFields();
+          renderFieldList();
+          if(els.modal.style.display==='grid')populatePresetSelect();
+        });
+        target.appendChild(li);
+      });
+      groupOrder.forEach(group=>{
+        const section=sections[group];
+        const list=lists[group];
+        if(!section||!list) return;
+        section.style.display=list.children.length?'block':'none';
+      });
+      const orderedLists=groupOrder.map(g=>lists[g]).filter(Boolean);
+      orderedLists.forEach(list=>{
+        const sortable=new Sortable(list,{animation:120,handle:'.rs-menu-label',onEnd:()=>{
+          const order=[];
+          orderedLists.forEach(l=>{order.push(...Array.from(l.children).map(li=>li.dataset.key));});
+          reorderFields(order);
+          cfg.activePreset='';
+          saveCfg(cfg);
+          renderFields();
+          renderFieldList();
+          renderMenuFields();
+          if(els.modal.style.display==='grid')populatePresetSelect();
+        }});
+        menuSortables.push(sortable);
+      });
+    }
+
+    function applyFieldFilter(){
+      if(!els.search)return;
+      const term=(els.search.value||'').trim().toLowerCase();
+      Object.values(fieldEls).forEach(info=>{
+        if(!info?.wrap)return;
+        const label=(info.label||'').toLowerCase();
+        const match=!term||label.includes(term);
+        info.wrap.classList.toggle('hidden-by-search',!match);
+      });
+    }
+
+    function updateAutoSaveIndicator(){
+      if(!els.autoSave)return;
+      els.autoSave.classList.toggle('dirty',autoSaveDirty);
+      els.autoSave.classList.toggle('clean',!autoSaveDirty);
+      els.autoSave.title=autoSaveDirty?'Änderungen nicht gespeichert':'Alle Änderungen gespeichert';
+    }
+
+    function setDirty(state){
+      autoSaveDirty=!!state;
+      updateAutoSaveIndicator();
+    }
+
+    function updateAspenDeltas(){
+      Object.entries(fieldEls).forEach(([key,info])=>{
+        const input=info?.input; if(!input) return;
+        const aspenVal=currentAspenRow?String(currentAspenRow[key]??'').trim():'';
+        const current=(input.value||'').trim();
+        if(currentAspenRow && aspenVal && current!==aspenVal){
+          input.classList.add('rs-delta');
+        }else{
+          input.classList.remove('rs-delta');
+        }
+      });
+    }
+
+    function updateAspenStatus(){
+      if(!els.aspenStatus)return;
+      if(aspenUpdatedAt){
+        const dt=new Date(aspenUpdatedAt);
+        els.aspenStatus.textContent=`Zuletzt aktualisiert: ${dt.toLocaleString()}`;
+      }else{
+        els.aspenStatus.textContent='Zuletzt aktualisiert: –';
+      }
+    }
+
+    function getPresetByName(name){
+      if(!name) return null;
+      if(cfg.presets?.[name]) return cfg.presets[name];
+      if(builtinPresetTemplates[name]) return builtinPresetTemplates[name];
+      return null;
+    }
+
+    function safePresetName(name){
+      let trimmed=(name||'').trim();
+      if(!trimmed) return '';
+      if(builtinPresetTemplates[trimmed]) trimmed+=' (Benutzer)';
+      return trimmed;
+    }
+
+    function populatePresetSelect(){
+      if(!els.mPresetSelect)return;
+      const select=els.mPresetSelect;
+      select.innerHTML='';
+      const placeholder=document.createElement('option');
+      placeholder.value='';
+      placeholder.textContent='Preset wählen...';
+      select.appendChild(placeholder);
+      const builtinGroup=document.createElement('optgroup');
+      builtinGroup.label='Standard';
+      Object.keys(builtinPresetTemplates).forEach(name=>{
+        const opt=document.createElement('option');
+        opt.value=name;
+        opt.textContent=name;
+        builtinGroup.appendChild(opt);
+      });
+      select.appendChild(builtinGroup);
+      const customNames=Object.keys(cfg.presets||{}).sort((a,b)=>a.localeCompare(b,'de'));
+      if(customNames.length){
+        const customGroup=document.createElement('optgroup');
+        customGroup.label='Benutzerdefiniert';
+        customNames.forEach(name=>{
+          const opt=document.createElement('option');
+          opt.value=name;
+          opt.textContent=name;
+          customGroup.appendChild(opt);
+        });
+        select.appendChild(customGroup);
+      }
+      if(cfg.activePreset&&getPresetByName(cfg.activePreset)){
+        select.value=cfg.activePreset;
+      }else{
+        select.value='';
+      }
+      if(els.mPresetDelete){
+        const isCustom=!!cfg.presets?.[select.value];
+        els.mPresetDelete.disabled=!isCustom;
+      }
+    }
+
+    function applyPresetDefinition(def,{name,remember}={}){
+      if(!def) return;
+      const keys=Array.from(new Set(Array.isArray(def.fields)?def.fields.filter(Boolean):[]));
+      const map=new Map(cfg.fields.map(f=>[f.key,f]));
+      keys.forEach(key=>{
+        if(!map.has(key)){
+          const created=normalizeFieldEntry({key,label:labelFromKey(key),enabled:true});
+          if(created){cfg.fields.push(created);map.set(key,created);}
+        }
+      });
+      cfg.fields.forEach(f=>{
+        if(f.favorite){f.enabled=true;return;}
+        f.enabled=keys.includes(f.key);
+      });
+      reorderFields(keys);
+      if(def.columns){const cols=Math.max(1,parseInt(def.columns)||1);cfg.columns=cols;}
+      if(remember&&name){cfg.activePreset=name;}
+      saveCfg(cfg);
+      els.mCols.value=cfg.columns;
+      renderFields();
+      renderFieldList();
+      renderMenuFields();
+      applyColumns();
+      if(remember)populatePresetSelect();
+    }
+
+    function applyPreset(name){
+      const def=getPresetByName(name);
+      if(!def)return;
+      applyPresetDefinition(def,{name,remember:true});
+    }
+
+    function activateBaseFields(){
+      cfg.fields.forEach(f=>{if(fieldGroup(f.key)==='base')f.enabled=true;});
+      cfg.fields=ensureFavoritePlacement(cfg.fields);
+      cfg.activePreset='';
+      saveCfg(cfg);
+      renderFields();
+      renderFieldList();
+      renderMenuFields();
+      if(els.modal.style.display==='grid')populatePresetSelect();
+    }
+
+    function showOnlyFields(keys,columns){
+      applyPresetDefinition({fields:keys,columns},{});
+      cfg.activePreset='';
+      saveCfg(cfg);
+      if(els.modal.style.display==='grid')populatePresetSelect();
+    }
+
+    function refreshConfigFromStorage(){
+      const latest=loadCfg();
+      const sig=snapshotConfig(latest);
+      if(sig===cfgSignature) return;
+      cfg=latest;
+      cfgSignature=sig;
+      els.mFile.textContent=cfg.fileName?`• ${cfg.fileName}`:'Keine Datei gewählt';
+      els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
+      els.mAspenFile.textContent=cfg.aspenFileName?`• ${cfg.aspenFileName}`:'Keine Aspen-Datei';
+      els.mCols.value=cfg.columns;
+      renderFields();
+      renderMenuFields();
+      if(els.modal.style.display==='grid'){renderFieldList();populatePresetSelect();}
+    }
+
+
+
+    function openModal(){renderFieldList();populatePresetSelect();if(els.mPresetName)els.mPresetName.value='';els.mCols.value=cfg.columns;els.modal.style.display='grid';}
+    function closeModal(){els.modal.style.display='none';saveCfg(cfg);renderFields();renderMenuFields();}
     els.mClose.onclick=closeModal;
     els.mCols.addEventListener('change',()=>{cfg.columns=Math.max(1,parseInt(els.mCols.value)||1);applyColumns();saveCfg(cfg);});
+    if(els.mPresetSelect){
+      els.mPresetSelect.addEventListener('change',()=>{
+        const val=els.mPresetSelect.value||'';
+        if(els.mPresetDelete)els.mPresetDelete.disabled=!cfg.presets?.[val];
+        if(val)applyPreset(val);
+      });
+    }
+    if(els.mPresetSave){
+      els.mPresetSave.addEventListener('click',()=>{
+        const name=safePresetName(els.mPresetName?.value||'');
+        if(!name){setNote('Bitte Preset-Namen eingeben.');return;}
+        const fields=cfg.fields.filter(f=>f.enabled).map(f=>f.key);
+        cfg.presets[name]={fields,columns:cfg.columns};
+        cfg.activePreset=name;
+        saveCfg(cfg);
+        populatePresetSelect();
+        if(els.mPresetName)els.mPresetName.value='';
+        setNote('Preset gespeichert.');
+      });
+    }
+    if(els.mPresetDelete){
+      els.mPresetDelete.addEventListener('click',()=>{
+        const name=els.mPresetSelect?.value||'';
+        if(!name||!cfg.presets?.[name]){setNote('Kein benutzerdefiniertes Preset ausgewählt.');return;}
+        delete cfg.presets[name];
+        if(cfg.activePreset===name)cfg.activePreset='';
+        saveCfg(cfg);
+        populatePresetSelect();
+        setNote('Preset gelöscht.');
+      });
+    }
 
     function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
     root.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();const m=els.menu,pad=8,vw=innerWidth,vh=innerHeight;const rect=m.getBoundingClientRect();const w=rect.width||200,h=rect.height||44;m.style.left=clamp(e.clientX,pad,vw-w-pad)+'px';m.style.top=clamp(e.clientY,pad,vh-h-pad)+'px';m.classList.add('open');});
+    els.menu.addEventListener('click',e=>e.stopPropagation());
     addEventListener('click',()=>els.menu.classList.remove('open'));
     addEventListener('keydown',e=>{if(e.key==='Escape')els.menu.classList.remove('open');});
     els.menu.querySelector('.mi-opt').addEventListener('click',()=>{els.menu.classList.remove('open');openModal();});
+    const baseBtn=els.menu.querySelector('.mi-base');
+    if(baseBtn)baseBtn.addEventListener('click',()=>{els.menu.classList.remove('open');activateBaseFields();setNote('Basisfelder aktiviert.');});
+    const partSerialBtn=els.menu.querySelector('.mi-ps');
+    if(partSerialBtn)partSerialBtn.addEventListener('click',()=>{els.menu.classList.remove('open');showOnlyFields(['part','serial'],cfg.columns);setNote('Nur Part & Serial aktiv.');});
+    const minimalBtn=els.menu.querySelector('.mi-min');
+    if(minimalBtn)minimalBtn.addEventListener('click',()=>{els.menu.classList.remove('open');applyPreset('Minimal');setNote('Minimalansicht aktiviert.');});
 
     async function bindHandle(h){const ok=await ensureRWPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}handle=h;await idbSet(cfg.idbKey,h);cfg.fileName=h.name||'Dictionary.xlsx';saveCfg(cfg);els.mFile.textContent=`• ${cfg.fileName}`;return true;}
     async function bindRuleHandle(h){const ok=await ensureRPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}ruleHandle=h;await idbSet(cfg.ruleIdbKey,h);cfg.ruleFileName=h.name||'Rules.xlsx';saveCfg(cfg);els.mRuleFile.textContent=`• ${cfg.ruleFileName}`;try{rules=await readRulesFromHandle(h);}catch{rules=[];}updateName();return true;}
@@ -318,6 +838,8 @@
         if(f.lastModified===aspenLast && aspenRows.length) return;
         aspenLast=f.lastModified;
         await readAspenFromHandle(aspenHandle);
+        aspenUpdatedAt=Date.now();
+        updateAspenStatus();
         fillFromAspen();
       }catch(e){console.warn('Lesen der Aspen-Datei fehlgeschlagen:',e);}
     }
@@ -328,19 +850,21 @@
     }
 
     function fillFromAspen(){
-      if(!aspenRows.length) return;
       const m=activeMeldung();
-      if(!m) return;
-      const row=aspenRows.find(r=>r.meldung===m || r.auftrag===m);
-      if(!row) return;
-      ['auftrag','part','serial','repairorder'].forEach(k=>{
-        const el=fieldEls[k]?.input;
-        if(!el) return;
-        if(!el.value){
-          const val=row[k];
-          if(val){el.value=val;putField(k,val);}
-        }
-      });
+      if(!aspenRows.length||!m){currentAspenRow=null;updateAspenDeltas();return;}
+      const row=aspenRows.find(r=>r.meldung===m || r.auftrag===m) || null;
+      currentAspenRow=row;
+      if(row){
+        ['auftrag','part','serial','repairorder'].forEach(k=>{
+          const el=fieldEls[k]?.input;
+          if(!el) return;
+          if(!el.value){
+            const val=row[k];
+            if(val){el.value=val;putField(k,val);}
+          }
+        });
+      }
+      updateAspenDeltas();
     }
 
     async function bindAspenHandle(h){
@@ -351,6 +875,8 @@
       cfg.aspenFileName=h.name||'Aspen.xlsx';
       saveCfg(cfg);
       els.mAspenFile.textContent=`• ${cfg.aspenFileName}`;
+      aspenUpdatedAt=0;
+      updateAspenStatus();
       await readAspen();
       scheduleAspenPoll();
       return true;
@@ -367,17 +893,28 @@
     function activeMeldung(){return(loadDoc()?.general?.Meldung||'').trim();}
     function refreshFromCache(){const m=activeMeldung();const row=cache.find(r=>(r.meldung||'').trim()===m);cfg.fields.forEach(f=>{const el=fieldEls[f.key];if(!el)return;if(f.key==='meldung')el.input.value=m;else el.input.value=row?.[f.key]||'';});updateName();fillFromAspen();}
 
-    addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromCache();});
-    addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromCache();});
+    addEventListener('storage',e=>{if(e.key===LS_DOC){refreshConfigFromStorage();refreshFromCache();}});
+    addEventListener('visibilitychange',()=>{if(!document.hidden){refreshConfigFromStorage();refreshFromCache();}});
     let lastDocString=getDocString();
-    const watcher=setInterval(()=>{const now=getDocString();if(now!==lastDocString){lastDocString=now;refreshFromCache();}},WATCH_INTERVAL);
+    const watcher=setInterval(()=>{const now=getDocString();if(now!==lastDocString){lastDocString=now;refreshConfigFromStorage();refreshFromCache();}},WATCH_INTERVAL);
 
-    const scheduleSave=debounce(350,async()=>{if(!handle){setNote('Keine Excel-Datei gewählt.');return;}try{await writeAll(handle,cache);setNote('Gespeichert.');setTimeout(()=>setNote(''),700);}catch{setNote('Speichern fehlgeschlagen.');}});
-    function putField(field,value){const m=activeMeldung();if(!m)return;let row=cache.find(r=>(r.meldung||'').trim()===m);if(!row){row=HEAD.reduce((o,k)=>(o[k]='',o),{});row.meldung=m;cache.push(row);}row[field]=value;scheduleSave();}
+    const scheduleSave=debounce(350,async()=>{
+      if(!handle){setNote('Keine Excel-Datei gewählt.');return;}
+      const token=++saveToken;
+      try{
+        await writeAll(handle,cache);
+        if(token===saveToken){setDirty(false);setNote('Gespeichert.');setTimeout(()=>setNote(''),700);}
+      }catch{
+        if(token===saveToken)setDirty(true);
+        setNote('Speichern fehlgeschlagen.');
+      }
+    });
+    function putField(field,value){const m=activeMeldung();if(!m)return;let row=cache.find(r=>(r.meldung||'').trim()===m);if(!row){row=HEAD.reduce((o,k)=>(o[k]='',o),{});row.meldung=m;cache.push(row);}row[field]=value;setDirty(true);scheduleSave();}
 
     renderFields();
+    renderMenuFields();
 
-    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);clearInterval(aspenTimer);els.menu?.remove();(async()=>{try{await idbDel(cfg.idbKey);}catch{}try{await idbDel(cfg.ruleIdbKey);}catch{}try{await idbDel(cfg.aspenIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
+    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);clearInterval(aspenTimer);menuSortables.forEach(s=>s.destroy());menuSortables=[];if(modalSortable){modalSortable.destroy();modalSortable=null;}els.menu?.remove();(async()=>{try{await idbDel(cfg.idbKey);}catch{}try{await idbDel(cfg.ruleIdbKey);}catch{}try{await idbDel(cfg.aspenIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
   };
 })();
