@@ -398,6 +398,23 @@
         persistFilters();
         renderFilters(idx < workforceFilters.length ? idx : undefined);
       }, true);
+
+      filterList.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        const input = e.target;
+        if (!input || input.tagName !== 'INPUT' || !input.classList.contains('ops-filter-input')) return;
+        const idx = Number(input.dataset.index);
+        if (Number.isNaN(idx)) return;
+        e.preventDefault();
+        if (idx < workforceFilters.length) {
+          workforceFilters[idx] = input.value;
+        } else if (input.value.trim()) {
+          workforceFilters.push(input.value);
+        }
+        persistFilters();
+        const nextIndex = Math.min(idx + 1, workforceFilters.length);
+        renderFilters(nextIndex);
+      });
     }
 
     if (clearFiltersBtn) {
