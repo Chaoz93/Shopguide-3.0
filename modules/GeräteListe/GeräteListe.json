@@ -1,12 +1,12 @@
 {
-  "name": "DeviceList",
+  "name": "Excel Device Board",
   "icon": "🧾",
-  "script": "renderDeviceListExcel",
+  "script": "renderExcelDeviceBoard",
   "minW": 2,
   "minH": 2,
   "w": 2,
   "h": 2,
   "settings": {
-    "title": "Device List"
+    "title": "Excel Device Board"
   }
 }
