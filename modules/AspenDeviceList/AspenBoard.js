@@ -1,0 +1,607 @@
+/* Aspen-gebundene Geräteliste, dedupliziert nach Meldung */
+(function(){
+  'use strict';
+
+  const STYLE_ID = 'db-styles';
+  const CSS = `
+    .db-root{height:100%;display:flex;flex-direction:column;}
+    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
+    .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;overflow:auto;}
+    .db-list{display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;}
+    .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:
+0 2px 6px rgba(0,0,0,.06);display:flex;align-items:center;gap:.75rem;user-select:none;}
+    .db-flex{flex:1;display:flex;flex-direction:column;}
+    .db-title{color:var(--dl-title,#2563eb);font-weight:600;line-height:1.1;}
+    .db-sub{color:var(--dl-sub,#4b5563);font-size:.85rem;margin-top:.15rem;}
+    .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;bor
+der-radius:.45rem;background:rgba(0,0,0,.06);cursor:grab;color:inherit;}
+    .db-handle:active{cursor:grabbing;}
+    .db-card.active{box-shadow:0 0 0 2px var(--dl-active,#10b981) inset,0 8px 20px rgba(0,0,0,.12);transform:translateY(-1px);}
+    .db-ghost{opacity:.4;}
+    .db-chosen{transform:scale(1.01);}
+    .db-menu{position:fixed;z-index:1000;display:none;min-width:200px;padding:.25rem;background:var(--sidebar-module-card-bg,#ff
+f);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px
+ 24px rgba(0,0,0,.18);}
+    .db-menu.open{display:block;}
+    .db-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
+    .db-menu .mi:hover{background:rgba(0,0,0,.06);}
+    .db-part-list{max-height:240px;overflow:auto;padding:.25rem .5rem;display:flex;flex-direction:column;gap:.25rem;}
+    .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
+    .db-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:1
+000;}
+    .db-modal.open{display:flex;}
+    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radiu
+s:.75rem;min-width:260px;box-shadow:0 10px 24px rgba(0,0,0,.18);}
+    .db-panel .row{margin-bottom:.75rem;}
+    .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
+    .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);bor
+der-radius:.4rem;background:transparent;color:inherit;}
+    .db-color{width:100%;height:2.25rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;
+}
+    .db-panel .row.subs{display:flex;flex-direction:column;gap:.4rem;}
+    .db-sub-list{display:flex;flex-direction:column;gap:.35rem;}
+    .db-sub-row{display:flex;gap:.5rem;align-items:center;}
+    .db-sub-row select{flex:1;}
+    .db-sub-row button{padding:.35rem .6rem;}
+    .db-add-sub{align-self:flex-start;padding:.35rem .6rem;}
+    .db-sub-line+.db-sub-line{margin-top:.15rem;}
+    .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
+  `;
+
+  const XLSX_URLS = [
+    'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.20.2/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.20.2/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.2/xlsx.full.min.js'
+  ];
+  const SORTABLE_URLS = [
+    'https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js'
+  ];
+
+  const GROUP_NAME = 'deviceBoardGroup';
+  const TITLE_FIELD = 'MELDUNGS_NO';
+  const MELDUNG_FIELD = 'MELDUNGS_NO';
+  const DEFAULT_SUB_FIELD = 'AUFTRAGS_NO';
+  const LS_DOC = 'module_data_v1';
+  const LS_STATE = 'aspenDeviceListState';
+  const CUSTOM_BROADCAST = 'deviceBoard:update';
+
+  function injectStyles(){
+    if(document.getElementById(STYLE_ID)) return;
+    const tag=document.createElement('style');
+    tag.id=STYLE_ID;
+    tag.textContent=CSS;
+    document.head.appendChild(tag);
+  }
+
+  async function ensureLibrary(globalKey,promiseKey,urls){
+    if(window[globalKey]) return;
+    if(window[promiseKey]) return window[promiseKey];
+    window[promiseKey]=(async()=>{
+      let lastError;
+      for(const url of urls){
+        try{
+          await new Promise((resolve,reject)=>{
+            const script=document.createElement('script');
+            script.src=url;
+            script.async=true;
+            script.onload=resolve;
+            script.onerror=()=>reject(new Error('load '+url));
+            document.head.appendChild(script);
+          });
+          if(window[globalKey]) return;
+        }catch(err){lastError=err;}
+      }
+      throw lastError||new Error('Failed to load '+globalKey);
+    })();
+    return window[promiseKey];
+  }
+
+  function ensureXLSX(){
+    return ensureLibrary('XLSX','__XLSX_LOAD_PROMISE__',XLSX_URLS);
+  }
+
+  function ensureSortable(){
+    return ensureLibrary('Sortable','__SORTABLE_LOAD_PROMISE__',SORTABLE_URLS);
+  }
+
+  function dedupeByMeldung(list){
+    const seen=new Set();
+    return (Array.isArray(list)?list:[]).filter(item=>{
+      const meldung=(item?.meldung||'').trim();
+      if(!meldung) return false;
+      if(seen.has(meldung)) return false;
+      seen.add(meldung);
+      return true;
+    });
+  }
+
+  const parseJson=s=>{try{return JSON.parse(s)||{};}catch{return{};}};
+  const loadDoc=()=>parseJson(localStorage.getItem(LS_DOC));
+  const saveDoc=doc=>localStorage.setItem(LS_DOC,JSON.stringify(doc));
+  const getActiveMeldung=()=> (loadDoc().general?.Meldung||'').trim();
+
+  function createElements(initialTitle){
+    const root=document.createElement('div');
+    root.className='db-root';
+    const titleBar=initialTitle?`<div class="db-titlebar">${initialTitle}</div>`:'';
+    root.innerHTML=`${titleBar}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+
+    const menu=document.createElement('div');
+    menu.className='db-menu';
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Excel-Datei wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
+    document.body.appendChild(menu);
+
+    return {
+      root,
+      list:root.querySelector('.db-list'),
+      modal:root.querySelector('.db-modal'),
+      titleInput:root.querySelector('.db-title-input'),
+      subList:root.querySelector('.db-sub-list'),
+      addSubBtn:root.querySelector('.db-add-sub'),
+      selPart:root.querySelector('.db-sel-part'),
+      saveBtn:root.querySelector('.db-save'),
+      closeBtn:root.querySelector('.db-close'),
+      cBg:root.querySelector('.db-c-bg'),
+      cItem:root.querySelector('.db-c-item'),
+      cTitle:root.querySelector('.db-c-title'),
+      cSub:root.querySelector('.db-c-sub'),
+      cActive:root.querySelector('.db-c-active'),
+      menu,
+      partList:menu.querySelector('.db-part-list')
+    };
+  }
+
+  function createInitialState(initialTitle){
+    return {
+      fields:[],
+      config:{
+        subFields:[DEFAULT_SUB_FIELD],
+        partField:TITLE_FIELD,
+        title:initialTitle,
+        colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'}
+      },
+      items:[],
+      excluded:new Set(),
+      filePath:''
+    };
+  }
+
+  function ensureSubFields(config){
+    if(!Array.isArray(config.subFields) || !config.subFields.length){
+      const fallback=config.subField||DEFAULT_SUB_FIELD;
+      config.subFields=[fallback];
+      if('subField' in config) delete config.subField;
+    }
+  }
+
+  function primarySubField(config){
+    ensureSubFields(config);
+    return config.subFields[0]||DEFAULT_SUB_FIELD;
+  }
+
+  function restoreState(state){
+    const raw=localStorage.getItem(LS_STATE);
+    if(!raw) return;
+    try{
+      const saved=JSON.parse(raw);
+      if(Array.isArray(saved.fields)) state.fields=saved.fields;
+      if(saved.config){
+        const colors={...state.config.colors,...(saved.config.colors||{})};
+        state.config={
+          subFields:Array.isArray(saved.config.subFields)&&saved.config.subFields.length?saved.config.subFields.slice():state.config.subFields.slice(),
+          partField:saved.config.partField||state.config.partField,
+          title:typeof saved.config.title==='string'?saved.config.title:state.config.title,
+          colors
+        };
+      }
+      ensureSubFields(state.config);
+      if(Array.isArray(saved.items)) state.items=dedupeByMeldung(saved.items);
+      if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
+      state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
+      const sortField=primarySubField(state.config);
+      state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
+    }catch(e){/* ignore */}
+  }
+
+  function persistState(state){
+    state.items=dedupeByMeldung(state.items);
+    const payload={
+      fields:state.fields,
+      config:{
+        subFields:state.config.subFields.slice(),
+        partField:state.config.partField,
+        title:state.config.title,
+        colors:{...state.config.colors}
+      },
+      items:state.items,
+      excluded:Array.from(state.excluded),
+      filePath:state.filePath
+    };
+    try{localStorage.setItem(LS_STATE,JSON.stringify(payload));}catch(e){/* ignore */}
+  }
+
+  function getAvailableFieldList(state,extra){
+    const base=Array.isArray(state.fields)&&state.fields.length?state.fields.slice():[];
+    const extras=Array.isArray(extra)?extra.filter(Boolean):[extra].filter(Boolean);
+    extras.forEach(field=>{if(!base.includes(field)) base.push(field);});
+    if(!base.length) base.push(DEFAULT_SUB_FIELD);
+    return base;
+  }
+
+  function applyColors(root,colors){
+    root.style.setProperty('--dl-bg',colors.bg);
+    root.style.setProperty('--dl-item-bg',colors.item);
+    root.style.setProperty('--dl-title',colors.title);
+    root.style.setProperty('--dl-sub',colors.sub);
+    root.style.setProperty('--dl-active',colors.active);
+  }
+
+  function updateTitleBar(root,title){
+    const text=(title||'').trim();
+    let bar=root.querySelector('.db-titlebar');
+    if(!text){
+      if(bar) bar.remove();
+      return;
+    }
+    if(!bar){
+      bar=document.createElement('div');
+      bar.className='db-titlebar';
+      root.insertBefore(bar,root.firstChild);
+    }
+    bar.textContent=text;
+  }
+
+  function buildCardMarkup(item,config){
+    const titleValue=item.data?.[TITLE_FIELD]||'';
+    const meldung=item.meldung||'';
+    const subs=(Array.isArray(config.subFields)?config.subFields:[])
+      .map(field=>{
+        const val=item.data?.[field]||'';
+        return val?`<div class="db-sub-line" data-field="${field}">${val}</div>`:'';
+      })
+      .filter(Boolean)
+      .join('');
+    return `
+      <div class="db-card" data-id="${item.id}" data-meldung="${meldung}" data-part="${item.part}">
+        <div class="db-flex">
+          <div class="db-title">${titleValue}</div>
+          <div class="db-sub">${subs}</div>
+        </div>
+        <div class="db-handle" title="Ziehen">⋮⋮</div>
+      </div>
+    `;
+  }
+
+  function renderList(elements,state){
+    state.items=dedupeByMeldung(state.items);
+    const visible=state.items.filter(item=>!state.excluded.has(item.part));
+    if(!visible.length){
+      elements.list.innerHTML='<div style="opacity:.6;">Keine Geräte</div>';
+      persistState(state);
+      updateHighlights(elements.list);
+      return;
+    }
+    const html=visible.map(item=>buildCardMarkup(item,state.config)).join('');
+    elements.list.innerHTML=html;
+    persistState(state);
+    updateHighlights(elements.list);
+  }
+
+  function refreshMenu(menuEl,state,renderFn){
+    if(!menuEl?.partList) return;
+    state.items=dedupeByMeldung(state.items);
+    const parts=Array.from(new Set(state.items.map(item=>item.part))).sort();
+    menuEl.partList.innerHTML=parts.map(part=>`<label class="db-check"><input type="checkbox" data-part="${part}" ${state.excluded.has(part)?'':'checked'}> ${part}</label>`).join('');
+    menuEl.partList.querySelectorAll('input').forEach(input=>{
+      input.addEventListener('change',()=>{
+        const part=input.dataset.part;
+        if(input.checked) state.excluded.delete(part); else state.excluded.add(part);
+        renderFn();
+      });
+    });
+  }
+
+  function updateHighlights(list){
+    const active=getActiveMeldung();
+    list.querySelectorAll('.db-card').forEach(node=>{
+      const meldung=(node.dataset.meldung||'').trim();
+      node.classList.toggle('active',active&&meldung===active);
+    });
+  }
+
+  function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+
+  window.renderAspenBoard=async function(targetDiv,opts){
+    injectStyles();
+
+    const initialTitle=opts?.moduleJson?.settings?.title||'';
+    const elements=createElements(initialTitle);
+    targetDiv.appendChild(elements.root);
+
+    const state=createInitialState(initialTitle);
+    let tempSubFields=[];
+
+    restoreState(state);
+
+    elements.cBg.value=state.config.colors.bg;
+    elements.cItem.value=state.config.colors.item;
+    elements.cTitle.value=state.config.colors.title;
+    elements.cSub.value=state.config.colors.sub;
+    elements.cActive.value=state.config.colors.active;
+    elements.titleInput.value=state.config.title||'';
+
+    applyColors(elements.root,state.config.colors);
+    updateTitleBar(elements.root,state.config.title);
+
+    function populateFieldSelects(){
+      ensureSubFields(state.config);
+      const options=getAvailableFieldList(state,[state.config.partField]);
+      elements.selPart.innerHTML=options.map(field=>`<option value="${field}" ${field===state.config.partField?'selected':''}>${field}</option>`).join('');
+      if(!options.includes(state.config.partField)){
+        state.config.partField=options[0]||DEFAULT_SUB_FIELD;
+        elements.selPart.value=state.config.partField;
+      }
+    }
+
+    function syncFromDOM(){
+      const existing=new Map(state.items.map(item=>[item.id,item]));
+      const ordered=[];
+      elements.list.querySelectorAll('.db-card').forEach(node=>{
+        const id=node.dataset.id||('it-'+Math.random().toString(36).slice(2));
+        const partRaw=node.dataset.part||node.dataset.meldung||'';
+        const part=(partRaw.split(':')[0]||'').trim();
+        const meldung=((node.dataset.meldung||'').split(':')[0]||'').trim();
+        let item=existing.get(id);
+        if(item){
+          item.part=part;
+          item.meldung=meldung;
+          item.data={...item.data,[state.config.partField]:part,[MELDUNG_FIELD]:meldung};
+        }else{
+          const data={};
+          data[TITLE_FIELD]=node.querySelector('.db-title')?.textContent||'';
+          node.querySelectorAll('.db-sub-line').forEach(sub=>{
+            const field=sub.dataset.field;
+            if(field) data[field]=sub.textContent||'';
+          });
+          data[state.config.partField]=part;
+          data[MELDUNG_FIELD]=meldung;
+          item={id,part,meldung,data};
+        }
+        ordered.push(item);
+      });
+      state.items=dedupeByMeldung(ordered);
+    }
+
+    function render(){
+      renderList(elements,state);
+      refreshMenu(elements,state,render);
+    }
+
+    populateFieldSelects();
+    render();
+
+    function openMenu(x,y){
+      refreshMenu(elements,state,render);
+      const rect=elements.menu.getBoundingClientRect();
+      const pad=8;
+      const vw=window.innerWidth;
+      const vh=window.innerHeight;
+      elements.menu.style.left=clamp(x,pad,vw-rect.width-pad)+'px';
+      elements.menu.style.top=clamp(y,pad,vh-rect.height-pad)+'px';
+      elements.menu.classList.add('open');
+    }
+    function closeMenu(){elements.menu.classList.remove('open');}
+
+    elements.menu.querySelector('.mi-pick').addEventListener('click',pickFromExcel);
+    elements.menu.querySelector('.mi-disable').addEventListener('click',()=>{
+      state.items=dedupeByMeldung(state.items);
+      state.excluded=new Set(state.items.map(item=>item.part));
+      render();
+    });
+    elements.menu.querySelector('.mi-opt').addEventListener('click',()=>{closeMenu();openOptions();});
+
+    function renderSubFieldControls(){
+      const pool=getAvailableFieldList(state,tempSubFields);
+      if(!tempSubFields.length){
+        tempSubFields=[pool[0]||DEFAULT_SUB_FIELD];
+      }
+      elements.subList.innerHTML='';
+      tempSubFields.forEach((field,index)=>{
+        const row=document.createElement('div');
+        row.className='db-sub-row';
+        const select=document.createElement('select');
+        const choices=getAvailableFieldList(state,tempSubFields);
+        if(field && !choices.includes(field)) choices.push(field);
+        select.innerHTML=choices.map(opt=>`<option value="${opt}" ${opt===field?'selected':''}>${opt}</option>`).join('');
+        if(!field && choices.length){
+          select.value=choices[0];
+          tempSubFields[index]=choices[0];
+        }
+        select.addEventListener('change',()=>{tempSubFields[index]=select.value;});
+        const sortBtn=document.createElement('button');
+        sortBtn.type='button';
+        sortBtn.className='db-sort';
+        sortBtn.textContent='Sortieren';
+        sortBtn.addEventListener('click',()=>{
+          const fieldName=select.value;
+          if(!fieldName) return;
+          syncFromDOM();
+          state.items.sort((a,b)=>String(a?.data?.[fieldName]||'').localeCompare(String(b?.data?.[fieldName]||'')));
+          render();
+        });
+        row.appendChild(select);
+        row.appendChild(sortBtn);
+        elements.subList.appendChild(row);
+      });
+    }
+
+    function openOptions(){
+      tempSubFields=Array.isArray(state.config.subFields)?state.config.subFields.slice():[];
+      populateFieldSelects();
+      renderSubFieldControls();
+      elements.titleInput.value=state.config.title||'';
+      elements.cBg.value=state.config.colors.bg;
+      elements.cItem.value=state.config.colors.item;
+      elements.cTitle.value=state.config.colors.title;
+      elements.cSub.value=state.config.colors.sub;
+      elements.cActive.value=state.config.colors.active;
+      elements.modal.classList.add('open');
+    }
+    function closeOptions(){
+      elements.modal.classList.remove('open');
+      tempSubFields=[];
+    }
+
+    elements.addSubBtn.addEventListener('click',()=>{
+      if(!Array.isArray(tempSubFields) || !tempSubFields.length){
+        const defaults=getAvailableFieldList(state);
+        tempSubFields=[defaults[0]||DEFAULT_SUB_FIELD];
+      }
+      const candidates=getAvailableFieldList(state,tempSubFields);
+      const used=new Set(tempSubFields.filter(Boolean));
+      const next=candidates.find(field=>!used.has(field))||candidates[0]||DEFAULT_SUB_FIELD;
+      tempSubFields.push(next);
+      renderSubFieldControls();
+    });
+
+    elements.saveBtn.addEventListener('click',()=>{
+      state.config.title=elements.titleInput.value.trim();
+      const newPart=elements.selPart.value;
+      const partChanged=state.config.partField!==newPart;
+      state.config.partField=newPart;
+      const collected=(tempSubFields||[]).map(v=>v||'').filter(Boolean);
+      state.config.subFields=collected.length?collected:[getAvailableFieldList(state)[0]||DEFAULT_SUB_FIELD];
+      state.config.colors={
+        bg:elements.cBg.value,
+        item:elements.cItem.value,
+        title:elements.cTitle.value,
+        sub:elements.cSub.value,
+        active:elements.cActive.value
+      };
+      updateTitleBar(elements.root,state.config.title);
+      applyColors(elements.root,state.config.colors);
+      if(partChanged){
+        state.items.forEach(item=>{
+          const raw=String(item.data?.[newPart]||'').trim();
+          const part=(raw.split(':')[0]||'').trim();
+          item.part=part;
+          item.data={...item.data,[newPart]:part};
+        });
+        state.excluded.clear();
+      }
+      persistState(state);
+      render();
+      closeOptions();
+    });
+
+    elements.closeBtn.addEventListener('click',closeOptions);
+
+    elements.selPart.addEventListener('change',()=>{
+      const newPart=elements.selPart.value;
+      if(!newPart) return;
+      if(state.config.partField===newPart) return;
+      state.config.partField=newPart;
+      state.items.forEach(item=>{
+        const raw=String(item.data?.[newPart]||'').trim();
+        const part=(raw.split(':')[0]||'').trim();
+        item.part=part;
+        item.data={...item.data,[newPart]:part};
+      });
+      state.excluded.clear();
+      render();
+      persistState(state);
+    });
+
+    elements.list.addEventListener('click',event=>{
+      if(event.target.closest('.db-handle')) return;
+      const card=event.target.closest('.db-card');
+      if(!card) return;
+      const meldung=(card.dataset.meldung||'').trim();
+      const doc=loadDoc();
+      doc.general||={};
+      if(doc.general.Meldung!==meldung){
+        doc.general.Meldung=meldung;
+        saveDoc(doc);
+        updateHighlights(elements.list);
+        window.dispatchEvent(new Event(CUSTOM_BROADCAST));
+      }
+    });
+
+    elements.menu.addEventListener('click',e=>e.stopPropagation());
+    targetDiv.addEventListener('contextmenu',event=>{
+      event.preventDefault();
+      openMenu(event.clientX,event.clientY);
+    });
+    document.addEventListener('click',event=>{
+      if(!elements.menu.contains(event.target)) closeMenu();
+    });
+
+    window.addEventListener('storage',event=>{if(event.key===LS_DOC) updateHighlights(elements.list);});
+    window.addEventListener(CUSTOM_BROADCAST,()=>updateHighlights(elements.list));
+
+    const mo=new MutationObserver(()=>{
+      if(!document.body.contains(elements.root)){
+        elements.menu.remove();
+        mo.disconnect();
+      }
+    });
+    mo.observe(document.body,{childList:true,subtree:true});
+
+    async function pickFromExcel(){
+      closeMenu();
+      try{
+        const [handle]=await showOpenFilePicker({
+          types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
+          multiple:false
+        });
+        if(!handle) return;
+        await ensureXLSX();
+        const file=await handle.getFile();
+        state.filePath=handle.name||'';
+        const buffer=await file.arrayBuffer();
+        const workbook=XLSX.read(buffer,{type:'array'});
+        const worksheet=workbook.Sheets[workbook.SheetNames[0]];
+        if(!worksheet){
+          state.items=[];
+          render();
+          return;
+        }
+        const rows=XLSX.utils.sheet_to_json(worksheet,{defval:''});
+        state.fields=Object.keys(rows[0]||{});
+        const partField=state.fields.find(field=>/part/i.test(field))||state.fields[0]||TITLE_FIELD;
+        state.config.partField=partField;
+        state.config.subFields=[partField];
+        const newItems=rows.map(row=>{
+          const titleVal=String(row[TITLE_FIELD]||'').trim();
+          const rawPart=String(row[partField]||'').trim();
+          const part=(rawPart.split(':')[0]||'').trim();
+          const meldung=String(row[MELDUNG_FIELD]||'').trim();
+          if(!titleVal && !part && !meldung) return null;
+          const data={...row,[TITLE_FIELD]:titleVal,[partField]:part,[MELDUNG_FIELD]:meldung};
+          return {id:'it-'+Math.random().toString(36).slice(2),part,meldung,data};
+        }).filter(Boolean);
+        state.items=dedupeByMeldung(newItems);
+        const sortField=primarySubField(state.config);
+        state.items.sort((a,b)=>String(a.data?.[sortField]||'').localeCompare(String(b.data?.[sortField]||'')));
+        state.excluded.clear();
+        populateFieldSelects();
+        render();
+      }catch(error){console.error(error);}
+    }
+
+    await ensureSortable();
+    new Sortable(elements.list,{
+      group:{name:GROUP_NAME,pull:true,put:true},
+      animation:150,
+      handle:'.db-handle',
+      draggable:'.db-card',
+      ghostClass:'db-ghost',
+      chosenClass:'db-chosen',
+      onSort:()=>{syncFromDOM();render();},
+      onAdd:()=>{syncFromDOM();render();},
+      onRemove:()=>{syncFromDOM();render();}
+    });
+  };
+})();
