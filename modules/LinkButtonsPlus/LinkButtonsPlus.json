@@ -9,6 +9,6 @@
   "settings": {
     "leftTop": "Event",
     "leftBottom": "CMDS",
-    "rightLabels": ["ZIAUF3", "ZILLK", "ZIKV", "ZIQA", "REPORT"]
+    "rightLabels": ["ZIAUF3", "ZILLK", "ZIKV", "ZIQA", "REPORT", "Workforce"]
   }
 }
