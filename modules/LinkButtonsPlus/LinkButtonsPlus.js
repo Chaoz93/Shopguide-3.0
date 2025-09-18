@@ -471,6 +471,7 @@
 
     root.addEventListener('contextmenu', e => {
       e.preventDefault();
+      e.stopPropagation();
       workforceFilters = loadWorkforceFilters();
       renderFilters();
       tabButtons.forEach(btn => {
