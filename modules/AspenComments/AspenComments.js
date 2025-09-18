@@ -438,7 +438,7 @@
             }
           }else{
             map.set(key,{
-              id=createId(),
+              id:createId(),
               part:entry.part,
               serial:entry.serial,
               comment:entry.hasComment?String(entry.comment):''
@@ -647,7 +647,7 @@
         renderList(elements,state);
         openEditor(existing);
       }else{
-        const item={id=createId(),part,serial,comment:''};
+        const item={id:createId(),part,serial,comment:''};
         state.items.push(item);
         persistAndSync();
         renderList(elements,state);
