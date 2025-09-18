@@ -38,6 +38,10 @@
     .db-input{width:100%; height:2.25rem; border:1px solid #e5e7eb; border-radius:.5rem; padding:.4rem .55rem;}
     .db-row{display:flex; gap:.5rem; align-items:center;}
     .db-file{font-size:.85rem; opacity:.85;}
+    .db-sub-list{display:flex; flex-direction:column; gap:.4rem;}
+    .db-sub-row{display:flex; gap:.5rem; align-items:center;}
+    .db-sub-row select{flex:1;}
+    .db-sub-remove{padding:.35rem .6rem;}
     @media (max-width:840px){ .db-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
     @media (max-width:520px){ .db-grid{grid-template-columns:1fr;} }
     .db-ghost{opacity:.4}
@@ -48,6 +52,8 @@
     .db-menu.open{display:block}
     .db-menu .mi{display:block; width:100%; padding:.5rem .75rem; text-align:left; border-radius:.4rem;}
     .db-menu .mi:hover{background:rgba(0,0,0,.06)}
+    .db-part-list{max-height:240px; overflow:auto; padding:.25rem .5rem; display:flex; flex-direction:column; gap:.25rem;}
+    .db-check{display:flex; align-items:center; gap:.45rem; font-size:.85rem;}
     `;
     const tag=document.createElement('style');
     tag.id='device-board-styles';
@@ -315,8 +321,13 @@
               <select class="db-input db-sel-title"></select>
             </div>
             <div class="db-field">
-              <label>Untertitel-Feld</label>
-              <select class="db-input db-sel-sub"></select>
+              <label>Part-Feld</label>
+              <select class="db-input db-sel-part"></select>
+            </div>
+            <div class="db-field" style="grid-column: span 3;">
+              <label>Untertitel-Felder</label>
+              <div class="db-sub-list"></div>
+              <button type="button" class="db-btn secondary db-sub-add">Feld hinzufügen</button>
             </div>
             <div class="db-field">
               <label>Hintergrund</label>
@@ -364,7 +375,7 @@
 
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML=`<button class="mi mi-opt">⚙️ Optionen</button>`;
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Excel wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     return {
@@ -382,40 +393,54 @@
       dictLabel:root.querySelector('.db-dict-file'),
       namePick:root.querySelector('.db-name-pick'),
       nameLabel:root.querySelector('.db-name-file'),
+      titleInput:root.querySelector('.db-title-input'),
       selTitle:root.querySelector('.db-sel-title'),
-      selSub:root.querySelector('.db-sel-sub'),
+      selPart:root.querySelector('.db-sel-part'),
+      subList:root.querySelector('.db-sub-list'),
+      subAdd:root.querySelector('.db-sub-add'),
       cBg:root.querySelector('.db-c-bg'),
       cItem:root.querySelector('.db-c-item'),
       cTitle:root.querySelector('.db-c-title'),
       cSub:root.querySelector('.db-c-sub'),
       cActive:root.querySelector('.db-c-active'),
-      titleInput:root.querySelector('.db-title-input'),
       addModal:root.querySelector('.db-add-modal'),
       addClose:root.querySelector('.db-add-close'),
       addSave:root.querySelector('.db-add-save'),
       addInput:root.querySelector('.db-add-input'),
-      menu
+      menu,
+      menuOpt:menu.querySelector('.mi-opt'),
+      menuPick:menu.querySelector('.mi-pick'),
+      menuDisable:menu.querySelector('.mi-disable'),
+      partList:menu.querySelector('.db-part-list')
     };
   }
 
-  function cardEl(item,cfg,dict,rules){
+  function cardEl(item,cfg,dict,rules,partValue){
     const el=document.createElement('div');
     el.className='db-card';
     el.dataset.id=item.id;
     el.dataset.meldung=item.meldung||'';
     const data=dict[item.meldung]||{};
+    const part=(partValue||'').trim();
     const valueFor=field=>{
-      if(field==='meldung') return item.meldung||'';
-      if(field==='name') return lookupName(data.part||'',rules);
-      return data[field]||'';
+      if(field==='meldung') return (item.meldung||'').trim();
+      if(field==='name') return lookupName(part,rules);
+      return String(data[field]??'').trim();
     };
+    const subs=Array.isArray(cfg.subFields)&&cfg.subFields.length?cfg.subFields:[cfg.titleField||'meldung'];
+    const subHtml=subs
+      .map(field=>valueFor(field))
+      .filter(text=>String(text||'').trim()!=='')
+      .map(text=>`<div class="db-sub-line">${text}</div>`)
+      .join('');
     el.innerHTML=`
       <div class="db-flex">
         <div class="db-title">${valueFor(cfg.titleField)}</div>
-        <div class="db-sub">${valueFor(cfg.subField)}</div>
+        <div class="db-sub">${subHtml}</div>
       </div>
       <div class="db-handle" title="Ziehen">⋮⋮</div>
     `;
+    el.dataset.part=part;
     return el;
   }
 
@@ -426,6 +451,9 @@
     const doc=loadDoc();
     const cfg=doc?.instances?.[instanceId]?.deviceBoard||{};
     const general=doc.general||{};
+    const subFields=Array.isArray(cfg.subFields)&&cfg.subFields.length
+      ? cfg.subFields.slice()
+      : [cfg.subField||'auftrag'];
     return {
       idbKey:cfg.idbKey||`deviceBoard:${instanceId}`,
       dictIdbKey:cfg.dictIdbKey||`deviceBoardDict:${instanceId}`,
@@ -434,7 +462,9 @@
       dictFileName:cfg.dictFileName||general.dictFileName||'',
       nameFileName:cfg.nameFileName||general.nameFileName||'',
       titleField:cfg.titleField||'meldung',
-      subField:cfg.subField||'auftrag',
+      partField:cfg.partField||'part',
+      subFields:subFields,
+      excludedParts:Array.isArray(cfg.excludedParts)?cfg.excludedParts.slice():[],
       title:cfg.title||'',
       colors:cfg.colors||{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'}
     };
@@ -444,7 +474,13 @@
     const doc=loadDoc();
     doc.instances ||= {};
     doc.instances[instanceId] ||= {};
-    doc.instances[instanceId].deviceBoard={...cfg};
+    const payload={
+      ...cfg,
+      subFields:Array.isArray(cfg.subFields)?cfg.subFields.slice():[],
+      subField:Array.isArray(cfg.subFields)&&cfg.subFields.length?cfg.subFields[0]:'auftrag',
+      excludedParts:Array.isArray(cfg.excludedParts)?cfg.excludedParts.slice():[],
+    };
+    doc.instances[instanceId].deviceBoard=payload;
     saveDoc(doc);
   }
 
@@ -490,8 +526,11 @@
       items:[],
       handles:{file:null,dict:null,name:null},
       dict:{data:{},fields:DEFAULT_DICT_FIELDS.slice(),loaded:false},
-      names:{rules:[],loaded:false}
+      names:{rules:[],loaded:false},
+      excluded:new Set((cfg.excludedParts||[]).map(part=>String(part??'').trim()))
     };
+
+    let tempSubFields=[];
 
     applyColors(els,cfg);
     applyTitle(els,cfg.title);
@@ -505,39 +544,149 @@
     els.dictLabel.textContent=cfg.dictFileName?`• ${cfg.dictFileName}`:'Kein Wörterbuch';
     els.nameLabel.textContent=cfg.nameFileName?`• ${cfg.nameFileName}`:'Keine Namensregeln';
 
-    function updateFieldOptions(){
-      const targets=[els.selTitle,els.selSub];
-      targets.forEach(sel=>{sel.innerHTML='';});
-      state.dict.fields.forEach(field=>{
-        targets.forEach(sel=>{
-          const opt=document.createElement('option');
-          opt.value=field.key;
-          opt.textContent=field.label;
-          sel.appendChild(opt);
-        });
+    const arraysEqual=(a,b)=>{
+      if(!Array.isArray(a) || !Array.isArray(b)) return false;
+      if(a.length!==b.length) return false;
+      for(let i=0;i<a.length;i++){if(a[i]!==b[i]) return false;}
+      return true;
+    };
+
+    function uniqueFields(list){
+      const seen=new Set();
+      const out=[];
+      (Array.isArray(list)?list:[]).forEach(field=>{
+        if(!field) return;
+        const key=String(field.key||'').trim();
+        if(!key || seen.has(key)) return;
+        seen.add(key);
+        out.push({key,label:field.label||key});
       });
-      if(state.names.rules.length){
-        targets.forEach(sel=>{
-          const opt=document.createElement('option');
-          opt.value='name';
-          opt.textContent='Name';
-          sel.appendChild(opt);
-        });
+      return out;
+    }
+
+    function baseFieldOptions(){
+      const src=state.dict.fields&&state.dict.fields.length?state.dict.fields:DEFAULT_DICT_FIELDS;
+      const list=uniqueFields(src);
+      if(!list.some(f=>f.key==='meldung')) list.unshift({key:'meldung',label:'Meldung'});
+      return list;
+    }
+
+    function titleFieldOptions(){
+      const base=baseFieldOptions();
+      if(state.names.rules.length && !base.some(f=>f.key==='name')) base.push({key:'name',label:'Name'});
+      return base;
+    }
+
+    function partFieldOptions(){
+      return baseFieldOptions();
+    }
+
+    function fillSelect(select,options,value){
+      if(!select) return;
+      select.innerHTML='';
+      options.forEach(opt=>{
+        const option=document.createElement('option');
+        option.value=opt.key;
+        option.textContent=opt.label||opt.key;
+        select.appendChild(option);
+      });
+      if(!options.length){
+        select.value='';
+        return;
       }
-      const valid=new Set(state.dict.fields.map(f=>f.key));
-      if(state.names.rules.length) valid.add('name');
+      const fallback=options[0].key;
+      const target=options.some(opt=>opt.key===value)?value:fallback;
+      select.value=target;
+    }
+
+    function updateFieldOptions(){
+      const titleOpts=titleFieldOptions();
+      const partOpts=partFieldOptions();
+      const titleKeys=new Set(titleOpts.map(opt=>opt.key));
+      const partKeys=new Set(partOpts.map(opt=>opt.key));
       let changed=false;
-      if(!valid.has(cfg.titleField)){
-        cfg.titleField=valid.values().next().value||'meldung';
+
+      if(!titleKeys.has(cfg.titleField)){
+        cfg.titleField=titleOpts[0]?.key||'meldung';
         changed=true;
       }
-      if(!valid.has(cfg.subField)){
-        cfg.subField=valid.has(cfg.titleField)?cfg.titleField:(valid.values().next().value||'meldung');
+
+      let sanitizedSubs=(Array.isArray(cfg.subFields)?cfg.subFields:[])
+        .filter(field=>titleKeys.has(field));
+      const seenSubs=new Set();
+      sanitizedSubs=sanitizedSubs.filter(field=>{
+        if(seenSubs.has(field)) return false;
+        seenSubs.add(field);
+        return true;
+      });
+      if(!sanitizedSubs.length){
+        const fallback=titleKeys.has('auftrag')?'auftrag':cfg.titleField||titleOpts[0]?.key||'meldung';
+        sanitizedSubs.push(fallback);
+      }
+      if(!arraysEqual(sanitizedSubs,cfg.subFields||[])){
+        cfg.subFields=sanitizedSubs.slice();
         changed=true;
       }
-      els.selTitle.value=cfg.titleField;
-      els.selSub.value=cfg.subField;
-      if(changed) saveCfg(instanceId,cfg);
+
+      if(!partKeys.has(cfg.partField)){
+        const fallback=partOpts.find(opt=>/part/.test(opt.key))||partOpts[0]||{key:'meldung'};
+        cfg.partField=fallback.key;
+        changed=true;
+      }
+
+      fillSelect(els.selTitle,titleOpts,cfg.titleField);
+      fillSelect(els.selPart,partOpts,cfg.partField);
+
+      if(changed){
+        cfg.excludedParts=Array.from(state.excluded);
+        saveCfg(instanceId,cfg);
+      }
+    }
+
+    function renderSubFieldControls(){
+      if(!els.subList) return;
+      const titleOpts=titleFieldOptions();
+      const validKeys=new Set(titleOpts.map(opt=>opt.key));
+      if(!Array.isArray(tempSubFields) || !tempSubFields.length){
+        tempSubFields=Array.isArray(cfg.subFields)&&cfg.subFields.length?cfg.subFields.slice():[cfg.titleField];
+      }
+      tempSubFields=tempSubFields.filter(field=>validKeys.has(field));
+      if(!tempSubFields.length){
+        const fallback=cfg.titleField||titleOpts[0]?.key||'meldung';
+        tempSubFields=[fallback];
+      }
+      els.subList.innerHTML='';
+      tempSubFields.forEach((field,index)=>{
+        const row=document.createElement('div');
+        row.className='db-sub-row';
+        const select=document.createElement('select');
+        select.className='db-input';
+        titleOpts.forEach(opt=>{
+          const option=document.createElement('option');
+          option.value=opt.key;
+          option.textContent=opt.label||opt.key;
+          select.appendChild(option);
+        });
+        const current=validKeys.has(field)?field:titleOpts[0]?.key||'';
+        select.value=current;
+        tempSubFields[index]=current;
+        select.addEventListener('change',()=>{
+          tempSubFields[index]=select.value;
+        });
+        row.appendChild(select);
+        if(tempSubFields.length>1){
+          const remove=document.createElement('button');
+          remove.type='button';
+          remove.className='db-btn secondary db-sub-remove';
+          remove.textContent='✕';
+          remove.addEventListener('click',()=>{
+            tempSubFields.splice(index,1);
+            renderSubFieldControls();
+          });
+          row.appendChild(remove);
+        }
+        els.subList.appendChild(row);
+      });
     }
 
     function updateHighlights(){
@@ -548,14 +697,49 @@
       });
     }
 
+    function cleanText(value){
+      return String(value??'').trim();
+    }
+
+    function cleanPart(value){
+      const text=cleanText(value);
+      if(!text) return '';
+      const idx=text.indexOf(':');
+      return idx>=0?text.slice(0,idx).trim():text;
+    }
+
+    function dictDataFor(item){
+      return state.dict.data[item.meldung]||{};
+    }
+
+    function computePart(item){
+      const field=cleanText(cfg.partField||'');
+      if(!field) return '';
+      if(field==='meldung') return cleanPart(item.meldung);
+      const data=dictDataFor(item);
+      return cleanPart(data[field]);
+    }
+
+    function partLabel(part){
+      return part?part:'Ohne Part';
+    }
+
     function renderList(){
       state.items=dedupeByMeldung(state.items);
       els.list.innerHTML='';
+      let visibleCount=0;
       state.items.forEach(item=>{
-        const card=cardEl(item,cfg,state.dict.data,state.names.rules);
+        const part=computePart(item);
+        if(state.excluded.has(part)) return;
+        const card=cardEl(item,cfg,state.dict.data,state.names.rules,part);
         els.list.appendChild(card);
+        visibleCount++;
       });
+      if(!visibleCount){
+        els.list.innerHTML='<div style="opacity:.6;">Keine Geräte</div>';
+      }
       updateHighlights();
+      refreshPartMenu();
     }
 
     function syncFromDOM(){
@@ -563,6 +747,52 @@
         {id:node.dataset.id,meldung:(node.dataset.meldung||'').trim()}
       ));
       state.items=dedupeByMeldung(state.items);
+    }
+
+    function refreshPartMenu(){
+      if(!els.partList) return;
+      const parts=new Map();
+      state.items.forEach(item=>{
+        const part=computePart(item);
+        if(!parts.has(part)) parts.set(part,partLabel(part));
+      });
+      const entries=Array.from(parts.entries()).sort((a,b)=>{
+        return a[1].localeCompare(b[1],'de',{sensitivity:'base'});
+      });
+      els.partList.innerHTML='';
+      if(!entries.length){
+        const info=document.createElement('div');
+        info.className='db-check';
+        info.style.opacity='0.6';
+        info.textContent='Keine Daten';
+        els.partList.appendChild(info);
+        return;
+      }
+      entries.forEach(([part,label])=>{
+        const row=document.createElement('label');
+        row.className='db-check';
+        const input=document.createElement('input');
+        input.type='checkbox';
+        input.dataset.part=part;
+        input.checked=!state.excluded.has(part);
+        input.addEventListener('click',event=>event.stopPropagation());
+        input.addEventListener('change',event=>{
+          event.stopPropagation();
+          if(input.checked){
+            state.excluded.delete(part);
+          }else{
+            state.excluded.add(part);
+          }
+          cfg.excludedParts=Array.from(state.excluded);
+          saveCfg(instanceId,cfg);
+          renderList();
+        });
+        const span=document.createElement('span');
+        span.textContent=label;
+        row.appendChild(input);
+        row.appendChild(span);
+        els.partList.appendChild(row);
+      });
     }
 
     const scheduleSave=debounce(250,async()=>{
@@ -695,18 +925,46 @@
       saveCfg(instanceId,cfg);
       renderList();
     });
-    els.selSub.addEventListener('change',()=>{
-      cfg.subField=els.selSub.value;
-      saveCfg(instanceId,cfg);
-      renderList();
-    });
+    if(els.selPart){
+      els.selPart.addEventListener('change',()=>{
+        const next=els.selPart.value;
+        if(cfg.partField===next) return;
+        cfg.partField=next;
+        state.excluded.clear();
+        cfg.excludedParts=Array.from(state.excluded);
+        saveCfg(instanceId,cfg);
+        renderList();
+      });
+    }
 
     els.save.addEventListener('click',()=>{
+      const prevPart=cfg.partField;
+      cfg.titleField=els.selTitle.value||cfg.titleField;
+      if(els.selPart) cfg.partField=els.selPart.value||cfg.partField;
+      const validKeys=new Set(titleFieldOptions().map(opt=>opt.key));
+      let nextSubs=Array.isArray(tempSubFields)?tempSubFields.map(field=>cleanText(field)).filter(Boolean):[];
+      nextSubs=nextSubs.filter(field=>validKeys.has(field));
+      const seenSubs=new Set();
+      nextSubs=nextSubs.filter(field=>{
+        if(seenSubs.has(field)) return false;
+        seenSubs.add(field);
+        return true;
+      });
+      if(!nextSubs.length){
+        if(validKeys.has(cfg.titleField)) nextSubs=[cfg.titleField];
+        else if(validKeys.size){nextSubs=[validKeys.values().next().value];}
+      }
+      cfg.subFields=nextSubs;
+      if(prevPart!==cfg.partField){
+        state.excluded.clear();
+      }
+      cfg.excludedParts=Array.from(state.excluded);
       cfg.colors={bg:els.cBg.value,item:els.cItem.value,title:els.cTitle.value,sub:els.cSub.value,active:els.cActive.value};
       cfg.title=els.titleInput.value||'';
       applyColors(els,cfg);
       applyTitle(els,cfg.title);
       saveCfg(instanceId,cfg);
+      updateFieldOptions();
       renderList();
       closeModal();
     });
@@ -714,17 +972,37 @@
     els.close.addEventListener('click',closeModal);
 
     function openModal(){
+      updateFieldOptions();
+      tempSubFields=Array.isArray(cfg.subFields)&&cfg.subFields.length?cfg.subFields.slice():[cfg.titleField];
+      renderSubFieldControls();
       els.titleInput.value=cfg.title||'';
       els.cBg.value=cfg.colors.bg;
       els.cItem.value=cfg.colors.item;
       els.cTitle.value=cfg.colors.title;
       els.cSub.value=cfg.colors.sub;
       els.cActive.value=cfg.colors.active;
-      els.selTitle.value=cfg.titleField;
-      els.selSub.value=cfg.subField;
+      if(els.selTitle) els.selTitle.value=cfg.titleField;
+      if(els.selPart) els.selPart.value=cfg.partField;
       els.modal.classList.add('open');
     }
-    function closeModal(){els.modal.classList.remove('open');}
+    function closeModal(){
+      els.modal.classList.remove('open');
+      tempSubFields=[];
+    }
+
+    if(els.subAdd){
+      els.subAdd.addEventListener('click',()=>{
+        const options=titleFieldOptions();
+        if(!options.length) return;
+        if(!Array.isArray(tempSubFields)) tempSubFields=[];
+        const used=new Set(tempSubFields);
+        const next=options.find(opt=>!used.has(opt.key))||options[0];
+        if(next){
+          tempSubFields.push(next.key);
+          renderSubFieldControls();
+        }
+      });
+    }
 
     function openAdd(){els.addModal.classList.add('open');els.addInput.value='';}
     function closeAdd(){els.addModal.classList.remove('open');}
@@ -758,10 +1036,37 @@
       }
     });
 
-    els.menu.addEventListener('click',()=>{closeMenu();openModal();});
+    if(els.menuOpt){
+      els.menuOpt.addEventListener('click',event=>{event.stopPropagation();closeMenu();openModal();});
+    }
+    if(els.menuPick){
+      els.menuPick.addEventListener('click',async event=>{
+        event.stopPropagation();
+        closeMenu();
+        await pickExcel();
+      });
+    }
+    if(els.menuDisable){
+      els.menuDisable.addEventListener('click',event=>{
+        event.stopPropagation();
+        state.items=dedupeByMeldung(state.items);
+        state.excluded=new Set(state.items.map(item=>computePart(item)));
+        cfg.excludedParts=Array.from(state.excluded);
+        saveCfg(instanceId,cfg);
+        closeMenu();
+        renderList();
+      });
+    }
+    if(els.menu){
+      els.menu.addEventListener('click',event=>event.stopPropagation());
+    }
+
     function openMenuAt(x,y){
+      refreshPartMenu();
       const pad=8;const vw=window.innerWidth;const vh=window.innerHeight;
-      const w=200;const h=44;
+      const rect=els.menu.getBoundingClientRect();
+      const w=rect.width||220;
+      const h=rect.height||160;
       els.menu.style.left=clamp(x,pad,vw-w-pad)+'px';
       els.menu.style.top=clamp(y,pad,vh-h-pad)+'px';
       els.menu.classList.add('open');
@@ -772,7 +1077,7 @@
       event.preventDefault();event.stopPropagation();
       openMenuAt(event.clientX,event.clientY);
     });
-    window.addEventListener('click',()=>closeMenu());
+    window.addEventListener('click',event=>{if(!els.menu.contains(event.target)) closeMenu();});
     window.addEventListener('keydown',event=>{if(event.key==='Escape') closeMenu();});
 
     updateFieldOptions();
