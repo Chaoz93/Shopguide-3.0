@@ -1,0 +1,13 @@
+{
+  "name": "Aspen Comments",
+  "title": "Aspen Comments",
+  "icon": "📝",
+  "script": "renderAspenComments",
+  "minW": 2,
+  "minH": 2,
+  "w": 2,
+  "h": 2,
+  "settings": {
+    "title": "Aspen Comments"
+  }
+}
