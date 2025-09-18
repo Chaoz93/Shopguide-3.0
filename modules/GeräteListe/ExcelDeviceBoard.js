@@ -27,7 +27,9 @@
     .db-btn{background:var(--button-bg); color:var(--button-text); padding:.35rem .6rem; border-radius:.5rem; font-size:.875rem}
     .db-btn.secondary{background: rgba(255,255,255,.14); color: var(--text-color);}
     .db-add{align-self:center; border-radius:9999px; width:2.2rem; height:2.2rem; display:flex; align-items:center; justify-content:center;
-            background:var(--button-bg); color:var(--button-text); box-shadow:0 8px 18px rgba(0,0,0,.16);}
+            background:linear-gradient(135deg,#2563eb,#7c3aed); color:#fff; box-shadow:0 10px 22px rgba(79,70,229,.28);
+            border:2px solid rgba(255,255,255,.7); transition:transform .15s ease, box-shadow .15s ease;}
+    .db-add:hover{transform:translateY(-1px); box-shadow:0 14px 30px rgba(79,70,229,.36);}
     .db-footer{display:flex; justify-content:center; padding:.25rem 0 .5rem;}
     .db-modal{position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.35); z-index:50;}
     .db-modal.open{display:grid;}
