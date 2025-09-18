@@ -225,11 +225,11 @@
           <div class="form-field col-span-2">
             <div class="flex items-center justify-between gap-4">
               <div>
-                <label for="setting-grid-float">Automatisches Nachrücken</label>
+                <label for="setting-grid-auto-arrange">Automatisches Nachrücken</label>
                 <p class="text-xs text-gray-500">Module rücken Lücken automatisch nach oben, wenn diese Option aktiv ist.</p>
               </div>
-              <label for="setting-grid-float" class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="setting-grid-float" class="sr-only peer">
+              <label for="setting-grid-auto-arrange" class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="setting-grid-auto-arrange" class="sr-only peer">
                 <div class="w-11 h-6 bg-gray-300 rounded-full transition peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:bg-blue-600"></div>
                 <span class="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-5"></span>
               </label>
@@ -348,7 +348,7 @@ let appSettings = {
   buttonBg: '#2563eb',
   buttonText: '#ffffff',
   borderColor: '#e5e7eb',
-  gridFloat: true,
+  autoArrangeModules: true,
   moduleBgColor: '#005983',
   textColor: '#ffffff',
   moduleBorderRadius: '1.25rem',
@@ -422,7 +422,7 @@ const inputTabInactiveText = document.getElementById('setting-tab-inactive-text'
 const inputSidebarBg = document.getElementById('setting-sidebar-bg');
 const inputSidebarText = document.getElementById('setting-sidebar-text');
 const inputGridHint = document.getElementById('setting-grid-hint');
-const inputGridFloat = document.getElementById('setting-grid-float');
+const inputAutoArrange = document.getElementById('setting-grid-auto-arrange');
 const inputModuleBg = document.getElementById('setting-module-bg');
 const inputTextColor = document.getElementById('setting-text-color');
 const inputBorderRadius = document.getElementById('setting-border-radius');
@@ -626,8 +626,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderTabs();
     });
   });
-  if (inputGridFloat) {
-    inputGridFloat.addEventListener('change', () => {
+  if (inputAutoArrange) {
+    inputAutoArrange.addEventListener('change', () => {
       readInputsIntoSettings();
       applySettings();
     });
@@ -643,7 +643,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   activateTab(0);
   updateModuleDraggable();
   updateGridDraggable();
-  updateGridFloat();
+  updateGridAutoArrange();
 
   // --- Try to restore AFTER wiring handlers ---
   const restored = await tryRestoreRootHandle();
@@ -670,7 +670,7 @@ function populateInputsFromSettings() {
   inputSidebarBg.value = toColor(appSettings.sidebarBg, inputSidebarBg.value);
   inputSidebarText.value = toColor(appSettings.sidebarText, inputSidebarText.value);
   inputGridHint.value = toColor(appSettings.gridHint, inputGridHint.value);
-  if (inputGridFloat) inputGridFloat.checked = !!appSettings.gridFloat;
+  if (inputAutoArrange) inputAutoArrange.checked = !!appSettings.autoArrangeModules;
   inputModuleBg.value = toColor(appSettings.moduleBgColor, inputModuleBg.value);
   inputTextColor.value = toColor(appSettings.textColor, inputTextColor.value);
   inputBorderRadius.value = Math.round(parseFloat(appSettings.moduleBorderRadius) * 16 || 0);
@@ -700,7 +700,7 @@ function readInputsIntoSettings() {
   appSettings.sidebarBg = inputSidebarBg.value;
   appSettings.sidebarText = inputSidebarText.value;
   appSettings.gridHint = inputGridHint.value;
-  if (inputGridFloat) appSettings.gridFloat = inputGridFloat.checked;
+  if (inputAutoArrange) appSettings.autoArrangeModules = inputAutoArrange.checked;
   appSettings.moduleBgColor = inputModuleBg.value;
   appSettings.textColor = inputTextColor.value;
   appSettings.moduleBorderRadius = ((parseFloat(inputBorderRadius.value)||0)/16) + 'rem';
@@ -758,7 +758,7 @@ function applySettings() {
   document.documentElement.style.setProperty('--sidebar-module-card-text', appSettings.sidebarModuleCardText);
   document.documentElement.style.setProperty('--sidebar-module-card-border', appSettings.sidebarModuleCardBorder);
 
-  updateGridFloat();
+  updateGridAutoArrange();
 }
 
 /** Save settings to storage */
@@ -777,6 +777,17 @@ async function saveAppSettings() {
   }
 }
 
+function applyLoadedSettings(loadedSettings) {
+  if (!loadedSettings || typeof loadedSettings !== 'object') return;
+  const { gridFloat, autoArrangeModules, ...rest } = loadedSettings;
+  appSettings = { ...appSettings, ...rest };
+  if (typeof autoArrangeModules === 'boolean') {
+    appSettings.autoArrangeModules = autoArrangeModules;
+  } else if (typeof gridFloat === 'boolean') {
+    appSettings.autoArrangeModules = !gridFloat;
+  }
+}
+
 /** Load settings from storage */
 async function loadAppSettings() {
   if (rootDirHandle && window.showDirectoryPicker) {
@@ -785,12 +796,12 @@ async function loadAppSettings() {
       const file = await fileHandle.getFile();
       const text = await file.text();
       const loaded = JSON.parse(text);
-      if (loaded) appSettings = { ...appSettings, ...loaded };
+      applyLoadedSettings(loaded);
     } catch (e) {}
   } else {
     try {
       const ls = localStorage.getItem('appSettings');
-      if (ls) appSettings = { ...appSettings, ...JSON.parse(ls) };
+      if (ls) applyLoadedSettings(JSON.parse(ls));
     } catch (e) {}
   }
   applySettings();
@@ -826,8 +837,9 @@ function updateGridDraggable() {
   });
 }
 
-function updateGridFloat() {
-  const shouldFloat = !!appSettings.gridFloat;
+function updateGridAutoArrange() {
+  const autoArrange = !!appSettings.autoArrangeModules;
+  const shouldFloat = !autoArrange;
   tabs.forEach(tab => {
     const grid = tab.grid;
     if (!grid) return;
@@ -1081,7 +1093,7 @@ async function loadAndInitTabs() {
   // ensure initial state reflects current sidebar state
   updateModuleDraggable();
   updateGridDraggable();
-  updateGridFloat();
+  updateGridAutoArrange();
 }
 
 /** Create a tab and grid */
@@ -1094,7 +1106,7 @@ function createTab(name, layoutModules = []) {
   gridEl.dataset.tabIndex = tabIndex;
   gridsContainer.appendChild(gridEl);
 
-  const gridInstance = GridStack.init({ cellHeight: 30, margin: 5, handle: '.grid-stack-item-content', column: 12, float: !!appSettings.gridFloat, minRow: 8 }, gridEl);
+  const gridInstance = GridStack.init({ cellHeight: 30, margin: 5, handle: '.grid-stack-item-content', column: 12, float: !appSettings.autoArrangeModules, minRow: 8 }, gridEl);
 
   // Reflect current sidebar state immediately (no drag/resize when closed)
   gridInstance.setStatic(!isSidebarOpen);
