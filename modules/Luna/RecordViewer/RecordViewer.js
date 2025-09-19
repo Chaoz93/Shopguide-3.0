@@ -99,6 +99,17 @@
     return null;
   }
 
+  async function readFileFromFallback(path){
+    const store = window.__lunaFallbackFiles;
+    if(store && typeof store.get === 'function'){
+      const file = store.get(path);
+      if(file){
+        return await file.text();
+      }
+    }
+    return null;
+  }
+
   async function loadAndRender(root){
     const path = getPath();
     if(!path){
@@ -106,7 +117,10 @@
       return;
     }
     try{
-      let text = await readFileFromHandles(path);
+      let text = await readFileFromFallback(path);
+      if(text == null){
+        text = await readFileFromHandles(path);
+      }
       if(text == null){
         // fall back to fetch for non-local paths
         const res = await fetch(path);
