@@ -623,41 +623,193 @@ function promptForDirectoryViaInput() {
 
 // Remember the selected root folder across sessions
 const FS_HANDLE_KEY = 'rootDirHandle';
+const FALLBACK_CACHE_KEY = 'fallbackSelectionCache';
+const IDB_DB_NAME = 'modulesApp';
+const IDB_DB_VERSION = 2;
 
 function idbOpen() {
   return new Promise((res, rej) => {
-    const req = indexedDB.open('modulesApp', 1);
-    req.onupgradeneeded = () => req.result.createObjectStore('fs-handles');
+    const req = indexedDB.open(IDB_DB_NAME, IDB_DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('fs-handles')) {
+        db.createObjectStore('fs-handles');
+      }
+      if (!db.objectStoreNames.contains('fallback-cache')) {
+        db.createObjectStore('fallback-cache');
+      }
+    };
     req.onsuccess = () => res(req.result);
     req.onerror = () => rej(req.error);
   });
 }
-async function idbSet(key, val){
+async function idbSet(key, val, store = 'fs-handles'){
   const db = await idbOpen();
   return new Promise((res, rej) => {
-    const tx = db.transaction('fs-handles','readwrite');
-    tx.objectStore('fs-handles').put(val, key);
+    const tx = db.transaction(store,'readwrite');
+    tx.objectStore(store).put(val, key);
     tx.oncomplete = () => res();
     tx.onerror = () => rej(tx.error);
   });
 }
-async function idbGet(key){
+async function idbGet(key, store = 'fs-handles'){
   const db = await idbOpen();
   return new Promise((res, rej) => {
-    const tx = db.transaction('fs-handles','readonly');
-    const req = tx.objectStore('fs-handles').get(key);
+    const tx = db.transaction(store,'readonly');
+    const req = tx.objectStore(store).get(key);
     req.onsuccess = () => res(req.result || null);
     req.onerror = () => rej(req.error);
   });
 }
-async function idbDel(key){
+async function idbDel(key, store = 'fs-handles'){
   const db = await idbOpen();
   return new Promise((res, rej) => {
-    const tx = db.transaction('fs-handles','readwrite');
-    tx.objectStore('fs-handles').delete(key);
+    const tx = db.transaction(store,'readwrite');
+    tx.objectStore(store).delete(key);
     tx.oncomplete = () => res();
     tx.onerror = () => rej(tx.error);
   });
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer || []);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    const slice = bytes.subarray(i, i + chunk);
+    binary += String.fromCharCode(...slice);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8Array(base64) {
+  const binary = atob(base64 || '');
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function persistFallbackSelection(selection) {
+  if (!selection || !Array.isArray(selection.files) || !selection.files.length) {
+    try { await idbDel(FALLBACK_CACHE_KEY, 'fallback-cache'); } catch (e) {}
+    return;
+  }
+  const files = [];
+  for (const file of selection.files) {
+    try {
+      const buffer = await file.arrayBuffer();
+      const relative = (selection.relativePaths && selection.relativePaths.get(file)) || normalizeRelativePath(file) || file.name;
+      files.push({
+        name: file.name,
+        type: file.type || '',
+        lastModified: file.lastModified || Date.now(),
+        relativePath: relative,
+        base64: arrayBufferToBase64(buffer)
+      });
+    } catch (error) {
+      console.warn('Konnte Datei nicht für Fallback-Cache lesen', error);
+    }
+  }
+  const cachedSettings = (() => {
+    try { return selection.cachedSettings || localStorage.getItem('appSettings'); }
+    catch { return selection.cachedSettings || null; }
+  })();
+  const cachedLayout = (() => {
+    try { return selection.cachedLayout || localStorage.getItem('modulesLayout'); }
+    catch { return selection.cachedLayout || null; }
+  })();
+  const payload = {
+    ts: Date.now(),
+    rootName: selection.rootName || selection.displayName || '',
+    displayName: selection.displayName || selection.rootName || '',
+    files,
+    cachedSettings: cachedSettings || null,
+    cachedLayout: cachedLayout || null
+  };
+  try {
+    await idbSet(FALLBACK_CACHE_KEY, payload, 'fallback-cache');
+  } catch (error) {
+    console.warn('Konnte Fallback-Auswahl nicht speichern', error);
+  }
+}
+
+async function updatePersistedFallbackCache(partial) {
+  if (!partial || typeof partial !== 'object') return;
+  try {
+    const existing = await idbGet(FALLBACK_CACHE_KEY, 'fallback-cache');
+    if (!existing) return;
+    const updated = { ...existing, ...partial, ts: Date.now() };
+    await idbSet(FALLBACK_CACHE_KEY, updated, 'fallback-cache');
+  } catch (error) {
+    console.warn('Konnte Fallback-Cache nicht aktualisieren', error);
+  }
+}
+
+async function clearPersistedFallbackCache() {
+  try { await idbDel(FALLBACK_CACHE_KEY, 'fallback-cache'); } catch (e) {}
+}
+
+async function tryRestoreFallbackSelection(){
+  if (supportsDirectoryPicker) return false;
+  if (!rememberedRootMeta?.fallback) return false;
+  try {
+    const cached = await idbGet(FALLBACK_CACHE_KEY, 'fallback-cache');
+    if (!cached || !Array.isArray(cached.files) || !cached.files.length) return false;
+    const files = [];
+    for (const entry of cached.files) {
+      if (!entry?.base64) continue;
+      try {
+        const bytes = base64ToUint8Array(entry.base64);
+        const file = new File([bytes], entry.name || 'datei', {
+          type: entry.type || '',
+          lastModified: entry.lastModified || Date.now()
+        });
+        const rel = entry.relativePath || entry.name || '';
+        if (rel) {
+          try { Object.defineProperty(file, 'webkitRelativePath', { value: rel, configurable: true }); } catch {}
+          try { Object.defineProperty(file, 'relativePath', { value: rel, configurable: true }); } catch {}
+          try { Object.defineProperty(file, 'path', { value: rel, configurable: true }); } catch {}
+          try { Object.defineProperty(file, 'mozFullPath', { value: rel, configurable: true }); } catch {}
+        }
+        files.push(file);
+      } catch (error) {
+        console.warn('Konnte Fallback-Datei nicht rekonstruieren', error);
+      }
+    }
+    if (!files.length) return false;
+    const selection = prepareFallbackSelection(files);
+    selection.cachedSettings = cached.cachedSettings || null;
+    selection.cachedLayout = cached.cachedLayout || null;
+    fallbackSelection = selection;
+    rootDirHandle = null;
+    modulesDirHandle = null;
+    window.rootDirHandle = null;
+    const displayName = rememberedRootMeta?.name || cached.displayName || selection.displayName;
+    if (displayName) {
+      rootBtn.textContent = displayName;
+      rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
+      rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
+      try {
+        localStorage.setItem('rememberRootMeta', JSON.stringify({
+          name: displayName,
+          ts: Date.now(),
+          fallback: true
+        }));
+      } catch (e) {}
+    }
+    await loadModulesFromFileList(selection);
+    await loadAppSettings();
+    populateInputsFromSettings();
+    await loadAndInitTabs();
+    updateModuleDraggable();
+    updateGridDraggable();
+    updateGridAutoArrange();
+    return true;
+  } catch (error) {
+    console.warn('Restore fallback selection failed:', error);
+    return false;
+  }
 }
 async function ensureRWPermission(handle){
   if (typeof handle?.queryPermission !== 'function') return true;
@@ -683,8 +835,9 @@ async function tryRestoreRootHandle(){
 
     await loadModulesFromRoot(h);
     await loadAppSettings();
-    applySettings();
+    populateInputsFromSettings();
     await loadAndInitTabs();
+    await clearPersistedFallbackCache();
     return true;
   } catch (e) {
     console.warn('Restore root handle failed:', e);
@@ -721,9 +874,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }));
         rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
         rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
+        await clearPersistedFallbackCache();
         await loadModulesFromRoot(rootDirHandle);
         await loadAppSettings();
-        applySettings();
+        populateInputsFromSettings();
         await loadAndInitTabs();
         // ensure grid state reflects current sidebar state
         updateModuleDraggable();
@@ -743,6 +897,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         modulesDirHandle = null;
         window.rootDirHandle = null;                // not reusable
         await idbDel(FS_HANDLE_KEY);                // forget saved handle
+        try {
+          if (!fallbackSelection.cachedSettings) {
+            fallbackSelection.cachedSettings = localStorage.getItem('appSettings');
+          }
+        } catch (e) {}
+        try {
+          if (!fallbackSelection.cachedLayout) {
+            fallbackSelection.cachedLayout = localStorage.getItem('modulesLayout');
+          }
+        } catch (e) {}
         localStorage.setItem('rememberRootMeta', JSON.stringify({
           name: displayName,
           ts: Date.now(),
@@ -751,9 +915,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         rootBtn.textContent = displayName;
         rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
         rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
+        await persistFallbackSelection(fallbackSelection);
         await loadModulesFromFileList(selection);
         await loadAppSettings();
-        applySettings();
+        populateInputsFromSettings();
         await loadAndInitTabs();
         updateModuleDraggable();
         updateGridDraggable();
@@ -837,13 +1002,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateGridAutoArrange();
 
   // --- Try to restore AFTER wiring handlers ---
-  const restored = await tryRestoreRootHandle();
-  if (!restored) {
-    // no-op; first-run already set up above
+  let restored = false;
+  if (supportsDirectoryPicker) {
+    restored = await tryRestoreRootHandle();
+    if (restored) {
+      updateModuleDraggable();
+      updateGridDraggable();
+      updateGridAutoArrange();
+    }
   } else {
-    // Make sure grids reflect current sidebar state on restored sessions
-    updateModuleDraggable();
-    updateGridDraggable();
+    restored = await tryRestoreFallbackSelection();
   }
 });
 
@@ -962,11 +1130,19 @@ async function saveAppSettings() {
       await writable.close();
     } catch (e) { console.warn('Konnte Einstellungsdatei nicht speichern', e); }
   } else {
+    let json = null;
     try {
-      localStorage.setItem('appSettings', JSON.stringify(appSettings));
+      json = JSON.stringify(appSettings);
+      localStorage.setItem('appSettings', json);
     } catch (e) { console.warn('Konnte Einstellungen nicht im localStorage speichern', e); }
     if (fallbackSelection) {
-      try { fallbackSelection.cachedSettings = JSON.stringify(appSettings); } catch (e) {}
+      if (!json) {
+        try { json = JSON.stringify(appSettings); } catch (e) {}
+      }
+      if (json) {
+        try { fallbackSelection.cachedSettings = json; } catch (e) {}
+        await updatePersistedFallbackCache({ cachedSettings: json });
+      }
     }
   }
 }
@@ -999,6 +1175,7 @@ async function loadAppSettings() {
       if (fallbackSelection.cachedSettings) {
         applyLoadedSettings(JSON.parse(fallbackSelection.cachedSettings));
         loaded = true;
+        await updatePersistedFallbackCache({ cachedSettings: fallbackSelection.cachedSettings });
       } else {
         const file = getFallbackFile(settingsFileName);
         if (file) {
@@ -1006,6 +1183,7 @@ async function loadAppSettings() {
           fallbackSelection.cachedSettings = text;
           applyLoadedSettings(JSON.parse(text));
           loaded = true;
+          await updatePersistedFallbackCache({ cachedSettings: text });
         }
       }
     } catch (e) {}
@@ -1017,6 +1195,7 @@ async function loadAppSettings() {
         applyLoadedSettings(JSON.parse(ls));
         loaded = true;
         if (fallbackSelection) fallbackSelection.cachedSettings = ls;
+        if (fallbackSelection) await updatePersistedFallbackCache({ cachedSettings: ls });
       }
     } catch (e) {}
   }
@@ -1551,11 +1730,19 @@ async function saveLayout() {
       await writable.close();
     } catch (e) { console.warn('Konnte Layout-Datei nicht speichern', e); }
   } else {
+    let json = null;
     try {
-      localStorage.setItem('modulesLayout', JSON.stringify(layoutData));
+      json = JSON.stringify(layoutData);
+      localStorage.setItem('modulesLayout', json);
     } catch (e) { console.warn('Konnte Layout nicht im localStorage speichern', e); }
     if (fallbackSelection) {
-      try { fallbackSelection.cachedLayout = JSON.stringify(layoutData); } catch (e) {}
+      if (!json) {
+        try { json = JSON.stringify(layoutData); } catch (e) {}
+      }
+      if (json) {
+        try { fallbackSelection.cachedLayout = json; } catch (e) {}
+        await updatePersistedFallbackCache({ cachedLayout: json });
+      }
     }
   }
 }
@@ -1576,6 +1763,7 @@ async function loadLayout() {
       if (fallbackSelection.cachedLayout) {
         const obj = JSON.parse(fallbackSelection.cachedLayout);
         if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
+        await updatePersistedFallbackCache({ cachedLayout: fallbackSelection.cachedLayout });
       }
     } catch (e) {}
     try {
@@ -1585,6 +1773,7 @@ async function loadLayout() {
         fallbackSelection.cachedLayout = text;
         const obj = JSON.parse(text);
         if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
+        await updatePersistedFallbackCache({ cachedLayout: text });
       }
     } catch (e) {}
   }
@@ -1595,6 +1784,7 @@ async function loadLayout() {
       const obj = JSON.parse(ls);
       if (obj && Array.isArray(obj.tabs)) {
         if (fallbackSelection) fallbackSelection.cachedLayout = ls;
+        if (fallbackSelection) await updatePersistedFallbackCache({ cachedLayout: ls });
         return obj.tabs;
       }
     }
