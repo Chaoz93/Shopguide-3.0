@@ -750,6 +750,22 @@ async function clearPersistedFallbackCache() {
   try { await idbDel(FALLBACK_CACHE_KEY, 'fallback-cache'); } catch (e) {}
 }
 
+async function rememberFallbackSettings(jsonText) {
+  if (!fallbackSelection || typeof jsonText !== 'string') return;
+  try { fallbackSelection.cachedSettings = jsonText; } catch (e) {}
+  try { localStorage.setItem('appSettings', jsonText); } catch (e) {}
+  try { await updatePersistedFallbackCache({ cachedSettings: jsonText }); }
+  catch (error) { console.warn('Konnte zwischengespeicherte Einstellungen nicht aktualisieren', error); }
+}
+
+async function rememberFallbackLayout(jsonText) {
+  if (!fallbackSelection || typeof jsonText !== 'string') return;
+  try { fallbackSelection.cachedLayout = jsonText; } catch (e) {}
+  try { localStorage.setItem('modulesLayout', jsonText); } catch (e) {}
+  try { await updatePersistedFallbackCache({ cachedLayout: jsonText }); }
+  catch (error) { console.warn('Konnte zwischengespeichertes Layout nicht aktualisieren', error); }
+}
+
 async function tryRestoreFallbackSelection(){
   if (supportsDirectoryPicker) return false;
   if (!rememberedRootMeta?.fallback) return false;
@@ -1135,15 +1151,10 @@ async function saveAppSettings() {
       json = JSON.stringify(appSettings);
       localStorage.setItem('appSettings', json);
     } catch (e) { console.warn('Konnte Einstellungen nicht im localStorage speichern', e); }
-    if (fallbackSelection) {
-      if (!json) {
-        try { json = JSON.stringify(appSettings); } catch (e) {}
-      }
-      if (json) {
-        try { fallbackSelection.cachedSettings = json; } catch (e) {}
-        await updatePersistedFallbackCache({ cachedSettings: json });
-      }
+    if (!json) {
+      try { json = JSON.stringify(appSettings); } catch (e) {}
     }
+    if (json) await rememberFallbackSettings(json);
   }
 }
 
@@ -1161,29 +1172,28 @@ function applyLoadedSettings(loadedSettings) {
 /** Load settings from storage */
 async function loadAppSettings() {
   let loaded = false;
+  let jsonText = null;
   if (rootDirHandle && supportsDirectoryPicker) {
     try {
       const fileHandle = await rootDirHandle.getFileHandle(settingsFileName, { create: false });
       const file = await fileHandle.getFile();
-      const text = await file.text();
-      const parsed = JSON.parse(text);
+      jsonText = await file.text();
+      const parsed = JSON.parse(jsonText);
       applyLoadedSettings(parsed);
       loaded = true;
     } catch (e) {}
   } else if (fallbackSelection) {
     try {
       if (fallbackSelection.cachedSettings) {
-        applyLoadedSettings(JSON.parse(fallbackSelection.cachedSettings));
+        jsonText = fallbackSelection.cachedSettings;
+        applyLoadedSettings(JSON.parse(jsonText));
         loaded = true;
-        await updatePersistedFallbackCache({ cachedSettings: fallbackSelection.cachedSettings });
       } else {
         const file = getFallbackFile(settingsFileName);
         if (file) {
-          const text = await file.text();
-          fallbackSelection.cachedSettings = text;
-          applyLoadedSettings(JSON.parse(text));
+          jsonText = await file.text();
+          applyLoadedSettings(JSON.parse(jsonText));
           loaded = true;
-          await updatePersistedFallbackCache({ cachedSettings: text });
         }
       }
     } catch (e) {}
@@ -1192,12 +1202,18 @@ async function loadAppSettings() {
     try {
       const ls = localStorage.getItem('appSettings');
       if (ls) {
+        jsonText = ls;
         applyLoadedSettings(JSON.parse(ls));
         loaded = true;
-        if (fallbackSelection) fallbackSelection.cachedSettings = ls;
-        if (fallbackSelection) await updatePersistedFallbackCache({ cachedSettings: ls });
       }
     } catch (e) {}
+  }
+  if (jsonText && loaded) {
+    if (fallbackSelection) {
+      await rememberFallbackSettings(jsonText);
+    } else {
+      try { localStorage.setItem('appSettings', jsonText); } catch (e) {}
+    }
   }
   applySettings();
 }
@@ -1735,61 +1751,60 @@ async function saveLayout() {
       json = JSON.stringify(layoutData);
       localStorage.setItem('modulesLayout', json);
     } catch (e) { console.warn('Konnte Layout nicht im localStorage speichern', e); }
-    if (fallbackSelection) {
-      if (!json) {
-        try { json = JSON.stringify(layoutData); } catch (e) {}
-      }
-      if (json) {
-        try { fallbackSelection.cachedLayout = json; } catch (e) {}
-        await updatePersistedFallbackCache({ cachedLayout: json });
-      }
+    if (!json) {
+      try { json = JSON.stringify(layoutData); } catch (e) {}
     }
+    if (json) await rememberFallbackLayout(json);
   }
 }
 
 /** Load layout */
 async function loadLayout() {
   let layoutTabs = null;
+  let layoutText = null;
   if (rootDirHandle && supportsDirectoryPicker) {
     try {
       const fileHandle = await rootDirHandle.getFileHandle(layoutFileName, { create: false });
       const file = await fileHandle.getFile();
-      const text = await file.text();
-      const obj = JSON.parse(text);
-      if (obj && Array.isArray(obj.tabs)) return obj.tabs;
+      layoutText = await file.text();
+      const obj = JSON.parse(layoutText);
+      if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
     } catch (e) {}
   } else if (fallbackSelection) {
     try {
       if (fallbackSelection.cachedLayout) {
-        const obj = JSON.parse(fallbackSelection.cachedLayout);
+        layoutText = fallbackSelection.cachedLayout;
+        const obj = JSON.parse(layoutText);
         if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
-        await updatePersistedFallbackCache({ cachedLayout: fallbackSelection.cachedLayout });
       }
     } catch (e) {}
     try {
       const file = getFallbackFile(layoutFileName);
       if (file) {
-        const text = await file.text();
-        fallbackSelection.cachedLayout = text;
-        const obj = JSON.parse(text);
+        layoutText = await file.text();
+        const obj = JSON.parse(layoutText);
         if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
-        await updatePersistedFallbackCache({ cachedLayout: text });
       }
     } catch (e) {}
   }
-  if (layoutTabs) return layoutTabs;
-  try {
-    const ls = localStorage.getItem('modulesLayout');
-    if (ls) {
-      const obj = JSON.parse(ls);
-      if (obj && Array.isArray(obj.tabs)) {
-        if (fallbackSelection) fallbackSelection.cachedLayout = ls;
-        if (fallbackSelection) await updatePersistedFallbackCache({ cachedLayout: ls });
-        return obj.tabs;
+  if (!layoutTabs) {
+    try {
+      const ls = localStorage.getItem('modulesLayout');
+      if (ls) {
+        layoutText = ls;
+        const obj = JSON.parse(ls);
+        if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
       }
+    } catch (e) {}
+  }
+  if (layoutTabs && layoutText) {
+    if (fallbackSelection) {
+      await rememberFallbackLayout(layoutText);
+    } else {
+      try { localStorage.setItem('modulesLayout', layoutText); } catch (e) {}
     }
-  } catch (e) {}
-  return null;
+  }
+  return layoutTabs;
 }
 
 /** Determine script filename from module JSON */
