@@ -513,12 +513,16 @@ function promptForDirectoryViaInput() {
       setTimeout(() => { folderInput.value = ''; }, 0);
     };
     const handleFocus = () => {
+      // Firefox fires the window focus event even when a folder was chosen.
+      // Give the browser a moment and only treat this as a cancellation when
+      // no files were selected.
       setTimeout(() => {
-        if (!resolved) {
-          cleanup();
-          resolve(null);
-        }
-      }, 0);
+        if (resolved) return;
+        const pendingFiles = folderInput?.files;
+        if (pendingFiles && pendingFiles.length) return;
+        cleanup();
+        resolve(null);
+      }, 120);
     };
     function cleanup() {
       folderInput.removeEventListener('change', handleChange);
