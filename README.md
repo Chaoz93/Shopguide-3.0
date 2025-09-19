@@ -74,6 +74,14 @@ Viele Module speichern optional Daten außerhalb des Browsers über die File Sys
 
 Dateihandles für diese Ressourcen werden in IndexedDB (`modulesApp` oder `mw-db`) gespeichert, damit die App bei späteren Ladevorgängen wieder darauf zugreifen kann.
 
-## Ausführen / Testen
+## Lokale Entwicklung
 
-Dieses Repository enthält nur statische Assets; es gibt keine automatisierten Tests oder Build-Schritte. Der Versuch, `npm test` auszuführen, schlägt fehl, weil keine `package.json` vorhanden ist.
+Ein minimalistischer Express-Server stellt die HTML-Dateien während der Entwicklung bereit und öffnet den Browser automatisch.
+
+```bash
+npm install
+npm run dev
+# öffnet http://localhost:5173
+```
+
+Optional kann der Port per `PORT`-Umgebungsvariable oder `--port`-Flag gesetzt werden (Standard: `5173`). Mit `--root <verzeichnis>` wird ein anderer Dokumentenstamm bedient, und `--open=false` unterbindet das automatische Öffnen des Browsers.

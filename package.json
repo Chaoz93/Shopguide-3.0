@@ -1,0 +1,16 @@
+{
+  "name": "shopguide-dev-server",
+  "version": "1.0.0",
+  "description": "Local development server for the Shopguide HTML app",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "open": "^9.1.0",
+    "serve-static": "^1.15.0"
+  }
+}
