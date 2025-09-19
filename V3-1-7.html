@@ -459,6 +459,7 @@ if (rememberedRootMeta?.name && (!supportsDirectoryPicker || rememberedRootMeta.
 const settingsNavButtons = document.querySelectorAll('.settings-nav button');
 
 let fallbackInputCleanup = null;
+let fallbackSelection = null;
 
 function normalizeRelativePath(file) {
   const raw = file?.webkitRelativePath || file?.relativePath || file?.path || '';
@@ -467,6 +468,22 @@ function normalizeRelativePath(file) {
 }
 
 function deriveFallbackRootName(files) {
+  // Try explicit paths exposed by Firefox (mozFullPath/path) first so we can
+  // show the actual folder name that was picked.
+  for (const file of files) {
+    const fullPath = (file && typeof file.path === 'string' && file.path) ||
+      (file && typeof file.mozFullPath === 'string' && file.mozFullPath);
+    if (!fullPath) continue;
+    const parts = fullPath.replace(/^[a-z]+:\\+/i, '').replace(/\\/g, '/').split('/').filter(Boolean);
+    if (parts.length >= 2) {
+      const modulesIndex = parts.lastIndexOf('modules');
+      if (modulesIndex > 0) {
+        return parts[modulesIndex - 1];
+      }
+      return parts[parts.length - 2];
+    }
+  }
+
   let fallbackName = null;
   for (const file of files) {
     const rel = normalizeRelativePath(file);
@@ -477,8 +494,8 @@ function deriveFallbackRootName(files) {
       if (modulesIndex > 0) {
         return parts[modulesIndex - 1];
       }
-      if (modulesIndex === 0) {
-        return parts[0];
+      if (modulesIndex === 0 && parts.length >= 2) {
+        return parts[1] || parts[0];
       }
       if (!fallbackName) fallbackName = parts[0];
     }
@@ -488,6 +505,67 @@ function deriveFallbackRootName(files) {
     return files[0].name;
   }
   return 'Ausgewählter Ordner';
+}
+
+function prepareFallbackSelection(files) {
+  const fileArray = Array.from(files || []);
+  const segmentLists = fileArray.map(file => {
+    const rel = normalizeRelativePath(file);
+    const segments = rel ? rel.split('/').filter(Boolean) : [];
+    if (!segments.length && file?.name) segments.push(file.name);
+    return segments;
+  });
+  const dirSegments = segmentLists.map(segs => segs.slice(0, -1));
+  let commonPrefix = [];
+  if (dirSegments.length) {
+    commonPrefix = dirSegments[0].slice();
+    for (const dirs of dirSegments.slice(1)) {
+      let i = 0;
+      while (i < commonPrefix.length && i < dirs.length && commonPrefix[i] === dirs[i]) i++;
+      commonPrefix = commonPrefix.slice(0, i);
+      if (!commonPrefix.length) break;
+    }
+  }
+
+  const relativePaths = new Map();
+  const fileMap = new Map();
+  const fileMapLower = new Map();
+
+  fileArray.forEach((file, idx) => {
+    const segments = segmentLists[idx];
+    const relativeSegments = commonPrefix.length ? segments.slice(commonPrefix.length) : segments;
+    const joined = relativeSegments.join('/');
+    const canonical = (joined || file?.name || '').replace(/^[\\/]+/, '').replace(/\\/g, '/');
+    if (!canonical) return;
+    relativePaths.set(file, canonical);
+    fileMap.set(canonical, file);
+    fileMapLower.set(canonical.toLowerCase(), file);
+    if (!canonical.includes('/') && file?.name) {
+      fileMap.set(file.name, file);
+      fileMapLower.set(file.name.toLowerCase(), file);
+    }
+  });
+
+  const rootFromPrefix = commonPrefix.length ? commonPrefix[commonPrefix.length - 1] : null;
+  const rootName = rootFromPrefix || deriveFallbackRootName(fileArray);
+
+  return {
+    files: fileArray,
+    rootName,
+    displayName: rootName || 'Ausgewählter Ordner',
+    fileMap,
+    fileMapLower,
+    relativePaths,
+    cachedLayout: null,
+    cachedSettings: null
+  };
+}
+
+function getFallbackFile(path) {
+  if (!fallbackSelection || !path) return null;
+  const normalized = path.replace(/^[\\/]+/, '').replace(/\\/g, '/');
+  return fallbackSelection.fileMap.get(normalized) ||
+    fallbackSelection.fileMapLower.get(normalized.toLowerCase()) || null;
 }
 
 function promptForDirectoryViaInput() {
@@ -503,26 +581,32 @@ function promptForDirectoryViaInput() {
     const handleChange = event => {
       resolved = true;
       cleanup();
-      const fileList = Array.from(event.target.files || []);
-      if (!fileList.length) {
+      const selection = prepareFallbackSelection(event.target.files);
+      if (!selection.files.length) {
         resolve(null);
         return;
       }
-      const rootName = deriveFallbackRootName(fileList);
-      resolve({ files: fileList, rootName });
+      resolve(selection);
       setTimeout(() => { folderInput.value = ''; }, 0);
     };
     const handleFocus = () => {
       // Firefox fires the window focus event even when a folder was chosen.
-      // Give the browser a moment and only treat this as a cancellation when
-      // no files were selected.
-      setTimeout(() => {
+      // Give the browser repeated chances to detect pending files before
+      // concluding the dialog was cancelled.
+      let attempts = 0;
+      const check = () => {
         if (resolved) return;
         const pendingFiles = folderInput?.files;
         if (pendingFiles && pendingFiles.length) return;
+        attempts += 1;
+        if (attempts < 6) {
+          setTimeout(check, 120);
+          return;
+        }
         cleanup();
         resolve(null);
-      }, 120);
+      };
+      setTimeout(check, 120);
     };
     function cleanup() {
       folderInput.removeEventListener('change', handleChange);
@@ -531,7 +615,7 @@ function promptForDirectoryViaInput() {
     }
     fallbackInputCleanup = cleanup;
     folderInput.addEventListener('change', handleChange);
-    window.addEventListener('focus', handleFocus, { once: true });
+    window.addEventListener('focus', handleFocus);
     folderInput.value = '';
     folderInput.click();
   });
@@ -592,6 +676,7 @@ async function tryRestoreRootHandle(){
 
     rootDirHandle = h;
     window.rootDirHandle = h;
+    fallbackSelection = null;
     rootBtn.textContent = h.name;
     rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
     rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
@@ -626,6 +711,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   rootBtn.addEventListener('click', async () => {
     if (supportsDirectoryPicker) {
       try {
+        fallbackSelection = null;
         rootDirHandle = await window.showDirectoryPicker();
         window.rootDirHandle = rootDirHandle;                      // expose
         rootBtn.textContent = rootDirHandle.name;
@@ -650,13 +736,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         const selection = await promptForDirectoryViaInput();
         if (!selection) return;
-        const { files, rootName } = selection;
+        const { files, displayName } = selection;
         if (!files.length) return;
+        fallbackSelection = selection;
         rootDirHandle = null;
         modulesDirHandle = null;
         window.rootDirHandle = null;                // not reusable
         await idbDel(FS_HANDLE_KEY);                // forget saved handle
-        const displayName = rootName || 'Ausgewählter Ordner';
         localStorage.setItem('rememberRootMeta', JSON.stringify({
           name: displayName,
           ts: Date.now(),
@@ -665,7 +751,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         rootBtn.textContent = displayName;
         rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
         rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
-        await loadModulesFromFileList(files);
+        await loadModulesFromFileList(selection);
         await loadAppSettings();
         applySettings();
         await loadAndInitTabs();
@@ -879,6 +965,9 @@ async function saveAppSettings() {
     try {
       localStorage.setItem('appSettings', JSON.stringify(appSettings));
     } catch (e) { console.warn('Konnte Einstellungen nicht im localStorage speichern', e); }
+    if (fallbackSelection) {
+      try { fallbackSelection.cachedSettings = JSON.stringify(appSettings); } catch (e) {}
+    }
   }
 }
 
@@ -895,18 +984,40 @@ function applyLoadedSettings(loadedSettings) {
 
 /** Load settings from storage */
 async function loadAppSettings() {
+  let loaded = false;
   if (rootDirHandle && supportsDirectoryPicker) {
     try {
       const fileHandle = await rootDirHandle.getFileHandle(settingsFileName, { create: false });
       const file = await fileHandle.getFile();
       const text = await file.text();
-      const loaded = JSON.parse(text);
-      applyLoadedSettings(loaded);
+      const parsed = JSON.parse(text);
+      applyLoadedSettings(parsed);
+      loaded = true;
     } catch (e) {}
-  } else {
+  } else if (fallbackSelection) {
+    try {
+      if (fallbackSelection.cachedSettings) {
+        applyLoadedSettings(JSON.parse(fallbackSelection.cachedSettings));
+        loaded = true;
+      } else {
+        const file = getFallbackFile(settingsFileName);
+        if (file) {
+          const text = await file.text();
+          fallbackSelection.cachedSettings = text;
+          applyLoadedSettings(JSON.parse(text));
+          loaded = true;
+        }
+      }
+    } catch (e) {}
+  }
+  if (!loaded) {
     try {
       const ls = localStorage.getItem('appSettings');
-      if (ls) applyLoadedSettings(JSON.parse(ls));
+      if (ls) {
+        applyLoadedSettings(JSON.parse(ls));
+        loaded = true;
+        if (fallbackSelection) fallbackSelection.cachedSettings = ls;
+      }
     } catch (e) {}
   }
   applySettings();
@@ -964,6 +1075,7 @@ function updateGridAutoArrange() {
 
 /** Load modules via FS API */
 async function loadModulesFromRoot(rootHandle) {
+  fallbackSelection = null;
   try {
     modulesDirHandle = await rootHandle.getDirectoryHandle('modules', { create: false });
   } catch {
@@ -984,8 +1096,8 @@ async function loadModulesFromRoot(rootHandle) {
 }
 
 /** Fallback load modules via file list */
-async function loadModulesFromFileList(files) {
-  const { tree, modules } = await buildTreeFromFileList(files);
+async function loadModulesFromFileList(selection) {
+  const { tree, modules } = await buildTreeFromFileList(selection);
   liveModuleTemplates = modules;
   renderSidebar(tree);
 
@@ -1101,13 +1213,18 @@ async function buildTreeFromHandle(dirHandle, basePath = '') {
   return { tree: root.children || [], modules };
 }
 
-async function buildTreeFromFileList(files) {
+async function buildTreeFromFileList(selection) {
+  const files = Array.isArray(selection)
+    ? selection
+    : Array.from((selection && selection.files) || []);
+  const relativePathMap = selection && selection.relativePaths instanceof Map ? selection.relativePaths : null;
+
   const root = { name: 'modules', files: [], children: {} };
   const entries = [];
   let hasExplicitModulesFolder = false;
 
   for (const file of Array.from(files || [])) {
-    const normalized = normalizeRelativePath(file);
+    const normalized = relativePathMap ? relativePathMap.get(file) : normalizeRelativePath(file);
     const parts = normalized ? normalized.split('/').filter(Boolean) : [];
     if (parts.includes('modules')) hasExplicitModulesFolder = true;
     if (parts.length) {
@@ -1437,11 +1554,15 @@ async function saveLayout() {
     try {
       localStorage.setItem('modulesLayout', JSON.stringify(layoutData));
     } catch (e) { console.warn('Konnte Layout nicht im localStorage speichern', e); }
+    if (fallbackSelection) {
+      try { fallbackSelection.cachedLayout = JSON.stringify(layoutData); } catch (e) {}
+    }
   }
 }
 
 /** Load layout */
 async function loadLayout() {
+  let layoutTabs = null;
   if (rootDirHandle && supportsDirectoryPicker) {
     try {
       const fileHandle = await rootDirHandle.getFileHandle(layoutFileName, { create: false });
@@ -1450,12 +1571,32 @@ async function loadLayout() {
       const obj = JSON.parse(text);
       if (obj && Array.isArray(obj.tabs)) return obj.tabs;
     } catch (e) {}
+  } else if (fallbackSelection) {
+    try {
+      if (fallbackSelection.cachedLayout) {
+        const obj = JSON.parse(fallbackSelection.cachedLayout);
+        if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
+      }
+    } catch (e) {}
+    try {
+      const file = getFallbackFile(layoutFileName);
+      if (file) {
+        const text = await file.text();
+        fallbackSelection.cachedLayout = text;
+        const obj = JSON.parse(text);
+        if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
+      }
+    } catch (e) {}
   }
+  if (layoutTabs) return layoutTabs;
   try {
     const ls = localStorage.getItem('modulesLayout');
     if (ls) {
       const obj = JSON.parse(ls);
-      if (obj && Array.isArray(obj.tabs)) return obj.tabs;
+      if (obj && Array.isArray(obj.tabs)) {
+        if (fallbackSelection) fallbackSelection.cachedLayout = ls;
+        return obj.tabs;
+      }
     }
   } catch (e) {}
   return null;
