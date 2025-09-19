@@ -715,10 +715,7 @@ async function persistFallbackSelection(selection) {
     try { return selection.cachedSettings || localStorage.getItem('appSettings'); }
     catch { return selection.cachedSettings || null; }
   })();
-  const cachedLayout = (() => {
-    try { return selection.cachedLayout || localStorage.getItem('modulesLayout'); }
-    catch { return selection.cachedLayout || null; }
-  })();
+  const cachedLayout = selection.cachedLayout || null;
   const payload = {
     ts: Date.now(),
     rootName: selection.rootName || selection.displayName || '',
@@ -761,7 +758,6 @@ async function rememberFallbackSettings(jsonText) {
 async function rememberFallbackLayout(jsonText) {
   if (!fallbackSelection || typeof jsonText !== 'string') return;
   try { fallbackSelection.cachedLayout = jsonText; } catch (e) {}
-  try { localStorage.setItem('modulesLayout', jsonText); } catch (e) {}
   try { await updatePersistedFallbackCache({ cachedLayout: jsonText }); }
   catch (error) { console.warn('Konnte zwischengespeichertes Layout nicht aktualisieren', error); }
 }
@@ -1740,13 +1736,8 @@ async function saveLayout() {
     } catch (e) { console.warn('Konnte Layout-Datei nicht speichern', e); }
   } else {
     let json = null;
-    try {
-      json = JSON.stringify(layoutData);
-      localStorage.setItem('modulesLayout', json);
-    } catch (e) { console.warn('Konnte Layout nicht im localStorage speichern', e); }
-    if (!json) {
-      try { json = JSON.stringify(layoutData); } catch (e) {}
-    }
+    try { json = JSON.stringify(layoutData); }
+    catch (e) { console.warn('Konnte Layout nicht serialisieren', e); }
     if (json) await rememberFallbackLayout(json);
   }
 }
@@ -1783,20 +1774,11 @@ async function loadLayout() {
     }
   }
   if (!layoutTabs) {
-    try {
-      const ls = localStorage.getItem('modulesLayout');
-      if (ls) {
-        layoutText = ls;
-        const obj = JSON.parse(ls);
-        if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
-      }
-    } catch (e) {}
+    // No cached layout available; return null so caller can initialise defaults.
   }
   if (layoutTabs && layoutText) {
     if (fallbackSelection) {
       await rememberFallbackLayout(layoutText);
-    } else {
-      try { localStorage.setItem('modulesLayout', layoutText); } catch (e) {}
     }
   }
   return layoutTabs;
