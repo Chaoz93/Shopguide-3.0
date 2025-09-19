@@ -189,7 +189,7 @@
       <div id="grids" class="relative w-full h-full"></div>
     </main>
   </div>
-  <input type="file" id="folder-input" webkitdirectory directory multiple hidden />
+  <input type="file" id="folder-input" webkitdirectory directory mozdirectory multiple hidden />
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal-overlay hidden">
     <div class="modal">
@@ -409,6 +409,7 @@ const settingsBtn = document.getElementById('open-settings');
 const settingsModal = document.getElementById('settings-modal');
 const closeSettingsBtn = document.getElementById('close-settings');
 const saveSettingsBtn = document.getElementById('save-settings');
+const folderInput = document.getElementById('folder-input');
 // Settings inputs
 const inputAppBg = document.getElementById('setting-app-bg');
 const inputBorderColor = document.getElementById('setting-border-color');
@@ -437,8 +438,100 @@ const inputSidebarModuleBg = document.getElementById('setting-sidebar-module-bg'
 const inputSidebarModuleText = document.getElementById('setting-sidebar-module-text');
 const inputSidebarModuleBorder = document.getElementById('setting-sidebar-module-border');
 
+const supportsDirectoryPicker = typeof window.showDirectoryPicker === 'function';
+const rememberedRootMeta = (() => {
+  try {
+    const raw = localStorage.getItem('rememberRootMeta');
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    console.warn('Konnte gespeicherte Root-Metadaten nicht lesen', error);
+    return null;
+  }
+})();
+
+if (rememberedRootMeta?.name && (!supportsDirectoryPicker || rememberedRootMeta.fallback)) {
+  rootBtn.textContent = rememberedRootMeta.name;
+  rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
+  rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
+}
+
 // Navigation buttons for settings
 const settingsNavButtons = document.querySelectorAll('.settings-nav button');
+
+let fallbackInputCleanup = null;
+
+function normalizeRelativePath(file) {
+  const raw = file?.webkitRelativePath || file?.relativePath || file?.path || '';
+  if (!raw) return '';
+  return raw.replace(/^[\\/]+/, '').replace(/\\/g, '/');
+}
+
+function deriveFallbackRootName(files) {
+  let fallbackName = null;
+  for (const file of files) {
+    const rel = normalizeRelativePath(file);
+    if (!rel) continue;
+    const parts = rel.split('/').filter(Boolean);
+    if (parts.length) {
+      const modulesIndex = parts.indexOf('modules');
+      if (modulesIndex > 0) {
+        return parts[modulesIndex - 1];
+      }
+      if (modulesIndex === 0) {
+        return parts[0];
+      }
+      if (!fallbackName) fallbackName = parts[0];
+    }
+  }
+  if (fallbackName) return fallbackName;
+  if (files.length && files[0]?.name) {
+    return files[0].name;
+  }
+  return 'Ausgewählter Ordner';
+}
+
+function promptForDirectoryViaInput() {
+  return new Promise(resolve => {
+    if (!folderInput) {
+      resolve(null);
+      return;
+    }
+    if (typeof fallbackInputCleanup === 'function') {
+      fallbackInputCleanup();
+    }
+    let resolved = false;
+    const handleChange = event => {
+      resolved = true;
+      cleanup();
+      const fileList = Array.from(event.target.files || []);
+      if (!fileList.length) {
+        resolve(null);
+        return;
+      }
+      const rootName = deriveFallbackRootName(fileList);
+      resolve({ files: fileList, rootName });
+      setTimeout(() => { folderInput.value = ''; }, 0);
+    };
+    const handleFocus = () => {
+      setTimeout(() => {
+        if (!resolved) {
+          cleanup();
+          resolve(null);
+        }
+      }, 0);
+    };
+    function cleanup() {
+      folderInput.removeEventListener('change', handleChange);
+      window.removeEventListener('focus', handleFocus);
+      fallbackInputCleanup = null;
+    }
+    fallbackInputCleanup = cleanup;
+    folderInput.addEventListener('change', handleChange);
+    window.addEventListener('focus', handleFocus, { once: true });
+    folderInput.value = '';
+    folderInput.click();
+  });
+}
 
 // Remember the selected root folder across sessions
 const FS_HANDLE_KEY = 'rootDirHandle';
@@ -486,7 +579,7 @@ async function ensureRWPermission(handle){
   return r === 'granted';
 }
 async function tryRestoreRootHandle(){
-  if (!('showDirectoryPicker' in window)) return false;
+  if (!supportsDirectoryPicker) return false;
   try {
     const h = await idbGet(FS_HANDLE_KEY);
     if (!h) return false;
@@ -527,14 +620,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Folder selection
   rootBtn.addEventListener('click', async () => {
-    if (window.showDirectoryPicker) {
+    if (supportsDirectoryPicker) {
       try {
         rootDirHandle = await window.showDirectoryPicker();
         window.rootDirHandle = rootDirHandle;                      // expose
         rootBtn.textContent = rootDirHandle.name;
         await idbSet(FS_HANDLE_KEY, rootDirHandle);                // persist handle
         localStorage.setItem('rememberRootMeta', JSON.stringify({  // optional UI hint
-          name: rootDirHandle.name, ts: Date.now()
+          name: rootDirHandle.name, ts: Date.now(), fallback: false
         }));
         rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
         rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
@@ -550,26 +643,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert('Ordnerauswahl abgebrochen oder nicht erlaubt.');
       }
     } else {
-      const inp = document.getElementById('folder-input');
-      inp.onchange = async e => {
-        const files = Array.from(e.target.files);
+      try {
+        const selection = await promptForDirectoryViaInput();
+        if (!selection) return;
+        const { files, rootName } = selection;
         if (!files.length) return;
+        rootDirHandle = null;
+        modulesDirHandle = null;
         window.rootDirHandle = null;                // not reusable
         await idbDel(FS_HANDLE_KEY);                // forget saved handle
-        localStorage.removeItem('rememberRootMeta');
-        const any = files[0];
-        const parts = any.webkitRelativePath.split('/');
-        const rootName = parts[0];
-        rootBtn.textContent = rootName;
+        const displayName = rootName || 'Ausgewählter Ordner';
+        localStorage.setItem('rememberRootMeta', JSON.stringify({
+          name: displayName,
+          ts: Date.now(),
+          fallback: true
+        }));
+        rootBtn.textContent = displayName;
         rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
         rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
-        await loadModulesFromFileList(files, rootName);
+        await loadModulesFromFileList(files);
+        await loadAppSettings();
+        applySettings();
         await loadAndInitTabs();
-        inp.value = null;
         updateModuleDraggable();
         updateGridDraggable();
-      };
-      inp.click();
+      } catch (error) {
+        console.warn(error);
+        alert('Ordnerauswahl abgebrochen oder nicht erlaubt.');
+      }
     }
   });
 
@@ -763,7 +864,7 @@ function applySettings() {
 
 /** Save settings to storage */
 async function saveAppSettings() {
-  if (rootDirHandle && window.showDirectoryPicker) {
+  if (rootDirHandle && supportsDirectoryPicker) {
     try {
       const fileHandle = await rootDirHandle.getFileHandle(settingsFileName, { create: true });
       const writable = await fileHandle.createWritable();
@@ -790,7 +891,7 @@ function applyLoadedSettings(loadedSettings) {
 
 /** Load settings from storage */
 async function loadAppSettings() {
-  if (rootDirHandle && window.showDirectoryPicker) {
+  if (rootDirHandle && supportsDirectoryPicker) {
     try {
       const fileHandle = await rootDirHandle.getFileHandle(settingsFileName, { create: false });
       const file = await fileHandle.getFile();
@@ -879,8 +980,8 @@ async function loadModulesFromRoot(rootHandle) {
 }
 
 /** Fallback load modules via file list */
-async function loadModulesFromFileList(files, rootName) {
-  const { tree, modules } = await buildTreeFromFileList(files, rootName);
+async function loadModulesFromFileList(files) {
+  const { tree, modules } = await buildTreeFromFileList(files);
   liveModuleTemplates = modules;
   renderSidebar(tree);
 
@@ -996,15 +1097,51 @@ async function buildTreeFromHandle(dirHandle, basePath = '') {
   return { tree: root.children || [], modules };
 }
 
-async function buildTreeFromFileList(files, rootName) {
+async function buildTreeFromFileList(files) {
   const root = { name: 'modules', files: [], children: {} };
-  for (const f of files) {
-    const rel = f.webkitRelativePath.split('/');
-    if (rel.length < 3) continue;
-    if (rel[0] !== rootName || rel[1] !== 'modules') continue;
-    insert(root, rel.slice(2), f);
+  const entries = [];
+  let hasExplicitModulesFolder = false;
+
+  for (const file of Array.from(files || [])) {
+    const normalized = normalizeRelativePath(file);
+    const parts = normalized ? normalized.split('/').filter(Boolean) : [];
+    if (parts.includes('modules')) hasExplicitModulesFolder = true;
+    if (parts.length) {
+      entries.push({ file, parts });
+    } else if (file?.name) {
+      entries.push({ file, parts: [file.name] });
+    }
   }
+
   const modules = [];
+
+  function insert(node, parts, file) {
+    if (!parts.length) {
+      node.files.push(file);
+      return;
+    }
+    const [segment, ...rest] = parts;
+    if (!rest.length) {
+      node.files.push(file);
+      return;
+    }
+    if (!node.children[segment]) {
+      node.children[segment] = { name: segment, files: [], children: {} };
+    }
+    insert(node.children[segment], rest, file);
+  }
+
+  for (const entry of entries) {
+    let relParts = entry.parts;
+    if (hasExplicitModulesFolder) {
+      const idx = relParts.indexOf('modules');
+      if (idx === -1) continue;
+      relParts = relParts.slice(idx + 1);
+    }
+    if (!relParts.length) continue;
+    insert(root, relParts, entry.file);
+  }
+
   async function finalize(node, relPath) {
     const hasJson = node.files.some(f => f.name.endsWith('.json'));
     const hasJs = node.files.some(f => f.name.endsWith('.js'));
@@ -1027,15 +1164,7 @@ async function buildTreeFromFileList(files, rootName) {
     }
     return { type: 'folder', name: node.name, children };
   }
-  function insert(node, parts, file) {
-    if (parts.length === 1) {
-      node.files.push(file);
-    } else {
-      const [folder, ...rest] = parts;
-      if (!node.children[folder]) node.children[folder] = { name: folder, files: [], children: {} };
-      insert(node.children[folder], rest, file);
-    }
-  }
+
   const tree = await finalize(root, '');
   return { tree: tree.children || [], modules };
 }
@@ -1293,7 +1422,7 @@ function updateModulesPositions(index) {
 /** Save layout */
 async function saveLayout() {
   const layoutData = { tabs: tabs.map(({name, modules}) => ({ name, modules })) };
-  if (rootDirHandle && window.showDirectoryPicker) {
+  if (rootDirHandle && supportsDirectoryPicker) {
     try {
       const fileHandle = await rootDirHandle.getFileHandle(layoutFileName, { create: true });
       const writable = await fileHandle.createWritable();
@@ -1309,7 +1438,7 @@ async function saveLayout() {
 
 /** Load layout */
 async function loadLayout() {
-  if (rootDirHandle && window.showDirectoryPicker) {
+  if (rootDirHandle && supportsDirectoryPicker) {
     try {
       const fileHandle = await rootDirHandle.getFileHandle(layoutFileName, { create: false });
       const file = await fileHandle.getFile();
