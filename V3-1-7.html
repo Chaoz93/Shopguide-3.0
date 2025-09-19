@@ -913,16 +913,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         modulesDirHandle = null;
         window.rootDirHandle = null;                // not reusable
         await idbDel(FS_HANDLE_KEY);                // forget saved handle
-        try {
-          if (!fallbackSelection.cachedSettings) {
-            fallbackSelection.cachedSettings = localStorage.getItem('appSettings');
-          }
-        } catch (e) {}
-        try {
-          if (!fallbackSelection.cachedLayout) {
-            fallbackSelection.cachedLayout = localStorage.getItem('modulesLayout');
-          }
-        } catch (e) {}
         localStorage.setItem('rememberRootMeta', JSON.stringify({
           name: displayName,
           ts: Date.now(),
@@ -1184,19 +1174,22 @@ async function loadAppSettings() {
     } catch (e) {}
   } else if (fallbackSelection) {
     try {
-      if (fallbackSelection.cachedSettings) {
-        jsonText = fallbackSelection.cachedSettings;
+      const file = getFallbackFile(settingsFileName);
+      if (file) {
+        jsonText = await file.text();
         applyLoadedSettings(JSON.parse(jsonText));
         loaded = true;
-      } else {
-        const file = getFallbackFile(settingsFileName);
-        if (file) {
-          jsonText = await file.text();
+      }
+    } catch (e) {}
+    if (!loaded) {
+      try {
+        if (fallbackSelection.cachedSettings) {
+          jsonText = fallbackSelection.cachedSettings;
           applyLoadedSettings(JSON.parse(jsonText));
           loaded = true;
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
   }
   if (!loaded) {
     try {
@@ -1772,13 +1765,6 @@ async function loadLayout() {
     } catch (e) {}
   } else if (fallbackSelection) {
     try {
-      if (fallbackSelection.cachedLayout) {
-        layoutText = fallbackSelection.cachedLayout;
-        const obj = JSON.parse(layoutText);
-        if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
-      }
-    } catch (e) {}
-    try {
       const file = getFallbackFile(layoutFileName);
       if (file) {
         layoutText = await file.text();
@@ -1786,6 +1772,15 @@ async function loadLayout() {
         if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
       }
     } catch (e) {}
+    if (!layoutTabs) {
+      try {
+        if (fallbackSelection.cachedLayout) {
+          layoutText = fallbackSelection.cachedLayout;
+          const obj = JSON.parse(layoutText);
+          if (obj && Array.isArray(obj.tabs)) layoutTabs = obj.tabs;
+        }
+      } catch (e) {}
+    }
   }
   if (!layoutTabs) {
     try {
