@@ -64,6 +64,8 @@
       saveDoc(doc);
     }
 
+    const supportsDirectoryPicker = typeof window.showDirectoryPicker === 'function';
+
     root.innerHTML = `
       <div class="rf-root" style="--rf-bg:${inst.colors.bg};--rf-item-bg:${inst.colors.item};--rf-active:${inst.colors.active}">
         <div class="rf-titlebar"><span class="rf-title">${title}</span></div>
@@ -76,7 +78,8 @@
         <div class="rf-field"><label>Highlight</label><input type="color" class="rf-color rf-active" value="${inst.colors.active}"></div>
         <div class="rf-field"><button class="rf-btn rf-folder">Choose Folder</button></div>
         <div style="text-align:right"><button class="rf-btn rf-close">Close</button></div>
-      </div></div>`;
+      </div></div>
+      <input type="file" class="rf-file" style="display:none" webkitdirectory directory mozdirectory multiple />`;
 
     const els = {
       list: root.querySelector('.rf-list'),
@@ -87,7 +90,8 @@
       item: root.querySelector('.rf-item'),
       active: root.querySelector('.rf-active'),
       rootBox: root.querySelector('.rf-root'),
-      menu: root.querySelector('.rf-menu')
+      menu: root.querySelector('.rf-menu'),
+      fileInput: root.querySelector('.rf-file')
     };
 
     // modal + context menu events
@@ -110,13 +114,25 @@
 
     // directory picker
     els.folderBtn.addEventListener('click', async ()=>{
-      try{
-        const handle = await window.showDirectoryPicker();
-        const key = instanceId+'-dir';
-        await idbSet(key, handle);
-        inst.dirKey = key; saveInst();
-        await loadList(handle);
-      }catch(e){ console.warn(e); }
+      if(supportsDirectoryPicker){
+        try{
+          const handle = await window.showDirectoryPicker();
+          const key = instanceId+'-dir';
+          await idbSet(key, handle);
+          inst.dirKey = key; saveInst();
+          await loadList(handle);
+        }catch(e){ console.warn(e); }
+      }else{
+        els.fileInput.value='';
+        els.fileInput.click();
+      }
+    });
+
+    els.fileInput.addEventListener('change', async ()=>{
+      const files = Array.from(els.fileInput.files || []);
+      if(!files.length) return;
+      inst.dirKey = null; saveInst();
+      await loadList(files);
     });
 
     async function gatherFiles(dirHandle, base=''){
@@ -135,10 +151,30 @@
       return out;
     }
 
-    async function loadList(dirHandle){
-      if(!dirHandle) return;
+    function storeFallbackFiles(files){
+      const store = window.__lunaFallbackFiles = new Map();
+      files.forEach(file=>{
+        const key = file.webkitRelativePath || file.name;
+        store.set(key, file);
+      });
+    }
+
+    async function loadList(source){
+      if(!source) return;
       els.list.innerHTML='';
-      const items = await gatherFiles(dirHandle);
+      let items;
+      if(Array.isArray(source)){
+        storeFallbackFiles(source);
+        items = source.map(file=>({
+          name:file.name,
+          path:file.webkitRelativePath || file.name,
+          handle:null,
+          date:file.lastModified
+        }));
+      }else{
+        window.__lunaFallbackFiles = null;
+        items = await gatherFiles(source);
+      }
       items.sort((a,b)=>b.date-a.date);
       items.forEach(item=>{
         const div=document.createElement('div');
