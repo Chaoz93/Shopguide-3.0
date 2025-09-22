@@ -406,6 +406,7 @@ function generateInstanceId() {
 const listEl = document.getElementById('module-list');
 const gridsContainer = document.getElementById('grids');
 const tabsContainer = document.getElementById('tabs-container');
+const topBarEl = document.getElementById('top-bar');
 const addTabBtn = document.getElementById('add-tab');
 const sidebarEl = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -447,6 +448,26 @@ const settingsNavButtons = document.querySelectorAll('.settings-nav button');
 
 // Remember the selected root folder across sessions
 const FS_HANDLE_KEY = 'rootDirHandle';
+
+function calculateAvailableGridHeight() {
+  const topBarHeight = topBarEl ? topBarEl.getBoundingClientRect().height : 0;
+  return Math.max(window.innerHeight - topBarHeight, 0);
+}
+
+function applyGridMinHeight(gridEl) {
+  if (!gridEl) return;
+  gridEl.style.minHeight = calculateAvailableGridHeight() + 'px';
+}
+
+function updateAllGridMinHeights() {
+  const minHeight = calculateAvailableGridHeight();
+  if (gridsContainer) gridsContainer.style.minHeight = minHeight + 'px';
+  tabs.forEach(tab => {
+    if (tab.el) tab.el.style.minHeight = minHeight + 'px';
+  });
+}
+
+window.addEventListener('resize', updateAllGridMinHeights);
 
 function idbOpen() {
   return new Promise((res, rej) => {
@@ -649,6 +670,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateModuleDraggable();
   updateGridDraggable();
   updateGridAutoArrange();
+  updateAllGridMinHeights();
 
   // --- Try to restore AFTER wiring handlers ---
   const restored = await tryRestoreRootHandle();
@@ -1104,6 +1126,7 @@ async function loadAndInitTabs() {
   updateModuleDraggable();
   updateGridDraggable();
   updateGridAutoArrange();
+  updateAllGridMinHeights();
 }
 
 /** Create a tab and grid */
@@ -1112,7 +1135,7 @@ function createTab(name, layoutModules = []) {
   const tab = { name: name || ('Tab ' + (tabIndex + 1)), modules: [], grid: null, el: null };
   const gridEl = document.createElement('div');
   gridEl.className = 'grid-stack p-4';
-  gridEl.style.minHeight = 'calc(100vh - 40px)';
+  applyGridMinHeight(gridEl);
   gridEl.dataset.tabIndex = tabIndex;
   gridsContainer.appendChild(gridEl);
 
@@ -1213,6 +1236,9 @@ function renderTabs() {
     onStart: closeTabContextMenu,
     onEnd: handleTabReorder
   });
+
+  // Tab content height depends on how tall the top bar is after rendering
+  setTimeout(updateAllGridMinHeights, 0);
 }
 
 /** Handle tab drag-and-drop reorder */
