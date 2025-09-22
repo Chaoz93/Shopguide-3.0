@@ -655,19 +655,26 @@ async function idbDel(key){
     tx.onerror = () => rej(tx.error);
   });
 }
-async function ensureRWPermission(handle){
+async function ensureRWPermission(handle, opts = {}){
   if (typeof handle?.queryPermission !== 'function') return true;
-  const q = await handle.queryPermission({ mode: 'readwrite' });
+  const mode = opts.mode || 'readwrite';
+  const q = await handle.queryPermission({ mode });
   if (q === 'granted') return true;
-  const r = await handle.requestPermission({ mode: 'readwrite' });
-  return r === 'granted';
+  if (opts.request === false) return false;
+  try {
+    const r = await handle.requestPermission({ mode });
+    return r === 'granted';
+  } catch (err) {
+    console.warn('requestPermission failed', err);
+    return false;
+  }
 }
 async function tryRestoreRootHandle(){
   if (!('showDirectoryPicker' in window)) return false;
   try {
     const h = await idbGet(FS_HANDLE_KEY);
     if (!h) return false;
-    const ok = await ensureRWPermission(h);
+    const ok = await ensureRWPermission(h, { request: false });
     if (!ok) return false;
 
     rootDirHandle = h;
@@ -692,7 +699,7 @@ async function tryRestoreUpdateHandle(){
   try {
     const h = await idbGet(UPDATE_HANDLE_KEY);
     if (!h) return false;
-    const ok = await ensureRWPermission(h);
+    const ok = await ensureRWPermission(h, { request: false });
     if (!ok) return false;
     updateDirHandle = h;
     if (updateFolderNameEl) updateFolderNameEl.textContent = h.name;
