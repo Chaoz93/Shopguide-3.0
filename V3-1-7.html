@@ -699,7 +699,7 @@ async function tryRestoreUpdateHandle(){
   try {
     const h = await idbGet(UPDATE_HANDLE_KEY);
     if (!h) return false;
-    const ok = await ensureRWPermission(h, { request: false });
+    const ok = await ensureRWPermission(h, { request: false, mode: 'read' });
     if (!ok) return false;
     updateDirHandle = h;
     if (updateFolderNameEl) updateFolderNameEl.textContent = h.name;
@@ -1262,6 +1262,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       try {
         const handle = await window.showDirectoryPicker();
+        const granted = await ensureRWPermission(handle, { mode: 'read' });
+        if (!granted) {
+          alert('Der Zugriff auf den Update-Ordner wurde nicht erlaubt.');
+          return;
+        }
         updateDirHandle = handle;
         if (updateFolderNameEl) updateFolderNameEl.textContent = handle.name;
         try { localStorage.setItem(UPDATE_HANDLE_NAME_KEY, handle.name); } catch (e) {
