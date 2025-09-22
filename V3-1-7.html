@@ -463,19 +463,34 @@ function parseMarginValue(value, fallback = 0) {
   return fallback;
 }
 
+function readGridCellHeight(gridInstance) {
+  if (!gridInstance) return 0;
+  if (typeof gridInstance.getCellHeight === 'function') {
+    return parseMarginValue(gridInstance.getCellHeight(), 0);
+  }
+  if (typeof gridInstance.cellHeight === 'function') {
+    return parseMarginValue(gridInstance.cellHeight(), 0);
+  }
+  return parseMarginValue(gridInstance.opts?.cellHeight, 0);
+}
+
 function adjustGridMinRows(gridInstance, minHeight) {
-  if (!gridInstance) return;
-  const cellHeight = typeof gridInstance.getCellHeight === 'function'
-    ? gridInstance.getCellHeight()
-    : parseMarginValue(gridInstance.opts?.cellHeight, 0);
+  if (!gridInstance || !Number.isFinite(minHeight)) return;
+
   const opts = gridInstance.opts || {};
+  const cellHeight = readGridCellHeight(gridInstance);
   const baseMargin = parseMarginValue(opts.margin, 0);
   const marginTop = parseMarginValue(opts.marginTop, baseMargin);
   const marginBottom = parseMarginValue(opts.marginBottom, baseMargin);
   const rowHeight = Math.max(cellHeight + marginTop + marginBottom, 1);
   const requiredRows = Math.max(Math.ceil(minHeight / rowHeight), parseMarginValue(opts.minRow, 0));
-  if (requiredRows !== opts.minRow) {
+
+  if (requiredRows === opts.minRow) return;
+
+  if (typeof gridInstance.updateOptions === 'function') {
     gridInstance.updateOptions({ minRow: requiredRows });
+  } else if (gridInstance.opts) {
+    gridInstance.opts.minRow = requiredRows;
   }
 }
 
