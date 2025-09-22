@@ -376,6 +376,7 @@ let liveModuleTemplates = [];
 let tabs = [];
 let activeTabIndex = 0;
 let tabContextMenu = null;
+let tabsSortable = null;
 // Start with sidebar closed by default
 let isSidebarOpen = false;
 
@@ -1114,7 +1115,7 @@ function createTab(name, layoutModules = []) {
   tab.grid = gridInstance;
   tab.el = gridEl;
   tabs.push(tab);
-  gridInstance.on('change', () => updateModulesPositions(tabIndex));
+  gridInstance.on('change', () => updateModulesPositions(tab));
 
   gridEl.addEventListener('dragover', e => {
     if (!isSidebarOpen) return;
@@ -1143,11 +1144,11 @@ function createTab(name, layoutModules = []) {
     if (tmpl.script) {
       const jsFileName = findScriptFileName(tmpl, modObj);
       if (!jsFileName) { alert('Kein Modul-JS gefunden für: ' + (tmpl.name || modObj.subdir)); return; }
-      await loadAndRunModuleScript(jsFileName, tmpl, modObj, pos, gridInstance, tabIndex, instanceId);
+      await loadAndRunModuleScript(jsFileName, tmpl, modObj, pos, gridInstance, tab, instanceId);
     } else if (tmpl.fields) {
-      createUniversalModule(tmpl, pos, modObj, gridInstance, tabIndex, instanceId);
+      createUniversalModule(tmpl, pos, modObj, gridInstance, tab, instanceId);
     } else {
-      createSimpleModule(tmpl.name || modObj.subdir, pos, gridInstance, tabIndex, modObj.subdir, instanceId);
+      createSimpleModule(tmpl.name || modObj.subdir, pos, gridInstance, tab, modObj.subdir, instanceId);
     }
   });
 
@@ -1162,14 +1163,14 @@ function createTab(name, layoutModules = []) {
           const tmpl = modObj.template;
           if (m.type === 'script' && tmpl.script) {
             const jsFileName = findScriptFileName(tmpl, modObj);
-            if (jsFileName) await loadAndRunModuleScript(jsFileName, tmpl, modObj, pos, gridInstance, tabIndex, instanceId);
+            if (jsFileName) await loadAndRunModuleScript(jsFileName, tmpl, modObj, pos, gridInstance, tab, instanceId);
           } else if (m.type === 'fields' && tmpl.fields) {
-            createUniversalModule(tmpl, pos, modObj, gridInstance, tabIndex, instanceId);
+            createUniversalModule(tmpl, pos, modObj, gridInstance, tab, instanceId);
           } else {
-            createSimpleModule(tmpl.name || modObj.subdir, pos, gridInstance, tabIndex, modObj.subdir, instanceId);
+            createSimpleModule(tmpl.name || modObj.subdir, pos, gridInstance, tab, modObj.subdir, instanceId);
           }
         } else {
-          createSimpleModule(m.subdir, pos, gridInstance, tabIndex, m.subdir, instanceId);
+          createSimpleModule(m.subdir, pos, gridInstance, tab, m.subdir, instanceId);
         }
       }
     }, 50);
@@ -1179,11 +1180,16 @@ function createTab(name, layoutModules = []) {
 
 /** Render tabs */
 function renderTabs() {
+  if (tabsSortable) {
+    tabsSortable.destroy();
+    tabsSortable = null;
+  }
   tabsContainer.innerHTML = '';
   tabs.forEach((tab, idx) => {
     const item = document.createElement('div');
     item.className = 'tab-item flex items-center gap-1 px-3 py-1 rounded cursor-pointer';
     if (idx === activeTabIndex) item.classList.add('tab-active'); else item.classList.add('tab-inactive','hover:opacity-90');
+    item.dataset.tabIndex = idx;
     const label = document.createElement('span');
     label.className = 'truncate max-w-xs';
     label.textContent = tab.name;
@@ -1191,6 +1197,47 @@ function renderTabs() {
     item.addEventListener('click', () => activateTab(idx));
     item.addEventListener('contextmenu', e => openTabContextMenu(e, idx));
     tabsContainer.appendChild(item);
+  });
+  tabsSortable = Sortable.create(tabsContainer, {
+    animation: 150,
+    ghostClass: 'opacity-50',
+    onStart: closeTabContextMenu,
+    onEnd: handleTabReorder
+  });
+}
+
+/** Handle tab drag-and-drop reorder */
+function handleTabReorder(evt) {
+  if (!evt || evt.oldIndex === undefined || evt.newIndex === undefined) return;
+  const oldIndex = evt.oldIndex;
+  const newIndex = evt.newIndex;
+  if (oldIndex === newIndex) {
+    activateTab(activeTabIndex);
+    return;
+  }
+  const [movedTab] = tabs.splice(oldIndex, 1);
+  tabs.splice(newIndex, 0, movedTab);
+
+  if (activeTabIndex === oldIndex) {
+    activeTabIndex = newIndex;
+  } else if (oldIndex < activeTabIndex && activeTabIndex <= newIndex) {
+    activeTabIndex -= 1;
+  } else if (newIndex <= activeTabIndex && activeTabIndex < oldIndex) {
+    activeTabIndex += 1;
+  }
+
+  updateGridsDomOrder();
+  activateTab(activeTabIndex);
+  saveLayout();
+}
+
+/** Sync grid DOM order with tab array order */
+function updateGridsDomOrder() {
+  tabs.forEach((tab, idx) => {
+    if (tab.el && tab.el.parentNode === gridsContainer) {
+      tab.el.dataset.tabIndex = idx;
+      gridsContainer.appendChild(tab.el);
+    }
   });
 }
 
@@ -1272,8 +1319,8 @@ function resetTabs() {
 }
 
 /** Update module positions after drag/resizing */
-function updateModulesPositions(index) {
-  const tab = tabs[index];
+function updateModulesPositions(tabOrIndex) {
+  const tab = typeof tabOrIndex === 'number' ? tabs[tabOrIndex] : tabOrIndex;
   if (!tab || !tab.grid) return;
   tab.modules = tab.grid.engine.nodes.map(node => {
     const subdir = node.el.dataset.subdir;
@@ -1338,7 +1385,7 @@ function findScriptFileName(moduleJson, modObj) {
 }
 
 /** Load and run script module */
-async function loadAndRunModuleScript(jsFileName, moduleJson, modObj, gridPos, gridInstance, tabIndex, instanceIdArg) {
+async function loadAndRunModuleScript(jsFileName, moduleJson, modObj, gridPos, gridInstance, tabRef, instanceIdArg) {
   let jsText = '';
   if (modObj.dirHandle) {
     const jsHandle = await modObj.dirHandle.getFileHandle(jsFileName);
@@ -1376,7 +1423,7 @@ async function loadAndRunModuleScript(jsFileName, moduleJson, modObj, gridPos, g
   gridInstance.addWidget(el, widgetOptions);
   el.querySelector('.remove').onclick = () => {
     gridInstance.removeWidget(el);
-    updateModulesPositions(tabIndex);
+    updateModulesPositions(tabRef);
     updateGridDraggable();
   };
   if (typeof window[moduleJson.script] === 'function') {
@@ -1392,12 +1439,12 @@ async function loadAndRunModuleScript(jsFileName, moduleJson, modObj, gridPos, g
       setTimeout(() => contentEl.classList.remove('fade-in'), 600);
     }
   } catch (e) {}
-  updateModulesPositions(tabIndex);
+  updateModulesPositions(tabRef);
   updateGridDraggable();
 }
 
 /** Create universal (fields) module */
-function createUniversalModule(mod, pos, modObj, gridInstance, tabIndex, instanceIdArg) {
+function createUniversalModule(mod, pos, modObj, gridInstance, tabRef, instanceIdArg) {
   const el = document.createElement('div');
   el.classList.add('grid-stack-item');
   const defaultW = parseInt(mod.w) || 6;
@@ -1444,7 +1491,7 @@ function createUniversalModule(mod, pos, modObj, gridInstance, tabIndex, instanc
   gridInstance.addWidget(el, widgetOptions);
   el.querySelector('.remove').onclick = () => {
     gridInstance.removeWidget(el);
-    updateModulesPositions(tabIndex);
+    updateModulesPositions(tabRef);
     updateGridDraggable();
   };
   if (mod.actions?.length) {
@@ -1465,7 +1512,7 @@ function createUniversalModule(mod, pos, modObj, gridInstance, tabIndex, instanc
       setTimeout(() => contentEl.classList.remove('fade-in'), 600);
     }
   } catch (e) {}
-  updateModulesPositions(tabIndex);
+  updateModulesPositions(tabRef);
   updateGridDraggable();
 }
 
@@ -1488,7 +1535,7 @@ function runInlineScript(script, formEl, context) {
 }
 
 /** Create simple module */
-function createSimpleModule(title, pos, gridInstance, tabIndex, subdir, instanceIdArg) {
+function createSimpleModule(title, pos, gridInstance, tabRef, subdir, instanceIdArg) {
   const el = document.createElement('div');
   el.classList.add('grid-stack-item');
   const w = (pos && pos.w) || 4;
@@ -1507,7 +1554,7 @@ function createSimpleModule(title, pos, gridInstance, tabIndex, subdir, instance
   gridInstance.addWidget(el, pos || { x:0, y:0, w, h });
   el.querySelector('.remove').onclick = () => {
     gridInstance.removeWidget(el);
-    updateModulesPositions(tabIndex);
+    updateModulesPositions(tabRef);
     updateGridDraggable();
   };
   // Apply fade-in animation to new simple module
@@ -1518,7 +1565,7 @@ function createSimpleModule(title, pos, gridInstance, tabIndex, subdir, instance
       setTimeout(() => contentEl.classList.remove('fade-in'), 600);
     }
   } catch (e) {}
-  updateModulesPositions(tabIndex);
+  updateModulesPositions(tabRef);
   updateGridDraggable();
 }
   </script>
