@@ -1,4 +1,4 @@
-<!-- Version: 1.1 -->
+<!-- Version: 1.2 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -531,6 +531,7 @@ let versionOverview = {
   html: { localVersion: null, updateVersion: null },
   modules: []
 };
+let rerunUpdateCheckWhenUnlocked = false;
 
 /* ==== UNIQUE IDs ==== */
 let usedInstanceIds = new Set();
@@ -1206,10 +1207,14 @@ async function copyDirectoryContents(sourceDir, targetDir) {
 }
 
 async function runUpdateCheck() {
-  if (updateCheckInProgress) return;
+  if (updateCheckInProgress) {
+    rerunUpdateCheckWhenUnlocked = true;
+    return;
+  }
   lastUpdateError = false;
 
   if (pendingRootPermission || pendingUpdatePermission) {
+    rerunUpdateCheckWhenUnlocked = true;
     renderUpdateList();
     setUpdateStatusButton();
     return;
@@ -1218,6 +1223,7 @@ async function runUpdateCheck() {
   if (!rootDirHandle && !updateDirHandle) {
     versionOverview = { html: { localVersion: null, updateVersion: null }, modules: [] };
     pendingUpdates = [];
+    rerunUpdateCheckWhenUnlocked = false;
     if (updateCheckStatus) updateCheckStatus.textContent = '';
     renderUpdateList();
     return;
@@ -1225,8 +1231,11 @@ async function runUpdateCheck() {
 
   if (rootDirHandle && updateDirHandle) {
     updateCheckInProgress = true;
+    rerunUpdateCheckWhenUnlocked = false;
     setUpdateStatusButton('checking');
     if (updateCheckStatus) updateCheckStatus.textContent = 'Prüfung läuft…';
+  } else {
+    rerunUpdateCheckWhenUnlocked = false;
   }
 
   try {
@@ -1258,6 +1267,10 @@ async function runUpdateCheck() {
   } finally {
     updateCheckInProgress = false;
     renderUpdateList();
+    if (rerunUpdateCheckWhenUnlocked && !pendingRootPermission && !pendingUpdatePermission) {
+      rerunUpdateCheckWhenUnlocked = false;
+      await runUpdateCheck();
+    }
   }
 }
 
