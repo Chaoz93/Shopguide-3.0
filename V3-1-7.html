@@ -450,8 +450,10 @@ const settingsNavButtons = document.querySelectorAll('.settings-nav button');
 const FS_HANDLE_KEY = 'rootDirHandle';
 
 function calculateAvailableGridHeight() {
-  const topBarHeight = topBarEl ? topBarEl.getBoundingClientRect().height : 0;
-  return Math.max(window.innerHeight - topBarHeight, 0);
+  const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
+  if (!gridsContainer) return Math.max(viewportHeight, 0);
+  const containerRect = gridsContainer.getBoundingClientRect();
+  return Math.max(viewportHeight - containerRect.top, 0);
 }
 
 function parseMarginValue(value, fallback = 0) {
@@ -496,15 +498,24 @@ function adjustGridMinRows(gridInstance, minHeight) {
 
 function applyGridMinHeight(gridEl, gridInstance, minHeightOverride) {
   const minHeight = typeof minHeightOverride === 'number' ? minHeightOverride : calculateAvailableGridHeight();
-  if (gridEl) gridEl.style.minHeight = minHeight + 'px';
+  if (gridEl) {
+    gridEl.style.minHeight = minHeight + 'px';
+    gridEl.style.height = minHeight + 'px';
+  }
   adjustGridMinRows(gridInstance, minHeight);
 }
 
 function updateAllGridMinHeights() {
   const minHeight = calculateAvailableGridHeight();
-  if (gridsContainer) gridsContainer.style.minHeight = minHeight + 'px';
+  if (gridsContainer) {
+    gridsContainer.style.minHeight = minHeight + 'px';
+    gridsContainer.style.height = minHeight + 'px';
+  }
   tabs.forEach(tab => {
-    if (tab.el) tab.el.style.minHeight = minHeight + 'px';
+    if (tab.el) {
+      tab.el.style.minHeight = minHeight + 'px';
+      tab.el.style.height = minHeight + 'px';
+    }
     applyGridMinHeight(null, tab.grid, minHeight);
   });
 }
