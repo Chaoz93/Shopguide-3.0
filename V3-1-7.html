@@ -123,11 +123,22 @@
       border-radius: 0.75rem;
       padding: 1rem;
       width: 95%;
-      max-width: 720px;
+      max-width: 860px;
+      max-height: 90vh;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
 
       /* Ensure modal text colour does not inherit sidebar text colour */
       color: var(--body-text);
+    }
+    .settings-content {
+      overflow-y: auto;
+      flex: 1;
+    }
+    .updates-table-container {
+      max-height: 50vh;
+      overflow-y: auto;
     }
     .settings-nav button {
       border-radius: .5rem;
@@ -208,13 +219,14 @@
         <button data-section="modules">Module</button>
         <button data-section="updates">Updates</button>
       </div>
-      <!-- Allgemein section -->
-      <div id="section-general" class="settings-section active">
-        <div class="field-grid">
-          <div class="form-field">
-            <label>App Hintergrundfarbe</label>
-            <input type="color" id="setting-app-bg" value="#f3f4f6" class="w-full border rounded p-1">
-          </div>
+      <div class="settings-content mt-1 pr-1">
+        <!-- Allgemein section -->
+        <div id="section-general" class="settings-section active">
+          <div class="field-grid">
+            <div class="form-field">
+              <label>App Hintergrundfarbe</label>
+              <input type="color" id="setting-app-bg" value="#f3f4f6" class="w-full border rounded p-1">
+            </div>
           <div class="form-field">
             <label>Border Farbe</label>
             <input type="color" id="setting-border-color" value="#e5e7eb" class="w-full border rounded p-1">
@@ -242,13 +254,13 @@
           </div>
         </div>
       </div>
-      <!-- Topbar section -->
-      <div id="section-topbar" class="settings-section">
-        <div class="field-grid">
-          <div class="form-field">
-            <label>Topbar Hintergrundfarbe</label>
-            <input type="color" id="setting-topbar-bg" value="#ffffff" class="w-full border rounded p-1">
-          </div>
+        <!-- Topbar section -->
+        <div id="section-topbar" class="settings-section">
+          <div class="field-grid">
+            <div class="form-field">
+              <label>Topbar Hintergrundfarbe</label>
+              <input type="color" id="setting-topbar-bg" value="#ffffff" class="w-full border rounded p-1">
+            </div>
           <div class="form-field">
             <label>Aktiver Tab Hintergrund</label>
             <input type="color" id="setting-tab-active-bg" value="#2563eb" class="w-full border rounded p-1">
@@ -267,13 +279,13 @@
           </div>
         </div>
       </div>
-      <!-- Sidebar section -->
-      <div id="section-sidebar" class="settings-section">
-        <div class="field-grid">
-          <div class="form-field">
-            <label>Sidebar Hintergrundfarbe</label>
-            <input type="color" id="setting-sidebar-bg" value="#f3f4f6" class="w-full border rounded p-1">
-          </div>
+        <!-- Sidebar section -->
+        <div id="section-sidebar" class="settings-section">
+          <div class="field-grid">
+            <div class="form-field">
+              <label>Sidebar Hintergrundfarbe</label>
+              <input type="color" id="setting-sidebar-bg" value="#f3f4f6" class="w-full border rounded p-1">
+            </div>
           <div class="form-field">
             <label>Sidebar Textfarbe</label>
             <input type="color" id="setting-sidebar-text" value="#1f2937" class="w-full border rounded p-1">
@@ -297,13 +309,13 @@
           </div>
         </div>
       </div>
-      <!-- Modules section -->
-      <div id="section-modules" class="settings-section">
-        <div class="field-grid">
-          <div class="form-field">
-            <label>Modul Hintergrundfarbe</label>
-            <input type="color" id="setting-module-bg" value="#005983" class="w-full border rounded p-1">
-          </div>
+        <!-- Modules section -->
+        <div id="section-modules" class="settings-section">
+          <div class="field-grid">
+            <div class="form-field">
+              <label>Modul Hintergrundfarbe</label>
+              <input type="color" id="setting-module-bg" value="#005983" class="w-full border rounded p-1">
+            </div>
           <div class="form-field">
             <label>Modul Textfarbe</label>
             <input type="color" id="setting-text-color" value="#ffffff" class="w-full border rounded p-1">
@@ -334,27 +346,28 @@
           </div>
         </div>
       </div>
-      <div id="section-updates" class="settings-section">
-        <div class="space-y-4">
-          <div class="flex flex-wrap items-center gap-2 text-sm">
-            <span class="font-medium">Update-Ordner:</span>
-            <span id="update-folder-name" class="px-2 py-1 bg-gray-100 rounded">Keiner gewählt</span>
-            <button id="select-update-folder" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Ordner wählen</button>
-            <button id="clear-update-folder" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded">Zurücksetzen</button>
-            <span id="update-check-status" class="text-gray-500"></span>
-          </div>
-          <div id="updates-empty-state" class="text-sm text-gray-500">Keine Updates erforderlich.</div>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-sm border border-gray-200 rounded" id="updates-table">
-              <thead class="bg-gray-100">
-                <tr>
-                  <th class="text-left px-3 py-2">Datei</th>
-                  <th class="text-left px-3 py-2">Änderungsdatum</th>
-                  <th class="text-right px-3 py-2">Aktion</th>
-                </tr>
-              </thead>
-              <tbody id="updates-table-body"></tbody>
-            </table>
+        <div id="section-updates" class="settings-section">
+          <div class="space-y-4">
+            <div class="flex flex-wrap items-center gap-2 text-sm">
+              <span class="font-medium">Update-Ordner:</span>
+              <span id="update-folder-name" class="px-2 py-1 bg-gray-100 rounded">Keiner gewählt</span>
+              <button id="select-update-folder" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Ordner wählen</button>
+              <button id="clear-update-folder" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded">Zurücksetzen</button>
+              <span id="update-check-status" class="text-gray-500"></span>
+            </div>
+            <div id="updates-empty-state" class="text-sm text-gray-500">Keine Updates erforderlich.</div>
+            <div class="updates-table-container overflow-x-auto">
+              <table class="min-w-full text-sm border border-gray-200 rounded" id="updates-table">
+                <thead class="bg-gray-100">
+                  <tr>
+                    <th class="text-left px-3 py-2">Datei</th>
+                    <th class="text-left px-3 py-2">Änderungsdatum</th>
+                    <th class="text-right px-3 py-2">Aktion</th>
+                  </tr>
+                </thead>
+                <tbody id="updates-table-body"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
