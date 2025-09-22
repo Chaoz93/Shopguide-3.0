@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RecordViewer</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #85c3ed;
+      color: #07101f;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      letter-spacing: 0.04em;
+    }
+    .page {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem;
+      gap: 1.25rem;
+      min-height: 0;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: inherit;
+    }
+    .layout {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) minmax(0, 2fr);
+      gap: 1.25rem;
+    }
+    .recent-section {
+      min-height: 0;
+      background: #d1e0eb;
+      border: 1px solid #b7cde0;
+      border-radius: 1rem;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 12px 26px rgba(7, 16, 31, 0.12);
+      overflow: hidden;
+    }
+    .viewer-section {
+      min-height: 0;
+      background: #d1e0eb;
+      border: 1px solid #b7cde0;
+      border-radius: 1rem;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 18px 38px rgba(7, 16, 31, 0.15);
+      overflow: hidden;
+    }
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #0f172a;
+    }
+    .module-root {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .folder-button {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 999px;
+      border: 1px solid rgba(7, 16, 31, 0.25);
+      background: #d1e0eb;
+      color: #07101f;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(7, 16, 31, 0.18);
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      z-index: 10;
+    }
+    .folder-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px rgba(7, 16, 31, 0.22);
+    }
+    .folder-button:active {
+      transform: scale(0.97);
+      box-shadow: 0 8px 18px rgba(7, 16, 31, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <button class="folder-button" type="button" aria-label="Select folder for recent files">Select Folder</button>
+  <div class="page">
+    <header>
+      <h1>Record Viewer</h1>
+    </header>
+    <div class="layout">
+      <section class="recent-section">
+        <div class="section-title">Recent Files</div>
+        <div id="recent-files-root" class="module-root"></div>
+      </section>
+      <section class="viewer-section">
+        <div class="section-title">File Contents</div>
+        <div id="record-viewer-root" class="module-root"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+/* Recent Files module */
+(function(){
+  // ----- constants and helpers -----
+  const LS_KEY = 'module_data_v1';
+  const IDB_NAME = 'modulesApp';
+  const IDB_STORE = 'fs-handles';
+
+  const parse = (s, fb) => { try { return JSON.parse(s) ?? fb; } catch { return fb; } };
+  const loadDoc = () => parse(localStorage.getItem(LS_KEY), { __meta:{v:1}, general:{}, instances:{} });
+  const saveDoc = (doc) => { doc.__meta = {v:1, updatedAt:new Date().toISOString()}; localStorage.setItem(LS_KEY, JSON.stringify(doc)); };
+
+  function instanceIdOf(root){
+    return root.closest('.grid-stack-item')?.dataset?.instanceId || 'inst-'+Math.random().toString(36).slice(2);
+  }
+
+  // --- idb helpers for directory handle persistence ---
+  function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open(IDB_NAME,1); r.onupgradeneeded=()=>r.result.createObjectStore(IDB_STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  async function idbSet(k,v){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readwrite'); tx.objectStore(IDB_STORE).put(v,k); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+  async function idbGet(k){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readonly'); const rq=tx.objectStore(IDB_STORE).get(k); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); }); }
+
+  async function ensureRPermission(handle){
+    if (!handle?.queryPermission) return true;
+    const q = await handle.queryPermission({mode:'read'}); if (q==='granted') return true;
+    const r = await handle.requestPermission({mode:'read'}); return r==='granted';
+  }
+
+  // ----- one-time styles -----
+  if (!document.getElementById('recent-files-styles')) {
+    const css = `
+    .rf-root{height:100%;display:flex;flex-direction:column;--rf-bg:#f8fafc;--rf-item-bg:#fff;--rf-active:#3b82f6;}
+    .rf-titlebar{display:flex;justify-content:space-between;align-items:center;font-weight:600;color:var(--text-color);padding:0 .25rem;}
+    .rf-surface{flex:1;background:var(--rf-bg);border-radius:1rem;padding:.5rem;overflow:auto;}
+    .rf-list{display:flex;flex-direction:column;gap:.35rem;}
+    .rf-item{display:flex;justify-content:space-between;align-items:center;padding:.45rem .6rem;background:var(--rf-item-bg);border-radius:.5rem;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    .rf-item:hover{box-shadow:0 4px 8px rgba(0,0,0,.1);}
+    .rf-item.active{box-shadow:0 0 0 2px var(--rf-active) inset;}
+    .rf-modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.35);z-index:50;}
+    .rf-modal.open{display:grid;}
+    .rf-panel{background:#fff;color:#111827;width:min(92vw,420px);border-radius:.9rem;padding:1rem;box-shadow:0 10px 30px rgba(0,0,0,.25);}
+    .rf-field{margin-bottom:.6rem;}
+    .rf-field label{display:block;font-size:.85rem;font-weight:600;margin-bottom:.25rem;}
+    .rf-color{width:100%;height:2.25rem;border:1px solid #e5e7eb;border-radius:.5rem;}
+    .rf-btn{padding:.4rem .7rem;border-radius:.5rem;background:var(--button-bg,#2563eb);color:var(--button-text,#fff);}
+    .rf-menu{position:fixed;z-index:1000;display:none;min-width:180px;padding:.25rem;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
+    .rf-menu.open{display:block;}
+    .rf-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;}
+    .rf-menu .mi:hover{background:rgba(0,0,0,.06);}
+    `;
+    const tag = document.createElement('style'); tag.id='recent-files-styles'; tag.textContent=css; document.head.appendChild(tag);
+  }
+
+  // ----- main render -----
+  window.renderRecentFiles = async function(root, ctx){
+    const instanceId = instanceIdOf(root);
+    const title = (ctx?.moduleJson?.settings?.title) || (ctx?.moduleJson?.name) || 'Recent Files';
+
+    // load instance config
+    let doc = loadDoc();
+    const inst = doc.instances?.[instanceId] || {dirKey:null, colors:{bg:'#f8fafc', item:'#ffffff', active:'#3b82f6'}};
+
+    function saveInst(){
+      doc = loadDoc();
+      (doc.instances ||= {})[instanceId] = inst;
+      saveDoc(doc);
+    }
+
+    const supportsDirectoryPicker = typeof window.showDirectoryPicker === 'function';
+
+    root.innerHTML = `
+      <div class="rf-root" style="--rf-bg:${inst.colors.bg};--rf-item-bg:${inst.colors.item};--rf-active:${inst.colors.active}">
+        <div class="rf-titlebar"><span class="rf-title">${title}</span></div>
+        <div class="rf-surface"><div class="rf-list"></div></div>
+      </div>
+      <div class="rf-menu"><button class="mi mi-opt">⚙️ Optionen</button></div>
+      <div class="rf-modal"><div class="rf-panel">
+        <div class="rf-field"><label>Background</label><input type="color" class="rf-color rf-bg" value="${inst.colors.bg}"></div>
+        <div class="rf-field"><label>Item</label><input type="color" class="rf-color rf-item" value="${inst.colors.item}"></div>
+        <div class="rf-field"><label>Highlight</label><input type="color" class="rf-color rf-active" value="${inst.colors.active}"></div>
+        <div class="rf-field"><button class="rf-btn rf-folder">Choose Folder</button></div>
+        <div style="text-align:right"><button class="rf-btn rf-close">Close</button></div>
+      </div></div>
+      <input type="file" class="rf-file" style="display:none" webkitdirectory directory mozdirectory multiple />`;
+
+    const els = {
+      list: root.querySelector('.rf-list'),
+      modal: root.querySelector('.rf-modal'),
+      close: root.querySelector('.rf-close'),
+      folderBtn: root.querySelector('.rf-folder'),
+      bg: root.querySelector('.rf-bg'),
+      item: root.querySelector('.rf-item'),
+      active: root.querySelector('.rf-active'),
+      rootBox: root.querySelector('.rf-root'),
+      menu: root.querySelector('.rf-menu'),
+      fileInput: root.querySelector('.rf-file')
+    };
+
+    // modal + context menu events
+    els.close.addEventListener('click', ()=>{ els.modal.classList.remove('open'); });
+    els.bg.addEventListener('input', ()=>{ inst.colors.bg=els.bg.value; els.rootBox.style.setProperty('--rf-bg', inst.colors.bg); saveInst(); });
+    els.item.addEventListener('input', ()=>{ inst.colors.item=els.item.value; els.rootBox.style.setProperty('--rf-item-bg', inst.colors.item); saveInst(); });
+    els.active.addEventListener('input', ()=>{ inst.colors.active=els.active.value; els.rootBox.style.setProperty('--rf-active', inst.colors.active); saveInst(); });
+
+    function showMenu(x,y){
+      const pad=8, vw=innerWidth, vh=innerHeight;
+      const rect=els.menu.getBoundingClientRect(); const w=rect.width||180, h=rect.height||44;
+      els.menu.style.left = Math.min(Math.max(x,pad), vw-w-pad)+"px";
+      els.menu.style.top  = Math.min(Math.max(y,pad), vh-h-pad)+"px";
+      els.menu.classList.add('open');
+    }
+    root.addEventListener('contextmenu', (e)=>{ e.preventDefault(); e.stopPropagation(); showMenu(e.clientX, e.clientY); });
+    document.addEventListener('click', ()=>els.menu.classList.remove('open'));
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') els.menu.classList.remove('open'); });
+    els.menu.querySelector('.mi-opt').addEventListener('click', ()=>{ els.menu.classList.remove('open'); els.modal.classList.add('open'); });
+
+    // directory picker
+    async function openFolderPicker(){
+      if(supportsDirectoryPicker){
+        try{
+          const handle = await window.showDirectoryPicker();
+          const key = instanceId+'-dir';
+          await idbSet(key, handle);
+          inst.dirKey = key; saveInst();
+          await loadList(handle);
+        }catch(e){ console.warn(e); }
+      }else{
+        els.fileInput.value='';
+        els.fileInput.click();
+      }
+    }
+
+    els.folderBtn.addEventListener('click', openFolderPicker);
+    window.recentFilesOpenPicker = openFolderPicker;
+
+    els.fileInput.addEventListener('change', async ()=>{
+      const files = Array.from(els.fileInput.files || []);
+      if(!files.length) return;
+      inst.dirKey = null; saveInst();
+      await loadList(files);
+    });
+
+    async function gatherFiles(dirHandle, base=''){
+      const out=[];
+      for await(const [name,handle] of dirHandle.entries()){
+        const path=base+name;
+        if(handle.kind==='file'){
+          try{
+            const file=await handle.getFile();
+            out.push({name, path, handle, date:file.lastModified});
+          }catch{}
+        } else if(handle.kind==='directory'){
+          out.push(...await gatherFiles(handle, path+'/'));
+        }
+      }
+      return out;
+    }
+
+    function storeFallbackFiles(files){
+      const store = window.__lunaFallbackFiles = new Map();
+      files.forEach(file=>{
+        const key = file.webkitRelativePath || file.name;
+        store.set(key, file);
+      });
+    }
+
+    async function loadList(dirHandleOrFiles){
+      let files=[];
+      if(Array.isArray(dirHandleOrFiles)){
+        files = dirHandleOrFiles.map(file=>({
+          name: file.name,
+          path: file.webkitRelativePath || file.name,
+          handle: null,
+          date: file.lastModified
+        }));
+        storeFallbackFiles(dirHandleOrFiles);
+      }else{
+        if(!await ensureRPermission(dirHandleOrFiles)){
+          alert('Permission denied for selected directory.');
+          return;
+        }
+        files = await gatherFiles(dirHandleOrFiles);
+      }
+
+      files.sort((a,b)=>b.date-a.date);
+
+      const doc = loadDoc();
+      doc.general ||= {};
+      doc.general.recentFiles = files.slice(0,200).map(file=>({
+        name: file.name,
+        path: file.path,
+        date: file.date,
+        dirKey: inst.dirKey
+      }));
+      if(files[0]){
+        doc.general.recentFile = files[0].path;
+        doc.general.recentFilePath = files[0].path;
+        doc.general.recentFileDirKey = inst.dirKey;
+      }
+      saveDoc(doc);
+      renderList();
+    }
+
+    function formatDate(ts){
+      try{
+        return new Date(ts).toLocaleString();
+      }catch{return ''}
+    }
+
+    function renderList(){
+      const doc = loadDoc();
+      const recent = doc.general?.recentFiles || [];
+      const activePath = doc.general?.recentFilePath || doc.general?.recentFile;
+
+      if(!recent.length){
+        els.list.innerHTML = '<div style="padding:.5rem;color:#64748b;">No files yet. Choose a folder or drop files.</div>';
+        return;
+      }
+
+      els.list.innerHTML = recent.map(file=>{
+        const isActive = file.path === activePath;
+        return `<div class="rf-item${isActive?' active':''}" data-path="${file.path}" data-dir="${file.dirKey||''}">
+          <div>
+            <div style="font-weight:600;">${file.name}</div>
+            <div style="font-size:.75rem;color:#64748b;">${file.path}</div>
+          </div>
+          <div style="font-size:.75rem;color:#64748b;">${formatDate(file.date)}</div>
+        </div>`;
+      }).join('');
+
+      els.list.querySelectorAll('.rf-item').forEach(item=>{
+        item.addEventListener('click', ()=>{
+          const path = item.dataset.path;
+          const dirKey = item.dataset.dir;
+          const doc = loadDoc();
+          doc.general ||= {};
+          doc.general.recentFile = path;
+          doc.general.recentFilePath = path;
+          doc.general.recentFileDirKey = dirKey || null;
+          saveDoc(doc);
+          renderList();
+        });
+      });
+    }
+
+    renderList();
+
+    // support dropping files directly on the module
+    root.addEventListener('dragover', e=>{ e.preventDefault(); root.classList.add('rf-drag'); });
+    root.addEventListener('dragleave', ()=>root.classList.remove('rf-drag'));
+    root.addEventListener('drop', e=>{
+      e.preventDefault();
+      root.classList.remove('rf-drag');
+      const files = Array.from(e.dataTransfer.files||[]);
+      if(files.length){
+        inst.dirKey = null; saveInst();
+        loadList(files);
+      }
+    });
+  };
+})();
+  </script>
+  <script>
+(function(){
+  const LS_KEY = 'module_data_v1'; // document key used by recentFiles
+  const IDB_NAME = 'modulesApp';
+  const IDB_STORE = 'fs-handles';
+
+  // ensure "storage" events also fire in the same tab
+  function patchStorage(){
+    if(localStorage.__rvPatched) return;
+    const orig = localStorage.setItem;
+    localStorage.setItem = function(key, val){
+      const old = localStorage.getItem(key);
+      orig.apply(this, arguments);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key,
+        oldValue: old,
+        newValue: String(val),
+        storageArea: localStorage
+      }));
+    };
+    localStorage.__rvPatched = true;
+  }
+
+  patchStorage();
+
+  // ----- helpers -----
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+  }
+
+  function loadDoc(){
+    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
+    catch{ return {}; }
+  }
+
+  function getPath(){
+    const doc = loadDoc();
+    return doc?.general?.recentFilePath || doc?.general?.recentFile || null;
+  }
+
+  function idbOpen(){
+    return new Promise((res,rej)=>{
+      const r = indexedDB.open(IDB_NAME,1);
+      r.onupgradeneeded = () => r.result.createObjectStore(IDB_STORE);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  }
+
+  async function idbGet(k){
+    const db = await idbOpen();
+    return new Promise((res,rej)=>{
+      const tx = db.transaction(IDB_STORE,'readonly');
+      const rq = tx.objectStore(IDB_STORE).get(k);
+      rq.onsuccess = () => res(rq.result||null);
+      rq.onerror = () => rej(rq.error);
+    });
+  }
+
+  async function ensureRPermission(handle){
+    if(!handle?.queryPermission) return true;
+    const q = await handle.queryPermission({mode:'read'});
+    if(q === 'granted') return true;
+    const r = await handle.requestPermission({mode:'read'});
+    return r === 'granted';
+  }
+
+  async function resolveFile(dirHandle, path){
+    try{
+      const parts = path.split('/').filter(Boolean);
+      let handle = dirHandle;
+      for(let i=0;i<parts.length;i++){
+        const p = parts[i];
+        if(i === parts.length-1){
+          return await handle.getFileHandle(p);
+        }
+        handle = await handle.getDirectoryHandle(p);
+      }
+    }catch{}
+    return null;
+  }
+
+  async function readFileFromHandles(path){
+    const doc = loadDoc();
+    const instances = doc.instances || {};
+    for(const key of Object.keys(instances)){
+      const dirKey = instances[key]?.dirKey;
+      if(!dirKey) continue;
+      try{
+        const dirHandle = await idbGet(dirKey);
+        if(dirHandle && await ensureRPermission(dirHandle)){
+          const fileHandle = await resolveFile(dirHandle, path);
+          if(fileHandle){
+            const file = await fileHandle.getFile();
+            return await file.text();
+          }
+        }
+      }catch(e){ console.warn(e); }
+    }
+    return null;
+  }
+
+  async function readFileFromFallback(path){
+    const store = window.__lunaFallbackFiles;
+    if(store && typeof store.get === 'function'){
+      const file = store.get(path);
+      if(file){
+        return await file.text();
+      }
+    }
+    return null;
+  }
+
+  async function loadAndRender(root){
+    const path = getPath();
+    if(!path){
+      root.textContent = 'No recent file selected.';
+      return;
+    }
+    try{
+      let text = await readFileFromFallback(path);
+      if(text == null){
+        text = await readFileFromHandles(path);
+      }
+      if(text == null){
+        // fall back to fetch for non-local paths
+        const res = await fetch(path);
+        text = await res.text();
+      }
+      const lines = text.split(/\r?\n/);
+      root.innerHTML = lines.map(line => {
+        const trimmed = line.trim();
+        let cls = '';
+        if(trimmed.includes('clfocused')){
+          cls = 'rv-focused';
+        }else if(trimmed.includes('clchecked')){
+          cls = 'rv-passed';
+        }else if(trimmed.includes('Step:')){
+          cls = 'rv-failed';
+        }
+        return `<div class="rv-line ${cls}">${escapeHtml(line)}</div>`;
+      }).join('');
+    }catch(err){
+      console.warn(err);
+      root.textContent = 'Error loading file';
+    }
+  }
+
+  function ensureStyles(){
+    if(document.getElementById('rv-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'rv-styles';
+    style.textContent = `
+      .rv-container { overflow:auto; font-family:monospace; background:#ffffff; color:#000000; border-radius:0.75rem; padding:0.5rem; }
+      .rv-line { white-space: pre; background:#f1f5f9; color:inherit; }
+      .rv-line.rv-passed { background:#d1fae5; }
+      .rv-line.rv-failed { background:#fee2e2; }
+      .rv-line.rv-focused { background:#dbeafe; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  window.renderRecordViewer = function(root){
+    ensureStyles();
+    root.classList.add('rv-container');
+
+    let lastPath;
+
+    async function refresh(){
+      const p = getPath();
+      if(p !== lastPath){
+        lastPath = p;
+        await loadAndRender(root);
+      }
+    }
+
+    refresh();
+
+    function onStorage(ev){ if(ev.key === LS_KEY) refresh(); }
+    window.addEventListener('storage', onStorage);
+    const interval = setInterval(refresh, 1000);
+
+    const mo = new MutationObserver(() => {
+      if(!document.body.contains(root)){
+        window.removeEventListener('storage', onStorage);
+        clearInterval(interval);
+        mo.disconnect();
+      }
+    });
+    mo.observe(document.body, {childList:true, subtree:true});
+  };
+})();
+  </script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const recentRoot = document.getElementById('recent-files-root');
+      const viewerRoot = document.getElementById('record-viewer-root');
+      renderRecentFiles(recentRoot);
+      const folderButton = document.querySelector('.folder-button');
+      if (folderButton) {
+        folderButton.addEventListener('click', () => {
+          if (typeof window.recentFilesOpenPicker === 'function') {
+            window.recentFilesOpenPicker();
+          }
+        });
+      }
+      renderRecordViewer(viewerRoot);
+    });
+  </script>
+</body>
+</html>
