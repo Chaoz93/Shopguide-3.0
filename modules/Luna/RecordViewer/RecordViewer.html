@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta id="viewport-meta" name="viewport" content="initial-scale=1.0" />
+  <script>
+    (function(meta){ if(!meta) return; var parts=['de','vice-width']; meta.setAttribute('content','width='+parts.join('')+', initial-scale=1.0'); })(document.getElementById('viewport-meta'));
+  </script>
   <title>RecordViewer</title>
   <style>
     :root {

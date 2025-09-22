@@ -183,10 +183,10 @@
             <button class="db-btn secondary rs-close" style="background:#eee;border-radius:.5rem;padding:.35rem .6rem">Schließen</button>
           </div>
           <div class="db-field">
-            <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Excel-Datei</label>
+            <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Dictionary</label>
             <div class="db-row" style="display:flex;gap:.5rem;align-items:center">
-              <button class="db-btn rs-pick" style="background:var(--button-bg);color:var(--button-text);border-radius:.5rem;padding:.35rem .6rem">Excel wählen</button>
-              <button class="db-btn rs-create" style="background:rgba(0,0,0,.08);border-radius:.5rem;padding:.35rem .6rem">Excel erstellen</button>
+              <button class="db-btn rs-pick" style="background:var(--button-bg);color:var(--button-text);border-radius:.5rem;padding:.35rem .6rem">Dictionary wählen</button>
+              <button class="db-btn rs-create" style="background:rgba(0,0,0,.08);border-radius:.5rem;padding:.35rem .6rem">Dictionary erstellen</button>
               <span class="rs-file db-file"></span>
             </div>
           </div>
@@ -489,8 +489,8 @@
 
     async function bindHandle(h){const ok=await ensureRWPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}handle=h;await idbSet(cfg.idbKey,h);cfg.fileName=h.name||'Dictionary.xlsx';saveCfg(cfg);els.mFile.textContent=`• ${cfg.fileName}`;saveGlobalDict(h,cfg.fileName);return true;}
     async function bindRuleHandle(h){const ok=await ensureRPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}ruleHandle=h;await idbSet(cfg.ruleIdbKey,h);cfg.ruleFileName=h.name||'Rules.xlsx';saveCfg(cfg);els.mRuleFile.textContent=`• ${cfg.ruleFileName}`;saveGlobalRules(h,cfg.ruleFileName);try{rules=await readRulesFromHandle(h);}catch{rules=[];}updateName();return true;}
-    els.mPick.onclick=async()=>{try{const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(h&&await bindHandle(h)){cache=await readAll(h);setNote('Datei geladen.');refreshFromCache();}}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
-    els.mCreate.onclick=async()=>{try{const h=await showSaveFilePicker({suggestedName:'Dictionary.xlsx',types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});if(h&&await bindHandle(h)){cache=[];await writeAll(h,cache);setNote('Datei erstellt.');refreshFromCache();}}catch(e){if(e?.name!=='AbortError')setNote('Erstellen fehlgeschlagen.');}};
+    els.mPick.onclick=async()=>{try{const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(h&&await bindHandle(h)){cache=await readAll(h);setNote('Dictionary geladen.');refreshFromCache();}}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
+    els.mCreate.onclick=async()=>{try{const h=await showSaveFilePicker({suggestedName:'Dictionary.xlsx',types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});if(h&&await bindHandle(h)){cache=[];await writeAll(h,cache);setNote('Dictionary erstellt.');refreshFromCache();}}catch(e){if(e?.name!=='AbortError')setNote('Erstellen fehlgeschlagen.');}};
     els.mRulePick.onclick=async()=>{try{const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(h)await bindRuleHandle(h);}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
 
     (async()=>{try{let h=await idbGet(cfg.idbKey);if(!h){h=await idbGet(GLOBAL_DICT_KEY);if(h){await idbSet(cfg.idbKey,h);if(!cfg.fileName){const g=loadDoc().general||{};cfg.fileName=g.dictFileName||h.name||'Dictionary.xlsx';saveCfg(cfg);els.mFile.textContent=`• ${cfg.fileName}`;}}}if(h&&await ensureRWPermission(h)){handle=h;cache=await readAll(h);refreshFromCache();}}catch(e){}})();
@@ -504,7 +504,7 @@
     let lastDocString=getDocString();
     const watcher=setInterval(()=>{const now=getDocString();if(now!==lastDocString){lastDocString=now;refreshFromCache();}},WATCH_INTERVAL);
 
-    const scheduleSave=debounce(350,async()=>{if(!handle){setNote('Keine Excel-Datei gewählt.');return;}try{await writeAll(handle,cache);setNote('Gespeichert.');setTimeout(()=>setNote(''),700);}catch{setNote('Speichern fehlgeschlagen.');}});
+    const scheduleSave=debounce(350,async()=>{if(!handle){setNote('Kein Dictionary gewählt.');return;}try{await writeAll(handle,cache);setNote('Gespeichert.');setTimeout(()=>setNote(''),700);}catch{setNote('Speichern fehlgeschlagen.');}});
     function putField(fieldId,value){const m=activeMeldung();if(!m)return;const meldField=cfg.fields.find(f=>f.key==='meldung');const meldId=meldField?meldField.id:'meldung';let row=cache.find(r=>String(r[meldId]||'').trim()===m);if(!row){row=HEAD.reduce((o,k)=>(o[k]='',o),{});row[meldId]=m;cache.push(row);}row[fieldId]=value;scheduleSave();}
 
     if(els.mAspenPick){els.mAspenPick.addEventListener('click',async()=>{try{const [handle]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(handle)await bindAspenHandle(handle);}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}});}

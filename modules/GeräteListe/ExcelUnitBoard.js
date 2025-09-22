@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  if(!document.getElementById('device-board-styles')){
+  if(!document.getElementById('unit-board-styles')){
     const css=`
     .db-root{height:100%;display:flex;flex-direction:column;gap:.6rem;
       --dl-bg:#f5f7fb; --dl-item-bg:#ffffff; --dl-title:#2563eb; --dl-sub:#4b5563; --dl-active:#10b981;}
@@ -58,7 +58,7 @@
     .db-check{display:flex; align-items:center; gap:.45rem; font-size:.85rem;}
     `;
     const tag=document.createElement('style');
-    tag.id='device-board-styles';
+    tag.id='unit-board-styles';
     tag.textContent=css;
     document.head.appendChild(tag);
   }
@@ -66,8 +66,8 @@
   const LS_DOC='module_data_v1';
   const IDB_NAME='modulesApp';
   const IDB_STORE='fs-handles';
-  const GROUP_NAME='deviceBoardGroup';
-  const CUSTOM_BROADCAST='deviceBoard:update';
+  const GROUP_NAME='unitBoardGroup';
+  const CUSTOM_BROADCAST='unitBoard:update';
   const GLOBAL_DICT_KEY='globalDict';
   const GLOBAL_NAME_KEY='globalNameRules';
 
@@ -206,7 +206,7 @@
     if(file.size===0) return [];
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
-    const sheet=workbook.Sheets['Devices']||workbook.Sheets[workbook.SheetNames[0]];
+    const sheet=workbook.Sheets['Units']||workbook.Sheets[workbook.SheetNames[0]];
     if(!sheet) return [];
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,raw:false,defval:''});
     const data=rows.slice(1).filter(row=>row.length && row[0] !== '');
@@ -220,7 +220,7 @@
     const workbook=XLSX.utils.book_new();
     const aoa=[['Meldung'],...unique.map(it=>[it.meldung])];
     const sheet=XLSX.utils.aoa_to_sheet(aoa);
-    XLSX.utils.book_append_sheet(workbook,sheet,'Devices');
+    XLSX.utils.book_append_sheet(workbook,sheet,'Units');
     const output=XLSX.write(workbook,{bookType:'xlsx',type:'array'});
     const writable=await handle.createWritable();
     await writable.write(new Blob([output],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
@@ -288,7 +288,7 @@
       <div class="db-modal">
         <div class="db-panel">
           <div class="db-row" style="justify-content:space-between; margin-bottom:.5rem">
-            <div class="font-semibold">DeviceList – Optionen</div>
+            <div class="font-semibold">UnitList – Optionen</div>
             <button class="db-btn secondary db-close">Schließen</button>
           </div>
           <div class="db-grid">
@@ -301,9 +301,9 @@
               </div>
             </div>
             <div class="db-field" style="grid-column: span 3;">
-              <label>Wörterbuch</label>
+              <label>Dictionary</label>
               <div class="db-row">
-                <button class="db-btn db-dict-pick">Excel wählen</button>
+                <button class="db-btn db-dict-pick">Dictionary wählen</button>
                 <span class="db-dict-file db-file"></span>
               </div>
             </div>
@@ -451,15 +451,15 @@
 
   function loadCfg(instanceId){
     const doc=loadDoc();
-    const cfg=doc?.instances?.[instanceId]?.deviceBoard||{};
+    const cfg=doc?.instances?.[instanceId]?.unitBoard||{};
     const general=doc.general||{};
     const subFields=Array.isArray(cfg.subFields)&&cfg.subFields.length
       ? cfg.subFields.slice()
       : [cfg.subField||'auftrag'];
     return {
-      idbKey:cfg.idbKey||`deviceBoard:${instanceId}`,
-      dictIdbKey:cfg.dictIdbKey||`deviceBoardDict:${instanceId}`,
-      nameIdbKey:cfg.nameIdbKey||`deviceBoardNames:${instanceId}`,
+      idbKey:cfg.idbKey||`unitBoard:${instanceId}`,
+      dictIdbKey:cfg.dictIdbKey||`unitBoardDict:${instanceId}`,
+      nameIdbKey:cfg.nameIdbKey||`unitBoardNames:${instanceId}`,
       fileName:cfg.fileName||'',
       dictFileName:cfg.dictFileName||general.dictFileName||'',
       nameFileName:cfg.nameFileName||general.nameFileName||'',
@@ -482,14 +482,14 @@
       subField:Array.isArray(cfg.subFields)&&cfg.subFields.length?cfg.subFields[0]:'auftrag',
       excludedParts:Array.isArray(cfg.excludedParts)?cfg.excludedParts.slice():[],
     };
-    doc.instances[instanceId].deviceBoard=payload;
+    doc.instances[instanceId].unitBoard=payload;
     saveDoc(doc);
   }
 
   function removeCfg(instanceId){
     const doc=loadDoc();
     if(doc?.instances && doc.instances[instanceId]){
-      delete doc.instances[instanceId].deviceBoard;
+      delete doc.instances[instanceId].unitBoard;
       if(Object.keys(doc.instances[instanceId]).length===0) delete doc.instances[instanceId];
       saveDoc(doc);
     }
@@ -514,7 +514,7 @@
     els.titlebar.style.display='block';
   }
 
-  window.renderExcelDeviceBoard=async function(root){
+  window.renderExcelUnitBoard=async function(root){
     if(!('showOpenFilePicker' in window) || !('showSaveFilePicker' in window)){
       root.innerHTML='<div class="p-2 text-sm">Dieses Modul benötigt die File System Access API (Chromium).</div>';
       return;
@@ -543,7 +543,7 @@
     els.cActive.value=cfg.colors.active;
     els.titleInput.value=cfg.title;
     els.fLabel.textContent=cfg.fileName?`• ${cfg.fileName}`:'Keine Datei gewählt';
-    els.dictLabel.textContent=cfg.dictFileName?`• ${cfg.dictFileName}`:'Kein Wörterbuch';
+    els.dictLabel.textContent=cfg.dictFileName?`• ${cfg.dictFileName}`:'Kein Dictionary';
     els.nameLabel.textContent=cfg.nameFileName?`• ${cfg.nameFileName}`:'Keine Namensregeln';
 
     const arraysEqual=(a,b)=>{
@@ -811,7 +811,7 @@
 
     function setFileHandle(handle){
       state.handles.file=handle;
-      cfg.fileName=handle?.name||cfg.fileName||'devices.xlsx';
+      cfg.fileName=handle?.name||cfg.fileName||'units.xlsx';
       els.fLabel.textContent=`• ${cfg.fileName}`;
       saveCfg(instanceId,cfg);
     }
@@ -854,7 +854,7 @@
     async function createExcel(){
       try{
         const handle=await window.showSaveFilePicker({
-          suggestedName:'devices.xlsx',
+          suggestedName:'units.xlsx',
           types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]
         });
         if(!handle) return;

@@ -1,4 +1,4 @@
-/* DeviceList (Excel)
+/* UnitList (Excel)
    - Options panel: pick/create .xlsx, colors (bg, item bg, text)
    - Per-instance persistence: localStorage (doc) + IndexedDB (handle)
    - Sortable cards; add new item; instant save to Excel (debounced)
@@ -6,7 +6,7 @@
 */
 (function(){
   // ---------- one-time styles ----------
-  if (!document.getElementById('device-board-styles')) {
+  if (!document.getElementById('unit-board-styles')) {
     const css = `
     .db-root{height:100%;display:flex;flex-direction:column;gap:.6rem; --dl-bg:#f5f7fb; --dl-item-bg:#ffffff; --dl-text:#111827;}
     .db-surface{flex:1; background:var(--dl-bg); border-radius:1rem; padding:.75rem; overflow:auto;}
@@ -38,7 +38,7 @@
     .db-file{font-size:.85rem; opacity:.85;}
     @media (max-width:640px){ .db-grid{grid-template-columns:1fr;} }
     `;
-    const tag = document.createElement('style'); tag.id='device-board-styles'; tag.textContent=css; document.head.appendChild(tag);
+    const tag = document.createElement('style'); tag.id='unit-board-styles'; tag.textContent=css; document.head.appendChild(tag);
   }
 
   // ---------- small utils ----------
@@ -78,7 +78,7 @@
     const f = await handle.getFile();
     const buf = await f.arrayBuffer();
     const wb = XLSX.read(buf, { type:'array' });
-    const ws = wb.Sheets['Devices'] || wb.Sheets[wb.SheetNames[0]];
+    const ws = wb.Sheets['Units'] || wb.Sheets[wb.SheetNames[0]];
     if (!ws) return [];
     const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' });
     // expect header row: Name | Meldung
@@ -91,7 +91,7 @@
     const wb = XLSX.utils.book_new();
     const aoa = [['Name','Meldung'], ...items.map(it=>[it.name, it.meldung])];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    XLSX.utils.book_append_sheet(wb, ws, 'Devices');
+    XLSX.utils.book_append_sheet(wb, ws, 'Units');
     const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
     const w = await handle.createWritable();
     await w.write(new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -117,7 +117,7 @@
       <div class="db-modal">
         <div class="db-panel">
           <div class="db-row" style="justify-content:space-between; margin-bottom:.5rem">
-            <div class="font-semibold">DeviceList – Optionen</div>
+            <div class="font-semibold">UnitList – Optionen</div>
             <button class="db-btn secondary db-close">Schließen</button>
           </div>
           <div class="db-grid">
@@ -180,7 +180,7 @@
   }
 
   // ---------- main render ----------
-  window.renderDeviceListExcel = function(root, ctx){
+  window.renderUnitListExcel = function(root, ctx){
     if (!('showOpenFilePicker' in window) || !('showSaveFilePicker' in window)) {
       root.innerHTML = `<div class="p-2 text-sm">Dieses Modul benötigt die File System Access API (Chromium).</div>`;
       return;
@@ -188,7 +188,7 @@
 
     const els = buildUI(root);
     const instanceId = instanceIdOf(root);
-    const idbKey = `deviceBoard:${instanceId}`;
+    const idbKey = `unitBoard:${instanceId}`;
 
     let fileHandle = null;
     let items = []; // {id, name, meldung}
@@ -196,7 +196,7 @@
     // load per-instance config
     function loadCfg(){
       const doc = loadDoc();
-      const cfg = doc?.instances?.[instanceId]?.deviceBoard || {};
+      const cfg = doc?.instances?.[instanceId]?.unitBoard || {};
       return {
         idbKey: cfg.idbKey || idbKey,
         fileName: cfg.fileName || '',
@@ -207,7 +207,7 @@
       const doc = loadDoc();
       doc.instances ||= {};
       doc.instances[instanceId] ||= {};
-      doc.instances[instanceId].deviceBoard = cfg;
+      doc.instances[instanceId].unitBoard = cfg;
       saveDoc(doc);
     }
     function applyColors(colors){
@@ -255,7 +255,7 @@
       if (!ok) { setStatus('Berechtigung verweigert.'); return false; }
       fileHandle = h;
       await idbSet(cfg.idbKey, h);
-      cfg.fileName = h.name || 'devices.xlsx';
+      cfg.fileName = h.name || 'units.xlsx';
       els.fLabel.textContent = `• ${cfg.fileName}`;
       saveCfg(cfg);
       return true;
@@ -276,7 +276,7 @@
     async function createExcel(){
       try {
         const h = await window.showSaveFilePicker({
-          suggestedName: 'devices.xlsx',
+          suggestedName: 'units.xlsx',
           types: [{ description:'Excel', accept:{ 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'] } }]
         });
         if (!h) return;
@@ -319,7 +319,7 @@
         if (h && await ensureRWPermission(h)) {
           fileHandle = h;
           items = await readItemsFromHandle(h);
-          els.fLabel.textContent = `• ${cfg.fileName || h.name || 'devices.xlsx'}`;
+          els.fLabel.textContent = `• ${cfg.fileName || h.name || 'units.xlsx'}`;
           renderList();
           setStatus('Geladen.');
         } else {

@@ -26,7 +26,7 @@ Jedes Modul wird durch ein JSON-Manifest beschrieben (name, icon, script, Standa
 
 - **Browser** (`Browser/Browser.json`) – statische Beschreibung eines Dateibrowsers, der an einem festen Pfad startet.
 - **DatenTest** (`DatenTest`) – geteilter/ lokaler Texteditor, der über `module_data.json` und `localStorage` gespeichert wird.
-- **DeviceList** (`DeviceList`) – sortierbare Liste mit jQuery UI.
+- **UnitList** (`UnitList`) – sortierbare Liste mit jQuery UI.
 - **Filebrowser** (`Filebrowser`) – minimaler Verzeichnisbrowser mit der File System Access API.
 - **Gerätedaten** (`Gerätedaten`) – Datenblatt, das in einer Excel-Arbeitsmappe gespeichert wird; pro Instanz werden Konfigurationen in `localStorage` und IndexedDB abgelegt.
 - **GeräteListe** (`GeräteListe`) – Excel-basierte Gerätetafel mit Drag-and-Drop und Farboptionen.

@@ -1,6 +1,6 @@
 {
-  "name": "Device Comments",
-  "title": "Device Comments",
+  "name": "Unit Comments",
+  "title": "Unit Comments",
   "icon": "📝",
   "script": "renderAspenComments",
   "minW": 2,
@@ -8,6 +8,6 @@
   "w": 2,
   "h": 2,
   "settings": {
-    "title": "Device Comments"
+    "title": "Unit Comments"
   }
 }
