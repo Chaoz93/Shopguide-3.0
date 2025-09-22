@@ -14,8 +14,8 @@
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #e0f2ff;
-      color: #0b1120;
+      background: #85c3ed;
+      color: #07101f;
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -29,37 +29,43 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 1rem;
-      gap: 1rem;
+      padding: 1.5rem;
+      gap: 1.25rem;
       min-height: 0;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: inherit;
     }
     .layout {
       flex: 1;
       min-height: 0;
       display: grid;
       grid-template-rows: minmax(0, 1fr) minmax(0, 2fr);
-      gap: 1rem;
+      gap: 1.25rem;
     }
     .recent-section {
       min-height: 0;
-      background: rgba(255, 255, 255, 0.95);
-      border: 1px solid #bfdbfe;
+      background: #d1e0eb;
+      border: 1px solid #b7cde0;
       border-radius: 1rem;
-      padding: 0.75rem;
+      padding: 1rem;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+      box-shadow: 0 12px 26px rgba(7, 16, 31, 0.12);
       overflow: hidden;
     }
     .viewer-section {
       min-height: 0;
-      background: rgba(255, 255, 255, 0.98);
-      border: 1px solid #bfdbfe;
+      background: #d1e0eb;
+      border: 1px solid #b7cde0;
       border-radius: 1rem;
-      padding: 0.75rem;
+      padding: 1rem;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      box-shadow: 0 18px 38px rgba(7, 16, 31, 0.15);
       overflow: hidden;
     }
     .section-title {
@@ -68,16 +74,41 @@
       margin-bottom: 0.5rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      color: #1d4ed8;
+      color: #0f172a;
     }
     .module-root {
       flex: 1;
       min-height: 0;
       overflow: hidden;
     }
+    .folder-button {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 999px;
+      border: 1px solid rgba(7, 16, 31, 0.25);
+      background: #d1e0eb;
+      color: #07101f;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(7, 16, 31, 0.18);
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      z-index: 10;
+    }
+    .folder-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px rgba(7, 16, 31, 0.22);
+    }
+    .folder-button:active {
+      transform: scale(0.97);
+      box-shadow: 0 8px 18px rgba(7, 16, 31, 0.2);
+    }
   </style>
 </head>
 <body>
+  <button class="folder-button" type="button" aria-label="Select folder for recent files">Select Folder</button>
   <div class="page">
     <header>
       <h1>Record Viewer</h1>
@@ -210,7 +241,7 @@
     els.menu.querySelector('.mi-opt').addEventListener('click', ()=>{ els.menu.classList.remove('open'); els.modal.classList.add('open'); });
 
     // directory picker
-    els.folderBtn.addEventListener('click', async ()=>{
+    async function openFolderPicker(){
       if(supportsDirectoryPicker){
         try{
           const handle = await window.showDirectoryPicker();
@@ -223,7 +254,10 @@
         els.fileInput.value='';
         els.fileInput.click();
       }
-    });
+    }
+
+    els.folderBtn.addEventListener('click', openFolderPicker);
+    window.recentFilesOpenPicker = openFolderPicker;
 
     els.fileInput.addEventListener('change', async ()=>{
       const files = Array.from(els.fileInput.files || []);
@@ -550,6 +584,14 @@
       const recentRoot = document.getElementById('recent-files-root');
       const viewerRoot = document.getElementById('record-viewer-root');
       renderRecentFiles(recentRoot);
+      const folderButton = document.querySelector('.folder-button');
+      if (folderButton) {
+        folderButton.addEventListener('click', () => {
+          if (typeof window.recentFilesOpenPicker === 'function') {
+            window.recentFilesOpenPicker();
+          }
+        });
+      }
       renderRecordViewer(viewerRoot);
     });
   </script>
