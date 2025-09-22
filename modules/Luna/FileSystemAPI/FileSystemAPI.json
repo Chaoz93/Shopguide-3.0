@@ -1,5 +1,7 @@
 {
-  "name": "File System API", 
+  "name": "File System API",
   "icon": "🗂️",
-  "script": "renderFileSystemAPI"
+  "script": "renderFileSystemAPI",
+  "moduleId": "FileSystemAPI",
+  "version": "1.0"
 }

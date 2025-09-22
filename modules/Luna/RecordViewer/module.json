@@ -3,5 +3,7 @@
   "icon": "📄",
   "script": "renderRecordViewer",
   "minW": 4,
-  "minH": 4
+  "minH": 4,
+  "moduleId": "RecordViewer",
+  "version": "1.0"
 }

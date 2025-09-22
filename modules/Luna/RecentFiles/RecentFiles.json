@@ -5,5 +5,7 @@
   "minW": 2,
   "minH": 2,
   "w": 2,
-  "h": 2
+  "h": 2,
+  "moduleId": "RecentFiles",
+  "version": "1.0"
 }

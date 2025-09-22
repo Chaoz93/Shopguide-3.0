@@ -9,6 +9,13 @@
   "settings": {
     "leftTop": "Event",
     "leftBottom": "CMDS",
-    "rightLabels": ["ZIAUF3", "ZILLK", "ZIKV", "ZIQA"]
-  }
+    "rightLabels": [
+      "ZIAUF3",
+      "ZILLK",
+      "ZIKV",
+      "ZIQA"
+    ]
+  },
+  "moduleId": "LinkButtons",
+  "version": "1.0"
 }

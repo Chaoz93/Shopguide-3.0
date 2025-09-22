@@ -8,5 +8,7 @@
   "h": 2,
   "settings": {
     "title": "Namensregeln"
-  }
+  },
+  "moduleId": "Namensregeln",
+  "version": "1.0"
 }

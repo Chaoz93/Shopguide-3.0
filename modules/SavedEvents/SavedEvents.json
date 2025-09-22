@@ -7,5 +7,7 @@
   "minW": 4,
   "minH": 5,
   "maxW": 12,
-  "maxH": 20
+  "maxH": 20,
+  "moduleId": "SavedEvents",
+  "version": "1.0"
 }
