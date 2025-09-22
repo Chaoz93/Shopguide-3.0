@@ -1,5 +1,7 @@
 {
   "name": "Dateiexplorer",
   "icon": "📁",
-  "script": "renderFileBrowser"
+  "script": "renderFileBrowser",
+  "moduleId": "Filebrowser",
+  "version": 1.0
 }

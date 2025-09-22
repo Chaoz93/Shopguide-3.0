@@ -5,5 +5,7 @@
   "minW": 3,
   "minH": 3,
   "w": 6,
-  "h": 5
+  "h": 5,
+  "moduleId": "FindingsSpreadsheet",
+  "version": 1.0
 }

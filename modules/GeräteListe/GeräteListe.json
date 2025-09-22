@@ -8,5 +8,7 @@
   "h": 2,
   "settings": {
     "title": "Excel Unit Board"
-  }
+  },
+  "moduleId": "GeräteListe",
+  "version": 1.0
 }

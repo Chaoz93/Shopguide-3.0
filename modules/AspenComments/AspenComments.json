@@ -9,5 +9,7 @@
   "h": 2,
   "settings": {
     "title": "Unit Comments"
-  }
+  },
+  "moduleId": "AspenComments",
+  "version": 1.0
 }

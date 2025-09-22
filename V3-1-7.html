@@ -1,3 +1,4 @@
+<!-- Version: 1.0 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -348,12 +349,18 @@
       </div>
         <div id="section-updates" class="settings-section">
           <div class="space-y-4">
-            <div class="flex flex-wrap items-center gap-2 text-sm">
-              <span class="font-medium">Update-Ordner:</span>
-              <span id="update-folder-name" class="px-2 py-1 bg-gray-100 rounded">Keiner gewählt</span>
-              <button id="select-update-folder" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Ordner wählen</button>
-              <button id="clear-update-folder" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded">Zurücksetzen</button>
-              <span id="update-check-status" class="text-gray-500"></span>
+            <div class="flex flex-col gap-3 text-sm">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-medium">Update-Ordner:</span>
+                <span id="update-folder-name" class="px-2 py-1 bg-gray-100 rounded">Keiner gewählt</span>
+                <button id="select-update-folder" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Ordner wählen</button>
+                <button id="clear-update-folder" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded">Zurücksetzen</button>
+                <span id="update-check-status" class="text-gray-500"></span>
+              </div>
+              <label class="inline-flex items-center gap-2">
+                <input type="checkbox" id="setting-show-update-button" class="h-4 w-4">
+                <span>Update-Hinweis im Hauptfenster anzeigen</span>
+              </label>
             </div>
             <div id="updates-empty-state" class="text-sm text-gray-500">Keine Updates erforderlich.</div>
             <div class="updates-table-container overflow-x-auto">
@@ -361,12 +368,17 @@
                 <thead class="bg-gray-100">
                   <tr>
                     <th class="text-left px-3 py-2">Datei</th>
-                    <th class="text-left px-3 py-2">Änderungsdatum</th>
+                    <th class="text-left px-3 py-2">Version</th>
                     <th class="text-right px-3 py-2">Aktion</th>
                   </tr>
                 </thead>
                 <tbody id="updates-table-body"></tbody>
               </table>
+            </div>
+            <div id="update-version-overview" class="border border-gray-200 rounded p-3 text-sm space-y-2">
+              <div class="font-semibold text-gray-700">Versionsübersicht</div>
+              <div id="update-version-html" class="text-gray-600"></div>
+              <ul id="update-version-modules" class="space-y-1 list-disc list-inside text-gray-600"></ul>
             </div>
           </div>
         </div>
@@ -406,12 +418,14 @@ let appSettings = {
   moduleBorderColor: '#e5e7eb',
   sidebarModuleCardBg: '#ffffff',
   sidebarModuleCardText: '#1f2937',
-  sidebarModuleCardBorder: '#e5e7eb'
+  sidebarModuleCardBorder: '#e5e7eb',
+  showUpdateStatusButton: true
 };
 
 
 const layoutFileName = 'layout.json';
 const settingsFileName = 'settings.json';
+const HTML_FILE_NAME = 'V3-1-7.html';
 const ACTIVE_TAB_STORAGE_KEY = 'modulesLayoutActiveTab';
 let rootDirHandle = null;
 let updateDirHandle = null;
@@ -427,6 +441,10 @@ let pendingUpdates = [];
 let updateCheckInProgress = false;
 let originalSettings = null;
 let lastUpdateError = false;
+let versionOverview = {
+  html: { localVersion: null, updateVersion: null },
+  modules: []
+};
 
 /* ==== UNIQUE IDs ==== */
 let usedInstanceIds = new Set();
@@ -465,6 +483,9 @@ const clearUpdateFolderBtn = document.getElementById('clear-update-folder');
 const updatesTableBody = document.getElementById('updates-table-body');
 const updatesEmptyState = document.getElementById('updates-empty-state');
 const updateCheckStatus = document.getElementById('update-check-status');
+const versionOverviewContainer = document.getElementById('update-version-overview');
+const versionOverviewHtmlEl = document.getElementById('update-version-html');
+const versionOverviewModulesEl = document.getElementById('update-version-modules');
 // Settings inputs
 const inputAppBg = document.getElementById('setting-app-bg');
 const inputBorderColor = document.getElementById('setting-border-color');
@@ -492,6 +513,7 @@ const inputModuleBorderColor = document.getElementById('setting-module-border-co
 const inputSidebarModuleBg = document.getElementById('setting-sidebar-module-bg');
 const inputSidebarModuleText = document.getElementById('setting-sidebar-module-text');
 const inputSidebarModuleBorder = document.getElementById('setting-sidebar-module-border');
+const inputShowUpdateButton = document.getElementById('setting-show-update-button');
 
 // Navigation buttons for settings
 const settingsNavButtons = document.querySelectorAll('.settings-nav button');
@@ -583,34 +605,51 @@ async function tryRestoreUpdateHandle(){
   }
 }
 
-function formatTimestamp(ts) {
-  if (!ts) return '–';
-  try {
-    const date = new Date(ts);
-    if (Number.isNaN(date.getTime())) return '–';
-    return date.toLocaleString();
-  } catch {
-    return '–';
-  }
+function formatVersionDisplay(val) {
+  if (val === null || typeof val === 'undefined') return '–';
+  if (typeof val === 'string' && val.trim() === '') return '–';
+  return String(val);
 }
 
 function setUpdateStatusButton(state) {
   if (!updateStatusBtn) return;
-  updateStatusBtn.classList.remove('hidden');
-  updateStatusBtn.disabled = false;
   updateStatusBtn.className = 'ml-auto text-sm px-3 py-1 rounded mr-2';
-  if (!rootDirHandle || !updateDirHandle) {
+  updateStatusBtn.disabled = false;
+
+  if (appSettings.showUpdateStatusButton === false) {
+    updateStatusBtn.classList.add('hidden');
+    return;
+  }
+
+  updateStatusBtn.classList.remove('hidden');
+
+  if (!rootDirHandle) {
+    updateStatusBtn.textContent = 'Kein Arbeitsordner';
+    updateStatusBtn.disabled = true;
+    updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-not-allowed');
+    return;
+  }
+
+  if (!updateDirHandle) {
     updateStatusBtn.textContent = 'Kein Update-Ordner';
     updateStatusBtn.disabled = true;
     updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-not-allowed');
     return;
   }
+
   if (state === 'checking') {
     updateStatusBtn.textContent = 'Prüfe…';
     updateStatusBtn.disabled = true;
     updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-wait');
     return;
   }
+
+  if (lastUpdateError) {
+    updateStatusBtn.textContent = 'Prüfung fehlgeschlagen';
+    updateStatusBtn.classList.add('bg-yellow-500','hover:bg-yellow-600','text-white');
+    return;
+  }
+
   if (pendingUpdates.length) {
     updateStatusBtn.textContent = 'Update available!';
     updateStatusBtn.classList.add('bg-red-600','hover:bg-red-700','text-white');
@@ -623,38 +662,55 @@ function setUpdateStatusButton(state) {
 function renderUpdateList() {
   if (!updatesTableBody || !updatesEmptyState) return;
   updatesTableBody.innerHTML = '';
-  if (!rootDirHandle || !updateDirHandle) {
-    updatesEmptyState.textContent = 'Bitte wählen Sie einen Root- und einen Update-Ordner.';
+  if (!rootDirHandle) {
+    updatesEmptyState.textContent = 'Bitte wählen Sie einen Arbeitsordner.';
     updatesEmptyState.classList.remove('hidden');
     if (updateCheckStatus) updateCheckStatus.textContent = '';
+    renderVersionOverview();
     setUpdateStatusButton();
     return;
   }
+
+  if (!updateDirHandle) {
+    updatesEmptyState.textContent = 'Bitte wählen Sie einen Update-Ordner.';
+    updatesEmptyState.classList.remove('hidden');
+    if (updateCheckStatus) updateCheckStatus.textContent = '';
+    renderVersionOverview();
+    setUpdateStatusButton();
+    return;
+  }
+
   if (!pendingUpdates.length) {
     updatesEmptyState.textContent = 'Keine Updates erforderlich.';
     updatesEmptyState.classList.remove('hidden');
-    if (updateCheckStatus) updateCheckStatus.textContent = 'Keine Updates erforderlich.';
+    if (updateCheckStatus && !lastUpdateError) updateCheckStatus.textContent = 'Keine Updates erforderlich.';
+    renderVersionOverview();
     setUpdateStatusButton();
     return;
   }
+
   updatesEmptyState.classList.add('hidden');
-  if (updateCheckStatus) {
+  if (updateCheckStatus && !lastUpdateError) {
     updateCheckStatus.textContent = `${pendingUpdates.length} Update${pendingUpdates.length === 1 ? '' : 's'} verfügbar.`;
   }
+
   pendingUpdates.forEach((item, index) => {
     const tr = document.createElement('tr');
     tr.className = index % 2 ? 'bg-white' : 'bg-gray-50';
+
     const tdPath = document.createElement('td');
     tdPath.className = 'px-3 py-2 align-top';
-    tdPath.textContent = item.path;
-    const tdDates = document.createElement('td');
-    tdDates.className = 'px-3 py-2 align-top whitespace-nowrap';
-    tdDates.textContent = `${formatTimestamp(item.localLastModified)} → ${formatTimestamp(item.updateLastModified)}`;
+    tdPath.textContent = item.displayName || item.path;
+
+    const tdVersion = document.createElement('td');
+    tdVersion.className = 'px-3 py-2 align-top whitespace-nowrap';
+    tdVersion.textContent = `${formatVersionDisplay(item.currentVersion)} → ${formatVersionDisplay(item.newVersion)}`;
+
     const tdAction = document.createElement('td');
     tdAction.className = 'px-3 py-2 text-right';
     const btn = document.createElement('button');
     btn.className = 'bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded';
-    btn.textContent = 'Aktualisieren';
+    btn.textContent = 'sync';
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       btn.classList.add('opacity-60','cursor-wait');
@@ -669,55 +725,197 @@ function renderUpdateList() {
       }
     });
     tdAction.appendChild(btn);
+
     tr.appendChild(tdPath);
-    tr.appendChild(tdDates);
+    tr.appendChild(tdVersion);
     tr.appendChild(tdAction);
     updatesTableBody.appendChild(tr);
   });
+
+  renderVersionOverview();
   setUpdateStatusButton();
 }
 
-async function collectDirectoryDiffs(updateHandle, localHandle, prefix = '') {
-  const diffs = [];
-  for await (const entry of updateHandle.values()) {
-    const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.kind === 'directory') {
-      let localSub = null;
-      if (localHandle) {
+function renderVersionOverview() {
+  if (!versionOverviewContainer || !versionOverviewHtmlEl || !versionOverviewModulesEl) return;
+  const htmlInfo = versionOverview?.html || { localVersion: null, updateVersion: null };
+  const modulesInfo = Array.isArray(versionOverview?.modules) ? versionOverview.modules : [];
+
+  const localVersionText = formatVersionDisplay(htmlInfo.localVersion);
+  const updateVersionText = formatVersionDisplay(htmlInfo.updateVersion);
+  versionOverviewHtmlEl.textContent = `HTML (${HTML_FILE_NAME}): ${localVersionText} (Update: ${updateVersionText})`;
+
+  versionOverviewModulesEl.innerHTML = '';
+  if (!modulesInfo.length) {
+    const li = document.createElement('li');
+    li.className = 'text-gray-500 list-none';
+    li.textContent = 'Keine Module gefunden.';
+    versionOverviewModulesEl.appendChild(li);
+    return;
+  }
+
+  modulesInfo.forEach(mod => {
+    const li = document.createElement('li');
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'font-medium text-gray-700';
+    nameSpan.textContent = mod.name;
+    li.appendChild(nameSpan);
+    li.appendChild(document.createTextNode(`: ${formatVersionDisplay(mod.localVersion)} (Update: ${formatVersionDisplay(mod.updateVersion)})`));
+    versionOverviewModulesEl.appendChild(li);
+  });
+}
+
+async function readHtmlVersion(rootHandle) {
+  if (!rootHandle) return null;
+  try {
+    const fileHandle = await rootHandle.getFileHandle(HTML_FILE_NAME, { create: false });
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    const match = text.match(/<!--\s*Version:\s*([^>]+?)\s*-->/i);
+    const version = match ? match[1].trim() : null;
+    return { version, fileHandle };
+  } catch (e) {
+    if (e?.name !== 'NotFoundError') {
+      console.warn('HTML-Version konnte nicht gelesen werden', e);
+    }
+    return null;
+  }
+}
+
+async function gatherModulesMetadata(rootHandle) {
+  const modules = new Map();
+  if (!rootHandle) return { modules };
+  let modulesRoot;
+  try {
+    modulesRoot = await rootHandle.getDirectoryHandle('modules', { create: false });
+  } catch {
+    return { modules };
+  }
+
+  async function walk(dirHandle, relPath) {
+    const entries = [];
+    for await (const entry of dirHandle.values()) entries.push(entry);
+
+    let moduleData = null;
+    for (const entry of entries) {
+      if (entry.kind === 'file' && entry.name.endsWith('.json')) {
         try {
-          localSub = await localHandle.getDirectoryHandle(entry.name, { create: false });
-        } catch {
-          localSub = null;
+          const file = await entry.getFile();
+          const parsed = JSON.parse(await file.text());
+          if (parsed && typeof parsed === 'object') {
+            const moduleId = parsed.moduleId || parsed.id || parsed.name || relPath;
+            if (moduleId) {
+              moduleData = {
+                moduleId,
+                version: parsed.version ?? null,
+                name: parsed.name || moduleId,
+                relPath,
+                dirHandle,
+                raw: parsed
+              };
+              break;
+            }
+          }
+        } catch (e) {
+          console.warn('Modul-Metadaten konnten nicht gelesen werden', e);
         }
       }
-      const childDiffs = await collectDirectoryDiffs(entry, localSub, relPath);
-      diffs.push(...childDiffs);
-    } else if (entry.kind === 'file') {
-      const updateFile = await entry.getFile();
-      let localFileHandle = null;
-      let localFile = null;
-      if (localHandle) {
-        try {
-          localFileHandle = await localHandle.getFileHandle(entry.name, { create: false });
-          localFile = await localFileHandle.getFile();
-        } catch {
-          localFileHandle = null;
-          localFile = null;
-        }
-      }
-      const needsUpdate = !localFile || localFile.lastModified !== updateFile.lastModified || localFile.size !== updateFile.size;
-      if (needsUpdate) {
-        diffs.push({
-          path: relPath,
-          updateHandle: entry,
-          localHandle: localFileHandle,
-          localLastModified: localFile?.lastModified || null,
-          updateLastModified: updateFile.lastModified || null
-        });
+    }
+
+    if (moduleData) {
+      const versionValue = moduleData.version;
+      modules.set(moduleData.moduleId, {
+        moduleId: moduleData.moduleId,
+        version: versionValue === null || typeof versionValue === 'undefined' ? null : String(versionValue),
+        name: moduleData.name,
+        relPath,
+        dirHandle
+      });
+    }
+
+    for (const entry of entries) {
+      if (entry.kind === 'directory') {
+        const childRel = relPath ? `${relPath}/${entry.name}` : entry.name;
+        await walk(entry, childRel);
       }
     }
   }
-  return diffs;
+
+  await walk(modulesRoot, '');
+  return { modules };
+}
+
+async function collectVersionDiffs(updateHandle, localHandle) {
+  const overview = {
+    html: { localVersion: null, updateVersion: null },
+    modules: []
+  };
+  const diffs = [];
+
+  let localHtml = null;
+  let updateHtml = null;
+  try { localHtml = await readHtmlVersion(localHandle); } catch {}
+  try { updateHtml = await readHtmlVersion(updateHandle); } catch {}
+
+  if (localHtml) overview.html.localVersion = localHtml.version || null;
+  if (updateHtml) overview.html.updateVersion = updateHtml.version || null;
+
+  if (updateHtml && (updateHtml.version || !localHtml)) {
+    const localVersion = localHtml?.version || null;
+    if (localVersion !== updateHtml.version) {
+      diffs.push({
+        type: 'html',
+        path: HTML_FILE_NAME,
+        displayName: HTML_FILE_NAME,
+        currentVersion: localVersion,
+        newVersion: updateHtml.version || null,
+        sourcePath: HTML_FILE_NAME
+      });
+    }
+  }
+
+  const localModules = await gatherModulesMetadata(localHandle);
+  const updateModules = await gatherModulesMetadata(updateHandle);
+  const moduleIds = new Set([
+    ...Array.from(localModules.modules.keys()),
+    ...Array.from(updateModules.modules.keys())
+  ]);
+
+  const modulesList = [];
+  moduleIds.forEach(moduleId => {
+    const localMeta = localModules.modules.get(moduleId) || null;
+    const updateMeta = updateModules.modules.get(moduleId) || null;
+    const name = updateMeta?.name || localMeta?.name || moduleId;
+    const localVersion = localMeta?.version || null;
+    const updateVersion = updateMeta?.version || null;
+    modulesList.push({ moduleId, name, localVersion, updateVersion });
+
+    if (updateMeta && (localVersion !== updateVersion)) {
+      diffs.push({
+        type: 'module',
+        moduleId,
+        path: updateMeta.relPath ? `modules/${updateMeta.relPath}` : `modules/${moduleId}`,
+        displayName: name,
+        currentVersion: localVersion,
+        newVersion: updateVersion,
+        sourceRelPath: updateMeta.relPath,
+        targetRelPath: localMeta?.relPath || updateMeta.relPath,
+        updateDirHandle: updateMeta.dirHandle,
+        localDirHandle: localMeta?.dirHandle || null
+      });
+    }
+  });
+
+  modulesList.sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }));
+  overview.modules = modulesList;
+
+  diffs.sort((a, b) => {
+    const nameA = (a.displayName || a.path || '').toLowerCase();
+    const nameB = (b.displayName || b.path || '').toLowerCase();
+    return nameA.localeCompare(nameB, 'de', { sensitivity: 'base' });
+  });
+
+  return { diffs, overview };
 }
 
 async function ensureDirectoryChain(root, parts, { create = true } = {}) {
@@ -730,66 +928,108 @@ async function ensureDirectoryChain(root, parts, { create = true } = {}) {
 }
 
 async function applySingleUpdate(item) {
-  if (!rootDirHandle || !updateDirHandle) return;
-  const segments = item.path.split('/');
-  const fileName = segments.pop();
-  const targetDir = await ensureDirectoryChain(rootDirHandle, segments, { create: true });
-  let sourceDir;
+  if (!rootDirHandle) return;
+  if (!item) return;
+
   try {
-    sourceDir = await ensureDirectoryChain(updateDirHandle, segments, { create: false });
-  } catch (e) {
-    console.warn('Update-Verzeichnis nicht gefunden', e);
-    alert('Das Update-Verzeichnis für diese Datei konnte nicht gefunden werden.');
-    return;
+    if (item.type === 'html') {
+      if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
+      const updateFileHandle = await updateDirHandle.getFileHandle(item.sourcePath || HTML_FILE_NAME, { create: false });
+      const updateFile = await updateFileHandle.getFile();
+      const targetFileHandle = await rootDirHandle.getFileHandle(HTML_FILE_NAME, { create: true });
+      const writable = await targetFileHandle.createWritable();
+      await writable.write(await updateFile.arrayBuffer());
+      await writable.close();
+    } else if (item.type === 'module') {
+      if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
+      const sourceSegments = ['modules', ...(item.sourceRelPath ? item.sourceRelPath.split('/') : [])];
+      const targetSegments = ['modules', ...(item.targetRelPath ? item.targetRelPath.split('/') : [])];
+      const sourceDir = await ensureDirectoryChain(updateDirHandle, sourceSegments, { create: false });
+      const targetDir = await ensureDirectoryChain(rootDirHandle, targetSegments, { create: true });
+      await copyDirectoryContents(sourceDir, targetDir);
+    } else if (item.sourcePath) {
+      if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
+      const segments = item.sourcePath.split('/');
+      const fileName = segments.pop();
+      const sourceDir = await ensureDirectoryChain(updateDirHandle, segments, { create: false });
+      const updateFileHandle = await sourceDir.getFileHandle(fileName, { create: false });
+      const targetDir = await ensureDirectoryChain(rootDirHandle, segments, { create: true });
+      const targetFileHandle = await targetDir.getFileHandle(fileName, { create: true });
+      const updateFile = await updateFileHandle.getFile();
+      const writable = await targetFileHandle.createWritable();
+      await writable.write(await updateFile.arrayBuffer());
+      await writable.close();
+    }
+  } catch (err) {
+    console.error('Fehler beim Synchronisieren', err);
+    throw err;
   }
-  let updateFileHandle;
-  try {
-    updateFileHandle = await sourceDir.getFileHandle(fileName, { create: false });
-  } catch (e) {
-    console.warn('Update-Datei nicht gefunden', e);
-    alert('Die Update-Datei konnte nicht gefunden werden.');
-    return;
+
+  await runUpdateCheck();
+}
+
+async function copyDirectoryContents(sourceDir, targetDir) {
+  for await (const entry of sourceDir.values()) {
+    if (entry.kind === 'file') {
+      const file = await entry.getFile();
+      const targetFileHandle = await targetDir.getFileHandle(entry.name, { create: true });
+      const writable = await targetFileHandle.createWritable();
+      await writable.write(await file.arrayBuffer());
+      await writable.close();
+    } else if (entry.kind === 'directory') {
+      const subTarget = await targetDir.getDirectoryHandle(entry.name, { create: true });
+      await copyDirectoryContents(entry, subTarget);
+    }
   }
-  const updateFile = await updateFileHandle.getFile();
-  const targetFileHandle = await targetDir.getFileHandle(fileName, { create: true });
-  const writable = await targetFileHandle.createWritable();
-  await writable.write(await updateFile.arrayBuffer());
-  await writable.close();
-  pendingUpdates = pendingUpdates.filter(diff => diff.path !== item.path);
-  renderUpdateList();
 }
 
 async function runUpdateCheck() {
+  if (updateCheckInProgress) return;
   lastUpdateError = false;
-  if (!rootDirHandle || !updateDirHandle) {
+
+  if (!rootDirHandle && !updateDirHandle) {
+    versionOverview = { html: { localVersion: null, updateVersion: null }, modules: [] };
     pendingUpdates = [];
+    if (updateCheckStatus) updateCheckStatus.textContent = '';
     renderUpdateList();
     return;
   }
-  if (updateCheckInProgress) return;
-  updateCheckInProgress = true;
-  setUpdateStatusButton('checking');
-  if (updateCheckStatus) updateCheckStatus.textContent = 'Prüfung läuft…';
+
+  if (rootDirHandle && updateDirHandle) {
+    updateCheckInProgress = true;
+    setUpdateStatusButton('checking');
+    if (updateCheckStatus) updateCheckStatus.textContent = 'Prüfung läuft…';
+  }
+
   try {
-    pendingUpdates = await collectDirectoryDiffs(updateDirHandle, rootDirHandle);
-  } catch (err) {
-    console.error('Update-Prüfung fehlgeschlagen', err);
-    pendingUpdates = [];
-    lastUpdateError = true;
-    if (updateCheckStatus) updateCheckStatus.textContent = 'Fehler bei der Prüfung.';
-  } finally {
-    updateCheckInProgress = false;
-    if (updateCheckStatus && !lastUpdateError) {
+    const result = await collectVersionDiffs(updateDirHandle, rootDirHandle);
+    versionOverview = result.overview;
+    pendingUpdates = rootDirHandle && updateDirHandle ? result.diffs : [];
+    lastUpdateError = false;
+    if (updateCheckStatus && rootDirHandle && updateDirHandle) {
       if (!pendingUpdates.length) {
         updateCheckStatus.textContent = 'Letzte Prüfung abgeschlossen.';
       } else {
         updateCheckStatus.textContent = `${pendingUpdates.length} Update${pendingUpdates.length === 1 ? '' : 's'} verfügbar.`;
       }
     }
-    renderUpdateList();
-    if (lastUpdateError && updateCheckStatus) {
+    if (updateCheckStatus && (!rootDirHandle || !updateDirHandle)) {
+      updateCheckStatus.textContent = '';
+    }
+  } catch (err) {
+    console.error('Update-Prüfung fehlgeschlagen', err);
+    pendingUpdates = [];
+    lastUpdateError = true;
+    if (updateCheckStatus && rootDirHandle && updateDirHandle) {
       updateCheckStatus.textContent = 'Fehler bei der Prüfung.';
     }
+    try {
+      const fallback = await collectVersionDiffs(null, rootDirHandle);
+      versionOverview = fallback.overview;
+    } catch {}
+  } finally {
+    updateCheckInProgress = false;
+    renderUpdateList();
   }
 }
 
@@ -905,7 +1145,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (updateFolderNameEl) updateFolderNameEl.textContent = 'Keiner gewählt';
       await idbDel(UPDATE_HANDLE_KEY);
       pendingUpdates = [];
+      versionOverview = {
+        html: { localVersion: versionOverview.html?.localVersion || null, updateVersion: null },
+        modules: versionOverview.modules.map(mod => ({ ...mod, updateVersion: null }))
+      };
       renderUpdateList();
+      await runUpdateCheck();
     });
   }
 
@@ -965,6 +1210,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderTabs();
     });
   });
+  if (inputShowUpdateButton) {
+    inputShowUpdateButton.addEventListener('change', () => {
+      appSettings.showUpdateStatusButton = inputShowUpdateButton.checked;
+      setUpdateStatusButton();
+    });
+  }
   if (inputAutoArrange) {
     inputAutoArrange.addEventListener('change', () => {
       readInputsIntoSettings();
@@ -1022,6 +1273,7 @@ function populateInputsFromSettings() {
   if (inputSidebarModuleBg) inputSidebarModuleBg.value = toColor(appSettings.sidebarModuleCardBg, inputSidebarModuleBg.value);
   if (inputSidebarModuleText) inputSidebarModuleText.value = toColor(appSettings.sidebarModuleCardText, inputSidebarModuleText.value);
   if (inputSidebarModuleBorder) inputSidebarModuleBorder.value = toColor(appSettings.sidebarModuleCardBorder, inputSidebarModuleBorder.value);
+  if (inputShowUpdateButton) inputShowUpdateButton.checked = appSettings.showUpdateStatusButton !== false;
 }
 
 /** Read inputs into appSettings */
@@ -1052,6 +1304,7 @@ function readInputsIntoSettings() {
   appSettings.sidebarModuleCardBg = inputSidebarModuleBg.value;
   appSettings.sidebarModuleCardText = inputSidebarModuleText.value;
   appSettings.sidebarModuleCardBorder = inputSidebarModuleBorder.value;
+  if (inputShowUpdateButton) appSettings.showUpdateStatusButton = inputShowUpdateButton.checked;
 }
 
 /** Convert rgba to hex for colour inputs */
@@ -1097,6 +1350,7 @@ function applySettings() {
   document.documentElement.style.setProperty('--sidebar-module-card-border', appSettings.sidebarModuleCardBorder);
 
   updateGridAutoArrange();
+  setUpdateStatusButton();
 }
 
 /** Save settings to storage */

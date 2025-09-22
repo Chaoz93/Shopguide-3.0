@@ -5,5 +5,7 @@
   "w": 4,
   "h": 5,
   "minW": 3,
-  "minH": 3
+  "minH": 3,
+  "moduleId": "Arbeitszeit",
+  "version": 1.0
 }

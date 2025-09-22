@@ -8,5 +8,7 @@
   "h": 2,
   "settings": {
     "title": "Aspen Board"
-  }
+  },
+  "moduleId": "AspenUnitList",
+  "version": 1.0
 }

@@ -9,11 +9,33 @@
   "settings": {
     "columns": 2,
     "fields": [
-      { "key": "meldung", "label": "Meldung", "enabled": true },
-      { "key": "auftrag", "label": "Auftrag", "enabled": true },
-      { "key": "part", "label": "P/N", "enabled": true },
-      { "key": "serial", "label": "S/N", "enabled": true },
-      { "key": "repairorder", "label": "Repairorder", "enabled": true }
+      {
+        "key": "meldung",
+        "label": "Meldung",
+        "enabled": true
+      },
+      {
+        "key": "auftrag",
+        "label": "Auftrag",
+        "enabled": true
+      },
+      {
+        "key": "part",
+        "label": "P/N",
+        "enabled": true
+      },
+      {
+        "key": "serial",
+        "label": "S/N",
+        "enabled": true
+      },
+      {
+        "key": "repairorder",
+        "label": "Repairorder",
+        "enabled": true
+      }
     ]
-  }
+  },
+  "moduleId": "Gerätedaten",
+  "version": 1.0
 }
