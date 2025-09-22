@@ -301,9 +301,9 @@
               </div>
             </div>
             <div class="db-field" style="grid-column: span 3;">
-              <label>Wörterbuch</label>
+              <label>Dictionary</label>
               <div class="db-row">
-                <button class="db-btn db-dict-pick">Excel wählen</button>
+                <button class="db-btn db-dict-pick">Dictionary wählen</button>
                 <span class="db-dict-file db-file"></span>
               </div>
             </div>
@@ -543,7 +543,7 @@
     els.cActive.value=cfg.colors.active;
     els.titleInput.value=cfg.title;
     els.fLabel.textContent=cfg.fileName?`• ${cfg.fileName}`:'Keine Datei gewählt';
-    els.dictLabel.textContent=cfg.dictFileName?`• ${cfg.dictFileName}`:'Kein Wörterbuch';
+    els.dictLabel.textContent=cfg.dictFileName?`• ${cfg.dictFileName}`:'Kein Dictionary';
     els.nameLabel.textContent=cfg.nameFileName?`• ${cfg.nameFileName}`:'Keine Namensregeln';
 
     const arraysEqual=(a,b)=>{
