@@ -1,4 +1,4 @@
-<!-- Version: 1.0 -->
+<!-- Version: 1.1 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -605,8 +605,25 @@ const settingsNavButtons = document.querySelectorAll('.settings-nav button');
 
 // Remember the selected root folder across sessions
 const FS_HANDLE_KEY = 'rootDirHandle';
+const ROOT_HANDLE_NAME_KEY = 'rootDirDisplayName';
 const UPDATE_HANDLE_KEY = 'updateDirHandle';
 const UPDATE_HANDLE_NAME_KEY = 'updateDirDisplayName';
+
+let pendingRootPermission = false;
+let pendingUpdatePermission = false;
+
+const storedRootFolderName = (() => {
+  try {
+    return localStorage.getItem(ROOT_HANDLE_NAME_KEY);
+  } catch (e) {
+    console.warn('Konnte Arbeitsordnernamen nicht aus dem localStorage lesen', e);
+    return null;
+  }
+})();
+if (storedRootFolderName && rootBtn) {
+  rootBtn.textContent = storedRootFolderName;
+  rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
+}
 
 const storedUpdateFolderName = (() => {
   try {
@@ -674,13 +691,38 @@ async function tryRestoreRootHandle(){
   try {
     const h = await idbGet(FS_HANDLE_KEY);
     if (!h) return false;
-    const ok = await ensureRWPermission(h, { request: false });
-    if (!ok) return false;
+    let ok = await ensureRWPermission(h, { mode: 'readwrite', request: false });
+    if (!ok) {
+      try {
+        ok = await ensureRWPermission(h, { mode: 'readwrite' });
+      } catch (permErr) {
+        console.warn('requestPermission für Arbeitsordner fehlgeschlagen:', permErr);
+      }
+    }
 
     rootDirHandle = h;
     window.rootDirHandle = h;
-    rootBtn.textContent = h.name;
+    const displayName = storedRootFolderName || h.name;
+    rootBtn.textContent = displayName;
+    try { localStorage.setItem(ROOT_HANDLE_NAME_KEY, h.name); } catch (e) {
+      console.warn('Konnte Arbeitsordnernamen nicht speichern', e);
+    }
+
+    if (!ok) {
+      pendingRootPermission = true;
+      rootBtn.classList.remove('bg-gray-300','hover:bg-gray-400','text-gray-800');
+      rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
+      rootBtn.classList.add('bg-yellow-400','hover:bg-yellow-500','text-gray-900');
+      rootBtn.title = 'Bitte Zugriff auf den gespeicherten Arbeitsordner erlauben oder einen neuen wählen.';
+      setUpdateStatusButton();
+      renderUpdateList();
+      return false;
+    }
+
+    pendingRootPermission = false;
     rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
+    rootBtn.classList.remove('bg-yellow-400','hover:bg-yellow-500','text-gray-900');
+    rootBtn.title = '';
     rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
 
     await loadModulesFromRoot(h);
@@ -699,13 +741,29 @@ async function tryRestoreUpdateHandle(){
   try {
     const h = await idbGet(UPDATE_HANDLE_KEY);
     if (!h) return false;
-    const ok = await ensureRWPermission(h, { request: false, mode: 'read' });
-    if (!ok) return false;
+    let ok = await ensureRWPermission(h, { request: false, mode: 'read' });
+    if (!ok) {
+      try {
+        ok = await ensureRWPermission(h, { mode: 'read' });
+      } catch (permErr) {
+        console.warn('requestPermission für Update-Ordner fehlgeschlagen:', permErr);
+      }
+    }
     updateDirHandle = h;
     if (updateFolderNameEl) updateFolderNameEl.textContent = h.name;
     try { localStorage.setItem(UPDATE_HANDLE_NAME_KEY, h.name); } catch (e) {
       console.warn('Konnte Update-Ordnernamen nicht speichern', e);
     }
+    if (!ok) {
+      pendingUpdatePermission = true;
+      if (updateCheckStatus) {
+        updateCheckStatus.textContent = 'Bitte Zugriff auf den Update-Ordner erlauben.';
+      }
+      setUpdateStatusButton();
+      renderUpdateList();
+      return false;
+    }
+    pendingUpdatePermission = false;
     return true;
   } catch (e) {
     console.warn('Restore update handle failed:', e);
@@ -730,6 +788,20 @@ function setUpdateStatusButton(state) {
   }
 
   updateStatusBtn.classList.remove('hidden');
+
+  if (pendingRootPermission) {
+    updateStatusBtn.textContent = 'Arbeitsordner entsperren';
+    updateStatusBtn.disabled = true;
+    updateStatusBtn.classList.add('bg-yellow-500','text-gray-900','cursor-not-allowed');
+    return;
+  }
+
+  if (pendingUpdatePermission) {
+    updateStatusBtn.textContent = 'Update-Ordner entsperren';
+    updateStatusBtn.disabled = true;
+    updateStatusBtn.classList.add('bg-yellow-500','text-gray-900','cursor-not-allowed');
+    return;
+  }
 
   if (!rootDirHandle) {
     updateStatusBtn.textContent = 'Kein Arbeitsordner';
@@ -770,6 +842,20 @@ function setUpdateStatusButton(state) {
 function renderUpdateList() {
   if (!updatesTableBody || !updatesEmptyState) return;
   updatesTableBody.innerHTML = '';
+  if (pendingRootPermission) {
+    updatesEmptyState.textContent = 'Bitte erlauben Sie den Zugriff auf den Arbeitsordner.';
+    updatesEmptyState.classList.remove('hidden');
+    if (updateCheckStatus) updateCheckStatus.textContent = '';
+    setUpdateStatusButton();
+    return;
+  }
+  if (pendingUpdatePermission) {
+    updatesEmptyState.textContent = 'Bitte erlauben Sie den Zugriff auf den Update-Ordner.';
+    updatesEmptyState.classList.remove('hidden');
+    if (updateCheckStatus) updateCheckStatus.textContent = '';
+    setUpdateStatusButton();
+    return;
+  }
   if (!rootDirHandle) {
     updatesEmptyState.textContent = 'Bitte wählen Sie einen Arbeitsordner.';
     updatesEmptyState.classList.remove('hidden');
@@ -1123,6 +1209,12 @@ async function runUpdateCheck() {
   if (updateCheckInProgress) return;
   lastUpdateError = false;
 
+  if (pendingRootPermission || pendingUpdatePermission) {
+    renderUpdateList();
+    setUpdateStatusButton();
+    return;
+  }
+
   if (!rootDirHandle && !updateDirHandle) {
     versionOverview = { html: { localVersion: null, updateVersion: null }, modules: [] };
     pendingUpdates = [];
@@ -1205,17 +1297,43 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Folder selection
   rootBtn.addEventListener('click', async () => {
+    if (pendingRootPermission && rootDirHandle) {
+      try {
+        const granted = await ensureRWPermission(rootDirHandle, { mode: 'readwrite' });
+        if (granted) {
+          pendingRootPermission = false;
+          rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
+          rootBtn.classList.remove('bg-yellow-400','hover:bg-yellow-500','text-gray-900');
+          rootBtn.title = '';
+          rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
+          await loadModulesFromRoot(rootDirHandle);
+          await loadAppSettings();
+          applySettings();
+          await loadAndInitTabs();
+          await runUpdateCheck();
+          return;
+        }
+      } catch (err) {
+        console.warn('Erneute Berechtigungsabfrage für Arbeitsordner fehlgeschlagen', err);
+      }
+    }
     if (window.showDirectoryPicker) {
       try {
         rootDirHandle = await window.showDirectoryPicker();
         window.rootDirHandle = rootDirHandle;                      // expose
         rootBtn.textContent = rootDirHandle.name;
         await idbSet(FS_HANDLE_KEY, rootDirHandle);                // persist handle
+        try { localStorage.setItem(ROOT_HANDLE_NAME_KEY, rootDirHandle.name); } catch (e) {
+          console.warn('Konnte Arbeitsordnernamen nicht speichern', e);
+        }
         localStorage.setItem('rememberRootMeta', JSON.stringify({  // optional UI hint
           name: rootDirHandle.name, ts: Date.now()
         }));
         rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
+        rootBtn.classList.remove('bg-yellow-400','hover:bg-yellow-500','text-gray-900');
         rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
+        pendingRootPermission = false;
+        rootBtn.title = '';
         await loadModulesFromRoot(rootDirHandle);
         await loadAppSettings();
         applySettings();
@@ -1242,6 +1360,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         rootBtn.textContent = rootName;
         rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
         rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
+        pendingRootPermission = false;
+        rootBtn.title = '';
+        try { localStorage.setItem(ROOT_HANDLE_NAME_KEY, rootName); } catch (e) {
+          console.warn('Konnte Arbeitsordnernamen nicht speichern', e);
+        }
         await loadModulesFromFileList(files, rootName);
         await loadAndInitTabs();
         inp.value = null;
@@ -1260,6 +1383,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert('Update-Ordner können nur mit einem kompatiblen Browser gewählt werden.');
         return;
       }
+      if (pendingUpdatePermission && updateDirHandle) {
+        try {
+          const granted = await ensureRWPermission(updateDirHandle, { mode: 'read' });
+          if (granted) {
+            pendingUpdatePermission = false;
+            if (updateFolderNameEl) updateFolderNameEl.textContent = updateDirHandle.name;
+            await runUpdateCheck();
+            return;
+          }
+        } catch (err) {
+          console.warn('Erneute Berechtigungsabfrage für Update-Ordner fehlgeschlagen', err);
+        }
+      }
       try {
         const handle = await window.showDirectoryPicker();
         const granted = await ensureRWPermission(handle, { mode: 'read' });
@@ -1273,6 +1409,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           console.warn('Konnte Update-Ordnernamen nicht speichern', e);
         }
         await idbSet(UPDATE_HANDLE_KEY, handle);
+        pendingUpdatePermission = false;
         await runUpdateCheck();
       } catch (e) {
         if (e?.name !== 'AbortError') {
@@ -1291,6 +1428,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Konnte Update-Ordnernamen nicht entfernen', e);
       }
       await idbDel(UPDATE_HANDLE_KEY);
+      pendingUpdatePermission = false;
       pendingUpdates = [];
       versionOverview = {
         html: { localVersion: versionOverview.html?.localVersion || null, updateVersion: null },
