@@ -59,13 +59,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
     'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js'
   ];
 
-  const GROUP_NAME = 'deviceBoardGroup';
+  const GROUP_NAME = 'unitBoardGroup';
   const TITLE_FIELD = 'MELDUNGS_NO';
   const MELDUNG_FIELD = 'MELDUNGS_NO';
   const DEFAULT_SUB_FIELD = 'AUFTRAGS_NO';
   const LS_DOC = 'module_data_v1';
-  const LS_STATE = 'aspenDeviceListState';
-  const CUSTOM_BROADCAST = 'deviceBoard:update';
+  const LS_STATE = 'aspenUnitListState';
+  const CUSTOM_BROADCAST = 'unitBoard:update';
 
   function injectStyles(){
     if(document.getElementById(STYLE_ID)) return;

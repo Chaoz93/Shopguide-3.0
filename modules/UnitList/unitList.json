@@ -1,0 +1,13 @@
+{
+  "name": "Unit List",
+  "script": "renderUnitList",
+  "icon": "⭐",
+  "minW": 2,
+  "minH": 2,
+  "maxW": 6,
+  "items": [
+    "Unit 1",
+    "Unit 2",
+    "Unit 3"
+  ]
+}

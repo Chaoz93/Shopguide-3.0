@@ -1,12 +1,12 @@
 {
-  "name": "Excel Device Board",
+  "name": "Excel Unit Board",
   "icon": "🧾",
-  "script": "renderExcelDeviceBoard",
+  "script": "renderExcelUnitBoard",
   "minW": 2,
   "minH": 2,
   "w": 2,
   "h": 2,
   "settings": {
-    "title": "Excel Device Board"
+    "title": "Excel Unit Board"
   }
 }

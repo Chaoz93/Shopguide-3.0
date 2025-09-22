@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const STYLE_ID='device-comments-styles';
+  const STYLE_ID='unit-comments-styles';
   const CSS=`
     .dc-root{height:100%;display:flex;flex-direction:column;gap:.75rem;}
     .dc-title{font-weight:600;font-size:1.05rem;color:var(--text-color);padding:0 .2rem;}
@@ -9,7 +9,7 @@
     .dc-line{display:flex;align-items:center;gap:.5rem;font-size:.85rem;}
     .dc-label{opacity:.7;min-width:105px;font-weight:500;}
     .dc-value{flex:1;min-width:0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;font-weight:600;color:var(--dl-title,#2563eb);}
-    .dc-device{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;}
+    .dc-unit{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;}
     .dc-field{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:.85rem;padding:.55rem .75rem;box-shadow:0 4px 12px rgba(15,23,42,.08);}
     .dc-field-label{font-size:.78rem;opacity:.65;text-transform:uppercase;letter-spacing:.04em;}
     .dc-field-value{font-weight:600;font-size:1.05rem;}
@@ -36,7 +36,7 @@
   ];
 
   const LS_DOC='module_data_v1';
-  const LS_STATE_PREFIX='deviceComments:state:';
+  const LS_STATE_PREFIX='unitComments:state:';
   const IDB_NAME='modulesApp';
   const IDB_STORE='fs-handles';
   const COMMENTS_SHEET='Comments';
@@ -79,7 +79,7 @@
   }
 
   function ensureXLSX(){
-    return ensureLibrary('XLSX','__DEVICE_COMMENTS_XLSX__',XLSX_URLS);
+    return ensureLibrary('XLSX','__UNIT_COMMENTS_XLSX__',XLSX_URLS);
   }
 
   function parseJSON(str,fb){
@@ -93,7 +93,7 @@
 
   function saveDoc(doc){
     doc.__meta={v:1,updatedAt:new Date().toISOString()};
-    try{localStorage.setItem(LS_DOC,JSON.stringify(doc));}catch(err){console.warn('DeviceComments: saveDoc failed',err);}
+    try{localStorage.setItem(LS_DOC,JSON.stringify(doc));}catch(err){console.warn('UnitComments: saveDoc failed',err);}
   }
 
   function readActiveMeldung(){
@@ -101,7 +101,7 @@
       const doc=JSON.parse(localStorage.getItem(LS_DOC)||'{}');
       return (doc?.general?.Meldung||'').trim();
     }catch(err){
-      console.warn('DeviceComments: failed to parse module_data_v1',err);
+      console.warn('UnitComments: failed to parse module_data_v1',err);
       return '';
     }
   }
@@ -116,13 +116,13 @@
       if(!raw) return null;
       const parsed=JSON.parse(raw);
       if(parsed&&typeof parsed==='object') return parsed;
-    }catch(err){console.warn('DeviceComments: state parse failed',err);}
+    }catch(err){console.warn('UnitComments: state parse failed',err);}
     return null;
   }
 
   function saveLocalState(instanceId,data){
     try{localStorage.setItem(LS_STATE_PREFIX+instanceId,JSON.stringify(data));}
-    catch(err){console.warn('DeviceComments: state save failed',err);}
+    catch(err){console.warn('UnitComments: state save failed',err);}
   }
 
   function trim(value){
@@ -170,7 +170,7 @@
         <div class="dc-line"><span class="dc-label">Dictionary</span><span class="dc-value" data-dict>Keine Datei</span></div>
         <div class="dc-line"><span class="dc-label">Kommentare</span><span class="dc-value" data-comments>Keine Datei</span></div>
       </div>
-      <div class="dc-device">
+      <div class="dc-unit">
         <div class="dc-field">
           <div class="dc-field-label">Meldung</div>
           <div class="dc-field-value" data-meldung>—</div>
@@ -463,7 +463,7 @@
   }
 
   async function saveGlobalDict(handle,name){
-    try{await idbSet('globalDict',handle);}catch(err){console.warn('DeviceComments: global dict store failed',err);}
+    try{await idbSet('globalDict',handle);}catch(err){console.warn('UnitComments: global dict store failed',err);}
     const doc=loadDoc();
     doc.general ||= {};
     if(doc.general.dictFileName!==name){
@@ -488,7 +488,7 @@
     if((general.SN||'')!==normalizedSerial){general.SN=normalizedSerial;changed=true;}
     if(changed){
       saveDoc(doc);
-      try{window.dispatchEvent(new Event('deviceBoard:update'));}catch{}
+      try{window.dispatchEvent(new Event('unitBoard:update'));}catch{}
     }
   }
 
@@ -501,8 +501,8 @@
 
     const title=opts?.moduleJson?.settings?.title||'';
     const instanceId=instanceIdOf(targetDiv);
-    const handleKey=`deviceComments:comments:${instanceId}`;
-    const dictHandleKey=`deviceComments:dict:${instanceId}`;
+    const handleKey=`unitComments:comments:${instanceId}`;
+    const dictHandleKey=`unitComments:dict:${instanceId}`;
 
     const state={
       instanceId,
@@ -607,7 +607,7 @@
         state.dict.set(key,{meldung:state.activeMeldung,part:normalizedPart,serial:normalizedSerial,rowIndex});
         flashNote('Dictionary aktualisiert','success');
       }catch(err){
-        console.warn('DeviceComments: dictionary write failed',err);
+        console.warn('UnitComments: dictionary write failed',err);
         flashNote('Dictionary konnte nicht aktualisiert werden','error');
       }finally{
         state.dictUpdating=false;
@@ -673,7 +673,7 @@
       }
     }
 
-    function updateDeviceInfo(){
+    function updateUnitInfo(){
       let part='';
       let serial='';
       if(state.activeMeldung){
@@ -711,11 +711,11 @@
       if(changed||force){
         state.activeMeldung=current;
         elements.meldung.textContent=current||'—';
-        updateDeviceInfo();
+        updateUnitInfo();
         return;
       }
       if(!(state.activePart||state.activeSerial)){
-        updateDeviceInfo();
+        updateUnitInfo();
       }
     }
 
@@ -752,7 +752,7 @@
           await writeComments(state.commentHandle,Array.from(state.comments.values()));
           flashNote('Gespeichert','success');
         }catch(err){
-          console.warn('DeviceComments: write failed',err);
+          console.warn('UnitComments: write failed',err);
           flashNote('Speichern fehlgeschlagen','error');
         }
       },350);
@@ -774,7 +774,7 @@
         refreshActive(true);
         refreshBaseNote();
       }catch(err){
-        console.warn('DeviceComments: dictionary read failed',err);
+        console.warn('UnitComments: dictionary read failed',err);
         applyNote(elements,'Dictionary konnte nicht gelesen werden','error');
       }
     }
@@ -792,7 +792,7 @@
         persistState();
         updateTextareaState();
       }catch(err){
-        console.warn('DeviceComments: comments read failed',err);
+        console.warn('UnitComments: comments read failed',err);
         applyNote(elements,'Kommentare konnten nicht gelesen werden','error');
       }
     }
@@ -813,12 +813,12 @@
         state.dictName=handle.name||state.dictName||'dictionary.xlsx';
         updateFileLabels();
         persistState();
-        try{await idbSet(dictHandleKey,handle);}catch(err){console.warn('DeviceComments: store dict handle failed',err);}
+        try{await idbSet(dictHandleKey,handle);}catch(err){console.warn('UnitComments: store dict handle failed',err);}
         await saveGlobalDict(handle,state.dictName);
         await loadDictionaryHandle(handle);
       }catch(err){
         if(err?.name==='AbortError') return;
-        console.warn('DeviceComments: dictionary pick failed',err);
+        console.warn('UnitComments: dictionary pick failed',err);
         applyNote(elements,'Dictionary konnte nicht geöffnet werden','error');
       }
     }
@@ -834,15 +834,15 @@
         });
         if(!handle) return;
         state.commentHandle=handle;
-        state.commentName=handle.name||state.commentName||'device-comments.xlsx';
+        state.commentName=handle.name||state.commentName||'unit-comments.xlsx';
         updateFileLabels();
         persistState();
-        try{await idbSet(handleKey,handle);}catch(err){console.warn('DeviceComments: store comment handle failed',err);}
+        try{await idbSet(handleKey,handle);}catch(err){console.warn('UnitComments: store comment handle failed',err);}
         await loadCommentsHandle(handle);
         refreshBaseNote();
       }catch(err){
         if(err?.name==='AbortError') return;
-        console.warn('DeviceComments: comment file pick failed',err);
+        console.warn('UnitComments: comment file pick failed',err);
         applyNote(elements,'Kommentar-Datei konnte nicht geöffnet werden','error');
       }
     }
@@ -850,7 +850,7 @@
     async function createCommentsFile(){
       try{
         const handle=await window.showSaveFilePicker({
-          suggestedName:state.commentName||'device-comments.xlsx',
+          suggestedName:state.commentName||'unit-comments.xlsx',
           types:[{
             description:'Excel',
             accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}
@@ -866,15 +866,15 @@
         await writable.write(buffer);
         await writable.close();
         state.commentHandle=handle;
-        state.commentName=handle.name||'device-comments.xlsx';
+        state.commentName=handle.name||'unit-comments.xlsx';
         updateFileLabels();
         persistState();
-        try{await idbSet(handleKey,handle);}catch(err){console.warn('DeviceComments: store comment handle failed',err);}
+        try{await idbSet(handleKey,handle);}catch(err){console.warn('UnitComments: store comment handle failed',err);}
         await loadCommentsHandle(handle);
         flashNote('Datei erstellt','success');
       }catch(err){
         if(err?.name==='AbortError') return;
-        console.warn('DeviceComments: comment file create failed',err);
+        console.warn('UnitComments: comment file create failed',err);
         applyNote(elements,'Datei konnte nicht erstellt werden','error');
       }
     }
@@ -955,7 +955,7 @@
     };
     const customListener=()=>refreshActive(true);
     window.addEventListener('storage',storageListener);
-    window.addEventListener('deviceBoard:update',customListener);
+    window.addEventListener('unitBoard:update',customListener);
 
     const intervalId=setInterval(()=>refreshActive(false),WATCH_INTERVAL);
 
@@ -963,7 +963,7 @@
       clearInterval(intervalId);
       document.removeEventListener('click',handleDocClick);
       window.removeEventListener('storage',storageListener);
-      window.removeEventListener('deviceBoard:update',customListener);
+      window.removeEventListener('unitBoard:update',customListener);
       elements.root.removeEventListener('contextmenu',handleContextMenu);
       if(state.noteTimer) clearTimeout(state.noteTimer);
       if(state.writeTimer) clearTimeout(state.writeTimer);
@@ -991,7 +991,7 @@
         if(!handle){
           handle=await idbGet('globalDict');
           if(handle){
-            try{await idbSet(dictHandleKey,handle);}catch(err){console.warn('DeviceComments: copy global dict handle failed',err);} }
+            try{await idbSet(dictHandleKey,handle);}catch(err){console.warn('UnitComments: copy global dict handle failed',err);} }
         }
         if(handle){
           state.dictHandle=handle;
@@ -1002,7 +1002,7 @@
           refreshBaseNote();
         }
       }catch(err){
-        console.warn('DeviceComments: restore dictionary handle failed',err);
+        console.warn('UnitComments: restore dictionary handle failed',err);
       }
     })();
 
@@ -1018,7 +1018,7 @@
           refreshBaseNote();
         }
       }catch(err){
-        console.warn('DeviceComments: restore comment handle failed',err);
+        console.warn('UnitComments: restore comment handle failed',err);
       }
     })();
   };
