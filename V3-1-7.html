@@ -454,9 +454,35 @@ function calculateAvailableGridHeight() {
   return Math.max(window.innerHeight - topBarHeight, 0);
 }
 
-function applyGridMinHeight(gridEl) {
-  if (!gridEl) return;
-  gridEl.style.minHeight = calculateAvailableGridHeight() + 'px';
+function parseMarginValue(value, fallback = 0) {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  return fallback;
+}
+
+function adjustGridMinRows(gridInstance, minHeight) {
+  if (!gridInstance) return;
+  const cellHeight = typeof gridInstance.getCellHeight === 'function'
+    ? gridInstance.getCellHeight()
+    : parseMarginValue(gridInstance.opts?.cellHeight, 0);
+  const opts = gridInstance.opts || {};
+  const baseMargin = parseMarginValue(opts.margin, 0);
+  const marginTop = parseMarginValue(opts.marginTop, baseMargin);
+  const marginBottom = parseMarginValue(opts.marginBottom, baseMargin);
+  const rowHeight = Math.max(cellHeight + marginTop + marginBottom, 1);
+  const requiredRows = Math.max(Math.ceil(minHeight / rowHeight), parseMarginValue(opts.minRow, 0));
+  if (requiredRows !== opts.minRow) {
+    gridInstance.updateOptions({ minRow: requiredRows });
+  }
+}
+
+function applyGridMinHeight(gridEl, gridInstance, minHeightOverride) {
+  const minHeight = typeof minHeightOverride === 'number' ? minHeightOverride : calculateAvailableGridHeight();
+  if (gridEl) gridEl.style.minHeight = minHeight + 'px';
+  adjustGridMinRows(gridInstance, minHeight);
 }
 
 function updateAllGridMinHeights() {
@@ -464,6 +490,7 @@ function updateAllGridMinHeights() {
   if (gridsContainer) gridsContainer.style.minHeight = minHeight + 'px';
   tabs.forEach(tab => {
     if (tab.el) tab.el.style.minHeight = minHeight + 'px';
+    applyGridMinHeight(null, tab.grid, minHeight);
   });
 }
 
@@ -1135,11 +1162,12 @@ function createTab(name, layoutModules = []) {
   const tab = { name: name || ('Tab ' + (tabIndex + 1)), modules: [], grid: null, el: null };
   const gridEl = document.createElement('div');
   gridEl.className = 'grid-stack p-4';
-  applyGridMinHeight(gridEl);
   gridEl.dataset.tabIndex = tabIndex;
   gridsContainer.appendChild(gridEl);
 
   const gridInstance = GridStack.init({ cellHeight: 30, margin: 5, handle: '.grid-stack-item-content', column: 12, float: !appSettings.autoArrangeModules, minRow: 8 }, gridEl);
+
+  applyGridMinHeight(gridEl, gridInstance);
 
   // Reflect current sidebar state immediately (no drag/resize when closed)
   gridInstance.setStatic(!isSidebarOpen);
