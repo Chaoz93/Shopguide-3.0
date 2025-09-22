@@ -370,6 +370,7 @@ let appSettings = {
 
 const layoutFileName = 'layout.json';
 const settingsFileName = 'settings.json';
+const ACTIVE_TAB_STORAGE_KEY = 'modulesLayoutActiveTab';
 let rootDirHandle = null;
 let modulesDirHandle = null;
 let liveModuleTemplates = [];
@@ -640,7 +641,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* First tab on initial load */
   createTab('Standard');
   renderTabs();
-  activateTab(0);
+  activateTab(0, { skipSave: true });
   updateModuleDraggable();
   updateGridDraggable();
   updateGridAutoArrange();
@@ -1042,6 +1043,7 @@ async function buildTreeFromFileList(files, rootName) {
 
 /** Reset and recreate tabs using saved layout */
 async function loadAndInitTabs() {
+  const savedActive = loadActiveTabIndex();
   resetTabs();
   let saved = await loadLayout();
   let migrated = false;
@@ -1085,8 +1087,12 @@ async function loadAndInitTabs() {
   } else {
     createTab('Standard');
   }
-  renderTabs();
-  activateTab(0);
+  if (tabs.length) {
+    const initialIndex = (typeof savedActive === 'number' && savedActive >= 0 && savedActive < tabs.length)
+      ? savedActive
+      : 0;
+    activateTab(initialIndex);
+  }
 
   if (migrated) saveLayout();
 
@@ -1195,11 +1201,12 @@ function renderTabs() {
 }
 
 /** Activate a tab */
-function activateTab(idx) {
+function activateTab(idx, options = {}) {
   if (idx < 0 || idx >= tabs.length) return;
   tabs.forEach((tab, i) => { if (tab.el) tab.el.style.display = (i === idx ? '' : 'none'); });
   activeTabIndex = idx;
   renderTabs();
+  if (!options.skipSave) saveActiveTabIndex();
 }
 
 /** Delete tab */
@@ -1269,6 +1276,8 @@ function resetTabs() {
   tabs.forEach(tab => { if (tab.el && tab.el.parentNode) tab.el.parentNode.removeChild(tab.el); });
   tabs = [];
   tabsContainer.innerHTML = '';
+  activeTabIndex = 0;
+  clearActiveTabIndex();
 }
 
 /** Update module positions after drag/resizing */
@@ -1326,6 +1335,27 @@ async function loadLayout() {
     }
   } catch (e) {}
   return null;
+}
+
+function saveActiveTabIndex() {
+  try {
+    localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, String(activeTabIndex));
+  } catch (e) {}
+}
+
+function loadActiveTabIndex() {
+  try {
+    const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    if (stored === null) return null;
+    const parsed = Number.parseInt(stored, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearActiveTabIndex() {
+  try { localStorage.removeItem(ACTIVE_TAB_STORAGE_KEY); } catch (e) {}
 }
 
 /** Determine script filename from module JSON */
