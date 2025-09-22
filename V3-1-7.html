@@ -177,7 +177,8 @@
   <header id="top-bar" class="flex items-center gap-1 px-3 py-2 shadow" style="height:40px">
     <div id="tabs-container" class="flex items-center gap-1 flex-wrap"></div>
     <button id="add-tab" title="Neuen Tab erstellen" class="text-xl px-2 py-1 leading-none hover:opacity-80">➕</button>
-    <button id="select-root" class="ml-auto text-sm px-3 py-1 rounded">Ordner wählen</button>
+    <button id="update-status" class="ml-auto text-sm px-3 py-1 rounded mr-2 hidden">Update prüfen</button>
+    <button id="select-root" class="text-sm px-3 py-1 rounded">Ordner wählen</button>
     <button id="open-settings" title="Einstellungen" class="bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm px-3 py-1 rounded ml-2">⚙️</button>
   </header>
   <div class="flex" style="height: calc(100% - 40px);">
@@ -205,6 +206,7 @@
         <button data-section="topbar">Topbar</button>
         <button data-section="sidebar">Sidebar</button>
         <button data-section="modules">Module</button>
+        <button data-section="updates">Updates</button>
       </div>
       <!-- Allgemein section -->
       <div id="section-general" class="settings-section active">
@@ -332,6 +334,30 @@
           </div>
         </div>
       </div>
+      <div id="section-updates" class="settings-section">
+        <div class="space-y-4">
+          <div class="flex flex-wrap items-center gap-2 text-sm">
+            <span class="font-medium">Update-Ordner:</span>
+            <span id="update-folder-name" class="px-2 py-1 bg-gray-100 rounded">Keiner gewählt</span>
+            <button id="select-update-folder" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Ordner wählen</button>
+            <button id="clear-update-folder" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded">Zurücksetzen</button>
+            <span id="update-check-status" class="text-gray-500"></span>
+          </div>
+          <div id="updates-empty-state" class="text-sm text-gray-500">Keine Updates erforderlich.</div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm border border-gray-200 rounded" id="updates-table">
+              <thead class="bg-gray-100">
+                <tr>
+                  <th class="text-left px-3 py-2">Datei</th>
+                  <th class="text-left px-3 py-2">Änderungsdatum</th>
+                  <th class="text-right px-3 py-2">Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="updates-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       <div class="mt-4 flex justify-end gap-2">
         <button id="close-settings" class="bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm px-3 py-1 rounded">Abbrechen</button>
         <button id="save-settings" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded">Speichern</button>
@@ -375,6 +401,7 @@ const layoutFileName = 'layout.json';
 const settingsFileName = 'settings.json';
 const ACTIVE_TAB_STORAGE_KEY = 'modulesLayoutActiveTab';
 let rootDirHandle = null;
+let updateDirHandle = null;
 let modulesDirHandle = null;
 let liveModuleTemplates = [];
 let tabs = [];
@@ -383,6 +410,10 @@ let tabContextMenu = null;
 let tabsSortable = null;
 // Start with sidebar closed by default
 let isSidebarOpen = false;
+let pendingUpdates = [];
+let updateCheckInProgress = false;
+let originalSettings = null;
+let lastUpdateError = false;
 
 /* ==== UNIQUE IDs ==== */
 let usedInstanceIds = new Set();
@@ -409,11 +440,18 @@ const tabsContainer = document.getElementById('tabs-container');
 const addTabBtn = document.getElementById('add-tab');
 const sidebarEl = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebar-toggle');
+const updateStatusBtn = document.getElementById('update-status');
 const rootBtn = document.getElementById('select-root');
 const settingsBtn = document.getElementById('open-settings');
 const settingsModal = document.getElementById('settings-modal');
 const closeSettingsBtn = document.getElementById('close-settings');
 const saveSettingsBtn = document.getElementById('save-settings');
+const updateFolderNameEl = document.getElementById('update-folder-name');
+const selectUpdateFolderBtn = document.getElementById('select-update-folder');
+const clearUpdateFolderBtn = document.getElementById('clear-update-folder');
+const updatesTableBody = document.getElementById('updates-table-body');
+const updatesEmptyState = document.getElementById('updates-empty-state');
+const updateCheckStatus = document.getElementById('update-check-status');
 // Settings inputs
 const inputAppBg = document.getElementById('setting-app-bg');
 const inputBorderColor = document.getElementById('setting-border-color');
@@ -447,6 +485,7 @@ const settingsNavButtons = document.querySelectorAll('.settings-nav button');
 
 // Remember the selected root folder across sessions
 const FS_HANDLE_KEY = 'rootDirHandle';
+const UPDATE_HANDLE_KEY = 'updateDirHandle';
 
 function idbOpen() {
   return new Promise((res, rej) => {
@@ -515,12 +554,257 @@ async function tryRestoreRootHandle(){
   }
 }
 
+async function tryRestoreUpdateHandle(){
+  if (!('showDirectoryPicker' in window)) return false;
+  try {
+    const h = await idbGet(UPDATE_HANDLE_KEY);
+    if (!h) return false;
+    const ok = await ensureRWPermission(h);
+    if (!ok) return false;
+    updateDirHandle = h;
+    if (updateFolderNameEl) updateFolderNameEl.textContent = h.name;
+    return true;
+  } catch (e) {
+    console.warn('Restore update handle failed:', e);
+    return false;
+  }
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return '–';
+  try {
+    const date = new Date(ts);
+    if (Number.isNaN(date.getTime())) return '–';
+    return date.toLocaleString();
+  } catch {
+    return '–';
+  }
+}
+
+function setUpdateStatusButton(state) {
+  if (!updateStatusBtn) return;
+  updateStatusBtn.classList.remove('hidden');
+  updateStatusBtn.disabled = false;
+  updateStatusBtn.className = 'ml-auto text-sm px-3 py-1 rounded mr-2';
+  if (!rootDirHandle || !updateDirHandle) {
+    updateStatusBtn.textContent = 'Kein Update-Ordner';
+    updateStatusBtn.disabled = true;
+    updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-not-allowed');
+    return;
+  }
+  if (state === 'checking') {
+    updateStatusBtn.textContent = 'Prüfe…';
+    updateStatusBtn.disabled = true;
+    updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-wait');
+    return;
+  }
+  if (pendingUpdates.length) {
+    updateStatusBtn.textContent = 'Update available!';
+    updateStatusBtn.classList.add('bg-red-600','hover:bg-red-700','text-white');
+  } else {
+    updateStatusBtn.textContent = 'Up to date!';
+    updateStatusBtn.classList.add('bg-green-600','hover:bg-green-700','text-white');
+  }
+}
+
+function renderUpdateList() {
+  if (!updatesTableBody || !updatesEmptyState) return;
+  updatesTableBody.innerHTML = '';
+  if (!rootDirHandle || !updateDirHandle) {
+    updatesEmptyState.textContent = 'Bitte wählen Sie einen Root- und einen Update-Ordner.';
+    updatesEmptyState.classList.remove('hidden');
+    if (updateCheckStatus) updateCheckStatus.textContent = '';
+    setUpdateStatusButton();
+    return;
+  }
+  if (!pendingUpdates.length) {
+    updatesEmptyState.textContent = 'Keine Updates erforderlich.';
+    updatesEmptyState.classList.remove('hidden');
+    if (updateCheckStatus) updateCheckStatus.textContent = 'Keine Updates erforderlich.';
+    setUpdateStatusButton();
+    return;
+  }
+  updatesEmptyState.classList.add('hidden');
+  if (updateCheckStatus) {
+    updateCheckStatus.textContent = `${pendingUpdates.length} Update${pendingUpdates.length === 1 ? '' : 's'} verfügbar.`;
+  }
+  pendingUpdates.forEach((item, index) => {
+    const tr = document.createElement('tr');
+    tr.className = index % 2 ? 'bg-white' : 'bg-gray-50';
+    const tdPath = document.createElement('td');
+    tdPath.className = 'px-3 py-2 align-top';
+    tdPath.textContent = item.path;
+    const tdDates = document.createElement('td');
+    tdDates.className = 'px-3 py-2 align-top whitespace-nowrap';
+    tdDates.textContent = `${formatTimestamp(item.localLastModified)} → ${formatTimestamp(item.updateLastModified)}`;
+    const tdAction = document.createElement('td');
+    tdAction.className = 'px-3 py-2 text-right';
+    const btn = document.createElement('button');
+    btn.className = 'bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded';
+    btn.textContent = 'Aktualisieren';
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.classList.add('opacity-60','cursor-wait');
+      try {
+        await applySingleUpdate(item);
+      } catch (err) {
+        console.error('Fehler beim Aktualisieren', err);
+        alert('Die Datei konnte nicht aktualisiert werden.');
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-60','cursor-wait');
+      }
+    });
+    tdAction.appendChild(btn);
+    tr.appendChild(tdPath);
+    tr.appendChild(tdDates);
+    tr.appendChild(tdAction);
+    updatesTableBody.appendChild(tr);
+  });
+  setUpdateStatusButton();
+}
+
+async function collectDirectoryDiffs(updateHandle, localHandle, prefix = '') {
+  const diffs = [];
+  for await (const entry of updateHandle.values()) {
+    const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.kind === 'directory') {
+      let localSub = null;
+      if (localHandle) {
+        try {
+          localSub = await localHandle.getDirectoryHandle(entry.name, { create: false });
+        } catch {
+          localSub = null;
+        }
+      }
+      const childDiffs = await collectDirectoryDiffs(entry, localSub, relPath);
+      diffs.push(...childDiffs);
+    } else if (entry.kind === 'file') {
+      const updateFile = await entry.getFile();
+      let localFileHandle = null;
+      let localFile = null;
+      if (localHandle) {
+        try {
+          localFileHandle = await localHandle.getFileHandle(entry.name, { create: false });
+          localFile = await localFileHandle.getFile();
+        } catch {
+          localFileHandle = null;
+          localFile = null;
+        }
+      }
+      const needsUpdate = !localFile || localFile.lastModified !== updateFile.lastModified || localFile.size !== updateFile.size;
+      if (needsUpdate) {
+        diffs.push({
+          path: relPath,
+          updateHandle: entry,
+          localHandle: localFileHandle,
+          localLastModified: localFile?.lastModified || null,
+          updateLastModified: updateFile.lastModified || null
+        });
+      }
+    }
+  }
+  return diffs;
+}
+
+async function ensureDirectoryChain(root, parts, { create = true } = {}) {
+  let current = root;
+  for (const part of parts) {
+    if (!part) continue;
+    current = await current.getDirectoryHandle(part, { create });
+  }
+  return current;
+}
+
+async function applySingleUpdate(item) {
+  if (!rootDirHandle || !updateDirHandle) return;
+  const segments = item.path.split('/');
+  const fileName = segments.pop();
+  const targetDir = await ensureDirectoryChain(rootDirHandle, segments, { create: true });
+  let sourceDir;
+  try {
+    sourceDir = await ensureDirectoryChain(updateDirHandle, segments, { create: false });
+  } catch (e) {
+    console.warn('Update-Verzeichnis nicht gefunden', e);
+    alert('Das Update-Verzeichnis für diese Datei konnte nicht gefunden werden.');
+    return;
+  }
+  let updateFileHandle;
+  try {
+    updateFileHandle = await sourceDir.getFileHandle(fileName, { create: false });
+  } catch (e) {
+    console.warn('Update-Datei nicht gefunden', e);
+    alert('Die Update-Datei konnte nicht gefunden werden.');
+    return;
+  }
+  const updateFile = await updateFileHandle.getFile();
+  const targetFileHandle = await targetDir.getFileHandle(fileName, { create: true });
+  const writable = await targetFileHandle.createWritable();
+  await writable.write(await updateFile.arrayBuffer());
+  await writable.close();
+  pendingUpdates = pendingUpdates.filter(diff => diff.path !== item.path);
+  renderUpdateList();
+}
+
+async function runUpdateCheck() {
+  lastUpdateError = false;
+  if (!rootDirHandle || !updateDirHandle) {
+    pendingUpdates = [];
+    renderUpdateList();
+    return;
+  }
+  if (updateCheckInProgress) return;
+  updateCheckInProgress = true;
+  setUpdateStatusButton('checking');
+  if (updateCheckStatus) updateCheckStatus.textContent = 'Prüfung läuft…';
+  try {
+    pendingUpdates = await collectDirectoryDiffs(updateDirHandle, rootDirHandle);
+  } catch (err) {
+    console.error('Update-Prüfung fehlgeschlagen', err);
+    pendingUpdates = [];
+    lastUpdateError = true;
+    if (updateCheckStatus) updateCheckStatus.textContent = 'Fehler bei der Prüfung.';
+  } finally {
+    updateCheckInProgress = false;
+    if (updateCheckStatus && !lastUpdateError) {
+      if (!pendingUpdates.length) {
+        updateCheckStatus.textContent = 'Letzte Prüfung abgeschlossen.';
+      } else {
+        updateCheckStatus.textContent = `${pendingUpdates.length} Update${pendingUpdates.length === 1 ? '' : 's'} verfügbar.`;
+      }
+    }
+    renderUpdateList();
+    if (lastUpdateError && updateCheckStatus) {
+      updateCheckStatus.textContent = 'Fehler bei der Prüfung.';
+    }
+  }
+}
+
+function activateSettingsSection(section) {
+  document.querySelectorAll('.settings-nav button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.section === section);
+  });
+  document.querySelectorAll('.settings-section').forEach(sec => {
+    sec.classList.toggle('active', sec.id === `section-${section}`);
+  });
+}
+
+function openSettings(section = 'general') {
+  originalSettings = JSON.parse(JSON.stringify(appSettings));
+  populateInputsFromSettings();
+  settingsModal.classList.remove('hidden');
+  activateSettingsSection(section);
+}
+
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Initialize sidebar collapsed state
   sidebarEl.classList.add('collapsed');
   // Trigger fade-in animation on initial load
   document.body.classList.add('fade-in');
+
+  setUpdateStatusButton();
+  renderUpdateList();
 
   // Sidebar toggle
   sidebarToggle.addEventListener('click', () => {
@@ -550,6 +834,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // ensure grid state reflects current sidebar state
         updateModuleDraggable();
         updateGridDraggable();
+        await runUpdateCheck();
       } catch (e) {
         console.warn(e);
         alert('Ordnerauswahl abgebrochen oder nicht erlaubt.');
@@ -573,10 +858,50 @@ document.addEventListener('DOMContentLoaded', async () => {
         inp.value = null;
         updateModuleDraggable();
         updateGridDraggable();
+        pendingUpdates = [];
+        renderUpdateList();
       };
       inp.click();
     }
   });
+
+  if (selectUpdateFolderBtn) {
+    selectUpdateFolderBtn.addEventListener('click', async () => {
+      if (!('showDirectoryPicker' in window)) {
+        alert('Update-Ordner können nur mit einem kompatiblen Browser gewählt werden.');
+        return;
+      }
+      try {
+        const handle = await window.showDirectoryPicker();
+        updateDirHandle = handle;
+        if (updateFolderNameEl) updateFolderNameEl.textContent = handle.name;
+        await idbSet(UPDATE_HANDLE_KEY, handle);
+        await runUpdateCheck();
+      } catch (e) {
+        if (e?.name !== 'AbortError') {
+          console.warn('Update-Ordner Auswahl fehlgeschlagen', e);
+          alert('Der Update-Ordner konnte nicht gewählt werden.');
+        }
+      }
+    });
+  }
+
+  if (clearUpdateFolderBtn) {
+    clearUpdateFolderBtn.addEventListener('click', async () => {
+      updateDirHandle = null;
+      if (updateFolderNameEl) updateFolderNameEl.textContent = 'Keiner gewählt';
+      await idbDel(UPDATE_HANDLE_KEY);
+      pendingUpdates = [];
+      renderUpdateList();
+    });
+  }
+
+  if (updateStatusBtn) {
+    updateStatusBtn.addEventListener('click', () => {
+      if (updateStatusBtn.disabled) return;
+      openSettings('updates');
+    });
+  }
 
   // Add new tab
   addTabBtn.addEventListener('click', () => {
@@ -592,18 +917,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Settings open
   settingsBtn.addEventListener('click', () => {
-    originalSettings = JSON.parse(JSON.stringify(appSettings));
-    populateInputsFromSettings();
-    settingsModal.classList.remove('hidden');
+    openSettings('general');
   });
   // Settings cancel
   closeSettingsBtn.addEventListener('click', () => {
     settingsModal.classList.add('hidden');
-    if (typeof originalSettings !== 'undefined') {
+    if (typeof originalSettings !== 'undefined' && originalSettings !== null) {
       appSettings = { ...originalSettings };
       applySettings();
       renderTabs();
     }
+    originalSettings = null;
   });
   // Settings save
   saveSettingsBtn.addEventListener('click', async () => {
@@ -612,15 +936,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     await saveAppSettings();
     settingsModal.classList.add('hidden');
     renderTabs();
+    originalSettings = null;
   });
   // Settings nav
   settingsNavButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      settingsNavButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const target = btn.dataset.section;
-      document.querySelectorAll('.settings-section').forEach(sec => sec.classList.remove('active'));
-      document.getElementById('section-' + target).classList.add('active');
+      activateSettingsSection(btn.dataset.section);
     });
   });
   // Live preview for colours
@@ -651,14 +972,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateGridAutoArrange();
 
   // --- Try to restore AFTER wiring handlers ---
-  const restored = await tryRestoreRootHandle();
-  if (!restored) {
-    // no-op; first-run already set up above
-  } else {
-    // Make sure grids reflect current sidebar state on restored sessions
+  const restoredRoot = await tryRestoreRootHandle();
+  await tryRestoreUpdateHandle();
+  if (restoredRoot) {
     updateModuleDraggable();
     updateGridDraggable();
   }
+  await runUpdateCheck();
 });
 
 /** Populate inputs from appSettings */
