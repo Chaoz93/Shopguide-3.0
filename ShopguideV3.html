@@ -196,7 +196,7 @@
     }
     .version-overview-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 5rem 5rem;
+      grid-template-columns: minmax(0, 1fr) 5rem 5rem 8rem;
       column-gap: 1.5rem;
       row-gap: 0.5rem;
       align-items: center;
@@ -216,6 +216,23 @@
       text-align: right;
       font-variant-numeric: tabular-nums;
       color: #4b5563;
+    }
+    .version-overview-action {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    .version-overview-action .version-overview-button {
+      background-color: #ffffff;
+      border: 1px solid #d1d5db;
+      color: #374151;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.375rem;
+      transition: background-color 0.2s ease;
+    }
+    .version-overview-action .version-overview-button:hover {
+      background-color: #f3f4f6;
     }
     .version-overview-empty {
       grid-column: 1 / -1;
@@ -731,6 +748,11 @@ let cachedHtmlChangelogSections = null;
 let htmlChangelogSourceLabel = null;
 let currentGlobalChangelogMode = 'single';
 let currentGlobalChangelogIndex = 0;
+let currentChangelogContext = 'none';
+let moduleChangelogSections = null;
+let moduleChangelogFilteredSections = null;
+let moduleChangelogNotice = null;
+let moduleChangelogShowFull = false;
 
 /* ==== UNIQUE IDs ==== */
 let usedInstanceIds = new Set();
@@ -780,6 +802,7 @@ const showLatestChangelogBtn = document.getElementById('show-latest-changelog');
 const changelogControlsEl = document.getElementById('changelog-controls');
 const changelogVersionSelect = document.getElementById('changelog-version-select');
 const changelogShowFullBtn = document.getElementById('changelog-show-full');
+const changelogVersionLabel = changelogControlsEl?.querySelector('label[for="changelog-version-select"]') || null;
 const updateAllContainer = document.getElementById('update-all-container');
 const updateAllBtn = document.getElementById('update-all');
 // Settings inputs
@@ -1236,12 +1259,74 @@ function resetGlobalChangelogState() {
   }
   if (changelogShowFullBtn) {
     changelogShowFullBtn.disabled = false;
+    changelogShowFullBtn.textContent = 'Ganzen Changelog anzeigen';
   }
+}
+
+function resetModuleChangelogState() {
+  moduleChangelogSections = null;
+  moduleChangelogFilteredSections = null;
+  moduleChangelogNotice = null;
+  moduleChangelogShowFull = false;
+}
+
+function hideChangelogVersionControls() {
+  if (changelogVersionLabel) changelogVersionLabel.classList.add('hidden');
+  if (changelogVersionSelect) {
+    changelogVersionSelect.classList.add('hidden');
+    changelogVersionSelect.disabled = true;
+  }
+}
+
+function showChangelogVersionControls() {
+  if (changelogVersionLabel) changelogVersionLabel.classList.remove('hidden');
+  if (changelogVersionSelect) {
+    changelogVersionSelect.classList.remove('hidden');
+    changelogVersionSelect.disabled = false;
+  }
+}
+
+function updateModuleChangelogButtonState() {
+  if (!changelogShowFullBtn) return;
+  const hasSections = Array.isArray(moduleChangelogSections) && moduleChangelogSections.length > 0;
+  changelogShowFullBtn.disabled = !hasSections;
+  changelogShowFullBtn.textContent = moduleChangelogShowFull
+    ? 'Nur neueste Version anzeigen'
+    : 'Ganzen Changelog anzeigen';
+}
+
+function displayModuleChangelogSections(mode = 'filtered') {
+  if (!changelogBodyEl) return;
+  const sectionsToShow = mode === 'all' ? moduleChangelogSections : moduleChangelogFilteredSections;
+  changelogBodyEl.innerHTML = '';
+
+  if (mode !== 'all' && moduleChangelogNotice) {
+    const notice = document.createElement('div');
+    notice.className = 'changelog-empty';
+    notice.textContent = moduleChangelogNotice;
+    changelogBodyEl.appendChild(notice);
+  }
+
+  if (!Array.isArray(sectionsToShow) || !sectionsToShow.length) {
+    const empty = document.createElement('div');
+    empty.className = 'changelog-empty';
+    empty.textContent = 'Keine Einträge für den Changelog verfügbar.';
+    changelogBodyEl.appendChild(empty);
+  } else {
+    appendChangelogSections(changelogBodyEl, sectionsToShow);
+  }
+
+  changelogBodyEl.scrollTop = 0;
+  moduleChangelogShowFull = mode === 'all';
+  updateModuleChangelogButtonState();
 }
 
 async function openGlobalChangelogModal(initialMode = 'latest') {
   if (!changelogOverlay || !changelogBodyEl) return;
 
+  currentChangelogContext = 'global';
+  resetModuleChangelogState();
+  showChangelogVersionControls();
   resetGlobalChangelogState();
   lastChangelogTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
@@ -1257,6 +1342,9 @@ async function openGlobalChangelogModal(initialMode = 'latest') {
   }
   if (changelogVersionSelect) {
     changelogVersionSelect.innerHTML = '';
+  }
+  if (changelogShowFullBtn) {
+    changelogShowFullBtn.classList.remove('hidden');
   }
 
   changelogBodyEl.innerHTML = '<div class="changelog-loading">Lade Changelog…</div>';
@@ -1369,23 +1457,41 @@ async function ensureChangelogHandle(item) {
       return null;
     }
   }
-  if (!item.updateDirHandle) return null;
+  if (!item.updateDirHandle && !item.localDirHandle) return null;
 
-  try {
-    const info = await findChangelogFile(item.updateDirHandle);
-    if (info?.handle) {
-      const relativePath = (info.path || info.name || '').replace(/^[\\/]+/, '');
-      const moduleBasePath = item.sourceRelPath || item.targetRelPath || '';
-      item.changelogHandle = info.handle;
-      item.changelogFileName = info.name;
-      item.changelogRelativePath = relativePath || null;
-      item.changelogPath = relativePath
-        ? buildModuleChangelogDisplayPath(moduleBasePath, relativePath)
-        : item.changelogPath || null;
-      return item.changelogHandle;
+  const targets = [];
+  if (item.updateDirHandle) {
+    targets.push({
+      handle: item.updateDirHandle,
+      basePath: item.sourceRelPath || item.updateRelPath || item.targetRelPath || ''
+    });
+  }
+  if (item.localDirHandle) {
+    const localBase = item.targetRelPath || item.localRelPath || item.sourceRelPath || '';
+    targets.push({
+      handle: item.localDirHandle,
+      basePath: localBase
+    });
+  }
+
+  for (const target of targets) {
+    if (!target?.handle) continue;
+    try {
+      const info = await findChangelogFile(target.handle);
+      if (info?.handle) {
+        const relativePath = (info.path || info.name || '').replace(/^[\\/]+/, '');
+        const moduleBasePath = target.basePath || item.sourceRelPath || item.targetRelPath || '';
+        item.changelogHandle = info.handle;
+        item.changelogFileName = info.name;
+        item.changelogRelativePath = relativePath || null;
+        item.changelogPath = relativePath
+          ? buildModuleChangelogDisplayPath(moduleBasePath, relativePath)
+          : item.changelogPath || null;
+        return item.changelogHandle;
+      }
+    } catch (err) {
+      console.warn('Changelog-Suche fehlgeschlagen', err);
     }
-  } catch (err) {
-    console.warn('Changelog-Suche fehlgeschlagen', err);
   }
 
   return null;
@@ -1419,6 +1525,9 @@ function closeChangelogModal() {
   if (changelogBodyEl) changelogBodyEl.innerHTML = '';
   if (changelogControlsEl) changelogControlsEl.classList.add('hidden');
   resetGlobalChangelogState();
+  resetModuleChangelogState();
+  currentChangelogContext = 'none';
+  showChangelogVersionControls();
   if (lastChangelogTrigger && typeof lastChangelogTrigger.focus === 'function') {
     try { lastChangelogTrigger.focus(); } catch {}
   }
@@ -1428,8 +1537,16 @@ function closeChangelogModal() {
 async function openChangelogModal(item) {
   if (!item || !changelogOverlay || !changelogBodyEl) return;
 
+  currentChangelogContext = 'module';
   resetGlobalChangelogState();
+  resetModuleChangelogState();
+  hideChangelogVersionControls();
   if (changelogControlsEl) changelogControlsEl.classList.add('hidden');
+  if (changelogShowFullBtn) {
+    changelogShowFullBtn.classList.remove('hidden');
+    changelogShowFullBtn.disabled = true;
+    changelogShowFullBtn.textContent = 'Ganzen Changelog anzeigen';
+  }
 
   lastChangelogTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
@@ -1466,7 +1583,12 @@ async function openChangelogModal(item) {
     if (requestId !== changelogRequestToken) return;
 
     const sections = parseChangelogSections(text);
-    let relevantSections = filterChangelogSections(sections, item.currentVersion, item.newVersion);
+    if (requestId !== changelogRequestToken) return;
+
+    moduleChangelogSections = sections;
+    moduleChangelogFilteredSections = [];
+    moduleChangelogNotice = null;
+    moduleChangelogShowFull = false;
 
     changelogBodyEl.innerHTML = '';
 
@@ -1475,8 +1597,12 @@ async function openChangelogModal(item) {
       empty.className = 'changelog-empty';
       empty.textContent = 'Die Changelog-Datei enthält keine Einträge.';
       changelogBodyEl.appendChild(empty);
+      updateModuleChangelogButtonState();
       return;
     }
+
+    let relevantSections = filterChangelogSections(sections, item.currentVersion, item.newVersion);
+    if (!Array.isArray(relevantSections)) relevantSections = [];
 
     if (!relevantSections.length) {
       const normalizedTargetVersion = normalizeVersionValue(item.newVersion);
@@ -1487,15 +1613,22 @@ async function openChangelogModal(item) {
       if (matchingSection) {
         relevantSections = [matchingSection];
       } else {
-        const notice = document.createElement('div');
-        notice.className = 'changelog-empty';
-        notice.textContent = 'Keine Einträge für den Versionsbereich gefunden. Vollständiger Changelog wird angezeigt.';
-        changelogBodyEl.appendChild(notice);
+        moduleChangelogNotice = 'Keine Einträge für den Versionsbereich gefunden. Vollständiger Changelog wird angezeigt.';
         relevantSections = sections;
       }
     }
 
-    appendChangelogSections(changelogBodyEl, relevantSections);
+    moduleChangelogFilteredSections = relevantSections;
+
+    if (changelogControlsEl) {
+      changelogControlsEl.classList.remove('hidden');
+    }
+    hideChangelogVersionControls();
+    if (changelogShowFullBtn) {
+      changelogShowFullBtn.classList.remove('hidden');
+    }
+
+    displayModuleChangelogSections('filtered');
   } catch (err) {
     console.error('Changelog konnte nicht geladen werden', err);
     if (requestId !== changelogRequestToken) return;
@@ -1538,6 +1671,13 @@ if (changelogVersionSelect) {
 
 if (changelogShowFullBtn) {
   changelogShowFullBtn.addEventListener('click', () => {
+    if (currentChangelogContext === 'module') {
+      if (!Array.isArray(moduleChangelogSections) || !moduleChangelogSections.length) return;
+      const nextMode = moduleChangelogShowFull ? 'filtered' : 'all';
+      displayModuleChangelogSections(nextMode);
+      return;
+    }
+
     if (!Array.isArray(cachedHtmlChangelogSections) || !cachedHtmlChangelogSections.length) return;
     currentGlobalChangelogMode = 'all';
     displayGlobalChangelogSections(cachedHtmlChangelogSections, 'all');
@@ -1726,6 +1866,39 @@ function renderUpdateList() {
   setUpdateStatusButton();
 }
 
+function prepareModuleChangelogItem(mod) {
+  if (!mod) return null;
+  const prepared = mod;
+  if (!prepared.type) prepared.type = 'module';
+  if (!prepared.displayName) prepared.displayName = prepared.name || prepared.moduleId || 'Modul';
+  prepared.currentVersion = typeof prepared.localVersion === 'undefined' ? null : prepared.localVersion;
+  prepared.newVersion = typeof prepared.updateVersion === 'undefined' || prepared.updateVersion === null
+    ? (prepared.localVersion ?? null)
+    : prepared.updateVersion;
+  if (!prepared.sourceRelPath) {
+    prepared.sourceRelPath = prepared.updateRelPath || prepared.localRelPath || null;
+  }
+  if (!prepared.targetRelPath) {
+    prepared.targetRelPath = prepared.localRelPath || prepared.updateRelPath || null;
+  }
+  return prepared;
+}
+
+function createModuleOverviewChangelogButton(mod) {
+  if (!mod) return null;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'version-overview-button';
+  btn.textContent = 'Changelog';
+  btn.title = `Changelog für ${mod.name || mod.moduleId || 'Modul'} anzeigen`;
+  btn.addEventListener('click', () => {
+    const item = prepareModuleChangelogItem(mod);
+    if (!item) return;
+    openChangelogModal(item);
+  });
+  return btn;
+}
+
 function renderVersionOverview() {
   if (!versionOverviewContainer || !versionOverviewRowsEl) return;
   const htmlInfo = versionOverview?.html || { localVersion: null, updateVersion: null };
@@ -1742,9 +1915,12 @@ function renderVersionOverview() {
   const headerUpdate = document.createElement('div');
   headerUpdate.className = 'version-overview-header text-right';
   headerUpdate.textContent = 'Update';
-  versionOverviewRowsEl.append(headerName, headerLocal, headerUpdate);
+  const headerActions = document.createElement('div');
+  headerActions.className = 'version-overview-header text-right';
+  headerActions.textContent = 'Changelog';
+  versionOverviewRowsEl.append(headerName, headerLocal, headerUpdate, headerActions);
 
-  const addRow = (label, localValue, updateValue) => {
+  const addRow = (label, localValue, updateValue, actionElement = null) => {
     const nameEl = document.createElement('div');
     nameEl.className = 'version-overview-name';
     nameEl.textContent = label;
@@ -1757,7 +1933,13 @@ function renderVersionOverview() {
     updateEl.className = 'version-overview-value';
     updateEl.textContent = updateValue;
 
-    versionOverviewRowsEl.append(nameEl, localEl, updateEl);
+    const actionEl = document.createElement('div');
+    actionEl.className = 'version-overview-action';
+    if (actionElement) {
+      actionEl.appendChild(actionElement);
+    }
+
+    versionOverviewRowsEl.append(nameEl, localEl, updateEl, actionEl);
   };
 
   const htmlLabel = htmlInfo.updateFileName || htmlInfo.localFileName || HTML_FILE_NAME;
@@ -1776,10 +1958,12 @@ function renderVersionOverview() {
   }
 
   modulesInfo.forEach(mod => {
+    const actionButton = createModuleOverviewChangelogButton(mod);
     addRow(
       mod.name,
       formatVersionDisplay(mod.localVersion),
-      formatVersionDisplay(mod.updateVersion)
+      formatVersionDisplay(mod.updateVersion),
+      actionButton
     );
   });
 }
@@ -1967,7 +2151,27 @@ async function collectVersionDiffs(updateHandle, localHandle) {
     const name = updateMeta?.name || localMeta?.name || moduleId;
     const localVersion = localMeta?.version || null;
     const updateVersion = updateMeta?.version || null;
-    modulesList.push({ moduleId, name, localVersion, updateVersion });
+    const moduleEntry = {
+      type: 'module',
+      moduleId,
+      name,
+      displayName: name,
+      localVersion,
+      updateVersion,
+      currentVersion: localVersion,
+      newVersion: updateVersion ?? localVersion,
+      updateRelPath: updateMeta?.relPath || null,
+      localRelPath: localMeta?.relPath || null,
+      sourceRelPath: updateMeta?.relPath || null,
+      targetRelPath: localMeta?.relPath || updateMeta?.relPath || null,
+      updateDirHandle: updateMeta?.dirHandle || null,
+      localDirHandle: localMeta?.dirHandle || null,
+      changelogHandle: null,
+      changelogFileName: null,
+      changelogPath: null,
+      changelogRelativePath: null
+    };
+    modulesList.push(moduleEntry);
 
     if (updateMeta && (localVersion !== updateVersion)) {
       const changelogInfo = updateMeta?.dirHandle ? await findChangelogFile(updateMeta.dirHandle) : null;
@@ -1975,6 +2179,12 @@ async function collectVersionDiffs(updateHandle, localHandle) {
       const changelogDisplayPath = changelogInfo && changelogRelativePath
         ? buildModuleChangelogDisplayPath(updateMeta?.relPath || '', changelogRelativePath)
         : null;
+      if (changelogInfo?.handle) {
+        moduleEntry.changelogHandle = changelogInfo.handle;
+        moduleEntry.changelogFileName = changelogInfo.name || null;
+        moduleEntry.changelogRelativePath = changelogRelativePath || null;
+        moduleEntry.changelogPath = changelogDisplayPath;
+      }
       diffs.push({
         type: 'module',
         moduleId,
@@ -2396,7 +2606,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           localFileName: versionOverview.html?.localFileName || HTML_FILE_NAME,
           updateFileName: null
         },
-        modules: versionOverview.modules.map(mod => ({ ...mod, updateVersion: null }))
+        modules: versionOverview.modules.map(mod => ({
+          ...mod,
+          updateVersion: null,
+          newVersion: mod.localVersion ?? null,
+          currentVersion: mod.localVersion ?? null,
+          updateDirHandle: null,
+          updateRelPath: null,
+          sourceRelPath: mod.localRelPath || null,
+          changelogHandle: null,
+          changelogFileName: null,
+          changelogPath: null,
+          changelogRelativePath: null
+        }))
       };
       renderUpdateList();
       await runUpdateCheck();
