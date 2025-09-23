@@ -2,10 +2,10 @@
   "name": "Findings Tabelle",
   "icon": "📊",
   "script": "renderFindingsSpreadsheet",
-  "minW": 6,
+  "minW": 2,
   "minH": 12,
-  "w": 8,
+  "w": 2,
   "h": 16,
   "moduleId": "FindingsSpreadsheet",
-  "version": "1.0.1"
+  "version": "1.0.2"
 }

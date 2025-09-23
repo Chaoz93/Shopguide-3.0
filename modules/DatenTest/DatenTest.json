@@ -2,14 +2,14 @@
   "name": "Shared & Local Text",
   "icon": "📝",
   "script": "renderSharedLocal",
-  "minW": 4,
+  "minW": 2,
   "minH": 6,
-  "w": 5,
+  "w": 2,
   "h": 8,
   "settings": {
     "title": "Shared & Local Text",
     "moduleKey": "sharedLocal"
   },
   "moduleId": "DatenTest",
-  "version": "1.0.1"
+  "version": "1.0.2"
 }

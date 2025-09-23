@@ -2,9 +2,9 @@
   "name": "Link-Knöpfe",
   "icon": "📟",
   "script": "renderOpsPanel",
-  "minW": 4,
+  "minW": 2,
   "minH": 4,
-  "w": 4,
+  "w": 2,
   "h": 6,
   "settings": {
     "leftTop": "Event",
@@ -17,5 +17,5 @@
     ]
   },
   "moduleId": "LinkButtons",
-  "version": "1.0.1"
+  "version": "1.0.2"
 }

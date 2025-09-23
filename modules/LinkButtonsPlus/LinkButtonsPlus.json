@@ -2,9 +2,9 @@
   "name": "Link-Knöpfe Plus",
   "icon": "📟",
   "script": "renderLinkButtonsPlus",
-  "minW": 5,
+  "minW": 2,
   "minH": 10,
-  "w": 6,
+  "w": 2,
   "h": 12,
   "settings": {
     "leftTop": "Event",
@@ -19,5 +19,5 @@
     ]
   },
   "moduleId": "LinkButtonsPlus",
-  "version": "1.0.1"
+  "version": "1.0.2"
 }

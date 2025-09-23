@@ -2,13 +2,13 @@
   "name": "Namensregeln",
   "icon": "🏷️",
   "script": "renderNamingRules",
-  "minW": 5,
+  "minW": 2,
   "minH": 10,
-  "w": 6,
+  "w": 2,
   "h": 14,
   "settings": {
     "title": "Namensregeln"
   },
   "moduleId": "Namensregeln",
-  "version": "1.0.1"
+  "version": "1.0.2"
 }

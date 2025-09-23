@@ -2,10 +2,10 @@
   "name": "Unit List",
   "script": "renderUnitList",
   "icon": "⭐",
-  "minW": 3,
+  "minW": 2,
   "minH": 4,
   "maxW": 6,
-  "w": 4,
+  "w": 2,
   "h": 6,
   "items": [
     "Unit 1",
@@ -13,5 +13,5 @@
     "Unit 3"
   ],
   "moduleId": "UnitList",
-  "version": "1.0.1"
+  "version": "1.0.2"
 }

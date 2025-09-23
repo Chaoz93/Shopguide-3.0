@@ -2,14 +2,14 @@
   "name": "Arbeitszeit",
   "icon": "⏱️",
   "script": "renderArbeitszeit",
-  "w": 4,
+  "w": 2,
   "h": 8,
-  "minW": 3,
+  "minW": 2,
   "minH": 6,
   "settings": {
     "regularHours": 7.5,
     "dressTime": 2
   },
   "moduleId": "Arbeitszeit",
-  "version": "1.0.1"
+  "version": "1.0.2"
 }

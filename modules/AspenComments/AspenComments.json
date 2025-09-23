@@ -3,13 +3,13 @@
   "title": "Unit Comments",
   "icon": "📝",
   "script": "renderAspenComments",
-  "minW": 5,
+  "minW": 2,
   "minH": 10,
-  "w": 6,
+  "w": 2,
   "h": 14,
   "settings": {
     "title": "Unit Comments"
   },
   "moduleId": "AspenComments",
-  "version": "1.0.1"
+  "version": "1.0.2"
 }
