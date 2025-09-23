@@ -1189,11 +1189,20 @@ async function openChangelogModal(item) {
     }
 
     if (!relevantSections.length) {
-      const notice = document.createElement('div');
-      notice.className = 'changelog-empty';
-      notice.textContent = 'Keine Einträge für den Versionsbereich gefunden. Vollständiger Changelog wird angezeigt.';
-      changelogBodyEl.appendChild(notice);
-      relevantSections = sections;
+      const normalizedTargetVersion = normalizeVersionValue(item.newVersion);
+      const matchingSection = normalizedTargetVersion
+        ? sections.find(sec => sec.version === normalizedTargetVersion)
+        : null;
+
+      if (matchingSection) {
+        relevantSections = [matchingSection];
+      } else {
+        const notice = document.createElement('div');
+        notice.className = 'changelog-empty';
+        notice.textContent = 'Keine Einträge für den Versionsbereich gefunden. Vollständiger Changelog wird angezeigt.';
+        changelogBodyEl.appendChild(notice);
+        relevantSections = sections;
+      }
     }
 
     relevantSections.forEach(section => {
