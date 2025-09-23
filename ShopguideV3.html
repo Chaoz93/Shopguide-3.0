@@ -638,6 +638,7 @@ let appSettings = {
 const layoutFileName = 'layout.json';
 const settingsFileName = 'settings.json';
 const HTML_FILE_NAME = 'ShopguideV3.html';
+const HTML_CHANGELOG_FILE = 'ShopguideChangelog.txt';
 const ACTIVE_TAB_STORAGE_KEY = 'modulesLayoutActiveTab';
 let rootDirHandle = null;
 let updateDirHandle = null;
@@ -1064,6 +1065,25 @@ function buildModuleChangelogDisplayPath(baseModulePath, relativeFilePath) {
 async function ensureChangelogHandle(item) {
   if (!item) return null;
   if (item.changelogHandle) return item.changelogHandle;
+  if (item.type === 'html') {
+    const dirHandle = item.updateDirHandle || updateDirHandle;
+    const fileName = item.changelogFileName || HTML_CHANGELOG_FILE;
+    if (!dirHandle?.getFileHandle || !fileName) return null;
+
+    try {
+      const handle = await dirHandle.getFileHandle(fileName, { create: false });
+      item.changelogHandle = handle;
+      if (!item.changelogFileName) item.changelogFileName = fileName;
+      if (!item.changelogPath) item.changelogPath = fileName;
+      item.changelogRelativePath = null;
+      return handle;
+    } catch (err) {
+      if (err?.name !== 'NotFoundError') {
+        console.warn('HTML-Changelog konnte nicht gelesen werden', err);
+      }
+      return null;
+    }
+  }
   if (!item.updateDirHandle) return null;
 
   try {
@@ -1354,7 +1374,7 @@ function renderUpdateList() {
     const actionWrapper = document.createElement('div');
     actionWrapper.className = 'flex justify-end flex-wrap gap-2';
 
-    if (item.type === 'module') {
+    if (item.type === 'module' || item.type === 'html') {
       const changelogBtn = document.createElement('button');
       changelogBtn.type = 'button';
       changelogBtn.className = 'bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded hover:bg-gray-100';
@@ -1579,8 +1599,19 @@ async function collectVersionDiffs(updateHandle, localHandle) {
 
   let localHtml = null;
   let updateHtml = null;
+  let htmlChangelogHandle = null;
   try { localHtml = await readHtmlVersion(localHandle); } catch {}
   try { updateHtml = await readHtmlVersion(updateHandle); } catch {}
+
+  if (updateHandle?.getFileHandle) {
+    try {
+      htmlChangelogHandle = await updateHandle.getFileHandle(HTML_CHANGELOG_FILE, { create: false });
+    } catch (err) {
+      if (err?.name !== 'NotFoundError') {
+        console.warn('HTML-Changelog konnte nicht gelesen werden', err);
+      }
+    }
+  }
 
   if (localHtml) {
     overview.html.localVersion = localHtml.version || null;
@@ -1602,7 +1633,12 @@ async function collectVersionDiffs(updateHandle, localHandle) {
         currentVersion: localVersion,
         newVersion: updateHtml.version || null,
         sourcePath: sourceFileName,
-        targetPath: localHtml?.fileName || HTML_FILE_NAME
+        targetPath: localHtml?.fileName || HTML_FILE_NAME,
+        updateDirHandle: updateHandle || null,
+        changelogHandle: htmlChangelogHandle || null,
+        changelogFileName: htmlChangelogHandle ? HTML_CHANGELOG_FILE : null,
+        changelogPath: htmlChangelogHandle ? HTML_CHANGELOG_FILE : null,
+        changelogRelativePath: null
       });
     }
   }
