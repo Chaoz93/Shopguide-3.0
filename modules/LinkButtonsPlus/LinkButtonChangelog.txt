@@ -1,0 +1,31 @@
+# Changelog – LinkButtons Plus
+
+Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.  
+Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
+
+---
+
+## [1.0.2] – 2025-09-23
+### Changed
+- Standard- und Mindestbreite auf 2 Grid-Spalten × 12 Zeilen Höhe reduziert  
+  → Modul passt auch in schmalen Layouts ohne Scrollen  
+- Manifest-Version auf 1.0.2 aktualisiert  
+
+## [1.0.1] – 2025-09-20
+### Changed
+- Standard- und Mindestgröße auf 6 × 12 bzw. 5 × 10 Grid-Zellen erhöht  
+  → Scrollbalken vermieden  
+- Manifest-Version auf 1.0.1 aktualisiert  
+
+## [1.0.0] – 2025-09-15
+### Added
+- Erstes Manifest mit `moduleId` und Versionierung (1.0.0)  
+- Rendern der Kacheln „Event“ / „CMDS“ sowie bis zu 6 zusätzliche, beschriftbare Kacheln  
+- Workforce-Button, der bei Bedarf automatisch ergänzt wird  
+- Deeplinks zu SAP, eDoc, Testreport Viewer und Workforce  
+  → Modul liest benötigte AUN-/Meldungs-/Teil-/Seriennummern aus Excel-Dictionary und speichert sie im Browser  
+
+### Changed
+- Kontextmenü zum Ein-/Ausblenden einzelner Buttons  
+- Auswahl der Dictionary-Datei zum Bearbeiten dauerhaft speicherbarer Workforce-Filter  
+  (inkl. Enter-Navigation & gesperrter Event-Propagation)
