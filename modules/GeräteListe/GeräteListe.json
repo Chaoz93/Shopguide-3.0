@@ -3,12 +3,12 @@
   "icon": "🧾",
   "script": "renderExcelUnitBoard",
   "minW": 2,
-  "minH": 2,
+  "minH": 10,
   "w": 2,
-  "h": 2,
+  "h": 14,
   "settings": {
     "title": "Excel Unit Board"
   },
   "moduleId": "GeräteListe",
-  "version": "1.0"
+  "version": "1.0.2"
 }

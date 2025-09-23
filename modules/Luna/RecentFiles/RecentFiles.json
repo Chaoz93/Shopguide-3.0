@@ -3,9 +3,9 @@
   "icon": "🗂️",
   "script": "renderRecentFiles",
   "minW": 2,
-  "minH": 2,
+  "minH": 7,
   "w": 2,
-  "h": 2,
+  "h": 10,
   "moduleId": "RecentFiles",
-  "version": "1.0"
+  "version": "1.0.2"
 }

@@ -3,9 +3,9 @@
   "icon": "📋",
   "script": "renderRecordSheet",
   "minW": 2,
-  "minH": 2,
-  "w": 4,
-  "h": 4,
+  "minH": 12,
+  "w": 2,
+  "h": 16,
   "settings": {
     "columns": 2,
     "fields": [
@@ -37,5 +37,5 @@
     ]
   },
   "moduleId": "Gerätedaten",
-  "version": "1.0"
+  "version": "1.0.2"
 }

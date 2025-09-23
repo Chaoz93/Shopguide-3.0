@@ -2,10 +2,10 @@
   "name": "Arbeitszeit Übersicht",
   "icon": "📅",
   "script": "renderArbeitszeitOverview",
-  "w": 4,
-  "h": 5,
-  "minW": 3,
-  "minH": 3,
+  "w": 2,
+  "h": 12,
+  "minW": 2,
+  "minH": 8,
   "moduleId": "Arbeitszeit",
-  "version": "1.0"
+  "version": "1.0.2"
 }

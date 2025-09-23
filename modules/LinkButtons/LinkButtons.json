@@ -3,9 +3,9 @@
   "icon": "📟",
   "script": "renderOpsPanel",
   "minW": 2,
-  "minH": 2,
-  "w": 3,
-  "h": 3,
+  "minH": 4,
+  "w": 2,
+  "h": 6,
   "settings": {
     "leftTop": "Event",
     "leftBottom": "CMDS",
@@ -17,5 +17,5 @@
     ]
   },
   "moduleId": "LinkButtons",
-  "version": "1.0"
+  "version": "1.0.2"
 }

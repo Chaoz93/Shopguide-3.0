@@ -2,12 +2,12 @@
   "name": "Workorder",
   "icon": "📝",
   "script": "renderWorkorderEditable",
-  "w": 4,
-  "h": 7,
-  "minW": 1,
-  "minH": 5,
+  "w": 2,
+  "h": 12,
+  "minW": 2,
+  "minH": 8,
   "maxW": 10,
   "maxH": 50,
   "moduleId": "Workorder",
-  "version": "1.0"
+  "version": "1.0.2"
 }

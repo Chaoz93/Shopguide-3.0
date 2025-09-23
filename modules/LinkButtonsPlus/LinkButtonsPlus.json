@@ -3,9 +3,9 @@
   "icon": "📟",
   "script": "renderLinkButtonsPlus",
   "minW": 2,
-  "minH": 2,
+  "minH": 10,
   "w": 2,
-  "h": 14,
+  "h": 12,
   "settings": {
     "leftTop": "Event",
     "leftBottom": "CMDS",
@@ -19,5 +19,5 @@
     ]
   },
   "moduleId": "LinkButtonsPlus",
-  "version": "1.0"
+  "version": "1.0.2"
 }

@@ -2,8 +2,10 @@
   "name": "Record Viewer",
   "icon": "📄",
   "script": "renderRecordViewer",
-  "minW": 4,
-  "minH": 4,
+  "minW": 2,
+  "minH": 10,
+  "w": 2,
+  "h": 14,
   "moduleId": "RecordViewer",
-  "version": "1.0"
+  "version": "1.0.2"
 }
