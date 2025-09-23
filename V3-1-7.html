@@ -561,6 +561,9 @@
               </div>
             </div>
             <div id="updates-empty-state" class="text-sm text-gray-500">Keine Updates erforderlich.</div>
+            <div id="update-all-container" class="flex justify-end hidden">
+              <button id="update-all" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">Alle aktualisieren</button>
+            </div>
             <div class="updates-table-container overflow-x-auto">
               <table class="min-w-full text-sm border border-gray-200 rounded" id="updates-table">
                 <thead class="bg-gray-100">
@@ -707,6 +710,8 @@ const changelogTitleEl = document.getElementById('changelog-title');
 const changelogSubtitleEl = document.getElementById('changelog-subtitle');
 const changelogBodyEl = document.getElementById('changelog-body');
 const closeChangelogBtn = document.getElementById('close-changelog');
+const updateAllContainer = document.getElementById('update-all-container');
+const updateAllBtn = document.getElementById('update-all');
 // Settings inputs
 const inputAppBg = document.getElementById('setting-app-bg');
 const inputBorderColor = document.getElementById('setting-border-color');
@@ -1274,6 +1279,12 @@ function setUpdateStatusButton(state) {
 function renderUpdateList() {
   if (!updatesTableBody || !updatesEmptyState) return;
   updatesTableBody.innerHTML = '';
+  if (updateAllContainer) updateAllContainer.classList.add('hidden');
+  if (updateAllBtn) {
+    updateAllBtn.disabled = true;
+    updateAllBtn.textContent = 'Alle aktualisieren';
+    updateAllBtn.classList.remove('opacity-60','cursor-wait','cursor-not-allowed');
+  }
   if (pendingRootPermission) {
     updatesEmptyState.textContent = 'Bitte erlauben Sie den Zugriff auf den Arbeitsordner.';
     updatesEmptyState.classList.remove('hidden');
@@ -1318,6 +1329,12 @@ function renderUpdateList() {
   updatesEmptyState.classList.add('hidden');
   if (updateCheckStatus && !lastUpdateError) {
     updateCheckStatus.textContent = `${pendingUpdates.length} Update${pendingUpdates.length === 1 ? '' : 's'} verfügbar.`;
+  }
+
+  if (updateAllContainer) updateAllContainer.classList.remove('hidden');
+  if (updateAllBtn) {
+    updateAllBtn.disabled = false;
+    updateAllBtn.textContent = 'Alle aktualisieren';
   }
 
   pendingUpdates.forEach((item, index) => {
@@ -1652,7 +1669,7 @@ async function ensureDirectoryChain(root, parts, { create = true } = {}) {
   return current;
 }
 
-async function applySingleUpdate(item) {
+async function applySingleUpdate(item, { skipRecheck = false } = {}) {
   if (!rootDirHandle) return;
   if (!item) return;
 
@@ -1692,7 +1709,9 @@ async function applySingleUpdate(item) {
     throw err;
   }
 
-  await runUpdateCheck();
+  if (!skipRecheck) {
+    await runUpdateCheck();
+  }
 }
 
 async function syncDirectoryContents(sourceDir, targetDir) {
@@ -2015,6 +2034,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateStatusBtn.addEventListener('click', () => {
       if (updateStatusBtn.disabled) return;
       openSettings('updates');
+    });
+  }
+
+  if (updateAllBtn) {
+    updateAllBtn.addEventListener('click', async () => {
+      if (updateAllBtn.disabled || !pendingUpdates.length) return;
+
+      const itemsToUpdate = pendingUpdates.slice();
+      const originalText = updateAllBtn.textContent;
+      updateAllBtn.disabled = true;
+      updateAllBtn.classList.add('opacity-60','cursor-wait','cursor-not-allowed');
+      updateAllBtn.textContent = 'Aktualisiere…';
+
+      if (updatesTableBody) {
+        updatesTableBody.querySelectorAll('button').forEach(btn => {
+          btn.disabled = true;
+          btn.classList.add('opacity-60','cursor-not-allowed');
+        });
+      }
+
+      let encounteredError = false;
+      try {
+        for (const item of itemsToUpdate) {
+          try {
+            await applySingleUpdate(item, { skipRecheck: true });
+          } catch (err) {
+            encounteredError = true;
+            console.error('Fehler beim Aktualisieren', err);
+          }
+        }
+      } catch (err) {
+        encounteredError = true;
+        console.error('Fehler beim Aktualisieren', err);
+      } finally {
+        try {
+          await runUpdateCheck();
+        } catch (err) {
+          encounteredError = true;
+          console.error('Fehler beim Aktualisieren', err);
+        }
+        updateAllBtn.disabled = false;
+        updateAllBtn.classList.remove('opacity-60','cursor-wait','cursor-not-allowed');
+        updateAllBtn.textContent = originalText;
+        if (encounteredError) {
+          alert('Beim Aktualisieren ist ein Fehler aufgetreten.');
+        }
+      }
     });
   }
 
