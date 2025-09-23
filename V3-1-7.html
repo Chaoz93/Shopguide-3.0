@@ -528,7 +528,12 @@ let updateCheckInProgress = false;
 let originalSettings = null;
 let lastUpdateError = false;
 let versionOverview = {
-  html: { localVersion: null, updateVersion: null },
+  html: {
+    localVersion: null,
+    updateVersion: null,
+    localFileName: HTML_FILE_NAME,
+    updateFileName: null
+  },
   modules: []
 };
 let rerunUpdateCheckWhenUnlocked = false;
@@ -965,8 +970,9 @@ function renderVersionOverview() {
     versionOverviewRowsEl.append(nameEl, localEl, updateEl);
   };
 
+  const htmlLabel = htmlInfo.updateFileName || htmlInfo.localFileName || HTML_FILE_NAME;
   addRow(
-    `HTML (${HTML_FILE_NAME})`,
+    `HTML (${htmlLabel})`,
     formatVersionDisplay(htmlInfo.localVersion),
     formatVersionDisplay(htmlInfo.updateVersion)
   );
@@ -990,19 +996,50 @@ function renderVersionOverview() {
 
 async function readHtmlVersion(rootHandle) {
   if (!rootHandle) return null;
-  try {
-    const fileHandle = await rootHandle.getFileHandle(HTML_FILE_NAME, { create: false });
+
+  const readFromHandle = async (fileHandle, fileName) => {
     const file = await fileHandle.getFile();
     const text = await file.text();
     const match = text.match(/<!--\s*Version:\s*([^>]+?)\s*-->/i);
     const version = match ? match[1].trim() : null;
-    return { version, fileHandle };
+    return { version, fileHandle, fileName };
+  };
+
+  try {
+    const fileHandle = await rootHandle.getFileHandle(HTML_FILE_NAME, { create: false });
+    return await readFromHandle(fileHandle, HTML_FILE_NAME);
   } catch (e) {
     if (e?.name !== 'NotFoundError') {
       console.warn('HTML-Version konnte nicht gelesen werden', e);
+      return null;
     }
+  }
+
+  const htmlCandidates = [];
+  try {
+    for await (const entry of rootHandle.values()) {
+      if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.html')) {
+        htmlCandidates.push(entry.name);
+        if (htmlCandidates.length > 1) break;
+      }
+    }
+  } catch (err) {
+    console.warn('HTML-Dateien konnten nicht ermittelt werden', err);
     return null;
   }
+
+  if (htmlCandidates.length === 1) {
+    const fallbackName = htmlCandidates[0];
+    try {
+      const fileHandle = await rootHandle.getFileHandle(fallbackName, { create: false });
+      return await readFromHandle(fileHandle, fallbackName);
+    } catch (err) {
+      console.warn('Fallback-HTML-Version konnte nicht gelesen werden', err);
+      return null;
+    }
+  }
+
+  return null;
 }
 
 async function gatherModulesMetadata(rootHandle) {
@@ -1070,7 +1107,12 @@ async function gatherModulesMetadata(rootHandle) {
 
 async function collectVersionDiffs(updateHandle, localHandle) {
   const overview = {
-    html: { localVersion: null, updateVersion: null },
+    html: {
+      localVersion: null,
+      updateVersion: null,
+      localFileName: HTML_FILE_NAME,
+      updateFileName: null
+    },
     modules: []
   };
   const diffs = [];
@@ -1080,19 +1122,27 @@ async function collectVersionDiffs(updateHandle, localHandle) {
   try { localHtml = await readHtmlVersion(localHandle); } catch {}
   try { updateHtml = await readHtmlVersion(updateHandle); } catch {}
 
-  if (localHtml) overview.html.localVersion = localHtml.version || null;
-  if (updateHtml) overview.html.updateVersion = updateHtml.version || null;
+  if (localHtml) {
+    overview.html.localVersion = localHtml.version || null;
+    overview.html.localFileName = localHtml.fileName || HTML_FILE_NAME;
+  }
+  if (updateHtml) {
+    overview.html.updateVersion = updateHtml.version || null;
+    overview.html.updateFileName = updateHtml.fileName || null;
+  }
 
   if (updateHtml && (updateHtml.version || !localHtml)) {
     const localVersion = localHtml?.version || null;
     if (localVersion !== updateHtml.version) {
+      const sourceFileName = updateHtml.fileName || HTML_FILE_NAME;
       diffs.push({
         type: 'html',
-        path: HTML_FILE_NAME,
-        displayName: HTML_FILE_NAME,
+        path: sourceFileName,
+        displayName: sourceFileName,
         currentVersion: localVersion,
         newVersion: updateHtml.version || null,
-        sourcePath: HTML_FILE_NAME
+        sourcePath: sourceFileName,
+        targetPath: localHtml?.fileName || HTML_FILE_NAME
       });
     }
   }
@@ -1157,19 +1207,21 @@ async function applySingleUpdate(item) {
   try {
     if (item.type === 'html') {
       if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
-      const updateFileHandle = await updateDirHandle.getFileHandle(item.sourcePath || HTML_FILE_NAME, { create: false });
+      const sourceFileName = item.sourcePath || HTML_FILE_NAME;
+      const updateFileHandle = await updateDirHandle.getFileHandle(sourceFileName, { create: false });
       const updateFile = await updateFileHandle.getFile();
-      const targetFileHandle = await rootDirHandle.getFileHandle(HTML_FILE_NAME, { create: true });
+      const targetFileHandle = await rootDirHandle.getFileHandle(sourceFileName, { create: true });
       const writable = await targetFileHandle.createWritable();
       await writable.write(await updateFile.arrayBuffer());
       await writable.close();
+      await removeOtherHtmlFiles(rootDirHandle, sourceFileName);
     } else if (item.type === 'module') {
       if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
       const sourceSegments = ['modules', ...(item.sourceRelPath ? item.sourceRelPath.split('/') : [])];
       const targetSegments = ['modules', ...(item.targetRelPath ? item.targetRelPath.split('/') : [])];
       const sourceDir = await ensureDirectoryChain(updateDirHandle, sourceSegments, { create: false });
       const targetDir = await ensureDirectoryChain(rootDirHandle, targetSegments, { create: true });
-      await copyDirectoryContents(sourceDir, targetDir);
+      await syncDirectoryContents(sourceDir, targetDir);
     } else if (item.sourcePath) {
       if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
       const segments = item.sourcePath.split('/');
@@ -1191,17 +1243,59 @@ async function applySingleUpdate(item) {
   await runUpdateCheck();
 }
 
-async function copyDirectoryContents(sourceDir, targetDir) {
+async function syncDirectoryContents(sourceDir, targetDir) {
+  const sourceEntries = new Map();
   for await (const entry of sourceDir.values()) {
+    sourceEntries.set(entry.name, entry);
+  }
+
+  const targetEntries = [];
+  for await (const entry of targetDir.values()) {
+    targetEntries.push(entry);
+  }
+
+  for (const entry of targetEntries) {
+    if (!sourceEntries.has(entry.name)) {
+      try {
+        await targetDir.removeEntry(entry.name, { recursive: true });
+      } catch (err) {
+        if (err?.name !== 'NotFoundError') {
+          console.warn('Eintrag konnte nicht entfernt werden', err);
+        }
+      }
+    }
+  }
+
+  for (const [name, entry] of sourceEntries.entries()) {
     if (entry.kind === 'file') {
       const file = await entry.getFile();
-      const targetFileHandle = await targetDir.getFileHandle(entry.name, { create: true });
+      const targetFileHandle = await targetDir.getFileHandle(name, { create: true });
       const writable = await targetFileHandle.createWritable();
       await writable.write(await file.arrayBuffer());
       await writable.close();
     } else if (entry.kind === 'directory') {
-      const subTarget = await targetDir.getDirectoryHandle(entry.name, { create: true });
-      await copyDirectoryContents(entry, subTarget);
+      const subTarget = await targetDir.getDirectoryHandle(name, { create: true });
+      await syncDirectoryContents(entry, subTarget);
+    }
+  }
+}
+
+async function removeOtherHtmlFiles(rootHandle, keepFileName) {
+  if (!rootHandle) return;
+  const toRemove = [];
+  for await (const entry of rootHandle.values()) {
+    if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.html') && entry.name !== keepFileName) {
+      toRemove.push(entry.name);
+    }
+  }
+
+  for (const name of toRemove) {
+    try {
+      await rootHandle.removeEntry(name);
+    } catch (err) {
+      if (err?.name !== 'NotFoundError') {
+        console.warn(`Konnte HTML-Datei ${name} nicht entfernen`, err);
+      }
     }
   }
 }
@@ -1221,7 +1315,15 @@ async function runUpdateCheck() {
   }
 
   if (!rootDirHandle && !updateDirHandle) {
-    versionOverview = { html: { localVersion: null, updateVersion: null }, modules: [] };
+    versionOverview = {
+      html: {
+        localVersion: null,
+        updateVersion: null,
+        localFileName: HTML_FILE_NAME,
+        updateFileName: null
+      },
+      modules: []
+    };
     pendingUpdates = [];
     rerunUpdateCheckWhenUnlocked = false;
     if (updateCheckStatus) updateCheckStatus.textContent = '';
@@ -1444,7 +1546,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       pendingUpdatePermission = false;
       pendingUpdates = [];
       versionOverview = {
-        html: { localVersion: versionOverview.html?.localVersion || null, updateVersion: null },
+        html: {
+          localVersion: versionOverview.html?.localVersion || null,
+          updateVersion: null,
+          localFileName: versionOverview.html?.localFileName || HTML_FILE_NAME,
+          updateFileName: null
+        },
         modules: versionOverview.modules.map(mod => ({ ...mod, updateVersion: null }))
       };
       renderUpdateList();
