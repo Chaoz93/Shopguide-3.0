@@ -1,0 +1,8 @@
+Checklist Module
+================
+
+1.0.0 – Neueinführung
+---------------------
+- Neues Checklist-Modul mit Sortable.js Aufgabenliste.
+- Kontextmenü zum Wählen eines Vorlagen-Ordners.
+- Automatische Aufgaben pro Meldung inkl. P/N-spezifischer Schritte.

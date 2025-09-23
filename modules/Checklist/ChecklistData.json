@@ -1,0 +1,53 @@
+{
+  "__meta": {
+    "version": 1,
+    "updatedAt": null
+  },
+  "templates": {
+    "baseSteps": [
+      {
+        "id": "base-nameplates",
+        "text": "Nameplates überprüfen",
+        "requires": [],
+        "lockToEnd": false
+      },
+      {
+        "id": "base-sichtpruefung",
+        "text": "Sichtprüfung",
+        "requires": [],
+        "lockToEnd": false
+      },
+      {
+        "id": "base-eingangstest",
+        "text": "Eingangstest",
+        "requires": [],
+        "lockToEnd": false
+      },
+      {
+        "id": "base-zertifizieren",
+        "text": "Zertifizieren lassen",
+        "requires": [
+          "base-nameplates",
+          "base-sichtpruefung",
+          "base-eingangstest"
+        ],
+        "lockToEnd": true
+      }
+    ],
+    "partSpecific": [
+      {
+        "prefix": "A320",
+        "text": "Sonderprüfung für A320 durchführen"
+      },
+      {
+        "prefix": "A320",
+        "text": "A320-spezifische Dokumentation vorbereiten"
+      },
+      {
+        "prefix": "BOE",
+        "text": "Boeing-spezifischen Schritt ergänzen"
+      }
+    ]
+  },
+  "meldungen": {}
+}
