@@ -1,4 +1,4 @@
-<!-- Version: 3.4.0 -->
+<!-- Version: 3.4.1 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -732,10 +732,21 @@ let originalSettings = null;
 let lastUpdateError = false;
 let versionOverview = {
   html: {
+    type: 'html',
+    displayName: HTML_FILE_NAME,
+    name: HTML_FILE_NAME,
     localVersion: null,
     updateVersion: null,
+    currentVersion: null,
+    newVersion: null,
     localFileName: HTML_FILE_NAME,
-    updateFileName: null
+    updateFileName: null,
+    updateDirHandle: null,
+    localDirHandle: null,
+    changelogHandle: null,
+    changelogFileName: HTML_CHANGELOG_FILE,
+    changelogPath: HTML_CHANGELOG_FILE,
+    changelogRelativePath: null
   },
   modules: []
 };
@@ -1439,23 +1450,46 @@ async function ensureChangelogHandle(item) {
   if (!item) return null;
   if (item.changelogHandle) return item.changelogHandle;
   if (item.type === 'html') {
-    const dirHandle = item.updateDirHandle || updateDirHandle;
     const fileName = item.changelogFileName || HTML_CHANGELOG_FILE;
-    if (!dirHandle?.getFileHandle || !fileName) return null;
+    if (!fileName) return null;
 
-    try {
-      const handle = await dirHandle.getFileHandle(fileName, { create: false });
-      item.changelogHandle = handle;
-      if (!item.changelogFileName) item.changelogFileName = fileName;
-      if (!item.changelogPath) item.changelogPath = fileName;
-      item.changelogRelativePath = null;
-      return handle;
-    } catch (err) {
-      if (err?.name !== 'NotFoundError') {
-        console.warn('HTML-Changelog konnte nicht gelesen werden', err);
+    const handles = [];
+    if (item.updateDirHandle) handles.push(item.updateDirHandle);
+    if (updateDirHandle) handles.push(updateDirHandle);
+    if (item.localDirHandle) handles.push(item.localDirHandle);
+    if (rootDirHandle) handles.push(rootDirHandle);
+
+    const uniqueHandles = [];
+    const seenHandles = new Set();
+    handles.forEach(handle => {
+      if (handle && !seenHandles.has(handle)) {
+        seenHandles.add(handle);
+        uniqueHandles.push(handle);
       }
-      return null;
+    });
+
+    for (const dirHandle of uniqueHandles) {
+      if (!dirHandle?.getFileHandle) continue;
+      try {
+        const handle = await dirHandle.getFileHandle(fileName, { create: false });
+        item.changelogHandle = handle;
+        item.changelogFileName = fileName;
+        if (!item.changelogPath) item.changelogPath = fileName;
+        item.changelogRelativePath = null;
+        if (!item.updateDirHandle && dirHandle === updateDirHandle) {
+          item.updateDirHandle = dirHandle;
+        }
+        if (!item.localDirHandle && dirHandle === rootDirHandle) {
+          item.localDirHandle = dirHandle;
+        }
+        return handle;
+      } catch (err) {
+        if (err?.name !== 'NotFoundError') {
+          console.warn('HTML-Changelog konnte nicht gelesen werden', err);
+        }
+      }
     }
+    return null;
   }
   if (!item.updateDirHandle && !item.localDirHandle) return null;
 
@@ -1866,6 +1900,51 @@ function renderUpdateList() {
   setUpdateStatusButton();
 }
 
+function prepareHtmlChangelogItem(info) {
+  if (!info) return null;
+  const prepared = info;
+  prepared.type = 'html';
+  if (!prepared.displayName) {
+    prepared.displayName = info.updateFileName || info.localFileName || HTML_FILE_NAME;
+  }
+  if (!prepared.name) {
+    prepared.name = prepared.displayName;
+  }
+  const resolvedCurrent = (typeof info.localVersion === 'undefined')
+    ? (prepared.currentVersion ?? null)
+    : (info.localVersion ?? null);
+  prepared.currentVersion = resolvedCurrent;
+  const hasUpdateVersion = typeof info.updateVersion !== 'undefined' && info.updateVersion !== null;
+  const resolvedTarget = hasUpdateVersion ? info.updateVersion : resolvedCurrent;
+  prepared.newVersion = resolvedTarget;
+  if (!prepared.sourcePath) {
+    prepared.sourcePath = info.updateFileName || info.localFileName || HTML_FILE_NAME;
+  }
+  if (!prepared.targetPath) {
+    prepared.targetPath = info.localFileName || HTML_FILE_NAME;
+  }
+  if (!prepared.updateDirHandle && updateDirHandle) {
+    prepared.updateDirHandle = updateDirHandle;
+  }
+  if (!prepared.localDirHandle && rootDirHandle) {
+    prepared.localDirHandle = rootDirHandle;
+  }
+  if (!prepared.changelogHandle && htmlUpdateChangelogHandle) {
+    prepared.changelogHandle = htmlUpdateChangelogHandle;
+    if (!prepared.changelogFileName) {
+      prepared.changelogFileName = htmlUpdateChangelogFileName || HTML_CHANGELOG_FILE;
+    }
+  }
+  if (!prepared.changelogFileName) {
+    prepared.changelogFileName = HTML_CHANGELOG_FILE;
+  }
+  if (!prepared.changelogPath) {
+    prepared.changelogPath = prepared.changelogFileName;
+  }
+  prepared.changelogRelativePath = null;
+  return prepared;
+}
+
 function prepareModuleChangelogItem(mod) {
   if (!mod) return null;
   const prepared = mod;
@@ -1882,6 +1961,22 @@ function prepareModuleChangelogItem(mod) {
     prepared.targetRelPath = prepared.localRelPath || prepared.updateRelPath || null;
   }
   return prepared;
+}
+
+function createHtmlOverviewChangelogButton(htmlInfo) {
+  if (!htmlInfo) return null;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'version-overview-button';
+  const label = htmlInfo.displayName || htmlInfo.updateFileName || htmlInfo.localFileName || HTML_FILE_NAME;
+  btn.textContent = 'Changelog';
+  btn.title = `Changelog für ${label} anzeigen`;
+  btn.addEventListener('click', () => {
+    const item = prepareHtmlChangelogItem(htmlInfo);
+    if (!item) return;
+    openChangelogModal(item);
+  });
+  return btn;
 }
 
 function createModuleOverviewChangelogButton(mod) {
@@ -1943,10 +2038,12 @@ function renderVersionOverview() {
   };
 
   const htmlLabel = htmlInfo.updateFileName || htmlInfo.localFileName || HTML_FILE_NAME;
+  const htmlButton = createHtmlOverviewChangelogButton(htmlInfo);
   addRow(
     `HTML (${htmlLabel})`,
     formatVersionDisplay(htmlInfo.localVersion),
-    formatVersionDisplay(htmlInfo.updateVersion)
+    formatVersionDisplay(htmlInfo.updateVersion),
+    htmlButton
   );
 
   if (!modulesInfo.length) {
@@ -2115,6 +2212,25 @@ async function collectVersionDiffs(updateHandle, localHandle) {
     overview.html.updateVersion = updateHtml.version || null;
     overview.html.updateFileName = updateHtml.fileName || null;
   }
+
+  const htmlDisplayName = updateHtml?.fileName || overview.html.updateFileName || overview.html.localFileName || HTML_FILE_NAME;
+  Object.assign(overview.html, {
+    type: 'html',
+    name: htmlDisplayName,
+    displayName: htmlDisplayName,
+    currentVersion: overview.html.localVersion ?? null,
+    newVersion: (typeof overview.html.updateVersion !== 'undefined' && overview.html.updateVersion !== null)
+      ? overview.html.updateVersion
+      : (overview.html.localVersion ?? null),
+    sourcePath: updateHtml?.fileName || overview.html.updateFileName || overview.html.localFileName || HTML_FILE_NAME,
+    targetPath: localHtml?.fileName || overview.html.localFileName || HTML_FILE_NAME,
+    updateDirHandle: updateHandle || null,
+    localDirHandle: localHandle || null,
+    changelogHandle: htmlChangelogHandle || null,
+    changelogFileName: HTML_CHANGELOG_FILE,
+    changelogPath: HTML_CHANGELOG_FILE,
+    changelogRelativePath: null
+  });
 
   if (updateHtml && (updateHtml.version || !localHtml)) {
     const localVersion = localHtml?.version || null;
