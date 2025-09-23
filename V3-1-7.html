@@ -262,6 +262,117 @@
       top: .35rem;
       right: .35rem;
     }
+
+    .changelog-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+      background: rgba(0,0,0,0.45);
+      z-index: 60;
+    }
+
+    .changelog-overlay.open {
+      display: flex;
+    }
+
+    .changelog-modal {
+      position: relative;
+      width: min(720px, 100%);
+      max-height: 85vh;
+      background: #ffffff;
+      color: var(--body-text);
+      border-radius: 0.75rem;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .changelog-header {
+      padding: 1rem 1.25rem 0.75rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .changelog-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .changelog-subtitle {
+      font-size: 0.85rem;
+      color: #6b7280;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .changelog-body {
+      padding: 1rem 1.25rem;
+      overflow-y: auto;
+    }
+
+    .changelog-section + .changelog-section {
+      margin-top: 1.5rem;
+    }
+
+    .changelog-section h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--body-text);
+    }
+
+    .changelog-pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      color: #1f2937;
+    }
+
+    .changelog-empty {
+      font-size: 0.9rem;
+      color: #6b7280;
+    }
+
+    .changelog-loading {
+      font-size: 0.9rem;
+      color: #374151;
+    }
+
+    .changelog-error {
+      color: var(--danger-bg);
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+
+    .changelog-close {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      border: none;
+      background: transparent;
+      font-size: 1.5rem;
+      line-height: 1;
+      color: #6b7280;
+      cursor: pointer;
+    }
+
+    .changelog-close:hover {
+      color: #111827;
+    }
   </style>
   <style id="custom-styles"></style>
 </head>
@@ -475,6 +586,18 @@
       </div>
     </div>
   </div>
+  <div id="changelog-modal" class="changelog-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="changelog-modal">
+      <button id="close-changelog" class="changelog-close" type="button" aria-label="Changelog schließen">×</button>
+      <div class="changelog-header">
+        <div id="changelog-title" class="changelog-title">Changelog</div>
+        <div id="changelog-subtitle" class="changelog-subtitle"></div>
+      </div>
+      <div id="changelog-body" class="changelog-body">
+        <div class="changelog-loading">Lade Changelog…</div>
+      </div>
+    </div>
+  </div>
   <script>
 /*
  * Global settings object; defaults correspond to CSS variables defined above.
@@ -537,6 +660,8 @@ let versionOverview = {
   modules: []
 };
 let rerunUpdateCheckWhenUnlocked = false;
+let changelogRequestToken = 0;
+let lastChangelogTrigger = null;
 
 /* ==== UNIQUE IDs ==== */
 let usedInstanceIds = new Set();
@@ -577,6 +702,11 @@ const updatesEmptyState = document.getElementById('updates-empty-state');
 const updateCheckStatus = document.getElementById('update-check-status');
 const versionOverviewContainer = document.getElementById('update-version-overview');
 const versionOverviewRowsEl = document.getElementById('update-version-rows');
+const changelogOverlay = document.getElementById('changelog-modal');
+const changelogTitleEl = document.getElementById('changelog-title');
+const changelogSubtitleEl = document.getElementById('changelog-subtitle');
+const changelogBodyEl = document.getElementById('changelog-body');
+const closeChangelogBtn = document.getElementById('close-changelog');
 // Settings inputs
 const inputAppBg = document.getElementById('setting-app-bg');
 const inputBorderColor = document.getElementById('setting-border-color');
@@ -783,6 +913,302 @@ function formatVersionDisplay(val) {
   return String(val);
 }
 
+function normalizeVersionValue(value) {
+  if (value === null || typeof value === 'undefined') return null;
+  const str = String(value).trim();
+  if (!str) return null;
+  if (/^unreleased$/i.test(str)) return null;
+  return str.replace(/^[vV]\s*/, '').trim();
+}
+
+function compareVersions(a, b) {
+  const normA = normalizeVersionValue(a);
+  const normB = normalizeVersionValue(b);
+  if (normA === null && normB === null) return 0;
+  if (normA === null) return -1;
+  if (normB === null) return 1;
+
+  const partsA = normA.split(/[^0-9A-Za-z]+/).filter(Boolean);
+  const partsB = normB.split(/[^0-9A-Za-z]+/).filter(Boolean);
+  const len = Math.max(partsA.length, partsB.length);
+
+  for (let i = 0; i < len; i++) {
+    const segA = partsA[i] ?? '0';
+    const segB = partsB[i] ?? '0';
+    const numA = Number(segA);
+    const numB = Number(segB);
+
+    const bothNumeric = !Number.isNaN(numA) && !Number.isNaN(numB);
+    if (bothNumeric) {
+      if (numA > numB) return 1;
+      if (numA < numB) return -1;
+      continue;
+    }
+
+    const cmp = segA.localeCompare(segB, undefined, { numeric: true, sensitivity: 'base' });
+    if (cmp > 0) return 1;
+    if (cmp < 0) return -1;
+  }
+
+  return 0;
+}
+
+function parseChangelogSections(text) {
+  if (!text) return [];
+  const normalized = text.replace(/\r\n/g, '\n');
+  const lines = normalized.split('\n');
+  const sections = [];
+  let current = null;
+
+  for (const line of lines) {
+    const headingMatch = line.match(/^##\s*(?:\[(.+?)\]|([^\s]+))(.*)$/);
+    if (headingMatch) {
+      if (current) {
+        sections.push({
+          version: current.version,
+          rawVersion: current.rawVersion,
+          heading: current.heading,
+          content: current.lines.join('\n').trim()
+        });
+      }
+      const versionCandidate = (headingMatch[1] || headingMatch[2] || '').trim();
+      const headingText = line.replace(/^##\s*/, '').trim();
+      current = {
+        rawVersion: versionCandidate,
+        version: normalizeVersionValue(versionCandidate) || null,
+        heading: headingText,
+        lines: []
+      };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+
+  if (current) {
+    sections.push({
+      version: current.version,
+      rawVersion: current.rawVersion,
+      heading: current.heading,
+      content: current.lines.join('\n').trim()
+    });
+  }
+
+  return sections;
+}
+
+function filterChangelogSections(sections, currentVersion, targetVersion) {
+  const current = normalizeVersionValue(currentVersion);
+  const target = normalizeVersionValue(targetVersion);
+
+  return sections.filter(section => {
+    if (!section.version) return false;
+    if (target && compareVersions(section.version, target) === 1) return false;
+    if (current && compareVersions(section.version, current) <= 0) return false;
+    return true;
+  });
+}
+
+async function findChangelogFile(dirHandle, relPath = '') {
+  if (!dirHandle?.values) return null;
+  const entries = [];
+
+  try {
+    for await (const entry of dirHandle.values()) {
+      entries.push(entry);
+    }
+  } catch (err) {
+    console.warn('Changelog-Dateien konnten nicht gelesen werden', err);
+    return null;
+  }
+
+  const files = entries
+    .filter(entry => entry.kind === 'file')
+    .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }));
+
+  for (const file of files) {
+    if (file.name.toLowerCase().includes('changelog')) {
+      return {
+        handle: file,
+        name: file.name,
+        path: relPath ? `${relPath}/${file.name}` : file.name
+      };
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.kind === 'directory') {
+      const childRel = relPath ? `${relPath}/${entry.name}` : entry.name;
+      const found = await findChangelogFile(entry, childRel);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
+function buildModuleChangelogDisplayPath(baseModulePath, relativeFilePath) {
+  if (!relativeFilePath) return null;
+  const cleanBase = (baseModulePath || '').replace(/^[\\/]+|[\\/]+$/g, '');
+  const cleanFile = relativeFilePath.replace(/^[\\/]+/, '');
+  const parts = ['modules'];
+  if (cleanBase) parts.push(cleanBase);
+  if (cleanFile) parts.push(cleanFile);
+  return parts.join('/');
+}
+
+async function ensureChangelogHandle(item) {
+  if (!item) return null;
+  if (item.changelogHandle) return item.changelogHandle;
+  if (!item.updateDirHandle) return null;
+
+  try {
+    const info = await findChangelogFile(item.updateDirHandle);
+    if (info?.handle) {
+      const relativePath = (info.path || info.name || '').replace(/^[\\/]+/, '');
+      const moduleBasePath = item.sourceRelPath || item.targetRelPath || '';
+      item.changelogHandle = info.handle;
+      item.changelogFileName = info.name;
+      item.changelogRelativePath = relativePath || null;
+      item.changelogPath = relativePath
+        ? buildModuleChangelogDisplayPath(moduleBasePath, relativePath)
+        : item.changelogPath || null;
+      return item.changelogHandle;
+    }
+  } catch (err) {
+    console.warn('Changelog-Suche fehlgeschlagen', err);
+  }
+
+  return null;
+}
+
+function updateChangelogSubtitle(item) {
+  if (!changelogSubtitleEl) return;
+  if (!item) {
+    changelogSubtitleEl.textContent = '';
+    return;
+  }
+
+  const parts = [];
+  parts.push(`Versionen: ${formatVersionDisplay(item.currentVersion)} → ${formatVersionDisplay(item.newVersion)}`);
+  const moduleBasePath = item.sourceRelPath || item.targetRelPath || '';
+  const displayPath = item.changelogPath
+    || (item.changelogRelativePath ? buildModuleChangelogDisplayPath(moduleBasePath, item.changelogRelativePath) : null);
+  if (displayPath) {
+    parts.push(`Datei: ${displayPath}`);
+  } else if (item.changelogFileName) {
+    parts.push(`Datei: ${item.changelogFileName}`);
+  }
+  changelogSubtitleEl.textContent = parts.join(' • ');
+}
+
+function closeChangelogModal() {
+  if (!changelogOverlay) return;
+  changelogOverlay.classList.remove('open');
+  changelogOverlay.setAttribute('aria-hidden', 'true');
+  changelogRequestToken++;
+  if (changelogBodyEl) changelogBodyEl.innerHTML = '';
+  if (lastChangelogTrigger && typeof lastChangelogTrigger.focus === 'function') {
+    try { lastChangelogTrigger.focus(); } catch {}
+  }
+  lastChangelogTrigger = null;
+}
+
+async function openChangelogModal(item) {
+  if (!item || !changelogOverlay || !changelogBodyEl) return;
+
+  lastChangelogTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+  if (changelogTitleEl) {
+    const title = item.displayName ? `Changelog – ${item.displayName}` : 'Changelog';
+    changelogTitleEl.textContent = title;
+  }
+
+  updateChangelogSubtitle(item);
+
+  changelogBodyEl.innerHTML = '<div class="changelog-loading">Lade Changelog…</div>';
+  changelogOverlay.classList.add('open');
+  changelogOverlay.setAttribute('aria-hidden', 'false');
+
+  const requestId = ++changelogRequestToken;
+
+  if (closeChangelogBtn && typeof closeChangelogBtn.focus === 'function') {
+    closeChangelogBtn.focus();
+  }
+
+  try {
+    const handle = await ensureChangelogHandle(item);
+    if (requestId !== changelogRequestToken) return;
+
+    updateChangelogSubtitle(item);
+
+    if (!handle) {
+      changelogBodyEl.innerHTML = '<div class="changelog-empty">Keine Changelog-Datei gefunden.</div>';
+      return;
+    }
+
+    const file = await handle.getFile();
+    const text = await file.text();
+    if (requestId !== changelogRequestToken) return;
+
+    const sections = parseChangelogSections(text);
+    let relevantSections = filterChangelogSections(sections, item.currentVersion, item.newVersion);
+
+    changelogBodyEl.innerHTML = '';
+
+    if (!sections.length) {
+      const empty = document.createElement('div');
+      empty.className = 'changelog-empty';
+      empty.textContent = 'Die Changelog-Datei enthält keine Einträge.';
+      changelogBodyEl.appendChild(empty);
+      return;
+    }
+
+    if (!relevantSections.length) {
+      const notice = document.createElement('div');
+      notice.className = 'changelog-empty';
+      notice.textContent = 'Keine Einträge für den Versionsbereich gefunden. Vollständiger Changelog wird angezeigt.';
+      changelogBodyEl.appendChild(notice);
+      relevantSections = sections;
+    }
+
+    relevantSections.forEach(section => {
+      const sectionEl = document.createElement('section');
+      sectionEl.className = 'changelog-section';
+
+      const headingEl = document.createElement('h3');
+      headingEl.textContent = section.heading || (section.rawVersion ? `Version ${section.rawVersion}` : 'Changelog-Eintrag');
+      sectionEl.appendChild(headingEl);
+
+      const pre = document.createElement('pre');
+      pre.className = 'changelog-pre';
+      pre.textContent = section.content || 'Keine Details vorhanden.';
+      sectionEl.appendChild(pre);
+
+      changelogBodyEl.appendChild(sectionEl);
+    });
+  } catch (err) {
+    console.error('Changelog konnte nicht geladen werden', err);
+    if (requestId !== changelogRequestToken) return;
+    changelogBodyEl.innerHTML = '<div class="changelog-error">Der Changelog konnte nicht gelesen werden.</div>';
+  }
+}
+
+if (closeChangelogBtn) {
+  closeChangelogBtn.addEventListener('click', closeChangelogModal);
+}
+if (changelogOverlay) {
+  changelogOverlay.addEventListener('click', event => {
+    if (event.target === changelogOverlay) {
+      closeChangelogModal();
+    }
+  });
+}
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && changelogOverlay?.classList.contains('open')) {
+    closeChangelogModal();
+  }
+});
+
 function setUpdateStatusButton(state) {
   if (!updateStatusBtn) return;
   updateStatusBtn.className = 'text-sm px-3 py-1 rounded';
@@ -907,8 +1333,23 @@ function renderUpdateList() {
     tdVersion.textContent = `${formatVersionDisplay(item.currentVersion)} → ${formatVersionDisplay(item.newVersion)}`;
 
     const tdAction = document.createElement('td');
-    tdAction.className = 'px-3 py-2 text-right';
+    tdAction.className = 'px-3 py-2 align-top';
+    const actionWrapper = document.createElement('div');
+    actionWrapper.className = 'flex justify-end flex-wrap gap-2';
+
+    if (item.type === 'module') {
+      const changelogBtn = document.createElement('button');
+      changelogBtn.type = 'button';
+      changelogBtn.className = 'bg-white border border-gray-300 text-gray-800 px-3 py-1 rounded hover:bg-gray-100';
+      changelogBtn.textContent = 'Changelog';
+      changelogBtn.addEventListener('click', () => {
+        openChangelogModal(item);
+      });
+      actionWrapper.appendChild(changelogBtn);
+    }
+
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = 'bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded';
     btn.textContent = 'sync';
     btn.addEventListener('click', async () => {
@@ -924,7 +1365,9 @@ function renderUpdateList() {
         btn.classList.remove('opacity-60','cursor-wait');
       }
     });
-    tdAction.appendChild(btn);
+    actionWrapper.appendChild(btn);
+
+    tdAction.appendChild(actionWrapper);
 
     tr.appendChild(tdPath);
     tr.appendChild(tdVersion);
@@ -1155,7 +1598,7 @@ async function collectVersionDiffs(updateHandle, localHandle) {
   ]);
 
   const modulesList = [];
-  moduleIds.forEach(moduleId => {
+  for (const moduleId of moduleIds) {
     const localMeta = localModules.modules.get(moduleId) || null;
     const updateMeta = updateModules.modules.get(moduleId) || null;
     const name = updateMeta?.name || localMeta?.name || moduleId;
@@ -1164,6 +1607,11 @@ async function collectVersionDiffs(updateHandle, localHandle) {
     modulesList.push({ moduleId, name, localVersion, updateVersion });
 
     if (updateMeta && (localVersion !== updateVersion)) {
+      const changelogInfo = updateMeta?.dirHandle ? await findChangelogFile(updateMeta.dirHandle) : null;
+      const changelogRelativePath = (changelogInfo?.path || changelogInfo?.name || '').replace(/^[\\/]+/, '');
+      const changelogDisplayPath = changelogInfo && changelogRelativePath
+        ? buildModuleChangelogDisplayPath(updateMeta?.relPath || '', changelogRelativePath)
+        : null;
       diffs.push({
         type: 'module',
         moduleId,
@@ -1174,10 +1622,14 @@ async function collectVersionDiffs(updateHandle, localHandle) {
         sourceRelPath: updateMeta.relPath,
         targetRelPath: localMeta?.relPath || updateMeta.relPath,
         updateDirHandle: updateMeta.dirHandle,
-        localDirHandle: localMeta?.dirHandle || null
+        localDirHandle: localMeta?.dirHandle || null,
+        changelogHandle: changelogInfo?.handle || null,
+        changelogFileName: changelogInfo?.name || null,
+        changelogPath: changelogDisplayPath,
+        changelogRelativePath: changelogRelativePath || null
       });
     }
-  });
+  }
 
   modulesList.sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }));
   overview.modules = modulesList;
