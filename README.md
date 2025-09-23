@@ -2,7 +2,7 @@
 
 ## Überblick
 
-Dieses Projekt enthält eine Single-Page-Webanwendung (`V3-1-7.html`) und eine Sammlung von einsteckbaren Modulen im Verzeichnis `modules/`. Die HTML-Datei stellt die Hauptoberfläche bereit (obere Leiste, Seitenleiste und Rasterlayout). Module werden dynamisch geladen und können eigene Widgets innerhalb des Rasters rendern.
+Dieses Projekt enthält eine Single-Page-Webanwendung (`ShopguideV3.html`) und eine Sammlung von einsteckbaren Modulen im Verzeichnis `modules/`. Die HTML-Datei stellt die Hauptoberfläche bereit (obere Leiste, Seitenleiste und Rasterlayout). Module werden dynamisch geladen und können eigene Widgets innerhalb des Rasters rendern.
 
 Jedes Modul wird durch ein JSON-Manifest beschrieben (name, icon, script, Standardgröße usw.) und gegebenenfalls durch zugehöriges JavaScript, das `window.render*`-Funktionen implementiert. Beispiel:
 
@@ -42,7 +42,7 @@ Jedes Modul wird durch ein JSON-Manifest beschrieben (name, icon, script, Standa
 
 ### Browser `localStorage`
 
-`V3-1-7.html` speichert Benutzerdaten unter mehreren Schlüsseln:
+`ShopguideV3.html` speichert Benutzerdaten unter mehreren Schlüsseln:
 
 - `rememberRootMeta` – zuletzt gewählter Modulstammordner.
 - `appSettings` – Farben, Layout und andere Einstellungen.
