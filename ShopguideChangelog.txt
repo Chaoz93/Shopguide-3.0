@@ -1,0 +1,65 @@
+# Changelog – Shopguide
+
+Alle relevanten Änderungen an der Hauptanwendung werden hier dokumentiert.
+Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
+
+---
+
+## [3.4.0] – 2025-09-23
+### Added
+- Changelog-Viewer in der Update-Liste eingebunden, um Moduländerungen direkt einzusehen.
+- Sammel-Update-Schaltfläche ergänzt, die alle Module in einem Schritt aktualisiert.
+
+### Changed
+- Synchronisierung zwischen Modul- und HTML-Updates robuster gestaltet.
+- Versionskommentar im HTML auf den neuen Stand (1.2) gesetzt.
+- Hauptdatei in `ShopguideV3.html` umbenannt und die Arbeitszeit-Übersicht ausgelagert; Dokumentation entsprechend angepasst.
+
+## [3.3.0] – 2025-09-22
+### Added
+- Tabs lassen sich per Drag & Drop neu anordnen.
+- Aktive Registerkarte wird gespeichert und nach dem Laden wiederhergestellt.
+- Update-Verwaltung mit Hintergrundprüfungen in die Oberfläche integriert.
+- Versionsbasiertes Tracking für HTML- und Modul-Updates umgesetzt.
+
+### Changed
+- Layoutgrenzen des Einstellungsdialogs enger gefasst.
+- Update-Einstellungen überarbeitet und merken nun den ausgewählten Ordner.
+- Terminologie von „Device“ auf „Unit“ vereinheitlicht (inklusive Dokumentation).
+- Versionshinweis im HTML korrigiert.
+
+### Fixed
+- Während der automatischen Wiederherstellung werden keine neuen Berechtigungen mehr angefragt.
+- Update-Ordnerrechte werden zuverlässig wiederhergestellt.
+- Datei-Handles für Updates werden robuster reinitialisiert.
+- Update-Prüfungen starten erst nach erteilter Berechtigung.
+
+## [3.2.0] – 2025-09-18
+### Added
+- Umschalter für das Float-Verhalten des GridStack-Rasters ergänzt.
+
+### Changed
+- Standard-Zellenhöhe des Rasters verkleinert, damit mehr Inhalte sichtbar bleiben.
+
+### Fixed
+- Automatisches Anordnen passt sich wieder korrekt an das Float-Verhalten an.
+
+## [3.1.1] – 2025-09-12
+### Changed
+- README um Hinweise zu Pause, Regelarbeitszeit und Umziehzeit im Arbeitszeit-Modul erweitert.
+
+## [3.1.0] – 2025-09-11
+### Added
+- Hierarchische Seitenleiste für modulare Gruppen eingeführt.
+- Legacy-Layout-Einträge werden beim Start automatisch übernommen.
+
+### Changed
+- Tab-Schließen-Schaltflächen durch ein Kontextmenü ersetzt.
+
+## [3.0.0] – 2025-09-10
+### Added
+- Erste Version der Shopguide-Oberfläche (`V3-1-7.html`) bereitgestellt.
+- Projekt-README angelegt und um eine ausführliche Projektbeschreibung ergänzt.
+
+### Changed
+- README vollständig ins Deutsche übertragen.
