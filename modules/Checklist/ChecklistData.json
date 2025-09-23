@@ -1,0 +1,40 @@
+{
+  "version": "1.0.0",
+  "defaults": [
+    {
+      "id": "nameplates",
+      "label": "Nameplates überprüfen",
+      "requires": []
+    },
+    {
+      "id": "visual",
+      "label": "Sichtprüfung",
+      "requires": []
+    },
+    {
+      "id": "incoming",
+      "label": "Eingangstest",
+      "requires": []
+    },
+    {
+      "id": "certify",
+      "label": "Zertifizieren lassen",
+      "requires": [
+        "nameplates",
+        "visual",
+        "incoming"
+      ]
+    }
+  ],
+  "partSpecificSteps": [
+    {
+      "prefix": "ABC",
+      "label": "ABC Zusatzzertifikat prüfen"
+    },
+    {
+      "prefix": "XYZ",
+      "label": "XYZ Kalibrierung vorbereiten"
+    }
+  ],
+  "meldungen": {}
+}

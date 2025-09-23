@@ -1,0 +1,11 @@
+{
+  "name": "Checklist",
+  "icon": "✅",
+  "script": "renderChecklist",
+  "w": 2,
+  "h": 12,
+  "minW": 2,
+  "minH": 8,
+  "moduleId": "Checklist",
+  "version": "1.0.0"
+}
