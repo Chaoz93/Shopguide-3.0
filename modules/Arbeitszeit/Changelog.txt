@@ -1,0 +1,114 @@
+# Changelog – Arbeitszeit
+
+Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
+Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
+
+---
+
+## [1.13.4] – 2025-09-23
+### Changed
+- Modulbreite auf Minimalwerte reduziert
+
+## [1.13.3] – 2025-09-23
+### Changed
+- Manifestversion auf 1.0.1 angehoben
+
+## [1.13.2] – 2025-09-23
+### Changed
+- Standardgröße angepasst, um Scrollleisten zu vermeiden
+
+## [1.13.1] – 2025-09-22
+### Changed
+- Update-Einstellungen überarbeitet und Ordnernamen gespeichert
+
+## [1.13.0] – 2025-09-22
+### Added
+- Versionsbasiertes Update-Tracking umgesetzt
+
+## [1.12.1] – 2025-09-12
+### Changed
+- Bestehende Arbeitszeit-Datei automatisch geöffnet
+
+## [1.12.0] – 2025-09-12
+### Added
+- Kontextmenü um Neu laden und Dateiauswahl erweitert
+
+## [1.11.2] – 2025-09-12
+### Fixed
+- Option für 30 Minuten Pause wiederhergestellt
+
+## [1.11.1] – 2025-09-12
+### Changed
+- Differenzen nach Zeitänderungen neu berechnet
+
+## [1.11.0] – 2025-09-12
+### Added
+- Speicherpfad für Autosave dauerhaft gesichert
+
+## [1.10.1] – 2025-09-12
+### Fixed
+- Pausenvorgaben nach 5h und 6h15 erzwungen
+
+## [1.10.0] – 2025-09-12
+### Added
+- Arbeitszeiteinträge editierbar gemacht und dauerhaft gespeichert
+
+## [1.9.1] – 2025-09-12
+### Fixed
+- Pausenberechnung korrigiert
+
+## [1.9.0] – 2025-09-12
+### Added
+- Arbeitszeit-Übersicht als zusätzliches Modul hinzugefügt
+
+## [1.8.0] – 2025-09-12
+### Added
+- Täglichen Reset und Autospeichern ergänzt
+
+## [1.7.2] – 2025-09-12
+### Changed
+- Arbeitszeit.js überarbeitet
+
+## [1.7.1] – 2025-09-12
+### Changed
+- Bezeichnungen im Arbeitszeitmodul vereinfacht
+
+## [1.7.0] – 2025-09-12
+### Added
+- Warnung ab 10 Arbeitsstunden und auswählbare Maximalzeile ergänzt
+
+## [1.6.0] – 2025-09-12
+### Added
+- Endzeit durch Klick auf Feierabendzeit setzbar gemacht
+
+## [1.5.0] – 2025-09-12
+### Added
+- Manuelles Überschreiben der Pause erlaubt
+
+## [1.4.0] – 2025-09-12
+### Added
+- Pausen automatisch aus der Arbeitszeit berechnet
+
+## [1.3.2] – 2025-09-12
+### Changed
+- Feierabendzeit von 5 Stunden abhängig von der Regel angezeigt
+
+## [1.3.1] – 2025-09-12
+### Fixed
+- Pausenabzug korrigiert und Kontextmenü stabilisiert
+
+## [1.3.0] – 2025-09-12
+### Added
+- Benutzerdefinierte Arbeitszeit-Optionen mit gespeicherten Eingaben ermöglicht
+
+## [1.2.0] – 2025-09-12
+### Added
+- Pauseingabe und Umziehzeit-Optionen ergänzt
+
+## [1.1.0] – 2025-09-12
+### Added
+- Regelarbeitszeit als konfigurierbare Option ergänzt
+
+## [1.0.0] – 2025-09-12
+### Added
+- Arbeitszeit-Modul für Zeitberechnungen erstellt
