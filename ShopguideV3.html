@@ -967,7 +967,7 @@ function parseChangelogSections(text) {
   let current = null;
 
   for (const line of lines) {
-    const headingMatch = line.match(/^##\s*(?:\[(.+?)\]|([^\s]+))(.*)$/);
+    const headingMatch = line.match(/^##(?!#)\s*(?:\[(.+?)\]|([^\s]+))(.*)$/);
     if (headingMatch) {
       if (current) {
         sections.push({
