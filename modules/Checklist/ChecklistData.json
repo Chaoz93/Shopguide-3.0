@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "defaults": [
+    {
+      "id": "base:nameplates",
+      "text": "Nameplates überprüfen"
+    },
+    {
+      "id": "base:sichtpruefung",
+      "text": "Sichtprüfung"
+    },
+    {
+      "id": "base:eingangstest",
+      "text": "Eingangstest"
+    },
+    {
+      "id": "base:zertifizieren",
+      "text": "Zertifizieren lassen",
+      "requires": [
+        "base:nameplates",
+        "base:sichtpruefung",
+        "base:eingangstest"
+      ]
+    }
+  ],
+  "partSpecific": [
+    {
+      "prefix": "PN-42",
+      "id": "part:PN-42:0",
+      "text": "Spezialprüfung durchführen"
+    }
+  ]
+}
