@@ -299,6 +299,55 @@
       gap: 0.35rem;
     }
 
+    .changelog-controls {
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      background: #f9fafb;
+    }
+
+    .changelog-controls.hidden {
+      display: none;
+    }
+
+    .changelog-controls label {
+      font-size: 0.85rem;
+      color: #4b5563;
+    }
+
+    .changelog-select {
+      flex: 1 1 220px;
+      min-width: 180px;
+      padding: 0.35rem 0.5rem;
+      border-radius: 0.5rem;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: inherit;
+    }
+
+    .changelog-controls button {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .changelog-controls button:hover {
+      background: #1d4ed8;
+    }
+
+    .changelog-controls button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
     .changelog-title {
       font-size: 1.15rem;
       font-weight: 600;
@@ -577,7 +626,12 @@
               </table>
             </div>
             <div id="update-version-overview" class="border border-gray-200 rounded p-3 text-sm space-y-3">
-              <div class="font-semibold text-gray-700">Versionsübersicht</div>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="font-semibold text-gray-700">Versionsübersicht</div>
+                <button id="show-latest-changelog" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm">
+                  Neuester Changelog
+                </button>
+              </div>
               <div id="update-version-rows" class="version-overview-grid"></div>
             </div>
           </div>
@@ -595,6 +649,11 @@
       <div class="changelog-header">
         <div id="changelog-title" class="changelog-title">Changelog</div>
         <div id="changelog-subtitle" class="changelog-subtitle"></div>
+      </div>
+      <div id="changelog-controls" class="changelog-controls hidden">
+        <label for="changelog-version-select">Version auswählen:</label>
+        <select id="changelog-version-select" class="changelog-select"></select>
+        <button id="changelog-show-full" type="button">Ganzen Changelog anzeigen</button>
       </div>
       <div id="changelog-body" class="changelog-body">
         <div class="changelog-loading">Lade Changelog…</div>
@@ -666,6 +725,12 @@ let versionOverview = {
 let rerunUpdateCheckWhenUnlocked = false;
 let changelogRequestToken = 0;
 let lastChangelogTrigger = null;
+let htmlUpdateChangelogHandle = null;
+let htmlUpdateChangelogFileName = null;
+let cachedHtmlChangelogSections = null;
+let htmlChangelogSourceLabel = null;
+let currentGlobalChangelogMode = 'single';
+let currentGlobalChangelogIndex = 0;
 
 /* ==== UNIQUE IDs ==== */
 let usedInstanceIds = new Set();
@@ -711,6 +776,10 @@ const changelogTitleEl = document.getElementById('changelog-title');
 const changelogSubtitleEl = document.getElementById('changelog-subtitle');
 const changelogBodyEl = document.getElementById('changelog-body');
 const closeChangelogBtn = document.getElementById('close-changelog');
+const showLatestChangelogBtn = document.getElementById('show-latest-changelog');
+const changelogControlsEl = document.getElementById('changelog-controls');
+const changelogVersionSelect = document.getElementById('changelog-version-select');
+const changelogShowFullBtn = document.getElementById('changelog-show-full');
 const updateAllContainer = document.getElementById('update-all-container');
 const updateAllBtn = document.getElementById('update-all');
 // Settings inputs
@@ -1014,6 +1083,222 @@ function filterChangelogSections(sections, currentVersion, targetVersion) {
   });
 }
 
+function appendChangelogSections(targetEl, sections) {
+  if (!targetEl || !Array.isArray(sections)) return;
+  sections.forEach(section => {
+    const sectionEl = document.createElement('section');
+    sectionEl.className = 'changelog-section';
+
+    const headingEl = document.createElement('h3');
+    headingEl.textContent = section.heading || (section.rawVersion ? `Version ${section.rawVersion}` : 'Changelog-Eintrag');
+    sectionEl.appendChild(headingEl);
+
+    const pre = document.createElement('pre');
+    pre.className = 'changelog-pre';
+    pre.textContent = section.content || 'Keine Details vorhanden.';
+    sectionEl.appendChild(pre);
+
+    targetEl.appendChild(sectionEl);
+  });
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function formatChangelogOptionLabel(section, index) {
+  const heading = (section?.heading || '').trim();
+  const rawVersion = (section?.rawVersion || '').trim();
+  if (rawVersion && heading) {
+    const pattern = new RegExp(`^\\s*\\[?${escapeRegExp(rawVersion)}\\]?\\s*[-–—:\\s]*`, 'i');
+    const rest = heading.replace(pattern, '').trim();
+    if (rest) {
+      return `${rawVersion} – ${rest}`;
+    }
+  }
+  if (rawVersion) {
+    return rawVersion;
+  }
+  if (heading) {
+    return heading;
+  }
+  return `Eintrag ${index + 1}`;
+}
+
+function populateChangelogVersionSelect(sections, selectedIndex = 0) {
+  if (!changelogVersionSelect) return;
+  changelogVersionSelect.innerHTML = '';
+  if (!Array.isArray(sections) || !sections.length) {
+    changelogVersionSelect.disabled = true;
+    if (changelogShowFullBtn) changelogShowFullBtn.disabled = true;
+    return;
+  }
+
+  sections.forEach((section, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = formatChangelogOptionLabel(section, index);
+    changelogVersionSelect.appendChild(option);
+  });
+
+  const safeIndex = Math.max(0, Math.min(sections.length - 1, selectedIndex));
+  changelogVersionSelect.value = String(safeIndex);
+  changelogVersionSelect.disabled = sections.length <= 1;
+  if (changelogShowFullBtn) {
+    changelogShowFullBtn.disabled = sections.length === 0;
+  }
+}
+
+function updateGlobalChangelogSubtitle(mode, section = null, total = 0) {
+  if (!changelogSubtitleEl) return;
+  const parts = [];
+  if (htmlChangelogSourceLabel) {
+    parts.push(`Quelle: ${htmlChangelogSourceLabel}`);
+  }
+
+  if (mode === 'all') {
+    parts.push(total ? `${total} Einträge` : 'Gesamter Verlauf');
+  } else if (section) {
+    if (section.rawVersion) {
+      parts.push(`Version: ${section.rawVersion}`);
+    } else if (section.heading) {
+      parts.push(section.heading);
+    }
+  }
+
+  changelogSubtitleEl.textContent = parts.join(' • ');
+}
+
+function displayGlobalChangelogSections(sections, mode = 'single', index = 0) {
+  if (!changelogBodyEl) return;
+  changelogBodyEl.innerHTML = '';
+  if (!Array.isArray(sections) || !sections.length) {
+    changelogBodyEl.innerHTML = '<div class="changelog-empty">Keine Changelog-Daten verfügbar.</div>';
+    updateGlobalChangelogSubtitle('all', null, 0);
+    return;
+  }
+
+  if (mode === 'all') {
+    appendChangelogSections(changelogBodyEl, sections);
+    updateGlobalChangelogSubtitle('all', null, sections.length);
+  } else {
+    const safeIndex = Math.max(0, Math.min(sections.length - 1, index));
+    appendChangelogSections(changelogBodyEl, [sections[safeIndex]]);
+    updateGlobalChangelogSubtitle('single', sections[safeIndex], sections.length);
+  }
+  changelogBodyEl.scrollTop = 0;
+}
+
+async function loadHtmlChangelogSections({ forceReload = false } = {}) {
+  if (!forceReload && Array.isArray(cachedHtmlChangelogSections)) {
+    return cachedHtmlChangelogSections;
+  }
+
+  let text = null;
+  if (htmlUpdateChangelogHandle) {
+    try {
+      const file = await htmlUpdateChangelogHandle.getFile();
+      text = await file.text();
+      htmlChangelogSourceLabel = htmlUpdateChangelogFileName || HTML_CHANGELOG_FILE;
+    } catch (err) {
+      console.warn('HTML-Changelog konnte nicht gelesen werden', err);
+    }
+  }
+
+  if (!text) {
+    try {
+      const response = await fetch(HTML_CHANGELOG_FILE, { cache: 'no-store' });
+      if (response.ok) {
+        text = await response.text();
+        htmlChangelogSourceLabel = HTML_CHANGELOG_FILE;
+      }
+    } catch (err) {
+      console.warn('Fallback-Changelog konnte nicht geladen werden', err);
+    }
+  }
+
+  if (!text) {
+    cachedHtmlChangelogSections = null;
+    return null;
+  }
+
+  cachedHtmlChangelogSections = parseChangelogSections(text);
+  return cachedHtmlChangelogSections;
+}
+
+function resetGlobalChangelogState() {
+  currentGlobalChangelogMode = 'single';
+  currentGlobalChangelogIndex = 0;
+  if (changelogVersionSelect) {
+    changelogVersionSelect.innerHTML = '';
+    changelogVersionSelect.value = '';
+    changelogVersionSelect.disabled = false;
+  }
+  if (changelogShowFullBtn) {
+    changelogShowFullBtn.disabled = false;
+  }
+}
+
+async function openGlobalChangelogModal(initialMode = 'latest') {
+  if (!changelogOverlay || !changelogBodyEl) return;
+
+  resetGlobalChangelogState();
+  lastChangelogTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+  if (changelogTitleEl) {
+    changelogTitleEl.textContent = 'Changelog – Shopguide';
+  }
+  if (changelogSubtitleEl) {
+    changelogSubtitleEl.textContent = '';
+  }
+
+  if (changelogControlsEl) {
+    changelogControlsEl.classList.remove('hidden');
+  }
+  if (changelogVersionSelect) {
+    changelogVersionSelect.innerHTML = '';
+  }
+
+  changelogBodyEl.innerHTML = '<div class="changelog-loading">Lade Changelog…</div>';
+  changelogOverlay.classList.add('open');
+  changelogOverlay.setAttribute('aria-hidden', 'false');
+
+  const requestId = ++changelogRequestToken;
+
+  if (closeChangelogBtn && typeof closeChangelogBtn.focus === 'function') {
+    closeChangelogBtn.focus();
+  }
+
+  try {
+    const sections = await loadHtmlChangelogSections();
+    if (requestId !== changelogRequestToken) return;
+
+    if (!sections || !sections.length) {
+      changelogBodyEl.innerHTML = '<div class="changelog-empty">Keine Changelog-Daten verfügbar.</div>';
+      if (changelogControlsEl) changelogControlsEl.classList.add('hidden');
+      updateGlobalChangelogSubtitle('all', null, 0);
+      return;
+    }
+
+    populateChangelogVersionSelect(sections, 0);
+    currentGlobalChangelogIndex = 0;
+
+    if (initialMode === 'all') {
+      currentGlobalChangelogMode = 'all';
+      displayGlobalChangelogSections(sections, 'all');
+    } else {
+      currentGlobalChangelogMode = 'single';
+      displayGlobalChangelogSections(sections, 'single', 0);
+    }
+  } catch (err) {
+    console.error('Allgemeiner Changelog konnte nicht geladen werden', err);
+    if (requestId !== changelogRequestToken) return;
+    changelogBodyEl.innerHTML = '<div class="changelog-error">Der Changelog konnte nicht geladen werden.</div>';
+    if (changelogControlsEl) changelogControlsEl.classList.add('hidden');
+    if (changelogSubtitleEl) changelogSubtitleEl.textContent = '';
+  }
+}
+
 async function findChangelogFile(dirHandle, relPath = '') {
   if (!dirHandle?.values) return null;
   const entries = [];
@@ -1132,6 +1417,8 @@ function closeChangelogModal() {
   changelogOverlay.setAttribute('aria-hidden', 'true');
   changelogRequestToken++;
   if (changelogBodyEl) changelogBodyEl.innerHTML = '';
+  if (changelogControlsEl) changelogControlsEl.classList.add('hidden');
+  resetGlobalChangelogState();
   if (lastChangelogTrigger && typeof lastChangelogTrigger.focus === 'function') {
     try { lastChangelogTrigger.focus(); } catch {}
   }
@@ -1140,6 +1427,9 @@ function closeChangelogModal() {
 
 async function openChangelogModal(item) {
   if (!item || !changelogOverlay || !changelogBodyEl) return;
+
+  resetGlobalChangelogState();
+  if (changelogControlsEl) changelogControlsEl.classList.add('hidden');
 
   lastChangelogTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
@@ -1196,21 +1486,7 @@ async function openChangelogModal(item) {
       relevantSections = sections;
     }
 
-    relevantSections.forEach(section => {
-      const sectionEl = document.createElement('section');
-      sectionEl.className = 'changelog-section';
-
-      const headingEl = document.createElement('h3');
-      headingEl.textContent = section.heading || (section.rawVersion ? `Version ${section.rawVersion}` : 'Changelog-Eintrag');
-      sectionEl.appendChild(headingEl);
-
-      const pre = document.createElement('pre');
-      pre.className = 'changelog-pre';
-      pre.textContent = section.content || 'Keine Details vorhanden.';
-      sectionEl.appendChild(pre);
-
-      changelogBodyEl.appendChild(sectionEl);
-    });
+    appendChangelogSections(changelogBodyEl, relevantSections);
   } catch (err) {
     console.error('Changelog konnte nicht geladen werden', err);
     if (requestId !== changelogRequestToken) return;
@@ -1233,6 +1509,31 @@ document.addEventListener('keydown', event => {
     closeChangelogModal();
   }
 });
+
+if (showLatestChangelogBtn) {
+  showLatestChangelogBtn.addEventListener('click', () => {
+    openGlobalChangelogModal('latest');
+  });
+}
+
+if (changelogVersionSelect) {
+  changelogVersionSelect.addEventListener('change', () => {
+    if (!Array.isArray(cachedHtmlChangelogSections) || !cachedHtmlChangelogSections.length) return;
+    const index = Number(changelogVersionSelect.value);
+    if (Number.isNaN(index)) return;
+    currentGlobalChangelogIndex = Math.max(0, Math.min(cachedHtmlChangelogSections.length - 1, index));
+    currentGlobalChangelogMode = 'single';
+    displayGlobalChangelogSections(cachedHtmlChangelogSections, 'single', currentGlobalChangelogIndex);
+  });
+}
+
+if (changelogShowFullBtn) {
+  changelogShowFullBtn.addEventListener('click', () => {
+    if (!Array.isArray(cachedHtmlChangelogSections) || !cachedHtmlChangelogSections.length) return;
+    currentGlobalChangelogMode = 'all';
+    displayGlobalChangelogSections(cachedHtmlChangelogSections, 'all');
+  });
+}
 
 function setUpdateStatusButton(state) {
   if (!updateStatusBtn) return;
@@ -1693,7 +1994,12 @@ async function collectVersionDiffs(updateHandle, localHandle) {
     return nameA.localeCompare(nameB, 'de', { sensitivity: 'base' });
   });
 
-  return { diffs, overview };
+  return {
+    diffs,
+    overview,
+    htmlChangelogHandle: htmlChangelogHandle || null,
+    htmlChangelogFileName: htmlChangelogHandle ? HTML_CHANGELOG_FILE : null
+  };
 }
 
 async function ensureDirectoryChain(root, parts, { create = true } = {}) {
@@ -1831,6 +2137,10 @@ async function runUpdateCheck() {
       },
       modules: []
     };
+    htmlUpdateChangelogHandle = null;
+    htmlUpdateChangelogFileName = null;
+    cachedHtmlChangelogSections = null;
+    htmlChangelogSourceLabel = null;
     pendingUpdates = [];
     rerunUpdateCheckWhenUnlocked = false;
     if (updateCheckStatus) updateCheckStatus.textContent = '';
@@ -1851,6 +2161,10 @@ async function runUpdateCheck() {
     const result = await collectVersionDiffs(updateDirHandle, rootDirHandle);
     versionOverview = result.overview;
     pendingUpdates = rootDirHandle && updateDirHandle ? result.diffs : [];
+    htmlUpdateChangelogHandle = result.htmlChangelogHandle || null;
+    htmlUpdateChangelogFileName = result.htmlChangelogFileName || null;
+    cachedHtmlChangelogSections = null;
+    htmlChangelogSourceLabel = null;
     lastUpdateError = false;
     if (updateCheckStatus && rootDirHandle && updateDirHandle) {
       if (!pendingUpdates.length) {
@@ -1865,6 +2179,10 @@ async function runUpdateCheck() {
   } catch (err) {
     console.error('Update-Prüfung fehlgeschlagen', err);
     pendingUpdates = [];
+    htmlUpdateChangelogHandle = null;
+    htmlUpdateChangelogFileName = null;
+    cachedHtmlChangelogSections = null;
+    htmlChangelogSourceLabel = null;
     lastUpdateError = true;
     if (updateCheckStatus && rootDirHandle && updateDirHandle) {
       updateCheckStatus.textContent = 'Fehler bei der Prüfung.';
@@ -1872,6 +2190,8 @@ async function runUpdateCheck() {
     try {
       const fallback = await collectVersionDiffs(null, rootDirHandle);
       versionOverview = fallback.overview;
+      htmlUpdateChangelogHandle = fallback.htmlChangelogHandle || null;
+      htmlUpdateChangelogFileName = fallback.htmlChangelogFileName || null;
     } catch {}
   } finally {
     updateCheckInProgress = false;
@@ -2026,6 +2346,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
         updateDirHandle = handle;
+        htmlUpdateChangelogHandle = null;
+        htmlUpdateChangelogFileName = null;
+        cachedHtmlChangelogSections = null;
+        htmlChangelogSourceLabel = null;
         if (updateFolderNameEl) updateFolderNameEl.textContent = handle.name;
         try { localStorage.setItem(UPDATE_HANDLE_NAME_KEY, handle.name); } catch (e) {
           console.warn('Konnte Update-Ordnernamen nicht speichern', e);
@@ -2052,6 +2376,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       await idbDel(UPDATE_HANDLE_KEY);
       pendingUpdatePermission = false;
       pendingUpdates = [];
+      htmlUpdateChangelogHandle = null;
+      htmlUpdateChangelogFileName = null;
+      cachedHtmlChangelogSections = null;
+      htmlChangelogSourceLabel = null;
       versionOverview = {
         html: {
           localVersion: versionOverview.html?.localVersion || null,
