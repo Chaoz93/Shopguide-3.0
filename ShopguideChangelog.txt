@@ -4,6 +4,10 @@ Alle relevanten Änderungen an der Hauptanwendung werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [3.4.1] – 2025-09-23
+### Added
+- ChangelogViewer für alle Module + HTML
+- Changelogschaltfläche auch wenn up to date
 
 ## [3.4.0] – 2025-09-23
 ### Added
