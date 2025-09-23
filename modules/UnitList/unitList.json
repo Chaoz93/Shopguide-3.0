@@ -2,9 +2,11 @@
   "name": "Unit List",
   "script": "renderUnitList",
   "icon": "⭐",
-  "minW": 2,
-  "minH": 2,
+  "minW": 3,
+  "minH": 4,
   "maxW": 6,
+  "w": 4,
+  "h": 6,
   "items": [
     "Unit 1",
     "Unit 2",

@@ -2,10 +2,10 @@
   "name": "Shared & Local Text",
   "icon": "📝",
   "script": "renderSharedLocal",
-  "minW": 3,
-  "minH": 3,
-  "w": 4,
-  "h": 3,
+  "minW": 4,
+  "minH": 6,
+  "w": 5,
+  "h": 8,
   "settings": {
     "title": "Shared & Local Text",
     "moduleKey": "sharedLocal"

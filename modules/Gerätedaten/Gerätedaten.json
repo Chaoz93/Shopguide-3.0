@@ -2,10 +2,10 @@
   "name": "Gerätedaten",
   "icon": "📋",
   "script": "renderRecordSheet",
-  "minW": 2,
-  "minH": 2,
-  "w": 4,
-  "h": 4,
+  "minW": 6,
+  "minH": 12,
+  "w": 8,
+  "h": 16,
   "settings": {
     "columns": 2,
     "fields": [

@@ -2,10 +2,10 @@
   "name": "Denkhilfe",
   "icon": "⚪",
   "script": "renderPhysicsCircle",
-  "minW": 2,
-  "minH": 2,
-  "w": 2,
-  "h": 2,
+  "minW": 3,
+  "minH": 4,
+  "w": 4,
+  "h": 6,
   "settings": {
     "gravity": 0.5,
     "friction": 0.05

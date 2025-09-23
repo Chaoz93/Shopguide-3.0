@@ -2,10 +2,10 @@
   "name": "Findings Text",
   "icon": "🩺",
   "script": "renderStandardFindings",
-  "w": 4,
-  "h": 6,
-  "minW": 3,
-  "minH": 3,
+  "w": 6,
+  "h": 14,
+  "minW": 5,
+  "minH": 10,
   "moduleId": "StandardFindings",
   "version": "1.0"
 }

@@ -2,6 +2,10 @@
   "name": "File System API",
   "icon": "🗂️",
   "script": "renderFileSystemAPI",
+  "minW": 4,
+  "minH": 6,
+  "w": 5,
+  "h": 8,
   "moduleId": "FileSystemAPI",
   "version": "1.0"
 }

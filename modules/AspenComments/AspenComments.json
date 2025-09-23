@@ -3,10 +3,10 @@
   "title": "Unit Comments",
   "icon": "📝",
   "script": "renderAspenComments",
-  "minW": 2,
-  "minH": 2,
-  "w": 2,
-  "h": 2,
+  "minW": 5,
+  "minH": 10,
+  "w": 6,
+  "h": 14,
   "settings": {
     "title": "Unit Comments"
   },
