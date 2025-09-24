@@ -562,24 +562,24 @@
           </div>
           <div class="db-grid">
             <div class="db-field" style="grid-column: span 3;">
-              <label>Datei</label>
+              <label>Devices.xlsx</label>
               <div class="db-row">
-                <button class="db-btn db-pick">Excel wählen</button>
-                <button class="db-btn secondary db-create">Excel erstellen</button>
+                <button class="db-btn db-pick">Devices.xlsx wählen</button>
+                <button class="db-btn secondary db-create">Devices.xlsx erstellen</button>
                 <span class="db-file"></span>
               </div>
             </div>
             <div class="db-field" style="grid-column: span 3;">
               <label>Dictionary</label>
               <div class="db-row">
-                <button class="db-btn db-dict-pick">Dictionary wählen</button>
+                <button class="db-btn db-dict-pick">Dictionary.xlsx wählen</button>
                 <span class="db-dict-file db-file"></span>
               </div>
             </div>
             <div class="db-field" style="grid-column: span 3;">
               <label>Namensregeln</label>
               <div class="db-row">
-                <button class="db-btn db-name-pick">Excel wählen</button>
+                <button class="db-btn db-name-pick">Namensregeln.xlsx wählen</button>
                 <span class="db-name-file db-file"></span>
               </div>
             </div>
@@ -646,7 +646,7 @@
 
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Excel wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Devices.xlsx wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     return {

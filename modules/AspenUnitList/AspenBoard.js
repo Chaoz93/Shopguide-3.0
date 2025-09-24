@@ -409,7 +409,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Excel-Datei wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Aspen.xlsx wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     return {
