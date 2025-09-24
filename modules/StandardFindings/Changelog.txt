@@ -5,6 +5,14 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.9.0] – 2025-09-24
+### Added
+- Autocomplete-Eingabe für Findings mit Enter-Workflow
+- Automatische Actions und Bestellliste
+- Neue Textfelder: Routine & Nonroutine
+- Copy-Buttons für alle Textfelder
+- Live-Preview, History, LocalStorage, Accordion und Export-Funktion
+
 ## [1.8.4] – 2025-09-23
 ### Changed
 - Modulbreite auf Minimalwerte reduziert

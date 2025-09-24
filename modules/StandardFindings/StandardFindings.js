@@ -1,22 +1,90 @@
-// Module to convert standard findings to standard text from Excel/CSV with context menu and multi-selection
+// Module to convert standard findings to standard text from Excel/CSV with context menu and multi-selection – v1.9.0
 (function(){
   window.renderStandardFindings = function(root){
     let items = [];
     let dict = [];
     let findName = '';
     let dictName = '';
-    let selectsEl, findOut, actionOut, copyFind, copyAction, headEl;
+    let inputsEl, historyEl, findOut, actionOut, routineOut, nonroutineOut, partsOut, headEl, exportBtn;
     let currentItems = [];
+    let rows=[];
+    let itemMap=new Map();
+    let currentItemMap=new Map();
+    let initializing=false;
     let partNumber = '';
     let rendering = false;
 
+    const findingsSelected=[];
+    const actionsSelected=[];
+    const partsSelected=[];
+    if(typeof window!=='undefined'){
+      window.findingsSelected=findingsSelected;
+      window.actionsSelected=actionsSelected;
+      window.partsSelected=partsSelected;
+    }
+
+    const setArray=(target,values)=>{target.splice(0,target.length,...values);return target;};
+
+    const STATE_KEY='sf-v190-state';
+    let savedState={};
+    try{savedState=JSON.parse(localStorage.getItem(STATE_KEY)||'{}');}catch{savedState={};}
+    let selectionKeys=Array.isArray(savedState.selections)?savedState.selections.filter(Boolean):[];
+    let historyKeys=Array.isArray(savedState.history)?savedState.history.filter(Boolean):[];
+    let storedRoutineText=typeof savedState.routine==='string'?savedState.routine:'';
+    let storedNonroutineText=typeof savedState.nonroutine==='string'?savedState.nonroutine:'';
+    let storedFindingsText=typeof savedState.findingsText==='string'?savedState.findingsText:'';
+    let storedActionsText=typeof savedState.actionsText==='string'?savedState.actionsText:'';
+    let storedPartsText=typeof savedState.partsText==='string'?savedState.partsText:'';
+    let shouldRestoreOutputs=true;
+
     try{ items=JSON.parse(localStorage.getItem('sf-findings-data')||'[]'); }catch{}
+    if(!Array.isArray(items)) items=[];
+    items=normalizeItems(items);
+    rebuildItemMap();
+    selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
+    historyKeys=historyKeys.filter(key=>itemMap.has(key));
     try{ dict=JSON.parse(localStorage.getItem('sf-dict-data')||'[]'); }catch{}
     try{ findName=localStorage.getItem('sf-findings-name')||''; }catch{}
     try{ dictName=localStorage.getItem('sf-dict-name')||''; }catch{}
 
     const LS_KEY='module_data_v1';
     const WATCH_INTERVAL=300;
+
+    const uniqueStrings=list=>{
+      const seen=new Set();
+      const out=[];
+      for(const entry of list){
+        const value=String(entry||'').trim();
+        if(!value||seen.has(value)) continue;
+        seen.add(value);
+        out.push(value);
+      }
+      return out;
+    };
+
+    const normalizeItems=list=>{
+      const dupes={};
+      return list.map(row=>{
+        const clean={
+          part:String(row.part||'').trim(),
+          label:String(row.label||'').trim(),
+          finding:String(row.finding||'').trim(),
+          action:String(row.action||'').trim()
+        };
+        const base=[clean.part,clean.label,clean.finding,clean.action].join('||');
+        const count=dupes[base]||0;
+        dupes[base]=count+1;
+        const key=count?`${base}__${count}`:base;
+        return {...clean,key};
+      }).filter(row=>row.label);
+    };
+
+    const rebuildItemMap=()=>{
+      itemMap=new Map();
+      for(const entry of items){
+        if(entry.key) itemMap.set(entry.key,entry);
+      }
+    };
 
     const getPart=()=>{
       let meld='';
@@ -159,20 +227,23 @@
     async function handleFindingsFile(file){
       const buf=await file.arrayBuffer();
       if(file.name.toLowerCase().endsWith('.csv')){
-        items=parseCSV(new TextDecoder().decode(buf));
+        items=normalizeItems(parseCSV(new TextDecoder().decode(buf)));
       }else{
         if(typeof XLSX==='undefined') await loadXLSX();
         const wb=XLSX.read(buf,{type:'array'});
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        items=rows.slice(1).map(r=>({
+        items=normalizeItems(rows.slice(1).map(r=>({
           part:String(r[0]||'').trim(),
           label:String(r[1]||'').trim(),
           finding:String(r[2]||'').trim(),
           action:String(r[3]||'').trim()
-        })).filter(r=>r.label);
+        })));
       }
       findName=file.name||'';
+      rebuildItemMap();
+      selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
+      historyKeys=historyKeys.filter(key=>itemMap.has(key));
       try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
       try{localStorage.setItem('sf-findings-name',findName);}catch{}
       updateMenuLabels();
@@ -221,13 +292,16 @@
         const wb=XLSX.read(buf,{type:'array'});
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        items=rows.slice(1).map(r=>({
+        items=normalizeItems(rows.slice(1).map(r=>({
           part:String(r[0]||'').trim(),
           label:String(r[1]||'').trim(),
           finding:String(r[2]||'').trim(),
           action:String(r[3]||'').trim()
-        })).filter(r=>r.label);
+        })));
         findName='Findings.xlsx';
+        rebuildItemMap();
+        selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
+        historyKeys=historyKeys.filter(key=>itemMap.has(key));
         try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
         try{localStorage.setItem('sf-findings-name',findName);}catch{}
         updateMenuLabels();
@@ -286,12 +360,7 @@
         label:(r[1]||'').trim(),
         finding:(r[2]||'').trim(),
         action:(r[3]||'').trim()
-      })).filter(r=>r.label);
-    }
-
-    function escapeHtml(str){
-      const map={"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"};
-      return str.replace(/[&<>\"']/g,m=>map[m]);
+      }));
     }
 
     function loadXLSX(){
@@ -302,78 +371,608 @@
       });
     }
 
-    function updateOutputs(){
-      const ids=Array.from(selectsEl.querySelectorAll('select')).map(s=>parseInt(s.value,10)).filter(n=>!isNaN(n));
-      const finds=ids.map(i=>currentItems[i].finding).filter(Boolean);
-      const acts=ids.map(i=>currentItems[i].action).filter(Boolean);
-      findOut.value=finds.join('\n\n');
-      actionOut.value=acts.join('\n\n');
+    function getItemByKey(key){
+      if(!key) return null;
+      return currentItemMap.get(key)||itemMap.get(key)||null;
     }
 
-    function addSelect(){
-      const used=Array.from(selectsEl.querySelectorAll('select')).map(s=>parseInt(s.value,10)).filter(n=>!isNaN(n));
-      const remaining=currentItems.filter((_,i)=>!used.includes(i));
-      if(!remaining.length) return;
-      const sel=document.createElement('select');
-      sel.className='w-full p-1 rounded text-black';
-      sel.innerHTML='<option value="">-- Auswahl --</option>'+
-        currentItems.map((it,i)=>used.includes(i)?'':`<option value="${i}">${escapeHtml(it.label)}</option>`).join('');
-      sel.onchange=()=>{
-        let next=sel.nextSibling; while(next){next.remove(); next=sel.nextSibling;}
-        if(sel.value!=='') addSelect();
-        updateOutputs();
+    function updateHistory(key){
+      if(!key) return;
+      historyKeys=historyKeys.filter(k=>k!==key);
+      historyKeys.unshift(key);
+      if(historyKeys.length>5) historyKeys=historyKeys.slice(0,5);
+      renderHistory();
+    }
+
+    function renderHistory(){
+      if(!historyEl) return;
+      const wrapper=historyEl.closest('[data-history-wrapper]');
+      historyEl.innerHTML='';
+      let count=0;
+      for(const key of historyKeys){
+        const item=currentItemMap.get(key);
+        if(!item) continue;
+        const chip=document.createElement('button');
+        chip.type='button';
+        chip.className='rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-blue-100 hover:text-blue-700';
+        chip.textContent=item.label||'';
+        chip.title=item.finding||'';
+        chip.addEventListener('click',()=>applyHistoryKey(key));
+        historyEl.appendChild(chip);
+        count++;
+      }
+      if(wrapper){
+        if(count===0) wrapper.classList.add('hidden');
+        else wrapper.classList.remove('hidden');
+      }
+    }
+
+    function highlightSuggestion(row,index){
+      if(!row) return;
+      row.activeIndex=index;
+      if(!row.suggestionButtons) return;
+      row.suggestionButtons.forEach((btn,i)=>{
+        if(i===index) btn.classList.add('bg-blue-100');
+        else btn.classList.remove('bg-blue-100');
+      });
+    }
+
+    function closeSuggestions(row){
+      if(!row||!row.suggestionsEl) return;
+      row.suggestionsEl.classList.add('hidden');
+      row.suggestionsEl.setAttribute('aria-hidden','true');
+      row.suggestionsEl.innerHTML='';
+      row.suggestionsData=[];
+      row.suggestionButtons=[];
+      row.activeIndex=-1;
+    }
+
+    function showSuggestions(row,query){
+      if(!row||!row.suggestionsEl) return;
+      const term=(query||'').trim().toLowerCase();
+      const parts=term.split(/\s+/).filter(Boolean);
+      const suggestions=[];
+      if(parts.length===0){
+        for(const key of historyKeys){
+          const item=currentItemMap.get(key);
+          if(item&&!suggestions.some(s=>s.item.key===item.key)) suggestions.push({item,type:'history'});
+        }
+      }
+      const matches=[];
+      for(const item of currentItems){
+        const hay=(item.label+' '+item.finding).toLowerCase();
+        const ok=parts.length===0||parts.every(part=>hay.includes(part));
+        if(ok) matches.push(item);
+      }
+      for(const item of matches){
+        if(suggestions.length>=12) break;
+        if(suggestions.some(s=>s.item.key===item.key)) continue;
+        suggestions.push({item,type:parts.length?'match':'item'});
+      }
+      row.suggestionsEl.innerHTML='';
+      row.suggestionButtons=[];
+      row.suggestionsData=suggestions;
+      if(!suggestions.length){
+        const empty=document.createElement('div');
+        empty.className='px-3 py-2 text-sm text-gray-500';
+        empty.textContent=parts.length?'Keine Treffer':'Keine Vorschläge';
+        row.suggestionsEl.appendChild(empty);
+        row.suggestionsEl.classList.remove('hidden');
+        row.suggestionsEl.setAttribute('aria-hidden','false');
+        row.activeIndex=-1;
+        return;
+      }
+      suggestions.forEach((sugg,idx)=>{
+        const btn=document.createElement('button');
+        btn.type='button';
+        btn.className='flex w-full flex-col gap-1 rounded px-3 py-2 text-left text-sm text-gray-800 transition hover:bg-blue-50 focus:bg-blue-100';
+        btn.dataset.index=String(idx);
+        const title=document.createElement('div');
+        title.className='font-medium';
+        title.textContent=sugg.item.label||'';
+        const subtitle=document.createElement('div');
+        subtitle.className='text-xs text-gray-500';
+        subtitle.textContent=sugg.item.finding||'';
+        btn.appendChild(title);
+        btn.appendChild(subtitle);
+        if(sugg.type==='history'){
+          const badge=document.createElement('div');
+          badge.className='text-[10px] font-semibold uppercase tracking-wide text-blue-500';
+          badge.textContent='History';
+          btn.appendChild(badge);
+        }
+        btn.addEventListener('mousedown',e=>{e.preventDefault(); setRowSelection(row,sugg.item,{focusNext:true});});
+        row.suggestionsEl.appendChild(btn);
+        row.suggestionButtons.push(btn);
+      });
+      row.suggestionsEl.classList.remove('hidden');
+      row.suggestionsEl.setAttribute('aria-hidden','false');
+      highlightSuggestion(row,0);
+    }
+
+    function confirmSelection(row){
+      if(!row) return false;
+      if(row.suggestionsData&&row.suggestionsData.length){
+        const idx=row.activeIndex>=0?row.activeIndex:0;
+        const suggestion=row.suggestionsData[idx];
+        if(suggestion){
+          setRowSelection(row,suggestion.item,{focusNext:true});
+          return true;
+        }
+      }
+      const query=(row.input?.value||'').trim().toLowerCase();
+      if(!query) return false;
+      const direct=currentItems.find(item=>{
+        const label=item.label.toLowerCase();
+        const finding=item.finding.toLowerCase();
+        return label===query||finding===query;
+      });
+      if(direct){
+        setRowSelection(row,direct,{focusNext:true});
+        return true;
+      }
+      return false;
+    }
+
+    function persistState(){
+      const data={
+        selections:selectionKeys,
+        history:historyKeys,
+        routine:routineOut?routineOut.value:storedRoutineText,
+        nonroutine:nonroutineOut?nonroutineOut.value:storedNonroutineText,
+        findingsText:findOut?findOut.value:storedFindingsText,
+        actionsText:actionOut?actionOut.value:storedActionsText,
+        partsText:partsOut?partsOut.value:storedPartsText
       };
-      selectsEl.appendChild(sel);
+      try{localStorage.setItem(STATE_KEY,JSON.stringify(data));}catch{}
+    }
+
+    function updateOutputsFromSelections(options={}){
+      const {skipStore=false}=options;
+      const selectedItems=selectionKeys.map(getItemByKey).filter(Boolean);
+      const findingObjects=selectedItems.map(item=>({
+        key:item.key,
+        label:item.label,
+        finding:item.finding,
+        action:item.action,
+        part:item.part
+      }));
+      setArray(findingsSelected,findingObjects);
+      const actions=uniqueStrings(selectedItems.map(item=>item.action));
+      setArray(actionsSelected,actions);
+      const parts=uniqueStrings(selectedItems.map(item=>item.part));
+      setArray(partsSelected,parts);
+      if(findOut){
+        const text=findingObjects.map(entry=>entry.finding).filter(Boolean).join('\n\n');
+        findOut.value=text;
+        if(!skipStore) storedFindingsText=text;
+      }
+      if(actionOut){
+        const text=actions.join('\n\n');
+        actionOut.value=text;
+        if(!skipStore) storedActionsText=text;
+      }
+      if(partsOut){
+        const text=parts.join('\n');
+        partsOut.value=text;
+        if(!skipStore) storedPartsText=text;
+      }
+    }
+
+    function syncSelections(options={}){
+      const {skipEnsure=false,skipStore=false}=options;
+      selectionKeys=rows.map(r=>r.key).filter(Boolean);
+      updateOutputsFromSelections({skipStore});
+      if(!initializing) persistState();
+      if(!skipEnsure) ensureEmptyRow();
+    }
+
+    function ensureEmptyRow(){
+      const empties=rows.filter(r=>!r.key&&!r.input.value.trim());
+      if(empties.length===0){
+        return addRow(null,false,true);
+      }
+      if(empties.length>1){
+        for(const extra of empties.slice(0,empties.length-1)){
+          extra.el.remove();
+          rows=rows.filter(r=>r!==extra);
+        }
+      }
+      return rows.find(r=>!r.key&&!r.input.value.trim())||null;
+    }
+
+    function removeRow(row,options={}){
+      if(!row) return;
+      const {skipSync=false}=options;
+      row.el.remove();
+      rows=rows.filter(r=>r!==row);
+      if(!skipSync){
+        syncSelections();
+      }else{
+        ensureEmptyRow();
+      }
+    }
+
+    function setRowSelection(row,item,options={}){
+      if(!row) return;
+      const {skipHistory=false,skipSync=false,focusNext=false}=options;
+      row.key=item?item.key:null;
+      row.input.value=item?item.label:'';
+      row.input.dataset.selected=item?'1':'0';
+      row.input.classList.toggle('border-blue-400',!!item);
+      row.input.classList.toggle('bg-blue-50',!!item);
+      if(row.helper){
+        row.helper.textContent=item&&item.finding?item.finding:'';
+        row.helper.classList.toggle('text-gray-500',!!item&&item.finding);
+      }
+      closeSuggestions(row);
+      if(item&&!skipHistory) updateHistory(item.key);
+      if(!skipSync){
+        syncSelections({skipEnsure:true});
+        const blank=ensureEmptyRow();
+        if(focusNext&&blank&&blank!==row) blank.input.focus();
+      }
+    }
+
+    function addRow(initialKey=null,focus=false,silent=false){
+      if(!inputsEl) return null;
+      const row={key:null,suggestionsData:[],suggestionButtons:[],activeIndex:-1};
+      const wrapper=document.createElement('div');
+      wrapper.className='space-y-1';
+      const line=document.createElement('div');
+      line.className='flex items-center gap-2';
+      const inputWrap=document.createElement('div');
+      inputWrap.className='relative flex-1';
+      const input=document.createElement('input');
+      input.type='text';
+      input.placeholder='Finding suchen...';
+      input.className='w-full rounded border border-gray-300 bg-white/90 px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300';
+      input.autocomplete='off';
+      inputWrap.appendChild(input);
+      const suggestions=document.createElement('div');
+      suggestions.className='absolute left-0 right-0 top-full z-20 mt-1 hidden max-h-64 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg';
+      suggestions.setAttribute('role','listbox');
+      suggestions.setAttribute('aria-hidden','true');
+      inputWrap.appendChild(suggestions);
+      const removeBtn=document.createElement('button');
+      removeBtn.type='button';
+      removeBtn.className='rounded bg-gray-200 px-2 py-2 text-sm text-gray-600 transition hover:bg-red-100 hover:text-red-500';
+      removeBtn.textContent='✖';
+      line.appendChild(inputWrap);
+      line.appendChild(removeBtn);
+      wrapper.appendChild(line);
+      const helper=document.createElement('div');
+      helper.className='min-h-[1rem] text-xs text-gray-400';
+      wrapper.appendChild(helper);
+      row.el=wrapper;
+      row.input=input;
+      row.suggestionsEl=suggestions;
+      row.removeBtn=removeBtn;
+      row.helper=helper;
+      inputsEl.appendChild(wrapper);
+      rows.push(row);
+
+      input.addEventListener('focus',()=>{
+        if(!row.key&&!input.value.trim()) showSuggestions(row,'');
+      });
+      input.addEventListener('input',()=>{
+        if(row.key){
+          row.key=null;
+          row.input.dataset.selected='0';
+          row.input.classList.remove('border-blue-400','bg-blue-50');
+          if(row.helper) row.helper.textContent='';
+          syncSelections({skipEnsure:true});
+        }
+        showSuggestions(row,input.value);
+      });
+      input.addEventListener('keydown',e=>{
+        if(e.key==='ArrowDown'){
+          if(!row.suggestionsData.length) showSuggestions(row,input.value);
+          if(row.suggestionsData.length){
+            e.preventDefault();
+            const next=row.activeIndex+1>=row.suggestionsData.length?0:row.activeIndex+1;
+            highlightSuggestion(row,next);
+          }
+        }else if(e.key==='ArrowUp'){
+          if(row.suggestionsData.length){
+            e.preventDefault();
+            const next=row.activeIndex<=0?row.suggestionsData.length-1:row.activeIndex-1;
+            highlightSuggestion(row,next);
+          }
+        }else if(e.key==='Enter'){
+          if(confirmSelection(row)) e.preventDefault();
+        }else if(e.key==='Escape'){
+          closeSuggestions(row);
+        }
+      });
+      input.addEventListener('blur',()=>{setTimeout(()=>closeSuggestions(row),150);});
+      removeBtn.addEventListener('click',()=>{
+        const idx=rows.indexOf(row);
+        removeRow(row);
+        const fallback=rows[Math.max(0,idx-1)];
+        if(fallback&&fallback.input) fallback.input.focus();
+      });
+
+      if(initialKey){
+        const item=getItemByKey(initialKey);
+        if(item) setRowSelection(row,item,{skipHistory:true,skipSync:true});
+      }
+      if(focus) input.focus();
+      if(!silent) ensureEmptyRow();
+      return row;
+    }
+
+    function applyHistoryKey(key){
+      const item=currentItemMap.get(key);
+      if(!item) return;
+      let target=rows.find(r=>!r.key&&!r.input.value.trim());
+      if(!target) target=addRow(null,false,true);
+      if(target) setRowSelection(target,item,{focusNext:true});
+    }
+
+    function copyContent(button,textarea,title){
+      if(!button||!textarea) return;
+      const defaultLabel='📋 Kopieren';
+      button.title=`${title} kopieren`;
+      button.textContent=defaultLabel;
+      button.addEventListener('click',()=>{
+        const text=textarea.value||'';
+        navigator.clipboard.writeText(text).then(()=>{
+          button.textContent='✅';
+          setTimeout(()=>{button.textContent=defaultLabel;},1000);
+        }).catch(()=>{});
+      });
+    }
+
+    function downloadFile(name,content,type){
+      const blob=new Blob([content],{type});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },0);
+    }
+
+    function exportAll(){
+      if(!findOut||!actionOut||!routineOut||!nonroutineOut||!partsOut) return;
+      const sections=[
+        ['Findings',findOut.value||''],
+        ['Actions',actionOut.value||''],
+        ['Routine',routineOut.value||''],
+        ['Nonroutine',nonroutineOut.value||''],
+        ['Bestellliste',partsOut.value||'']
+      ];
+      const text=sections.map(([title,value])=>`${title}:\n${value}`.trim()).join('\n\n------------------------------\n\n');
+      const csvLines=['"Kategorie";"Inhalt"'];
+      for(const [title,value] of sections){
+        const safeTitle=title.replace(/"/g,'""');
+        const safeValue=(value||'').replace(/"/g,'""');
+        csvLines.push(`"${safeTitle}";"${safeValue}"`);
+      }
+      const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+      const base=`standard-findings-${stamp}`;
+      downloadFile(`${base}.txt`,text,'text/plain;charset=utf-8');
+      setTimeout(()=>downloadFile(`${base}.csv`,csvLines.join('\r\n'),'text/csv;charset=utf-8'),200);
+    }
+
+    function clearAll(){
+      for(const row of rows){row.el.remove();}
+      rows=[];
+      selectionKeys=[];
+      setArray(findingsSelected,[]);
+      setArray(actionsSelected,[]);
+      setArray(partsSelected,[]);
+      if(findOut) findOut.value='';
+      if(actionOut) actionOut.value='';
+      if(partsOut) partsOut.value='';
+      storedFindingsText='';
+      storedActionsText='';
+      storedPartsText='';
+      addRow(null,true,true);
+      syncSelections({skipStore:true});
+      persistState();
+    }
+
+    function createAccordionSection(title,id,initialValue){
+      const wrapper=document.createElement('div');
+      wrapper.className='rounded-lg border border-gray-200 bg-white/80 shadow-sm';
+      wrapper.setAttribute('data-open','true');
+      const toggle=document.createElement('button');
+      toggle.type='button';
+      toggle.className='flex w-full items-center justify-between px-3 py-2 text-left font-semibold text-gray-800';
+      const label=document.createElement('span');
+      label.textContent=title;
+      const arrow=document.createElement('span');
+      arrow.className='text-lg text-gray-500 transition-transform';
+      arrow.textContent='▾';
+      toggle.appendChild(label);
+      toggle.appendChild(arrow);
+      wrapper.appendChild(toggle);
+      const body=document.createElement('div');
+      body.className='space-y-2 border-t border-gray-200 px-3 py-3';
+      wrapper.appendChild(body);
+      const textarea=document.createElement('textarea');
+      textarea.id=`sf-output-${id}`;
+      textarea.className='w-full min-h-[120px] rounded border border-gray-300 bg-white/95 px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300';
+      textarea.value=initialValue||'';
+      body.appendChild(textarea);
+      const copyWrapper=document.createElement('div');
+      copyWrapper.className='flex justify-end';
+      const copyBtn=document.createElement('button');
+      copyBtn.type='button';
+      copyBtn.className='rounded bg-gray-700 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-gray-600';
+      copyBtn.textContent='📋 Kopieren';
+      copyWrapper.appendChild(copyBtn);
+      body.appendChild(copyWrapper);
+      toggle.addEventListener('click',()=>{
+        const open=wrapper.getAttribute('data-open')!=='false';
+        if(open){
+          wrapper.setAttribute('data-open','false');
+          body.classList.add('hidden');
+          arrow.style.transform='rotate(-90deg)';
+        }else{
+          wrapper.setAttribute('data-open','true');
+          body.classList.remove('hidden');
+          arrow.style.transform='rotate(0deg)';
+        }
+      });
+      return {el:wrapper,textarea,copyBtn};
     }
 
     function render(){
       rendering=true;
+      initializing=true;
       const part=partNumber;
       currentItems=part?items.filter(it=>it.part===part):items;
-      const hasItems=currentItems.length>0;
-      root.innerHTML=`<div class="p-2 space-y-2">
-        <div id="sf-head" class="text-center font-bold"></div>
-        ${!hasItems?
-          '<div class="text-sm opacity-80 text-center">Rechtsklick → Excel wählen<br>Spalten: B=Auswahl, C=Finding, D=Action</div>' :
-          `<div id="sf-selects" class="space-y-2"></div>
-          <div class="space-y-2">
-            <div>
-              <textarea id="sf-find" class="w-full h-24 p-1 rounded text-black"></textarea>
-              <button id="sf-copy-find" class="mt-1 bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">📋 Finding kopieren</button>
-            </div>
-            <div>
-              <textarea id="sf-action" class="w-full h-24 p-1 rounded text-black"></textarea>
-              <button id="sf-copy-action" class="mt-1 bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">📋 Action kopieren</button>
-            </div>
-          </div>`}
-      </div>`;
-
-      headEl=root.querySelector('#sf-head');
+      currentItemMap=new Map(currentItems.map(entry=>[entry.key,entry]));
+      selectionKeys=selectionKeys.filter(key=>currentItemMap.has(key));
+      root.innerHTML='';
+      const wrapper=document.createElement('div');
+      wrapper.className='p-3 space-y-4 text-sm';
+      root.appendChild(wrapper);
+      headEl=document.createElement('div');
+      headEl.id='sf-head';
+      headEl.className='text-center text-base font-semibold text-gray-800';
       headEl.textContent=part?`P/N: ${part}`:'';
-      if(!hasItems){rendering=false;return;}
+      wrapper.appendChild(headEl);
 
-      selectsEl=root.querySelector('#sf-selects');
-      findOut=root.querySelector('#sf-find');
-      actionOut=root.querySelector('#sf-action');
-      copyFind=root.querySelector('#sf-copy-find');
-      copyAction=root.querySelector('#sf-copy-action');
+      if(!currentItems.length){
+        const empty=document.createElement('div');
+        empty.className='text-sm text-gray-600 opacity-80 text-center';
+        empty.innerHTML='Rechtsklick → Excel wählen<br>Spalten: B=Auswahl, C=Finding, D=Action';
+        wrapper.appendChild(empty);
+        rendering=false;
+        initializing=false;
+        return;
+      }
 
-      selectsEl.innerHTML='';
-      addSelect();
-      updateOutputs();
+      const content=document.createElement('div');
+      content.className='space-y-4';
+      wrapper.appendChild(content);
 
-      copyFind.onclick=()=>{
-        navigator.clipboard.writeText(findOut.value||'').then(()=>{
-          copyFind.textContent='✅';
-          setTimeout(()=>copyFind.textContent='📋 Finding kopieren',1000);
-        }).catch(()=>{});
-      };
-      copyAction.onclick=()=>{
-        navigator.clipboard.writeText(actionOut.value||'').then(()=>{
-          copyAction.textContent='✅';
-          setTimeout(()=>copyAction.textContent='📋 Action kopieren',1000);
-        }).catch(()=>{});
-      };
+      const selectionCard=document.createElement('div');
+      selectionCard.className='space-y-3 rounded-lg border border-gray-200 bg-white/80 p-3 shadow-sm';
+      content.appendChild(selectionCard);
+
+      const selectionHeader=document.createElement('div');
+      selectionHeader.className='flex items-center justify-between gap-2';
+      selectionCard.appendChild(selectionHeader);
+
+      const selectionTitle=document.createElement('h3');
+      selectionTitle.className='text-base font-semibold text-gray-800';
+      selectionTitle.textContent='Findings auswählen';
+      selectionHeader.appendChild(selectionTitle);
+
+      const clearBtn=document.createElement('button');
+      clearBtn.type='button';
+      clearBtn.className='rounded bg-gray-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-600';
+      clearBtn.textContent='Alles löschen';
+      clearBtn.addEventListener('click',clearAll);
+      selectionHeader.appendChild(clearBtn);
+
+      inputsEl=document.createElement('div');
+      inputsEl.id='sf-inputs';
+      inputsEl.className='space-y-3';
+      selectionCard.appendChild(inputsEl);
+
+      const historyWrapper=document.createElement('div');
+      historyWrapper.dataset.historyWrapper='1';
+      historyWrapper.className='space-y-1';
+      selectionCard.appendChild(historyWrapper);
+
+      const historyTitle=document.createElement('div');
+      historyTitle.className='text-[11px] font-semibold uppercase tracking-wide text-gray-500';
+      historyTitle.textContent='Zuletzt gewählt';
+      historyWrapper.appendChild(historyTitle);
+
+      historyEl=document.createElement('div');
+      historyEl.id='sf-history-list';
+      historyEl.className='flex flex-wrap gap-1';
+      historyWrapper.appendChild(historyEl);
+
+      const exportWrapper=document.createElement('div');
+      exportWrapper.className='flex justify-end';
+      content.appendChild(exportWrapper);
+
+      exportBtn=document.createElement('button');
+      exportBtn.type='button';
+      exportBtn.id='sf-export';
+      exportBtn.className='rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-blue-500';
+      exportBtn.textContent='Alles speichern';
+      exportBtn.addEventListener('click',()=>{
+        exportAll();
+        const original=exportBtn.textContent;
+        exportBtn.textContent='✅ Gespeichert';
+        setTimeout(()=>{exportBtn.textContent=original;},1200);
+      });
+      exportWrapper.appendChild(exportBtn);
+
+      const accordionContainer=document.createElement('div');
+      accordionContainer.id='sf-accordion';
+      accordionContainer.className='space-y-2';
+      content.appendChild(accordionContainer);
+
+      const sections=[
+        {id:'findings',title:'Findings',restore:storedFindingsText},
+        {id:'actions',title:'Actions',restore:storedActionsText},
+        {id:'routine',title:'Routine',restore:storedRoutineText},
+        {id:'nonroutine',title:'Nonroutine',restore:storedNonroutineText},
+        {id:'parts',title:'Bestellliste',restore:storedPartsText}
+      ];
+
+      sections.forEach(cfg=>{
+        const section=createAccordionSection(cfg.title,cfg.id,cfg.restore);
+        accordionContainer.appendChild(section.el);
+        switch(cfg.id){
+          case 'findings':
+            findOut=section.textarea;
+            copyContent(section.copyBtn,section.textarea,'Findings');
+            break;
+          case 'actions':
+            actionOut=section.textarea;
+            copyContent(section.copyBtn,section.textarea,'Actions');
+            break;
+          case 'routine':
+            routineOut=section.textarea;
+            copyContent(section.copyBtn,section.textarea,'Routine');
+            break;
+          case 'nonroutine':
+            nonroutineOut=section.textarea;
+            copyContent(section.copyBtn,section.textarea,'Nonroutine');
+            break;
+          case 'parts':
+            partsOut=section.textarea;
+            copyContent(section.copyBtn,section.textarea,'Bestellliste');
+            break;
+        }
+      });
+
+      if(routineOut) routineOut.addEventListener('input',()=>{storedRoutineText=routineOut.value; if(!initializing) persistState();});
+      if(nonroutineOut) nonroutineOut.addEventListener('input',()=>{storedNonroutineText=nonroutineOut.value; if(!initializing) persistState();});
+      if(findOut) findOut.addEventListener('input',()=>{storedFindingsText=findOut.value; if(!initializing) persistState();});
+      if(actionOut) actionOut.addEventListener('input',()=>{storedActionsText=actionOut.value; if(!initializing) persistState();});
+      if(partsOut) partsOut.addEventListener('input',()=>{storedPartsText=partsOut.value; if(!initializing) persistState();});
+
+      rows=[];
+      selectionKeys.forEach(key=>addRow(key,false,true));
+      ensureEmptyRow();
+      renderHistory();
+      syncSelections({skipStore:shouldRestoreOutputs});
+      initializing=false;
+      if(shouldRestoreOutputs){
+        if(findOut) findOut.value=storedFindingsText;
+        if(actionOut) actionOut.value=storedActionsText;
+        if(partsOut) partsOut.value=storedPartsText;
+        if(routineOut) routineOut.value=storedRoutineText;
+        if(nonroutineOut) nonroutineOut.value=storedNonroutineText;
+        shouldRestoreOutputs=false;
+      }
+      persistState();
       rendering=false;
     }
 
