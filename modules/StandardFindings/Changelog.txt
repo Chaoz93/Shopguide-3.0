@@ -12,6 +12,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Neue Textfelder: Routine & Nonroutine
 - Copy-Buttons für alle Textfelder
 - Live-Preview, History, LocalStorage, Accordion und Export-Funktion
+- Kontextmenü zur Auswahl der Findings- und Dictionary-Dateien
 
 ## [1.8.4] – 2025-09-23
 ### Changed

@@ -121,6 +121,9 @@
       .db-menu .mi:hover{background:rgba(0,0,0,.06);}
       .db-menu .mi.noclick{cursor:default;opacity:.7;}
       .db-menu .mi.noclick:hover{background:none;}
+      .db-menu .file-entry{position:relative;}
+      .db-menu .file-input{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);
+        white-space:nowrap;border:0;}
       `;
       let tag=document.getElementById('sf-styles');
       if(!tag){tag=document.createElement('style');tag.id='sf-styles';document.head.appendChild(tag);} 
@@ -129,16 +132,81 @@
 
     // --- context menu ---
     function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+    const FILE_ACCEPT_EXT='.xlsx,.xls,.xlsm,.csv';
+    const FILE_PICKER_TYPES=[{
+      description:'Excel- oder CSV-Datei',
+      accept:{
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
+        'application/vnd.ms-excel':['.xls'],
+        'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
+        'text/csv':['.csv']
+      }
+    }];
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<button class="mi mi-find">📂 Findings wählen</button><div class="mi mi-find-name noclick"></div><button class="mi mi-dict">📂 Dictionary wählen</button><div class="mi mi-dict-name noclick"></div>';
+
+    const createFileMenuEntry=(labelText,onFile,labelForLog)=>{
+      const entry=document.createElement('label');
+      entry.className='mi file-entry';
+      const text=document.createElement('span');
+      text.textContent=labelText;
+      const input=document.createElement('input');
+      input.type='file';
+      input.accept=FILE_ACCEPT_EXT;
+      input.className='file-input';
+      entry.append(text,input);
+
+      entry.addEventListener('click',async e=>{
+        if(e.target===input) return;
+        if('showOpenFilePicker' in window){
+          e.preventDefault();
+          e.stopPropagation();
+          menu.classList.remove('open');
+          try{
+            const [fh]=await window.showOpenFilePicker({types:FILE_PICKER_TYPES});
+            const file=fh?await fh.getFile():null;
+            if(file) await onFile(file);
+          }catch(err){
+            if(!(err&&err.name==='AbortError')) console.warn(`${labelForLog} nicht geladen`,err);
+          }
+        }else{
+          menu.classList.remove('open');
+        }
+      });
+
+      input.addEventListener('click',e=>e.stopPropagation());
+      input.addEventListener('change',async()=>{
+        menu.classList.remove('open');
+        const file=input.files&&input.files[0];
+        if(file){
+          try{await onFile(file);}catch(err){console.warn(`${labelForLog} nicht geladen`,err);}
+        }
+        input.value='';
+      });
+
+      return entry;
+    };
+
+    const findingsEntry=createFileMenuEntry('📂 Findings-Datei auswählen …',handleFindingsFile,'Findings-Datei');
+    const dictEntry=createFileMenuEntry('📂 Meldungs-Lexikon auswählen …',handleDictFile,'Dictionary-Datei');
+    const findNameEl=document.createElement('div');
+    findNameEl.className='mi mi-find-name noclick';
+    const dictNameEl=document.createElement('div');
+    dictNameEl.className='mi mi-dict-name noclick';
+    menu.append(findingsEntry,findNameEl,dictEntry,dictNameEl);
     document.body.appendChild(menu);
 
     const updateMenuLabels=()=>{
-      const fnEl=menu.querySelector('.mi-find-name');
-      const dnEl=menu.querySelector('.mi-dict-name');
-      if(fnEl) fnEl.textContent=findName?`• ${findName}`:'';
-      if(dnEl) dnEl.textContent=dictName?`• ${dictName}`:'';
+      if(findNameEl){
+        const label=findName?`Aktuelle Findings-Datei: ${findName}`:'Aktuelle Findings-Datei: keine Auswahl';
+        findNameEl.textContent=label;
+        findNameEl.title=findName||'Keine Datei ausgewählt';
+      }
+      if(dictNameEl){
+        const label=dictName?`Aktuelles Meldungs-Lexikon: ${dictName}`:'Aktuelles Meldungs-Lexikon: keine Auswahl';
+        dictNameEl.textContent=label;
+        dictNameEl.title=dictName||'Keine Datei ausgewählt';
+      }
     };
     updateMenuLabels();
     const openMenu=e=>{
@@ -152,77 +220,23 @@
       menu.style.top=clamp(e.clientY,pad,vh-h-pad)+'px';
       menu.classList.add('open');
     };
+    const hideMenu=()=>menu.classList.remove('open');
+    const handleMenuKey=e=>{if(e.key==='Escape') hideMenu();};
     document.addEventListener('contextmenu',openMenu);
-    window.addEventListener('click',()=>menu.classList.remove('open'));
-    window.addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open');});
-    menu.querySelector('.mi-find').addEventListener('click',()=>{menu.classList.remove('open');pickFindings();});
-    menu.querySelector('.mi-dict').addEventListener('click',()=>{menu.classList.remove('open');pickDict();});
+    window.addEventListener('click',hideMenu);
+    window.addEventListener('keydown',handleMenuKey);
     const mo=new MutationObserver(()=>{
       if(!document.body.contains(root)){
         menu.remove();
         document.removeEventListener('contextmenu',openMenu);
+        window.removeEventListener('click',hideMenu);
+        window.removeEventListener('keydown',handleMenuKey);
         clearInterval(watcher);
         window.removeEventListener('storage',storageHandler);
         mo.disconnect();
       }
     });
     mo.observe(document.body,{childList:true,subtree:true});
-
-    async function pickFindings(){
-      try{
-        if('showOpenFilePicker' in window){
-          const [fh]=await window.showOpenFilePicker({
-            types:[{
-              description:'Excel oder CSV',
-              accept:{
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx','.xls','.xlsm'],
-                'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
-                'text/csv':['.csv']
-              }
-            }]
-          });
-          const file=fh?await fh.getFile():null;
-          if(file) await handleFindingsFile(file);
-        }else{
-          const inp=document.createElement('input');
-          inp.type='file';
-          inp.accept='.xlsx,.xls,.xlsm,.csv';
-          inp.onchange=async()=>{
-            const file=inp.files&&inp.files[0];
-            if(file) await handleFindingsFile(file);
-          };
-          inp.click();
-        }
-      }catch(e){console.warn('Findings nicht geladen',e);}
-    }
-
-    async function pickDict(){
-      try{
-        if('showOpenFilePicker' in window){
-          const [fh]=await window.showOpenFilePicker({
-            types:[{
-              description:'Excel oder CSV',
-              accept:{
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx','.xls','.xlsm'],
-                'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
-                'text/csv':['.csv']
-              }
-            }]
-          });
-          const file=fh?await fh.getFile():null;
-          if(file) await handleDictFile(file);
-        }else{
-          const inp=document.createElement('input');
-          inp.type='file';
-          inp.accept='.xlsx,.xls,.xlsm,.csv';
-          inp.onchange=async()=>{
-            const file=inp.files&&inp.files[0];
-            if(file) await handleDictFile(file);
-          };
-          inp.click();
-        }
-      }catch(e){console.warn('Dictionary nicht geladen',e);}
-    }
 
     async function handleFindingsFile(file){
       const buf=await file.arrayBuffer();
