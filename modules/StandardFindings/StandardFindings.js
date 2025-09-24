@@ -6,6 +6,7 @@
     let findName = '';
     let dictName = '';
     let inputsEl, historyEl, findOut, actionOut, routineOut, nonroutineOut, partsOut, headEl, exportBtn;
+    let inlineFindStatus, inlineDictStatus, datasetInfoEl;
     let currentItems = [];
     let rows=[];
     let itemMap=new Map();
@@ -13,6 +14,7 @@
     let initializing=false;
     let partNumber = '';
     let rendering = false;
+    let showAllFindings=false;
 
     const findingsSelected=[];
     const actionsSelected=[];
@@ -101,6 +103,7 @@
       if(headEl) headEl.textContent=pn?`P/N: ${pn}`:'';
       if(pn!==partNumber){
         partNumber=pn;
+        showAllFindings=false;
         if(!rendering) render();
       }
     };
@@ -196,7 +199,7 @@
     menu.append(findingsEntry,findNameEl,dictEntry,dictNameEl);
     document.body.appendChild(menu);
 
-    const updateMenuLabels=()=>{
+    const updateFileLabels=()=>{
       if(findNameEl){
         const label=findName?`Aktuelle Findings-Datei: ${findName}`:'Aktuelle Findings-Datei: keine Auswahl';
         findNameEl.textContent=label;
@@ -207,8 +210,50 @@
         dictNameEl.textContent=label;
         dictNameEl.title=dictName||'Keine Datei ausgewählt';
       }
+      if(inlineFindStatus){
+        inlineFindStatus.textContent=findName?`Findings-Datei: ${findName}`:'Findings-Datei: keine Auswahl';
+        inlineFindStatus.classList.toggle('text-red-500',!findName);
+        inlineFindStatus.classList.toggle('text-gray-600',!!findName);
+      }
+      if(inlineDictStatus){
+        inlineDictStatus.textContent=dictName?`Dictionary-Datei: ${dictName}`:'Dictionary-Datei: keine Auswahl';
+        inlineDictStatus.classList.toggle('text-red-500',!dictName);
+        inlineDictStatus.classList.toggle('text-gray-600',!!dictName);
+      }
     };
-    updateMenuLabels();
+    updateFileLabels();
+
+    function setupFileButton(button,input,onFile,labelForLog){
+      if(!button) return;
+      if(input){
+        input.type='file';
+        input.accept=FILE_ACCEPT_EXT;
+        input.classList.add('hidden');
+      }
+      button.addEventListener('click',async e=>{
+        e.preventDefault();
+        if('showOpenFilePicker' in window){
+          try{
+            const [fh]=await window.showOpenFilePicker({types:FILE_PICKER_TYPES});
+            const file=fh?await fh.getFile():null;
+            if(file) await onFile(file);
+            return;
+          }catch(err){
+            if(err&&err.name==='AbortError') return;
+            console.warn(`${labelForLog} nicht geladen`,err);
+          }
+        }
+        if(input) input.click();
+      });
+      if(!input) return;
+      input.addEventListener('change',async()=>{
+        const file=input.files&&input.files[0];
+        if(file){
+          try{await onFile(file);}catch(err){console.warn(`${labelForLog} nicht geladen`,err);}
+        }
+        input.value='';
+      });
+    }
     const openMenu=e=>{
       if(!root.contains(e.target)) return;
       e.preventDefault();
@@ -258,9 +303,10 @@
       rebuildItemMap();
       selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
       historyKeys=historyKeys.filter(key=>itemMap.has(key));
+      showAllFindings=false;
       try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
       try{localStorage.setItem('sf-findings-name',findName);}catch{}
-      updateMenuLabels();
+      updateFileLabels();
       render();
     }
 
@@ -293,7 +339,7 @@
       dictName=file.name||'';
       try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
       try{localStorage.setItem('sf-dict-name',dictName);}catch{}
-      updateMenuLabels();
+      updateFileLabels();
       refreshPart();
     }
 
@@ -337,12 +383,13 @@
               action:String(r[3]||'').trim()
             })));
             findName=url;
+            showAllFindings=false;
             rebuildItemMap();
             selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
             historyKeys=historyKeys.filter(key=>itemMap.has(key));
             try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
             try{localStorage.setItem('sf-findings-name',findName);}catch{}
-            updateMenuLabels();
+            updateFileLabels();
             render();
             return;
           }catch(err){
@@ -387,7 +434,7 @@
           dictName=url;
           try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
           try{localStorage.setItem('sf-dict-name',dictName);}catch{}
-          updateMenuLabels();
+          updateFileLabels();
           refreshPart();
           return;
         }catch(e){/* try next */}
@@ -816,7 +863,7 @@
       storedFindingsText='';
       storedActionsText='';
       storedPartsText='';
-      addRow(null,true,true);
+      if(inputsEl) addRow(null,true,true);
       syncSelections({skipStore:true});
       persistState();
     }
@@ -870,10 +917,23 @@
     function render(){
       rendering=true;
       initializing=true;
+      inputsEl=null;
+      historyEl=null;
+      findOut=null;
+      actionOut=null;
+      routineOut=null;
+      nonroutineOut=null;
+      partsOut=null;
+      exportBtn=null;
+      inlineFindStatus=null;
+      inlineDictStatus=null;
+      datasetInfoEl=null;
       const part=partNumber;
-      currentItems=part?items.filter(it=>it.part===part):items;
+      const usingPartFilter=!!part&&!showAllFindings;
+      currentItems=usingPartFilter?items.filter(it=>it.part===part):items;
       currentItemMap=new Map(currentItems.map(entry=>[entry.key,entry]));
       selectionKeys=selectionKeys.filter(key=>currentItemMap.has(key));
+      rows=[];
       root.innerHTML='';
       const wrapper=document.createElement('div');
       wrapper.className='p-3 space-y-4 text-sm';
@@ -884,14 +944,67 @@
       headEl.textContent=part?`P/N: ${part}`:'';
       wrapper.appendChild(headEl);
 
-      if(!currentItems.length){
-        const empty=document.createElement('div');
-        empty.className='text-sm text-gray-600 opacity-80 text-center';
-        empty.innerHTML='Rechtsklick → Excel wählen<br>Spalten: B=Auswahl, C=Finding, D=Action';
-        wrapper.appendChild(empty);
-        rendering=false;
-        initializing=false;
-        return;
+      const fileCard=document.createElement('div');
+      fileCard.className='space-y-3 rounded-lg border border-gray-200 bg-white/80 p-3 shadow-sm';
+      wrapper.appendChild(fileCard);
+
+      const fileHeader=document.createElement('div');
+      fileHeader.className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between';
+      fileCard.appendChild(fileHeader);
+
+      const fileTitle=document.createElement('h3');
+      fileTitle.className='text-base font-semibold text-gray-800';
+      fileTitle.textContent='Datenquellen';
+      fileHeader.appendChild(fileTitle);
+
+      const fileButtons=document.createElement('div');
+      fileButtons.className='flex flex-wrap gap-2';
+      fileHeader.appendChild(fileButtons);
+
+      const findingsBtn=document.createElement('button');
+      findingsBtn.type='button';
+      findingsBtn.className='rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow transition hover:bg-blue-500';
+      findingsBtn.textContent='Findings-Datei wählen';
+      const findingsInput=document.createElement('input');
+      fileButtons.append(findingsBtn,findingsInput);
+      setupFileButton(findingsBtn,findingsInput,handleFindingsFile,'Findings-Datei');
+
+      const dictBtn=document.createElement('button');
+      dictBtn.type='button';
+      dictBtn.className='rounded bg-gray-700 px-3 py-2 text-sm font-semibold text-white shadow transition hover:bg-gray-600';
+      dictBtn.textContent='Dictionary wählen';
+      const dictInput=document.createElement('input');
+      fileButtons.append(dictBtn,dictInput);
+      setupFileButton(dictBtn,dictInput,handleDictFile,'Dictionary-Datei');
+
+      const statusList=document.createElement('div');
+      statusList.className='space-y-1 text-xs';
+      fileCard.appendChild(statusList);
+
+      inlineFindStatus=document.createElement('div');
+      inlineFindStatus.className='text-xs font-medium text-gray-600';
+      statusList.appendChild(inlineFindStatus);
+
+      inlineDictStatus=document.createElement('div');
+      inlineDictStatus.className='text-xs font-medium text-gray-600';
+      statusList.appendChild(inlineDictStatus);
+
+      datasetInfoEl=document.createElement('div');
+      datasetInfoEl.className='text-[11px] text-gray-500';
+      statusList.appendChild(datasetInfoEl);
+
+      const contextHint=document.createElement('div');
+      contextHint.className='text-[11px] text-gray-400';
+      contextHint.textContent='Tipp: Rechtsklick auf das Modul öffnet das Kontextmenü für die Dateiauswahl.';
+      fileCard.appendChild(contextHint);
+
+      if(part&&showAllFindings){
+        const filterBtn=document.createElement('button');
+        filterBtn.type='button';
+        filterBtn.className='rounded bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-300';
+        filterBtn.textContent='Filter wieder aktivieren';
+        filterBtn.addEventListener('click',()=>{showAllFindings=false; render();});
+        fileCard.appendChild(filterBtn);
       }
 
       const content=document.createElement('div');
@@ -903,7 +1016,7 @@
       content.appendChild(selectionCard);
 
       const selectionHeader=document.createElement('div');
-      selectionHeader.className='flex items-center justify-between gap-2';
+      selectionHeader.className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between';
       selectionCard.appendChild(selectionHeader);
 
       const selectionTitle=document.createElement('h3');
@@ -913,30 +1026,78 @@
 
       const clearBtn=document.createElement('button');
       clearBtn.type='button';
-      clearBtn.className='rounded bg-gray-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-600';
+      clearBtn.className='rounded bg-gray-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-60';
       clearBtn.textContent='Alles löschen';
+      clearBtn.disabled=!currentItems.length;
       clearBtn.addEventListener('click',clearAll);
       selectionHeader.appendChild(clearBtn);
 
-      inputsEl=document.createElement('div');
-      inputsEl.id='sf-inputs';
-      inputsEl.className='space-y-3';
-      selectionCard.appendChild(inputsEl);
+      const hasItems=currentItems.length>0;
 
-      const historyWrapper=document.createElement('div');
-      historyWrapper.dataset.historyWrapper='1';
-      historyWrapper.className='space-y-1';
-      selectionCard.appendChild(historyWrapper);
+      if(hasItems){
+        inputsEl=document.createElement('div');
+        inputsEl.id='sf-inputs';
+        inputsEl.className='space-y-3';
+        selectionCard.appendChild(inputsEl);
 
-      const historyTitle=document.createElement('div');
-      historyTitle.className='text-[11px] font-semibold uppercase tracking-wide text-gray-500';
-      historyTitle.textContent='Zuletzt gewählt';
-      historyWrapper.appendChild(historyTitle);
+        const historyWrapper=document.createElement('div');
+        historyWrapper.dataset.historyWrapper='1';
+        historyWrapper.className='space-y-1';
+        selectionCard.appendChild(historyWrapper);
 
-      historyEl=document.createElement('div');
-      historyEl.id='sf-history-list';
-      historyEl.className='flex flex-wrap gap-1';
-      historyWrapper.appendChild(historyEl);
+        const historyTitle=document.createElement('div');
+        historyTitle.className='text-[11px] font-semibold uppercase tracking-wide text-gray-500';
+        historyTitle.textContent='Zuletzt gewählt';
+        historyWrapper.appendChild(historyTitle);
+
+        historyEl=document.createElement('div');
+        historyEl.id='sf-history-list';
+        historyEl.className='flex flex-wrap gap-1';
+        historyWrapper.appendChild(historyEl);
+      }else{
+        inputsEl=null;
+        historyEl=null;
+        selectionKeys=[];
+        const placeholder=document.createElement('div');
+        placeholder.className='rounded border border-dashed border-gray-300 bg-white/60 p-4 text-sm text-gray-600';
+        const message=document.createElement('div');
+        message.className='space-y-1';
+        placeholder.appendChild(message);
+        if(!items.length){
+          const line1=document.createElement('p');
+          line1.textContent='Noch keine Findings geladen.';
+          const line2=document.createElement('p');
+          line2.textContent='Nutze „Findings-Datei wählen“ oder Rechtsklick für das Kontextmenü.';
+          message.append(line1,line2);
+        }else if(usingPartFilter){
+          const line1=document.createElement('p');
+          line1.append('Für die aktuelle Teilenummer ');
+          if(part){
+            const badge=document.createElement('span');
+            badge.className='mx-1 inline-flex items-center justify-center rounded bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-700';
+            badge.textContent=part;
+            line1.appendChild(badge);
+          }
+          line1.append(' wurden keine Findings gefunden.');
+          const line2=document.createElement('p');
+          line2.textContent='Passe die Meldung an oder zeige alle Findings an.';
+          message.append(line1,line2);
+          const showAllBtn=document.createElement('button');
+          showAllBtn.type='button';
+          showAllBtn.className='mt-3 rounded bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow transition hover:bg-blue-500';
+          showAllBtn.textContent='Alle Findings anzeigen';
+          showAllBtn.addEventListener('click',()=>{showAllFindings=true; render();});
+          placeholder.appendChild(showAllBtn);
+        }else{
+          const line=document.createElement('p');
+          line.textContent='Die geladene Datei enthält keine Findings.';
+          message.append(line);
+        }
+        setArray(findingsSelected,[]);
+        setArray(actionsSelected,[]);
+        setArray(partsSelected,[]);
+        selectionCard.appendChild(placeholder);
+      }
 
       const exportWrapper=document.createElement('div');
       exportWrapper.className='flex justify-end';
@@ -1001,11 +1162,28 @@
       if(actionOut) actionOut.addEventListener('input',()=>{storedActionsText=actionOut.value; if(!initializing) persistState();});
       if(partsOut) partsOut.addEventListener('input',()=>{storedPartsText=partsOut.value; if(!initializing) persistState();});
 
-      rows=[];
-      selectionKeys.forEach(key=>addRow(key,false,true));
-      ensureEmptyRow();
+      updateFileLabels();
+
+      if(datasetInfoEl){
+        const total=items.length;
+        if(total){
+          const filtered=currentItems.length;
+          let text=`${filtered} von ${total} Findings geladen`;
+          if(part&&usingPartFilter) text+=` (P/N ${part})`;
+          if(part&&showAllFindings) text+=` (P/N ${part} – alle Findings angezeigt)`;
+          datasetInfoEl.textContent=text;
+        }else{
+          datasetInfoEl.textContent='Noch keine Findings geladen.';
+        }
+      }
+
+      if(hasItems){
+        selectionKeys.forEach(key=>addRow(key,false,true));
+        syncSelections({skipStore:shouldRestoreOutputs,skipEnsure:true});
+        ensureEmptyRow();
+      }
       renderHistory();
-      syncSelections({skipStore:shouldRestoreOutputs});
+
       initializing=false;
       if(shouldRestoreOutputs){
         if(findOut) findOut.value=storedFindingsText;
