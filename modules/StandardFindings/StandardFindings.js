@@ -16,6 +16,8 @@
     let rendering = false;
     let showAllFindings=false;
 
+    const DEFAULT_FINDINGS_FILE='Findings_Shopguide_nested_corrected.json';
+
     const findingsSelected=[];
     const actionsSelected=[];
     const partsSelected=[];
@@ -64,6 +66,125 @@
       return out;
     };
 
+    const normalizeSection=value=>{
+      if(Array.isArray(value)) return value;
+      if(value&&typeof value==='object') return value;
+      return {};
+    };
+
+    const formatLabel=key=>{
+      const str=String(key??'')
+        .replace(/[_\s]+/g,' ')
+        .replace(/([a-z\d])([A-Z])/g,'$1 $2')
+        .replace(/\s+/g,' ')
+        .trim();
+      return str||'Abschnitt';
+    };
+
+    const formatStructuredContent=(value,indent=0)=>{
+      if(value==null) return '';
+      if(typeof value==='string') return value.trim();
+      if(typeof value==='number'||typeof value==='boolean') return String(value);
+      if(Array.isArray(value)){
+        const chunks=[];
+        for(const entry of value){
+          const formatted=formatStructuredContent(entry,indent+2);
+          if(!formatted) continue;
+          const rawLines=formatted.split('\n').map(line=>line.trimEnd());
+          const lines=rawLines.filter(line=>line.trim().length>0);
+          if(!lines.length) continue;
+          const [firstLine,...restLines]=lines;
+          const bullet=`${' '.repeat(indent)}- ${firstLine.trimStart()}`;
+          if(!restLines.length){
+            chunks.push(bullet);
+          }else{
+            const tail=restLines.map(line=>{
+              const cleaned=line.trimStart();
+              return `${' '.repeat(indent+2)}${cleaned}`;
+            }).join('\n');
+            chunks.push(`${bullet}\n${tail}`);
+          }
+        }
+        return chunks.join('\n');
+      }
+      if(typeof value==='object'){
+        const chunks=[];
+        for(const [rawKey,rawVal] of Object.entries(value)){
+          const formatted=formatStructuredContent(rawVal,indent+2);
+          if(!formatted) continue;
+          const label=formatLabel(rawKey);
+          const rawLines=formatted.split('\n').map(line=>line.trimEnd());
+          const lines=rawLines.filter(line=>line.trim().length>0);
+          if(!lines.length) continue;
+          if(lines.length===1){
+            chunks.push(`${' '.repeat(indent)}${label}: ${lines[0].trimStart()}`);
+          }else{
+            const body=lines.map(line=>{
+              const cleaned=line.trimStart();
+              return `${' '.repeat(indent+2)}${cleaned}`;
+            }).join('\n');
+            chunks.push(`${' '.repeat(indent)}${label}:\n${body}`);
+          }
+        }
+        return chunks.join('\n');
+      }
+      return '';
+    };
+
+    const extractFindingRecords=data=>{
+      if(Array.isArray(data)) return data;
+      if(data&&Array.isArray(data.records)) return data.records;
+      if(data&&Array.isArray(data.entries)) return data.entries;
+      if(data&&Array.isArray(data.rows)) return data.rows;
+      if(data&&Array.isArray(data.items)) return data.items;
+      if(data&&Array.isArray(data.Findings)) return data.Findings;
+      if(data&&Array.isArray(data.findings)) return data.findings;
+      if(data&&Array.isArray(data.data)) return data.data;
+      return [];
+    };
+
+    const mapFindingRecord=record=>{
+      if(!record||typeof record!=='object') return null;
+      const part=String(record.Part??record.part??'').trim();
+      const label=String(record.Label??record.label??'').trim();
+      const finding=String(record.Findings??record.findings??record.Finding??record.finding??'').trim();
+      const action=String(record.Actions??record.actions??record.Action??record.action??'').trim();
+      const routine=record.Routine??record.routine??record.Routinen??null;
+      const nonroutine=record.NonRoutine??record.nonroutine??record.nonRoutine??null;
+      const parts=record.Parts??record.parts??null;
+      const times=record.Times??record.times??null;
+      const mods=record.Mods??record.mods??null;
+      return {
+        part,
+        label,
+        finding,
+        action,
+        routine:normalizeSection(routine),
+        nonroutine:normalizeSection(nonroutine),
+        parts:normalizeSection(parts),
+        times:normalizeSection(times),
+        mods:normalizeSection(mods)
+      };
+    };
+
+    const parseDictionaryEntries=data=>{
+      const rows=extractFindingRecords(data);
+      const entries=[];
+      for(const row of rows){
+        if(Array.isArray(row)){
+          const meld=String(row[0]??'').trim();
+          const part=String(row[1]??'').trim();
+          if(meld) entries.push({meldung:meld,part});
+          continue;
+        }
+        if(!row||typeof row!=='object') continue;
+        const meld=String(row.Meldung??row.meldung??row.MELDUNG??'').trim();
+        const part=String(row.Part??row.part??row.PART??'').trim();
+        if(meld) entries.push({meldung:meld,part});
+      }
+      return entries;
+    };
+
     const normalizeItems=list=>{
       const dupes={};
       return list.map(row=>{
@@ -71,7 +192,12 @@
           part:String(row.part||'').trim(),
           label:String(row.label||'').trim(),
           finding:String(row.finding||'').trim(),
-          action:String(row.action||'').trim()
+          action:String(row.action||'').trim(),
+          routine:normalizeSection(row.routine),
+          nonroutine:normalizeSection(row.nonroutine),
+          parts:normalizeSection(row.parts),
+          times:normalizeSection(row.times),
+          mods:normalizeSection(row.mods)
         };
         const base=[clean.part,clean.label,clean.finding,clean.action].join('||');
         const count=dupes[base]||0;
@@ -135,14 +261,11 @@
 
     // --- context menu ---
     function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
-    const FILE_ACCEPT_EXT='.xlsx,.xls,.xlsm,.csv';
+    const FILE_ACCEPT_EXT='.json';
     const FILE_PICKER_TYPES=[{
-      description:'Excel- oder CSV-Datei',
+      description:'JSON-Datei',
       accept:{
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
-        'application/vnd.ms-excel':['.xls'],
-        'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
-        'text/csv':['.csv']
+        'application/json':['.json']
       }
     }];
     const menu=document.createElement('div');
@@ -283,20 +406,14 @@
     mo.observe(document.body,{childList:true,subtree:true});
 
     async function handleFindingsFile(file){
-      const buf=await file.arrayBuffer();
-      if(file.name.toLowerCase().endsWith('.csv')){
-        items=normalizeItems(parseCSV(new TextDecoder().decode(buf)));
-      }else{
-        if(typeof XLSX==='undefined') await loadXLSX();
-        const wb=XLSX.read(buf,{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        items=normalizeItems(rows.slice(1).map(r=>({
-          part:String(r[0]||'').trim(),
-          label:String(r[1]||'').trim(),
-          finding:String(r[2]||'').trim(),
-          action:String(r[3]||'').trim()
-        })));
+      try{
+        const text=await file.text();
+        const raw=JSON.parse(text);
+        const records=extractFindingRecords(raw).map(mapFindingRecord).filter(Boolean);
+        items=normalizeItems(records);
+      }catch(err){
+        console.warn('Findings-Datei nicht geladen',err);
+        return;
       }
       findName=file.name||'';
       rebuildItemMap();
@@ -310,30 +427,13 @@
     }
 
     async function handleDictFile(file){
-      const buf=await file.arrayBuffer();
-      const lower=file.name.toLowerCase();
-      if(lower.endsWith('.csv')){
-        const text=new TextDecoder().decode(buf);
-        const lines=text.split(/\r?\n/).filter(Boolean);
-        const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
-        const rows=lines.map(line=>line.split(delim));
-        const hdr=rows[0].map(h=>h.toLowerCase().trim());
-        const mi=hdr.indexOf('meldung');
-        const pi=hdr.indexOf('part');
-        if(mi>=0&&pi>=0){
-          dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
-        }
-      }else{
-        if(typeof XLSX==='undefined') await loadXLSX();
-        const wb=XLSX.read(buf,{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        const hdr=rows[0].map(h=>String(h||'').toLowerCase().trim());
-        const mi=hdr.indexOf('meldung');
-        const pi=hdr.indexOf('part');
-        if(mi>=0&&pi>=0){
-          dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
-        }
+      try{
+        const text=await file.text();
+        const raw=JSON.parse(text);
+        dict=parseDictionaryEntries(raw);
+      }catch(err){
+        console.warn('Dictionary-Datei nicht geladen',err);
+        return;
       }
       dictName=file.name||'';
       try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
@@ -344,92 +444,36 @@
 
     async function loadDefault(){
       try{
-        // Try multiple common filenames (xlsx/xlsm/csv) for the default findings export
-        const candidates=[
-          'Findings.xlsx','findings.xlsx','Findings_shopguide.xlsx','findings_shopguide.xlsx',
-          'Findings.xlsm','findings.xlsm','Findings.csv','findings.csv'
-        ];
-
-        for(const url of candidates){
-          try{
-            const res=await fetch(url);
-            if(!res.ok) continue;
-
-            const buf=await res.arrayBuffer();
-            const lower=url.toLowerCase();
-            let rows=[];
-
-            if(lower.endsWith('.csv')){
-              // Plain CSV fallback for legacy exports
-              const text=new TextDecoder().decode(buf);
-              const lines=text.split(/\r?\n/).filter(line=>line.trim().length);
-              if(!lines.length) continue;
-              const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
-              rows=lines.map(line=>line.split(delim));
-            }else{
-              if(typeof XLSX==='undefined') await loadXLSX();
-              const wb=XLSX.read(buf,{type:'array'});
-              const ws=wb.Sheets[wb.SheetNames[0]];
-              rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-            }
-
-            if(!rows.length) continue;
-
-            items=normalizeItems(rows.slice(1).map(r=>({
-              part:String(r[0]||'').trim(),
-              label:String(r[1]||'').trim(),
-              finding:String(r[2]||'').trim(),
-              action:String(r[3]||'').trim()
-            })));
-            findName=url;
-            showAllFindings=false;
-            rebuildItemMap();
-            selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
-            historyKeys=historyKeys.filter(key=>itemMap.has(key));
-            try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
-            try{localStorage.setItem('sf-findings-name',findName);}catch{}
-            updateFileLabels();
-            render();
-            return;
-          }catch(err){
-            // ignore and continue with the next candidate
-          }
-        }
+        const res=await fetch(DEFAULT_FINDINGS_FILE);
+        if(!res.ok) return;
+        const raw=await res.json();
+        const records=extractFindingRecords(raw).map(mapFindingRecord).filter(Boolean);
+        if(!records.length) return;
+        items=normalizeItems(records);
+        findName=DEFAULT_FINDINGS_FILE;
+        showAllFindings=false;
+        rebuildItemMap();
+        selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
+        historyKeys=historyKeys.filter(key=>itemMap.has(key));
+        try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
+        try{localStorage.setItem('sf-findings-name',findName);}catch{}
+        updateFileLabels();
+        render();
       }catch(e){/* ignore */}
     }
 
     async function loadDefaultDict(){
       const candidates=[
-        'dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx',
-        'dictionary.xls','Dictionary.xls','dictionary.csv','Dictionary.csv'
+        'dictionary.json','Dictionary.json','Dictionary_Shopguide.json','dictionary_shopguide.json'
       ];
       for(const url of candidates){
         try{
           const res=await fetch(url);
           if(!res.ok) continue;
-          const buf=await res.arrayBuffer();
-          const lower=url.toLowerCase();
-          if(lower.endsWith('.csv')){
-            const text=new TextDecoder().decode(buf);
-            const lines=text.split(/\r?\n/).filter(Boolean);
-            const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
-            const rows=lines.map(line=>line.split(delim));
-            const hdr=rows[0].map(h=>h.toLowerCase().trim());
-            const mi=hdr.indexOf('meldung');
-            const pi=hdr.indexOf('part');
-            if(mi<0||pi<0) continue;
-            dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
-          }else{
-            if(typeof XLSX==='undefined') await loadXLSX();
-            const wb=XLSX.read(buf,{type:'array'});
-            const ws=wb.Sheets[wb.SheetNames[0]];
-            const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-            const hdr=rows[0].map(h=>String(h||'').toLowerCase().trim());
-            const mi=hdr.indexOf('meldung');
-            const pi=hdr.indexOf('part');
-            if(mi<0||pi<0) continue;
-            dict=rows.slice(1).map(r=>({meldung:String(r[mi]||'').trim(),part:String(r[pi]||'').trim()})).filter(r=>r.meldung);
-          }
+          const raw=await res.json();
+          const entries=parseDictionaryEntries(raw);
+          if(!entries.length) continue;
+          dict=entries;
           dictName=url;
           try{localStorage.setItem('sf-dict-data',JSON.stringify(dict));}catch{}
           try{localStorage.setItem('sf-dict-name',dictName);}catch{}
@@ -438,26 +482,6 @@
           return;
         }catch(e){/* try next */}
       }
-    }
-
-    function parseCSV(text){
-      const lines=text.split(/\r?\n/).filter(Boolean);
-      const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
-      const rows=lines.map(line=>line.split(delim));
-      return rows.slice(1).map(r=>({
-        part:(r[0]||'').trim(),
-        label:(r[1]||'').trim(),
-        finding:(r[2]||'').trim(),
-        action:(r[3]||'').trim()
-      }));
-    }
-
-    function loadXLSX(){
-      return new Promise((resolve,reject)=>{
-        const s=document.createElement('script');
-        s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-        s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
-      });
     }
 
     function getItemByKey(key){
@@ -624,7 +648,12 @@
         label:item.label,
         finding:item.finding,
         action:item.action,
-        part:item.part
+        part:item.part,
+        routine:item.routine,
+        nonroutine:item.nonroutine,
+        parts:item.parts,
+        times:item.times,
+        mods:item.mods
       }));
       setArray(findingsSelected,findingObjects);
       const actions=uniqueStrings(selectedItems.map(item=>item.action));
@@ -641,10 +670,24 @@
         actionOut.value=text;
         if(!skipStore) storedActionsText=text;
       }
+      if(routineOut){
+        const routineText=selectedItems.map(item=>formatStructuredContent(item.routine)).filter(Boolean).join('\n\n');
+        routineOut.value=routineText;
+        if(!skipStore) storedRoutineText=routineText;
+      }
+      if(nonroutineOut){
+        const nonroutineText=selectedItems.map(item=>formatStructuredContent(item.nonroutine)).filter(Boolean).join('\n\n');
+        nonroutineOut.value=nonroutineText;
+        if(!skipStore) storedNonroutineText=nonroutineText;
+      }
       if(partsOut){
-        const text=parts.join('\n');
-        partsOut.value=text;
-        if(!skipStore) storedPartsText=text;
+        const partsText=selectedItems.map(item=>{
+          const structured=formatStructuredContent(item.parts);
+          if(structured) return structured;
+          return String(item.part||'').trim();
+        }).filter(Boolean).join('\n\n');
+        partsOut.value=partsText;
+        if(!skipStore) storedPartsText=partsText;
       }
     }
 
@@ -858,9 +901,13 @@
       setArray(partsSelected,[]);
       if(findOut) findOut.value='';
       if(actionOut) actionOut.value='';
+      if(routineOut) routineOut.value='';
+      if(nonroutineOut) nonroutineOut.value='';
       if(partsOut) partsOut.value='';
       storedFindingsText='';
       storedActionsText='';
+      storedRoutineText='';
+      storedNonroutineText='';
       storedPartsText='';
       if(inputsEl) addRow(null,true,true);
       syncSelections({skipStore:true});
