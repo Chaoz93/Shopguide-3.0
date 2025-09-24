@@ -284,6 +284,7 @@
     let meldungInterval = null;
     let storageListener = null;
     let pendingFocus = null;
+    let pendingSearchFocus = null;
     const tableStates = new Map();
     let dashboardInfoEl = null;
     let lastDashboardSummary = null;
@@ -632,9 +633,54 @@
         search.value = state.filter || '';
         search.className = 'w-full rounded-md border border-slate-700 bg-slate-900/40 px-2 py-1 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500';
         search.addEventListener('input', event => {
-          filterTable(sheetIndex, event.target.value || '');
+          const target = event.target;
+          if (!(target instanceof HTMLInputElement)) return;
+          const rawValue = target.value || '';
+          const selectionStart = typeof target.selectionStart === 'number'
+            ? target.selectionStart
+            : rawValue.length;
+          const selectionEnd = typeof target.selectionEnd === 'number'
+            ? target.selectionEnd
+            : selectionStart;
+          pendingSearchFocus = {
+            sheetIndex,
+            selectionStart,
+            selectionEnd
+          };
+          filterTable(sheetIndex, rawValue);
         });
         controls.appendChild(search);
+        if (pendingSearchFocus && pendingSearchFocus.sheetIndex === sheetIndex) {
+          const focusData = pendingSearchFocus;
+          pendingSearchFocus = null;
+          const applyFocus = () => {
+            if (typeof search.focus === 'function') {
+              try {
+                search.focus({ preventScroll: true });
+              } catch (err) {
+                search.focus();
+              }
+            }
+            if (typeof search.setSelectionRange === 'function') {
+              const length = search.value.length;
+              let start = Number.isInteger(focusData.selectionStart)
+                ? focusData.selectionStart
+                : length;
+              let end = Number.isInteger(focusData.selectionEnd)
+                ? focusData.selectionEnd
+                : start;
+              start = Math.max(0, Math.min(start, length));
+              end = Math.max(start, Math.min(end, length));
+              try {
+                search.setSelectionRange(start, end);
+              } catch (e) {
+                /* ignore selection errors */
+              }
+            }
+          };
+          if (typeof requestAnimationFrame === 'function') requestAnimationFrame(applyFocus);
+          else setTimeout(applyFocus, 0);
+        }
         wrapper.appendChild(controls);
 
         const scroller = document.createElement('div');
