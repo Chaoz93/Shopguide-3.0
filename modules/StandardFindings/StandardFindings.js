@@ -285,27 +285,56 @@
 
     async function loadDefault(){
       try{
-        const res=await fetch('Findings.xlsx');
-        if(!res.ok) return;
-        const buf=await res.arrayBuffer();
-        if(typeof XLSX==='undefined') await loadXLSX();
-        const wb=XLSX.read(buf,{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        items=normalizeItems(rows.slice(1).map(r=>({
-          part:String(r[0]||'').trim(),
-          label:String(r[1]||'').trim(),
-          finding:String(r[2]||'').trim(),
-          action:String(r[3]||'').trim()
-        })));
-        findName='Findings.xlsx';
-        rebuildItemMap();
-        selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
-        historyKeys=historyKeys.filter(key=>itemMap.has(key));
-        try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
-        try{localStorage.setItem('sf-findings-name',findName);}catch{}
-        updateMenuLabels();
-        render();
+        // Try multiple common filenames (xlsx/xlsm/csv) for the default findings export
+        const candidates=[
+          'Findings.xlsx','findings.xlsx','Findings_shopguide.xlsx','findings_shopguide.xlsx',
+          'Findings.xlsm','findings.xlsm','Findings.csv','findings.csv'
+        ];
+
+        for(const url of candidates){
+          try{
+            const res=await fetch(url);
+            if(!res.ok) continue;
+
+            const buf=await res.arrayBuffer();
+            const lower=url.toLowerCase();
+            let rows=[];
+
+            if(lower.endsWith('.csv')){
+              // Plain CSV fallback for legacy exports
+              const text=new TextDecoder().decode(buf);
+              const lines=text.split(/\r?\n/).filter(line=>line.trim().length);
+              if(!lines.length) continue;
+              const delim=text.includes(';')?';':(text.includes('\t')?'\t':',');
+              rows=lines.map(line=>line.split(delim));
+            }else{
+              if(typeof XLSX==='undefined') await loadXLSX();
+              const wb=XLSX.read(buf,{type:'array'});
+              const ws=wb.Sheets[wb.SheetNames[0]];
+              rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+            }
+
+            if(!rows.length) continue;
+
+            items=normalizeItems(rows.slice(1).map(r=>({
+              part:String(r[0]||'').trim(),
+              label:String(r[1]||'').trim(),
+              finding:String(r[2]||'').trim(),
+              action:String(r[3]||'').trim()
+            })));
+            findName=url;
+            rebuildItemMap();
+            selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
+            historyKeys=historyKeys.filter(key=>itemMap.has(key));
+            try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
+            try{localStorage.setItem('sf-findings-name',findName);}catch{}
+            updateMenuLabels();
+            render();
+            return;
+          }catch(err){
+            // ignore and continue with the next candidate
+          }
+        }
       }catch(e){/* ignore */}
     }
 
