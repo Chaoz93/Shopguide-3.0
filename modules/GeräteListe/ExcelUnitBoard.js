@@ -24,6 +24,7 @@
     }
     .db-handle:active{cursor:grabbing}
     .db-card.active{ box-shadow:0 0 0 2px var(--dl-active) inset, 0 8px 20px rgba(0,0,0,.12); transform:translateY(-1px); }
+    .db-card.ctx-target{outline:2px solid var(--dl-active); outline-offset:2px;}
     .db-btn{background:var(--button-bg); color:var(--button-text); padding:.35rem .6rem; border-radius:.5rem; font-size:.875rem}
     .db-btn.secondary{background: rgba(255,255,255,.14); color: var(--text-color);}
     .db-add{align-self:center; border-radius:9999px; width:2.2rem; height:2.2rem; display:flex; align-items:center; justify-content:center;
@@ -646,7 +647,7 @@
 
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Devices.xlsx wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Devices.xlsx wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="mi mi-delete">🗑️ Gerät löschen</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     return {
@@ -682,7 +683,8 @@
       menuOpt:menu.querySelector('.mi-opt'),
       menuPick:menu.querySelector('.mi-pick'),
       menuDisable:menu.querySelector('.mi-disable'),
-      partList:menu.querySelector('.db-part-list')
+      partList:menu.querySelector('.db-part-list'),
+      menuDelete:menu.querySelector('.mi-delete')
     };
   }
 
@@ -1329,11 +1331,37 @@
         renderList();
       });
     }
+    let ctxTarget=null;
+    function setCtxTarget(card){
+      if(ctxTarget&&ctxTarget.isConnected){ctxTarget.classList.remove('ctx-target');}
+      ctxTarget=card||null;
+      if(ctxTarget&&ctxTarget.isConnected){ctxTarget.classList.add('ctx-target');}
+      if(els.menuDelete){
+        els.menuDelete.style.display=ctxTarget?'block':'none';
+      }
+    }
+    if(els.menuDelete){
+      els.menuDelete.style.display='none';
+      els.menuDelete.addEventListener('click',event=>{
+        event.stopPropagation();
+        const target=ctxTarget;
+        const meld=(target?.dataset?.meldung||'').trim();
+        closeMenu();
+        if(!meld) return;
+        const before=state.items.length;
+        state.items=state.items.filter(item=>(item.meldung||'').trim()!==meld);
+        if(state.items.length===before) return;
+        renderList();
+        scheduleSave();
+        updateHighlights();
+      });
+    }
     if(els.menu){
       els.menu.addEventListener('click',event=>event.stopPropagation());
     }
 
-    function openMenuAt(x,y){
+    function openMenuAt(x,y,card){
+      setCtxTarget(card);
       refreshPartMenu();
       const pad=8;const vw=window.innerWidth;const vh=window.innerHeight;
       const rect=els.menu.getBoundingClientRect();
@@ -1343,11 +1371,15 @@
       els.menu.style.top=clamp(y,pad,vh-h-pad)+'px';
       els.menu.classList.add('open');
     }
-    function closeMenu(){els.menu.classList.remove('open');}
+    function closeMenu(){
+      els.menu.classList.remove('open');
+      setCtxTarget(null);
+    }
 
     root.addEventListener('contextmenu',event=>{
       event.preventDefault();event.stopPropagation();
-      openMenuAt(event.clientX,event.clientY);
+      const card=event.target.closest('.db-card');
+      openMenuAt(event.clientX,event.clientY,card);
     });
     window.addEventListener('click',event=>{if(!els.menu.contains(event.target)) closeMenu();});
     window.addEventListener('keydown',event=>{if(event.key==='Escape') closeMenu();});
