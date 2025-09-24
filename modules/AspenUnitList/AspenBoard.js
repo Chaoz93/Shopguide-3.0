@@ -6,8 +6,13 @@
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
     .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
-    .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;overflow:auto;}
-    .db-list{display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;}
+    .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;}
+    .db-toolbar{display:flex;align-items:center;gap:.5rem;}
+    .db-search{flex:1;padding:.45rem .65rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:inherit;font-size:.9rem;transition:border-color .2s ease,box-shadow .2s ease;}
+    .db-search:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .db-search::placeholder{color:var(--dl-sub,#4b5563);opacity:.7;}
+    .db-list{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;overflow:auto;padding-right:.25rem;}
+    .db-empty{opacity:.6;padding:.25rem .1rem;}
     .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:
 0 2px 6px rgba(0,0,0,.06);display:flex;align-items:center;gap:.75rem;user-select:none;}
     .db-flex{flex:1;display:flex;flex-direction:column;}
@@ -405,7 +410,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     const root=document.createElement('div');
     root.className='db-root';
     const titleBar=initialTitle?`<div class="db-titlebar">${initialTitle}</div>`:'';
-    root.innerHTML=`${titleBar}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`${titleBar}<div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
 
     const menu=document.createElement('div');
     menu.className='db-menu';
@@ -415,6 +420,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     return {
       root,
       list:root.querySelector('.db-list'),
+      search:root.querySelector('.db-search'),
       modal:root.querySelector('.db-modal'),
       titleInput:root.querySelector('.db-title-input'),
       subList:root.querySelector('.db-sub-list'),
@@ -443,7 +449,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       },
       items:[],
       excluded:new Set(),
-      filePath:''
+      filePath:'',
+      searchQuery:''
     };
   }
 
@@ -479,6 +486,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(Array.isArray(saved.items)) state.items=dedupeByMeldung(saved.items);
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
+      state.searchQuery=typeof saved.searchQuery==='string'?saved.searchQuery:'';
       const sortField=primarySubField(state.config);
       state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
     }catch(e){/* ignore */}
@@ -496,7 +504,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       },
       items:state.items,
       excluded:Array.from(state.excluded),
-      filePath:state.filePath
+      filePath:state.filePath,
+      searchQuery:state.searchQuery||''
     };
     try{localStorage.setItem(LS_STATE,JSON.stringify(payload));}catch(e){/* ignore */}
   }
@@ -555,9 +564,15 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
   function renderList(elements,state){
     state.items=dedupeByMeldung(state.items);
-    const visible=state.items.filter(item=>!state.excluded.has(item.part));
+    const searchRaw=state.searchQuery||'';
+    const terms=(searchRaw.match(/\S+/g)||[]).map(term=>term.toLowerCase());
+    const visible=state.items.filter(item=>{
+      if(state.excluded.has(item.part)) return false;
+      return itemMatchesSearch(item,terms);
+    });
     if(!visible.length){
-      elements.list.innerHTML='<div style="opacity:.6;">Keine Geräte</div>';
+      const message=terms.length?`Keine Treffer für „${escapeHtml(searchRaw.trim())}“`:'Keine Geräte';
+      elements.list.innerHTML=`<div class="db-empty">${message}</div>`;
       persistState(state);
       updateHighlights(elements.list);
       return;
@@ -599,6 +614,35 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
   function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
 
+  function escapeHtml(value){
+    return String(value ?? '').replace(/[&<>"']/g,char=>{
+      switch(char){
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case '\'': return '&#39;';
+        default: return char;
+      }
+    });
+  }
+
+  function itemMatchesSearch(item,terms){
+    if(!Array.isArray(terms) || !terms.length) return true;
+    const values=[];
+    if(item?.meldung) values.push(item.meldung);
+    if(item?.part) values.push(item.part);
+    const data=item?.data && typeof item.data==='object'?item.data:{};
+    for(const key in data){
+      const val=data[key];
+      if(val==null) continue;
+      values.push(val);
+    }
+    if(!values.length) return false;
+    const haystack=values.map(entry=>String(entry).toLowerCase());
+    return terms.every(term=>haystack.some(value=>value.includes(term)));
+  }
+
   window.renderAspenBoard=async function(targetDiv,opts){
     injectStyles();
 
@@ -622,6 +666,16 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     applyColors(elements.root,state.config.colors);
     updateTitleBar(elements.root,state.config.title);
+
+    if(elements.search){
+      elements.search.value=state.searchQuery||'';
+      const handleSearchChange=()=>{
+        state.searchQuery=elements.search.value;
+        render();
+      };
+      elements.search.addEventListener('input',handleSearchChange);
+      elements.search.addEventListener('search',handleSearchChange);
+    }
 
     function populateFieldSelects(){
       ensureSubFields(state.config);
@@ -663,6 +717,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }
 
     function render(){
+      if(elements.search){
+        elements.search.value=state.searchQuery||'';
+      }
       renderList(elements,state);
       SHARED.publishAspenItems(instanceId,state.items);
       refreshMenu(elements,state,render);

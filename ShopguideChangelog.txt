@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.4.4] – 2025-09-23
+### Added
+- Aspen Board um eine Suchleiste erweitert, damit Geräte nach beliebigen Feldern gefiltert werden können.
+
 ## [3.4.3] – 2025-09-23
 ### Added
 - Geräte im Excel Unit Board lassen sich per Rechtsklick löschen; die Devices.xlsx wird dabei automatisch aktualisiert.
