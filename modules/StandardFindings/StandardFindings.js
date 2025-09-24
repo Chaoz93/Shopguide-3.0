@@ -79,17 +79,17 @@
       return list.map(raw=>{
         const row=raw||{};
         const clean={
-          part:String(row.part||'').trim(),
-          label:String(row.label||'').trim(),
-          finding:String(row.finding||'').trim(),
-          action:String(row.action||'').trim()
+          part:String(row.part||row.Part||'').trim(),
+          label:String(row.label||row.Label||'').trim(),
+          finding:String(row.finding||row.Findings||'').trim(),
+          action:String(row.action||row.Actions||'').trim()
         };
         const base=[clean.part,clean.label,clean.finding,clean.action].join('||');
         const count=dupes[base]||0;
         dupes[base]=count+1;
         const key=count?`${base}__${count}`:base;
         return {...row,...clean,key};
-      }).filter(row=>row.label);
+      });
     };
 
     const rebuildItemMap=()=>{
