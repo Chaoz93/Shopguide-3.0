@@ -5,6 +5,15 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.14.0] – 2025-09-23
+### Added
+- Kombinierte Pauseneingabe mit Preset-Auswahl und freier Zahleneingabe ergänzt.
+- Schnellaktionen „Feierabend jetzt setzen“ und „Pause +5“ hinzugefügt.
+
+### Changed
+- Automatisches Speichern vereinheitlicht und nutzt ausschließlich die JSON-Datei.
+- Warnhinweise überarbeitet und farbliche Hervorhebungen für Pausen integriert.
+
 ## [1.13.4] – 2025-09-23
 ### Changed
 - Modulbreite auf Minimalwerte reduziert

@@ -1,4 +1,4 @@
-<!-- Version: 3.4.4 -->
+<!-- Version: 3.5.0 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -100,6 +100,16 @@
     #sidebar.collapsed .collapse-icon { transform: rotate(180deg); }
     #sidebar.collapsed .module-card { pointer-events: none; }
     #sidebar.collapsed #module-list { pointer-events: none; }
+    #module-search {
+      background-color: var(--sidebar-module-card-bg);
+      color: var(--sidebar-module-card-text);
+    }
+    #save-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
     /* Topbar, sidebar and buttons use variables */
     #top-bar { background-color: var(--top-bar-bg) !important; border-bottom: 1px solid var(--border-color) !important; }
     #sidebar { background-color: var(--sidebar-bg) !important; border-right: 1px solid var(--border-color) !important; color: var(--sidebar-text); overflow-y: auto; }
@@ -448,15 +458,24 @@
     <div id="tabs-container" class="flex items-center gap-1 flex-wrap"></div>
     <button id="add-tab" title="Neuen Tab erstellen" class="text-xl px-2 py-1 leading-none hover:opacity-80">➕</button>
     <div class="ml-auto flex items-center gap-2">
+      <button id="undo-action" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1 rounded" disabled>↩️ Undo</button>
+      <button id="redo-action" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1 rounded" disabled>↪️ Redo</button>
       <button id="update-status" class="text-sm px-3 py-1 rounded hidden">Update prüfen</button>
       <button id="select-root" class="text-sm px-3 py-1 rounded">Ordner wählen</button>
       <button id="open-settings" title="Einstellungen" class="bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm px-3 py-1 rounded">⚙️</button>
+      <span id="save-indicator" class="bg-green-500" title="Gespeichert"></span>
     </div>
   </header>
   <div class="flex" style="height: calc(100% - 40px);">
     <aside id="sidebar" class="w-72 min-h-full p-3 relative transition-all duration-300 ease-in-out">
       <button id="sidebar-toggle" class="absolute top-2 right-2 text-xl collapse-icon" title="Liste ein-/ausblenden">⬅️</button>
       <h2 class="font-semibold mb-2 list-content">Module</h2>
+      <div class="list-content mb-3">
+        <div class="flex items-center gap-2">
+          <input id="module-search" type="text" placeholder="Module suchen…" class="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+          <button id="module-search-clear" type="button" class="text-lg px-2 py-1 hidden" title="Suche löschen">❌</button>
+        </div>
+      </div>
       <div id="module-list" class="list-content flex flex-col gap-2 text-sm">
         <div class="text-gray-400">Wähle oben einen Ordner…</div>
       </div>
@@ -642,6 +661,24 @@
                 <tbody id="updates-table-body"></tbody>
               </table>
             </div>
+            <div id="downgrade-section" class="border border-gray-200 rounded hidden">
+              <button id="downgrade-toggle" type="button" class="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-left">
+                <span id="downgrade-heading">Downgrades (0)</span>
+                <span id="downgrade-toggle-icon" class="text-xs">▼</span>
+              </button>
+              <div id="downgrade-content" class="hidden border-t border-gray-200">
+                <table class="min-w-full text-sm">
+                  <thead class="bg-yellow-200 text-yellow-900">
+                    <tr>
+                      <th class="text-left px-3 py-2">Datei</th>
+                      <th class="text-left px-3 py-2">Version</th>
+                      <th class="text-right px-3 py-2">Aktion</th>
+                    </tr>
+                  </thead>
+                  <tbody id="downgrade-table-body"></tbody>
+                </table>
+              </div>
+            </div>
             <div id="update-version-overview" class="border border-gray-200 rounded p-3 text-sm space-y-3">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="font-semibold text-gray-700">Versionsübersicht</div>
@@ -728,6 +765,8 @@ let tabsSortable = null;
 let isSidebarOpen = false;
 let pendingUpdates = [];
 let updateCheckInProgress = false;
+let currentUpgradeItems = [];
+let currentDowngradeItems = [];
 let originalSettings = null;
 let lastUpdateError = false;
 let versionOverview = {
@@ -764,6 +803,14 @@ let moduleChangelogSections = null;
 let moduleChangelogFilteredSections = null;
 let moduleChangelogNotice = null;
 let moduleChangelogShowFull = false;
+let sidebarTreeData = [];
+let sidebarSearchTerm = '';
+let undoStack = [];
+let redoStack = [];
+let layoutRecordingSuppressCount = 0;
+let saveIndicatorPending = 0;
+let downgradeCollapsed = true;
+let historyInProgress = false;
 
 /* ==== UNIQUE IDs ==== */
 let usedInstanceIds = new Set();
@@ -784,12 +831,16 @@ function generateInstanceId() {
 }
 
 // Cache DOM elements
+const moduleSearchInput = document.getElementById('module-search');
+const moduleSearchClearBtn = document.getElementById('module-search-clear');
 const listEl = document.getElementById('module-list');
 const gridsContainer = document.getElementById('grids');
 const tabsContainer = document.getElementById('tabs-container');
 const addTabBtn = document.getElementById('add-tab');
 const sidebarEl = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebar-toggle');
+const undoBtn = document.getElementById('undo-action');
+const redoBtn = document.getElementById('redo-action');
 const updateStatusBtn = document.getElementById('update-status');
 const rootBtn = document.getElementById('select-root');
 const settingsBtn = document.getElementById('open-settings');
@@ -816,6 +867,13 @@ const changelogShowFullBtn = document.getElementById('changelog-show-full');
 const changelogVersionLabel = changelogControlsEl?.querySelector('label[for="changelog-version-select"]') || null;
 const updateAllContainer = document.getElementById('update-all-container');
 const updateAllBtn = document.getElementById('update-all');
+const saveIndicator = document.getElementById('save-indicator');
+const downgradeSection = document.getElementById('downgrade-section');
+const downgradeToggle = document.getElementById('downgrade-toggle');
+const downgradeContent = document.getElementById('downgrade-content');
+const downgradeTableBody = document.getElementById('downgrade-table-body');
+const downgradeHeading = document.getElementById('downgrade-heading');
+const downgradeToggleIcon = document.getElementById('downgrade-toggle-icon');
 // Settings inputs
 const inputAppBg = document.getElementById('setting-app-bg');
 const inputBorderColor = document.getElementById('setting-border-color');
@@ -853,6 +911,8 @@ const FS_HANDLE_KEY = 'rootDirHandle';
 const ROOT_HANDLE_NAME_KEY = 'rootDirDisplayName';
 const UPDATE_HANDLE_KEY = 'updateDirHandle';
 const UPDATE_HANDLE_NAME_KEY = 'updateDirDisplayName';
+const DOWNGRADE_COLLAPSE_KEY = 'downgradeSectionCollapsed';
+const MAX_HISTORY_ENTRIES = 50;
 
 let pendingRootPermission = false;
 let pendingUpdatePermission = false;
@@ -865,6 +925,19 @@ const storedRootFolderName = (() => {
     return null;
   }
 })();
+
+const storedDowngradeCollapsed = (() => {
+  try {
+    return localStorage.getItem(DOWNGRADE_COLLAPSE_KEY);
+  } catch (e) {
+    return null;
+  }
+})();
+if (storedDowngradeCollapsed === '0') {
+  downgradeCollapsed = false;
+} else if (storedDowngradeCollapsed === '1') {
+  downgradeCollapsed = true;
+}
 if (storedRootFolderName && rootBtn) {
   rootBtn.textContent = storedRootFolderName;
   rootBtn.classList.remove('bg-blue-600','hover:bg-blue-700','text-white');
@@ -1060,6 +1133,92 @@ function compareVersions(a, b) {
   }
 
   return 0;
+}
+
+function beginSuppressLayoutRecording() {
+  layoutRecordingSuppressCount++;
+}
+
+function endSuppressLayoutRecording() {
+  if (layoutRecordingSuppressCount > 0) {
+    layoutRecordingSuppressCount--;
+  }
+}
+
+function isLayoutRecordingSuppressed() {
+  return layoutRecordingSuppressCount > 0;
+}
+
+function cloneModuleEntry(entry) {
+  return { ...entry };
+}
+
+function captureLayoutSnapshot() {
+  return {
+    activeTabIndex,
+    tabs: tabs.map(tab => ({
+      name: tab.name,
+      modules: Array.isArray(tab.modules) ? tab.modules.map(cloneModuleEntry) : []
+    }))
+  };
+}
+
+function layoutsEqual(a, b) {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch (e) {
+    return false;
+  }
+}
+
+function updateUndoRedoButtons() {
+  if (undoBtn) {
+    undoBtn.disabled = !undoStack.length;
+    undoBtn.classList.toggle('opacity-60', !undoStack.length);
+    undoBtn.classList.toggle('cursor-not-allowed', !undoStack.length);
+  }
+  if (redoBtn) {
+    redoBtn.disabled = !redoStack.length;
+    redoBtn.classList.toggle('opacity-60', !redoStack.length);
+    redoBtn.classList.toggle('cursor-not-allowed', !redoStack.length);
+  }
+}
+
+function pushUndoState(snapshot) {
+  if (!snapshot) return;
+  undoStack.push(JSON.parse(JSON.stringify(snapshot)));
+  if (undoStack.length > MAX_HISTORY_ENTRIES) {
+    undoStack.shift();
+  }
+  redoStack = [];
+  updateUndoRedoButtons();
+}
+
+async function restoreLayoutFromSnapshot(snapshot) {
+  if (!snapshot || !Array.isArray(snapshot.tabs)) return;
+  beginSuppressLayoutRecording();
+  try {
+    resetTabs();
+    snapshot.tabs.forEach(tabData => {
+      createTab(tabData.name, tabData.modules || []);
+    });
+    const readiness = tabs.map(tab => tab?.readyPromise || Promise.resolve());
+    await Promise.all(readiness);
+    if (!tabs.length) {
+      createTab('Standard');
+    }
+    let targetIndex = typeof snapshot.activeTabIndex === 'number' ? snapshot.activeTabIndex : 0;
+    if (targetIndex < 0 || targetIndex >= tabs.length) {
+      targetIndex = Math.min(Math.max(targetIndex, 0), Math.max(0, tabs.length - 1));
+    }
+    activateTab(targetIndex);
+    updateModuleDraggable();
+    updateGridDraggable();
+    updateGridAutoArrange();
+  } finally {
+    endSuppressLayoutRecording();
+  }
+  await saveLayout();
 }
 
 function parseChangelogSections(text) {
@@ -1783,6 +1942,10 @@ function setUpdateStatusButton(state) {
 function renderUpdateList() {
   if (!updatesTableBody || !updatesEmptyState) return;
   updatesTableBody.innerHTML = '';
+  if (downgradeTableBody) downgradeTableBody.innerHTML = '';
+  currentUpgradeItems = [];
+  currentDowngradeItems = [];
+  if (downgradeSection) downgradeSection.classList.add('hidden');
   if (updateAllContainer) updateAllContainer.classList.add('hidden');
   if (updateAllBtn) {
     updateAllBtn.disabled = true;
@@ -1830,18 +1993,49 @@ function renderUpdateList() {
     return;
   }
 
-  updatesEmptyState.classList.add('hidden');
+  const upgrades = [];
+  const downgrades = [];
+  pendingUpdates.forEach(item => {
+    const comparison = compareVersions(item.currentVersion, item.newVersion);
+    if (comparison === 1) {
+      downgrades.push(item);
+    } else {
+      upgrades.push(item);
+    }
+  });
+
+  currentUpgradeItems = upgrades;
+  currentDowngradeItems = downgrades;
+
+  const upgradeCount = upgrades.length;
+  const downgradeCount = downgrades.length;
+
   if (updateCheckStatus && !lastUpdateError) {
-    updateCheckStatus.textContent = `${pendingUpdates.length} Update${pendingUpdates.length === 1 ? '' : 's'} verfügbar.`;
+    if (upgradeCount && downgradeCount) {
+      updateCheckStatus.textContent = `${upgradeCount} Upgrade${upgradeCount === 1 ? '' : 's'} und ${downgradeCount} Downgrade${downgradeCount === 1 ? '' : 's'} gefunden.`;
+    } else if (upgradeCount) {
+      updateCheckStatus.textContent = `${upgradeCount} Upgrade${upgradeCount === 1 ? '' : 's'} verfügbar.`;
+    } else {
+      updateCheckStatus.textContent = `${downgradeCount} Downgrade${downgradeCount === 1 ? '' : 's'} gefunden.`;
+    }
   }
 
-  if (updateAllContainer) updateAllContainer.classList.remove('hidden');
+  if (upgradeCount) {
+    updatesEmptyState.classList.add('hidden');
+  } else {
+    updatesEmptyState.textContent = downgradeCount
+      ? 'Keine Upgrades erforderlich. Downgrades siehe unten.'
+      : 'Keine Updates erforderlich.';
+    updatesEmptyState.classList.remove('hidden');
+  }
+
+  if (updateAllContainer) updateAllContainer.classList.toggle('hidden', !upgradeCount);
   if (updateAllBtn) {
-    updateAllBtn.disabled = false;
+    updateAllBtn.disabled = !upgradeCount;
     updateAllBtn.textContent = 'Alle aktualisieren';
   }
 
-  pendingUpdates.forEach((item, index) => {
+  upgrades.forEach((item, index) => {
     const tr = document.createElement('tr');
     tr.className = index % 2 ? 'bg-white' : 'bg-gray-50';
 
@@ -1896,8 +2090,79 @@ function renderUpdateList() {
     updatesTableBody.appendChild(tr);
   });
 
+  if (downgradeSection) {
+    if (downgradeCount) {
+      downgradeSection.classList.remove('hidden');
+      if (downgradeHeading) downgradeHeading.textContent = `Downgrades (${downgradeCount})`;
+      downgrades.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'bg-yellow-100';
+
+        const tdPath = document.createElement('td');
+        tdPath.className = 'px-3 py-2 align-top';
+        tdPath.textContent = item.displayName || item.path;
+
+        const tdVersion = document.createElement('td');
+        tdVersion.className = 'px-3 py-2 align-top whitespace-nowrap';
+        tdVersion.textContent = `${formatVersionDisplay(item.currentVersion)} → ${formatVersionDisplay(item.newVersion)}`;
+
+        const tdAction = document.createElement('td');
+        tdAction.className = 'px-3 py-2 align-top';
+        const actionWrapper = document.createElement('div');
+        actionWrapper.className = 'flex justify-end flex-wrap gap-2';
+
+        if (item.type === 'module' || item.type === 'html') {
+          const changelogBtn = document.createElement('button');
+          changelogBtn.type = 'button';
+          changelogBtn.className = 'bg-white border border-yellow-300 text-yellow-900 px-3 py-1 rounded hover:bg-yellow-200';
+          changelogBtn.textContent = 'Changelog';
+          changelogBtn.addEventListener('click', () => {
+            openChangelogModal(item);
+          });
+          actionWrapper.appendChild(changelogBtn);
+        }
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'bg-yellow-500 hover:bg-yellow-600 text-yellow-900 px-3 py-1 rounded';
+        btn.textContent = 'sync';
+        btn.addEventListener('click', async () => {
+          if (!confirm('Diese Version ist älter. Trotzdem synchronisieren?')) return;
+          btn.disabled = true;
+          btn.classList.add('opacity-60','cursor-wait');
+          try {
+            await applySingleUpdate(item);
+          } catch (err) {
+            console.error('Fehler beim Aktualisieren', err);
+            alert('Die Datei konnte nicht aktualisiert werden.');
+          } finally {
+            btn.disabled = false;
+            btn.classList.remove('opacity-60','cursor-wait');
+          }
+        });
+        actionWrapper.appendChild(btn);
+
+        tdAction.appendChild(actionWrapper);
+
+        tr.appendChild(tdPath);
+        tr.appendChild(tdVersion);
+        tr.appendChild(tdAction);
+        downgradeTableBody?.appendChild(tr);
+      });
+      updateDowngradeCollapseUI();
+    } else {
+      downgradeSection.classList.add('hidden');
+    }
+  }
+
   renderVersionOverview();
   setUpdateStatusButton();
+}
+
+function updateDowngradeCollapseUI() {
+  if (!downgradeContent || !downgradeToggleIcon) return;
+  downgradeContent.classList.toggle('hidden', downgradeCollapsed);
+  downgradeToggleIcon.textContent = downgradeCollapsed ? '▼' : '▲';
 }
 
 function prepareHtmlChangelogItem(info) {
@@ -2563,6 +2828,75 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setUpdateStatusButton();
   renderUpdateList();
+  updateUndoRedoButtons();
+  updateDowngradeCollapseUI();
+  setSaveIndicator('saved');
+  if (moduleSearchClearBtn) {
+    moduleSearchClearBtn.classList.toggle('hidden', !(moduleSearchInput && moduleSearchInput.value));
+  }
+
+  if (moduleSearchInput) {
+    moduleSearchInput.addEventListener('input', () => {
+      sidebarSearchTerm = moduleSearchInput.value || '';
+      if (moduleSearchClearBtn) moduleSearchClearBtn.classList.toggle('hidden', !moduleSearchInput.value);
+      renderSidebar();
+    });
+  }
+
+  if (moduleSearchClearBtn) {
+    moduleSearchClearBtn.addEventListener('click', () => {
+      if (!moduleSearchInput) return;
+      moduleSearchInput.value = '';
+      sidebarSearchTerm = '';
+      moduleSearchClearBtn.classList.add('hidden');
+      renderSidebar();
+      moduleSearchInput.focus();
+    });
+  }
+
+  if (downgradeToggle) {
+    downgradeToggle.addEventListener('click', () => {
+      downgradeCollapsed = !downgradeCollapsed;
+      updateDowngradeCollapseUI();
+      try {
+        localStorage.setItem(DOWNGRADE_COLLAPSE_KEY, downgradeCollapsed ? '1' : '0');
+      } catch (e) {}
+    });
+  }
+
+  if (undoBtn) {
+    undoBtn.addEventListener('click', async () => {
+      if (!undoStack.length || historyInProgress) return;
+      historyInProgress = true;
+      const snapshot = undoStack.pop();
+      const currentSnapshot = captureLayoutSnapshot();
+      redoStack.push(JSON.parse(JSON.stringify(currentSnapshot)));
+      updateUndoRedoButtons();
+      try {
+        if (snapshot) await restoreLayoutFromSnapshot(snapshot);
+      } finally {
+        historyInProgress = false;
+        updateUndoRedoButtons();
+      }
+    });
+  }
+
+  if (redoBtn) {
+    redoBtn.addEventListener('click', async () => {
+      if (!redoStack.length || historyInProgress) return;
+      historyInProgress = true;
+      const snapshot = redoStack.pop();
+      const currentSnapshot = captureLayoutSnapshot();
+      undoStack.push(JSON.parse(JSON.stringify(currentSnapshot)));
+      updateUndoRedoButtons();
+      try {
+        if (snapshot) await restoreLayoutFromSnapshot(snapshot);
+      } finally {
+        historyInProgress = false;
+        updateUndoRedoButtons();
+      }
+    });
+  }
 
   // Sidebar toggle
   sidebarToggle.addEventListener('click', () => {
@@ -2750,9 +3084,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (updateAllBtn) {
     updateAllBtn.addEventListener('click', async () => {
-      if (updateAllBtn.disabled || !pendingUpdates.length) return;
+      if (updateAllBtn.disabled || !currentUpgradeItems.length) return;
 
-      const itemsToUpdate = pendingUpdates.slice();
+      const itemsToUpdate = currentUpgradeItems.slice();
       const originalText = updateAllBtn.textContent;
       updateAllBtn.disabled = true;
       updateAllBtn.classList.add('opacity-60','cursor-wait','cursor-not-allowed');
@@ -3117,14 +3451,44 @@ async function loadModulesFromFileList(files, rootName) {
   }
 }
 
+function filterSidebarTree(tree, filter) {
+  if (!Array.isArray(tree)) return [];
+  if (!filter) return tree;
+  return tree
+    .map(node => filterSidebarNode(node, filter))
+    .filter(Boolean);
+}
+
+function filterSidebarNode(node, filter) {
+  if (!node) return null;
+  if (!filter) return node;
+  if (node.type === 'folder') {
+    const filteredChildren = (node.children || [])
+      .map(child => filterSidebarNode(child, filter))
+      .filter(Boolean);
+    if (!filteredChildren.length) return null;
+    return { ...node, children: filteredChildren };
+  }
+  const name = String(node.template?.name || node.subdir || '').toLowerCase();
+  return name.includes(filter) ? node : null;
+}
+
 /** Render sidebar module cards */
 function renderSidebar(tree) {
+  if (Array.isArray(tree)) {
+    sidebarTreeData = tree;
+  } else if (!Array.isArray(sidebarTreeData)) {
+    sidebarTreeData = [];
+  }
+  const sourceTree = Array.isArray(sidebarTreeData) ? sidebarTreeData : [];
+  const filter = (sidebarSearchTerm || '').trim().toLowerCase();
+  const displayTree = filterSidebarTree(sourceTree, filter);
   listEl.innerHTML = '';
-  if (!tree.length) {
-    listEl.innerHTML = '<div class="text-gray-400">Keine Module gefunden.</div>';
+  if (!displayTree.length) {
+    listEl.innerHTML = `<div class="text-gray-400">${filter ? 'Keine passenden Module.' : 'Keine Module gefunden.'}</div>`;
     return;
   }
-  tree.forEach(node => renderSidebarNode(node, listEl));
+  displayTree.forEach(node => renderSidebarNode(node, listEl));
   updateModuleDraggable();
 }
 
@@ -3330,7 +3694,11 @@ async function loadAndInitTabs() {
 /** Create a tab and grid */
 function createTab(name, layoutModules = []) {
   const tabIndex = tabs.length;
-  const tab = { name: name || ('Tab ' + (tabIndex + 1)), modules: [], grid: null, el: null };
+  const tab = { name: name || ('Tab ' + (tabIndex + 1)), modules: [], grid: null, el: null, readyPromise: null };
+  let resolveReady;
+  tab.readyPromise = new Promise(resolve => {
+    resolveReady = resolve;
+  });
   const gridEl = document.createElement('div');
   gridEl.className = 'grid-stack p-4';
   gridEl.style.minHeight = 'calc(100vh - 40px)';
@@ -3345,7 +3713,13 @@ function createTab(name, layoutModules = []) {
   tab.grid = gridInstance;
   tab.el = gridEl;
   tabs.push(tab);
-  gridInstance.on('change', () => updateModulesPositions(tab));
+  gridInstance.on('change', () => {
+    if (isLayoutRecordingSuppressed()) {
+      updateModulesPositions(tab, { skipUndo: true, skipSave: true });
+    } else {
+      updateModulesPositions(tab);
+    }
+  });
 
   gridEl.addEventListener('dragover', e => {
     if (!isSidebarOpen) return;
@@ -3383,27 +3757,35 @@ function createTab(name, layoutModules = []) {
   });
 
   if (layoutModules && layoutModules.length) {
+    beginSuppressLayoutRecording();
     setTimeout(async () => {
-      for (const m of layoutModules) {
-        const modObj = liveModuleTemplates.find(t => t.subdir === m.subdir);
-        const pos = { x: m.x || 0, y: m.y || 0, w: m.w || 6, h: m.h || 3 };
-        // Use stored id if available; otherwise generate a new one
-        const instanceId = m.id || generateInstanceId();
-        if (modObj && modObj.template) {
-          const tmpl = modObj.template;
-          if (m.type === 'script' && tmpl.script) {
-            const jsFileName = findScriptFileName(tmpl, modObj);
-            if (jsFileName) await loadAndRunModuleScript(jsFileName, tmpl, modObj, pos, gridInstance, tab, instanceId);
-          } else if (m.type === 'fields' && tmpl.fields) {
-            createUniversalModule(tmpl, pos, modObj, gridInstance, tab, instanceId);
+      try {
+        for (const m of layoutModules) {
+          const modObj = liveModuleTemplates.find(t => t.subdir === m.subdir);
+          const pos = { x: m.x || 0, y: m.y || 0, w: m.w || 6, h: m.h || 3 };
+          // Use stored id if available; otherwise generate a new one
+          const instanceId = m.id || generateInstanceId();
+          if (modObj && modObj.template) {
+            const tmpl = modObj.template;
+            if (m.type === 'script' && tmpl.script) {
+              const jsFileName = findScriptFileName(tmpl, modObj);
+              if (jsFileName) await loadAndRunModuleScript(jsFileName, tmpl, modObj, pos, gridInstance, tab, instanceId, { skipUndo: true, skipSave: true });
+            } else if (m.type === 'fields' && tmpl.fields) {
+              createUniversalModule(tmpl, pos, modObj, gridInstance, tab, instanceId, { skipUndo: true, skipSave: true });
+            } else {
+              createSimpleModule(tmpl.name || modObj.subdir, pos, gridInstance, tab, modObj.subdir, instanceId, { skipUndo: true, skipSave: true });
+            }
           } else {
-            createSimpleModule(tmpl.name || modObj.subdir, pos, gridInstance, tab, modObj.subdir, instanceId);
+            createSimpleModule(m.subdir, pos, gridInstance, tab, m.subdir, instanceId, { skipUndo: true, skipSave: true });
           }
-        } else {
-          createSimpleModule(m.subdir, pos, gridInstance, tab, m.subdir, instanceId);
         }
+      } finally {
+        endSuppressLayoutRecording();
+        if (typeof resolveReady === 'function') resolveReady();
       }
     }, 50);
+  } else if (typeof resolveReady === 'function') {
+    resolveReady();
   }
   return tab;
 }
@@ -3552,10 +3934,13 @@ function resetTabs() {
 }
 
 /** Update module positions after drag/resizing */
-function updateModulesPositions(tabOrIndex) {
+function updateModulesPositions(tabOrIndex, options = {}) {
   const tab = typeof tabOrIndex === 'number' ? tabs[tabOrIndex] : tabOrIndex;
   if (!tab || !tab.grid) return;
-  tab.modules = tab.grid.engine.nodes.map(node => {
+  const { skipUndo = false, skipSave = false } = options;
+
+  const nodes = tab.grid.engine.nodes || [];
+  const newModules = nodes.map(node => {
     const subdir = node.el.dataset.subdir;
     const type = node.el.dataset.modType;
     let instanceId = node.el.dataset.instanceId;
@@ -3567,23 +3952,77 @@ function updateModulesPositions(tabOrIndex) {
     }
     return { id: instanceId, subdir, type, x: node.x, y: node.y, w: node.w, h: node.h };
   });
-  saveLayout();
+
+  const prevModulesJson = JSON.stringify(tab.modules || []);
+  const newModulesJson = JSON.stringify(newModules);
+  const changed = prevModulesJson !== newModulesJson;
+
+  let previousSnapshot = null;
+  if (changed && !skipUndo && !isLayoutRecordingSuppressed()) {
+    previousSnapshot = captureLayoutSnapshot();
+  }
+
+  tab.modules = newModules;
+
+  if (changed && !skipUndo && !isLayoutRecordingSuppressed()) {
+    pushUndoState(previousSnapshot);
+  }
+
+  if (changed && !skipSave) {
+    saveLayout();
+  } else if (!skipSave && saveIndicatorPending === 0) {
+    setSaveIndicator('saved');
+  }
+
+  updateUndoRedoButtons();
+}
+
+function setSaveIndicator(state) {
+  if (!saveIndicator) return;
+  saveIndicator.classList.remove('bg-green-500','bg-yellow-400','bg-red-500');
+  let title = '';
+  if (state === 'pending') {
+    saveIndicator.classList.add('bg-yellow-400');
+    title = 'Speichern läuft…';
+  } else if (state === 'error') {
+    saveIndicator.classList.add('bg-red-500');
+    title = 'Speichern fehlgeschlagen';
+  } else {
+    saveIndicator.classList.add('bg-green-500');
+    title = 'Gespeichert';
+  }
+  saveIndicator.title = title;
 }
 
 /** Save layout */
 async function saveLayout() {
+  saveIndicatorPending++;
+  setSaveIndicator('pending');
   const layoutData = { tabs: tabs.map(({name, modules}) => ({ name, modules })) };
+  let success = true;
   if (rootDirHandle && window.showDirectoryPicker) {
     try {
       const fileHandle = await rootDirHandle.getFileHandle(layoutFileName, { create: true });
       const writable = await fileHandle.createWritable();
       await writable.write(JSON.stringify(layoutData));
       await writable.close();
-    } catch (e) { console.warn('Konnte Layout-Datei nicht speichern', e); }
+    } catch (e) {
+      success = false;
+      setSaveIndicator('error');
+      console.warn('Konnte Layout-Datei nicht speichern', e);
+    }
   } else {
     try {
       localStorage.setItem('modulesLayout', JSON.stringify(layoutData));
-    } catch (e) { console.warn('Konnte Layout nicht im localStorage speichern', e); }
+    } catch (e) {
+      success = false;
+      setSaveIndicator('error');
+      console.warn('Konnte Layout nicht im localStorage speichern', e);
+    }
+  }
+  saveIndicatorPending = Math.max(0, saveIndicatorPending - 1);
+  if (success && saveIndicatorPending === 0) {
+    setSaveIndicator('saved');
   }
 }
 
@@ -3639,7 +4078,7 @@ function findScriptFileName(moduleJson, modObj) {
 }
 
 /** Load and run script module */
-async function loadAndRunModuleScript(jsFileName, moduleJson, modObj, gridPos, gridInstance, tabRef, instanceIdArg) {
+async function loadAndRunModuleScript(jsFileName, moduleJson, modObj, gridPos, gridInstance, tabRef, instanceIdArg, options = {}) {
   let jsText = '';
   if (modObj.dirHandle) {
     const jsHandle = await modObj.dirHandle.getFileHandle(jsFileName);
@@ -3693,12 +4132,12 @@ async function loadAndRunModuleScript(jsFileName, moduleJson, modObj, gridPos, g
       setTimeout(() => contentEl.classList.remove('fade-in'), 600);
     }
   } catch (e) {}
-  updateModulesPositions(tabRef);
+  updateModulesPositions(tabRef, options);
   updateGridDraggable();
 }
 
 /** Create universal (fields) module */
-function createUniversalModule(mod, pos, modObj, gridInstance, tabRef, instanceIdArg) {
+function createUniversalModule(mod, pos, modObj, gridInstance, tabRef, instanceIdArg, options = {}) {
   const el = document.createElement('div');
   el.classList.add('grid-stack-item');
   const defaultW = parseInt(mod.w) || 6;
@@ -3766,7 +4205,7 @@ function createUniversalModule(mod, pos, modObj, gridInstance, tabRef, instanceI
       setTimeout(() => contentEl.classList.remove('fade-in'), 600);
     }
   } catch (e) {}
-  updateModulesPositions(tabRef);
+  updateModulesPositions(tabRef, options);
   updateGridDraggable();
 }
 
@@ -3789,7 +4228,7 @@ function runInlineScript(script, formEl, context) {
 }
 
 /** Create simple module */
-function createSimpleModule(title, pos, gridInstance, tabRef, subdir, instanceIdArg) {
+function createSimpleModule(title, pos, gridInstance, tabRef, subdir, instanceIdArg, options = {}) {
   const el = document.createElement('div');
   el.classList.add('grid-stack-item');
   const w = (pos && pos.w) || 4;
@@ -3819,7 +4258,7 @@ function createSimpleModule(title, pos, gridInstance, tabRef, subdir, instanceId
       setTimeout(() => contentEl.classList.remove('fade-in'), 600);
     }
   } catch (e) {}
-  updateModulesPositions(tabRef);
+  updateModulesPositions(tabRef, options);
   updateGridDraggable();
 }
   </script>

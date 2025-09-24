@@ -5,21 +5,22 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
-## [3.4.4] – 2025-09-23
+## [3.5.0] – 2025-09-24
 ### Added
-- Aspen Board um eine Suchleiste erweitert, damit Geräte nach beliebigen Feldern gefiltert werden können.
-
-## [3.4.3] – 2025-09-23
-### Added
-- Geräte im Excel Unit Board lassen sich per Rechtsklick löschen; die Devices.xlsx wird dabei automatisch aktualisiert.
-
-## [3.4.2] – 2025-09-23
-### Added
-- Automatische Übergabe von Aspen-Geräten in Dictionary und Geräte-Liste beim Drag&Drop aktiviert.
-- Gemeinsame Hilfsfunktionen für das Schreiben in Excel-Dateien eingeführt.
+- Downgrade-Erkennung und eigene, einklappbare Sektion für Downgrades in der Update-Ansicht.
+- Sidebar-Suchfeld für Module mit Live-Filterung.
+- Undo/Redo-Funktion für Modulaktionen im Grid (Buttons in der Topbar).
+- Auto-Save-Indikator in der Topbar (zeigt pending/gespeichert Status).
 
 ### Changed
-- Aspen- und Excel-Boards nutzen nun denselben Sync-Workflow für aktive Geräte.
+- Update-Liste zeigt standardmäßig nur Upgrades; Downgrades werden separat verwaltet.
+
+## [3.4.2] – 2025-09-24
+### Added
+- Findings-Spreadsheet-Modul mit erweiterten Tabellenfunktionen und Dashboard-Angaben aktualisiert.
+
+### Changed
+- Pflichtspalten und Abweichungskennzeichnung im Findings-Modul optisch angepasst.
 
 ## [3.4.1] – 2025-09-23
 ### Added
