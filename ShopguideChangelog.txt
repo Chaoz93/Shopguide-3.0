@@ -4,6 +4,13 @@ Alle relevanten Änderungen an der Hauptanwendung werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [3.4.2] – 2025-09-24
+### Added
+- Findings-Spreadsheet-Modul mit erweiterten Tabellenfunktionen und Dashboard-Angaben aktualisiert.
+
+### Changed
+- Pflichtspalten und Abweichungskennzeichnung im Findings-Modul optisch angepasst.
+
 ## [3.4.1] – 2025-09-23
 ### Added
 - ChangelogViewer für alle Module + HTML
