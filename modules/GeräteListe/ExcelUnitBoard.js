@@ -24,6 +24,7 @@
     }
     .db-handle:active{cursor:grabbing}
     .db-card.active{ box-shadow:0 0 0 2px var(--dl-active) inset, 0 8px 20px rgba(0,0,0,.12); transform:translateY(-1px); }
+    .db-card.ctx-target{outline:2px solid var(--dl-active); outline-offset:2px;}
     .db-btn{background:var(--button-bg); color:var(--button-text); padding:.35rem .6rem; border-radius:.5rem; font-size:.875rem}
     .db-btn.secondary{background: rgba(255,255,255,.14); color: var(--text-color);}
     .db-add{align-self:center; border-radius:9999px; width:2.2rem; height:2.2rem; display:flex; align-items:center; justify-content:center;
@@ -131,6 +132,275 @@
 
   const ensureXLSX=()=>ensureLibrary('XLSX','__XLSX_LOAD_PROMISE__',XLSX_URLS);
   const ensureSortable=()=>ensureLibrary('Sortable','__SORTABLE_LOAD_PROMISE__',SORTABLE_URLS);
+
+  function setupUnitBoardShared(shared){
+    shared=shared||{};
+    shared.aspenRecords=shared.aspenRecords instanceof Map?shared.aspenRecords:new Map();
+
+    if(!shared.ensureXlsxLoader){
+      shared.ensureXlsxLoader=async function(loader){
+        const ensure=loader||shared.ensureXLSX;
+        if(typeof ensure==='function'){
+          await ensure();
+          return;
+        }
+        if(!window.XLSX) throw new Error('XLSX nicht verfügbar');
+      };
+    }
+
+    if(!shared.requestRW){
+      shared.requestRW=async function(handle){
+        if(!handle?.queryPermission) return true;
+        try{
+          const state=await handle.queryPermission({mode:'readwrite'});
+          if(state==='granted') return true;
+          const next=await handle.requestPermission({mode:'readwrite'});
+          return next==='granted';
+        }catch(err){
+          console.warn('[UnitBoard] Dateizugriff fehlgeschlagen',err);
+          return false;
+        }
+      };
+    }
+
+    if(!shared.appendToDictionary){
+      shared.appendToDictionary=async function(handle,dataRow,loader){
+        if(!handle){
+          console.warn('[UnitBoard] Kein Dictionary-Handle gewählt – Eintrag übersprungen');
+          return false;
+        }
+        const granted=await shared.requestRW(handle);
+        if(!granted){
+          console.warn('[UnitBoard] Schreibrechte für Dictionary.xlsx nicht erteilt');
+          return false;
+        }
+        const safeRow=dataRow&&typeof dataRow==='object'?dataRow:{};
+        if(!Object.keys(safeRow).length){
+          console.warn('[UnitBoard] Dictionary: Datensatz leer, nichts zu schreiben');
+          return false;
+        }
+        try{await shared.ensureXlsxLoader(loader);}catch(err){
+          console.warn('[UnitBoard] XLSX konnte nicht geladen werden',err);
+          return false;
+        }
+        try{
+          const file=await handle.getFile();
+          let workbook;
+          if(file.size>0){
+            const buffer=await file.arrayBuffer();
+            workbook=XLSX.read(buffer,{type:'array'});
+          }else{
+            workbook=XLSX.utils.book_new();
+          }
+          const sheetName='records';
+          const sheet=workbook.Sheets[sheetName];
+          const rows=sheet?XLSX.utils.sheet_to_json(sheet,{header:1,defval:''}):[];
+          const headerRaw=Array.isArray(rows[0])?rows[0].map(cell=>String(cell??'')):
+            [];
+          const columns=headerRaw.map((label,idx)=>{
+            const raw=String(label||'');
+            const trimmed=raw.trim();
+            return {
+              key:trimmed||`Column${idx+1}`,
+              lower:(trimmed||`Column${idx+1}`).toLowerCase(),
+              label:raw.length?raw:(trimmed||`Column${idx+1}`)
+            };
+          });
+          const usedLower=new Set(columns.map(col=>col.lower));
+          const dataKeys=Object.keys(safeRow).filter(Boolean);
+          dataKeys.forEach(key=>{
+            const lower=key.toLowerCase();
+            if(usedLower.has(lower)) return;
+            usedLower.add(lower);
+            columns.push({key,lower,label:key});
+          });
+          if(!columns.length){
+            dataKeys.forEach((key,idx)=>{
+              const fallback=key||`Column${idx+1}`;
+              const lower=fallback.toLowerCase();
+              if(usedLower.has(lower)) return;
+              usedLower.add(lower);
+              columns.push({key:fallback,lower,label:fallback});
+            });
+          }
+          const existingRows=rows.slice(1).map(row=>{
+            const arr=new Array(columns.length).fill('');
+            row.forEach((value,idx)=>{if(idx<columns.length) arr[idx]=String(value??'');});
+            return arr;
+          });
+          const keyLookup=new Map();
+          dataKeys.forEach(key=>keyLookup.set(key.toLowerCase(),key));
+          const newRow=columns.map(col=>{
+            const match=keyLookup.get(col.lower);
+            const key=match||col.key;
+            return String(safeRow[key]??safeRow[col.key]??'');
+          });
+          existingRows.push(newRow);
+          const headerOut=columns.map(col=>col.label);
+          const aoa=[headerOut,...existingRows];
+          const sheetOut=XLSX.utils.aoa_to_sheet(aoa);
+          workbook.Sheets[sheetName]=sheetOut;
+          if(!workbook.SheetNames.includes(sheetName)) workbook.SheetNames.push(sheetName);
+          const output=XLSX.write(workbook,{bookType:'xlsx',type:'array'});
+          const writable=await handle.createWritable();
+          await writable.write(new Blob([output],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+          await writable.close();
+          return true;
+        }catch(err){
+          console.warn('[UnitBoard] Dictionary.xlsx konnte nicht aktualisiert werden',err);
+          return false;
+        }
+      };
+    }
+
+    if(!shared.addToDevices){
+      shared.addToDevices=async function(handle,meldung,loader){
+        const id=String(meldung||'').trim();
+        if(!id){
+          console.warn('[UnitBoard] Meldung leer – kein Eintrag in Devices.xlsx');
+          return false;
+        }
+        if(!handle){
+          console.warn('[UnitBoard] Keine Geräte-Datei gewählt – Eintrag übersprungen');
+          return false;
+        }
+        const granted=await shared.requestRW(handle);
+        if(!granted){
+          console.warn('[UnitBoard] Schreibrechte für Devices.xlsx nicht erteilt');
+          return false;
+        }
+        try{await shared.ensureXlsxLoader(loader);}catch(err){
+          console.warn('[UnitBoard] XLSX konnte nicht geladen werden',err);
+          return false;
+        }
+        try{
+          const file=await handle.getFile();
+          let workbook;
+          if(file.size>0){
+            const buffer=await file.arrayBuffer();
+            workbook=XLSX.read(buffer,{type:'array'});
+          }else{
+            workbook=XLSX.utils.book_new();
+          }
+          const sheetName='Units';
+          const sheet=workbook.Sheets[sheetName]||workbook.Sheets[workbook.SheetNames[0]];
+          const rows=sheet?XLSX.utils.sheet_to_json(sheet,{header:1,defval:''}):[];
+          let header=rows[0]&&rows[0].length?rows[0].map(cell=>String(cell??'')):[];
+          if(!header.length) header=['Meldung'];
+          const seen=new Set();
+          const body=[];
+          rows.slice(1).forEach(row=>{
+            const value=String(row[0]??'').trim();
+            if(!value) return;
+            if(seen.has(value)) return;
+            seen.add(value);
+            body.push([value]);
+          });
+          if(!seen.has(id)) body.push([id]);
+          if(!body.length) body.push([id]);
+          const aoa=[header,...body];
+          const sheetOut=XLSX.utils.aoa_to_sheet(aoa);
+          workbook.Sheets[sheetName]=sheetOut;
+          if(!workbook.SheetNames.includes(sheetName)) workbook.SheetNames.push(sheetName);
+          const output=XLSX.write(workbook,{bookType:'xlsx',type:'array'});
+          const writable=await handle.createWritable();
+          await writable.write(new Blob([output],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+          await writable.close();
+          return true;
+        }catch(err){
+          console.warn('[UnitBoard] Devices.xlsx konnte nicht aktualisiert werden',err);
+          return false;
+        }
+      };
+    }
+
+    if(!shared.publishAspenItems){
+      shared.publishAspenItems=function(instanceId,items){
+        if(!instanceId) return;
+        const map=new Map();
+        (Array.isArray(items)?items:[]).forEach(item=>{
+          if(!item) return;
+          const meldung=String(item.meldung||'').trim();
+          if(!meldung) return;
+          map.set(meldung,item);
+        });
+        shared.aspenRecords.set(instanceId,map);
+      };
+    }
+
+    if(!shared.clearAspenItems){
+      shared.clearAspenItems=function(instanceId){
+        if(!instanceId) return;
+        shared.aspenRecords.delete(instanceId);
+      };
+    }
+
+    if(!shared.findAspenItem){
+      shared.findAspenItem=function(meldung){
+        const key=String(meldung||'').trim();
+        if(!key) return null;
+        for(const map of shared.aspenRecords.values()){
+          const entry=map.get(key);
+          if(entry) return entry;
+        }
+        return null;
+      };
+    }
+
+    if(!shared.handleAspenToDeviceDrop){
+      shared.handleAspenToDeviceDrop=async function(evt,context){
+        if(!evt) return {dict:false,devices:false,meldung:''};
+        const toType=(evt.to?.dataset?.boardType||'').toLowerCase();
+        const fromType=(evt.from?.dataset?.boardType||'').toLowerCase();
+        if(toType!=='excel-unit' || fromType!=='aspen-unit'){
+          return {dict:false,devices:false,meldung:''};
+        }
+        const meldung=(evt.item?.dataset?.meldung||'').trim();
+        if(!meldung){
+          console.warn('[UnitBoard] Meldung beim Drag&Drop nicht gefunden');
+          return {dict:false,devices:false,meldung:''};
+        }
+        const ensure=context?.ensureXLSX||shared.ensureXLSX;
+        let sourceItem=null;
+        try{sourceItem=shared.findAspenItem(meldung);}catch(err){console.warn('[UnitBoard] Aspen-Lookup fehlgeschlagen',err);}
+        if(!sourceItem && evt.item && evt.item.__aspenItem) sourceItem=evt.item.__aspenItem;
+        const dataRow=sourceItem&&typeof sourceItem==='object'
+          ? (sourceItem.data&&typeof sourceItem.data==='object'?sourceItem.data:sourceItem)
+          : null;
+        if(!dataRow){
+          console.warn('[UnitBoard] Kein Aspen-Datensatz für Meldung',meldung,'gefunden');
+        }
+        const dictHandle=typeof context?.getDictHandle==='function'?context.getDictHandle():context?.dictHandle;
+        const deviceHandle=typeof context?.getDeviceHandle==='function'?context.getDeviceHandle():context?.deviceHandle;
+        let dictResult=false;
+        if(dataRow){
+          if(dictHandle){
+            try{dictResult=await shared.appendToDictionary(dictHandle,dataRow,ensure);}catch(err){console.warn('[UnitBoard] Dictionary-Sync fehlgeschlagen',err);}
+          }else{
+            console.warn('[UnitBoard] Kein Dictionary-Handle verfügbar – Meldung',meldung,'wird nicht übernommen');
+          }
+        }
+        let devicesResult=false;
+        if(deviceHandle){
+          try{devicesResult=await shared.addToDevices(deviceHandle,meldung,ensure);}catch(err){console.warn('[UnitBoard] Geräte-Liste konnte nicht aktualisiert werden',err);}
+        }else{
+          console.warn('[UnitBoard] Keine Geräte-Datei verbunden – Meldung',meldung,'konnte nicht gesichert werden');
+        }
+        if(dictResult||devicesResult){
+          try{console.info('[SYNC]','Meldung',meldung,'von Aspen -> Geräteliste, Dictionary+Devices aktualisiert');}catch{}
+        }
+        return {dict:dictResult,devices:devicesResult,meldung};
+      };
+    }
+
+    return shared;
+  }
+
+  const SHARED=setupUnitBoardShared(window.__UNIT_BOARD_SHARED__||{});
+  window.__UNIT_BOARD_SHARED__=SHARED;
+  if(typeof ensureXLSX==='function' && !SHARED.ensureXLSX){
+    SHARED.ensureXLSX=ensureXLSX;
+  }
 
   function idbOpen(){
     return new Promise((resolve,reject)=>{
@@ -293,24 +563,24 @@
           </div>
           <div class="db-grid">
             <div class="db-field" style="grid-column: span 3;">
-              <label>Datei</label>
+              <label>Devices.xlsx</label>
               <div class="db-row">
-                <button class="db-btn db-pick">Excel wählen</button>
-                <button class="db-btn secondary db-create">Excel erstellen</button>
+                <button class="db-btn db-pick">Devices.xlsx wählen</button>
+                <button class="db-btn secondary db-create">Devices.xlsx erstellen</button>
                 <span class="db-file"></span>
               </div>
             </div>
             <div class="db-field" style="grid-column: span 3;">
               <label>Dictionary</label>
               <div class="db-row">
-                <button class="db-btn db-dict-pick">Dictionary wählen</button>
+                <button class="db-btn db-dict-pick">Dictionary.xlsx wählen</button>
                 <span class="db-dict-file db-file"></span>
               </div>
             </div>
             <div class="db-field" style="grid-column: span 3;">
               <label>Namensregeln</label>
               <div class="db-row">
-                <button class="db-btn db-name-pick">Excel wählen</button>
+                <button class="db-btn db-name-pick">Namensregeln.xlsx wählen</button>
                 <span class="db-name-file db-file"></span>
               </div>
             </div>
@@ -377,7 +647,7 @@
 
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Excel wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Devices.xlsx wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="mi mi-delete">🗑️ Gerät löschen</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     return {
@@ -413,7 +683,8 @@
       menuOpt:menu.querySelector('.mi-opt'),
       menuPick:menu.querySelector('.mi-pick'),
       menuDisable:menu.querySelector('.mi-disable'),
-      partList:menu.querySelector('.db-part-list')
+      partList:menu.querySelector('.db-part-list'),
+      menuDelete:menu.querySelector('.mi-delete')
     };
   }
 
@@ -521,6 +792,7 @@
     }
 
     const els=buildUI(root);
+    els.list.dataset.boardType='excel-unit';
     const instanceId=instanceIdOf(root);
     const cfg=loadCfg(instanceId);
     const state={
@@ -866,7 +1138,7 @@
     }
 
     async function bindDictHandle(handle){
-      const ok=await ensureRPermission(handle);
+      const ok=await ensureRWPermission(handle);
       if(!ok) return false;
       await idbSet(cfg.dictIdbKey,handle);
       setDictHandle(handle);
@@ -1059,11 +1331,37 @@
         renderList();
       });
     }
+    let ctxTarget=null;
+    function setCtxTarget(card){
+      if(ctxTarget&&ctxTarget.isConnected){ctxTarget.classList.remove('ctx-target');}
+      ctxTarget=card||null;
+      if(ctxTarget&&ctxTarget.isConnected){ctxTarget.classList.add('ctx-target');}
+      if(els.menuDelete){
+        els.menuDelete.style.display=ctxTarget?'block':'none';
+      }
+    }
+    if(els.menuDelete){
+      els.menuDelete.style.display='none';
+      els.menuDelete.addEventListener('click',event=>{
+        event.stopPropagation();
+        const target=ctxTarget;
+        const meld=(target?.dataset?.meldung||'').trim();
+        closeMenu();
+        if(!meld) return;
+        const before=state.items.length;
+        state.items=state.items.filter(item=>(item.meldung||'').trim()!==meld);
+        if(state.items.length===before) return;
+        renderList();
+        scheduleSave();
+        updateHighlights();
+      });
+    }
     if(els.menu){
       els.menu.addEventListener('click',event=>event.stopPropagation());
     }
 
-    function openMenuAt(x,y){
+    function openMenuAt(x,y,card){
+      setCtxTarget(card);
       refreshPartMenu();
       const pad=8;const vw=window.innerWidth;const vh=window.innerHeight;
       const rect=els.menu.getBoundingClientRect();
@@ -1073,11 +1371,15 @@
       els.menu.style.top=clamp(y,pad,vh-h-pad)+'px';
       els.menu.classList.add('open');
     }
-    function closeMenu(){els.menu.classList.remove('open');}
+    function closeMenu(){
+      els.menu.classList.remove('open');
+      setCtxTarget(null);
+    }
 
     root.addEventListener('contextmenu',event=>{
       event.preventDefault();event.stopPropagation();
-      openMenuAt(event.clientX,event.clientY);
+      const card=event.target.closest('.db-card');
+      openMenuAt(event.clientX,event.clientY,card);
     });
     window.addEventListener('click',event=>{if(!els.menu.contains(event.target)) closeMenu();});
     window.addEventListener('keydown',event=>{if(event.key==='Escape') closeMenu();});
@@ -1100,7 +1402,23 @@
       ghostClass:'db-ghost',
       chosenClass:'db-chosen',
       onSort:()=>{syncFromDOM();renderList();scheduleSave();},
-      onAdd:()=>{syncFromDOM();renderList();scheduleSave();updateHighlights();},
+      onAdd:async evt=>{
+        syncFromDOM();
+        if(SHARED?.handleAspenToDeviceDrop){
+          try{
+            await SHARED.handleAspenToDeviceDrop(evt,{
+              dictHandle:state.handles.dict,
+              deviceHandle:state.handles.file,
+              ensureXLSX
+            });
+          }catch(err){
+            console.warn('[UnitBoard] Sync beim Drag&Drop fehlgeschlagen',err);
+          }
+        }
+        renderList();
+        scheduleSave();
+        updateHighlights();
+      },
       onRemove:()=>{syncFromDOM();renderList();scheduleSave();}
     });
 

@@ -6,8 +6,13 @@
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
     .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
-    .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;overflow:auto;}
-    .db-list{display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;}
+    .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;}
+    .db-toolbar{display:flex;align-items:center;gap:.5rem;}
+    .db-search{flex:1;padding:.45rem .65rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:#000;font-size:.9rem;transition:border-color .2s ease,box-shadow .2s ease;}
+    .db-search:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .db-search::placeholder{color:#000;opacity:1;}
+    .db-list{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;overflow:auto;padding-right:.25rem;}
+    .db-empty{opacity:.6;padding:.25rem .1rem;}
     .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:
 0 2px 6px rgba(0,0,0,.06);display:flex;align-items:center;gap:.75rem;user-select:none;}
     .db-flex{flex:1;display:flex;flex-direction:column;}
@@ -106,6 +111,275 @@ der-radius:.4rem;background:transparent;color:inherit;}
     return ensureLibrary('Sortable','__SORTABLE_LOAD_PROMISE__',SORTABLE_URLS);
   }
 
+  function setupUnitBoardShared(shared){
+    shared=shared||{};
+    shared.aspenRecords=shared.aspenRecords instanceof Map?shared.aspenRecords:new Map();
+
+    if(!shared.ensureXlsxLoader){
+      shared.ensureXlsxLoader=async function(loader){
+        const ensure=loader||shared.ensureXLSX;
+        if(typeof ensure==='function'){
+          await ensure();
+          return;
+        }
+        if(!window.XLSX) throw new Error('XLSX nicht verfügbar');
+      };
+    }
+
+    if(!shared.requestRW){
+      shared.requestRW=async function(handle){
+        if(!handle?.queryPermission) return true;
+        try{
+          const state=await handle.queryPermission({mode:'readwrite'});
+          if(state==='granted') return true;
+          const next=await handle.requestPermission({mode:'readwrite'});
+          return next==='granted';
+        }catch(err){
+          console.warn('[UnitBoard] Dateizugriff fehlgeschlagen',err);
+          return false;
+        }
+      };
+    }
+
+    if(!shared.appendToDictionary){
+      shared.appendToDictionary=async function(handle,dataRow,loader){
+        if(!handle){
+          console.warn('[UnitBoard] Kein Dictionary-Handle gewählt – Eintrag übersprungen');
+          return false;
+        }
+        const granted=await shared.requestRW(handle);
+        if(!granted){
+          console.warn('[UnitBoard] Schreibrechte für Dictionary.xlsx nicht erteilt');
+          return false;
+        }
+        const safeRow=dataRow&&typeof dataRow==='object'?dataRow:{};
+        if(!Object.keys(safeRow).length){
+          console.warn('[UnitBoard] Dictionary: Datensatz leer, nichts zu schreiben');
+          return false;
+        }
+        try{await shared.ensureXlsxLoader(loader);}catch(err){
+          console.warn('[UnitBoard] XLSX konnte nicht geladen werden',err);
+          return false;
+        }
+        try{
+          const file=await handle.getFile();
+          let workbook;
+          if(file.size>0){
+            const buffer=await file.arrayBuffer();
+            workbook=XLSX.read(buffer,{type:'array'});
+          }else{
+            workbook=XLSX.utils.book_new();
+          }
+          const sheetName='records';
+          const sheet=workbook.Sheets[sheetName];
+          const rows=sheet?XLSX.utils.sheet_to_json(sheet,{header:1,defval:''}):[];
+          const headerRaw=Array.isArray(rows[0])?rows[0].map(cell=>String(cell??'')):
+            [];
+          const columns=headerRaw.map((label,idx)=>{
+            const raw=String(label||'');
+            const trimmed=raw.trim();
+            return {
+              key:trimmed||`Column${idx+1}`,
+              lower:(trimmed||`Column${idx+1}`).toLowerCase(),
+              label:raw.length?raw:(trimmed||`Column${idx+1}`)
+            };
+          });
+          const usedLower=new Set(columns.map(col=>col.lower));
+          const dataKeys=Object.keys(safeRow).filter(Boolean);
+          dataKeys.forEach(key=>{
+            const lower=key.toLowerCase();
+            if(usedLower.has(lower)) return;
+            usedLower.add(lower);
+            columns.push({key,lower,label:key});
+          });
+          if(!columns.length){
+            dataKeys.forEach((key,idx)=>{
+              const fallback=key||`Column${idx+1}`;
+              const lower=fallback.toLowerCase();
+              if(usedLower.has(lower)) return;
+              usedLower.add(lower);
+              columns.push({key:fallback,lower,label:fallback});
+            });
+          }
+          const existingRows=rows.slice(1).map(row=>{
+            const arr=new Array(columns.length).fill('');
+            row.forEach((value,idx)=>{if(idx<columns.length) arr[idx]=String(value??'');});
+            return arr;
+          });
+          const keyLookup=new Map();
+          dataKeys.forEach(key=>keyLookup.set(key.toLowerCase(),key));
+          const newRow=columns.map(col=>{
+            const match=keyLookup.get(col.lower);
+            const key=match||col.key;
+            return String(safeRow[key]??safeRow[col.key]??'');
+          });
+          existingRows.push(newRow);
+          const headerOut=columns.map(col=>col.label);
+          const aoa=[headerOut,...existingRows];
+          const sheetOut=XLSX.utils.aoa_to_sheet(aoa);
+          workbook.Sheets[sheetName]=sheetOut;
+          if(!workbook.SheetNames.includes(sheetName)) workbook.SheetNames.push(sheetName);
+          const output=XLSX.write(workbook,{bookType:'xlsx',type:'array'});
+          const writable=await handle.createWritable();
+          await writable.write(new Blob([output],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+          await writable.close();
+          return true;
+        }catch(err){
+          console.warn('[UnitBoard] Dictionary.xlsx konnte nicht aktualisiert werden',err);
+          return false;
+        }
+      };
+    }
+
+    if(!shared.addToDevices){
+      shared.addToDevices=async function(handle,meldung,loader){
+        const id=String(meldung||'').trim();
+        if(!id){
+          console.warn('[UnitBoard] Meldung leer – kein Eintrag in Devices.xlsx');
+          return false;
+        }
+        if(!handle){
+          console.warn('[UnitBoard] Keine Geräte-Datei gewählt – Eintrag übersprungen');
+          return false;
+        }
+        const granted=await shared.requestRW(handle);
+        if(!granted){
+          console.warn('[UnitBoard] Schreibrechte für Devices.xlsx nicht erteilt');
+          return false;
+        }
+        try{await shared.ensureXlsxLoader(loader);}catch(err){
+          console.warn('[UnitBoard] XLSX konnte nicht geladen werden',err);
+          return false;
+        }
+        try{
+          const file=await handle.getFile();
+          let workbook;
+          if(file.size>0){
+            const buffer=await file.arrayBuffer();
+            workbook=XLSX.read(buffer,{type:'array'});
+          }else{
+            workbook=XLSX.utils.book_new();
+          }
+          const sheetName='Units';
+          const sheet=workbook.Sheets[sheetName]||workbook.Sheets[workbook.SheetNames[0]];
+          const rows=sheet?XLSX.utils.sheet_to_json(sheet,{header:1,defval:''}):[];
+          let header=rows[0]&&rows[0].length?rows[0].map(cell=>String(cell??'')):[];
+          if(!header.length) header=['Meldung'];
+          const seen=new Set();
+          const body=[];
+          rows.slice(1).forEach(row=>{
+            const value=String(row[0]??'').trim();
+            if(!value) return;
+            if(seen.has(value)) return;
+            seen.add(value);
+            body.push([value]);
+          });
+          if(!seen.has(id)) body.push([id]);
+          if(!body.length) body.push([id]);
+          const aoa=[header,...body];
+          const sheetOut=XLSX.utils.aoa_to_sheet(aoa);
+          workbook.Sheets[sheetName]=sheetOut;
+          if(!workbook.SheetNames.includes(sheetName)) workbook.SheetNames.push(sheetName);
+          const output=XLSX.write(workbook,{bookType:'xlsx',type:'array'});
+          const writable=await handle.createWritable();
+          await writable.write(new Blob([output],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+          await writable.close();
+          return true;
+        }catch(err){
+          console.warn('[UnitBoard] Devices.xlsx konnte nicht aktualisiert werden',err);
+          return false;
+        }
+      };
+    }
+
+    if(!shared.publishAspenItems){
+      shared.publishAspenItems=function(instanceId,items){
+        if(!instanceId) return;
+        const map=new Map();
+        (Array.isArray(items)?items:[]).forEach(item=>{
+          if(!item) return;
+          const meldung=String(item.meldung||'').trim();
+          if(!meldung) return;
+          map.set(meldung,item);
+        });
+        shared.aspenRecords.set(instanceId,map);
+      };
+    }
+
+    if(!shared.clearAspenItems){
+      shared.clearAspenItems=function(instanceId){
+        if(!instanceId) return;
+        shared.aspenRecords.delete(instanceId);
+      };
+    }
+
+    if(!shared.findAspenItem){
+      shared.findAspenItem=function(meldung){
+        const key=String(meldung||'').trim();
+        if(!key) return null;
+        for(const map of shared.aspenRecords.values()){
+          const entry=map.get(key);
+          if(entry) return entry;
+        }
+        return null;
+      };
+    }
+
+    if(!shared.handleAspenToDeviceDrop){
+      shared.handleAspenToDeviceDrop=async function(evt,context){
+        if(!evt) return {dict:false,devices:false,meldung:''};
+        const toType=(evt.to?.dataset?.boardType||'').toLowerCase();
+        const fromType=(evt.from?.dataset?.boardType||'').toLowerCase();
+        if(toType!=='excel-unit' || fromType!=='aspen-unit'){
+          return {dict:false,devices:false,meldung:''};
+        }
+        const meldung=(evt.item?.dataset?.meldung||'').trim();
+        if(!meldung){
+          console.warn('[UnitBoard] Meldung beim Drag&Drop nicht gefunden');
+          return {dict:false,devices:false,meldung:''};
+        }
+        const ensure=context?.ensureXLSX||shared.ensureXLSX;
+        let sourceItem=null;
+        try{sourceItem=shared.findAspenItem(meldung);}catch(err){console.warn('[UnitBoard] Aspen-Lookup fehlgeschlagen',err);}
+        if(!sourceItem && evt.item && evt.item.__aspenItem) sourceItem=evt.item.__aspenItem;
+        const dataRow=sourceItem&&typeof sourceItem==='object'
+          ? (sourceItem.data&&typeof sourceItem.data==='object'?sourceItem.data:sourceItem)
+          : null;
+        if(!dataRow){
+          console.warn('[UnitBoard] Kein Aspen-Datensatz für Meldung',meldung,'gefunden');
+        }
+        const dictHandle=typeof context?.getDictHandle==='function'?context.getDictHandle():context?.dictHandle;
+        const deviceHandle=typeof context?.getDeviceHandle==='function'?context.getDeviceHandle():context?.deviceHandle;
+        let dictResult=false;
+        if(dataRow){
+          if(dictHandle){
+            try{dictResult=await shared.appendToDictionary(dictHandle,dataRow,ensure);}catch(err){console.warn('[UnitBoard] Dictionary-Sync fehlgeschlagen',err);}        
+          }else{
+            console.warn('[UnitBoard] Kein Dictionary-Handle verfügbar – Meldung',meldung,'wird nicht übernommen');
+          }
+        }
+        let devicesResult=false;
+        if(deviceHandle){
+          try{devicesResult=await shared.addToDevices(deviceHandle,meldung,ensure);}catch(err){console.warn('[UnitBoard] Geräte-Liste konnte nicht aktualisiert werden',err);}        
+        }else{
+          console.warn('[UnitBoard] Keine Geräte-Datei verbunden – Meldung',meldung,'konnte nicht gesichert werden');
+        }
+        if(dictResult||devicesResult){
+          try{console.info('[SYNC]','Meldung',meldung,'von Aspen -> Geräteliste, Dictionary+Devices aktualisiert');}catch{}
+        }
+        return {dict:dictResult,devices:devicesResult,meldung};
+      };
+    }
+
+    return shared;
+  }
+
+  const SHARED=setupUnitBoardShared(window.__UNIT_BOARD_SHARED__||{});
+  window.__UNIT_BOARD_SHARED__=SHARED;
+  if(typeof ensureXLSX==='function' && !SHARED.ensureXLSX){
+    SHARED.ensureXLSX=ensureXLSX;
+  }
+
   function dedupeByMeldung(list){
     const seen=new Set();
     return (Array.isArray(list)?list:[]).filter(item=>{
@@ -122,20 +396,31 @@ der-radius:.4rem;background:transparent;color:inherit;}
   const saveDoc=doc=>localStorage.setItem(LS_DOC,JSON.stringify(doc));
   const getActiveMeldung=()=> (loadDoc().general?.Meldung||'').trim();
 
+  function instanceIdOf(root){
+    if(!root) return 'asp-'+Math.random().toString(36).slice(2);
+    const host=root.closest?.('.grid-stack-item');
+    if(host?.dataset?.instanceId) return host.dataset.instanceId;
+    if(!root.dataset.aspenInstanceId){
+      root.dataset.aspenInstanceId='asp-'+Math.random().toString(36).slice(2);
+    }
+    return root.dataset.aspenInstanceId;
+  }
+
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
     const titleBar=initialTitle?`<div class="db-titlebar">${initialTitle}</div>`:'';
-    root.innerHTML=`${titleBar}<div class="db-surface"><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`${titleBar}<div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
 
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Excel-Datei wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Aspen.xlsx wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     return {
       root,
       list:root.querySelector('.db-list'),
+      search:root.querySelector('.db-search'),
       modal:root.querySelector('.db-modal'),
       titleInput:root.querySelector('.db-title-input'),
       subList:root.querySelector('.db-sub-list'),
@@ -164,7 +449,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       },
       items:[],
       excluded:new Set(),
-      filePath:''
+      filePath:'',
+      searchQuery:''
     };
   }
 
@@ -200,6 +486,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(Array.isArray(saved.items)) state.items=dedupeByMeldung(saved.items);
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
+      state.searchQuery=typeof saved.searchQuery==='string'?saved.searchQuery:'';
       const sortField=primarySubField(state.config);
       state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
     }catch(e){/* ignore */}
@@ -217,7 +504,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       },
       items:state.items,
       excluded:Array.from(state.excluded),
-      filePath:state.filePath
+      filePath:state.filePath,
+      searchQuery:state.searchQuery||''
     };
     try{localStorage.setItem(LS_STATE,JSON.stringify(payload));}catch(e){/* ignore */}
   }
@@ -276,15 +564,28 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
   function renderList(elements,state){
     state.items=dedupeByMeldung(state.items);
-    const visible=state.items.filter(item=>!state.excluded.has(item.part));
+    const searchRaw=state.searchQuery||'';
+    const terms=(searchRaw.match(/\S+/g)||[]).map(term=>term.toLowerCase());
+    const visible=state.items.filter(item=>{
+      if(state.excluded.has(item.part)) return false;
+      return itemMatchesSearch(item,terms);
+    });
     if(!visible.length){
-      elements.list.innerHTML='<div style="opacity:.6;">Keine Geräte</div>';
+      const message=terms.length?`Keine Treffer für „${escapeHtml(searchRaw.trim())}“`:'Keine Geräte';
+      elements.list.innerHTML=`<div class="db-empty">${message}</div>`;
       persistState(state);
       updateHighlights(elements.list);
       return;
     }
     const html=visible.map(item=>buildCardMarkup(item,state.config)).join('');
     elements.list.innerHTML=html;
+    const nodes=elements.list.querySelectorAll('.db-card');
+    visible.forEach((item,index)=>{
+      const node=nodes[index];
+      if(node){
+        node.__aspenItem=item;
+      }
+    });
     persistState(state);
     updateHighlights(elements.list);
   }
@@ -313,14 +614,45 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
   function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
 
+  function escapeHtml(value){
+    return String(value ?? '').replace(/[&<>"']/g,char=>{
+      switch(char){
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case '\'': return '&#39;';
+        default: return char;
+      }
+    });
+  }
+
+  function itemMatchesSearch(item,terms){
+    if(!Array.isArray(terms) || !terms.length) return true;
+    const values=[];
+    if(item?.meldung) values.push(item.meldung);
+    if(item?.part) values.push(item.part);
+    const data=item?.data && typeof item.data==='object'?item.data:{};
+    for(const key in data){
+      const val=data[key];
+      if(val==null) continue;
+      values.push(val);
+    }
+    if(!values.length) return false;
+    const haystack=values.map(entry=>String(entry).toLowerCase());
+    return terms.every(term=>haystack.some(value=>value.includes(term)));
+  }
+
   window.renderAspenBoard=async function(targetDiv,opts){
     injectStyles();
 
     const initialTitle=opts?.moduleJson?.settings?.title||'';
     const elements=createElements(initialTitle);
     targetDiv.appendChild(elements.root);
+    elements.list.dataset.boardType='aspen-unit';
 
     const state=createInitialState(initialTitle);
+    const instanceId=instanceIdOf(elements.root);
     let tempSubFields=[];
 
     restoreState(state);
@@ -334,6 +666,16 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     applyColors(elements.root,state.config.colors);
     updateTitleBar(elements.root,state.config.title);
+
+    if(elements.search){
+      elements.search.value=state.searchQuery||'';
+      const handleSearchChange=()=>{
+        state.searchQuery=elements.search.value;
+        render();
+      };
+      elements.search.addEventListener('input',handleSearchChange);
+      elements.search.addEventListener('search',handleSearchChange);
+    }
 
     function populateFieldSelects(){
       ensureSubFields(state.config);
@@ -375,7 +717,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }
 
     function render(){
+      if(elements.search){
+        elements.search.value=state.searchQuery||'';
+      }
       renderList(elements,state);
+      SHARED.publishAspenItems(instanceId,state.items);
       refreshMenu(elements,state,render);
     }
 
@@ -544,6 +890,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     const mo=new MutationObserver(()=>{
       if(!document.body.contains(elements.root)){
         elements.menu.remove();
+        SHARED.clearAspenItems(instanceId);
         mo.disconnect();
       }
     });
@@ -600,7 +947,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       ghostClass:'db-ghost',
       chosenClass:'db-chosen',
       onSort:()=>{syncFromDOM();render();},
-      onAdd:()=>{syncFromDOM();render();},
+      onAdd:evt=>{syncFromDOM();render();if(SHARED?.handleAspenToDeviceDrop) void SHARED.handleAspenToDeviceDrop(evt,{});},
       onRemove:()=>{syncFromDOM();render();}
     });
   };
