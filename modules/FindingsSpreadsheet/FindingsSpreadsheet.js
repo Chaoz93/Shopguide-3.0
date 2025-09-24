@@ -246,6 +246,21 @@
     }
   }
 
+  function formatDateTime(date){
+    try {
+      return date.toLocaleString([], {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (e) {
+      return '';
+    }
+  }
+
   function isRowEmpty(row){
     return !row || !row.length || row.every(cell => cell === '');
   }
@@ -268,6 +283,11 @@
     let lastModuleDoc = null;
     let meldungInterval = null;
     let storageListener = null;
+    let pendingFocus = null;
+    const tableStates = new Map();
+    let dashboardInfoEl = null;
+    let lastDashboardSummary = null;
+    let globalSort = { sheetIndex: null, column: null, direction: 1 };
 
     const stored = loadStoredData();
     if (stored) {
@@ -300,8 +320,16 @@
           <div data-feedback class="text-xs text-emerald-400 opacity-0 transition-opacity duration-300">✅ gespeichert</div>
         </div>
         <div data-hint class="text-sm text-slate-400 italic pb-2"></div>
-        <div data-table class="flex-1 overflow-auto">
-          <div data-table-inner class="flex h-full w-max items-start gap-4 pr-1"></div>
+        <div data-table class="flex-1 overflow-hidden">
+          <div class="flex h-full flex-col gap-3">
+            <div data-dashboard class="hidden rounded-md border border-slate-700 bg-slate-900/60 px-4 py-2 text-xs text-slate-200"></div>
+            <div class="flex flex-wrap items-center justify-end gap-2" data-global-actions>
+              <button data-add-all class="rounded-md bg-slate-800/70 px-3 py-1 text-xs font-semibold text-slate-100 transition-colors hover:bg-slate-700/80">➕ Neues Finding (Alle Tabellen)</button>
+            </div>
+            <div data-table-scroll class="flex-1 overflow-auto">
+              <div data-table-inner class="flex h-full w-max items-start gap-4 pr-1"></div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -311,9 +339,15 @@
     const tableContainer = targetDiv.querySelector('[data-table]');
     const tableInner = targetDiv.querySelector('[data-table-inner]');
     const feedbackEl = targetDiv.querySelector('[data-feedback]');
+    dashboardInfoEl = targetDiv.querySelector('[data-dashboard]');
 
     const menu = createMenuElement();
     document.body.appendChild(menu);
+
+    const addAllButton = targetDiv.querySelector('[data-add-all]');
+    if (addAllButton) {
+      addAllButton.addEventListener('click', () => addNewFindingAll());
+    }
 
     function updateStatus(){
       const parts = [];
@@ -358,15 +392,65 @@
       }, 1600);
     }
 
+    function getTableState(sheetIndex){
+      let state = tableStates.get(sheetIndex);
+      if (!state) {
+        state = { filter: '' };
+        tableStates.set(sheetIndex, state);
+      }
+      return state;
+    }
+
+    function updateDashboardInfo(summary){
+      if (!dashboardInfoEl) return;
+      const info = summary || lastDashboardSummary;
+      if (!info) {
+        dashboardInfoEl.classList.add('hidden');
+        dashboardInfoEl.innerHTML = '';
+        return;
+      }
+      lastDashboardSummary = info;
+      dashboardInfoEl.innerHTML = '';
+      const row = document.createElement('div');
+      row.className = 'flex flex-wrap items-center gap-x-4 gap-y-1';
+      const items = [
+        { label: 'Meldung', value: info.meldung || '–' },
+        { label: 'P/N', value: info.partNumber || '–' },
+        { label: 'Treffer', value: String(info.matches ?? 0) },
+        { label: 'Letztes Speichern', value: info.lastSaved || '–' }
+      ];
+      items.forEach(item => {
+        const span = document.createElement('span');
+        span.className = 'text-[11px] text-slate-200';
+        const strong = document.createElement('span');
+        strong.className = 'font-semibold text-slate-100';
+        strong.textContent = `${item.label}: `;
+        const value = document.createElement('span');
+        value.textContent = item.value;
+        span.appendChild(strong);
+        span.appendChild(value);
+        row.appendChild(span);
+      });
+      dashboardInfoEl.appendChild(row);
+      dashboardInfoEl.classList.remove('hidden');
+    }
+
     function renderTables(){
       if (!tableInner) return;
       tableInner.innerHTML = '';
+      let summary = null;
+      if (addAllButton) {
+        addAllButton.classList.add('hidden');
+        addAllButton.disabled = true;
+      }
       if (!workbookData.sheets.length) {
         showHint('Rechtsklick → Excel wählen');
+        updateDashboardInfo(null);
         return;
       }
       if (!dictionary.length) {
         showHint('Rechtsklick → Dictionary wählen');
+        updateDashboardInfo(null);
         return;
       }
 
@@ -376,14 +460,20 @@
 
       if (!meldDisplay) {
         showHint('Keine Meldung im module_data_v1 gefunden');
+        updateDashboardInfo(null);
         return;
       }
       if (!partKey) {
         showHint('Keine Partnummer zur aktuellen Meldung gefunden');
+        updateDashboardInfo(null);
         return;
       }
 
       hideHint();
+      if (addAllButton) {
+        addAllButton.classList.remove('hidden');
+        addAllButton.disabled = false;
+      }
 
       const matchesBySheet = workbookData.sheets.map(sheet => {
         const rows = Array.isArray(sheet?.rows) ? sheet.rows : [];
@@ -408,6 +498,86 @@
         }
       }
 
+      const colCounts = workbookData.sheets.map(sheet => {
+        const rows = Array.isArray(sheet?.rows) ? sheet.rows : [];
+        let count = 0;
+        rows.forEach(row => {
+          if (Array.isArray(row)) count = Math.max(count, row.length);
+        });
+        if (count < 2) count = 2;
+        return count;
+      });
+
+      let sortedPositions = null;
+      if (Number.isInteger(globalSort.sheetIndex) && globalSort.sheetIndex >= 0) {
+        const sortMatches = matchesBySheet[globalSort.sheetIndex] || [];
+        const sortColCount = colCounts[globalSort.sheetIndex] || 0;
+        if (sortMatches.length && Number.isInteger(globalSort.column) && globalSort.column < sortColCount) {
+          const sortRows = Array.isArray(workbookData.sheets[globalSort.sheetIndex]?.rows)
+            ? workbookData.sheets[globalSort.sheetIndex].rows
+            : [];
+          const decorated = sortMatches.map((rowIndex, position) => {
+            const row = sortRows[rowIndex] || [];
+            return { position, value: row[globalSort.column] };
+          });
+          const direction = globalSort.direction === -1 ? -1 : 1;
+          decorated.sort((a, b) => {
+            const cmp = compareCellValues(a.value, b.value);
+            if (cmp !== 0) return cmp * direction;
+            return a.position - b.position;
+          });
+          sortedPositions = decorated.map(item => item.position);
+        }
+      }
+
+      const newRowTargets = workbookData.sheets.map(sheet => {
+        const rows = Array.isArray(sheet?.rows) ? sheet.rows : [];
+        return rows.length;
+      });
+
+      const matchPositionMaps = matchesBySheet.map(matches => {
+        const map = new Map();
+        matches.forEach((rowIndex, position) => map.set(rowIndex, position));
+        return map;
+      });
+
+      const diffHighlights = new Map();
+      const maxPositions = matchesBySheet.reduce((max, list) => Math.max(max, list.length), 0);
+      for (let position = 0; position < maxPositions; position += 1) {
+        const columnEntries = new Map();
+        workbookData.sheets.forEach((sheet, idx) => {
+          const rows = Array.isArray(sheet?.rows) ? sheet.rows : [];
+          const rowIndex = matchesBySheet[idx]?.[position];
+          if (!Number.isInteger(rowIndex)) return;
+          const row = rows[rowIndex] || [];
+          const limit = colCounts[idx] || 0;
+          for (let c = 0; c < limit; c += 1) {
+            const value = normalizeDisplay(row[c] ?? '');
+            const list = columnEntries.get(c) || [];
+            list.push({ sheetIndex: idx, rowIndex, value, column: c });
+            columnEntries.set(c, list);
+          }
+        });
+        columnEntries.forEach(list => {
+          const nonEmpty = list.filter(item => item.value !== '');
+          if (nonEmpty.length && nonEmpty.length < list.length) {
+            list.forEach(item => {
+              if (item.value === '') {
+                const key = `${item.sheetIndex}:${item.rowIndex}:${item.column}`;
+                diffHighlights.set(key, 'bg-red-900/40');
+              }
+            });
+          }
+          const unique = new Set(nonEmpty.map(item => item.value));
+          if (unique.size > 1) {
+            nonEmpty.forEach(item => {
+              const key = `${item.sheetIndex}:${item.rowIndex}:${item.column}`;
+              if (!diffHighlights.has(key)) diffHighlights.set(key, 'bg-yellow-900/40');
+            });
+          }
+        });
+      }
+
       const baseSheet = workbookData.sheets[baseSheetIndex] || {};
       const baseRows = Array.isArray(baseSheet.rows) ? baseSheet.rows : [];
       const baseMatches = matchesBySheet[baseSheetIndex];
@@ -419,59 +589,80 @@
         };
       });
 
-      const matchPositionMaps = matchesBySheet.map(matches => {
-        const map = new Map();
-        matches.forEach((rowIndex, position) => map.set(rowIndex, position));
-        return map;
-      });
-
-      const newRowTargets = workbookData.sheets.map(sheet => {
-        const rows = Array.isArray(sheet?.rows) ? sheet.rows : [];
-        return rows.length;
-      });
-
       const hiddenCols = new Set([0, 1]);
+
+      const totalMatches = matchesBySheet.reduce((sum, list) => sum + list.length, 0);
+      summary = {
+        meldung: meldDisplay,
+        partNumber: partDisplay,
+        matches: totalMatches,
+        lastSaved: lastSavedAt ? formatDateTime(lastSavedAt) : '–'
+      };
 
       sheetOrder.forEach(sheetIndex => {
         const sheet = workbookData.sheets[sheetIndex] || {};
         const rows = Array.isArray(sheet.rows) ? sheet.rows : [];
-        let colCount = 0;
-        rows.forEach(row => {
-          if (Array.isArray(row)) colCount = Math.max(colCount, row.length);
-        });
-        if (colCount < 2) colCount = 2;
+        const colCount = colCounts[sheetIndex] || 2;
         const isBaseSheet = sheetIndex === baseSheetIndex;
         const matches = matchesBySheet[sheetIndex];
+        const state = getTableState(sheetIndex);
+        const filterValue = (state.filter || '').trim().toLowerCase();
 
         const wrapper = document.createElement('div');
-        wrapper.className = 'flex min-h-0 min-w-[320px] max-w-full flex-col rounded-lg border border-slate-700 bg-slate-900/50 shadow-lg overflow-hidden';
+        wrapper.className = 'flex min-h-0 min-w-[320px] max-w-full flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-900/50 shadow-lg backdrop-blur';
 
-        const header = document.createElement('div');
-        header.className = 'px-3 py-2 text-sm font-semibold text-slate-100 bg-slate-800/70 border-b border-slate-700';
-        header.textContent = sheet.name || `Tabelle ${sheetIndex + 1}`;
-        wrapper.appendChild(header);
+        const headerBar = document.createElement('div');
+        headerBar.className = 'flex items-center justify-between gap-2 border-b border-slate-700 bg-slate-800/70 px-3 py-2 text-sm font-semibold text-slate-100';
+        const title = document.createElement('span');
+        title.className = 'truncate';
+        title.textContent = sheet.name || `Tabelle ${sheetIndex + 1}`;
+        headerBar.appendChild(title);
+        const addBtn = document.createElement('button');
+        addBtn.className = 'rounded-md bg-slate-800/70 px-2 py-1 text-xs font-semibold text-slate-100 transition-colors hover:bg-slate-700/80';
+        addBtn.textContent = '➕ Neues Finding';
+        addBtn.addEventListener('click', () => addNewFinding(sheetIndex));
+        headerBar.appendChild(addBtn);
+        wrapper.appendChild(headerBar);
+
+        const controls = document.createElement('div');
+        controls.className = 'border-b border-slate-800 bg-slate-900/60 px-3 py-2';
+        const search = document.createElement('input');
+        search.type = 'search';
+        search.placeholder = 'Suche…';
+        search.value = state.filter || '';
+        search.className = 'w-full rounded-md border border-slate-700 bg-slate-900/40 px-2 py-1 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500';
+        search.addEventListener('input', event => {
+          filterTable(sheetIndex, event.target.value || '');
+        });
+        controls.appendChild(search);
+        wrapper.appendChild(controls);
 
         const scroller = document.createElement('div');
-        scroller.className = 'overflow-auto';
+        scroller.className = 'relative flex-1 overflow-auto';
         const table = document.createElement('table');
         table.className = 'min-w-full text-left text-xs text-slate-100';
 
         const thead = document.createElement('thead');
         const headRow = document.createElement('tr');
-        headRow.className = 'bg-slate-800/60';
+        headRow.className = 'bg-slate-900/80';
         for (let c = 0; c < colCount; c += 1) {
           const th = document.createElement('th');
-          th.className = 'border border-slate-700 px-2 py-1 font-semibold text-slate-100 whitespace-pre-wrap align-top';
+          th.className = 'sticky top-0 z-20 border border-slate-700 bg-slate-900/90 px-2 py-1 text-left font-semibold text-slate-100 backdrop-blur-sm cursor-pointer select-none whitespace-pre-wrap';
           th.dataset.sheetIndex = String(sheetIndex);
           th.dataset.rowIndex = '0';
           th.dataset.colIndex = String(c);
           th.spellcheck = false;
-          th.textContent = rows[0]?.[c] ?? '';
+          const headerText = rows[0]?.[c] ?? '';
+          const isSortedColumn = globalSort.sheetIndex === sheetIndex && globalSort.column === c;
+          th.textContent = isSortedColumn ? `${headerText} ${globalSort.direction === -1 ? '↓' : '↑'}` : headerText;
           if (!isBaseSheet && hiddenCols.has(c)) {
             th.classList.add('hidden');
-            th.contentEditable = 'false';
           } else {
-            th.contentEditable = 'true';
+            th.addEventListener('click', event => {
+              event.preventDefault();
+              event.stopPropagation();
+              sortTable(sheetIndex, c);
+            });
           }
           headRow.appendChild(th);
         }
@@ -480,7 +671,20 @@
 
         const tbody = document.createElement('tbody');
 
-        matches.forEach(rowIndex => {
+        const orderPositions = Array.isArray(sortedPositions) && sortedPositions.length
+          ? sortedPositions
+          : matches.map((_, idx) => idx);
+        const orderedRowIndexes = orderPositions
+          .map(position => matches[position])
+          .filter(rowIndex => Number.isInteger(rowIndex));
+
+        const rowsForRender = orderedRowIndexes.filter(rowIndex => {
+          if (!filterValue) return true;
+          const row = rows[rowIndex] || [];
+          return row.some(cell => normalizeDisplay(cell).toLowerCase().includes(filterValue));
+        });
+
+        rowsForRender.forEach(rowIndex => {
           const rowValues = rows[rowIndex] || [];
           const position = matchPositionMaps[sheetIndex]?.get(rowIndex) ?? 0;
           const info = baseInfo[position] || {
@@ -489,7 +693,8 @@
           };
           const tr = createBodyRow(sheetIndex, rowIndex, colCount, rowValues, false, {
             hiddenCols: !isBaseSheet ? hiddenCols : null,
-            ensureBase: !isBaseSheet ? JSON.stringify({ part: info.part, label: info.label }) : null
+            ensureBase: !isBaseSheet ? JSON.stringify({ part: info.part, label: info.label }) : null,
+            diffMap: diffHighlights
           });
           if (isBaseSheet && tr) {
             const cells = tr.querySelectorAll('td');
@@ -517,13 +722,15 @@
 
         const placeholderDefaults = new Array(colCount).fill('');
         placeholderDefaults[0] = partDisplay;
+        placeholderDefaults[1] = normalizeDisplay(activeMeldung);
         const placeholderRowIndex = newRowTargets[sheetIndex];
-        const placeholderEnsure = JSON.stringify({ part: partDisplay, label: '' });
+        const placeholderEnsure = JSON.stringify({ part: partDisplay, label: normalizeDisplay(activeMeldung) });
         const placeholder = createBodyRow(sheetIndex, placeholderRowIndex, colCount, null, true, {
           hiddenCols: !isBaseSheet ? hiddenCols : null,
           ensureBase: placeholderEnsure,
           defaultValues: placeholderDefaults,
-          lockCols: new Set([0])
+          lockCols: new Set([0, 1]),
+          diffMap: diffHighlights
         });
         if (placeholder) {
           if (isBaseSheet) {
@@ -567,6 +774,105 @@
       } else {
         hideHint();
       }
+
+      updateDashboardInfo(summary);
+
+      if (pendingFocus) {
+        const { sheetIndex, rowIndex } = pendingFocus;
+        const focusCell = tableInner.querySelector(`[data-sheet-index="${sheetIndex}"][data-row-index="${rowIndex}"][contenteditable="true"]`);
+        if (focusCell) {
+          focusCell.focus({ preventScroll: false });
+          const selection = window.getSelection();
+          if (selection && focusCell.firstChild) {
+            const range = document.createRange();
+            range.selectNodeContents(focusCell);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+        pendingFocus = null;
+      }
+    }
+
+    function compareCellValues(a, b){
+      const valueA = normalizeDisplay(a);
+      const valueB = normalizeDisplay(b);
+      const numA = Number(valueA.replace?.(',', '.') ?? valueA);
+      const numB = Number(valueB.replace?.(',', '.') ?? valueB);
+      const isNumeric = !Number.isNaN(numA) && !Number.isNaN(numB) && valueA !== '' && valueB !== '';
+      if (isNumeric) return numA - numB;
+      return valueA.localeCompare(valueB, undefined, { sensitivity: 'base' });
+    }
+
+    function sortTable(sheetIndex, columnIndex){
+      if (!Number.isInteger(sheetIndex) || sheetIndex < 0) return;
+      if (!Number.isInteger(columnIndex) || columnIndex < 0) return;
+      if (!workbookData.sheets[sheetIndex]) return;
+      let direction = 1;
+      if (globalSort.sheetIndex === sheetIndex && globalSort.column === columnIndex) {
+        direction = globalSort.direction === 1 ? -1 : 1;
+      }
+      globalSort = { sheetIndex, column: columnIndex, direction };
+      renderTables();
+    }
+
+    function filterTable(sheetIndex, value){
+      if (!Number.isInteger(sheetIndex) || sheetIndex < 0) return;
+      const state = getTableState(sheetIndex);
+      state.filter = value || '';
+      renderTables();
+    }
+
+    function ensureHeaderRow(sheet){
+      if (!Array.isArray(sheet.rows)) sheet.rows = [[]];
+      if (!sheet.rows.length) sheet.rows.push([]);
+      if (!Array.isArray(sheet.rows[0])) sheet.rows[0] = [];
+    }
+
+    function insertNewFindingRow(sheetIndex){
+      const sheet = workbookData.sheets[sheetIndex];
+      if (!sheet) return null;
+      ensureHeaderRow(sheet);
+      const labelValue = normalizeDisplay(activeMeldung);
+      const newRow = [];
+      newRow[0] = normalizeDisplay(activePartNumber);
+      newRow[1] = labelValue || '';
+      sheet.rows.push(newRow);
+      return sheet.rows.length - 1;
+    }
+
+    function addNewFinding(sheetIndex){
+      if (!Number.isInteger(sheetIndex) || sheetIndex < 0) return;
+      const part = normalizeDisplay(activePartNumber);
+      if (!part) {
+        setStatusNote('Keine Partnummer zur aktuellen Meldung');
+        return;
+      }
+      const rowIndex = insertNewFindingRow(sheetIndex);
+      if (rowIndex == null) return;
+      pendingFocus = { sheetIndex, rowIndex };
+      renderTables();
+      saveToLocalStorage();
+      scheduleWorkbookWrite();
+    }
+
+    function addNewFindingAll(){
+      const part = normalizeDisplay(activePartNumber);
+      if (!part) {
+        setStatusNote('Keine Partnummer zur aktuellen Meldung');
+        return;
+      }
+      const inserted = [];
+      workbookData.sheets.forEach((sheet, idx) => {
+        const rowIndex = insertNewFindingRow(idx);
+        if (rowIndex != null) inserted.push({ sheetIndex: idx, rowIndex });
+      });
+      if (!inserted.length) return;
+      pendingFocus = inserted[0];
+      renderTables();
+      saveToLocalStorage();
+      scheduleWorkbookWrite();
     }
 
     function createBodyRow(sheetIndex, rowIndex, colCount, values, isPlaceholder, options = {}){
@@ -579,6 +885,7 @@
       const lockCols = options.lockCols instanceof Set ? options.lockCols : null;
       const defaultValues = Array.isArray(options.defaultValues) ? options.defaultValues : null;
       const ensureBase = options.ensureBase || null;
+      const diffMap = options.diffMap instanceof Map ? options.diffMap : null;
 
       for (let c = 0; c < colCount; c += 1) {
         const cell = document.createElement('td');
@@ -592,6 +899,7 @@
 
         const value = values ? (values[c] ?? '') : (defaultValues ? defaultValues[c] ?? '' : '');
         cell.textContent = value;
+        if (value) cell.title = value;
 
         let editable = true;
         if (hiddenCols && hiddenCols.has(c)) {
@@ -599,6 +907,16 @@
           editable = false;
         }
         if (lockCols && lockCols.has(c)) editable = false;
+        if (c === 0 || c === 1) {
+          editable = false;
+          cell.classList.add('bg-slate-800/60');
+        }
+
+        if (diffMap) {
+          const diffClass = diffMap.get(`${sheetIndex}:${rowIndex}:${c}`);
+          if (diffClass) cell.classList.add(diffClass);
+        }
+
         cell.contentEditable = editable ? 'true' : 'false';
 
         tr.appendChild(cell);
@@ -690,6 +1008,13 @@
         localStorage.setItem(DATA_KEY, JSON.stringify(payload));
         if (currentFileName) localStorage.setItem(FILE_KEY, currentFileName);
         lastSavedAt = new Date(meta.updatedAt);
+        if (lastDashboardSummary) {
+          const summary = {
+            ...lastDashboardSummary,
+            lastSaved: lastSavedAt ? formatDateTime(lastSavedAt) : '–'
+          };
+          updateDashboardInfo(summary);
+        }
       } catch (e) {
         console.warn('fs: localStorage speichern fehlgeschlagen', e);
       }
@@ -762,6 +1087,8 @@
       });
       workbookData.sheets = sheets;
       currentFileName = fileName || currentFileName || '';
+      tableStates.clear();
+      globalSort = { sheetIndex: null, column: null, direction: 1 };
       if (sourceInfo) {
         currentSource = { ...sourceInfo, name: fileName || sourceInfo.name || currentFileName };
       } else {
