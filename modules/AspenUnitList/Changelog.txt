@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.7] – 2025-09-23
+### Changed
+- Schriftfarbe der Suchleiste und ihres Anzeigetextes auf Schwarz umgestellt.
+
 ## [1.1.6] – 2025-09-23
 ### Added
 - Suchleiste oberhalb des Aspen Boards ergänzt, mit der sich Meldungen über alle Felder hinweg filtern lassen.
