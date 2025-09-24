@@ -4,6 +4,16 @@ Alle relevanten Änderungen an der Hauptanwendung werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [3.5.0] – 2025-09-24
+### Added
+- Downgrade-Erkennung und eigene, einklappbare Sektion für Downgrades in der Update-Ansicht.
+- Sidebar-Suchfeld für Module mit Live-Filterung.
+- Undo/Redo-Funktion für Modulaktionen im Grid (Buttons in der Topbar).
+- Auto-Save-Indikator in der Topbar (zeigt pending/gespeichert Status).
+
+### Changed
+- Update-Liste zeigt standardmäßig nur Upgrades; Downgrades werden separat verwaltet.
+
 ## [3.4.2] – 2025-09-24
 ### Added
 - Findings-Spreadsheet-Modul mit erweiterten Tabellenfunktionen und Dashboard-Angaben aktualisiert.
