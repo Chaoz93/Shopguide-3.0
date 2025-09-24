@@ -255,7 +255,6 @@
       });
     }
     const openMenu=e=>{
-      if(!root.contains(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
       const pad=8,vw=innerWidth,vh=innerHeight;
@@ -993,11 +992,6 @@
       datasetInfoEl.className='text-[11px] text-gray-500';
       statusList.appendChild(datasetInfoEl);
 
-      const contextHint=document.createElement('div');
-      contextHint.className='text-[11px] text-gray-400';
-      contextHint.textContent='Tipp: Rechtsklick auf das Modul öffnet das Kontextmenü für die Dateiauswahl.';
-      fileCard.appendChild(contextHint);
-
       if(part&&showAllFindings){
         const filterBtn=document.createElement('button');
         filterBtn.type='button';
@@ -1059,7 +1053,7 @@
         historyEl=null;
         selectionKeys=[];
         const placeholder=document.createElement('div');
-        placeholder.className='rounded border border-dashed border-gray-300 bg-white/60 p-4 text-sm text-gray-600';
+        placeholder.className='rounded border border-dashed border-gray-300 bg-gray-100 p-4 text-center text-sm text-gray-600';
         const message=document.createElement('div');
         message.className='space-y-1';
         placeholder.appendChild(message);
@@ -1067,8 +1061,14 @@
           const line1=document.createElement('p');
           line1.textContent='Noch keine Findings geladen.';
           const line2=document.createElement('p');
-          line2.textContent='Nutze „Findings-Datei wählen“ oder Rechtsklick für das Kontextmenü.';
+          line2.textContent='Nutze »Findings-Datei wählen« oder Rechtsklick für das Kontextmenü.';
           message.append(line1,line2);
+          if(!dict.length){
+            const tip=document.createElement('p');
+            tip.className='pt-2 text-[11px] text-gray-500';
+            tip.textContent='Tipp: Rechtsklick auf das Modul öffnet das Kontextmenü für die Dateiauswahl.';
+            message.appendChild(tip);
+          }
         }else if(usingPartFilter){
           const line1=document.createElement('p');
           line1.append('Für die aktuelle Teilenummer ');
