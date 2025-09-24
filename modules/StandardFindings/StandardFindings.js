@@ -1,4 +1,4 @@
-// Module to convert standard findings to standard text from Excel/CSV with context menu and multi-selection – v1.9.0
+// Module to convert standard findings to standard text from Excel/CSV with context menu and multi-selection – v1.10.0
 (function(){
   window.renderStandardFindings = function(root){
     let items = [];
@@ -6,7 +6,8 @@
     let findName = '';
     let dictName = '';
     let inputsEl, historyEl, findOut, actionOut, routineOut, nonroutineOut, partsOut, headEl, exportBtn;
-    let inlineFindStatus, inlineDictStatus, datasetInfoEl;
+    let inlineFindStatus, inlineDictStatus, inlineDirStatus, datasetInfoEl;
+    let dirNameEl;
     let currentItems = [];
     let rows=[];
     let itemMap=new Map();
@@ -15,6 +16,10 @@
     let partNumber = '';
     let rendering = false;
     let showAllFindings=false;
+    let findingsDirHandle=null;
+    let findingsDirName='';
+    let dirPermissionStatus='none';
+    let dirStatusMessage='';
 
     const findingsSelected=[];
     const actionsSelected=[];
@@ -28,6 +33,10 @@
     const setArray=(target,values)=>{target.splice(0,target.length,...values);return target;};
 
     const STATE_KEY='sf-v190-state';
+    const DIR_HANDLE_DB_KEY='sf-findings-dir';
+    const DIR_NAME_KEY='sf-findings-dir-name';
+    const HANDLE_DB_NAME='modulesApp';
+    const HANDLE_STORE_NAME='fs-handles';
     let savedState={};
     try{savedState=JSON.parse(localStorage.getItem(STATE_KEY)||'{}');}catch{savedState={};}
     let selectionKeys=Array.isArray(savedState.selections)?savedState.selections.filter(Boolean):[];
@@ -37,6 +46,7 @@
     let storedFindingsText=typeof savedState.findingsText==='string'?savedState.findingsText:'';
     let storedActionsText=typeof savedState.actionsText==='string'?savedState.actionsText:'';
     let storedPartsText=typeof savedState.partsText==='string'?savedState.partsText:'';
+    try{findingsDirName=localStorage.getItem(DIR_NAME_KEY)||'';}catch{}
     let shouldRestoreOutputs=true;
 
     try{ items=JSON.parse(localStorage.getItem('sf-findings-data')||'[]'); }catch{}
@@ -66,19 +76,20 @@
 
     const normalizeItems=list=>{
       const dupes={};
-      return list.map(row=>{
+      return list.map(raw=>{
+        const row=raw||{};
         const clean={
-          part:String(row.part||'').trim(),
-          label:String(row.label||'').trim(),
-          finding:String(row.finding||'').trim(),
-          action:String(row.action||'').trim()
+          part:String(row.part||row.Part||'').trim(),
+          label:String(row.label||row.Label||'').trim(),
+          finding:String(row.finding||row.Findings||'').trim(),
+          action:String(row.action||row.Actions||'').trim()
         };
         const base=[clean.part,clean.label,clean.finding,clean.action].join('||');
         const count=dupes[base]||0;
         dupes[base]=count+1;
         const key=count?`${base}__${count}`:base;
-        return {...clean,key};
-      }).filter(row=>row.label);
+        return {...row,...clean,key};
+      });
     };
 
     const rebuildItemMap=()=>{
@@ -87,6 +98,246 @@
         if(entry.key) itemMap.set(entry.key,entry);
       }
     };
+
+    function openHandleDb(){
+      if(typeof indexedDB==='undefined') return Promise.reject(new Error('IndexedDB not supported'));
+      return new Promise((resolve,reject)=>{
+        const req=indexedDB.open(HANDLE_DB_NAME,1);
+        req.onupgradeneeded=()=>{
+          const db=req.result;
+          if(db&&typeof db.objectStoreNames==='object'&&!db.objectStoreNames.contains(HANDLE_STORE_NAME)){
+            db.createObjectStore(HANDLE_STORE_NAME);
+          }
+        };
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error||new Error('IndexedDB error'));
+      });
+    }
+
+    async function storeDirectoryHandle(handle){
+      if(!handle||typeof indexedDB==='undefined') return;
+      try{
+        const db=await openHandleDb();
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+          tx.oncomplete=()=>{db.close();resolve();};
+          tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('tx aborted'));};
+          tx.onerror=()=>{const err=tx.error;db.close();reject(err||new Error('tx error'));};
+          tx.objectStore(HANDLE_STORE_NAME).put(handle,DIR_HANDLE_DB_KEY);
+        });
+      }catch(err){console.warn('sf: Ordner-Handle konnte nicht gespeichert werden',err);}
+    }
+
+    async function deleteStoredDirectoryHandle(){
+      if(typeof indexedDB==='undefined') return;
+      try{
+        const db=await openHandleDb();
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+          tx.oncomplete=()=>{db.close();resolve();};
+          tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('tx aborted'));};
+          tx.onerror=()=>{const err=tx.error;db.close();reject(err||new Error('tx error'));};
+          tx.objectStore(HANDLE_STORE_NAME).delete(DIR_HANDLE_DB_KEY);
+        });
+      }catch(err){console.warn('sf: Ordner-Handle konnte nicht gelöscht werden',err);}
+    }
+
+    async function loadStoredDirectoryHandle(){
+      if(typeof indexedDB==='undefined') return null;
+      try{
+        const db=await openHandleDb();
+        return await new Promise((resolve,reject)=>{
+          const tx=db.transaction(HANDLE_STORE_NAME,'readonly');
+          tx.oncomplete=()=>{db.close();};
+          tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('tx aborted'));};
+          tx.onerror=()=>{const err=tx.error;db.close();reject(err||new Error('tx error'));};
+          const req=tx.objectStore(HANDLE_STORE_NAME).get(DIR_HANDLE_DB_KEY);
+          req.onsuccess=()=>resolve(req.result||null);
+          req.onerror=()=>reject(req.error||new Error('IndexedDB request failed'));
+        });
+      }catch(err){console.warn('sf: Ordner-Handle konnte nicht gelesen werden',err);return null;}
+    }
+
+    async function ensureDirectoryPermission(handle,{mode='read',request=true}={}){
+      if(!handle||typeof handle.queryPermission!=='function') return 'granted';
+      try{
+        let status=await handle.queryPermission({mode});
+        if(status==='granted') return 'granted';
+        if(!request) return status||'prompt';
+        try{
+          status=await handle.requestPermission({mode});
+          return status||'denied';
+        }catch(err){console.warn('sf: Ordnerberechtigung konnte nicht angefragt werden',err);return 'denied';}
+      }catch(err){console.warn('sf: Ordnerberechtigung konnte nicht geprüft werden',err);return 'denied';}
+    }
+
+    function updateDirectoryStatusUI(){
+      if(inlineDirStatus){
+        const hasHandle=!!findingsDirHandle;
+        let label='Findings-Ordner: keine Auswahl';
+        let isError=true;
+        if(hasHandle){
+          const name=findingsDirName||findingsDirHandle.name||'';
+          if(dirPermissionStatus==='granted'){
+            if(dirStatusMessage){
+              label=`Findings-Ordner (${name}): ${dirStatusMessage}`;
+            }else{
+              label=`Findings-Ordner: ${name}`;
+            }
+            isError=!!dirStatusMessage;
+          }else if(dirPermissionStatus==='prompt'){
+            label=`Findings-Ordner: Zugriff erforderlich – ${name}`;
+            isError=true;
+          }else if(dirPermissionStatus==='blocked'){
+            label=`Findings-Ordner: Zugriff verweigert – ${name}`;
+            isError=true;
+          }else{
+            label=`Findings-Ordner: ${name}`;
+            isError=false;
+          }
+        }else if(dirStatusMessage){
+          label=`Findings-Ordner: ${dirStatusMessage}`;
+        }
+        inlineDirStatus.textContent=label;
+        inlineDirStatus.classList.toggle('text-red-500',isError);
+        inlineDirStatus.classList.toggle('text-gray-600',!isError);
+      }
+      if(dirNameEl){
+        const name=findingsDirName||findingsDirHandle?.name||'';
+        if(name){
+          dirNameEl.textContent=`Aktueller Findings-Ordner: ${name}`;
+          dirNameEl.title=name;
+        }else{
+          dirNameEl.textContent='Aktueller Findings-Ordner: keine Auswahl';
+          dirNameEl.title='Keine Auswahl';
+        }
+      }
+    }
+
+    async function setDirectoryHandle(handle,{persist=true,requestPermission=true,skipLoad=false}={}){
+      findingsDirHandle=handle||null;
+      dirStatusMessage='';
+      if(handle){
+        findingsDirName=handle.name||findingsDirName||'';
+      }
+      if(!handle){
+        dirPermissionStatus='none';
+        dirStatusMessage='';
+        findingsDirName='';
+        if(persist) await deleteStoredDirectoryHandle();
+        try{localStorage.removeItem(DIR_NAME_KEY);}catch{}
+        updateFileLabels();
+        return;
+      }
+      const status=requestPermission?
+        await ensureDirectoryPermission(handle,{mode:'read',request:true}):
+        await ensureDirectoryPermission(handle,{mode:'read',request:false});
+      dirPermissionStatus=status||'blocked';
+      if(status==='granted'){
+        dirStatusMessage='';
+        if(persist){
+          await storeDirectoryHandle(handle);
+          try{localStorage.setItem(DIR_NAME_KEY,findingsDirName||handle.name||'');}catch{}
+        }
+        updateFileLabels();
+        if(!skipLoad){
+          const loaded=await loadFindingsFromDirectory(handle);
+          if(!loaded){
+            dirStatusMessage='Keine passende Findings-Datei im Ordner gefunden.';
+            updateDirectoryStatusUI();
+          }
+          if(!dict.length){
+            await loadDictFromDirectory(handle);
+          }
+        }
+      }else if(status==='prompt'){
+        if(persist){
+          await storeDirectoryHandle(handle);
+          try{localStorage.setItem(DIR_NAME_KEY,findingsDirName||handle.name||'');}catch{}
+        }
+        updateFileLabels();
+      }else{
+        dirStatusMessage='';
+        if(persist) await deleteStoredDirectoryHandle();
+        updateFileLabels();
+      }
+    }
+
+    async function restoreDirectoryHandle(){
+      const handle=await loadStoredDirectoryHandle();
+      if(!handle) return;
+      findingsDirHandle=handle;
+      if(!findingsDirName) findingsDirName=handle.name||'';
+      const status=await ensureDirectoryPermission(handle,{mode:'read',request:false});
+      dirPermissionStatus=status||'prompt';
+      updateFileLabels();
+      if(status==='granted'){
+        dirStatusMessage='';
+        const loaded=await loadFindingsFromDirectory(handle,{silent:true});
+        if(!loaded){
+          dirStatusMessage='Keine passende Findings-Datei im Ordner gefunden.';
+          updateDirectoryStatusUI();
+        }
+        if(!dict.length){
+          await loadDictFromDirectory(handle);
+        }
+      }
+    }
+
+    async function chooseFindingsDirectory(){
+      if(typeof window.showDirectoryPicker!=='function'){
+        alert('Ihr Browser unterstützt keine Ordnerauswahl.');
+        return;
+      }
+      try{
+        const handle=await window.showDirectoryPicker();
+        if(!handle) return;
+        findingsDirName=handle.name||'';
+        await setDirectoryHandle(handle,{persist:true,requestPermission:true,skipLoad:false});
+      }catch(err){
+        if(err&&err.name==='AbortError') return;
+        console.warn('sf: Findings-Ordner konnte nicht ausgewählt werden',err);
+      }
+    }
+
+    async function loadFindingsFromDirectory(dirHandle,{silent=false}={}){
+      if(!dirHandle) return false;
+      for(const fileName of FINDINGS_FILE_CANDIDATES){
+        try{
+          const fileHandle=await dirHandle.getFileHandle(fileName,{create:false});
+          const file=await fileHandle.getFile();
+          dirStatusMessage='';
+          await handleFindingsFile(file);
+          return true;
+        }catch(err){
+          if(!(err&&err.name==='NotFoundError')){
+            console.warn('sf: Findings-Datei konnte nicht gelesen werden',err);
+          }
+        }
+      }
+      if(!silent){
+        dirStatusMessage='Keine passende Findings-Datei im Ordner gefunden.';
+        updateDirectoryStatusUI();
+      }
+      return false;
+    }
+
+    async function loadDictFromDirectory(dirHandle){
+      if(!dirHandle) return false;
+      for(const fileName of DICT_FILE_CANDIDATES){
+        try{
+          const fileHandle=await dirHandle.getFileHandle(fileName,{create:false});
+          const file=await fileHandle.getFile();
+          await handleDictFile(file);
+          return true;
+        }catch(err){
+          if(!(err&&err.name==='NotFoundError')){
+            console.warn('sf: Dictionary-Datei konnte nicht gelesen werden',err);
+          }
+        }
+      }
+      return false;
+    }
 
     const getPart=()=>{
       let meld='';
@@ -135,8 +386,19 @@
 
     // --- context menu ---
     function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
-    const FILE_ACCEPT_EXT='.xlsx,.xls,.xlsm,.csv';
-    const FILE_PICKER_TYPES=[{
+    const FINDINGS_FILE_ACCEPT_EXT='.xlsx,.xls,.xlsm,.csv,.json';
+    const FINDINGS_FILE_PICKER_TYPES=[{
+      description:'Excel-, CSV- oder JSON-Datei',
+      accept:{
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
+        'application/vnd.ms-excel':['.xls'],
+        'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
+        'text/csv':['.csv'],
+        'application/json':['.json']
+      }
+    }];
+    const DICT_FILE_ACCEPT_EXT='.xlsx,.xls,.xlsm,.csv';
+    const DICT_FILE_PICKER_TYPES=[{
       description:'Excel- oder CSV-Datei',
       accept:{
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
@@ -145,17 +407,30 @@
         'text/csv':['.csv']
       }
     }];
+    const FINDINGS_FILE_CANDIDATES=[
+      'Findings_Shopguide_nested_corrected.json',
+      'Findings_Shopguide.json',
+      'Findings.json','findings.json',
+      'Findings.xlsx','findings.xlsx',
+      'Findings_shopguide.xlsx','findings_shopguide.xlsx',
+      'Findings.xlsm','findings.xlsm',
+      'Findings.csv','findings.csv'
+    ];
+    const DICT_FILE_CANDIDATES=[
+      'dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx',
+      'dictionary.xls','Dictionary.xls','dictionary.csv','Dictionary.csv'
+    ];
     const menu=document.createElement('div');
     menu.className='db-menu';
 
-    const createFileMenuEntry=(labelText,onFile,labelForLog)=>{
+    const createFileMenuEntry=(labelText,onFile,labelForLog,{acceptExt=FINDINGS_FILE_ACCEPT_EXT,pickerTypes=FINDINGS_FILE_PICKER_TYPES}={})=>{
       const entry=document.createElement('label');
       entry.className='mi file-entry';
       const text=document.createElement('span');
       text.textContent=labelText;
       const input=document.createElement('input');
       input.type='file';
-      input.accept=FILE_ACCEPT_EXT;
+      input.accept=acceptExt;
       input.className='file-input';
       entry.append(text,input);
 
@@ -166,7 +441,7 @@
           e.stopPropagation();
           menu.classList.remove('open');
           try{
-            const [fh]=await window.showOpenFilePicker({types:FILE_PICKER_TYPES});
+            const [fh]=await window.showOpenFilePicker({types:pickerTypes});
             const file=fh?await fh.getFile():null;
             if(file) await onFile(file);
           }catch(err){
@@ -190,13 +465,27 @@
       return entry;
     };
 
+    let dirEntry=null;
+    if(typeof window.showDirectoryPicker==='function'){
+      dirEntry=document.createElement('button');
+      dirEntry.type='button';
+      dirEntry.className='mi';
+      dirEntry.textContent='📁 Findings-Ordner auswählen …';
+      dirEntry.addEventListener('click',()=>{menu.classList.remove('open');chooseFindingsDirectory();});
+    }
+    dirNameEl=document.createElement('div');
+    dirNameEl.className='mi mi-dir-name noclick';
     const findingsEntry=createFileMenuEntry('📂 Findings-Datei auswählen …',handleFindingsFile,'Findings-Datei');
-    const dictEntry=createFileMenuEntry('📂 Meldungs-Lexikon auswählen …',handleDictFile,'Dictionary-Datei');
+    const dictEntry=createFileMenuEntry('📂 Meldungs-Lexikon auswählen …',handleDictFile,'Dictionary-Datei',{
+      acceptExt:DICT_FILE_ACCEPT_EXT,
+      pickerTypes:DICT_FILE_PICKER_TYPES
+    });
     const findNameEl=document.createElement('div');
     findNameEl.className='mi mi-find-name noclick';
     const dictNameEl=document.createElement('div');
     dictNameEl.className='mi mi-dict-name noclick';
-    menu.append(findingsEntry,findNameEl,dictEntry,dictNameEl);
+    if(dirEntry) menu.append(dirEntry);
+    menu.append(dirNameEl,findingsEntry,findNameEl,dictEntry,dictNameEl);
     document.body.appendChild(menu);
 
     const updateFileLabels=()=>{
@@ -223,18 +512,18 @@
     };
     updateFileLabels();
 
-    function setupFileButton(button,input,onFile,labelForLog){
+    function setupFileButton(button,input,onFile,labelForLog,{acceptExt=FINDINGS_FILE_ACCEPT_EXT,pickerTypes=FINDINGS_FILE_PICKER_TYPES}={}){
       if(!button) return;
       if(input){
         input.type='file';
-        input.accept=FILE_ACCEPT_EXT;
+        input.accept=acceptExt;
         input.classList.add('hidden');
       }
       button.addEventListener('click',async e=>{
         e.preventDefault();
         if('showOpenFilePicker' in window){
           try{
-            const [fh]=await window.showOpenFilePicker({types:FILE_PICKER_TYPES});
+            const [fh]=await window.showOpenFilePicker({types:pickerTypes});
             const file=fh?await fh.getFile():null;
             if(file) await onFile(file);
             return;
@@ -255,6 +544,7 @@
       });
     }
     const openMenu=e=>{
+      if(!root.contains(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
       const pad=8,vw=innerWidth,vh=innerHeight;
@@ -283,20 +573,40 @@
     mo.observe(document.body,{childList:true,subtree:true});
 
     async function handleFindingsFile(file){
-      const buf=await file.arrayBuffer();
-      if(file.name.toLowerCase().endsWith('.csv')){
-        items=normalizeItems(parseCSV(new TextDecoder().decode(buf)));
-      }else{
-        if(typeof XLSX==='undefined') await loadXLSX();
-        const wb=XLSX.read(buf,{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        items=normalizeItems(rows.slice(1).map(r=>({
-          part:String(r[0]||'').trim(),
-          label:String(r[1]||'').trim(),
-          finding:String(r[2]||'').trim(),
-          action:String(r[3]||'').trim()
+      dirStatusMessage='';
+      updateDirectoryStatusUI();
+      const lowerName=(file.name||'').toLowerCase();
+      if(lowerName.endsWith('.json')){
+        const text=await file.text();
+        let data=JSON.parse(text);
+        if(!Array.isArray(data)) data=[];
+        items=normalizeItems(data.map(r=>({
+          part:r?.Part||'',
+          label:r?.Label||'',
+          finding:r?.Findings||'',
+          action:r?.Actions||'',
+          routine:r?.Routine||{},
+          nonroutine:r?.NonRoutine||{},
+          parts:r?.Parts||{},
+          times:r?.Times||{},
+          mods:r?.Mods||{}
         })));
+      }else{
+        const buf=await file.arrayBuffer();
+        if(lowerName.endsWith('.csv')){
+          items=normalizeItems(parseCSV(new TextDecoder().decode(buf)));
+        }else{
+          if(typeof XLSX==='undefined') await loadXLSX();
+          const wb=XLSX.read(buf,{type:'array'});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+          items=normalizeItems(rows.slice(1).map(r=>({
+            part:String(r[0]||'').trim(),
+            label:String(r[1]||'').trim(),
+            finding:String(r[2]||'').trim(),
+            action:String(r[3]||'').trim()
+          })));
+        }
       }
       findName=file.name||'';
       rebuildItemMap();
@@ -344,19 +654,40 @@
 
     async function loadDefault(){
       try{
-        // Try multiple common filenames (xlsx/xlsm/csv) for the default findings export
-        const candidates=[
-          'Findings.xlsx','findings.xlsx','Findings_shopguide.xlsx','findings_shopguide.xlsx',
-          'Findings.xlsm','findings.xlsm','Findings.csv','findings.csv'
-        ];
-
-        for(const url of candidates){
+        // Try multiple common filenames (json/xlsx/xlsm/csv) for the default findings export
+        for(const url of FINDINGS_FILE_CANDIDATES){
           try{
             const res=await fetch(url);
             if(!res.ok) continue;
 
-            const buf=await res.arrayBuffer();
             const lower=url.toLowerCase();
+            if(lower.endsWith('.json')){
+              const data=await res.json();
+              const arr=Array.isArray(data)?data:[];
+              items=normalizeItems(arr.map(r=>({
+                part:r?.Part||'',
+                label:r?.Label||'',
+                finding:r?.Findings||'',
+                action:r?.Actions||'',
+                routine:r?.Routine||{},
+                nonroutine:r?.NonRoutine||{},
+                parts:r?.Parts||{},
+                times:r?.Times||{},
+                mods:r?.Mods||{}
+              })));
+              findName=url;
+              showAllFindings=false;
+              rebuildItemMap();
+              selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
+              historyKeys=historyKeys.filter(key=>itemMap.has(key));
+              try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
+              try{localStorage.setItem('sf-findings-name',findName);}catch{}
+              updateFileLabels();
+              render();
+              return;
+            }
+
+            const buf=await res.arrayBuffer();
             let rows=[];
 
             if(lower.endsWith('.csv')){
@@ -399,11 +730,7 @@
     }
 
     async function loadDefaultDict(){
-      const candidates=[
-        'dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx',
-        'dictionary.xls','Dictionary.xls','dictionary.csv','Dictionary.csv'
-      ];
-      for(const url of candidates){
+      for(const url of DICT_FILE_CANDIDATES){
         try{
           const res=await fetch(url);
           if(!res.ok) continue;
@@ -646,6 +973,7 @@
         partsOut.value=text;
         if(!skipStore) storedPartsText=text;
       }
+      updateDirectoryStatusUI();
     }
 
     function syncSelections(options={}){
@@ -926,6 +1254,7 @@
       exportBtn=null;
       inlineFindStatus=null;
       inlineDictStatus=null;
+      inlineDirStatus=null;
       datasetInfoEl=null;
       const part=partNumber;
       const usingPartFilter=!!part&&!showAllFindings;
@@ -960,6 +1289,15 @@
       fileButtons.className='flex flex-wrap gap-2';
       fileHeader.appendChild(fileButtons);
 
+      if(typeof window.showDirectoryPicker==='function'){
+        const folderBtn=document.createElement('button');
+        folderBtn.type='button';
+        folderBtn.className='rounded bg-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 shadow transition hover:bg-gray-300';
+        folderBtn.textContent='Findings-Ordner wählen';
+        folderBtn.addEventListener('click',e=>{e.preventDefault();chooseFindingsDirectory();});
+        fileButtons.appendChild(folderBtn);
+      }
+
       const findingsBtn=document.createElement('button');
       findingsBtn.type='button';
       findingsBtn.className='rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow transition hover:bg-blue-500';
@@ -974,11 +1312,18 @@
       dictBtn.textContent='Dictionary wählen';
       const dictInput=document.createElement('input');
       fileButtons.append(dictBtn,dictInput);
-      setupFileButton(dictBtn,dictInput,handleDictFile,'Dictionary-Datei');
+      setupFileButton(dictBtn,dictInput,handleDictFile,'Dictionary-Datei',{
+        acceptExt:DICT_FILE_ACCEPT_EXT,
+        pickerTypes:DICT_FILE_PICKER_TYPES
+      });
 
       const statusList=document.createElement('div');
       statusList.className='space-y-1 text-xs';
       fileCard.appendChild(statusList);
+
+      inlineDirStatus=document.createElement('div');
+      inlineDirStatus.className='text-xs font-medium text-gray-600';
+      statusList.appendChild(inlineDirStatus);
 
       inlineFindStatus=document.createElement('div');
       inlineFindStatus.className='text-xs font-medium text-gray-600';
@@ -1197,6 +1542,7 @@
       rendering=false;
     }
 
+    restoreDirectoryHandle();
     if(!dict.length) loadDefaultDict();
     if(!items.length) loadDefault();
     render();
