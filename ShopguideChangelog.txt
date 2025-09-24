@@ -4,6 +4,14 @@ Alle relevanten Änderungen an der Hauptanwendung werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [3.4.2] – 2025-09-23
+### Added
+- Automatische Übergabe von Aspen-Geräten in Dictionary und Geräte-Liste beim Drag&Drop aktiviert.
+- Gemeinsame Hilfsfunktionen für das Schreiben in Excel-Dateien eingeführt.
+
+### Changed
+- Aspen- und Excel-Boards nutzen nun denselben Sync-Workflow für aktive Geräte.
+
 ## [3.4.1] – 2025-09-23
 ### Added
 - ChangelogViewer für alle Module + HTML
