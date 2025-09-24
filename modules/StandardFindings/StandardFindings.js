@@ -1,4 +1,4 @@
-// Module to convert standard findings to standard text from Excel/CSV with context menu and multi-selection – v1.9.0
+// Module to convert standard findings to standard text from Excel/CSV with context menu and multi-selection – v1.10.0
 (function(){
   window.renderStandardFindings = function(root){
     let items = [];
@@ -76,7 +76,8 @@
 
     const normalizeItems=list=>{
       const dupes={};
-      return list.map(row=>{
+      return list.map(raw=>{
+        const row=raw||{};
         const clean={
           part:String(row.part||'').trim(),
           label:String(row.label||'').trim(),
@@ -87,7 +88,7 @@
         const count=dupes[base]||0;
         dupes[base]=count+1;
         const key=count?`${base}__${count}`:base;
-        return {...clean,key};
+        return {...row,...clean,key};
       }).filter(row=>row.label);
     };
 
@@ -385,8 +386,19 @@
 
     // --- context menu ---
     function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
-    const FILE_ACCEPT_EXT='.xlsx,.xls,.xlsm,.csv';
-    const FILE_PICKER_TYPES=[{
+    const FINDINGS_FILE_ACCEPT_EXT='.xlsx,.xls,.xlsm,.csv,.json';
+    const FINDINGS_FILE_PICKER_TYPES=[{
+      description:'Excel-, CSV- oder JSON-Datei',
+      accept:{
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
+        'application/vnd.ms-excel':['.xls'],
+        'application/vnd.ms-excel.sheet.macroEnabled.12':['.xlsm'],
+        'text/csv':['.csv'],
+        'application/json':['.json']
+      }
+    }];
+    const DICT_FILE_ACCEPT_EXT='.xlsx,.xls,.xlsm,.csv';
+    const DICT_FILE_PICKER_TYPES=[{
       description:'Excel- oder CSV-Datei',
       accept:{
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
@@ -396,8 +408,13 @@
       }
     }];
     const FINDINGS_FILE_CANDIDATES=[
-      'Findings.xlsx','findings.xlsx','Findings_shopguide.xlsx','findings_shopguide.xlsx',
-      'Findings.xlsm','findings.xlsm','Findings.csv','findings.csv'
+      'Findings_Shopguide_nested_corrected.json',
+      'Findings_Shopguide.json',
+      'Findings.json','findings.json',
+      'Findings.xlsx','findings.xlsx',
+      'Findings_shopguide.xlsx','findings_shopguide.xlsx',
+      'Findings.xlsm','findings.xlsm',
+      'Findings.csv','findings.csv'
     ];
     const DICT_FILE_CANDIDATES=[
       'dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx',
@@ -406,14 +423,14 @@
     const menu=document.createElement('div');
     menu.className='db-menu';
 
-    const createFileMenuEntry=(labelText,onFile,labelForLog)=>{
+    const createFileMenuEntry=(labelText,onFile,labelForLog,{acceptExt=FINDINGS_FILE_ACCEPT_EXT,pickerTypes=FINDINGS_FILE_PICKER_TYPES}={})=>{
       const entry=document.createElement('label');
       entry.className='mi file-entry';
       const text=document.createElement('span');
       text.textContent=labelText;
       const input=document.createElement('input');
       input.type='file';
-      input.accept=FILE_ACCEPT_EXT;
+      input.accept=acceptExt;
       input.className='file-input';
       entry.append(text,input);
 
@@ -424,7 +441,7 @@
           e.stopPropagation();
           menu.classList.remove('open');
           try{
-            const [fh]=await window.showOpenFilePicker({types:FILE_PICKER_TYPES});
+            const [fh]=await window.showOpenFilePicker({types:pickerTypes});
             const file=fh?await fh.getFile():null;
             if(file) await onFile(file);
           }catch(err){
@@ -459,7 +476,10 @@
     dirNameEl=document.createElement('div');
     dirNameEl.className='mi mi-dir-name noclick';
     const findingsEntry=createFileMenuEntry('📂 Findings-Datei auswählen …',handleFindingsFile,'Findings-Datei');
-    const dictEntry=createFileMenuEntry('📂 Meldungs-Lexikon auswählen …',handleDictFile,'Dictionary-Datei');
+    const dictEntry=createFileMenuEntry('📂 Meldungs-Lexikon auswählen …',handleDictFile,'Dictionary-Datei',{
+      acceptExt:DICT_FILE_ACCEPT_EXT,
+      pickerTypes:DICT_FILE_PICKER_TYPES
+    });
     const findNameEl=document.createElement('div');
     findNameEl.className='mi mi-find-name noclick';
     const dictNameEl=document.createElement('div');
@@ -492,18 +512,18 @@
     };
     updateFileLabels();
 
-    function setupFileButton(button,input,onFile,labelForLog){
+    function setupFileButton(button,input,onFile,labelForLog,{acceptExt=FINDINGS_FILE_ACCEPT_EXT,pickerTypes=FINDINGS_FILE_PICKER_TYPES}={}){
       if(!button) return;
       if(input){
         input.type='file';
-        input.accept=FILE_ACCEPT_EXT;
+        input.accept=acceptExt;
         input.classList.add('hidden');
       }
       button.addEventListener('click',async e=>{
         e.preventDefault();
         if('showOpenFilePicker' in window){
           try{
-            const [fh]=await window.showOpenFilePicker({types:FILE_PICKER_TYPES});
+            const [fh]=await window.showOpenFilePicker({types:pickerTypes});
             const file=fh?await fh.getFile():null;
             if(file) await onFile(file);
             return;
@@ -555,20 +575,38 @@
     async function handleFindingsFile(file){
       dirStatusMessage='';
       updateDirectoryStatusUI();
-      const buf=await file.arrayBuffer();
-      if(file.name.toLowerCase().endsWith('.csv')){
-        items=normalizeItems(parseCSV(new TextDecoder().decode(buf)));
-      }else{
-        if(typeof XLSX==='undefined') await loadXLSX();
-        const wb=XLSX.read(buf,{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        items=normalizeItems(rows.slice(1).map(r=>({
-          part:String(r[0]||'').trim(),
-          label:String(r[1]||'').trim(),
-          finding:String(r[2]||'').trim(),
-          action:String(r[3]||'').trim()
+      const lowerName=(file.name||'').toLowerCase();
+      if(lowerName.endsWith('.json')){
+        const text=await file.text();
+        let data=JSON.parse(text);
+        if(!Array.isArray(data)) data=[];
+        items=normalizeItems(data.map(r=>({
+          part:r?.Part||'',
+          label:r?.Label||'',
+          finding:r?.Findings||'',
+          action:r?.Actions||'',
+          routine:r?.Routine||{},
+          nonroutine:r?.NonRoutine||{},
+          parts:r?.Parts||{},
+          times:r?.Times||{},
+          mods:r?.Mods||{}
         })));
+      }else{
+        const buf=await file.arrayBuffer();
+        if(lowerName.endsWith('.csv')){
+          items=normalizeItems(parseCSV(new TextDecoder().decode(buf)));
+        }else{
+          if(typeof XLSX==='undefined') await loadXLSX();
+          const wb=XLSX.read(buf,{type:'array'});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+          items=normalizeItems(rows.slice(1).map(r=>({
+            part:String(r[0]||'').trim(),
+            label:String(r[1]||'').trim(),
+            finding:String(r[2]||'').trim(),
+            action:String(r[3]||'').trim()
+          })));
+        }
       }
       findName=file.name||'';
       rebuildItemMap();
@@ -616,14 +654,40 @@
 
     async function loadDefault(){
       try{
-        // Try multiple common filenames (xlsx/xlsm/csv) for the default findings export
+        // Try multiple common filenames (json/xlsx/xlsm/csv) for the default findings export
         for(const url of FINDINGS_FILE_CANDIDATES){
           try{
             const res=await fetch(url);
             if(!res.ok) continue;
 
-            const buf=await res.arrayBuffer();
             const lower=url.toLowerCase();
+            if(lower.endsWith('.json')){
+              const data=await res.json();
+              const arr=Array.isArray(data)?data:[];
+              items=normalizeItems(arr.map(r=>({
+                part:r?.Part||'',
+                label:r?.Label||'',
+                finding:r?.Findings||'',
+                action:r?.Actions||'',
+                routine:r?.Routine||{},
+                nonroutine:r?.NonRoutine||{},
+                parts:r?.Parts||{},
+                times:r?.Times||{},
+                mods:r?.Mods||{}
+              })));
+              findName=url;
+              showAllFindings=false;
+              rebuildItemMap();
+              selectionKeys=selectionKeys.filter(key=>itemMap.has(key));
+              historyKeys=historyKeys.filter(key=>itemMap.has(key));
+              try{localStorage.setItem('sf-findings-data',JSON.stringify(items));}catch{}
+              try{localStorage.setItem('sf-findings-name',findName);}catch{}
+              updateFileLabels();
+              render();
+              return;
+            }
+
+            const buf=await res.arrayBuffer();
             let rows=[];
 
             if(lower.endsWith('.csv')){
@@ -1248,7 +1312,10 @@
       dictBtn.textContent='Dictionary wählen';
       const dictInput=document.createElement('input');
       fileButtons.append(dictBtn,dictInput);
-      setupFileButton(dictBtn,dictInput,handleDictFile,'Dictionary-Datei');
+      setupFileButton(dictBtn,dictInput,handleDictFile,'Dictionary-Datei',{
+        acceptExt:DICT_FILE_ACCEPT_EXT,
+        pickerTypes:DICT_FILE_PICKER_TYPES
+      });
 
       const statusList=document.createElement('div');
       statusList.className='space-y-1 text-xs';
