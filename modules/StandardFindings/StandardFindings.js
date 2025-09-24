@@ -6,7 +6,8 @@
     let findName = '';
     let dictName = '';
     let inputsEl, historyEl, findOut, actionOut, routineOut, nonroutineOut, partsOut, headEl, exportBtn;
-    let inlineFindStatus, inlineDictStatus, datasetInfoEl;
+    let inlineFindStatus, inlineDictStatus, inlineDirStatus, datasetInfoEl;
+    let dirNameEl;
     let currentItems = [];
     let rows=[];
     let itemMap=new Map();
@@ -15,6 +16,10 @@
     let partNumber = '';
     let rendering = false;
     let showAllFindings=false;
+    let findingsDirHandle=null;
+    let findingsDirName='';
+    let dirPermissionStatus='none';
+    let dirStatusMessage='';
 
     const findingsSelected=[];
     const actionsSelected=[];
@@ -28,6 +33,10 @@
     const setArray=(target,values)=>{target.splice(0,target.length,...values);return target;};
 
     const STATE_KEY='sf-v190-state';
+    const DIR_HANDLE_DB_KEY='sf-findings-dir';
+    const DIR_NAME_KEY='sf-findings-dir-name';
+    const HANDLE_DB_NAME='modulesApp';
+    const HANDLE_STORE_NAME='fs-handles';
     let savedState={};
     try{savedState=JSON.parse(localStorage.getItem(STATE_KEY)||'{}');}catch{savedState={};}
     let selectionKeys=Array.isArray(savedState.selections)?savedState.selections.filter(Boolean):[];
@@ -37,6 +46,7 @@
     let storedFindingsText=typeof savedState.findingsText==='string'?savedState.findingsText:'';
     let storedActionsText=typeof savedState.actionsText==='string'?savedState.actionsText:'';
     let storedPartsText=typeof savedState.partsText==='string'?savedState.partsText:'';
+    try{findingsDirName=localStorage.getItem(DIR_NAME_KEY)||'';}catch{}
     let shouldRestoreOutputs=true;
 
     try{ items=JSON.parse(localStorage.getItem('sf-findings-data')||'[]'); }catch{}
@@ -87,6 +97,246 @@
         if(entry.key) itemMap.set(entry.key,entry);
       }
     };
+
+    function openHandleDb(){
+      if(typeof indexedDB==='undefined') return Promise.reject(new Error('IndexedDB not supported'));
+      return new Promise((resolve,reject)=>{
+        const req=indexedDB.open(HANDLE_DB_NAME,1);
+        req.onupgradeneeded=()=>{
+          const db=req.result;
+          if(db&&typeof db.objectStoreNames==='object'&&!db.objectStoreNames.contains(HANDLE_STORE_NAME)){
+            db.createObjectStore(HANDLE_STORE_NAME);
+          }
+        };
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error||new Error('IndexedDB error'));
+      });
+    }
+
+    async function storeDirectoryHandle(handle){
+      if(!handle||typeof indexedDB==='undefined') return;
+      try{
+        const db=await openHandleDb();
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+          tx.oncomplete=()=>{db.close();resolve();};
+          tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('tx aborted'));};
+          tx.onerror=()=>{const err=tx.error;db.close();reject(err||new Error('tx error'));};
+          tx.objectStore(HANDLE_STORE_NAME).put(handle,DIR_HANDLE_DB_KEY);
+        });
+      }catch(err){console.warn('sf: Ordner-Handle konnte nicht gespeichert werden',err);}
+    }
+
+    async function deleteStoredDirectoryHandle(){
+      if(typeof indexedDB==='undefined') return;
+      try{
+        const db=await openHandleDb();
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+          tx.oncomplete=()=>{db.close();resolve();};
+          tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('tx aborted'));};
+          tx.onerror=()=>{const err=tx.error;db.close();reject(err||new Error('tx error'));};
+          tx.objectStore(HANDLE_STORE_NAME).delete(DIR_HANDLE_DB_KEY);
+        });
+      }catch(err){console.warn('sf: Ordner-Handle konnte nicht gelöscht werden',err);}
+    }
+
+    async function loadStoredDirectoryHandle(){
+      if(typeof indexedDB==='undefined') return null;
+      try{
+        const db=await openHandleDb();
+        return await new Promise((resolve,reject)=>{
+          const tx=db.transaction(HANDLE_STORE_NAME,'readonly');
+          tx.oncomplete=()=>{db.close();};
+          tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('tx aborted'));};
+          tx.onerror=()=>{const err=tx.error;db.close();reject(err||new Error('tx error'));};
+          const req=tx.objectStore(HANDLE_STORE_NAME).get(DIR_HANDLE_DB_KEY);
+          req.onsuccess=()=>resolve(req.result||null);
+          req.onerror=()=>reject(req.error||new Error('IndexedDB request failed'));
+        });
+      }catch(err){console.warn('sf: Ordner-Handle konnte nicht gelesen werden',err);return null;}
+    }
+
+    async function ensureDirectoryPermission(handle,{mode='read',request=true}={}){
+      if(!handle||typeof handle.queryPermission!=='function') return 'granted';
+      try{
+        let status=await handle.queryPermission({mode});
+        if(status==='granted') return 'granted';
+        if(!request) return status||'prompt';
+        try{
+          status=await handle.requestPermission({mode});
+          return status||'denied';
+        }catch(err){console.warn('sf: Ordnerberechtigung konnte nicht angefragt werden',err);return 'denied';}
+      }catch(err){console.warn('sf: Ordnerberechtigung konnte nicht geprüft werden',err);return 'denied';}
+    }
+
+    function updateDirectoryStatusUI(){
+      if(inlineDirStatus){
+        const hasHandle=!!findingsDirHandle;
+        let label='Findings-Ordner: keine Auswahl';
+        let isError=true;
+        if(hasHandle){
+          const name=findingsDirName||findingsDirHandle.name||'';
+          if(dirPermissionStatus==='granted'){
+            if(dirStatusMessage){
+              label=`Findings-Ordner (${name}): ${dirStatusMessage}`;
+            }else{
+              label=`Findings-Ordner: ${name}`;
+            }
+            isError=!!dirStatusMessage;
+          }else if(dirPermissionStatus==='prompt'){
+            label=`Findings-Ordner: Zugriff erforderlich – ${name}`;
+            isError=true;
+          }else if(dirPermissionStatus==='blocked'){
+            label=`Findings-Ordner: Zugriff verweigert – ${name}`;
+            isError=true;
+          }else{
+            label=`Findings-Ordner: ${name}`;
+            isError=false;
+          }
+        }else if(dirStatusMessage){
+          label=`Findings-Ordner: ${dirStatusMessage}`;
+        }
+        inlineDirStatus.textContent=label;
+        inlineDirStatus.classList.toggle('text-red-500',isError);
+        inlineDirStatus.classList.toggle('text-gray-600',!isError);
+      }
+      if(dirNameEl){
+        const name=findingsDirName||findingsDirHandle?.name||'';
+        if(name){
+          dirNameEl.textContent=`Aktueller Findings-Ordner: ${name}`;
+          dirNameEl.title=name;
+        }else{
+          dirNameEl.textContent='Aktueller Findings-Ordner: keine Auswahl';
+          dirNameEl.title='Keine Auswahl';
+        }
+      }
+    }
+
+    async function setDirectoryHandle(handle,{persist=true,requestPermission=true,skipLoad=false}={}){
+      findingsDirHandle=handle||null;
+      dirStatusMessage='';
+      if(handle){
+        findingsDirName=handle.name||findingsDirName||'';
+      }
+      if(!handle){
+        dirPermissionStatus='none';
+        dirStatusMessage='';
+        findingsDirName='';
+        if(persist) await deleteStoredDirectoryHandle();
+        try{localStorage.removeItem(DIR_NAME_KEY);}catch{}
+        updateFileLabels();
+        return;
+      }
+      const status=requestPermission?
+        await ensureDirectoryPermission(handle,{mode:'read',request:true}):
+        await ensureDirectoryPermission(handle,{mode:'read',request:false});
+      dirPermissionStatus=status||'blocked';
+      if(status==='granted'){
+        dirStatusMessage='';
+        if(persist){
+          await storeDirectoryHandle(handle);
+          try{localStorage.setItem(DIR_NAME_KEY,findingsDirName||handle.name||'');}catch{}
+        }
+        updateFileLabels();
+        if(!skipLoad){
+          const loaded=await loadFindingsFromDirectory(handle);
+          if(!loaded){
+            dirStatusMessage='Keine passende Findings-Datei im Ordner gefunden.';
+            updateDirectoryStatusUI();
+          }
+          if(!dict.length){
+            await loadDictFromDirectory(handle);
+          }
+        }
+      }else if(status==='prompt'){
+        if(persist){
+          await storeDirectoryHandle(handle);
+          try{localStorage.setItem(DIR_NAME_KEY,findingsDirName||handle.name||'');}catch{}
+        }
+        updateFileLabels();
+      }else{
+        dirStatusMessage='';
+        if(persist) await deleteStoredDirectoryHandle();
+        updateFileLabels();
+      }
+    }
+
+    async function restoreDirectoryHandle(){
+      const handle=await loadStoredDirectoryHandle();
+      if(!handle) return;
+      findingsDirHandle=handle;
+      if(!findingsDirName) findingsDirName=handle.name||'';
+      const status=await ensureDirectoryPermission(handle,{mode:'read',request:false});
+      dirPermissionStatus=status||'prompt';
+      updateFileLabels();
+      if(status==='granted'){
+        dirStatusMessage='';
+        const loaded=await loadFindingsFromDirectory(handle,{silent:true});
+        if(!loaded){
+          dirStatusMessage='Keine passende Findings-Datei im Ordner gefunden.';
+          updateDirectoryStatusUI();
+        }
+        if(!dict.length){
+          await loadDictFromDirectory(handle);
+        }
+      }
+    }
+
+    async function chooseFindingsDirectory(){
+      if(typeof window.showDirectoryPicker!=='function'){
+        alert('Ihr Browser unterstützt keine Ordnerauswahl.');
+        return;
+      }
+      try{
+        const handle=await window.showDirectoryPicker();
+        if(!handle) return;
+        findingsDirName=handle.name||'';
+        await setDirectoryHandle(handle,{persist:true,requestPermission:true,skipLoad:false});
+      }catch(err){
+        if(err&&err.name==='AbortError') return;
+        console.warn('sf: Findings-Ordner konnte nicht ausgewählt werden',err);
+      }
+    }
+
+    async function loadFindingsFromDirectory(dirHandle,{silent=false}={}){
+      if(!dirHandle) return false;
+      for(const fileName of FINDINGS_FILE_CANDIDATES){
+        try{
+          const fileHandle=await dirHandle.getFileHandle(fileName,{create:false});
+          const file=await fileHandle.getFile();
+          dirStatusMessage='';
+          await handleFindingsFile(file);
+          return true;
+        }catch(err){
+          if(!(err&&err.name==='NotFoundError')){
+            console.warn('sf: Findings-Datei konnte nicht gelesen werden',err);
+          }
+        }
+      }
+      if(!silent){
+        dirStatusMessage='Keine passende Findings-Datei im Ordner gefunden.';
+        updateDirectoryStatusUI();
+      }
+      return false;
+    }
+
+    async function loadDictFromDirectory(dirHandle){
+      if(!dirHandle) return false;
+      for(const fileName of DICT_FILE_CANDIDATES){
+        try{
+          const fileHandle=await dirHandle.getFileHandle(fileName,{create:false});
+          const file=await fileHandle.getFile();
+          await handleDictFile(file);
+          return true;
+        }catch(err){
+          if(!(err&&err.name==='NotFoundError')){
+            console.warn('sf: Dictionary-Datei konnte nicht gelesen werden',err);
+          }
+        }
+      }
+      return false;
+    }
 
     const getPart=()=>{
       let meld='';
@@ -145,6 +395,14 @@
         'text/csv':['.csv']
       }
     }];
+    const FINDINGS_FILE_CANDIDATES=[
+      'Findings.xlsx','findings.xlsx','Findings_shopguide.xlsx','findings_shopguide.xlsx',
+      'Findings.xlsm','findings.xlsm','Findings.csv','findings.csv'
+    ];
+    const DICT_FILE_CANDIDATES=[
+      'dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx',
+      'dictionary.xls','Dictionary.xls','dictionary.csv','Dictionary.csv'
+    ];
     const menu=document.createElement('div');
     menu.className='db-menu';
 
@@ -190,13 +448,24 @@
       return entry;
     };
 
+    let dirEntry=null;
+    if(typeof window.showDirectoryPicker==='function'){
+      dirEntry=document.createElement('button');
+      dirEntry.type='button';
+      dirEntry.className='mi';
+      dirEntry.textContent='📁 Findings-Ordner auswählen …';
+      dirEntry.addEventListener('click',()=>{menu.classList.remove('open');chooseFindingsDirectory();});
+    }
+    dirNameEl=document.createElement('div');
+    dirNameEl.className='mi mi-dir-name noclick';
     const findingsEntry=createFileMenuEntry('📂 Findings-Datei auswählen …',handleFindingsFile,'Findings-Datei');
     const dictEntry=createFileMenuEntry('📂 Meldungs-Lexikon auswählen …',handleDictFile,'Dictionary-Datei');
     const findNameEl=document.createElement('div');
     findNameEl.className='mi mi-find-name noclick';
     const dictNameEl=document.createElement('div');
     dictNameEl.className='mi mi-dict-name noclick';
-    menu.append(findingsEntry,findNameEl,dictEntry,dictNameEl);
+    if(dirEntry) menu.append(dirEntry);
+    menu.append(dirNameEl,findingsEntry,findNameEl,dictEntry,dictNameEl);
     document.body.appendChild(menu);
 
     const updateFileLabels=()=>{
@@ -255,6 +524,7 @@
       });
     }
     const openMenu=e=>{
+      if(!root.contains(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
       const pad=8,vw=innerWidth,vh=innerHeight;
@@ -283,6 +553,8 @@
     mo.observe(document.body,{childList:true,subtree:true});
 
     async function handleFindingsFile(file){
+      dirStatusMessage='';
+      updateDirectoryStatusUI();
       const buf=await file.arrayBuffer();
       if(file.name.toLowerCase().endsWith('.csv')){
         items=normalizeItems(parseCSV(new TextDecoder().decode(buf)));
@@ -345,12 +617,7 @@
     async function loadDefault(){
       try{
         // Try multiple common filenames (xlsx/xlsm/csv) for the default findings export
-        const candidates=[
-          'Findings.xlsx','findings.xlsx','Findings_shopguide.xlsx','findings_shopguide.xlsx',
-          'Findings.xlsm','findings.xlsm','Findings.csv','findings.csv'
-        ];
-
-        for(const url of candidates){
+        for(const url of FINDINGS_FILE_CANDIDATES){
           try{
             const res=await fetch(url);
             if(!res.ok) continue;
@@ -399,11 +666,7 @@
     }
 
     async function loadDefaultDict(){
-      const candidates=[
-        'dictionary.xslx','Dictionary.xslx','dictionary.xlsx','Dictionary.xlsx',
-        'dictionary.xls','Dictionary.xls','dictionary.csv','Dictionary.csv'
-      ];
-      for(const url of candidates){
+      for(const url of DICT_FILE_CANDIDATES){
         try{
           const res=await fetch(url);
           if(!res.ok) continue;
@@ -646,6 +909,7 @@
         partsOut.value=text;
         if(!skipStore) storedPartsText=text;
       }
+      updateDirectoryStatusUI();
     }
 
     function syncSelections(options={}){
@@ -926,6 +1190,7 @@
       exportBtn=null;
       inlineFindStatus=null;
       inlineDictStatus=null;
+      inlineDirStatus=null;
       datasetInfoEl=null;
       const part=partNumber;
       const usingPartFilter=!!part&&!showAllFindings;
@@ -960,6 +1225,15 @@
       fileButtons.className='flex flex-wrap gap-2';
       fileHeader.appendChild(fileButtons);
 
+      if(typeof window.showDirectoryPicker==='function'){
+        const folderBtn=document.createElement('button');
+        folderBtn.type='button';
+        folderBtn.className='rounded bg-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 shadow transition hover:bg-gray-300';
+        folderBtn.textContent='Findings-Ordner wählen';
+        folderBtn.addEventListener('click',e=>{e.preventDefault();chooseFindingsDirectory();});
+        fileButtons.appendChild(folderBtn);
+      }
+
       const findingsBtn=document.createElement('button');
       findingsBtn.type='button';
       findingsBtn.className='rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow transition hover:bg-blue-500';
@@ -979,6 +1253,10 @@
       const statusList=document.createElement('div');
       statusList.className='space-y-1 text-xs';
       fileCard.appendChild(statusList);
+
+      inlineDirStatus=document.createElement('div');
+      inlineDirStatus.className='text-xs font-medium text-gray-600';
+      statusList.appendChild(inlineDirStatus);
 
       inlineFindStatus=document.createElement('div');
       inlineFindStatus.className='text-xs font-medium text-gray-600';
@@ -1197,6 +1475,7 @@
       rendering=false;
     }
 
+    restoreDirectoryHandle();
     if(!dict.length) loadDefaultDict();
     if(!items.length) loadDefault();
     render();

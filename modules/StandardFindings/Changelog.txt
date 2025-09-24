@@ -5,6 +5,14 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.10.0] – 2025-09-24
+### Added
+- Ordnerauswahl für die Findings-Datei inklusive automatischem Laden und Speicherung der Auswahl.
+
+### Fixed
+- Kontextmenü öffnet sich nur noch innerhalb des Moduls und blockiert keine anderen Bereiche mehr.
+- Statusanzeigen für Findings-, Dictionary- und Ordnerauswahl werden zuverlässig aktualisiert.
+
 ## [1.9.0] – 2025-09-24
 ### Added
 - Autocomplete-Eingabe für Findings mit Enter-Workflow
