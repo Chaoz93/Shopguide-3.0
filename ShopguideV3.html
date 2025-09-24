@@ -458,8 +458,46 @@
     <div id="tabs-container" class="flex items-center gap-1 flex-wrap"></div>
     <button id="add-tab" title="Neuen Tab erstellen" class="text-xl px-2 py-1 leading-none hover:opacity-80">➕</button>
     <div class="ml-auto flex items-center gap-2">
-      <button id="undo-action" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1 rounded" disabled>↩️ Undo</button>
-      <button id="redo-action" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1 rounded" disabled>↪️ Redo</button>
+      <div id="history-menu" class="relative">
+        <button
+          id="history-menu-toggle"
+          type="button"
+          class="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 shadow-sm hover:text-gray-900 hover:bg-gray-100 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="history-menu-dropdown"
+          title="Verlauf"
+        >
+          <span class="sr-only">Verlauf öffnen</span>
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 8v4l2.5 2.5" />
+            <path d="M21 12a9 9 0 11-9-9" />
+            <path d="M7 3L3 7" />
+            <path d="M3 7h4" />
+          </svg>
+        </button>
+        <div
+          id="history-menu-dropdown"
+          class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg py-2 hidden z-50"
+          role="menu"
+          aria-labelledby="history-menu-toggle"
+        >
+          <button id="undo-action" type="button" role="menuitem" class="history-menu-item flex items-center gap-2 w-full text-left text-sm px-3 py-2 text-gray-700 hover:bg-gray-100 transition" disabled>
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 15L3 9l6-6" />
+              <path d="M3 9h12a6 6 0 010 12h-3" />
+            </svg>
+            <span>Rückgängig</span>
+          </button>
+          <button id="redo-action" type="button" role="menuitem" class="history-menu-item flex items-center gap-2 w-full text-left text-sm px-3 py-2 text-gray-700 hover:bg-gray-100 transition" disabled>
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M15 9l6 6-6 6" />
+              <path d="M21 15H9a6 6 0 010-12h3" />
+            </svg>
+            <span>Wiederholen</span>
+          </button>
+        </div>
+      </div>
       <button id="update-status" class="text-sm px-3 py-1 rounded hidden">Update prüfen</button>
       <button id="select-root" class="text-sm px-3 py-1 rounded">Ordner wählen</button>
       <button id="open-settings" title="Einstellungen" class="bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm px-3 py-1 rounded">⚙️</button>
@@ -488,9 +526,18 @@
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal-overlay hidden">
     <div class="modal">
-      <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold">Einstellungen</h2>
-        <div class="flex gap-2"></div>
+        <button
+          id="close-settings"
+          type="button"
+          class="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Einstellungen schließen"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 4l8 8M12 4l-8 8" />
+          </svg>
+        </button>
       </div>
       <div class="settings-nav flex gap-2 mb-3">
         <button data-section="general" class="active">Allgemein</button>
@@ -691,10 +738,6 @@
           </div>
         </div>
       </div>
-      <div class="mt-4 flex justify-end gap-2">
-        <button id="close-settings" class="bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm px-3 py-1 rounded">Abbrechen</button>
-        <button id="save-settings" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded">Speichern</button>
-      </div>
     </div>
   </div>
   <div id="changelog-modal" class="changelog-overlay" role="dialog" aria-modal="true" aria-hidden="true">
@@ -767,7 +810,8 @@ let pendingUpdates = [];
 let updateCheckInProgress = false;
 let currentUpgradeItems = [];
 let currentDowngradeItems = [];
-let originalSettings = null;
+let settingsSaveTimeoutId = null;
+let historyMenuOpen = false;
 let lastUpdateError = false;
 let versionOverview = {
   html: {
@@ -841,12 +885,14 @@ const sidebarEl = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebar-toggle');
 const undoBtn = document.getElementById('undo-action');
 const redoBtn = document.getElementById('redo-action');
+const historyMenu = document.getElementById('history-menu');
+const historyMenuToggle = document.getElementById('history-menu-toggle');
+const historyMenuDropdown = document.getElementById('history-menu-dropdown');
 const updateStatusBtn = document.getElementById('update-status');
 const rootBtn = document.getElementById('select-root');
 const settingsBtn = document.getElementById('open-settings');
 const settingsModal = document.getElementById('settings-modal');
 const closeSettingsBtn = document.getElementById('close-settings');
-const saveSettingsBtn = document.getElementById('save-settings');
 const updateFolderNameEl = document.getElementById('update-folder-name');
 const selectUpdateFolderBtn = document.getElementById('select-update-folder');
 const clearUpdateFolderBtn = document.getElementById('clear-update-folder');
@@ -1181,6 +1227,18 @@ function updateUndoRedoButtons() {
     redoBtn.disabled = !redoStack.length;
     redoBtn.classList.toggle('opacity-60', !redoStack.length);
     redoBtn.classList.toggle('cursor-not-allowed', !redoStack.length);
+  }
+  if (historyMenuToggle) {
+    const hasActions = undoStack.length || redoStack.length;
+    historyMenuToggle.disabled = !hasActions;
+    historyMenuToggle.classList.toggle('opacity-60', !hasActions);
+    historyMenuToggle.classList.toggle('text-gray-600', !!hasActions);
+    historyMenuToggle.classList.toggle('text-gray-400', !hasActions);
+    historyMenuToggle.setAttribute('aria-disabled', hasActions ? 'false' : 'true');
+    historyMenuToggle.title = hasActions ? 'Verlauf' : 'Keine Verlaufsschritte verfügbar';
+    if (!hasActions) {
+      closeHistoryMenu();
+    }
   }
 }
 
@@ -1840,8 +1898,25 @@ if (changelogOverlay) {
   });
 }
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && changelogOverlay?.classList.contains('open')) {
+  if (event.key !== 'Escape') return;
+  let handled = false;
+
+  if (historyMenuOpen) {
+    handled = closeHistoryMenu() || handled;
+  }
+
+  if (settingsModal && !settingsModal.classList.contains('hidden')) {
+    handled = hideSettingsModal() || handled;
+  }
+
+  if (changelogOverlay?.classList.contains('open')) {
     closeChangelogModal();
+    handled = true;
+  }
+
+  if (handled) {
+    event.preventDefault();
+    event.stopPropagation();
   }
 });
 
@@ -1879,8 +1954,9 @@ if (changelogShowFullBtn) {
 
 function setUpdateStatusButton(state) {
   if (!updateStatusBtn) return;
-  updateStatusBtn.className = 'text-sm px-3 py-1 rounded';
+  updateStatusBtn.className = 'text-sm px-3 py-1 rounded transition-colors duration-200 font-medium border border-transparent';
   updateStatusBtn.disabled = false;
+  updateStatusBtn.title = '';
 
   if (appSettings.showUpdateStatusButton === false) {
     updateStatusBtn.classList.add('hidden');
@@ -1930,9 +2006,32 @@ function setUpdateStatusButton(state) {
     return;
   }
 
-  if (pendingUpdates.length) {
+  let upgradeCount = currentUpgradeItems.length;
+  let downgradeCount = currentDowngradeItems.length;
+
+  if (!upgradeCount && !downgradeCount && pendingUpdates.length) {
+    pendingUpdates.forEach(item => {
+      const comparison = compareVersions(item.currentVersion, item.newVersion);
+      if (comparison === 1) {
+        downgradeCount += 1;
+      } else {
+        upgradeCount += 1;
+      }
+    });
+  }
+
+  if (upgradeCount) {
     updateStatusBtn.textContent = 'Update available!';
+    if (downgradeCount) {
+      updateStatusBtn.title = `${upgradeCount} Upgrade${upgradeCount === 1 ? '' : 's'} und ${downgradeCount} Downgrade${downgradeCount === 1 ? '' : 's'} verfügbar.`;
+    } else if (upgradeCount > 1) {
+      updateStatusBtn.title = `${upgradeCount} Updates verfügbar.`;
+    }
     updateStatusBtn.classList.add('bg-red-600','hover:bg-red-700','text-white');
+  } else if (downgradeCount) {
+    updateStatusBtn.textContent = 'Nur Downgrades verfügbar';
+    updateStatusBtn.title = downgradeCount === 1 ? 'Ein Downgrade verfügbar.' : `${downgradeCount} Downgrades verfügbar.`;
+    updateStatusBtn.classList.add('bg-yellow-400','hover:bg-yellow-500','text-gray-900','border-yellow-500');
   } else {
     updateStatusBtn.textContent = 'Up to date!';
     updateStatusBtn.classList.add('bg-green-600','hover:bg-green-700','text-white');
@@ -2813,10 +2912,64 @@ function activateSettingsSection(section) {
 }
 
 function openSettings(section = 'general') {
-  originalSettings = JSON.parse(JSON.stringify(appSettings));
+  if (!settingsModal) return;
   populateInputsFromSettings();
-  settingsModal.classList.remove('hidden');
   activateSettingsSection(section);
+  closeHistoryMenu();
+  settingsModal.classList.remove('hidden');
+}
+
+function scheduleSettingsSave() {
+  if (settingsSaveTimeoutId !== null) {
+    clearTimeout(settingsSaveTimeoutId);
+  }
+  settingsSaveTimeoutId = window.setTimeout(() => {
+    settingsSaveTimeoutId = null;
+    saveAppSettings();
+  }, 400);
+}
+
+function flushSettingsSave() {
+  if (settingsSaveTimeoutId !== null) {
+    clearTimeout(settingsSaveTimeoutId);
+    settingsSaveTimeoutId = null;
+  }
+  saveAppSettings();
+}
+
+function openHistoryMenu() {
+  if (!historyMenuDropdown || !historyMenuToggle) return;
+  historyMenuDropdown.classList.remove('hidden');
+  historyMenuToggle.setAttribute('aria-expanded', 'true');
+  historyMenuOpen = true;
+}
+
+function closeHistoryMenu() {
+  if (!historyMenuDropdown || !historyMenuToggle) {
+    historyMenuOpen = false;
+    return false;
+  }
+  if (!historyMenuDropdown.classList.contains('hidden')) {
+    historyMenuDropdown.classList.add('hidden');
+  }
+  historyMenuToggle.setAttribute('aria-expanded', 'false');
+  historyMenuOpen = false;
+  return true;
+}
+
+function toggleHistoryMenu() {
+  if (historyMenuOpen) {
+    closeHistoryMenu();
+  } else {
+    openHistoryMenu();
+  }
+}
+
+function hideSettingsModal() {
+  if (!settingsModal || settingsModal.classList.contains('hidden')) return false;
+  settingsModal.classList.add('hidden');
+  flushSettingsSave();
+  return true;
 }
 
 
@@ -2831,6 +2984,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateUndoRedoButtons();
   updateDowngradeCollapseUI();
   setSaveIndicator('saved');
+  if (historyMenuToggle) {
+    historyMenuToggle.addEventListener('click', event => {
+      event.stopPropagation();
+      if (historyMenuToggle.disabled) return;
+      toggleHistoryMenu();
+    });
+  }
+
+  document.addEventListener('click', event => {
+    if (!historyMenuOpen) return;
+    if (historyMenu && historyMenu.contains(event.target)) return;
+    closeHistoryMenu();
+  });
   if (moduleSearchClearBtn) {
     moduleSearchClearBtn.classList.toggle('hidden', !(moduleSearchInput && moduleSearchInput.value));
   }
@@ -2867,6 +3033,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (undoBtn) {
     undoBtn.addEventListener('click', async () => {
       if (!undoStack.length || historyInProgress) return;
+      closeHistoryMenu();
       historyInProgress = true;
       const snapshot = undoStack.pop();
       const currentSnapshot = captureLayoutSnapshot();
@@ -2884,6 +3051,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (redoBtn) {
     redoBtn.addEventListener('click', async () => {
       if (!redoStack.length || historyInProgress) return;
+      closeHistoryMenu();
       historyInProgress = true;
       const snapshot = redoStack.pop();
       const currentSnapshot = captureLayoutSnapshot();
@@ -3142,28 +3310,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Settings open
-  settingsBtn.addEventListener('click', () => {
-    openSettings('general');
-  });
-  // Settings cancel
-  closeSettingsBtn.addEventListener('click', () => {
-    settingsModal.classList.add('hidden');
-    if (typeof originalSettings !== 'undefined' && originalSettings !== null) {
-      appSettings = { ...originalSettings };
-      applySettings();
-      renderTabs();
-    }
-    originalSettings = null;
-  });
-  // Settings save
-  saveSettingsBtn.addEventListener('click', async () => {
-    readInputsIntoSettings();
-    applySettings();
-    await saveAppSettings();
-    settingsModal.classList.add('hidden');
-    renderTabs();
-    originalSettings = null;
-  });
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      openSettings('general');
+    });
+  }
+  if (closeSettingsBtn) {
+    closeSettingsBtn.addEventListener('click', () => {
+      hideSettingsModal();
+    });
+  }
   // Settings nav
   settingsNavButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3176,23 +3332,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       readInputsIntoSettings();
       applySettings();
       renderTabs();
+      scheduleSettingsSave();
     });
   });
   if (inputShowUpdateButton) {
     inputShowUpdateButton.addEventListener('change', () => {
       appSettings.showUpdateStatusButton = inputShowUpdateButton.checked;
       setUpdateStatusButton();
+      scheduleSettingsSave();
     });
   }
   if (inputAutoArrange) {
     inputAutoArrange.addEventListener('change', () => {
       readInputsIntoSettings();
       applySettings();
+      scheduleSettingsSave();
     });
   }
   inputBorderRadius.addEventListener('input', () => {
     appSettings.moduleBorderRadius = ((parseFloat(inputBorderRadius.value)||0)/16) + 'rem';
     applySettings();
+    scheduleSettingsSave();
   });
 
   /* First tab on initial load */
