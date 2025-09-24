@@ -9,9 +9,10 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const inst = instanceIdOf(targetDiv);
   const LS_KEY = 'az-reg-' + inst;
   const DRESS_KEY = 'az-dress-' + inst;
-  const FILE_PATH_KEY = 'az-json-path'; // auto-save JSON
+  const FILE_PATH_KEY = 'az-json-path'; // remember last file name
+  const DATA_KEY = 'az-data-' + inst;
   let fileHandle = null;
-  let jsonData = null;
+  let entriesCache = null;
   let regularHours = Number(localStorage.getItem(LS_KEY) || settings.regularHours || 7.5);
   let dressTime = Number(localStorage.getItem(DRESS_KEY) || settings.dressTime || 2);
 
@@ -33,6 +34,8 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       .az-pause-indicator.ok{background:rgba(34,197,94,.18);color:#4ade80;}
       .az-btn{background:rgba(255,255,255,.1);color:inherit;padding:.25rem .75rem;border-radius:.375rem;border:1px solid rgba(255,255,255,.25);cursor:pointer;font-size:.75rem;white-space:nowrap;}
       .az-btn:hover{background:rgba(255,255,255,.2);}
+      .az-menu .section-title{display:block;margin-top:.75rem;font-size:.75rem;font-weight:600;opacity:.8;}
+      .az-menu .storage-status{font-size:.75rem;opacity:.7;margin-top:.25rem;}
     `;
     const tag=document.createElement('style');
     tag.id='az-styles';
@@ -186,15 +189,48 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     await writable.write(JSON.stringify(data,null,2));
     await writable.close();
   }
-  async function getJsonData(){
-    if(jsonData) return jsonData;
-    if(!fileHandle) return null;
-    jsonData = await readJsonFromHandle(fileHandle);
-    return jsonData;
+  function loadLocalEntries(){
+    try{
+      const raw = localStorage.getItem(DATA_KEY);
+      if(!raw) return {};
+      const parsed = JSON.parse(raw);
+      return typeof parsed==='object' && parsed!==null ? parsed : {};
+    }catch(err){
+      console.warn('loadLocalEntries failed',err);
+      return {};
+    }
+  }
+  function saveLocalEntries(data){
+    try{
+      localStorage.setItem(DATA_KEY, JSON.stringify(data));
+    }catch(err){
+      console.warn('saveLocalEntries failed',err);
+    }
+  }
+  async function getStoredEntries(){
+    if(entriesCache) return entriesCache;
+    if(fileHandle){
+      entriesCache = await readJsonFromHandle(fileHandle);
+    }else{
+      entriesCache = loadLocalEntries();
+    }
+    if(!entriesCache || typeof entriesCache !== 'object') entriesCache = {};
+    return entriesCache;
+  }
+  async function persistEntries(data){
+    entriesCache = data && typeof data==='object' ? data : {};
+    saveLocalEntries(entriesCache);
+    if(fileHandle){
+      try{
+        await writeJsonToHandle(fileHandle, entriesCache);
+      }catch(err){
+        console.warn('persistEntries file write failed',err);
+      }
+    }
   }
   async function appendRestWarning(warns,startDate){
-    if(!fileHandle && !jsonData) return warns;
-    const data = (await getJsonData()) || {};
+    if(!startDate) return warns;
+    const data = await getStoredEntries();
     const prevKey = previousDateKey(startDate);
     const prevEntry = data?.[prevKey];
     if(!prevEntry || !prevEntry.ende) return warns;
@@ -204,31 +240,95 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     if(restMinutes < 11*60 && !warns.includes('Ruhezeit <11h zum Vortag')) return [...warns,'Ruhezeit <11h zum Vortag'];
     return warns;
   }
-  async function ensureFileHandle(){
-    if(fileHandle) return fileHandle;
-    const storedPath = localStorage.getItem(FILE_PATH_KEY);
+  function applyEntryToUI(entry){
+    if(!entry || typeof entry !== 'object') return;
+    if(entry.start && start) start.value = entry.start;
+    if(entry.ende && end) end.value = entry.ende;
+    if(pauseInput){
+      if(Object.prototype.hasOwnProperty.call(entry,'pause')) pauseInput.value = entry.pause ?? '';
+      else pauseInput.value='';
+      syncSelectFromInput();
+    }
+    if(entry.diff && diffEl) diffEl.textContent = entry.diff;
+    if(entry.hinweis && warnEl) warnEl.textContent = entry.hinweis;
+  }
+  async function restoreEntryFromStore(){
+    const data = await getStoredEntries();
+    const todayEntry = data?.[currentDateKey()];
+    if(todayEntry) applyEntryToUI(todayEntry);
+    else if(pauseInput){
+      pauseInput.value='';
+      syncSelectFromInput();
+    }
+  }
+  function updateStorageStatus(){
+    if(!storageStatusEl) return;
+    if(fileHandle){
+      storageStatusEl.textContent = `Speicherung: Datei „${fileHandle.name || 'arbeitszeit.json'}“`;
+    }else{
+      const lastName = localStorage.getItem(FILE_PATH_KEY);
+      storageStatusEl.textContent = lastName
+        ? `Speicherung: Browser (zuletzt „${lastName}“)`
+        : 'Speicherung: Browser (Standard)';
+    }
+  }
+  async function requestFileHandle(){
+    const suggested = localStorage.getItem(FILE_PATH_KEY) || 'arbeitszeit.json';
+    if(!window.showOpenFilePicker && !window.showSaveFilePicker){
+      console.warn('File System Access API not available');
+      return null;
+    }
     try{
-      [fileHandle] = await window.showOpenFilePicker({
+      const [handle] = await window.showOpenFilePicker({
         multiple:false,
         mode:'readwrite',
         types:[{description:'JSON', accept:{'application/json':['.json']}}],
-        suggestedName: storedPath || 'arbeitszeit.json'
+        suggestedName: suggested
       });
+      return handle || null;
     }catch(openErr){
+      if(openErr && openErr.name === 'AbortError') return null;
       try{
-        fileHandle = await window.showSaveFilePicker({
-          suggestedName: storedPath || 'arbeitszeit.json',
+        return await window.showSaveFilePicker({
+          suggestedName: suggested,
           types:[{description:'JSON', accept:{'application/json':['.json']}}]
         });
       }catch(saveErr){
-        fileHandle = null;
+        if(saveErr && saveErr.name !== 'AbortError') console.warn('requestFileHandle failed',saveErr);
+        return null;
       }
     }
-    if(fileHandle){
-      localStorage.setItem(FILE_PATH_KEY, fileHandle.name);
-      jsonData = null;
+  }
+  async function chooseFileStorage(){
+    const handle = await requestFileHandle();
+    if(!handle) return;
+    fileHandle = handle;
+    entriesCache = null;
+    localStorage.setItem(FILE_PATH_KEY, handle.name);
+    const data = await getStoredEntries();
+    saveLocalEntries(data);
+    const entry = data?.[currentDateKey()];
+    if(entry) applyEntryToUI(entry);
+    else if(pauseInput){
+      pauseInput.value='';
+      syncSelectFromInput();
     }
-    return fileHandle;
+    updateStorageStatus();
+    safeRender();
+  }
+  function switchToLocalStorage(){
+    fileHandle = null;
+    entriesCache = null;
+    const data = loadLocalEntries();
+    entriesCache = data;
+    const entry = data?.[currentDateKey()];
+    if(entry) applyEntryToUI(entry);
+    else if(pauseInput){
+      pauseInput.value='';
+      syncSelectFromInput();
+    }
+    updateStorageStatus();
+    safeRender();
   }
 
   async function renderTimes(){
@@ -288,9 +388,6 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   async function autoSaveEntry(){
     if(!start.value || !end.value) return;
     try{
-      const handle = await ensureFileHandle();
-      if(!handle) return;
-
       const s = parseTime(start.value);
       const e = parseTime(end.value);
       if(!s || !e) return;
@@ -312,11 +409,11 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
         hinweis: warnEl.textContent.trim()
       };
 
-      const existing = (await getJsonData()) || {};
+      const existing = await getStoredEntries();
       existing[today] = entry;
-      jsonData = existing;
-      await writeJsonToHandle(handle, existing);
-      localStorage.setItem(FILE_PATH_KEY, handle.name);
+      await persistEntries(existing);
+
+      if(fileHandle) localStorage.setItem(FILE_PATH_KEY, fileHandle.name);
 
       if(s){
         const currentWarns = warnEl.textContent ? warnEl.textContent.split(' · ').filter(Boolean) : [];
@@ -372,18 +469,33 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   updateDiffLabel();
   updateVisibility();
   syncSelectFromInput();
-  safeRender();
+
+  (async ()=>{
+    await restoreEntryFromStore();
+    safeRender();
+  })().catch(err=>console.warn('restoreEntryFromStore failed',err));
 
   // ---- context menu for configurable options ----
   const menu=document.createElement('div');
   menu.className='az-menu';
-  menu.innerHTML=`<div>
+  menu.innerHTML=`<div class="space-y-2">
     <label>Regelzeit<input type="time" class="reg text-black p-1 rounded" /></label>
     <label>Umziehzeit (min)<input type="number" class="dress text-black p-1 rounded" /></label>
+    <div>
+      <span class="section-title">Speicherung</span>
+      <div class="az-control-row mt-1">
+        <button type="button" class="az-btn choose-file">Datei wählen…</button>
+        <button type="button" class="az-btn use-local">Nur Browser</button>
+      </div>
+      <div class="storage-status"></div>
+    </div>
   </div>`;
   document.body.appendChild(menu);
   const regInput = menu.querySelector('.reg');
   const dressInput = menu.querySelector('.dress');
+  const chooseFileBtn = menu.querySelector('.choose-file');
+  const useLocalBtn = menu.querySelector('.use-local');
+  const storageStatusEl = menu.querySelector('.storage-status');
 
   function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
   function openMenu(e){
@@ -394,6 +506,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     menu.style.top=clamp(e.clientY,pad,vh-h-pad)+'px';
     regInput.value=toHHMM(regularHours);
     dressInput.value=String(dressTime);
+    updateStorageStatus();
     menu.classList.add('open');
   }
   targetDiv.addEventListener('contextmenu',openMenu);
@@ -419,6 +532,21 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     updateDiffLabel();
     safeRender();
   });
+
+  if(chooseFileBtn){
+    chooseFileBtn.addEventListener('click',()=>{
+      menu.classList.remove('open');
+      chooseFileStorage().catch(err=>console.warn('chooseFileStorage failed',err));
+    });
+  }
+  if(useLocalBtn){
+    useLocalBtn.addEventListener('click',()=>{
+      menu.classList.remove('open');
+      switchToLocalStorage();
+    });
+  }
+
+  updateStorageStatus();
 
   // cleanup when element removed
   const mo=new MutationObserver(()=>{
