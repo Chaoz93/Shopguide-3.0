@@ -5,6 +5,15 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.15.0] – 2025-09-25
+### Added
+- Anzeige der Differenzzeit zusätzlich als Dezimalstunden inklusive farblicher Hervorhebung.
+- Tooltips für automatisch bzw. manuell gesetzte Pausen sowie gemeinsame Schnellaktionen mit dem Overview-Modul.
+
+### Changed
+- Pausenlogik an die aktuelle Betriebsvereinbarung (0/30/45 Minuten) angepasst und automatische Vorschläge in leeren Feldern hinterlegt.
+- Warnhinweise mit Symbolen vereinheitlicht und Speicherung inklusive Overview-Modul synchronisiert.
+
 ## [1.14.0] – 2025-09-23
 ### Added
 - Kombinierte Pauseneingabe mit Preset-Auswahl und freier Zahleneingabe ergänzt.

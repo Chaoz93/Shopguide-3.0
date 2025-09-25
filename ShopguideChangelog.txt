@@ -5,6 +5,14 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.0] – 2025-09-25
+### Added
+- Arbeitszeit-Overview mit Schnellaktionen, gemeinsamen Speicheroptionen und Auto-Refresh an das Hauptmodul gekoppelt.
+- Dezimalanzeige der Differenzen samt neuen Warnsymbolen in Arbeitszeit und Übersicht.
+
+### Changed
+- Pausenlogik gemäß Betriebsvereinbarung (0/30/45 Minuten) vereinheitlicht und Tooltip-Hinweise für automatische Pausen ergänzt.
+
 ## [3.5.0] – 2025-09-24
 ### Added
 - Downgrade-Erkennung und eigene, einklappbare Sektion für Downgrades in der Update-Ansicht.
