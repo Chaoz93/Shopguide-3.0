@@ -221,7 +221,15 @@
     try{docRaw=localStorage.getItem(DOC_KEY)||'';doc=JSON.parse(docRaw||'{}');}
     catch(err){console.warn('NSF: module_data_v1 konnte nicht gelesen werden',err);doc={};}
     const general=doc&&typeof doc==='object'?doc.general||{}:{};
-    const meldung=clean(general&&general.Meldung);
+    const meldungCandidates=[
+      general&&general.Meldung,
+      general&&general.MELDUNGS_NO
+    ];
+    let meldung='';
+    for(const candidate of meldungCandidates){
+      const value=clean(candidate);
+      if(value){meldung=value;break;}
+    }
     const partCandidates=[
       general&&general.PartNo,
       general&&general.PartNumber,
@@ -234,6 +242,7 @@
       general&&general.Artikel,
       general&&general.Artikelnummer,
       general&&general.Part_No,
+      general&&general.PART_NO,
       general&&general['Part No'],
       general&&general['Part_Number']
     ];
@@ -253,6 +262,7 @@
       general&&general.Seriennummer,
       general&&general.SerienNr,
       general&&general.Serien,
+      general&&general.SERIAL_NO,
       general&&general['Serial No'],
       general&&general['Serial_Number']
     ];
