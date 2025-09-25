@@ -66,6 +66,9 @@
       .sfe-field label{font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .sfe-parts-grid-field{gap:0.55rem;}
       .sfe-parts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.5rem;}
+      .sfe-parts-grid-header{display:flex;flex-direction:column;gap:0.45rem;}
+      .sfe-bestelltext-block{position:relative;display:flex;flex-direction:column;gap:0.35rem;background:rgba(15,23,42,0.28);border-radius:0.65rem;padding:0.5rem;}
+      .sfe-bestelltext-block .sfe-textarea{min-height:4.5rem;}
       .sfe-part-pair{background:rgba(15,23,42,0.32);border-radius:0.65rem;padding:0.45rem 0.5rem;display:flex;flex-direction:column;gap:0.35rem;}
       .sfe-part-pair-title{font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .sfe-part-pair-body{display:flex;gap:0.4rem;align-items:flex-end;}
@@ -104,6 +107,16 @@
     if(value==null) return '';
     const text=String(value);
     return text.trim?text.trim():text;
+  }
+
+  function disableAutocomplete(element){
+    if(!element) return;
+    try{
+      element.autocomplete='off';
+    }catch(err){
+      /* ignore unsupported autocomplete property */
+    }
+    element.setAttribute('autocomplete','off');
   }
 
   function pickFirstFilled(...values){
@@ -358,28 +371,40 @@
   }
 
   class SuggestionsController{
-    constructor(container,values,getValue,setValue){
+    constructor(container,values,getValue,setValue,focusTarget){
       this.container=container;
       this.values=values;
       this.getValue=getValue;
       this.setValue=setValue;
+      this.focusTarget=focusTarget||container;
       this.element=document.createElement('div');
       this.element.className='sfe-suggestions';
       container.appendChild(this.element);
       this.items=[];
-      this.active=false;
+      this.isFocused=false;
       this.attach();
     }
     attach(){
-      this.container.addEventListener('focusin',()=>this.update());
-      this.container.addEventListener('focusout',()=>setTimeout(()=>this.hide(),120));
-      this.container.addEventListener('input',()=>this.update());
+      if(!this.focusTarget) return;
+      this.focusTarget.addEventListener('focus',()=>{
+        this.isFocused=true;
+        this.update();
+      });
+      this.focusTarget.addEventListener('blur',()=>{
+        this.isFocused=false;
+        setTimeout(()=>this.hide(),120);
+      });
+      this.focusTarget.addEventListener('input',()=>this.update());
     }
     setValues(values){
       this.values=values;
       this.update();
     }
     update(){
+      if(!this.isFocused){
+        this.hide();
+        return;
+      }
       const current=cleanString(this.getValue());
       if(!current){
         this.hide();
@@ -404,7 +429,7 @@
         const btn=document.createElement('button');
         btn.type='button';
         btn.className='sfe-suggestion';
-        btn.innerHTML=highlight(match,term);
+        btn.textContent=match;
         btn.addEventListener('mousedown',e=>{e.preventDefault();this.setValue(match);this.hide();});
         this.element.appendChild(btn);
       }
@@ -503,6 +528,9 @@
       this.redoBtn.addEventListener('click',()=>this.redo());
       this.saveBtn.addEventListener('click',()=>this.saveNow(true));
       this.searchInput.addEventListener('input',()=>this.applySearch());
+      const refreshHighlight=()=>this.renderWithCurrentSearchTerm();
+      this.searchInput.addEventListener('focus',refreshHighlight);
+      this.searchInput.addEventListener('blur',refreshHighlight);
 
       this.autosaveTimer=setInterval(()=>this.saveNow(false),AUTOSAVE_INTERVAL);
 
@@ -979,6 +1007,25 @@
       this.renderFileInfo();
     }
 
+    shouldHighlightSearchTerm(term){
+      if(!term) return false;
+      if(!this.searchInput) return false;
+      return document.activeElement===this.searchInput;
+    }
+
+    renderWithCurrentSearchTerm(){
+      const term=this.searchInput?this.searchInput.value.trim():'';
+      this.renderList(term);
+      if(this.shouldHighlightSearchTerm(term)){
+        this.renderEditor(term);
+      }else if(this.titleEl){
+        const entry=this.data.find(item=>item.id===this.selectedId);
+        if(entry){
+          this.titleEl.textContent=entry.label||'Ohne Label';
+        }
+      }
+    }
+
     renderFileInfo(){
       if(!this.fileInfoEl) return;
       const path=this.filePath||DEFAULT_FILE;
@@ -991,6 +1038,7 @@
       if(!this.listEl||!this.listHeaderEl) return;
       this.listEl.innerHTML='';
       this.listHeaderEl.textContent=this.filtered.length;
+      const highlightTerm=this.shouldHighlightSearchTerm(term)?term:'';
       if(!this.filtered.length){
         const empty=document.createElement('div');
         empty.className='sfe-no-results';
@@ -1009,8 +1057,9 @@
           <div class="${subtitleClass}">${term?highlight(subtitle,term):escapeHTML(subtitle)}</div>`;
         item.addEventListener('click',()=>{
           this.selectedId=entry.id;
-          this.renderList(term);
-          this.renderEditor(term);
+          const activeTerm=this.shouldHighlightSearchTerm(term)?term:'';
+          this.renderList(activeTerm);
+          this.renderEditor(activeTerm);
         });
         this.listEl.appendChild(item);
       }
@@ -1033,7 +1082,8 @@
       header.className='sfe-editor-header';
       const title=document.createElement('div');
       title.className='sfe-editor-title';
-      title.innerHTML=term?highlight(entry.label||'Ohne Label',term):escapeHTML(entry.label||'Ohne Label');
+      const highlightTerm=this.shouldHighlightSearchTerm(term)?term:'';
+      title.innerHTML=highlightTerm?highlight(entry.label||'Ohne Label',highlightTerm):escapeHTML(entry.label||'Ohne Label');
       this.titleEl=title;
       header.appendChild(title);
       this.copyBtn=document.createElement('button');
@@ -1065,10 +1115,12 @@
         field.appendChild(label);
         const isSingleLine=key==='label';
         const input=document.createElement(isSingleLine?'input':'textarea');
+        if(isSingleLine) input.type='text';
         input.className=isSingleLine?'sfe-input':'sfe-textarea';
         input.id=`${entry.id}-${key}`;
         input.value=entry[key]||'';
         input.placeholder=isSingleLine?`${FIELD_LABELS[key]} eingeben`:`${FIELD_LABELS[key]} eingeben`;
+        disableAutocomplete(input);
         input.addEventListener('input',()=>{
           const value=cleanString(input.value);
           this.updateEntry(entry.id,key,value);
@@ -1080,7 +1132,7 @@
         const controller=new SuggestionsController(field,this.getSuggestionsFor(key),()=>input.value,(val)=>{
           input.value=val;
           this.updateEntry(entry.id,key,cleanString(val));
-        });
+        },input);
         this.activeFieldControllers[key]=controller;
         fields.appendChild(field);
       }
@@ -1174,17 +1226,26 @@
     }
 
     renderPartsSection(container,entry){
-      const textField=document.createElement('div');
-      textField.className='sfe-field';
-      const textLabel=document.createElement('label');
-      textLabel.textContent=FIELD_LABELS.parts;
-      textLabel.setAttribute('for',`${entry.id}-parts`);
-      textField.appendChild(textLabel);
+      const gridField=document.createElement('div');
+      gridField.className='sfe-field sfe-parts-grid-field';
+      const gridHeader=document.createElement('div');
+      gridHeader.className='sfe-parts-grid-header';
+      const gridLegend=document.createElement('div');
+      gridLegend.className='sfe-part-pair-title';
+      gridLegend.textContent=PARTS_GRID_LABEL;
+      gridHeader.appendChild(gridLegend);
+      const bestellBlock=document.createElement('div');
+      bestellBlock.className='sfe-bestelltext-block';
+      const bestellLabel=document.createElement('label');
+      bestellLabel.textContent='Titel / Bestelltext';
+      bestellLabel.setAttribute('for',`${entry.id}-parts`);
+      bestellBlock.appendChild(bestellLabel);
       const textarea=document.createElement('textarea');
       textarea.className='sfe-textarea';
       textarea.id=`${entry.id}-parts`;
       textarea.value=entry.parts||'';
-      textarea.placeholder=`${FIELD_LABELS.parts} eingeben`;
+      textarea.placeholder='Titel / Bestelltext eingeben';
+      disableAutocomplete(textarea);
       textarea.addEventListener('input',()=>{
         const value=cleanString(textarea.value);
         this.updateEntry(entry.id,'parts',value);
@@ -1192,19 +1253,14 @@
       textarea.addEventListener('blur',()=>{
         this.activeHistorySignature=null;
       });
-      textField.appendChild(textarea);
-      const controller=new SuggestionsController(textField,this.getSuggestionsFor('parts'),()=>textarea.value,(val)=>{
+      bestellBlock.appendChild(textarea);
+      gridHeader.appendChild(bestellBlock);
+      gridField.appendChild(gridHeader);
+      const controller=new SuggestionsController(gridField,this.getSuggestionsFor('parts'),()=>textarea.value,(val)=>{
         textarea.value=val;
         this.updateEntry(entry.id,'parts',cleanString(val));
-      });
+      },textarea);
       this.activeFieldControllers.parts=controller;
-      container.appendChild(textField);
-
-      const gridField=document.createElement('div');
-      gridField.className='sfe-field sfe-parts-grid-field';
-      const gridLabel=document.createElement('label');
-      gridLabel.textContent=PARTS_GRID_LABEL;
-      gridField.appendChild(gridLabel);
       const grid=document.createElement('div');
       grid.className='sfe-parts-grid';
       gridField.appendChild(grid);
@@ -1224,10 +1280,12 @@
         partLabel.textContent=`PN ${index+1}`;
         partLabel.setAttribute('for',`${entry.id}-part-${index+1}`);
         const partInput=document.createElement('input');
+        partInput.type='text';
         partInput.className='sfe-input';
         partInput.id=`${entry.id}-part-${index+1}`;
         partInput.value=pair&&pair.part?pair.part:'';
         partInput.placeholder='Teilenummer';
+        disableAutocomplete(partInput);
         partInput.addEventListener('input',()=>{
           const value=cleanString(partInput.value);
           this.updatePartPair(entry.id,index,'part',value);
@@ -1243,10 +1301,12 @@
         qtyLabel.textContent=`Menge ${index+1}`;
         qtyLabel.setAttribute('for',`${entry.id}-qty-${index+1}`);
         const qtyInput=document.createElement('input');
+        qtyInput.type='text';
         qtyInput.className='sfe-input';
         qtyInput.id=`${entry.id}-qty-${index+1}`;
         qtyInput.value=pair&&pair.quantity?pair.quantity:'';
         qtyInput.placeholder='Menge';
+        disableAutocomplete(qtyInput);
         qtyInput.addEventListener('input',()=>{
           const value=cleanString(qtyInput.value);
           this.updatePartPair(entry.id,index,'quantity',value);
@@ -1324,8 +1384,9 @@
         this.renderList('');
       }
       if(key==='label' && this.titleEl){
-        if(rawTerm){
-          this.titleEl.innerHTML=highlight(entry.label||'Ohne Label',rawTerm);
+        const highlightTerm=this.shouldHighlightSearchTerm(rawTerm)?rawTerm:'';
+        if(highlightTerm){
+          this.titleEl.innerHTML=highlight(entry.label||'Ohne Label',highlightTerm);
         }else{
           this.titleEl.textContent=entry.label||'Ohne Label';
         }
