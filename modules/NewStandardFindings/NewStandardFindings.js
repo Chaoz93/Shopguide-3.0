@@ -162,6 +162,85 @@
     const text=clean(value);
     return text?text.toUpperCase():'';
   }
+  function normalizePartNumbersList(value){
+    const list=[];
+    const pushValue=(candidate)=>{
+      if(candidate==null) return;
+      if(typeof candidate==='object') return;
+      const normalized=normalizePart(candidate);
+      if(!normalized) return;
+      if(!list.includes(normalized)) list.push(normalized);
+    };
+    if(Array.isArray(value)){
+      value.forEach(pushValue);
+    }else if(value!=null&&value!==''){
+      if(typeof value==='string'){
+        const segments=value.split(/\r?\n/);
+        if(segments.length>1){segments.forEach(pushValue);}else{pushValue(value);}
+      }else{
+        pushValue(value);
+      }
+    }
+    return list;
+  }
+  function matchesPartNumber(pattern,value){
+    const pat=clean(pattern).toLowerCase();
+    const val=clean(value).toLowerCase();
+    if(!pat||!val) return false;
+    if(!pat.includes('*')) return pat===val;
+    if(pat==='*') return true;
+    const startsWithStar=pat.startsWith('*');
+    const endsWithStar=pat.endsWith('*');
+    const core=pat.slice(startsWithStar?1:0,pat.length-(endsWithStar?1:0));
+    if(startsWithStar&&endsWithStar){
+      if(!core) return true;
+      return val.includes(core);
+    }
+    if(startsWithStar){
+      return val.endsWith(core);
+    }
+    if(endsWithStar){
+      return val.startsWith(core);
+    }
+    const starIndex=pat.indexOf('*');
+    if(starIndex>=0){
+      const prefix=pat.slice(0,starIndex);
+      const suffix=pat.slice(starIndex+1);
+      if(prefix&&suffix) return val.startsWith(prefix)&&val.endsWith(suffix);
+      if(prefix) return val.startsWith(prefix);
+      if(suffix) return val.endsWith(suffix);
+    }
+    return false;
+  }
+  function getEntryPartNumbers(entry){
+    if(entry&&Array.isArray(entry.partNumbers)&&entry.partNumbers.length){
+      return entry.partNumbers;
+    }
+    if(entry&&entry.part){
+      return [entry.part];
+    }
+    return [];
+  }
+  function resolveMatchedPart(entry,currentPart){
+    const normalizedCurrent=normalizePart(currentPart);
+    if(normalizedCurrent){
+      const patterns=getEntryPartNumbers(entry);
+      if(patterns.some(pattern=>matchesPartNumber(pattern,normalizedCurrent))){
+        return normalizedCurrent;
+      }
+    }
+    const fallback=normalizePart(entry&&entry.part);
+    return fallback||normalizedCurrent||'';
+  }
+  function compareEntries(a,b){
+    const aLabel=clean(a&&a.label);
+    const bLabel=clean(b&&b.label);
+    const labelCmp=aLabel.localeCompare(bLabel,'de',{sensitivity:'base'});
+    if(labelCmp!==0) return labelCmp;
+    const aFinding=clean(a&&a.finding);
+    const bFinding=clean(b&&b.finding);
+    return aFinding.localeCompare(bFinding,'de',{sensitivity:'base'});
+  }
   function normalizeKey(value){return clean(value).toLowerCase();}
   function canonicalKey(value){
     return clean(value).toLowerCase().replace(/[^a-z0-9]+/g,'');
@@ -232,6 +311,7 @@
   RESERVED_FIELDS.add('label');
   RESERVED_FIELDS.add('action');
   RESERVED_FIELDS.add('part');
+  RESERVED_FIELDS.add('partnumbers');
 
   function buildFieldMap(raw){
     const map={};
@@ -445,19 +525,56 @@
     const partMap=new Map();
     const entryMap=new Map();
     for(const entry of normalizedEntries){
-      if(!partMap.has(entry.part)) partMap.set(entry.part,[]);
-      partMap.get(entry.part).push(entry);
+      const patterns=getEntryPartNumbers(entry);
+      const seen=new Set();
+      for(const pattern of patterns){
+        if(!pattern||pattern.includes('*')) continue;
+        if(seen.has(pattern)) continue;
+        seen.add(pattern);
+        if(!partMap.has(pattern)) partMap.set(pattern,[]);
+        partMap.get(pattern).push(entry);
+      }
+      if(!seen.size&&entry.part&&entry.part.includes('*')===false){
+        if(!partMap.has(entry.part)) partMap.set(entry.part,[]);
+        partMap.get(entry.part).push(entry);
+      }
       entryMap.set(entry.key,entry);
     }
     for(const list of partMap.values()){
-      list.sort((a,b)=>{
-        const al=a.label||'';const bl=b.label||'';
-        const cmp=al.localeCompare(bl,'de',{sensitivity:'base'});
-        if(cmp!==0) return cmp;
-        return (a.finding||'').localeCompare(b.finding||'', 'de', {sensitivity:'base'});
-      });
+      list.sort(compareEntries);
     }
     return {entries:normalizedEntries,partMap,dictionary,entryMap};
+  }
+
+  function collectEntriesForPart(part,entries,partMap){
+    const normalized=normalizePart(part);
+    if(!normalized) return [];
+    const seen=new Set();
+    const result=[];
+    const addEntry=(entry)=>{
+      if(!entry||!entry.key) return;
+      if(seen.has(entry.key)) return;
+      seen.add(entry.key);
+      result.push(entry);
+    };
+    if(partMap instanceof Map&&partMap.has(normalized)){
+      const directList=partMap.get(normalized)||[];
+      directList.forEach(addEntry);
+    }
+    if(Array.isArray(entries)){
+      for(const entry of entries){
+        if(!entry||seen.has(entry.key)) continue;
+        const patterns=getEntryPartNumbers(entry);
+        if(!patterns.length) continue;
+        if(patterns.some(pattern=>matchesPartNumber(pattern,normalized))){
+          addEntry(entry);
+        }
+      }
+    }
+    if(result.length>1){
+      result.sort(compareEntries);
+    }
+    return result;
   }
 
   function normalizeEntries(list){
@@ -466,7 +583,7 @@
     const result=[];
     for(const raw of list){
       if(!raw||typeof raw!=='object') continue;
-      const part=normalizePart(extractNestedField(raw,FIELD_ALIASES.part));
+      let part=normalizePart(extractNestedField(raw,FIELD_ALIASES.part));
       const label=clean(extractNestedField(raw,FIELD_ALIASES.label));
       const finding=clean(extractNestedField(raw,FIELD_ALIASES.finding));
       const action=clean(extractNestedField(raw,FIELD_ALIASES.action));
@@ -480,8 +597,28 @@
       const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
       const mods=clean(extractNestedField(raw,FIELD_ALIASES.mods));
       const map=buildFieldMap(raw);
+      const partNumbersFromField=normalizePartNumbersList(map.partnumbers);
+      const partSet=new Set();
+      if(part) partSet.add(part);
+      for(const candidate of partNumbersFromField){
+        if(candidate) partSet.add(candidate);
+      }
+      if(!part&&partSet.size){
+        for(const candidate of partSet){
+          if(candidate&&candidate.includes('*')) continue;
+          part=candidate;
+          break;
+        }
+        if(!part){
+          const first=partSet.values().next().value;
+          if(first) part=first;
+        }
+      }
       if(!part&&( !finding && !action && !label)) continue;
       if(!part) continue;
+      if(!partSet.size) partSet.add(part);
+      else if(part&&!partSet.has(part)) partSet.add(part);
+      const partNumbers=Array.from(partSet);
       const extras=[];
       const extrasKeyParts=[];
       const extrasSeen=new Set();
@@ -525,6 +662,7 @@
       result.push({
         key,
         part,
+        partNumbers,
         label:labelValue,
         finding:findingValue,
         action:actionValue,
@@ -930,7 +1068,7 @@
       finding:entry.finding||'',
       action:entry.action||'',
       label:entry.label||'',
-      part:normalizePart(entry.part)||normalized
+      part:resolveMatchedPart(entry,normalized)
     });
     const unique=new Map();
     const filtered=[];
@@ -1070,7 +1208,7 @@
       if(previousPart!==part){
         this.filterAll=false;
       }
-      this.partEntries=part?data.partMap.get(part)||[]:[];
+      this.partEntries=collectEntriesForPart(part,this.allEntries,data.partMap);
       this.availableEntries=this.filterAll?this.allEntries:this.partEntries;
       const keyParts=this.meldung?{meldung:this.meldung,part:this.currentPart,serial:this.serial}:null;
       const key=keyParts?buildCompositeKey(keyParts):'';
@@ -1096,13 +1234,17 @@
       this.history=getHistoryForPart(this.globalState,this.currentPart);
       this.selectedEntries=selections.map(sel=>{
         const resolved=this.entryMap.get(sel.key);
-        if(resolved) return {...resolved};
+        if(resolved){
+          const storedPart=normalizePart(sel.part);
+          const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
+          return {...resolved,part:matchedPart||resolved.part};
+        }
         return {
           key:sel.key,
           finding:sel.finding||'',
           action:sel.action||'',
           label:sel.label||'',
-          part:sel.part||this.currentPart
+          part:normalizePart(sel.part)||this.currentPart
         };
       });
       this.selectionRows=[];
@@ -1922,7 +2064,8 @@
       this.lockRow(state,entry,{persist:true,updateState:true});
       this.undoBuffer=null;
       if(this.currentPart){
-        pushHistory(this.globalState,this.currentPart,entry);
+        const historyEntry={...entry,part:resolveMatchedPart(entry,this.currentPart)};
+        pushHistory(this.globalState,this.currentPart,historyEntry);
         this.history=getHistoryForPart(this.globalState,this.currentPart);
       }
       if(!this.selectionRows.some(s=>!s.locked)&&this.meldung&&this.availableEntries.length){
@@ -1947,7 +2090,7 @@
         finding:entry.finding||'',
         action:entry.action||'',
         label:entry.label||'',
-        part:entry.part||this.currentPart||'',
+        part:resolveMatchedPart(entry,this.currentPart),
         routine:routineText,
         routineFinding:routineFindingText,
         routineAction:routineActionText,
@@ -1983,7 +2126,7 @@
           finding:entry.finding||'',
           action:entry.action||'',
           label:entry.label||'',
-          part:entry.part||this.currentPart||''
+          part:resolveMatchedPart(entry,this.currentPart)
         });
       }
     }
