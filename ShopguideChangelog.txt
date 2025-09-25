@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.1] – 2025-09-25
+### Added
+- Neues Modul "Shopguide Findings Editor" zum Durchsuchen und Bearbeiten von Findings inklusive Kontextmenü, Undo/Redo und Auto-Save.
+
 ## [3.6.0] – 2025-09-25
 ### Added
 - Arbeitszeit-Overview mit Schnellaktionen, gemeinsamen Speicheroptionen und Auto-Refresh an das Hauptmodul gekoppelt.
