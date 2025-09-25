@@ -292,7 +292,15 @@
     for(const key of FIELD_KEYS){
       normalized[key]=cleanString(entry?entry[key]:'' );
     }
-    normalized.partNumbers=normalizePartNumbers(entry);
+    const partNumbers=normalizePartNumbers(entry);
+    const primaryPart=cleanString(pickFirstFilled(
+      entry&&entry.part,
+      entry&&entry.Part,
+      entry&&entry.partNumber,
+      entry&&entry.PartNumber
+    ));
+    if(primaryPart && !partNumbers.includes(primaryPart)) partNumbers.unshift(primaryPart);
+    normalized.partNumbers=partNumbers;
     normalized.partsPairs=normalizePartsPairs(entry);
     return normalized;
   }
@@ -819,7 +827,11 @@
           const partNumbers=getCleanPartNumbers(entry);
           raw.PartNumbers=partNumbers;
           if(Object.prototype.hasOwnProperty.call(raw,'partNumbers')) raw.partNumbers=partNumbers;
-          if(partNumbers.length && !raw.PartNumber) raw.PartNumber=partNumbers[0];
+          if(partNumbers.length){
+            if(!raw.PartNumber) raw.PartNumber=partNumbers[0];
+            raw.Part=partNumbers[0];
+            if(Object.prototype.hasOwnProperty.call(raw,'part')) raw.part=partNumbers[0];
+          }
           applyPartPairs(raw.Parts,entry.partsPairs);
           this.rawById.set(entry.id,cloneData(raw));
           result.push(raw);
@@ -849,7 +861,11 @@
           const partNumbers=getCleanPartNumbers(entry);
           raw.PartNumbers=partNumbers;
           if(Object.prototype.hasOwnProperty.call(raw,'partNumbers')) raw.partNumbers=partNumbers;
-          if(partNumbers.length) raw.PartNumber=raw.PartNumber||partNumbers[0];
+          if(partNumbers.length){
+            if(!raw.PartNumber) raw.PartNumber=partNumbers[0];
+            raw.Part=partNumbers[0];
+            if(Object.prototype.hasOwnProperty.call(raw,'part')) raw.part=partNumbers[0];
+          }
           let key=getPrimaryPartNumber(entry);
           if(!key){
             key=this.partById.get(entry.id)||'';
