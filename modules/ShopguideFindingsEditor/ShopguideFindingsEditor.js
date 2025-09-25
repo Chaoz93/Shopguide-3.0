@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const MODULE_VERSION='1.1.2';
+  const MODULE_VERSION='1.2.0';
   const STORAGE_KEY='shopguide-findings';
   const PATH_KEY='shopguide-findings-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
@@ -11,6 +11,7 @@
   const GLOBAL_HANDLE_KEY='__shopguideFindingsFileHandle';
 
   const FIELD_KEYS=['label','findings','actions','routine','nonroutine','parts'];
+  const PART_NUMBERS_LABEL='Partnummern';
   const PART_PAIR_COUNT=6;
   const FIELD_LABELS={
     label:'Label',
@@ -44,7 +45,7 @@
       .sfe-item:hover{background:rgba(59,130,246,0.25);transform:translateY(-1px);}
       .sfe-item.active{background:rgba(59,130,246,0.35);box-shadow:0 8px 22px rgba(15,23,42,0.25);}
       .sfe-item-title{font-weight:600;font-size:0.9rem;}
-      .sfe-item-snippet{font-size:0.78rem;opacity:0.85;max-height:3em;overflow:hidden;}
+      .sfe-item-subtitle{font-size:0.78rem;opacity:0.75;max-height:3em;overflow:hidden;}
       .sfe-item mark{background:rgba(252,211,77,0.65);color:inherit;padding:0 0.15rem;border-radius:0.25rem;}
       .sfe-editor{flex:2 1 360px;min-width:260px;background:rgba(255,255,255,0.08);border-radius:0.85rem;padding:0.75rem;display:flex;flex-direction:column;gap:0.65rem;min-height:0;}
       .sfe-editor-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;}
@@ -53,6 +54,15 @@
       .sfe-copy:hover:not(:disabled){background:rgba(16,185,129,0.35);}
       .sfe-fields{display:flex;flex-direction:column;gap:0.65rem;flex:1;overflow-y:auto;padding-right:0.25rem;}
       .sfe-field{display:flex;flex-direction:column;gap:0.35rem;background:rgba(15,23,42,0.2);border-radius:0.75rem;padding:0.55rem 0.65rem;position:relative;}
+      .sfe-partnumbers-field{gap:0.5rem;}
+      .sfe-partnumbers-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;}
+      .sfe-partnumbers-add{border:none;border-radius:0.55rem;padding:0.3rem 0.65rem;background:rgba(59,130,246,0.18);color:inherit;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;line-height:1;}
+      .sfe-partnumbers-add:hover{background:rgba(59,130,246,0.28);}
+      .sfe-partnumbers-list{display:flex;flex-direction:column;gap:0.4rem;}
+      .sfe-partnumbers-row{display:flex;gap:0.4rem;align-items:center;}
+      .sfe-partnumbers-row .sfe-input{flex:1;}
+      .sfe-partnumbers-remove{border:none;border-radius:0.55rem;padding:0.35rem 0.55rem;background:rgba(248,113,113,0.18);color:inherit;font:inherit;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;}
+      .sfe-partnumbers-remove:hover{background:rgba(248,113,113,0.3);}
       .sfe-field label{font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .sfe-parts-grid-field{gap:0.55rem;}
       .sfe-parts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.5rem;}
@@ -205,17 +215,92 @@
     return result;
   }
 
+  function normalizePartNumbers(entry){
+    const seen=new Set();
+    const addValue=value=>{
+      if(value==null) return;
+      if(Array.isArray(value)){
+        value.forEach(addValue);
+        return;
+      }
+      if(typeof value==='string'&&/[;,|]/.test(value)){
+        value.split(/[;,|]/).forEach(part=>addValue(part));
+        return;
+      }
+      const cleaned=cleanString(value);
+      if(!cleaned) return;
+      if(!seen.has(cleaned)) seen.add(cleaned);
+    };
+    if(entry&&typeof entry==='object'){
+      addValue(entry.partNumbers);
+      addValue(entry.PartNumbers);
+      addValue(entry.part_numbers);
+      addValue(entry.partNumber);
+      addValue(entry.PartNumber);
+      addValue(entry.partNo);
+      addValue(entry.PartNo);
+      addValue(entry.PN);
+      addValue(entry.pn);
+      addValue(entry.Part);
+      addValue(entry.part);
+      if(entry.parts&&typeof entry.parts==='object'){
+        addValue(entry.parts.partNumbers);
+        addValue(entry.parts.PartNumbers);
+        addValue(entry.parts.partNumber);
+        addValue(entry.parts.PartNumber);
+        addValue(entry.parts.PN);
+        addValue(entry.parts.pn);
+      }
+      if(entry.Parts&&typeof entry.Parts==='object'){
+        addValue(entry.Parts.partNumbers);
+        addValue(entry.Parts.PartNumbers);
+        addValue(entry.Parts.partNumber);
+        addValue(entry.Parts.PartNumber);
+        addValue(entry.Parts.PN);
+        addValue(entry.Parts.pn);
+      }
+    }
+    return Array.from(seen);
+  }
+
+  function ensureArray(value){
+    return Array.isArray(value)?value:[];
+  }
+
+  function getCleanPartNumbers(entry){
+    const numbers=ensureArray(entry&&entry.partNumbers).map(item=>cleanString(item));
+    return numbers.filter((value,index)=>value&&numbers.indexOf(value)===index);
+  }
+
+  function getPrimaryPartNumber(entry){
+    const numbers=getCleanPartNumbers(entry);
+    return numbers[0]||'';
+  }
+
+  function arraysEqual(a,b){
+    if(a===b) return true;
+    if(!Array.isArray(a)||!Array.isArray(b)) return false;
+    if(a.length!==b.length) return false;
+    for(let i=0;i<a.length;i+=1){
+      if(a[i]!==b[i]) return false;
+    }
+    return true;
+  }
+
   function normalizeEntry(entry){
     const normalized={id:entry&&entry.id?String(entry.id):ensureId()};
     for(const key of FIELD_KEYS){
       normalized[key]=cleanString(entry?entry[key]:'' );
     }
+    normalized.partNumbers=normalizePartNumbers(entry);
     normalized.partsPairs=normalizePartsPairs(entry);
     return normalized;
   }
 
   function buildCopyText(entry){
     const parts=[];
+    const partNumbers=getCleanPartNumbers(entry);
+    if(partNumbers.length) parts.push(`Partnummern: ${partNumbers.join(', ')}`);
     if(entry.label) parts.push(`Label: ${entry.label}`);
     if(entry.findings) parts.push(`Findings: ${entry.findings}`);
     if(entry.actions) parts.push(`Actions: ${entry.actions}`);
@@ -585,6 +670,16 @@
               }
               const pnText=pickFirstFilled(partsSource.PNText,partsSource.pnText,source.PNText,source.pnText);
               const partPairs=extractPartPairs(partsSource);
+              const partNumbers=normalizePartNumbers({
+                partNumbers:source.partNumbers,
+                PartNumbers:source.PartNumbers,
+                partNumber:source.partNumber,
+                PartNumber:source.PartNumber,
+                Part:source.Part,
+                part:source.part,
+                Parts:partsSource,
+                parts:partsSource
+              });
               const mapped={
                 id,
                 label:labelValue,
@@ -593,7 +688,8 @@
                 routine:routineSource&&typeof routineSource==='object'? (routineSource.RoutineFinding!=null?routineSource.RoutineFinding:routineSource.routineFinding):'',
                 nonroutine:nonRoutineSource&&typeof nonRoutineSource==='object'? (nonRoutineSource.NonRoutineFinding!=null?nonRoutineSource.NonRoutineFinding:nonRoutineSource.nonRoutineFinding):'',
                 parts:pnText,
-                partsPairs:partPairs
+                partsPairs:partPairs,
+                partNumbers
               };
               this.rawById.set(id,cloneData(source));
               return mapped;
@@ -621,6 +717,16 @@
             const partsSource=getPartsContainer(source.Parts||source.parts);
             const pnText=pickFirstFilled(partsSource.PNText,partsSource.pnText,source.Bestellliste,source.bestellliste,source.PNText,source.pnText,source.parts);
             const partPairs=extractPartPairs(source);
+            const partNumbers=normalizePartNumbers({
+              partNumbers:source.partNumbers,
+              PartNumbers:source.PartNumbers,
+              partNumber:partNumber,
+              PartNumber:source.PartNumber,
+              Part:source.Part,
+              part:source.part,
+              Parts:partsSource,
+              parts:partsSource
+            });
             const mapped={
               id,
               label:labelValue,
@@ -629,10 +735,12 @@
               routine:source.Routine!=null?source.Routine:source.routine,
               nonroutine:source.Nonroutine!=null?source.Nonroutine:source.nonroutine,
               parts:pnText,
-              partsPairs:partPairs
+              partsPairs:partPairs,
+              partNumbers
             };
             this.rawById.set(id,cloneData(source));
-            this.partById.set(id,partNumber);
+            const primary=partNumbers.length?partNumbers[0]:partNumber;
+            this.partById.set(id,primary);
             return mapped;
           });
         }else{
@@ -708,6 +816,10 @@
           const pnTextValue=entry.parts||'';
           raw.Parts.PNText=pnTextValue;
           if(Object.prototype.hasOwnProperty.call(raw.Parts,'pnText')) raw.Parts.pnText=pnTextValue;
+          const partNumbers=getCleanPartNumbers(entry);
+          raw.PartNumbers=partNumbers;
+          if(Object.prototype.hasOwnProperty.call(raw,'partNumbers')) raw.partNumbers=partNumbers;
+          if(partNumbers.length && !raw.PartNumber) raw.PartNumber=partNumbers[0];
           applyPartPairs(raw.Parts,entry.partsPairs);
           this.rawById.set(entry.id,cloneData(raw));
           result.push(raw);
@@ -734,8 +846,15 @@
           if(Object.prototype.hasOwnProperty.call(raw,'bestellliste')) raw.bestellliste=pnTextValue;
           if(Object.prototype.hasOwnProperty.call(raw,'Bestelltext')) raw.Bestelltext=pnTextValue;
           if(Object.prototype.hasOwnProperty.call(raw,'bestelltext')) raw.bestelltext=pnTextValue;
-          let key=this.partById.get(entry.id)||'';
-          key=cleanString(key);
+          const partNumbers=getCleanPartNumbers(entry);
+          raw.PartNumbers=partNumbers;
+          if(Object.prototype.hasOwnProperty.call(raw,'partNumbers')) raw.partNumbers=partNumbers;
+          if(partNumbers.length) raw.PartNumber=raw.PartNumber||partNumbers[0];
+          let key=getPrimaryPartNumber(entry);
+          if(!key){
+            key=this.partById.get(entry.id)||'';
+            key=cleanString(key);
+          }
           if(!key){
             const fallbackCandidates=[raw.PartNumber,raw.Part,entry.label,entry.id];
             for(const candidate of fallbackCandidates){
@@ -753,7 +872,11 @@
         }
         return result;
       }
-      return this.data.map(entry=>cloneData(entry));
+      return this.data.map(entry=>{
+        const cloned=cloneData(entry);
+        cloned.partNumbers=getCleanPartNumbers(entry);
+        return cloned;
+      });
     }
 
     async saveNow(force){
@@ -802,6 +925,11 @@
         this.filtered=this.data.filter(entry=>{
           for(const key of FIELD_KEYS){
             if(entry[key] && entry[key].toLowerCase().includes(term)) return true;
+          }
+          if(Array.isArray(entry.partNumbers)){
+            for(const pn of entry.partNumbers){
+              if(pn && pn.toLowerCase().includes(term)) return true;
+            }
           }
           if(Array.isArray(entry.partsPairs)){
             for(const pair of entry.partsPairs){
@@ -857,9 +985,12 @@
       for(const entry of this.filtered){
         const item=document.createElement('button');
         item.type='button';
+        const partNumbers=getCleanPartNumbers(entry);
+        const subtitle=partNumbers.length?partNumbers.join(', '):'Keine Partnummer';
+        const subtitleClass=partNumbers.length?'sfe-item-subtitle':'sfe-item-subtitle sfe-empty';
         item.className='sfe-item'+(entry.id===this.selectedId?' active':'');
         item.innerHTML=`<div class="sfe-item-title">${highlight(entry.label||'Ohne Label',term)}</div>
-          <div class="sfe-item-snippet">${highlight(entry.findings||'',term)}</div>`;
+          <div class="${subtitleClass}">${term?highlight(subtitle,term):escapeHTML(subtitle)}</div>`;
         item.addEventListener('click',()=>{
           this.selectedId=entry.id;
           this.renderList(term);
@@ -902,6 +1033,8 @@
       this.editorEl.appendChild(fields);
       this.activeFieldControllers={};
       this.ensurePartsPairs(entry);
+      this.ensurePartNumbers(entry);
+      this.renderPartNumbersField(fields,entry);
 
       for(const key of FIELD_KEYS){
         if(key==='parts'){
@@ -943,6 +1076,85 @@
         entry.partsPairs=normalizePartsPairs(entry);
       }
       return entry.partsPairs;
+    }
+
+    ensurePartNumbers(entry){
+      if(!entry) return [];
+      if(!Array.isArray(entry.partNumbers)){
+        entry.partNumbers=normalizePartNumbers(entry);
+      }else{
+        entry.partNumbers=entry.partNumbers.map(value=>value==null?'':cleanString(value));
+      }
+      return entry.partNumbers;
+    }
+
+    renderPartNumbersField(container,entry){
+      const field=document.createElement('div');
+      field.className='sfe-field sfe-partnumbers-field';
+      const header=document.createElement('div');
+      header.className='sfe-partnumbers-header';
+      const label=document.createElement('label');
+      label.textContent=PART_NUMBERS_LABEL;
+      label.setAttribute('for',`${entry.id}-partnumber-0`);
+      header.appendChild(label);
+      const addBtn=document.createElement('button');
+      addBtn.type='button';
+      addBtn.className='sfe-partnumbers-add';
+      addBtn.innerHTML='<span>+</span> Partnummer';
+      header.appendChild(addBtn);
+      field.appendChild(header);
+      const list=document.createElement('div');
+      list.className='sfe-partnumbers-list';
+      field.appendChild(list);
+
+      const renderRows=()=>{
+        const numbers=this.ensurePartNumbers(entry);
+        list.innerHTML='';
+        const values=numbers.length?numbers:[''];
+        if(values.length){
+          label.setAttribute('for',`${entry.id}-partnumber-0`);
+        }else{
+          label.removeAttribute('for');
+        }
+        values.forEach((value,index)=>{
+          const row=document.createElement('div');
+          row.className='sfe-partnumbers-row';
+          const input=document.createElement('input');
+          input.type='text';
+          input.className='sfe-input';
+          input.id=`${entry.id}-partnumber-${index}`;
+          input.value=value||'';
+          input.placeholder='Partnummer eingeben';
+          input.addEventListener('input',()=>{
+            this.updatePartNumber(entry.id,index,input.value);
+          });
+          input.addEventListener('blur',()=>{this.activeHistorySignature=null;});
+          row.appendChild(input);
+          if(values.length>1){
+            const removeBtn=document.createElement('button');
+            removeBtn.type='button';
+            removeBtn.className='sfe-partnumbers-remove';
+            removeBtn.setAttribute('aria-label',`Partnummer ${index+1} entfernen`);
+            removeBtn.textContent='–';
+            removeBtn.addEventListener('click',()=>{
+              this.removePartNumber(entry.id,index);
+              renderRows();
+            });
+            row.appendChild(removeBtn);
+          }
+          list.appendChild(row);
+        });
+      };
+
+      addBtn.addEventListener('click',()=>{
+        this.addPartNumber(entry.id);
+        renderRows();
+        const inputs=list.querySelectorAll('input');
+        if(inputs.length) inputs[inputs.length-1].focus();
+      });
+
+      renderRows();
+      container.appendChild(field);
     }
 
     renderPartsSection(container,entry){
@@ -1064,6 +1276,11 @@
         for(const field of FIELD_KEYS){
           if(item[field] && item[field].toLowerCase().includes(term)) return true;
         }
+        if(Array.isArray(item.partNumbers)){
+          for(const pn of item.partNumbers){
+            if(pn && pn.toLowerCase().includes(term)) return true;
+          }
+        }
         if(Array.isArray(item.partsPairs)){
           for(const pair of item.partsPairs){
             if(!pair) continue;
@@ -1129,6 +1346,51 @@
       pairs[targetIndex]=pair;
       entry.partsPairs=pairs;
       this.refreshViewAfterChange(entry,'partsPairs');
+    }
+
+    updatePartNumber(id,index,value){
+      const entry=this.data.find(item=>item.id===id);
+      if(!entry) return;
+      const numbers=this.ensurePartNumbers(entry);
+      const targetIndex=Math.max(0,Math.min(index,numbers.length?numbers.length-1:0));
+      const cleaned=value==null?'':cleanString(value);
+      if(numbers[targetIndex]===cleaned) return;
+      const signature=`${id}:partNumbers:${targetIndex}`;
+      if(this.activeHistorySignature!==signature){
+        this.pushHistory();
+        this.activeHistorySignature=signature;
+      }
+      numbers[targetIndex]=cleaned;
+      entry.partNumbers=[...numbers];
+      if(this.sourceFormat==='object-by-pn') this.partById.set(entry.id,getPrimaryPartNumber(entry));
+      this.refreshViewAfterChange(entry,'partNumbers');
+    }
+
+    addPartNumber(id){
+      const entry=this.data.find(item=>item.id===id);
+      if(!entry) return;
+      const numbers=this.ensurePartNumbers(entry);
+      const next=[...numbers,''];
+      this.pushHistory();
+      this.activeHistorySignature=null;
+      entry.partNumbers=next;
+      if(this.sourceFormat==='object-by-pn') this.partById.set(entry.id,getPrimaryPartNumber(entry));
+      this.refreshViewAfterChange(entry,'partNumbers');
+    }
+
+    removePartNumber(id,index){
+      const entry=this.data.find(item=>item.id===id);
+      if(!entry) return;
+      const numbers=this.ensurePartNumbers(entry);
+      if(!numbers.length) return;
+      const next=[...numbers];
+      next.splice(index,1);
+      if(!next.length) next.push('');
+      this.pushHistory();
+      this.activeHistorySignature=null;
+      entry.partNumbers=next.map(value=>value==null?'':cleanString(value));
+      if(this.sourceFormat==='object-by-pn') this.partById.set(entry.id,getPrimaryPartNumber(entry));
+      this.refreshViewAfterChange(entry,'partNumbers');
     }
 
     createEntry(){
