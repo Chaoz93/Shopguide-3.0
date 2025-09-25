@@ -5,6 +5,15 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.0] – 2025-09-26
+### Added
+- Erweiterte Normalisierung erkennt unterschiedliche Feldnamen (z. B. `Findings`, `Actions`, `Routine`, `Mods`) automatisch und mappt sie auf die internen Standardfelder.
+- Unterstützung für verschachtelte und alternative JSON-Strukturen (Arrays, Objekte, `entries`, `findings` usw.), inklusive robuster Dictionary-Erkennung.
+- Anzeige zusätzlicher Metadaten pro Finding (Routine, Nonroutine, Parts, Times, Mods sowie weitere Zusatzfelder) direkt in den Auswahlhilfen.
+
+### Changed
+- Akzeptierte Findings füllen nun auch die Bereiche `Routine`, `Nonroutine` und ergänzen die Bestellliste automatisch mit hinterlegten Parts-Informationen.
+
 ## [1.1.0] – 2025-09-25
 ### Added
 - Unterstützung für neue Aspen-Feldnamen:
