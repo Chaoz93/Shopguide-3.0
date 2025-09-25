@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.8] – 2025-09-24
+### Changed
+- Kontextmenü, Modaldialog und Konfigurationspanel erhalten höhere Z-Indizes, damit sie zuverlässig über anderen Overlays des Dashboards liegen.
+
 ## [1.1.7] – 2025-09-23
 ### Changed
 - Schriftfarbe der Suchleiste und ihres Anzeigetextes auf Schwarz umgestellt.
