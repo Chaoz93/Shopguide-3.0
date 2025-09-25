@@ -8,10 +8,19 @@
     .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
     .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;}
     .db-toolbar{display:flex;align-items:center;gap:.5rem;}
+    .db-toggle-active{flex:0 0 auto;padding:.45rem .75rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:var(--dl-title,#2563eb);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
+    .db-toggle-active:hover{background:rgba(37,99,235,.08);}
+    .db-toggle-active.is-active{background:var(--dl-title,#2563eb);color:#fff;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-search{flex:1;padding:.45rem .65rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:#000;font-size:.9rem;transition:border-color .2s ease,box-shadow .2s ease;}
     .db-search:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-search::placeholder{color:#000;opacity:1;}
+    .db-lists{flex:1;display:flex;gap:.75rem;min-height:1.5rem;overflow:hidden;}
+    .db-list-wrap{flex:1;display:flex;flex-direction:column;gap:.35rem;min-width:0;}
+    .db-list-title{font-weight:600;color:var(--dl-sub,#4b5563);padding:0 .1rem;}
     .db-list{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;overflow:auto;padding-right:.25rem;}
+    .db-active-wrap{display:none;max-width:50%;}
+    .db-active-wrap[hidden]{display:none;}
+    .db-root.db-has-active .db-active-wrap{display:flex;}
     .db-empty{opacity:.6;padding:.25rem .1rem;}
     .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:
 0 2px 6px rgba(0,0,0,.06);display:flex;align-items:center;gap:.75rem;user-select:none;}
@@ -410,7 +419,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     const root=document.createElement('div');
     root.className='db-root';
     const titleBar=initialTitle?`<div class="db-titlebar">${initialTitle}</div>`:'';
-    root.innerHTML=`${titleBar}<div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`${titleBar}<div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
 
     const menu=document.createElement('div');
     menu.className='db-menu';
@@ -419,7 +428,10 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     return {
       root,
-      list:root.querySelector('.db-list'),
+      list:root.querySelector('.db-main-list'),
+      activeWrap:root.querySelector('.db-active-wrap'),
+      activeList:root.querySelector('.db-active-list'),
+      toggleActive:root.querySelector('.db-toggle-active'),
       search:root.querySelector('.db-search'),
       modal:root.querySelector('.db-modal'),
       titleInput:root.querySelector('.db-title-input'),
@@ -450,7 +462,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
       items:[],
       excluded:new Set(),
       filePath:'',
-      searchQuery:''
+      searchQuery:'',
+      activeMeldungen:new Set(),
+      showActiveList:false
     };
   }
 
@@ -487,6 +501,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
       state.searchQuery=typeof saved.searchQuery==='string'?saved.searchQuery:'';
+      if(Array.isArray(saved.activeMeldungen)){
+        const normalized=saved.activeMeldungen.map(val=>String(val||'').trim()).filter(Boolean);
+        state.activeMeldungen=new Set(normalized);
+      }
+      if(typeof saved.showActiveList==='boolean') state.showActiveList=!!saved.showActiveList;
       const sortField=primarySubField(state.config);
       state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
     }catch(e){/* ignore */}
@@ -505,7 +524,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
       items:state.items,
       excluded:Array.from(state.excluded),
       filePath:state.filePath,
-      searchQuery:state.searchQuery||''
+      searchQuery:state.searchQuery||'',
+      activeMeldungen:Array.from(state.activeMeldungen||[]).map(val=>String(val||'').trim()).filter(Boolean),
+      showActiveList:!!state.showActiveList
     };
     try{localStorage.setItem(LS_STATE,JSON.stringify(payload));}catch(e){/* ignore */}
   }
@@ -562,32 +583,33 @@ der-radius:.4rem;background:transparent;color:inherit;}
     `;
   }
 
-  function renderList(elements,state){
-    state.items=dedupeByMeldung(state.items);
+  function renderListSection(listEl,state,items,options){
+    if(!listEl) return;
     const searchRaw=state.searchQuery||'';
     const terms=(searchRaw.match(/\S+/g)||[]).map(term=>term.toLowerCase());
-    const visible=state.items.filter(item=>{
-      if(state.excluded.has(item.part)) return false;
+    const respectExcluded=options?.respectExcluded!==false;
+    const ignoreSearch=options?.ignoreSearch===true;
+    const visible=items.filter(item=>{
+      if(respectExcluded && state.excluded.has(item.part)) return false;
+      if(ignoreSearch) return true;
       return itemMatchesSearch(item,terms);
     });
     if(!visible.length){
-      const message=terms.length?`Keine Treffer für „${escapeHtml(searchRaw.trim())}“`:'Keine Geräte';
-      elements.list.innerHTML=`<div class="db-empty">${message}</div>`;
-      persistState(state);
-      updateHighlights(elements.list);
+      const fallback=options?.emptyMessage||'Keine Geräte';
+      const message=!ignoreSearch && terms.length?`Keine Treffer für „${escapeHtml(searchRaw.trim())}“`:fallback;
+      listEl.innerHTML=`<div class="db-empty">${message}</div>`;
+      updateHighlights(listEl);
       return;
     }
-    const html=visible.map(item=>buildCardMarkup(item,state.config)).join('');
-    elements.list.innerHTML=html;
-    const nodes=elements.list.querySelectorAll('.db-card');
+    listEl.innerHTML=visible.map(item=>buildCardMarkup(item,state.config)).join('');
+    const nodes=listEl.querySelectorAll('.db-card');
     visible.forEach((item,index)=>{
       const node=nodes[index];
       if(node){
         node.__aspenItem=item;
       }
     });
-    persistState(state);
-    updateHighlights(elements.list);
+    updateHighlights(listEl);
   }
 
   function refreshMenu(menuEl,state,renderFn){
@@ -650,6 +672,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     const elements=createElements(initialTitle);
     targetDiv.appendChild(elements.root);
     elements.list.dataset.boardType='aspen-unit';
+    if(elements.activeList) elements.activeList.dataset.boardType='aspen-active';
 
     const state=createInitialState(initialTitle);
     const instanceId=instanceIdOf(elements.root);
@@ -677,6 +700,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
       elements.search.addEventListener('search',handleSearchChange);
     }
 
+    if(elements.toggleActive){
+      elements.toggleActive.addEventListener('click',()=>{
+        state.showActiveList=!state.showActiveList;
+        render();
+      });
+    }
+
     function populateFieldSelects(){
       ensureSubFields(state.config);
       const options=getAvailableFieldList(state,[state.config.partField]);
@@ -689,38 +719,72 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     function syncFromDOM(){
       const existing=new Map(state.items.map(item=>[item.id,item]));
-      const ordered=[];
-      elements.list.querySelectorAll('.db-card').forEach(node=>{
-        const id=node.dataset.id||('it-'+Math.random().toString(36).slice(2));
-        const partRaw=node.dataset.part||node.dataset.meldung||'';
-        const part=(partRaw.split(':')[0]||'').trim();
-        const meldung=((node.dataset.meldung||'').split(':')[0]||'').trim();
-        let item=existing.get(id);
-        if(item){
-          item.part=part;
-          item.meldung=meldung;
-          item.data={...item.data,[state.config.partField]:part,[MELDUNG_FIELD]:meldung};
-        }else{
-          const data={};
-          data[TITLE_FIELD]=node.querySelector('.db-title')?.textContent||'';
-          node.querySelectorAll('.db-sub-line').forEach(sub=>{
-            const field=sub.dataset.field;
-            if(field) data[field]=sub.textContent||'';
-          });
-          data[state.config.partField]=part;
-          data[MELDUNG_FIELD]=meldung;
-          item={id,part,meldung,data};
-        }
-        ordered.push(item);
-      });
-      state.items=dedupeByMeldung(ordered);
+      const orderedMain=[];
+      const orderedActive=[];
+      const seen=new Set();
+      const collect=(container,target)=>{
+        if(!container) return;
+        container.querySelectorAll('.db-card').forEach(node=>{
+          const id=node.dataset.id||('it-'+Math.random().toString(36).slice(2));
+          const partRaw=node.dataset.part||node.dataset.meldung||'';
+          const part=(partRaw.split(':')[0]||'').trim();
+          const meldung=((node.dataset.meldung||'').split(':')[0]||'').trim();
+          let item=existing.get(id);
+          if(item){
+            item.part=part;
+            item.meldung=meldung;
+            item.data={...item.data,[state.config.partField]:part,[MELDUNG_FIELD]:meldung};
+          }else{
+            const data={};
+            data[TITLE_FIELD]=node.querySelector('.db-title')?.textContent||'';
+            node.querySelectorAll('.db-sub-line').forEach(sub=>{
+              const field=sub.dataset.field;
+              if(field) data[field]=sub.textContent||'';
+            });
+            data[state.config.partField]=part;
+            data[MELDUNG_FIELD]=meldung;
+            item={id,part,meldung,data};
+          }
+          target.push(item);
+          seen.add(id);
+        });
+      };
+      collect(elements.list,orderedMain);
+      collect(elements.activeList,orderedActive);
+      const remaining=state.items.filter(item=>!seen.has(item.id));
+      state.items=dedupeByMeldung([...orderedMain,...orderedActive,...remaining]);
+      state.activeMeldungen=new Set(orderedActive.map(item=>item.meldung).filter(Boolean));
     }
 
     function render(){
+      state.items=dedupeByMeldung(state.items);
+      if(!(state.activeMeldungen instanceof Set)){
+        state.activeMeldungen=new Set(Array.isArray(state.activeMeldungen)?state.activeMeldungen:[]);
+      }
       if(elements.search){
         elements.search.value=state.searchQuery||'';
       }
-      renderList(elements,state);
+      const activeSet=state.activeMeldungen;
+      const activeItems=state.items.filter(item=>activeSet.has(item.meldung));
+      const mainItems=state.items.filter(item=>{
+        if(state.showActiveList && activeSet.has(item.meldung)) return false;
+        return true;
+      });
+      renderListSection(elements.list,state,mainItems,{emptyMessage:'Keine Geräte'});
+      if(elements.activeWrap && elements.activeList){
+        elements.activeWrap.hidden=!state.showActiveList;
+        renderListSection(elements.activeList,state,activeItems,{
+          emptyMessage:'Keine aktiven Geräte',
+          respectExcluded:false,
+          ignoreSearch:true
+        });
+      }
+      elements.root.classList.toggle('db-has-active',!!state.showActiveList);
+      if(elements.toggleActive){
+        elements.toggleActive.classList.toggle('is-active',!!state.showActiveList);
+        elements.toggleActive.setAttribute('aria-pressed',state.showActiveList?'true':'false');
+      }
+      persistState(state);
       SHARED.publishAspenItems(instanceId,state.items);
       refreshMenu(elements,state,render);
     }
@@ -860,7 +924,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       persistState(state);
     });
 
-    elements.list.addEventListener('click',event=>{
+    const handleCardClick=event=>{
       if(event.target.closest('.db-handle')) return;
       const card=event.target.closest('.db-card');
       if(!card) return;
@@ -871,9 +935,14 @@ der-radius:.4rem;background:transparent;color:inherit;}
         doc.general.Meldung=meldung;
         saveDoc(doc);
         updateHighlights(elements.list);
+        if(elements.activeList) updateHighlights(elements.activeList);
         window.dispatchEvent(new Event(CUSTOM_BROADCAST));
       }
-    });
+    };
+    elements.list.addEventListener('click',handleCardClick);
+    if(elements.activeList){
+      elements.activeList.addEventListener('click',handleCardClick);
+    }
 
     elements.menu.addEventListener('click',e=>e.stopPropagation());
     targetDiv.addEventListener('contextmenu',event=>{
@@ -884,8 +953,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!elements.menu.contains(event.target)) closeMenu();
     });
 
-    window.addEventListener('storage',event=>{if(event.key===LS_DOC) updateHighlights(elements.list);});
-    window.addEventListener(CUSTOM_BROADCAST,()=>updateHighlights(elements.list));
+    const refreshHighlights=()=>{
+      updateHighlights(elements.list);
+      if(elements.activeList) updateHighlights(elements.activeList);
+    };
+    window.addEventListener('storage',event=>{if(event.key===LS_DOC) refreshHighlights();});
+    window.addEventListener(CUSTOM_BROADCAST,refreshHighlights);
 
     const mo=new MutationObserver(()=>{
       if(!document.body.contains(elements.root)){
@@ -912,6 +985,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         const worksheet=workbook.Sheets[workbook.SheetNames[0]];
         if(!worksheet){
           state.items=[];
+          state.activeMeldungen=new Set();
           render();
           return;
         }
@@ -930,6 +1004,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
           return {id:'it-'+Math.random().toString(36).slice(2),part,meldung,data};
         }).filter(Boolean);
         state.items=dedupeByMeldung(newItems);
+        state.activeMeldungen=new Set();
         const sortField=primarySubField(state.config);
         state.items.sort((a,b)=>String(a.data?.[sortField]||'').localeCompare(String(b.data?.[sortField]||'')));
         state.excluded.clear();
@@ -939,16 +1014,33 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }
 
     await ensureSortable();
-    new Sortable(elements.list,{
+    const sortableConfig={
       group:{name:GROUP_NAME,pull:true,put:true},
       animation:150,
       handle:'.db-handle',
       draggable:'.db-card',
       ghostClass:'db-ghost',
-      chosenClass:'db-chosen',
+      chosenClass:'db-chosen'
+    };
+    new Sortable(elements.list,{
+      ...sortableConfig,
       onSort:()=>{syncFromDOM();render();},
-      onAdd:evt=>{syncFromDOM();render();if(SHARED?.handleAspenToDeviceDrop) void SHARED.handleAspenToDeviceDrop(evt,{});},
+      onAdd:evt=>{
+        syncFromDOM();
+        render();
+        if(evt?.to===elements.list && SHARED?.handleAspenToDeviceDrop){
+          void SHARED.handleAspenToDeviceDrop(evt,{});
+        }
+      },
       onRemove:()=>{syncFromDOM();render();}
     });
+    if(elements.activeList){
+      new Sortable(elements.activeList,{
+        ...sortableConfig,
+        onSort:()=>{syncFromDOM();render();},
+        onAdd:()=>{syncFromDOM();render();},
+        onRemove:()=>{syncFromDOM();render();}
+      });
+    }
   };
 })();
