@@ -30,16 +30,15 @@
     .db-search::placeholder{color:#000;opacity:.65;}
     .db-list{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;overflow:auto;padding-right:.25rem;}
     .db-empty{opacity:.6;padding:.35rem .1rem;}
-    .db-card{position:relative;background:var(--db-left-item,#fff);color:var(--db-left-sub,#4b5563);border-radius:.8rem;padding:.75rem .85rem;box-shadow:0 4px 12px rgba(15,23,42,.08);display:flex;align-items:flex-start;gap:.75rem;user-select:none;transition:transform .2s ease,box-shadow .2s ease;}
+    .db-card{position:relative;background:var(--db-left-item,#fff);color:var(--db-left-sub,#4b5563);border-radius:.8rem;padding:.75rem .85rem;box-shadow:0 4px 12px rgba(15,23,42,.08);display:flex;align-items:flex-start;gap:.75rem;user-select:none;cursor:grab;transition:transform .2s ease,box-shadow .2s ease;}
     .db-column-right .db-card{background:var(--db-right-item,#fff);color:var(--db-right-sub,#4b5563);}
     .db-card:hover{transform:translateY(-2px) scale(1.01);box-shadow:0 18px 35px rgba(15,23,42,.12);}
+    .db-card:active{cursor:grabbing;}
     .db-flex{flex:1;display:flex;flex-direction:column;gap:.15rem;}
     .db-title{color:var(--db-left-title,#2563eb);font-weight:600;line-height:1.2;}
     .db-column-right .db-title{color:var(--db-right-title,#1f2937);}
     .db-sub{color:var(--db-left-sub,#4b5563);font-size:.85rem;display:flex;flex-direction:column;gap:.15rem;}
     .db-column-right .db-sub{color:var(--db-right-sub,#4b5563);}
-    .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:.45rem;background:rgba(0,0,0,.08);cursor:grab;color:inherit;}
-    .db-handle:active{cursor:grabbing;}
     .db-card.active{box-shadow:0 0 0 2px var(--db-highlight,#10b981) inset,0 12px 30px rgba(15,23,42,.14);transform:translateY(-1px);}
     .db-card.is-selected{box-shadow:0 0 0 2px var(--db-select,#2563eb) inset,0 14px 34px rgba(37,99,235,.18);}
     .db-ghost{opacity:.4;}
@@ -507,8 +506,6 @@
               <div class="db-toolbar">
                 <input type="search" class="db-search db-search-right" placeholder="Geräte suchen..." autocomplete="off">
                 <button type="button" class="db-btn db-btn-clear">Alle deaktivieren</button>
-                <button type="button" class="db-btn db-btn-export">Excel exportieren</button>
-                <button type="button" class="db-btn db-btn-import">Excel importieren</button>
               </div>
             </div>
             <div class="db-list db-active-list"></div>
@@ -581,8 +578,6 @@
       cActiveSub:root.querySelector('.db-c-active-sub'),
       cActiveAccent:root.querySelector('.db-c-active-accent'),
       btnClear:root.querySelector('.db-btn-clear'),
-      btnExport:root.querySelector('.db-btn-export'),
-      btnImport:root.querySelector('.db-btn-import'),
       menu,
       activeMenu,
       partList:menu.querySelector('.db-part-list')
@@ -728,7 +723,6 @@
           <div class="db-title">${escapeHtml(titleValue)}</div>
           <div class="db-sub">${subs}</div>
         </div>
-        <div class="db-handle" title="Ziehen">⋮⋮</div>
       </div>
     `;
   }
@@ -936,7 +930,6 @@
     }
 
     function handleCardClick(event){
-      if(event.target.closest('.db-handle')) return;
       const card=event.target.closest('.db-card');
       if(!card) return;
       const isMulti=event.ctrlKey||event.metaKey;
@@ -1351,58 +1344,6 @@
       });
     }
 
-    if(elements.btnExport){
-      elements.btnExport.addEventListener('click',async()=>{
-        if(!state.activeDevices.length) return;
-        try{
-          await ensureXLSX();
-          const rows=state.activeDevices.map(item=>({...(item.data||{})}));
-          if(!rows.length) return;
-          const workbook=XLSX.utils.book_new();
-          const sheet=XLSX.utils.json_to_sheet(rows);
-          XLSX.utils.book_append_sheet(workbook,sheet,'ActiveDevices');
-          const filename=`ActiveDevices_${new Date().toISOString().slice(0,10)}.xlsx`;
-          XLSX.writeFile(workbook,filename);
-        }catch(err){
-          console.warn('[UnitBoard] Active-Export fehlgeschlagen',err);
-        }
-      });
-    }
-
-    if(elements.btnImport){
-      elements.btnImport.addEventListener('click',async()=>{
-        try{
-          const [handle]=await showOpenFilePicker({
-            types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
-            multiple:false
-          });
-          if(!handle) return;
-          await ensureXLSX();
-          const file=await handle.getFile();
-          const buffer=await file.arrayBuffer();
-          const workbook=XLSX.read(buffer,{type:'array'});
-          const sheet=workbook.Sheets[workbook.SheetNames[0]];
-          if(!sheet) return;
-          const rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
-          const imported=rows.map(row=>{
-            const data={...row};
-            const meldungRaw=row[MELDUNG_FIELD]||row.meldung||row.Meldung||'';
-            const partField=state.config.partField;
-            const partRaw=row[partField]||row.part||row.Part||'';
-            data[MELDUNG_FIELD]=meldungRaw;
-            if(partField && partRaw!=null) data[partField]=partRaw;
-            return normalizeActiveDevice({meldung:meldungRaw,part:partRaw,data},state.config.partField);
-          }).filter(Boolean);
-          state.activeDevices=dedupeByMeldung(imported);
-          clearAllNewBadges();
-          clearSelection();
-          renderActiveList();
-        }catch(err){
-          console.warn('[UnitBoard] Active-Import fehlgeschlagen',err);
-        }
-      });
-    }
-
     elements.list.addEventListener('click',handleCardClick);
     elements.activeList.addEventListener('click',handleCardClick);
 
@@ -1424,8 +1365,8 @@
           selection.forEach(meldung=>{
             if(!state.activeDevices.some(item=>item.meldung===meldung)) selection.delete(meldung);
           });
-          if(target && state.activeDevices.some(item=>item.meldung===(target.dataset.meldung||'').trim())){
-            handleSelection(target,{toggle:false});
+          if(activeMenuTarget && state.activeDevices.some(item=>item.meldung===(activeMenuTarget.dataset.meldung||'').trim())){
+            handleSelection(activeMenuTarget,{toggle:false});
           }else{
             updateSelectionStyles();
           }
@@ -1548,7 +1489,6 @@
     new Sortable(elements.list,{
       group:{name:GROUP_NAME,pull:'clone',put:true},
       animation:150,
-      handle:'.db-handle',
       draggable:'.db-card',
       ghostClass:'db-ghost',
       chosenClass:'db-chosen',
@@ -1588,7 +1528,6 @@
     new Sortable(elements.activeList,{
       group:{name:GROUP_NAME,pull:true,put:true},
       animation:150,
-      handle:'.db-handle',
       draggable:'.db-card',
       ghostClass:'db-ghost',
       chosenClass:'db-chosen',
