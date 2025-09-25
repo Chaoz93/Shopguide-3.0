@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.1] – 2025-09-27
+### Fixed
+- Partnummern werden nun beim Einlesen aus JSON, Aspen-Board und Dictionary sowie beim Zugriff aus lokalen Zuständen konsistent getrimmt und in Großbuchstaben konvertiert.
+- Historieneinträge und gespeicherte Auswahlzustände übernehmen automatisch die normalisierte Partnummer, sodass mehrere Schreibweisen zusammengeführt werden.
+
 ## [1.2.0] – 2025-09-26
 ### Added
 - Erweiterte Normalisierung erkennt unterschiedliche Feldnamen (z. B. `Findings`, `Actions`, `Routine`, `Mods`) automatisch und mappt sie auf die internen Standardfelder.

@@ -109,6 +109,10 @@
   }
 
   function clean(value){return value==null?'':String(value).trim();}
+  function normalizePart(value){
+    const text=clean(value);
+    return text?text.toUpperCase():'';
+  }
   function normalizeKey(value){return clean(value).toLowerCase();}
   function canonicalKey(value){
     return clean(value).toLowerCase().replace(/[^a-z0-9]+/g,'');
@@ -350,7 +354,7 @@
     for(const raw of list){
       if(!raw||typeof raw!=='object') continue;
       const map=buildFieldMap(raw);
-      const part=clean(extractField(map,FIELD_ALIASES.part));
+      const part=normalizePart(extractField(map,FIELD_ALIASES.part));
       const label=clean(extractField(map,FIELD_ALIASES.label));
       const finding=clean(extractField(map,FIELD_ALIASES.finding));
       const action=clean(extractField(map,FIELD_ALIASES.action));
@@ -435,7 +439,7 @@
         const meldRaw=extractField(mapEntry,labelAliases) || valueToText(entry.meldung) || valueToText(entry.key);
         const partRaw=extractField(mapEntry,DICTIONARY_PART_ALIASES) || valueToText(entry.value);
         const meld=clean(meldRaw);
-        const part=clean(partRaw);
+        const part=normalizePart(partRaw);
         if(!meld||!part) continue;
         map.set(normalizeKey(meld),part);
       }
@@ -444,9 +448,9 @@
         const meld=clean(meldung);
         let part='';
         if(partVal&&typeof partVal==='object'){
-          part=clean(valueToText(partVal));
+          part=normalizePart(valueToText(partVal));
         }else{
-          part=clean(partVal);
+          part=normalizePart(partVal);
         }
         if(!meld||!part) continue;
         map.set(normalizeKey(meld),part);
@@ -488,7 +492,7 @@
     ];
     let part='';
     for(const candidate of partCandidates){
-      const value=clean(candidate);
+      const value=normalizePart(candidate);
       if(value){part=value;break;}
     }
     const serialCandidates=[
@@ -547,7 +551,7 @@
 
   function extractPartFromBoard(entry){
     if(!entry||typeof entry!=='object') return '';
-    const direct=clean(entry.part||entry.Part||entry.PartNo||entry.PartNumber||entry.PartNr||entry.PN||entry.Material||entry.MaterialNr||entry.Materialnummer||entry.MaterialNo||entry.Artikel||entry.Artikelnummer||entry.Partnummer||entry['Part No']||entry['Part_Number']||entry['PartNumber']||entry['Part Nr']);
+    const direct=normalizePart(entry.part||entry.Part||entry.PartNo||entry.PartNumber||entry.PartNr||entry.PN||entry.Material||entry.MaterialNr||entry.Materialnummer||entry.MaterialNo||entry.Artikel||entry.Artikelnummer||entry.Partnummer||entry['Part No']||entry['Part_Number']||entry['PartNumber']||entry['Part Nr']);
     if(direct) return direct;
     const candidates=['part','partno','partnumber','part_no','part-number','part number','partnr','part nr','pn','material','materialnr','materialnummer','materialno','material nr','material-nr','artikel','artikelnummer','artikel nr','artikel-nr','partnummer'];
     const data=entry.data&&typeof entry.data==='object'?entry.data:{};
@@ -555,12 +559,12 @@
       if(!value) continue;
       const lower=key.toLowerCase();
       if(candidates.includes(lower)){
-        const cleanVal=clean(value);
+        const cleanVal=normalizePart(value);
         if(cleanVal) return cleanVal;
       }
     }
     for(const field of ['PartNo','PartNumber','Part_No','Part Number','Part_Number','PartNr','Part Nr','Part-Nr','Material','MaterialNr','Materialnummer','MaterialNo','Material Nr','Material-Nr','Artikel','Artikelnummer','Artikel Nr','Artikel-Nr','Partnummer']){
-      const candidate=clean(data[field]);
+      const candidate=normalizePart(data[field]);
       if(candidate) return candidate;
     }
     return '';
@@ -637,7 +641,7 @@
     if(!parts||typeof parts!=='object') return '';
     const meldung=clean(parts.meldung);
     if(!meldung) return '';
-    const part=clean(parts.part);
+    const part=normalizePart(parts.part);
     const serial=clean(parts.serial);
     return [meldung,part,serial].map(value=>encodeURIComponent(value||''))
       .join(STATE_KEY_SEPARATOR);
@@ -653,7 +657,7 @@
           finding:typeof sel.finding==='string'?sel.finding:'',
           action:typeof sel.action==='string'?sel.action:'',
           label:typeof sel.label==='string'?sel.label:'',
-          part:typeof sel.part==='string'?sel.part:''
+          part:typeof sel.part==='string'?normalizePart(sel.part):''
         }
       ));
   }
@@ -666,7 +670,7 @@
             finding:typeof sel.finding==='string'?sel.finding:'',
             action:typeof sel.action==='string'?sel.action:'',
             label:typeof sel.label==='string'?sel.label:'',
-            part:typeof sel.part==='string'?sel.part:''
+            part:typeof sel.part==='string'?normalizePart(sel.part):''
           }
         ))
       :[];
@@ -684,7 +688,7 @@
 
   function loadStateFor(keyParts){
     const normalized=keyParts&&typeof keyParts==='object'
-      ? {meldung:clean(keyParts.meldung),part:clean(keyParts.part),serial:clean(keyParts.serial)}
+      ? {meldung:clean(keyParts.meldung),part:normalizePart(keyParts.part),serial:clean(keyParts.serial)}
       : null;
     const compositeKey=buildCompositeKey(normalized);
     let global=loadGlobalState();
@@ -719,7 +723,7 @@
 
   function saveStateFor(keyParts,state,selections,globalState){
     const normalized=keyParts&&typeof keyParts==='object'
-      ? {meldung:clean(keyParts.meldung),part:clean(keyParts.part),serial:clean(keyParts.serial)}
+      ? {meldung:clean(keyParts.meldung),part:normalizePart(keyParts.part),serial:clean(keyParts.serial)}
       : null;
     const compositeKey=buildCompositeKey(normalized);
     if(!compositeKey) return;
@@ -739,8 +743,14 @@
   }
 
   function getHistoryForPart(global,part){
-    if(!part) return [];
-    const list=global.history[part];
+    const normalized=normalizePart(part);
+    if(!normalized) return [];
+    if(normalized!==part&&Array.isArray(global.history[part])&&!Array.isArray(global.history[normalized])){
+      global.history[normalized]=global.history[part];
+      delete global.history[part];
+      saveGlobalState(global);
+    }
+    const list=global.history[normalized]||global.history[part];
     if(!Array.isArray(list)) return [];
     const seen=new Set();
     const result=[];
@@ -753,7 +763,7 @@
         finding:clean(item.finding),
         action:clean(item.action),
         label:clean(item.label),
-        part:clean(item.part)
+        part:normalizePart(item.part)
       });
       if(result.length>=HISTORY_LIMIT) break;
     }
@@ -761,15 +771,20 @@
   }
 
   function pushHistory(global,part,entry){
-    if(!part||!entry||!entry.key) return;
-    if(!Array.isArray(global.history[part])) global.history[part]=[];
-    const list=global.history[part];
+    const normalized=normalizePart(part);
+    if(!normalized||!entry||!entry.key) return;
+    if(normalized!==part&&Array.isArray(global.history[part])&&!Array.isArray(global.history[normalized])){
+      global.history[normalized]=global.history[part];
+      delete global.history[part];
+    }
+    if(!Array.isArray(global.history[normalized])) global.history[normalized]=[];
+    const list=global.history[normalized];
     list.unshift({
       key:entry.key,
       finding:entry.finding||'',
       action:entry.action||'',
       label:entry.label||'',
-      part:entry.part||''
+      part:normalizePart(entry.part)||normalized
     });
     const unique=new Map();
     const filtered=[];
@@ -780,7 +795,7 @@
       filtered.push(item);
       if(filtered.length>=HISTORY_LIMIT) break;
     }
-    global.history[part]=filtered;
+    global.history[normalized]=filtered;
     saveGlobalState(global);
   }
 
