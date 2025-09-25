@@ -140,7 +140,11 @@
   function highlight(text,term){
     if(!term) return escapeHTML(text);
     const safe=escapeHTML(text);
-    const pattern=new RegExp(`(${escapeRegExp(term)})`,'ig');
+    const cleaned=cleanString(term);
+    if(!cleaned) return safe;
+    const parts=cleaned.split('*').filter(Boolean);
+    if(!parts.length) return safe;
+    const pattern=new RegExp(`(${parts.map(escapeRegExp).join('|')})`,'ig');
     return safe.replace(pattern,'<mark>$1</mark>');
   }
 
@@ -156,6 +160,52 @@
 
   function escapeRegExp(value){
     return value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  }
+
+  function createSearchMatcher(rawTerm){
+    const trimmed=cleanString(rawTerm);
+    if(!trimmed) return null;
+    if(trimmed.includes('*')){
+      const plain=trimmed.replace(/\*/g,'').trim();
+      if(!plain) return null;
+      const hasLeadingWildcard=trimmed.startsWith('*');
+      const hasTrailingWildcard=trimmed.endsWith('*');
+      const parts=trimmed.split('*').filter(Boolean).map(part=>escapeRegExp(part));
+      let pattern=parts.join('.*');
+      if(!pattern) pattern='.*';
+      if(!hasLeadingWildcard) pattern=`^${pattern}`;
+      if(!hasTrailingWildcard) pattern=`${pattern}$`;
+      const regex=new RegExp(pattern,'i');
+      return value=>{
+        if(value==null) return false;
+        return regex.test(String(value));
+      };
+    }
+    const needle=trimmed.toLowerCase();
+    return value=>{
+      if(value==null) return false;
+      return String(value).toLowerCase().includes(needle);
+    };
+  }
+
+  function entryMatchesSearch(entry,matcher){
+    if(!matcher) return true;
+    for(const key of FIELD_KEYS){
+      if(entry[key] && matcher(entry[key])) return true;
+    }
+    if(Array.isArray(entry.partNumbers)){
+      for(const pn of entry.partNumbers){
+        if(pn && matcher(pn)) return true;
+      }
+    }
+    if(Array.isArray(entry.partsPairs)){
+      for(const pair of entry.partsPairs){
+        if(!pair) continue;
+        if(pair.part && matcher(pair.part)) return true;
+        if(pair.quantity && matcher(pair.quantity)) return true;
+      }
+    }
+    return false;
   }
 
   function getPartsContainer(source){
@@ -962,36 +1012,18 @@
 
     applySearch(){
       const rawTerm=this.searchInput.value.trim();
-      const term=rawTerm.toLowerCase();
-      if(!term){
+      const matcher=createSearchMatcher(rawTerm);
+      const displayTerm=matcher?rawTerm:'';
+      if(!matcher){
         this.filtered=[...this.data];
       }else{
-        this.filtered=this.data.filter(entry=>{
-          for(const key of FIELD_KEYS){
-            if(entry[key] && entry[key].toLowerCase().includes(term)) return true;
-          }
-          if(Array.isArray(entry.partNumbers)){
-            for(const pn of entry.partNumbers){
-              if(pn && pn.toLowerCase().includes(term)) return true;
-            }
-          }
-          if(Array.isArray(entry.partsPairs)){
-            for(const pair of entry.partsPairs){
-              if(!pair) continue;
-              const part=pair.part?pair.part.toLowerCase():'';
-              const qty=pair.quantity?pair.quantity.toLowerCase():'';
-              if(part && part.includes(term)) return true;
-              if(qty && qty.includes(term)) return true;
-            }
-          }
-          return false;
-        });
+        this.filtered=this.data.filter(entry=>entryMatchesSearch(entry,matcher));
       }
       if(this.filtered.every(item=>item.id!==this.selectedId)){
         this.selectedId=this.filtered[0]?this.filtered[0].id:null;
       }
-      this.renderList(rawTerm);
-      this.renderEditor(rawTerm);
+      this.renderList(displayTerm);
+      this.renderEditor(displayTerm);
     }
 
     renderAll(){
@@ -1347,29 +1379,9 @@
         return;
       }
       const rawTerm=this.searchInput.value.trim();
-      const term=rawTerm.toLowerCase();
-      const matchesSearch=item=>{
-        for(const field of FIELD_KEYS){
-          if(item[field] && item[field].toLowerCase().includes(term)) return true;
-        }
-        if(Array.isArray(item.partNumbers)){
-          for(const pn of item.partNumbers){
-            if(pn && pn.toLowerCase().includes(term)) return true;
-          }
-        }
-        if(Array.isArray(item.partsPairs)){
-          for(const pair of item.partsPairs){
-            if(!pair) continue;
-            const part=pair.part?pair.part.toLowerCase():'';
-            const qty=pair.quantity?pair.quantity.toLowerCase():'';
-            if(part && part.includes(term)) return true;
-            if(qty && qty.includes(term)) return true;
-          }
-        }
-        return false;
-      };
-      if(term){
-        const filtered=this.data.filter(item=>matchesSearch(item));
+      const matcher=createSearchMatcher(rawTerm);
+      if(matcher){
+        const filtered=this.data.filter(item=>entryMatchesSearch(item,matcher));
         const hadSelected=filtered.some(item=>item.id===this.selectedId);
         this.filtered=filtered;
         this.renderList(rawTerm);
