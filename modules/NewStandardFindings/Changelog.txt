@@ -1,0 +1,16 @@
+# Changelog – New Standard Findings
+
+Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
+Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
+
+---
+
+## [1.1.0] – 2025-09-25
+### Added
+- Unterstützung für neue Aspen-Feldnamen:
+  - MELDUNGS_NO → wird nun als Meldung erkannt
+  - PART_NO → wird nun als Partnummer erkannt
+  - SERIAL_NO → wird nun als Seriennummer erkannt
+
+### Changed
+- Version in NewStandardFindings.json von 1.0.0 auf 1.1.0 erhöht.
