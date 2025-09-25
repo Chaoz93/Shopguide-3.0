@@ -521,6 +521,24 @@
     return {map,fields};
   }
 
+  async function readAspenFromHandle(handle){
+    await ensureXLSX();
+    const file=await handle.getFile();
+    if(file.size===0) return {map:{}};
+    const buffer=await file.arrayBuffer();
+    const workbook=XLSX.read(buffer,{type:'array'});
+    const sheet=workbook.Sheets[workbook.SheetNames[0]];
+    if(!sheet) return {map:{}};
+    const rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
+    const map={};
+    rows.forEach(row=>{
+      const meld=String(row['MELDUNGS_NO']||row['meldung']||'').trim();
+      if(!meld) return;
+      map[meld]=row;
+    });
+    return {map};
+  }
+
   async function readNameRulesFromHandle(handle){
     await ensureXLSX();
     const file=await handle.getFile();
@@ -575,6 +593,13 @@
               <div class="db-row">
                 <button class="db-btn db-dict-pick">Dictionary.xlsx wählen</button>
                 <span class="db-dict-file db-file"></span>
+              </div>
+            </div>
+            <div class="db-field" style="grid-column: span 3;">
+              <label>Aspen</label>
+              <div class="db-row">
+                <button class="db-btn db-aspen-pick">Aspen wählen</button>
+                <span class="db-aspen-file db-file"></span>
               </div>
             </div>
             <div class="db-field" style="grid-column: span 3;">
@@ -663,6 +688,8 @@
       fLabel:root.querySelector('.db-file'),
       dictPick:root.querySelector('.db-dict-pick'),
       dictLabel:root.querySelector('.db-dict-file'),
+      aspenPick:root.querySelector('.db-aspen-pick'),
+      aspenLabel:root.querySelector('.db-aspen-file'),
       namePick:root.querySelector('.db-name-pick'),
       nameLabel:root.querySelector('.db-name-file'),
       titleInput:root.querySelector('.db-title-input'),
@@ -688,16 +715,16 @@
     };
   }
 
-  function cardEl(item,cfg,dict,rules,partValue){
+  function cardEl(item,cfg,state,partValue){
     const el=document.createElement('div');
     el.className='db-card';
     el.dataset.id=item.id;
     el.dataset.meldung=item.meldung||'';
-    const data=dict[item.meldung]||{};
+    const data=(state.aspen.data[item.meldung]||state.dict.data[item.meldung]||{});
     const part=(partValue||'').trim();
     const valueFor=field=>{
       if(field==='meldung') return (item.meldung||'').trim();
-      if(field==='name') return lookupName(part,rules);
+      if(field==='name') return lookupName(part,state.names.rules);
       return String(data[field]??'').trim();
     };
     const subs=Array.isArray(cfg.subFields)&&cfg.subFields.length?cfg.subFields:[cfg.titleField||'meldung'];
@@ -731,9 +758,11 @@
       idbKey:cfg.idbKey||`unitBoard:${instanceId}`,
       dictIdbKey:cfg.dictIdbKey||`unitBoardDict:${instanceId}`,
       nameIdbKey:cfg.nameIdbKey||`unitBoardNames:${instanceId}`,
+      aspenIdbKey:cfg.aspenIdbKey||`unitBoardAspen:${instanceId}`,
       fileName:cfg.fileName||'',
       dictFileName:cfg.dictFileName||general.dictFileName||'',
       nameFileName:cfg.nameFileName||general.nameFileName||'',
+      aspenFileName:cfg.aspenFileName||'',
       titleField:cfg.titleField||'meldung',
       partField:cfg.partField||'part',
       subFields:subFields,
@@ -798,8 +827,9 @@
     const state={
       instanceId,
       items:[],
-      handles:{file:null,dict:null,name:null},
+      handles:{file:null,dict:null,name:null,aspen:null},
       dict:{data:{},fields:DEFAULT_DICT_FIELDS.slice(),loaded:false},
+      aspen:{data:{},loaded:false},
       names:{rules:[],loaded:false},
       excluded:new Set((cfg.excludedParts||[]).map(part=>String(part??'').trim()))
     };
@@ -816,6 +846,7 @@
     els.titleInput.value=cfg.title;
     els.fLabel.textContent=cfg.fileName?`• ${cfg.fileName}`:'Keine Datei gewählt';
     els.dictLabel.textContent=cfg.dictFileName?`• ${cfg.dictFileName}`:'Kein Dictionary';
+    els.aspenLabel.textContent=cfg.aspenFileName?`• ${cfg.aspenFileName}`:'Keine Aspen-Datei';
     els.nameLabel.textContent=cfg.nameFileName?`• ${cfg.nameFileName}`:'Keine Namensregeln';
 
     const arraysEqual=(a,b)=>{
@@ -982,15 +1013,17 @@
       return idx>=0?text.slice(0,idx).trim():text;
     }
 
-    function dictDataFor(item){
-      return state.dict.data[item.meldung]||{};
+    function recordDataFor(item){
+      const meld=(item?.meldung||'').trim();
+      if(!meld) return {};
+      return state.aspen.data[meld]||state.dict.data[meld]||{};
     }
 
     function computePart(item){
       const field=cleanText(cfg.partField||'');
       if(!field) return '';
       if(field==='meldung') return cleanPart(item.meldung);
-      const data=dictDataFor(item);
+      const data=recordDataFor(item);
       return cleanPart(data[field]);
     }
 
@@ -1005,7 +1038,7 @@
       state.items.forEach(item=>{
         const part=computePart(item);
         if(state.excluded.has(part)) return;
-        const card=cardEl(item,cfg,state.dict.data,state.names.rules,part);
+        const card=cardEl(item,cfg,state,part);
         els.list.appendChild(card);
         visibleCount++;
       });
@@ -1095,6 +1128,15 @@
       saveCfg(instanceId,cfg);
     }
 
+    function setAspenHandle(handle){
+      state.handles.aspen=handle;
+      if(handle){
+        cfg.aspenFileName=handle.name||cfg.aspenFileName||'aspen.xlsx';
+      }
+      els.aspenLabel.textContent=cfg.aspenFileName?`• ${cfg.aspenFileName}`:'Keine Aspen-Datei';
+      saveCfg(instanceId,cfg);
+    }
+
     function setNameHandle(handle){
       state.handles.name=handle;
       cfg.nameFileName=handle?.name||cfg.nameFileName||'namerules.xlsx';
@@ -1154,6 +1196,24 @@
       return true;
     }
 
+    async function bindAspenHandle(handle){
+      const ok=await ensureRPermission(handle);
+      if(!ok) return false;
+      await idbSet(cfg.aspenIdbKey,handle);
+      setAspenHandle(handle);
+      try{
+        const res=await readAspenFromHandle(handle);
+        state.aspen.data=res.map||{};
+        state.aspen.loaded=true;
+      }catch(err){
+        console.warn('Aspen read failed',err);
+        state.aspen.data={};
+        state.aspen.loaded=false;
+      }
+      renderList();
+      return true;
+    }
+
     async function pickDict(){
       try{
         const [handle]=await window.showOpenFilePicker({
@@ -1162,6 +1222,17 @@
         });
         if(!handle) return;
         await bindDictHandle(handle);
+      }catch(err){if(err?.name!=='AbortError') console.warn(err);}
+    }
+
+    async function pickAspen(){
+      try{
+        const [handle]=await window.showOpenFilePicker({
+          types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
+          multiple:false
+        });
+        if(!handle) return;
+        await bindAspenHandle(handle);
       }catch(err){if(err?.name!=='AbortError') console.warn(err);}
     }
 
@@ -1192,6 +1263,7 @@
     els.pick.addEventListener('click',pickExcel);
     els.create.addEventListener('click',createExcel);
     els.dictPick.addEventListener('click',pickDict);
+    els.aspenPick.addEventListener('click',pickAspen);
     els.namePick.addEventListener('click',pickName);
 
     els.selTitle.addEventListener('change',()=>{
@@ -1438,6 +1510,15 @@
 
     (async()=>{
       try{
+        const handle=await idbGet(cfg.aspenIdbKey);
+        if(handle && await ensureRPermission(handle)){
+          await bindAspenHandle(handle);
+        }
+      }catch(err){console.warn('Aspen restore failed',err);}
+    })();
+
+    (async()=>{
+      try{
         let handle=await idbGet(cfg.dictIdbKey);
         if(!handle){
           handle=await idbGet(GLOBAL_DICT_KEY);
@@ -1485,6 +1566,7 @@
         (async()=>{
           try{await idbDel(cfg.idbKey);}catch{}
           try{await idbDel(cfg.dictIdbKey);}catch{}
+          try{await idbDel(cfg.aspenIdbKey);}catch{}
           try{await idbDel(cfg.nameIdbKey);}catch{}
           try{removeCfg(instanceId);}catch{}
         })();
