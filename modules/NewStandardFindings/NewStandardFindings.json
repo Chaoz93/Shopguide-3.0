@@ -1,0 +1,11 @@
+{
+  "name": "New Standard Findings",
+  "icon": "🧠",
+  "script": "renderNewStandardFindings",
+  "w": 3,
+  "h": 16,
+  "minW": 2,
+  "minH": 12,
+  "moduleId": "NewStandardFindings",
+  "version": "1.0.0"
+}
