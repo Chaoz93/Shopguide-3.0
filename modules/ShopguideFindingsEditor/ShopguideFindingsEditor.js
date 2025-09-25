@@ -56,6 +56,9 @@
       .sfe-field label{font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .sfe-parts-grid-field{gap:0.55rem;}
       .sfe-parts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.5rem;}
+      .sfe-parts-grid-header{display:flex;flex-direction:column;gap:0.45rem;}
+      .sfe-bestelltext-block{position:relative;display:flex;flex-direction:column;gap:0.35rem;background:rgba(15,23,42,0.28);border-radius:0.65rem;padding:0.5rem;}
+      .sfe-bestelltext-block .sfe-textarea{min-height:4.5rem;}
       .sfe-part-pair{background:rgba(15,23,42,0.32);border-radius:0.65rem;padding:0.45rem 0.5rem;display:flex;flex-direction:column;gap:0.35rem;}
       .sfe-part-pair-title{font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .sfe-part-pair-body{display:flex;gap:0.4rem;align-items:flex-end;}
@@ -916,6 +919,7 @@
         field.appendChild(label);
         const isSingleLine=key==='label';
         const input=document.createElement(isSingleLine?'input':'textarea');
+        if(isSingleLine) input.type='text';
         input.className=isSingleLine?'sfe-input':'sfe-textarea';
         input.id=`${entry.id}-${key}`;
         input.value=entry[key]||'';
@@ -946,17 +950,25 @@
     }
 
     renderPartsSection(container,entry){
-      const textField=document.createElement('div');
-      textField.className='sfe-field';
-      const textLabel=document.createElement('label');
-      textLabel.textContent=FIELD_LABELS.parts;
-      textLabel.setAttribute('for',`${entry.id}-parts`);
-      textField.appendChild(textLabel);
+      const gridField=document.createElement('div');
+      gridField.className='sfe-field sfe-parts-grid-field';
+      const gridHeader=document.createElement('div');
+      gridHeader.className='sfe-parts-grid-header';
+      const gridLegend=document.createElement('div');
+      gridLegend.className='sfe-part-pair-title';
+      gridLegend.textContent=PARTS_GRID_LABEL;
+      gridHeader.appendChild(gridLegend);
+      const bestellBlock=document.createElement('div');
+      bestellBlock.className='sfe-bestelltext-block';
+      const bestellLabel=document.createElement('label');
+      bestellLabel.textContent='Titel / Bestelltext';
+      bestellLabel.setAttribute('for',`${entry.id}-parts`);
+      bestellBlock.appendChild(bestellLabel);
       const textarea=document.createElement('textarea');
       textarea.className='sfe-textarea';
       textarea.id=`${entry.id}-parts`;
       textarea.value=entry.parts||'';
-      textarea.placeholder=`${FIELD_LABELS.parts} eingeben`;
+      textarea.placeholder='Titel / Bestelltext eingeben';
       textarea.addEventListener('input',()=>{
         const value=cleanString(textarea.value);
         this.updateEntry(entry.id,'parts',value);
@@ -964,19 +976,14 @@
       textarea.addEventListener('blur',()=>{
         this.activeHistorySignature=null;
       });
-      textField.appendChild(textarea);
-      const controller=new SuggestionsController(textField,this.getSuggestionsFor('parts'),()=>textarea.value,(val)=>{
+      bestellBlock.appendChild(textarea);
+      gridHeader.appendChild(bestellBlock);
+      gridField.appendChild(gridHeader);
+      const controller=new SuggestionsController(gridField,this.getSuggestionsFor('parts'),()=>textarea.value,(val)=>{
         textarea.value=val;
         this.updateEntry(entry.id,'parts',cleanString(val));
       });
       this.activeFieldControllers.parts=controller;
-      container.appendChild(textField);
-
-      const gridField=document.createElement('div');
-      gridField.className='sfe-field sfe-parts-grid-field';
-      const gridLabel=document.createElement('label');
-      gridLabel.textContent=PARTS_GRID_LABEL;
-      gridField.appendChild(gridLabel);
       const grid=document.createElement('div');
       grid.className='sfe-parts-grid';
       gridField.appendChild(grid);
@@ -996,6 +1003,7 @@
         partLabel.textContent=`PN ${index+1}`;
         partLabel.setAttribute('for',`${entry.id}-part-${index+1}`);
         const partInput=document.createElement('input');
+        partInput.type='text';
         partInput.className='sfe-input';
         partInput.id=`${entry.id}-part-${index+1}`;
         partInput.value=pair&&pair.part?pair.part:'';
@@ -1015,6 +1023,7 @@
         qtyLabel.textContent=`Menge ${index+1}`;
         qtyLabel.setAttribute('for',`${entry.id}-qty-${index+1}`);
         const qtyInput=document.createElement('input');
+        qtyInput.type='text';
         qtyInput.className='sfe-input';
         qtyInput.id=`${entry.id}-qty-${index+1}`;
         qtyInput.value=pair&&pair.quantity?pair.quantity:'';
