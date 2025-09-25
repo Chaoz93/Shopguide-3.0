@@ -2,6 +2,11 @@
 
 Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentiert.
 
+## 1.2.2 – 2025-09-28
+### Fixed
+- Tief verschachtelte Findings-Strukturen werden erkannt; Parser durchsucht nun auch Routine-, Nonroutine-, Parts-, Times- und Mods-Objekte nach passenden Aliasfeldern.
+- Textaufbereitung formatiert Objektinhalte zeilenweise, sodass strukturierte Informationen aus alternativen JSON-Layouts lesbar bleiben.
+
 ## 1.2.1 – 2025-09-27
 ### Fixed
 - Partnummern werden jetzt beim Import aus Findings-JSON, Aspen-Board, Dictionary und lokalen Zuständen konsequent getrimmt und in Großbuchstaben überführt.

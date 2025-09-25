@@ -184,6 +184,15 @@
           if(nested) return nested;
         }
       }
+      const pairs=[];
+      for(const [rawKey,rawVal] of Object.entries(value)){
+        const keyLabel=clean(rawKey);
+        if(!keyLabel) continue;
+        const nested=valueToText(rawVal);
+        if(!nested) continue;
+        pairs.push(`${keyLabel}: ${nested}`);
+      }
+      if(pairs.length) return pairs.join('\n');
       try{
         const serialized=JSON.stringify(value);
         return clean(serialized);
@@ -213,16 +222,50 @@
     return '';
   }
 
-  function hasField(map,aliases){
-    if(!map) return false;
+  function extractNestedField(raw,aliases,visited){
+    if(!raw||typeof raw!=='object') return '';
+    const seen=visited||new Set();
+    if(seen.has(raw)) return '';
+    seen.add(raw);
+    const map=buildFieldMap(raw);
+    const objectMatches=[];
     for(const alias of aliases){
       const key=canonicalKey(alias);
-      if(key&&Object.prototype.hasOwnProperty.call(map,key)){
-        const value=valueToText(map[key]);
-        if(value) return true;
+      if(!key||!Object.prototype.hasOwnProperty.call(map,key)) continue;
+      const value=map[key];
+      if(value==null) continue;
+      if(typeof value==='object'){
+        objectMatches.push(value);
+      }else{
+        const text=valueToText(value);
+        if(text) return text;
       }
     }
-    return false;
+    for(const candidate of objectMatches){
+      const nested=extractNestedField(candidate,aliases,seen);
+      if(nested) return nested;
+      const fallback=valueToText(candidate);
+      if(fallback) return fallback;
+    }
+    for(const value of Object.values(raw)){
+      if(value==null) continue;
+      if(Array.isArray(value)){
+        for(const item of value){
+          const nested=extractNestedField(item,aliases,seen);
+          if(nested) return nested;
+        }
+        continue;
+      }
+      if(typeof value==='object'){
+        const nested=extractNestedField(value,aliases,seen);
+        if(nested) return nested;
+      }
+    }
+    return '';
+  }
+
+  function hasNestedField(raw,aliases){
+    return !!extractNestedField(raw,aliases);
   }
 
   function collectEntriesAndDictionary(parsed){
@@ -243,12 +286,11 @@
         }
         return;
       }
-      const map=buildFieldMap(value);
       if(!isDictionary){
-        const hasPart=hasField(map,FIELD_ALIASES.part);
-        const hasContent=hasField(map,FIELD_ALIASES.finding)
-          ||hasField(map,FIELD_ALIASES.action)
-          ||hasField(map,FIELD_ALIASES.label);
+        const hasPart=hasNestedField(value,FIELD_ALIASES.part);
+        const hasContent=hasNestedField(value,FIELD_ALIASES.finding)
+          ||hasNestedField(value,FIELD_ALIASES.action)
+          ||hasNestedField(value,FIELD_ALIASES.label);
         if(hasPart&&hasContent&&!seenEntries.has(value)){
           entries.push(value);
           seenEntries.add(value);
@@ -353,16 +395,16 @@
     const result=[];
     for(const raw of list){
       if(!raw||typeof raw!=='object') continue;
+      const part=normalizePart(extractNestedField(raw,FIELD_ALIASES.part));
+      const label=clean(extractNestedField(raw,FIELD_ALIASES.label));
+      const finding=clean(extractNestedField(raw,FIELD_ALIASES.finding));
+      const action=clean(extractNestedField(raw,FIELD_ALIASES.action));
+      const routine=clean(extractNestedField(raw,FIELD_ALIASES.routine));
+      const nonroutine=clean(extractNestedField(raw,FIELD_ALIASES.nonroutine));
+      const partsText=clean(extractNestedField(raw,FIELD_ALIASES.parts));
+      const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
+      const mods=clean(extractNestedField(raw,FIELD_ALIASES.mods));
       const map=buildFieldMap(raw);
-      const part=normalizePart(extractField(map,FIELD_ALIASES.part));
-      const label=clean(extractField(map,FIELD_ALIASES.label));
-      const finding=clean(extractField(map,FIELD_ALIASES.finding));
-      const action=clean(extractField(map,FIELD_ALIASES.action));
-      const routine=clean(extractField(map,FIELD_ALIASES.routine));
-      const nonroutine=clean(extractField(map,FIELD_ALIASES.nonroutine));
-      const partsText=clean(extractField(map,FIELD_ALIASES.parts));
-      const times=clean(extractField(map,FIELD_ALIASES.times));
-      const mods=clean(extractField(map,FIELD_ALIASES.mods));
       if(!part&&( !finding && !action && !label)) continue;
       if(!part) continue;
       const extras=[];
