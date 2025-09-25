@@ -52,14 +52,23 @@
   const IDB_STORE = 'fs-handles';
 
   function parse(str, fb){ try { return JSON.parse(str); } catch { return fb; } }
+  function blankDoc(){
+    return { __meta:{v:1}, instances:{} };
+  }
   function nowIso(){ return new Date().toISOString(); }
   function loadDoc(){
-    return parse(localStorage.getItem(DOC_KEY), { __meta:{v:1}, instances:{} });
+    const stored = localStorage.getItem(DOC_KEY);
+    if(!stored) return blankDoc();
+    const parsed = parse(stored, null);
+    if(!parsed || typeof parsed !== 'object') return blankDoc();
+    if(!parsed.instances || typeof parsed.instances !== 'object') parsed.instances = {};
+    return parsed;
   }
   function saveDoc(doc){
-    doc.__meta = { v:1, updatedAt: nowIso() };
-    if(!doc.instances) doc.instances = {};
-    localStorage.setItem(DOC_KEY, JSON.stringify(doc));
+    const safe = doc && typeof doc === 'object' ? doc : blankDoc();
+    safe.__meta = { v:1, updatedAt: nowIso() };
+    if(!safe.instances || typeof safe.instances !== 'object') safe.instances = {};
+    localStorage.setItem(DOC_KEY, JSON.stringify(safe));
   }
   function instanceIdOf(root){
     return root.closest('.grid-stack-item')?.dataset?.instanceId || ('inst-' + Math.random().toString(36).slice(2));
