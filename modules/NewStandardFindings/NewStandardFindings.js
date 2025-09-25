@@ -24,25 +24,31 @@
     tag.id=STYLE_ID;
     tag.textContent=`
       .nsf-module{display:flex;flex-direction:column;gap:1rem;height:100%;color:var(--text-color);}
-      .nsf-section{background:rgba(255,255,255,0.08);border-radius:1rem;padding:0.75rem 1rem;display:flex;flex-direction:column;gap:0.65rem;}
-      .nsf-context{display:flex;flex-direction:column;gap:0.75rem;font-size:0.9rem;}
-      .nsf-context-header{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;align-items:stretch;}
-      .nsf-context-item{background:rgba(15,23,42,0.22);border-radius:0.85rem;padding:0.65rem 0.75rem;display:flex;flex-direction:column;gap:0.25rem;min-height:0;}
-      .nsf-context-label{opacity:0.65;font-weight:600;font-size:0.72rem;letter-spacing:0.06em;text-transform:uppercase;}
-      .nsf-context-value{font-weight:600;color:var(--module-header-text,#fff);font-size:0.95rem;}
-      .nsf-header-stats{display:flex;flex-wrap:wrap;gap:0.65rem;}
-      .nsf-context-stat{background:rgba(59,130,246,0.2);color:var(--module-header-text,#fff);border-radius:0.85rem;padding:0.6rem 0.85rem;display:flex;flex-direction:column;gap:0.2rem;min-width:150px;box-shadow:0 12px 24px rgba(15,23,42,0.25);}
-      .nsf-context-stat-value{font-size:1.15rem;font-weight:700;}
-      .nsf-context-stat-label{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;font-weight:600;}
-      .nsf-context-stat-meta{font-size:0.78rem;opacity:0.75;line-height:1.3;}
-      .nsf-context-meta{display:flex;flex-wrap:wrap;gap:0.45rem 1rem;padding:0.15rem 0;}
-      .nsf-section-title{font-weight:600;font-size:1rem;display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;}
-      .nsf-section-title .nsf-count{opacity:0.7;font-size:0.85rem;font-weight:500;}
-      .nsf-controls{display:flex;justify-content:flex-end;}
+      .nsf-section{background:rgba(255,255,255,0.08);border-radius:1rem;padding:0.65rem 0.85rem;display:flex;flex-direction:column;gap:0.55rem;}
+      .nsf-context{display:flex;flex-direction:column;gap:0.6rem;font-size:0.88rem;}
+      .nsf-context-top{display:flex;flex-wrap:wrap;align-items:flex-start;gap:0.65rem;}
+      .nsf-context-info{display:flex;flex-direction:column;gap:0.45rem;flex:1 1 320px;min-width:240px;}
+      .nsf-context-header{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.55rem;align-items:stretch;}
+      .nsf-context-item{background:rgba(15,23,42,0.2);border-radius:0.75rem;padding:0.45rem 0.6rem;display:flex;flex-direction:column;gap:0.2rem;min-height:0;}
+      .nsf-context-label{opacity:0.65;font-weight:600;font-size:0.7rem;letter-spacing:0.05em;text-transform:uppercase;}
+      .nsf-context-value{font-weight:600;color:var(--module-header-text,#fff);font-size:0.9rem;}
+      .nsf-header-stats{display:flex;flex-wrap:wrap;align-items:center;gap:0.45rem;}
+      .nsf-context-stat{background:rgba(59,130,246,0.16);color:var(--module-header-text,#fff);border-radius:0.75rem;padding:0.5rem 0.65rem;display:flex;flex-direction:column;gap:0.2rem;min-width:auto;border:1px solid rgba(59,130,246,0.32);box-shadow:none;}
+      .nsf-context-stat-value{font-size:1rem;font-weight:700;}
+      .nsf-context-stat-label{font-size:0.7rem;letter-spacing:0.07em;text-transform:uppercase;opacity:0.78;font-weight:600;}
+      .nsf-context-stat-meta{font-size:0.74rem;opacity:0.75;line-height:1.3;}
+      .nsf-context-meta{display:flex;flex-wrap:wrap;gap:0.35rem 0.85rem;padding:0.1rem 0;}
+      .nsf-section-title{font-weight:600;font-size:0.98rem;display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;}
+      .nsf-section-title .nsf-count{opacity:0.7;font-size:0.82rem;font-weight:500;}
+      .nsf-controls{display:flex;align-items:flex-start;gap:0.35rem;margin-left:auto;flex:0 0 auto;}
+      .nsf-quick-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:0.25rem;}
+      .nsf-icon-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.55rem;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:inherit;font:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-icon-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
+      .nsf-icon-btn:disabled{opacity:0.45;cursor:not-allowed;background:rgba(255,255,255,0.12);transform:none;}
       .nsf-menu{position:relative;}
-      .nsf-menu-toggle{background:rgba(255,255,255,0.14);border:none;border-radius:0.75rem;padding:0.45rem 0.9rem;color:inherit;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;}
-      .nsf-menu-toggle:hover{background:rgba(255,255,255,0.24);}
-      .nsf-menu-list{position:absolute;right:0;margin-top:0.35rem;background:rgba(15,23,42,0.92);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.45);padding:0.35rem;display:none;flex-direction:column;min-width:220px;z-index:40;backdrop-filter:blur(10px);}
+      .nsf-menu-toggle{background:rgba(255,255,255,0.14);border:none;border-radius:0.6rem;padding:0.35rem 0.55rem;color:inherit;font:inherit;font-size:0.95rem;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-width:2rem;min-height:2rem;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-menu-toggle:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
+      .nsf-menu-list{position:absolute;right:0;margin-top:0.35rem;background:rgba(15,23,42,0.92);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.45);padding:0.35rem;display:none;flex-direction:column;min-width:200px;z-index:40;backdrop-filter:blur(10px);}
       .nsf-menu.open .nsf-menu-list{display:flex;}
       .nsf-menu-item{background:transparent;border:none;border-radius:0.6rem;padding:0.45rem 0.75rem;color:inherit;font:inherit;text-align:left;cursor:pointer;display:flex;align-items:center;gap:0.5rem;}
       .nsf-menu-item:hover{background:rgba(59,130,246,0.18);}
@@ -1036,8 +1042,6 @@
         makeContextItem('Seriennummer',this.serial)
       );
 
-      contextWrap.appendChild(headerRow);
-
       const visibleCount=this.availableEntries.length;
       const totalForPart=this.partEntries.length;
       const totalLabel=totalForPart||this.totalEntries||visibleCount;
@@ -1073,70 +1077,44 @@
         findingsStat.appendChild(meta);
       }
       statsWrap.appendChild(findingsStat);
-      if(statsWrap.childElementCount){
-        contextWrap.appendChild(statsWrap);
-      }
 
-      const metaRow=document.createElement('div');
-      metaRow.className='nsf-context-meta';
-      if(this.currentPart){
-        const source=document.createElement('span');
-        source.className='nsf-inline-info';
-        const sourceLabel=this.partSource==='dictionary'
-          ?'Dictionary'
-          :this.partSource==='aspen-board'
-            ?'Aspen-Board'
-            :this.partSource==='aspen-header'
-              ?'Aspen-Headerdaten'
-              :'Unbekannt';
-        source.textContent=`Partnummer-Quelle: ${sourceLabel}`;
-        metaRow.appendChild(source);
-      }else{
-        const source=document.createElement('span');
-        source.className='nsf-inline-info';
-        source.textContent='Keine Partnummer gefunden';
-        metaRow.appendChild(source);
-      }
-      if(this.hasAspenDoc){
-        const aspenInfo=document.createElement('span');
-        aspenInfo.className='nsf-inline-info';
-        aspenInfo.textContent='Aspen-Daten geladen';
-        metaRow.appendChild(aspenInfo);
-      }
-      if(this.findingsPath){
-        const findingsInfo=document.createElement('span');
-        findingsInfo.className='nsf-inline-info';
-        findingsInfo.textContent=`Findings-Datei: ${this.findingsPath}`;
-        metaRow.appendChild(findingsInfo);
-      }
-      if(metaRow.childElementCount){
-        contextWrap.appendChild(metaRow);
-      }
+      const findingsInput=document.createElement('input');
+      findingsInput.type='file';
+      findingsInput.accept='.json,.txt';
+      findingsInput.style.display='none';
+      findingsInput.addEventListener('change',()=>{
+        const file=findingsInput.files&&findingsInput.files[0];
+        if(file){
+          this.handleFindingsFile(file).finally(()=>{findingsInput.value='';});
+        }
+      });
 
-      contextSection.appendChild(contextWrap);
-
-      if(!this.hasAspenDoc){
-        const warn=document.createElement('div');
-        warn.className='nsf-alert';
-        warn.textContent='Keine Aspen-Daten vorhanden – bitte Datei laden.';
-        contextSection.appendChild(warn);
-      }
-      if(this.dictionaryUsed){
-        const info=document.createElement('div');
-        info.className='nsf-note';
-        info.textContent='Keine Partnummer in Aspen gefunden – Fallback Dictionary.';
-        contextSection.appendChild(info);
-      }
+      const fileInput=document.createElement('input');
+      fileInput.type='file';
+      fileInput.accept='.json,.csv,.txt';
+      fileInput.style.display='none';
+      fileInput.addEventListener('change',()=>{
+        const file=fileInput.files&&fileInput.files[0];
+        if(file){
+          this.handleAspenFile(file).finally(()=>{fileInput.value='';});
+        }
+      });
 
       const controls=document.createElement('div');
       controls.className='nsf-controls';
+
+      const quickActions=document.createElement('div');
+      quickActions.className='nsf-quick-actions';
+      controls.appendChild(quickActions);
 
       const menuWrapper=document.createElement('div');
       menuWrapper.className='nsf-menu';
       const menuButton=document.createElement('button');
       menuButton.type='button';
       menuButton.className='nsf-menu-toggle';
-      menuButton.textContent='☰ Aktionen';
+      menuButton.textContent='⋮';
+      menuButton.title='Weitere Aktionen';
+      menuButton.setAttribute('aria-label','Weitere Aktionen');
       const menuList=document.createElement('div');
       menuList.className='nsf-menu-list';
       menuWrapper.append(menuButton,menuList);
@@ -1179,40 +1157,52 @@
         return item;
       };
 
-      const findingsInput=document.createElement('input');
-      findingsInput.type='file';
-      findingsInput.accept='.json,.txt';
-      findingsInput.style.display='none';
-      findingsInput.addEventListener('change',()=>{
-        const file=findingsInput.files&&findingsInput.files[0];
-        if(file){
-          this.handleFindingsFile(file).finally(()=>{findingsInput.value='';});
-        }
-      });
-      contextSection.appendChild(findingsInput);
-
-      const fileInput=document.createElement('input');
-      fileInput.type='file';
-      fileInput.accept='.json,.csv,.txt';
-      fileInput.style.display='none';
-      fileInput.addEventListener('change',()=>{
-        const file=fileInput.files&&fileInput.files[0];
-        if(file){
-          this.handleAspenFile(file).finally(()=>{fileInput.value='';});
-        }
-      });
-      contextSection.appendChild(fileInput);
-
-      addMenuItem('🧾 Findings-Datei wählen …',()=>findingsInput.click());
-      addMenuItem('📂 Aspen-Datei wählen …',()=>fileInput.click());
-      const toggleItem=addMenuItem(this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen',()=>{
+      const toggleFilter=()=>{
+        if(!this.totalEntries) return;
         this.filterAll=!this.filterAll;
         this.availableEntries=this.filterAll?this.allEntries:this.partEntries;
         this.render();
-      },{disabled:!this.totalEntries});
-      const undoItem=addMenuItem('↩️ Undo',()=>this.applyUndo(),{disabled:!this.undoBuffer});
-      const clearItem=addMenuItem('🗑 Alles löschen',()=>this.clearCurrentState(),{disabled:!this.stateKey});
-      const saveItem=addMenuItem('💾 Alles speichern',()=>this.flushStateSave(true),{disabled:!this.stateKey});
+      };
+      const handleUndo=()=>{this.applyUndo();};
+      const handleClear=()=>{this.clearCurrentState();};
+      const handleSave=()=>{this.flushStateSave(true);};
+
+      const makeIconButton=(icon,label,handler,disabled)=>{
+        const btn=document.createElement('button');
+        btn.type='button';
+        btn.className='nsf-icon-btn';
+        btn.textContent=icon;
+        btn.title=label;
+        btn.setAttribute('aria-label',label);
+        if(disabled) btn.disabled=true;
+        btn.addEventListener('click',()=>{
+          if(btn.disabled) return;
+          handler();
+        });
+        quickActions.appendChild(btn);
+        return btn;
+      };
+
+      const filterBtn=makeIconButton(
+        this.filterAll?'🔒':'🔍',
+        this.filterAll?'PN-Filter aktivieren':'Alle Findings anzeigen',
+        toggleFilter,
+        !this.totalEntries
+      );
+      const undoBtn=makeIconButton('↩️','Undo',handleUndo,!this.undoBuffer);
+      const clearBtn=makeIconButton('🗑','Alles löschen',handleClear,!this.stateKey);
+      const saveBtn=makeIconButton('💾','Alles speichern',handleSave,!this.stateKey);
+
+      addMenuItem('🧾 Findings-Datei wählen …',()=>findingsInput.click());
+      addMenuItem('📂 Aspen-Datei wählen …',()=>fileInput.click());
+      const toggleItem=addMenuItem(
+        this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen',
+        toggleFilter,
+        {disabled:!this.totalEntries}
+      );
+      const undoItem=addMenuItem('↩️ Undo',handleUndo,{disabled:!this.undoBuffer});
+      const clearItem=addMenuItem('🗑 Alles löschen',handleClear,{disabled:!this.stateKey});
+      const saveItem=addMenuItem('💾 Alles speichern',handleSave,{disabled:!this.stateKey});
 
       if(this.totalEntries){
         toggleItem.textContent=this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen';
@@ -1220,8 +1210,75 @@
       undoItem.disabled=!this.undoBuffer;
       clearItem.disabled=!this.stateKey;
       saveItem.disabled=!this.stateKey;
+      filterBtn.disabled=!this.totalEntries;
+      undoBtn.disabled=!this.undoBuffer;
+      clearBtn.disabled=!this.stateKey;
+      saveBtn.disabled=!this.stateKey;
 
-      contextSection.appendChild(controls);
+      const infoStack=document.createElement('div');
+      infoStack.className='nsf-context-info';
+      infoStack.appendChild(headerRow);
+      if(statsWrap.childElementCount){
+        infoStack.appendChild(statsWrap);
+      }
+
+      const topBar=document.createElement('div');
+      topBar.className='nsf-context-top';
+      topBar.append(infoStack,controls);
+      contextWrap.appendChild(topBar);
+
+      const metaRow=document.createElement('div');
+      metaRow.className='nsf-context-meta';
+      if(this.currentPart){
+        const source=document.createElement('span');
+        source.className='nsf-inline-info';
+        const sourceLabel=this.partSource==='dictionary'
+          ?'Dictionary'
+          :this.partSource==='aspen-board'
+            ?'Aspen-Board'
+            :this.partSource==='aspen-header'
+              ?'Aspen-Headerdaten'
+              :'Unbekannt';
+        source.textContent=`Partnummer-Quelle: ${sourceLabel}`;
+        metaRow.appendChild(source);
+      }else{
+        const source=document.createElement('span');
+        source.className='nsf-inline-info';
+        source.textContent='Keine Partnummer gefunden';
+        metaRow.appendChild(source);
+      }
+      if(this.hasAspenDoc){
+        const aspenInfo=document.createElement('span');
+        aspenInfo.className='nsf-inline-info';
+        aspenInfo.textContent='Aspen-Daten geladen';
+        metaRow.appendChild(aspenInfo);
+      }
+      if(this.findingsPath){
+        const findingsInfo=document.createElement('span');
+        findingsInfo.className='nsf-inline-info';
+        findingsInfo.textContent=`Findings-Datei: ${this.findingsPath}`;
+        metaRow.appendChild(findingsInfo);
+      }
+      if(metaRow.childElementCount){
+        contextWrap.appendChild(metaRow);
+      }
+
+      contextSection.appendChild(contextWrap);
+      contextSection.appendChild(findingsInput);
+      contextSection.appendChild(fileInput);
+
+      if(!this.hasAspenDoc){
+        const warn=document.createElement('div');
+        warn.className='nsf-alert';
+        warn.textContent='Keine Aspen-Daten vorhanden – bitte Datei laden.';
+        contextSection.appendChild(warn);
+      }
+      if(this.dictionaryUsed){
+        const info=document.createElement('div');
+        info.className='nsf-note';
+        info.textContent='Keine Partnummer in Aspen gefunden – Fallback Dictionary.';
+        contextSection.appendChild(info);
+      }
 
       const inputSection=document.createElement('div');
       inputSection.className='nsf-section';
