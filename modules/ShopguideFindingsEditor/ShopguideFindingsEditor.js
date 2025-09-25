@@ -288,13 +288,19 @@
       this.element.className='sfe-suggestions';
       container.appendChild(this.element);
       this.items=[];
-      this.active=false;
+      this.isFocused=false;
       this.attach();
     }
     attach(){
       if(!this.focusTarget) return;
-      this.focusTarget.addEventListener('focus',()=>this.update());
-      this.focusTarget.addEventListener('blur',()=>setTimeout(()=>this.hide(),120));
+      this.focusTarget.addEventListener('focus',()=>{
+        this.isFocused=true;
+        this.update();
+      });
+      this.focusTarget.addEventListener('blur',()=>{
+        this.isFocused=false;
+        setTimeout(()=>this.hide(),120);
+      });
       this.focusTarget.addEventListener('input',()=>this.update());
     }
     setValues(values){
@@ -302,6 +308,10 @@
       this.update();
     }
     update(){
+      if(!this.isFocused){
+        this.hide();
+        return;
+      }
       const current=cleanString(this.getValue());
       if(!current){
         this.hide();
