@@ -326,7 +326,7 @@
         const btn=document.createElement('button');
         btn.type='button';
         btn.className='sfe-suggestion';
-        btn.innerHTML=highlight(match,term);
+        btn.textContent=match;
         btn.addEventListener('mousedown',e=>{e.preventDefault();this.setValue(match);this.hide();});
         this.element.appendChild(btn);
       }
@@ -425,6 +425,9 @@
       this.redoBtn.addEventListener('click',()=>this.redo());
       this.saveBtn.addEventListener('click',()=>this.saveNow(true));
       this.searchInput.addEventListener('input',()=>this.applySearch());
+      const refreshHighlight=()=>this.renderWithCurrentSearchTerm();
+      this.searchInput.addEventListener('focus',refreshHighlight);
+      this.searchInput.addEventListener('blur',refreshHighlight);
 
       this.autosaveTimer=setInterval(()=>this.saveNow(false),AUTOSAVE_INTERVAL);
 
@@ -850,6 +853,25 @@
       this.renderFileInfo();
     }
 
+    shouldHighlightSearchTerm(term){
+      if(!term) return false;
+      if(!this.searchInput) return false;
+      return document.activeElement===this.searchInput;
+    }
+
+    renderWithCurrentSearchTerm(){
+      const term=this.searchInput?this.searchInput.value.trim():'';
+      this.renderList(term);
+      if(this.shouldHighlightSearchTerm(term)){
+        this.renderEditor(term);
+      }else if(this.titleEl){
+        const entry=this.data.find(item=>item.id===this.selectedId);
+        if(entry){
+          this.titleEl.textContent=entry.label||'Ohne Label';
+        }
+      }
+    }
+
     renderFileInfo(){
       if(!this.fileInfoEl) return;
       const path=this.filePath||DEFAULT_FILE;
@@ -862,6 +884,7 @@
       if(!this.listEl||!this.listHeaderEl) return;
       this.listEl.innerHTML='';
       this.listHeaderEl.textContent=this.filtered.length;
+      const highlightTerm=this.shouldHighlightSearchTerm(term)?term:'';
       if(!this.filtered.length){
         const empty=document.createElement('div');
         empty.className='sfe-no-results';
@@ -873,12 +896,13 @@
         const item=document.createElement('button');
         item.type='button';
         item.className='sfe-item'+(entry.id===this.selectedId?' active':'');
-        item.innerHTML=`<div class="sfe-item-title">${highlight(entry.label||'Ohne Label',term)}</div>
-          <div class="sfe-item-snippet">${highlight(entry.findings||'',term)}</div>`;
+        item.innerHTML=`<div class="sfe-item-title">${highlight(entry.label||'Ohne Label',highlightTerm)}</div>
+          <div class="sfe-item-snippet">${highlight(entry.findings||'',highlightTerm)}</div>`;
         item.addEventListener('click',()=>{
           this.selectedId=entry.id;
-          this.renderList(term);
-          this.renderEditor(term);
+          const activeTerm=this.shouldHighlightSearchTerm(term)?term:'';
+          this.renderList(activeTerm);
+          this.renderEditor(activeTerm);
         });
         this.listEl.appendChild(item);
       }
@@ -901,7 +925,8 @@
       header.className='sfe-editor-header';
       const title=document.createElement('div');
       title.className='sfe-editor-title';
-      title.innerHTML=term?highlight(entry.label||'Ohne Label',term):escapeHTML(entry.label||'Ohne Label');
+      const highlightTerm=this.shouldHighlightSearchTerm(term)?term:'';
+      title.innerHTML=highlightTerm?highlight(entry.label||'Ohne Label',highlightTerm):escapeHTML(entry.label||'Ohne Label');
       this.titleEl=title;
       header.appendChild(title);
       this.copyBtn=document.createElement('button');
@@ -1116,8 +1141,9 @@
         this.renderList('');
       }
       if(key==='label' && this.titleEl){
-        if(rawTerm){
-          this.titleEl.innerHTML=highlight(entry.label||'Ohne Label',rawTerm);
+        const highlightTerm=this.shouldHighlightSearchTerm(rawTerm)?rawTerm:'';
+        if(highlightTerm){
+          this.titleEl.innerHTML=highlight(entry.label||'Ohne Label',highlightTerm);
         }else{
           this.titleEl.textContent=entry.label||'Ohne Label';
         }
