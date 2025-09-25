@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.4] – 2025-09-27
+### Changed
+- Shopguide Findings Editor auf Version 1.1.2 aktualisiert; Bestelltext (PNText) sowie bis zu sechs Teilenummer-/Mengen-Paare werden nun getrennt erfasst, durchsucht und im Originalformat gespeichert.
+
 ## [3.6.3] – 2025-09-25
 ### Changed
 - Shopguide Findings Editor auf Version 1.1.1 aktualisiert; unterstützt nun den Import verschachtelter Arrays samt Erhalt der Originalstruktur beim Speichern.

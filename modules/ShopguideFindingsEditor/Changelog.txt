@@ -5,6 +5,14 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.2] – 2025-09-27
+### Added
+- Separate Eingabefelder für Bestelltext (`PNText`) und bis zu sechs Paarungen aus Teilenummer und Menge mit seitlichem Rasterlayout.
+- Import und Export übernehmen nun sowohl `PNText` als auch die nummerierten `Part`/`Menge`-Felder strukturgetreu.
+
+### Changed
+- Such- und Kopierfunktionen berücksichtigen jetzt auch Teilenummern und Mengenangaben aus der Bestellsektion.
+
 ## [1.1.1] – 2025-09-25
 ### Added
 - Import-Mapping für verschachtelte Array-Struktur (`Routine`, `NonRoutine`, `Parts`) von `Findings_Shopguide.json`.

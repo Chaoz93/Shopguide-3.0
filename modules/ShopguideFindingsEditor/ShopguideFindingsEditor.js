@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const MODULE_VERSION='1.1.1';
+  const MODULE_VERSION='1.1.2';
   const STORAGE_KEY='shopguide-findings';
   const PATH_KEY='shopguide-findings-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
@@ -11,14 +11,16 @@
   const GLOBAL_HANDLE_KEY='__shopguideFindingsFileHandle';
 
   const FIELD_KEYS=['label','findings','actions','routine','nonroutine','parts'];
+  const PART_PAIR_COUNT=6;
   const FIELD_LABELS={
     label:'Label',
     findings:'Findings',
     actions:'Actions',
     routine:'Routine',
     nonroutine:'Nonroutine',
-    parts:'Bestellliste'
+    parts:'Bestelltext'
   };
+  const PARTS_GRID_LABEL='Bestellnummern & Mengen';
 
   function injectStyles(){
     if(document.getElementById(STYLE_ID)) return;
@@ -52,6 +54,18 @@
       .sfe-fields{display:flex;flex-direction:column;gap:0.65rem;flex:1;overflow-y:auto;padding-right:0.25rem;}
       .sfe-field{display:flex;flex-direction:column;gap:0.35rem;background:rgba(15,23,42,0.2);border-radius:0.75rem;padding:0.55rem 0.65rem;position:relative;}
       .sfe-field label{font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .sfe-parts-grid-field{gap:0.55rem;}
+      .sfe-parts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.5rem;}
+      .sfe-part-pair{background:rgba(15,23,42,0.32);border-radius:0.65rem;padding:0.45rem 0.5rem;display:flex;flex-direction:column;gap:0.35rem;}
+      .sfe-part-pair-title{font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .sfe-part-pair-body{display:flex;gap:0.4rem;align-items:flex-end;}
+      .sfe-part-block,.sfe-qty-block{display:flex;flex-direction:column;gap:0.3rem;flex:1;}
+      .sfe-part-block{flex:2;}
+      .sfe-part-block label,.sfe-qty-block label{font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .sfe-part-block .sfe-input,.sfe-qty-block .sfe-input{height:2.6rem;}
+      @media (max-width:720px){
+        .sfe-part-pair-body{flex-direction:column;align-items:stretch;}
+      }
       .sfe-input,.sfe-textarea{width:100%;border:none;border-radius:0.55rem;padding:0.55rem 0.65rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);resize:vertical;min-height:2.6rem;}
       .sfe-input{height:2.6rem;}
       .sfe-textarea{min-height:5.5rem;}
@@ -80,6 +94,15 @@
     if(value==null) return '';
     const text=String(value);
     return text.trim?text.trim():text;
+  }
+
+  function pickFirstFilled(...values){
+    for(const value of values){
+      if(value==null) continue;
+      const cleaned=cleanString(value);
+      if(cleaned) return cleaned;
+    }
+    return '';
   }
 
   function cloneData(value){
@@ -112,11 +135,82 @@
     return value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   }
 
+  function getPartsContainer(source){
+    if(source&&typeof source==='object'&&source.Parts&&typeof source.Parts==='object') return source.Parts;
+    return source&&typeof source==='object'?source:{};
+  }
+
+  function extractPartPairs(source){
+    const container=getPartsContainer(source);
+    const result=[];
+    for(let index=0;index<PART_PAIR_COUNT;index+=1){
+      const partValue=pickFirstFilled(
+        container[`Part ${index+1}`],
+        container[`Part${index+1}`],
+        container[`PN ${index+1}`],
+        container[`pn${index+1}`]
+      );
+      const quantityValue=pickFirstFilled(
+        container[`Menge ${index+1}`],
+        container[`Menge${index+1}`],
+        container[`Qty ${index+1}`],
+        container[`qty${index+1}`]
+      );
+      result.push({part:partValue,quantity:quantityValue});
+    }
+    return result;
+  }
+
+  function applyPartPairs(container,pairs){
+    if(!container||typeof container!=='object') return;
+    const list=Array.isArray(pairs)?pairs:[];
+    for(let index=0;index<PART_PAIR_COUNT;index+=1){
+      const pair=list[index]||{};
+      const part=cleanString(pair.part);
+      const quantity=cleanString(pair.quantity);
+      container[`Part ${index+1}`]=part;
+      container[`Menge ${index+1}`]=quantity;
+      if(Object.prototype.hasOwnProperty.call(container,`Part${index+1}`)) container[`Part${index+1}`]=part;
+      if(Object.prototype.hasOwnProperty.call(container,`PN ${index+1}`)) container[`PN ${index+1}`]=part;
+      if(Object.prototype.hasOwnProperty.call(container,`pn${index+1}`)) container[`pn${index+1}`]=part;
+      if(Object.prototype.hasOwnProperty.call(container,`Menge${index+1}`)) container[`Menge${index+1}`]=quantity;
+      if(Object.prototype.hasOwnProperty.call(container,`Qty ${index+1}`)) container[`Qty ${index+1}`]=quantity;
+      if(Object.prototype.hasOwnProperty.call(container,`qty${index+1}`)) container[`qty${index+1}`]=quantity;
+    }
+  }
+
+  function normalizePartsPairs(entry){
+    const result=[];
+    const fallback=extractPartPairs(entry);
+    const arraySource=entry&&Array.isArray(entry.partsPairs)?entry.partsPairs:[];
+    for(let index=0;index<PART_PAIR_COUNT;index+=1){
+      const candidate=arraySource[index]||{};
+      const defaults=fallback[index]||{part:'',quantity:''};
+      const partValue=pickFirstFilled(
+        candidate.part,
+        candidate.Part,
+        candidate[`Part ${index+1}`],
+        candidate[`part${index+1}`],
+        defaults.part
+      );
+      const quantityValue=pickFirstFilled(
+        candidate.quantity,
+        candidate.Quantity,
+        candidate[`Menge ${index+1}`],
+        candidate[`menge${index+1}`],
+        defaults.quantity
+      );
+      result.push({part:partValue,quantity:quantityValue});
+    }
+    return result;
+  }
+
   function normalizeEntry(entry){
     const normalized={id:entry&&entry.id?String(entry.id):ensureId()};
     for(const key of FIELD_KEYS){
       normalized[key]=cleanString(entry?entry[key]:'' );
     }
+    normalized.partsPairs=normalizePartsPairs(entry);
     return normalized;
   }
 
@@ -127,7 +221,21 @@
     if(entry.actions) parts.push(`Actions: ${entry.actions}`);
     if(entry.routine) parts.push(`Routine: ${entry.routine}`);
     if(entry.nonroutine) parts.push(`Nonroutine: ${entry.nonroutine}`);
-    if(entry.parts) parts.push(`Bestellliste: ${entry.parts}`);
+    if(entry.parts) parts.push(`Bestelltext: ${entry.parts}`);
+    if(entry.partsPairs&&entry.partsPairs.length){
+      const pairLines=[];
+      entry.partsPairs.forEach((pair,index)=>{
+        if(!pair) return;
+        const part=cleanString(pair.part);
+        const quantity=cleanString(pair.quantity);
+        if(!part && !quantity) return;
+        const base=`PN ${index+1}: ${part||'–'}`;
+        pairLines.push(quantity?`${base} (Menge: ${quantity})`:base);
+      });
+      if(pairLines.length){
+        parts.push(`${PARTS_GRID_LABEL}:\n${pairLines.join('\n')}`);
+      }
+    }
     return parts.join('\n\n');
   }
 
@@ -464,7 +572,7 @@
               const id=source.id!=null?String(source.id):ensureId();
               const routineSource=(source.Routine&&typeof source.Routine==='object')?source.Routine:(source.routine&&typeof source.routine==='object'?source.routine:{});
               const nonRoutineSource=(source.NonRoutine&&typeof source.NonRoutine==='object')?source.NonRoutine:(source.nonRoutine&&typeof source.nonRoutine==='object'?source.nonRoutine:(source.Nonroutine&&typeof source.Nonroutine==='object'?source.Nonroutine:{}));
-              const partsSource=(source.Parts&&typeof source.Parts==='object')?source.Parts:(source.parts&&typeof source.parts==='object'?source.parts:{});
+              const partsSource=getPartsContainer(source.Parts||source.parts);
               const labelCandidates=[source.Label,source.label,source.Part,source.part,source.PartNumber];
               let labelValue='';
               for(const candidate of labelCandidates){
@@ -475,6 +583,8 @@
                   break;
                 }
               }
+              const pnText=pickFirstFilled(partsSource.PNText,partsSource.pnText,source.PNText,source.pnText);
+              const partPairs=extractPartPairs(partsSource);
               const mapped={
                 id,
                 label:labelValue,
@@ -482,7 +592,8 @@
                 actions:source.Actions!=null?source.Actions:source.actions,
                 routine:routineSource&&typeof routineSource==='object'? (routineSource.RoutineFinding!=null?routineSource.RoutineFinding:routineSource.routineFinding):'',
                 nonroutine:nonRoutineSource&&typeof nonRoutineSource==='object'? (nonRoutineSource.NonRoutineFinding!=null?nonRoutineSource.NonRoutineFinding:nonRoutineSource.nonRoutineFinding):'',
-                parts:partsSource&&typeof partsSource==='object'? (partsSource.PNText!=null?partsSource.PNText:partsSource.pnText):''
+                parts:pnText,
+                partsPairs:partPairs
               };
               this.rawById.set(id,cloneData(source));
               return mapped;
@@ -507,6 +618,9 @@
               }
             }
             if(!cleanString(labelValue)) labelValue=partNumber;
+            const partsSource=getPartsContainer(source.Parts||source.parts);
+            const pnText=pickFirstFilled(partsSource.PNText,partsSource.pnText,source.Bestellliste,source.bestellliste,source.PNText,source.pnText,source.parts);
+            const partPairs=extractPartPairs(source);
             const mapped={
               id,
               label:labelValue,
@@ -514,7 +628,8 @@
               actions:source.Actions!=null?source.Actions:source.actions,
               routine:source.Routine!=null?source.Routine:source.routine,
               nonroutine:source.Nonroutine!=null?source.Nonroutine:source.nonroutine,
-              parts:source.Bestellliste!=null?source.Bestellliste:source.parts
+              parts:pnText,
+              partsPairs:partPairs
             };
             this.rawById.set(id,cloneData(source));
             this.partById.set(id,partNumber);
@@ -590,7 +705,10 @@
             raw.Nonroutine.NonRoutineFinding=entry.nonroutine||'';
           }
           if(!raw.Parts||typeof raw.Parts!=='object') raw.Parts={};
-          raw.Parts.PNText=entry.parts||'';
+          const pnTextValue=entry.parts||'';
+          raw.Parts.PNText=pnTextValue;
+          if(Object.prototype.hasOwnProperty.call(raw.Parts,'pnText')) raw.Parts.pnText=pnTextValue;
+          applyPartPairs(raw.Parts,entry.partsPairs);
           this.rawById.set(entry.id,cloneData(raw));
           result.push(raw);
         }
@@ -606,7 +724,16 @@
           raw.Actions=entry.actions||'';
           raw.Routine=entry.routine||'';
           raw.Nonroutine=entry.nonroutine||'';
-          raw.Bestellliste=entry.parts||'';
+          const pnTextValue=entry.parts||'';
+          if(!raw.Parts||typeof raw.Parts!=='object') raw.Parts={PNText:pnTextValue};
+          raw.Parts.PNText=pnTextValue;
+          if(Object.prototype.hasOwnProperty.call(raw.Parts,'pnText')) raw.Parts.pnText=pnTextValue;
+          applyPartPairs(raw.Parts,entry.partsPairs);
+          applyPartPairs(raw,entry.partsPairs);
+          raw.Bestellliste=pnTextValue;
+          if(Object.prototype.hasOwnProperty.call(raw,'bestellliste')) raw.bestellliste=pnTextValue;
+          if(Object.prototype.hasOwnProperty.call(raw,'Bestelltext')) raw.Bestelltext=pnTextValue;
+          if(Object.prototype.hasOwnProperty.call(raw,'bestelltext')) raw.bestelltext=pnTextValue;
           let key=this.partById.get(entry.id)||'';
           key=cleanString(key);
           if(!key){
@@ -626,7 +753,7 @@
         }
         return result;
       }
-      return this.data.map(entry=>({...entry}));
+      return this.data.map(entry=>cloneData(entry));
     }
 
     async saveNow(force){
@@ -675,6 +802,15 @@
         this.filtered=this.data.filter(entry=>{
           for(const key of FIELD_KEYS){
             if(entry[key] && entry[key].toLowerCase().includes(term)) return true;
+          }
+          if(Array.isArray(entry.partsPairs)){
+            for(const pair of entry.partsPairs){
+              if(!pair) continue;
+              const part=pair.part?pair.part.toLowerCase():'';
+              const qty=pair.quantity?pair.quantity.toLowerCase():'';
+              if(part && part.includes(term)) return true;
+              if(qty && qty.includes(term)) return true;
+            }
           }
           return false;
         });
@@ -765,8 +901,13 @@
       fields.className='sfe-fields';
       this.editorEl.appendChild(fields);
       this.activeFieldControllers={};
+      this.ensurePartsPairs(entry);
 
       for(const key of FIELD_KEYS){
+        if(key==='parts'){
+          this.renderPartsSection(fields,entry);
+          continue;
+        }
         const field=document.createElement('div');
         field.className='sfe-field';
         const label=document.createElement('label');
@@ -796,6 +937,105 @@
       }
     }
 
+    ensurePartsPairs(entry){
+      if(!entry) return [];
+      if(!Array.isArray(entry.partsPairs)||entry.partsPairs.length!==PART_PAIR_COUNT){
+        entry.partsPairs=normalizePartsPairs(entry);
+      }
+      return entry.partsPairs;
+    }
+
+    renderPartsSection(container,entry){
+      const textField=document.createElement('div');
+      textField.className='sfe-field';
+      const textLabel=document.createElement('label');
+      textLabel.textContent=FIELD_LABELS.parts;
+      textLabel.setAttribute('for',`${entry.id}-parts`);
+      textField.appendChild(textLabel);
+      const textarea=document.createElement('textarea');
+      textarea.className='sfe-textarea';
+      textarea.id=`${entry.id}-parts`;
+      textarea.value=entry.parts||'';
+      textarea.placeholder=`${FIELD_LABELS.parts} eingeben`;
+      textarea.addEventListener('input',()=>{
+        const value=cleanString(textarea.value);
+        this.updateEntry(entry.id,'parts',value);
+      });
+      textarea.addEventListener('blur',()=>{
+        this.activeHistorySignature=null;
+      });
+      textField.appendChild(textarea);
+      const controller=new SuggestionsController(textField,this.getSuggestionsFor('parts'),()=>textarea.value,(val)=>{
+        textarea.value=val;
+        this.updateEntry(entry.id,'parts',cleanString(val));
+      });
+      this.activeFieldControllers.parts=controller;
+      container.appendChild(textField);
+
+      const gridField=document.createElement('div');
+      gridField.className='sfe-field sfe-parts-grid-field';
+      const gridLabel=document.createElement('label');
+      gridLabel.textContent=PARTS_GRID_LABEL;
+      gridField.appendChild(gridLabel);
+      const grid=document.createElement('div');
+      grid.className='sfe-parts-grid';
+      gridField.appendChild(grid);
+      const pairs=this.ensurePartsPairs(entry);
+      pairs.forEach((pair,index)=>{
+        const pairWrapper=document.createElement('div');
+        pairWrapper.className='sfe-part-pair';
+        const title=document.createElement('div');
+        title.className='sfe-part-pair-title';
+        title.textContent=`PN ${index+1} · Menge ${index+1}`;
+        pairWrapper.appendChild(title);
+        const body=document.createElement('div');
+        body.className='sfe-part-pair-body';
+        const partBlock=document.createElement('div');
+        partBlock.className='sfe-part-block';
+        const partLabel=document.createElement('label');
+        partLabel.textContent=`PN ${index+1}`;
+        partLabel.setAttribute('for',`${entry.id}-part-${index+1}`);
+        const partInput=document.createElement('input');
+        partInput.className='sfe-input';
+        partInput.id=`${entry.id}-part-${index+1}`;
+        partInput.value=pair&&pair.part?pair.part:'';
+        partInput.placeholder='Teilenummer';
+        partInput.addEventListener('input',()=>{
+          const value=cleanString(partInput.value);
+          this.updatePartPair(entry.id,index,'part',value);
+        });
+        partInput.addEventListener('blur',()=>{
+          this.activeHistorySignature=null;
+        });
+        partBlock.appendChild(partLabel);
+        partBlock.appendChild(partInput);
+        const qtyBlock=document.createElement('div');
+        qtyBlock.className='sfe-qty-block';
+        const qtyLabel=document.createElement('label');
+        qtyLabel.textContent=`Menge ${index+1}`;
+        qtyLabel.setAttribute('for',`${entry.id}-qty-${index+1}`);
+        const qtyInput=document.createElement('input');
+        qtyInput.className='sfe-input';
+        qtyInput.id=`${entry.id}-qty-${index+1}`;
+        qtyInput.value=pair&&pair.quantity?pair.quantity:'';
+        qtyInput.placeholder='Menge';
+        qtyInput.addEventListener('input',()=>{
+          const value=cleanString(qtyInput.value);
+          this.updatePartPair(entry.id,index,'quantity',value);
+        });
+        qtyInput.addEventListener('blur',()=>{
+          this.activeHistorySignature=null;
+        });
+        qtyBlock.appendChild(qtyLabel);
+        qtyBlock.appendChild(qtyInput);
+        body.appendChild(partBlock);
+        body.appendChild(qtyBlock);
+        pairWrapper.appendChild(body);
+        grid.appendChild(pairWrapper);
+      });
+      container.appendChild(gridField);
+    }
+
     getSuggestionsFor(key){
       const set=new Set();
       for(const entry of this.data){
@@ -812,32 +1052,39 @@
       }
     }
 
-    updateEntry(id,key,value){
-      const entry=this.data.find(item=>item.id===id);
-      if(!entry) return;
-      if(entry[key]===value) return;
-      const signature=`${id}:${key}`;
-      if(this.activeHistorySignature!==signature){
-        this.pushHistory();
-        this.activeHistorySignature=signature;
-      }
-      entry[key]=value||'';
+    refreshViewAfterChange(entry,key){
       this.dirty=true;
+      if(!this.searchInput){
+        this.updateSuggestions();
+        return;
+      }
       const rawTerm=this.searchInput.value.trim();
       const term=rawTerm.toLowerCase();
-      if(term){
-        const filtered=this.data.filter(item=>{
-          for(const field of FIELD_KEYS){
-            if(item[field] && item[field].toLowerCase().includes(term)) return true;
+      const matchesSearch=item=>{
+        for(const field of FIELD_KEYS){
+          if(item[field] && item[field].toLowerCase().includes(term)) return true;
+        }
+        if(Array.isArray(item.partsPairs)){
+          for(const pair of item.partsPairs){
+            if(!pair) continue;
+            const part=pair.part?pair.part.toLowerCase():'';
+            const qty=pair.quantity?pair.quantity.toLowerCase():'';
+            if(part && part.includes(term)) return true;
+            if(qty && qty.includes(term)) return true;
           }
-          return false;
-        });
+        }
+        return false;
+      };
+      if(term){
+        const filtered=this.data.filter(item=>matchesSearch(item));
         const hadSelected=filtered.some(item=>item.id===this.selectedId);
         this.filtered=filtered;
         this.renderList(rawTerm);
         if(!hadSelected){
           this.selectedId=filtered[0]?filtered[0].id:null;
           this.renderEditor(rawTerm);
+          this.updateSuggestions();
+          return;
         }
       }else{
         this.filtered=[...this.data];
@@ -853,11 +1100,45 @@
       this.updateSuggestions();
     }
 
+    updateEntry(id,key,value){
+      const entry=this.data.find(item=>item.id===id);
+      if(!entry) return;
+      if(entry[key]===value) return;
+      const signature=`${id}:${key}`;
+      if(this.activeHistorySignature!==signature){
+        this.pushHistory();
+        this.activeHistorySignature=signature;
+      }
+      entry[key]=value||'';
+      this.refreshViewAfterChange(entry,key);
+    }
+
+    updatePartPair(id,index,type,value){
+      const entry=this.data.find(item=>item.id===id);
+      if(!entry) return;
+      const pairs=this.ensurePartsPairs(entry);
+      const targetIndex=Math.max(0,Math.min(index,PART_PAIR_COUNT-1));
+      const pair=pairs[targetIndex]||{part:'',quantity:''};
+      if(pair[type]===value) return;
+      const signature=`${id}:partsPairs:${targetIndex}:${type}`;
+      if(this.activeHistorySignature!==signature){
+        this.pushHistory();
+        this.activeHistorySignature=signature;
+      }
+      pair[type]=value||'';
+      pairs[targetIndex]=pair;
+      entry.partsPairs=pairs;
+      this.refreshViewAfterChange(entry,'partsPairs');
+    }
+
     createEntry(){
       const entry=normalizeEntry({label:'',findings:'',actions:'',routine:'',nonroutine:'',parts:''});
+      this.ensurePartsPairs(entry);
       this.pushHistory();
       this.data.unshift(entry);
       if(this.sourceFormat==='array-nested'){
+        const partsContainer={PNText:''};
+        applyPartPairs(partsContainer,entry.partsPairs);
         this.rawById.set(entry.id,{
           Part:'',
           Label:'',
@@ -865,17 +1146,22 @@
           Actions:'',
           Routine:{RoutineFinding:''},
           NonRoutine:{NonRoutineFinding:''},
-          Parts:{PNText:''}
+          Parts:partsContainer
         });
       }else if(this.sourceFormat==='object-by-pn'){
-        this.rawById.set(entry.id,{
+        const partsContainer={PNText:''};
+        applyPartPairs(partsContainer,entry.partsPairs);
+        const raw={
           Label:'',
           Findings:'',
           Actions:'',
           Routine:'',
           Nonroutine:'',
-          Bestellliste:''
-        });
+          Bestellliste:'',
+          Parts:partsContainer
+        };
+        applyPartPairs(raw,entry.partsPairs);
+        this.rawById.set(entry.id,raw);
         this.partById.set(entry.id,'');
       }
       this.selectedId=entry.id;
