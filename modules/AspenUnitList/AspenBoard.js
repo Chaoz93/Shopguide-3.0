@@ -929,14 +929,60 @@
       window.dispatchEvent(new Event(CUSTOM_BROADCAST));
     }
 
+    function triggerCardActivation(card,{toggle=false}={}){
+      if(!card) return;
+      handleSelection(card,{toggle});
+      if(!toggle){
+        activateMeldung(card.dataset.meldung||'');
+      }
+    }
+
+    let pointerState=null;
+    let lastPointerActivation={id:'',time:0};
+
+    function pointerKeyFor(card){
+      if(!card) return '';
+      return card.dataset.id||card.dataset.meldung||'';
+    }
+
+    function handleCardPointerDown(event){
+      if(event.button!==0) return;
+      const card=event.target.closest('.db-card');
+      if(!card) return;
+      pointerState={
+        card,
+        toggle:event.ctrlKey||event.metaKey,
+        x:event.clientX,
+        y:event.clientY
+      };
+    }
+
+    function handleCardPointerUp(event){
+      if(!pointerState) return;
+      const {card,toggle,x,y}=pointerState;
+      pointerState=null;
+      const target=event.target.closest('.db-card');
+      if(!target || target!==card) return;
+      const dx=Math.abs((event.clientX||0)-x);
+      const dy=Math.abs((event.clientY||0)-y);
+      if(dx>5 || dy>5) return;
+      triggerCardActivation(card,{toggle});
+      lastPointerActivation={id:pointerKeyFor(card),time:Date.now()};
+    }
+
+    function cancelPointerTracking(){
+      pointerState=null;
+    }
+
     function handleCardClick(event){
       const card=event.target.closest('.db-card');
       if(!card) return;
-      const isMulti=event.ctrlKey||event.metaKey;
-      handleSelection(card,{toggle:isMulti});
-      if(!isMulti){
-        activateMeldung(card.dataset.meldung||'');
+      const key=pointerKeyFor(card);
+      if(key && Date.now()-lastPointerActivation.time<200 && lastPointerActivation.id===key){
+        return;
       }
+      const isMulti=event.ctrlKey||event.metaKey;
+      triggerCardActivation(card,{toggle:isMulti});
     }
 
     function prepareDrag(evt){
@@ -1344,7 +1390,15 @@
       });
     }
 
+    elements.list.addEventListener('pointerdown',handleCardPointerDown);
+    elements.list.addEventListener('pointerup',handleCardPointerUp);
+    elements.list.addEventListener('pointercancel',cancelPointerTracking);
+    elements.list.addEventListener('pointerleave',cancelPointerTracking);
     elements.list.addEventListener('click',handleCardClick);
+    elements.activeList.addEventListener('pointerdown',handleCardPointerDown);
+    elements.activeList.addEventListener('pointerup',handleCardPointerUp);
+    elements.activeList.addEventListener('pointercancel',cancelPointerTracking);
+    elements.activeList.addEventListener('pointerleave',cancelPointerTracking);
     elements.activeList.addEventListener('click',handleCardClick);
 
     elements.menu.addEventListener('click',e=>e.stopPropagation());
