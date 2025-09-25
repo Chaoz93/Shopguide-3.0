@@ -16,7 +16,8 @@
     .db-column{flex:1;display:flex;flex-direction:column;min-width:0;}
     .db-column-right{display:none;}
     .db-column-right.is-visible{display:flex;}
-    .db-column-title{font-weight:600;color:var(--dl-title,#2563eb);margin-bottom:.35rem;}
+    .db-column-title{font-weight:600;color:var(--dl-title,#2563eb);margin-bottom:.35rem;display:flex;align-items:center;gap:.35rem;}
+    .db-column-count{font-size:.8rem;font-weight:600;color:var(--dl-sub,#4b5563);background:rgba(0,0,0,.08);padding:.1rem .5rem;border-radius:999px;}
     .db-toolbar{display:flex;align-items:center;gap:.5rem;}
     .db-search{flex:1;padding:.45rem .65rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:#000;font-size:.9rem;transition:border-color .2s ease,box-shadow .2s ease;}
     .db-search:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
@@ -80,6 +81,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
   const DEFAULT_SUB_FIELD = 'AUFTRAGS_NO';
   const LS_DOC = 'module_data_v1';
   const LS_STATE = 'aspenUnitListState';
+  const LS_ACTIVE_DEVICES_PREFIX = 'aspenActiveDevices';
   const CUSTOM_BROADCAST = 'unitBoard:update';
 
   function injectStyles(){
@@ -401,6 +403,51 @@ der-radius:.4rem;background:transparent;color:inherit;}
     });
   }
 
+  function activeDevicesKey(instanceId){
+    const safeId=typeof instanceId==='string'?instanceId.trim():'';
+    const key=safeId||'default';
+    return `${LS_ACTIVE_DEVICES_PREFIX}:${key}`;
+  }
+
+  function normalizeActiveDevice(raw,partField){
+    if(!raw) return null;
+    const meldungSource=raw.meldung??raw.data?.[MELDUNG_FIELD];
+    const meldung=String(meldungSource||'').trim();
+    if(!meldung) return null;
+    const id=typeof raw.id==='string'?raw.id:`act-${Math.random().toString(36).slice(2)}`;
+    const partSource=raw.part??raw.data?.[partField]??raw.data?.[DEFAULT_SUB_FIELD];
+    const part=String(partSource||'').trim();
+    const data={};
+    if(raw.data && typeof raw.data==='object'){
+      Object.keys(raw.data).forEach(key=>{data[key]=raw.data[key];});
+    }
+    if(partField && part && !data[partField]){
+      data[partField]=part;
+    }
+    if(!data[MELDUNG_FIELD]) data[MELDUNG_FIELD]=meldung;
+    if(raw.title && !data[TITLE_FIELD]) data[TITLE_FIELD]=raw.title;
+    return {id,part,meldung,data};
+  }
+
+  function loadActiveDevicesFromStorage(instanceId,partField){
+    try{
+      const raw=localStorage.getItem(activeDevicesKey(instanceId));
+      if(!raw) return [];
+      const parsed=JSON.parse(raw);
+      if(!Array.isArray(parsed)) return [];
+      return dedupeByMeldung(parsed.map(item=>normalizeActiveDevice(item,partField)).filter(Boolean));
+    }catch(err){
+      return [];
+    }
+  }
+
+  function saveActiveDevicesToStorage(instanceId,list,partField){
+    const payload=(Array.isArray(list)?list:[])
+      .map(item=>normalizeActiveDevice(item,partField))
+      .filter(Boolean);
+    try{localStorage.setItem(activeDevicesKey(instanceId),JSON.stringify(payload));}catch(err){/* ignore */}
+  }
+
   const parseJson=s=>{try{return JSON.parse(s)||{};}catch{return{};}};
   const loadDoc=()=>parseJson(localStorage.getItem(LS_DOC));
   const saveDoc=doc=>localStorage.setItem(LS_DOC,JSON.stringify(doc));
@@ -433,7 +480,10 @@ der-radius:.4rem;background:transparent;color:inherit;}
             <div class="db-list"></div>
           </div>
           <div class="db-column db-column-right">
-            <div class="db-column-title">Active Device List</div>
+            <div class="db-column-title">
+              <span class="db-column-title-text">Active Device List</span>
+              <span class="db-column-count">(0)</span>
+            </div>
             <div class="db-list db-active-list"></div>
           </div>
         </div>
@@ -463,6 +513,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       list:root.querySelector('.db-column-left .db-list'),
       activeList:root.querySelector('.db-active-list'),
       activeColumn:root.querySelector('.db-column-right'),
+      activeCount:root.querySelector('.db-column-count'),
       toggleBtn:root.querySelector('.db-toggle-active'),
       titleText:root.querySelector('.db-title-text'),
       search:root.querySelector('.db-search'),
@@ -496,7 +547,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       excluded:new Set(),
       filePath:'',
       searchQuery:'',
-      activeListVisible:false
+      activeListVisible:false,
+      activeDevices:[]
     };
   }
 
@@ -700,6 +752,84 @@ der-radius:.4rem;background:transparent;color:inherit;}
     let tempSubFields=[];
 
     restoreState(state);
+    state.activeDevices=loadActiveDevicesFromStorage(instanceId,state.config.partField);
+
+    function ensureActiveDevice(item){
+      return normalizeActiveDevice(item,state.config.partField);
+    }
+
+    function persistActiveDevices(){
+      saveActiveDevicesToStorage(instanceId,state.activeDevices,state.config.partField);
+    }
+
+    function updateActiveCounter(){
+      if(!elements.activeCount) return;
+      const count=Array.isArray(state.activeDevices)?state.activeDevices.length:0;
+      elements.activeCount.textContent=`(${count})`;
+    }
+
+    function renderActiveList({persist=true}={}){
+      if(!elements.activeList) return;
+      const normalized=(Array.isArray(state.activeDevices)?state.activeDevices:[])
+        .map(ensureActiveDevice)
+        .filter(Boolean);
+      state.activeDevices=dedupeByMeldung(normalized);
+      if(!state.activeDevices.length){
+        elements.activeList.innerHTML='<div class="db-empty">Keine aktiven Geräte</div>';
+      }else{
+        const html=state.activeDevices.map(item=>buildCardMarkup(item,state.config)).join('');
+        elements.activeList.innerHTML=html;
+        const nodes=elements.activeList.querySelectorAll('.db-card');
+        state.activeDevices.forEach((item,index)=>{
+          const node=nodes[index];
+          if(node){
+            node.__aspenItem=item;
+          }
+        });
+      }
+      updateActiveCounter();
+      updateHighlights(elements.activeList);
+      if(persist) persistActiveDevices();
+    }
+
+    function syncActiveOrderFromDOM(){
+      if(!elements.activeList) return;
+      const map=new Map(state.activeDevices.map(item=>[item.meldung,item]));
+      const ordered=[];
+      elements.activeList.querySelectorAll('.db-card').forEach(node=>{
+        const meldung=(node.dataset.meldung||'').trim();
+        if(!meldung) return;
+        const item=map.get(meldung);
+        if(item) ordered.push(item);
+      });
+      if(ordered.length){
+        state.activeDevices=ordered;
+      }
+    }
+
+    function extractActiveDeviceFromNode(node){
+      if(!node) return null;
+      const meldung=(node.dataset.meldung||'').trim();
+      if(!meldung) return null;
+      const existing=state.items.find(item=>item.meldung===meldung)||state.activeDevices.find(item=>item.meldung===meldung);
+      if(existing) return ensureActiveDevice(existing);
+      const part=(node.dataset.part||'').trim();
+      const data={};
+      node.querySelectorAll('.db-sub-line').forEach(line=>{
+        const field=line.dataset.field;
+        if(field) data[field]=line.textContent||'';
+      });
+      const title=node.querySelector('.db-title')?.textContent||'';
+      if(title) data[TITLE_FIELD]=title;
+      data[MELDUNG_FIELD]=meldung;
+      const item={
+        id:node.dataset.id||`act-${Math.random().toString(36).slice(2)}`,
+        part,
+        meldung,
+        data
+      };
+      return ensureActiveDevice(item);
+    }
 
     function setActiveListVisibility(visible,{persist=true}={}){
       const show=typeof visible==='boolean'?visible:!state.activeListVisible;
@@ -789,6 +919,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       renderList(elements,state);
       SHARED.publishAspenItems(instanceId,state.items);
       refreshMenu(elements,state,render);
+      renderActiveList({persist:false});
     }
 
     populateFieldSelects();
@@ -905,6 +1036,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       }
       persistState(state);
       render();
+      renderActiveList();
       closeOptions();
     });
 
@@ -924,6 +1056,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       state.excluded.clear();
       render();
       persistState(state);
+      renderActiveList();
     });
 
     elements.list.addEventListener('click',event=>{
@@ -950,8 +1083,16 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!elements.menu.contains(event.target)) closeMenu();
     });
 
-    window.addEventListener('storage',event=>{if(event.key===LS_DOC) updateHighlights(elements.list);});
-    window.addEventListener(CUSTOM_BROADCAST,()=>updateHighlights(elements.list));
+    window.addEventListener('storage',event=>{
+      if(event.key===LS_DOC){
+        updateHighlights(elements.list);
+        updateHighlights(elements.activeList);
+      }
+    });
+    window.addEventListener(CUSTOM_BROADCAST,()=>{
+      updateHighlights(elements.list);
+      updateHighlights(elements.activeList);
+    });
 
     const mo=new MutationObserver(()=>{
       if(!document.body.contains(elements.root)){
@@ -1001,20 +1142,68 @@ der-radius:.4rem;background:transparent;color:inherit;}
         state.excluded.clear();
         populateFieldSelects();
         render();
+        renderActiveList();
       }catch(error){console.error(error);}
     }
 
     await ensureSortable();
     new Sortable(elements.list,{
-      group:{name:GROUP_NAME,pull:true,put:true},
+      group:{name:GROUP_NAME,pull:'clone',put:true},
       animation:150,
       handle:'.db-handle',
       draggable:'.db-card',
       ghostClass:'db-ghost',
       chosenClass:'db-chosen',
       onSort:()=>{syncFromDOM();render();},
-      onAdd:evt=>{syncFromDOM();render();if(SHARED?.handleAspenToDeviceDrop) void SHARED.handleAspenToDeviceDrop(evt,{});},
-      onRemove:()=>{syncFromDOM();render();}
+      onAdd:evt=>{
+        if(evt.item && evt.item.parentNode===elements.list){
+          evt.item.remove();
+        }
+        if(evt.from===elements.activeList){
+          renderActiveList();
+        }
+      }
+    });
+    new Sortable(elements.activeList,{
+      group:{name:GROUP_NAME,pull:true,put:true},
+      animation:150,
+      handle:'.db-handle',
+      draggable:'.db-card',
+      ghostClass:'db-ghost',
+      chosenClass:'db-chosen',
+      onSort:()=>{syncActiveOrderFromDOM();renderActiveList();},
+      onAdd:evt=>{
+        const device=extractActiveDeviceFromNode(evt.item);
+        if(!device){
+          renderActiveList();
+          return;
+        }
+        if(state.activeDevices.some(item=>item.meldung===device.meldung)){
+          renderActiveList();
+          return;
+        }
+        const index=typeof evt.newIndex==='number'?evt.newIndex:state.activeDevices.length;
+        const clamped=Math.max(0,Math.min(index,state.activeDevices.length));
+        state.activeDevices.splice(clamped,0,device);
+        renderActiveList();
+        if(evt.from===elements.list && SHARED?.handleAspenToDeviceDrop){
+          void SHARED.handleAspenToDeviceDrop(evt,{});
+        }
+      },
+      onRemove:evt=>{
+        const meldung=(evt.item?.dataset?.meldung||'').trim();
+        if(!meldung){
+          renderActiveList({persist:false});
+          return;
+        }
+        const before=state.activeDevices.length;
+        state.activeDevices=state.activeDevices.filter(item=>item.meldung!==meldung);
+        if(before!==state.activeDevices.length){
+          renderActiveList();
+        }else{
+          renderActiveList({persist:false});
+        }
+      }
     });
   };
 })();
