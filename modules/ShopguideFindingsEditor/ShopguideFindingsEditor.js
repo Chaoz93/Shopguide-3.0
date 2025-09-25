@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const MODULE_VERSION='1.0.0';
+  const MODULE_VERSION='1.1.0';
   const STORAGE_KEY='shopguide-findings';
   const PATH_KEY='shopguide-findings-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
@@ -442,8 +442,29 @@
     applyExternalData(text){
       try{
         const parsed=JSON.parse(text);
-        if(!Array.isArray(parsed)) throw new Error('Ungültiges Format');
-        this.data=parsed.map(normalizeEntry);
+        let entries;
+        if(Array.isArray(parsed)){
+          entries=parsed;
+        }else if(parsed && typeof parsed==='object'){
+          entries=Object.entries(parsed).map(([partNumber,value])=>{
+            const source=(value && typeof value==='object')?value:{};
+            const rawLabel=source.Label!=null?source.Label:source.label;
+            const labelValue=rawLabel!=null && String(rawLabel).trim()?rawLabel:partNumber;
+            const mapped={
+              label:labelValue,
+              findings:source.Findings!=null?source.Findings:source.findings,
+              actions:source.Actions!=null?source.Actions:source.actions,
+              routine:source.Routine!=null?source.Routine:source.routine,
+              nonroutine:source.Nonroutine!=null?source.Nonroutine:source.nonroutine,
+              parts:source.Bestellliste!=null?source.Bestellliste:source.parts
+            };
+            if(source.id!=null) mapped.id=source.id;
+            return mapped;
+          });
+        }else{
+          throw new Error('Ungültiges Format');
+        }
+        this.data=entries.map(normalizeEntry);
         this.filtered=[...this.data];
         this.selectedId=this.filtered[0]?this.filtered[0].id:null;
         this.undoStack=[];

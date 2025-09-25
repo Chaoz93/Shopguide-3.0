@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.2] – 2025-09-26
+### Changed
+- Shopguide Findings Editor auf Version 1.1.0 aktualisiert; unterstützt nun auch Findings-Dateien mit Partnummern-Schlüsseln und automatischer Feldzuordnung.
+
 ## [3.6.1] – 2025-09-25
 ### Added
 - Neues Modul "Shopguide Findings Editor" zum Durchsuchen und Bearbeiten von Findings inklusive Kontextmenü, Undo/Redo und Auto-Save.

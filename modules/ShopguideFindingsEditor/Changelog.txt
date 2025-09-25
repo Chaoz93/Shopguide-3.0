@@ -5,6 +5,13 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.0] – 2025-09-26
+### Added
+- Unterstützung für Findings-Dateien im Partnummer-Format (`{"PN": {...}}`) mit automatischer Feldzuordnung.
+
+### Fixed
+- Fallback auf die Partnummer als Label, falls kein Label angegeben ist.
+
 ## [1.0.0] – 2025-09-25
 ### Added
 - Erstveröffentlichung des Shopguide Findings Editors mit Suche, Filter und Editor.
