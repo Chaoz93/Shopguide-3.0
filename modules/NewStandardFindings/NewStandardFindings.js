@@ -114,7 +114,7 @@
       .nsf-copy-btn.copied{background:rgba(16,185,129,0.35);}
       .nsf-copy-btn .nsf-copy-feedback{font-size:0.85rem;opacity:0;transition:opacity 0.15s ease;}
       .nsf-copy-btn.copied .nsf-copy-feedback{opacity:1;}
-      .nsf-textarea{flex:1;min-height:120px;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);}
+      .nsf-textarea{flex:1;min-height:120px;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow:hidden;}
       .nsf-textarea:disabled{opacity:0.6;background:rgba(255,255,255,0.5);cursor:not-allowed;}
       .nsf-note{font-size:0.8rem;opacity:0.75;}
       .nsf-alert{background:rgba(248,113,113,0.2);border-radius:0.75rem;padding:0.5rem 0.75rem;font-size:0.85rem;}
@@ -961,6 +961,15 @@
     });
   }
 
+  function autoResizeTextarea(textarea){
+    if(!(textarea instanceof HTMLTextAreaElement)) return;
+    textarea.style.height='auto';
+    const computed=window.getComputedStyle(textarea);
+    const minHeight=parseFloat(computed.minHeight)||0;
+    const nextHeight=Math.max(textarea.scrollHeight,minHeight);
+    textarea.style.height=`${nextHeight}px`;
+  }
+
   class ModuleInstance{
     constructor(root){
       this.root=root;
@@ -1620,12 +1629,14 @@
         textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
         textarea.addEventListener('input',()=>{
           this.activeState[def.key]=textarea.value;
+          autoResizeTextarea(textarea);
           this.queueStateSave();
         });
         textarea.addEventListener('blur',()=>this.flushStateSave());
         this.textareas[def.key]=textarea;
         box.append(head,textarea);
         outputsWrapper.appendChild(box);
+        requestAnimationFrame(()=>autoResizeTextarea(textarea));
       }
 
       root.append(contextSection,inputSection,outputsSection);
@@ -1962,7 +1973,10 @@
       if(next!==current){
         this.activeState[field]=next;
         const textarea=this.textareas[field];
-        if(textarea) textarea.value=next;
+        if(textarea){
+          textarea.value=next;
+          autoResizeTextarea(textarea);
+        }
       }
     }
 
@@ -1976,7 +1990,10 @@
       if(next!==current){
         this.activeState[field]=next;
         const textarea=this.textareas[field];
-        if(textarea) textarea.value=next;
+        if(textarea){
+          textarea.value=next;
+          autoResizeTextarea(textarea);
+        }
       }
     }
 
@@ -1995,7 +2012,10 @@
       this.undoBuffer=null;
       for(const key of Object.keys(this.textareas||{})){
         const textarea=this.textareas[key];
-        if(textarea) textarea.value='';
+        if(textarea){
+          textarea.value='';
+          autoResizeTextarea(textarea);
+        }
       }
       saveStateFor(this.stateKeyParts,this.activeState,this.selectedEntries,this.globalState);
       this.render();
