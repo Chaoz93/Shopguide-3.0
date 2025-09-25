@@ -32,7 +32,8 @@
       .nsf-header-toggle:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
       .nsf-header-summary{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
-      .nsf-selection-section{padding:0;gap:0;overflow:hidden;}
+      .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
+      .nsf-selection-section.collapsed{overflow:hidden;}
       .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);cursor:pointer;}
       .nsf-selection-header:focus-within{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
       .nsf-selection-heading{display:flex;align-items:center;gap:0.4rem;font-size:0.95rem;font-weight:600;}
@@ -40,7 +41,7 @@
       .nsf-selection-summary-chip{background:rgba(148,163,184,0.16);border-radius:999px;padding:0.2rem 0.55rem;font-weight:500;white-space:nowrap;}
       .nsf-selection-summary-more{opacity:0.75;font-weight:500;}
       .nsf-selection-summary-empty{opacity:0.6;font-style:italic;}
-      .nsf-selection-body{display:flex;flex-direction:column;gap:0.6rem;padding:0.7rem 0.85rem;}
+      .nsf-selection-body{display:flex;flex-direction:column;gap:0.6rem;padding:0.7rem 0.85rem;overflow:visible;}
       .nsf-selection-section.collapsed .nsf-selection-body{display:none;}
       .nsf-selection-section.collapsed .nsf-selection-heading{display:none;}
       .nsf-selection-section.collapsed .nsf-selection-summary{margin-left:0;}
@@ -71,7 +72,7 @@
       .nsf-menu{position:relative;}
       .nsf-menu-toggle{background:rgba(255,255,255,0.14);border:none;border-radius:0.6rem;padding:0.35rem 0.55rem;color:inherit;font:inherit;font-size:0.95rem;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-width:2rem;min-height:2rem;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-menu-toggle:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
-      .nsf-menu-list{position:absolute;right:0;margin-top:0.35rem;background:rgba(15,23,42,0.92);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.45);padding:0.35rem;display:none;flex-direction:column;min-width:200px;z-index:40;backdrop-filter:blur(10px);}
+      .nsf-menu-list{position:absolute;right:0;margin-top:0.35rem;background:rgba(15,23,42,0.92);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.45);padding:0.35rem;display:none;flex-direction:column;min-width:200px;z-index:200;backdrop-filter:blur(10px);}
       .nsf-menu.open .nsf-menu-list{display:flex;}
       .nsf-menu-item{background:transparent;border:none;border-radius:0.6rem;padding:0.45rem 0.75rem;color:inherit;font:inherit;text-align:left;cursor:pointer;display:flex;align-items:center;gap:0.5rem;}
       .nsf-menu-item:hover{background:rgba(59,130,246,0.18);}
@@ -90,7 +91,8 @@
       .nsf-chip-icon{font-size:0.85rem;opacity:0.75;}
       .nsf-chip-text{font-weight:500;}
       .nsf-input-wrapper{display:flex;flex-direction:column;gap:0.5rem;}
-      .nsf-input-row{position:relative;background:rgba(15,23,42,0.18);border-radius:0.85rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-input-row{position:relative;background:rgba(15,23,42,0.18);border-radius:0.85rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.35rem;z-index:1;}
+      .nsf-input-row.show-suggestions{z-index:120;}
       .nsf-input-field{position:relative;display:flex;align-items:center;width:100%;}
       .nsf-input-row.locked{background:rgba(15,23,42,0.28);}
       .nsf-remove-btn{position:absolute;top:50%;right:0.45rem;transform:translateY(-50%);background:rgba(248,113,113,0.25);border:none;border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
@@ -98,7 +100,7 @@
       .nsf-input{width:100%;border:none;border-radius:0.65rem;padding:0.55rem 2.7rem 0.55rem 0.7rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
       .nsf-input:disabled{opacity:0.75;background:rgba(255,255,255,0.65);cursor:not-allowed;}
       .nsf-input::placeholder{color:rgba(107,114,128,0.8);}
-      .nsf-suggestions{position:absolute;top:calc(100% - 0.2rem);left:0;right:0;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.25);padding:0.35rem;display:none;max-height:220px;overflow:auto;z-index:30;}
+      .nsf-suggestions{position:absolute;top:calc(100% - 0.2rem);left:0;right:0;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.4);padding:0.35rem;display:none;max-height:220px;overflow:auto;z-index:180;}
       .nsf-input-row.show-suggestions .nsf-suggestions{display:block;}
       .nsf-suggestion{padding:0.35rem 0.55rem;border-radius:0.6rem;cursor:pointer;display:flex;align-items:center;gap:0.35rem;}
       .nsf-suggestion:hover,.nsf-suggestion.active{background:rgba(59,130,246,0.12);}
@@ -1624,22 +1626,103 @@
         head.append(label,btn);
         const textarea=document.createElement('textarea');
         textarea.className='nsf-textarea';
-        textarea.value=this.activeState[def.key]||'';
+        textarea.value='';
         textarea.disabled=!this.meldung;
+        textarea.readOnly=true;
         textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
-        textarea.addEventListener('input',()=>{
-          this.activeState[def.key]=textarea.value;
-          autoResizeTextarea(textarea);
-          this.queueStateSave();
-        });
-        textarea.addEventListener('blur',()=>this.flushStateSave());
         this.textareas[def.key]=textarea;
         box.append(head,textarea);
         outputsWrapper.appendChild(box);
         requestAnimationFrame(()=>autoResizeTextarea(textarea));
       }
 
+      this.syncOutputsWithSelections({persist:false});
+
       root.append(contextSection,inputSection,outputsSection);
+    }
+
+    buildOutputsFromSelections(){
+      if(!this.meldung||!Array.isArray(this.selectedEntries)||!this.selectedEntries.length){
+        return {findings:'',actions:'',routine:'',nonroutine:'',parts:''};
+      }
+      const lists={
+        findings:[],
+        actions:[],
+        routine:[],
+        nonroutine:[],
+        parts:[]
+      };
+      const seen={
+        findings:new Set(),
+        actions:new Set(),
+        routine:new Set(),
+        nonroutine:new Set(),
+        parts:new Set()
+      };
+      const pushLines=(field,value)=>{
+        const text=clean(value);
+        if(!text) return;
+        const lines=text.split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
+        if(!lines.length) return;
+        for(const line of lines){
+          if(seen[field].has(line)) continue;
+          seen[field].add(line);
+          lists[field].push(line);
+        }
+      };
+      const pushBlock=(field,value)=>{
+        const text=clean(value);
+        if(!text) return;
+        const normalized=text.replace(/\s+/g,' ').trim();
+        if(!normalized||seen[field].has(normalized)) return;
+        seen[field].add(normalized);
+        lists[field].push(value.trimEnd());
+      };
+      for(const selection of this.selectedEntries){
+        const resolved=this.resolveEntry(selection)||selection;
+        const findingText=resolved.finding||selection.finding||'';
+        pushLines('findings',findingText);
+        const actionText=resolved.action||selection.action||'';
+        pushLines('actions',actionText);
+        const partText=selection.part||resolved.part||'';
+        pushLines('parts',partText);
+        const partsExtra=resolved.parts||'';
+        pushLines('parts',partsExtra);
+        const nonroutineText=resolved.nonroutine||'';
+        pushLines('nonroutine',nonroutineText);
+        const routineText=this.buildRoutineOutput(resolved);
+        pushBlock('routine',routineText);
+      }
+      return {
+        findings:lists.findings.join('\n'),
+        actions:lists.actions.join('\n'),
+        routine:lists.routine.join('\n\n'),
+        nonroutine:lists.nonroutine.join('\n'),
+        parts:lists.parts.join('\n')
+      };
+    }
+
+    syncOutputsWithSelections(options){
+      const opts=options||{};
+      const computed=this.buildOutputsFromSelections();
+      let changed=false;
+      for(const key of Object.keys(this.activeState)){
+        const value=opts.forceEmpty?'' : computed[key]||'';
+        if(this.activeState[key]!==value){
+          this.activeState[key]=value;
+          changed=true;
+        }
+        const textarea=this.textareas&&this.textareas[key];
+        if(textarea){
+          if(textarea.value!==value){
+            textarea.value=value;
+          }
+          autoResizeTextarea(textarea);
+        }
+      }
+      if(changed&&opts.persist!==false){
+        this.queueStateSave();
+      }
     }
 
     resolveEntry(entry){
@@ -1828,7 +1911,7 @@
       });
       this.selectionRows.push(state);
       if(prefillEntry){
-        this.lockRow(state,prefillEntry,{persist:false,addOutputs:false,updateState:false});
+        this.lockRow(state,prefillEntry,{persist:false,updateState:false,syncOutputs:false});
       }else if(focusNext){
         setTimeout(()=>{if(!state.locked) input.focus();},60);
       }
@@ -1836,7 +1919,7 @@
 
     acceptSelection(entry,state){
       if(!entry||state.locked) return;
-      this.lockRow(state,entry,{persist:true,addOutputs:true,updateState:true});
+      this.lockRow(state,entry,{persist:true,updateState:true});
       this.undoBuffer=null;
       if(this.currentPart){
         pushHistory(this.globalState,this.currentPart,entry);
@@ -1881,16 +1964,11 @@
       state.suggestions.innerHTML='';
       state.suggestionsList=[];
       state.highlightIndex=-1;
-      if(opts.addOutputs!==false){
-        this.appendOutput('findings',entry.finding);
-        this.appendOutput('actions',entry.action);
-        this.appendOutput('parts',entry.part);
-        if(routineText) this.appendOutput('routine',routineText);
-        if(nonroutineText) this.appendOutput('nonroutine',nonroutineText);
-        if(partsText) this.appendOutput('parts',partsText);
-      }
       if(opts.persist!==false){
         this.addSelection(entry);
+      }
+      if(opts.syncOutputs!==false){
+        this.syncOutputsWithSelections({persist:false});
       }
       if(opts.updateState!==false){
         this.flushStateSave(true);
@@ -1933,68 +2011,16 @@
       if(!state||!state.locked) return;
       const entry=state.entry;
       if(entry){
-        this.removeOutputsFor(entry);
         this.selectedEntries=this.selectedEntries.filter(sel=>sel.key!==entry.key);
         this.undoBuffer={entry:{...entry}};
       }
       this.removeRow(state);
+      this.syncOutputsWithSelections({persist:false});
       this.persistState(true);
       if(this.meldung&&this.availableEntries.length&&!this.selectionRows.some(s=>!s.locked)){
         this.addInputRow(null,true);
       }
       this.render();
-    }
-
-    removeOutputsFor(entry){
-      if(!entry) return;
-      const resolved=this.resolveEntry(entry);
-      const findingText=clean(entry.finding||resolved?.finding||'');
-      if(findingText) this.removeOutput('findings',findingText);
-      const actionText=clean(entry.action||resolved?.action||'');
-      if(actionText) this.removeOutput('actions',actionText);
-      const partText=clean(entry.part||resolved?.part||'');
-      if(partText) this.removeOutput('parts',partText);
-      const routineText=this.buildRoutineOutput(resolved||entry);
-      if(routineText) this.removeOutput('routine',routineText);
-      const nonroutineText=clean(entry.nonroutine||resolved?.nonroutine||'');
-      if(nonroutineText) this.removeOutput('nonroutine',nonroutineText);
-      const partsExtra=clean(entry.parts||resolved?.parts||'');
-      if(partsExtra) this.removeOutput('parts',partsExtra);
-    }
-
-    removeOutput(field,text){
-      const value=clean(text);
-      if(!value) return;
-      const current=clean(this.activeState[field]);
-      if(!current) return;
-      const lines=current.split(/\r?\n/).map(v=>clean(v)).filter(Boolean);
-      const filtered=lines.filter(line=>line!==value);
-      const next=filtered.join('\n');
-      if(next!==current){
-        this.activeState[field]=next;
-        const textarea=this.textareas[field];
-        if(textarea){
-          textarea.value=next;
-          autoResizeTextarea(textarea);
-        }
-      }
-    }
-
-    appendOutput(field,text){
-      const value=clean(text);
-      if(!value) return;
-      const current=clean(this.activeState[field]);
-      const lines=current?current.split(/\r?\n/).map(v=>clean(v)).filter(Boolean):[];
-      if(!lines.includes(value)) lines.push(value);
-      const next=lines.join('\n');
-      if(next!==current){
-        this.activeState[field]=next;
-        const textarea=this.textareas[field];
-        if(textarea){
-          textarea.value=next;
-          autoResizeTextarea(textarea);
-        }
-      }
     }
 
     applyUndo(){
