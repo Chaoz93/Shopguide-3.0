@@ -5,6 +5,29 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.2] – 2025-09-27
+### Added
+- Separate Eingabefelder für Bestelltext (`PNText`) und bis zu sechs Paarungen aus Teilenummer und Menge mit seitlichem Rasterlayout.
+- Import und Export übernehmen nun sowohl `PNText` als auch die nummerierten `Part`/`Menge`-Felder strukturgetreu.
+
+### Changed
+- Such- und Kopierfunktionen berücksichtigen jetzt auch Teilenummern und Mengenangaben aus der Bestellsektion.
+
+## [1.1.1] – 2025-09-25
+### Added
+- Import-Mapping für verschachtelte Array-Struktur (`Routine`, `NonRoutine`, `Parts`) von `Findings_Shopguide.json`.
+- Strukturerhaltendes Speichern zurück ins ursprüngliche Format.
+
+### Fixed
+- Leere Felder nach Datei­auswahl, wenn die JSON nicht flach war.
+
+## [1.1.0] – 2025-09-26
+### Added
+- Unterstützung für Findings-Dateien im Partnummer-Format (`{"PN": {...}}`) mit automatischer Feldzuordnung.
+
+### Fixed
+- Fallback auf die Partnummer als Label, falls kein Label angegeben ist.
+
 ## [1.0.0] – 2025-09-25
 ### Added
 - Erstveröffentlichung des Shopguide Findings Editors mit Suche, Filter und Editor.
