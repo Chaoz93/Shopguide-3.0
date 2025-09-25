@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.3] – 2025-09-29
+### Added
+- Neuer Button zum Auswählen einer Findings-JSON; die Auswahl wird eingelesen, gespeichert und der Dateipfad im Local Storage hinterlegt.
+- Kontextbereich zeigt nun den aktuell verwendeten Findings-Dateipfad an.
+
 ## [1.2.2] – 2025-09-28
 ### Fixed
 - Parser berücksichtigt nun auch verschachtelte JSON-Strukturen und findet Routine-, Nonroutine-, Parts-, Times- sowie Mods-Informationen über Aliasfelder.

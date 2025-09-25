@@ -3,6 +3,7 @@
 
   const DATA_URL='Findings_Shopguide.json';
   const DATA_KEY='sf-data';
+  const FINDINGS_PATH_KEY='sf-findings-path';
   const STATE_KEY='sf-state';
   const STATE_KEY_SEPARATOR='::';
   const UNIT_BOARD_EVENT='unitBoard:update';
@@ -90,9 +91,10 @@
     updateValue(DOC_KEY);
     updateValue(DATA_KEY);
     updateValue(STATE_KEY);
+    updateValue(FINDINGS_PATH_KEY);
     window.addEventListener('storage',e=>{
       if(!e) return;
-      if(e.key===DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY){
+      if(e.key===DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
         lastValues[e.key]=localStorage.getItem(e.key);
         scheduleAll();
       }
@@ -105,6 +107,8 @@
       if(data!==lastValues[DATA_KEY]){lastValues[DATA_KEY]=data;scheduleAll();}
       const state=localStorage.getItem(STATE_KEY);
       if(state!==lastValues[STATE_KEY]){lastValues[STATE_KEY]=state;scheduleAll();}
+      const findingsPath=localStorage.getItem(FINDINGS_PATH_KEY);
+      if(findingsPath!==lastValues[FINDINGS_PATH_KEY]){lastValues[FINDINGS_PATH_KEY]=findingsPath;scheduleAll();}
     },WATCH_INTERVAL);
   }
 
@@ -333,6 +337,10 @@
           const payload=JSON.stringify(parsed);
           localStorage.setItem(DATA_KEY,payload);
           lastValues[DATA_KEY]=payload;
+        }
+        if(!localStorage.getItem(FINDINGS_PATH_KEY)){
+          localStorage.setItem(FINDINGS_PATH_KEY,DATA_URL);
+          lastValues[FINDINGS_PATH_KEY]=DATA_URL;
         }
       }catch(err){
         console.warn('NSF: Findings_Shopguide.json konnte nicht geladen werden',err);
@@ -888,6 +896,7 @@
       this.totalEntries=0;
       this.entryMap=new Map();
       this.dictionaryUsed=false;
+      this.findingsPath='';
     }
 
     scheduleRender(){
@@ -917,6 +926,7 @@
       setupWatchers();
       await ensureData();
       this.globalState=loadGlobalState();
+      this.findingsPath=clean(localStorage.getItem(FINDINGS_PATH_KEY)||'');
       const data=parseData();
       this.allEntries=data.entries;
       this.entryMap=data.entryMap;
@@ -1065,6 +1075,12 @@
         aspenInfo.textContent='Aspen-Daten geladen';
         metaRow.appendChild(aspenInfo);
       }
+      if(this.findingsPath){
+        const findingsInfo=document.createElement('span');
+        findingsInfo.className='nsf-inline-info';
+        findingsInfo.textContent=`Findings-Datei: ${this.findingsPath}`;
+        metaRow.appendChild(findingsInfo);
+      }
       if(metaRow.childElementCount){
         contextWrap.appendChild(metaRow);
       }
@@ -1086,6 +1102,25 @@
 
       const controls=document.createElement('div');
       controls.className='nsf-controls';
+
+      const findingsInput=document.createElement('input');
+      findingsInput.type='file';
+      findingsInput.accept='.json,.txt';
+      findingsInput.style.display='none';
+      findingsInput.addEventListener('change',()=>{
+        const file=findingsInput.files&&findingsInput.files[0];
+        if(file){
+          this.handleFindingsFile(file).finally(()=>{findingsInput.value='';});
+        }
+      });
+      contextSection.appendChild(findingsInput);
+
+      const findingsBtn=document.createElement('button');
+      findingsBtn.type='button';
+      findingsBtn.className='nsf-btn';
+      findingsBtn.textContent='🧾 Findings-Datei wählen …';
+      findingsBtn.addEventListener('click',()=>findingsInput.click());
+      controls.appendChild(findingsBtn);
 
       const fileInput=document.createElement('input');
       fileInput.type='file';
@@ -1641,6 +1676,29 @@
       if(force){
         this.globalState=loadGlobalState();
         this.history=getHistoryForPart(this.globalState,this.currentPart);
+      }
+    }
+
+    async handleFindingsFile(file){
+      if(!file) return;
+      try{
+        const content=await file.text();
+        if(!content) return;
+        let parsed;
+        try{parsed=JSON.parse(content);}
+        catch(err){console.warn('NSF: Findings-Datei ist keine gültige JSON',err);return;}
+        if(parsed==null) return;
+        const payload=JSON.stringify(parsed);
+        localStorage.setItem(DATA_KEY,payload);
+        lastValues[DATA_KEY]=payload;
+        const path=file.path||file.webkitRelativePath||file.name||'';
+        if(path){
+          localStorage.setItem(FINDINGS_PATH_KEY,path);
+          lastValues[FINDINGS_PATH_KEY]=path;
+        }
+        scheduleAll();
+      }catch(err){
+        console.warn('NSF: Findings-Datei konnte nicht gelesen werden',err);
       }
     }
 

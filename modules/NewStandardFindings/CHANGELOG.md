@@ -2,6 +2,11 @@
 
 Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentiert.
 
+## 1.2.3 – 2025-09-29
+### Added
+- Schaltfläche zum Laden einer benutzerdefinierten Findings-Datei inklusive Speicherung des Dateipfads im Local Storage.
+- Anzeige des aktuell verwendeten Findings-Dateipfads in der Kontextübersicht.
+
 ## 1.2.2 – 2025-09-28
 ### Fixed
 - Tief verschachtelte Findings-Strukturen werden erkannt; Parser durchsucht nun auch Routine-, Nonroutine-, Parts-, Times- und Mods-Objekte nach passenden Aliasfeldern.
