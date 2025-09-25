@@ -880,20 +880,13 @@
       updateSelectionStyles();
     }
 
-    function handleSelection(card,{toggle=false}={}){
+    function handleSelection(card){
       if(!card) return;
       const key=(card.dataset.meldung||'').trim();
       if(!key) return;
-      if(toggle){
-        if(selection.has(key)){
-          selection.delete(key);
-        }else{
-          selection.add(key);
-        }
-      }else{
-        selection.clear();
-        selection.add(key);
-      }
+      if(selection.size===1 && selection.has(key)) return;
+      selection.clear();
+      selection.add(key);
       updateSelectionStyles();
     }
 
@@ -901,11 +894,10 @@
       if(!card) return;
       const key=(card.dataset.meldung||'').trim();
       if(!key) return;
-      if(!selection.has(key)){
-        selection.clear();
-        selection.add(key);
-        updateSelectionStyles();
-      }
+      if(selection.size===1 && selection.has(key)) return;
+      selection.clear();
+      selection.add(key);
+      updateSelectionStyles();
     }
 
     function removeFromSelection(meldung){
@@ -929,12 +921,10 @@
       window.dispatchEvent(new Event(CUSTOM_BROADCAST));
     }
 
-    function triggerCardActivation(card,{toggle=false}={}){
+    function triggerCardActivation(card){
       if(!card) return;
-      handleSelection(card,{toggle});
-      if(!toggle){
-        activateMeldung(card.dataset.meldung||'');
-      }
+      handleSelection(card);
+      activateMeldung(card.dataset.meldung||'');
     }
 
     let pointerState=null;
@@ -951,7 +941,6 @@
       if(!card) return;
       pointerState={
         card,
-        toggle:event.ctrlKey||event.metaKey,
         x:event.clientX,
         y:event.clientY
       };
@@ -959,14 +948,14 @@
 
     function handleCardPointerUp(event){
       if(!pointerState) return;
-      const {card,toggle,x,y}=pointerState;
+      const {card,x,y}=pointerState;
       pointerState=null;
       const target=event.target.closest('.db-card');
       if(!target || target!==card) return;
       const dx=Math.abs((event.clientX||0)-x);
       const dy=Math.abs((event.clientY||0)-y);
       if(dx>5 || dy>5) return;
-      triggerCardActivation(card,{toggle});
+      triggerCardActivation(card);
       lastPointerActivation={id:pointerKeyFor(card),time:Date.now()};
     }
 
@@ -981,8 +970,7 @@
       if(key && Date.now()-lastPointerActivation.time<200 && lastPointerActivation.id===key){
         return;
       }
-      const isMulti=event.ctrlKey||event.metaKey;
-      triggerCardActivation(card,{toggle:isMulti});
+      triggerCardActivation(card);
     }
 
     function prepareDrag(evt){
@@ -991,16 +979,8 @@
       const dragged=evt.item;
       const key=(dragged.dataset.meldung||'').trim();
       if(!key) return;
-      if(!selection.has(key)){
-        selection.clear();
-        selection.add(key);
-      }
-      let candidates=Array.from(source.querySelectorAll('.db-card')).filter(card=>selection.has((card.dataset.meldung||'').trim()));
-      if(!candidates.length){
-        candidates=[dragged];
-        selection.clear();
-        selection.add(key);
-      }
+      handleSelection(dragged);
+      const candidates=[dragged];
       dragBundle={
         source,
         type:source===elements.activeList?'active':'aspen',
@@ -1420,7 +1400,7 @@
             if(!state.activeDevices.some(item=>item.meldung===meldung)) selection.delete(meldung);
           });
           if(activeMenuTarget && state.activeDevices.some(item=>item.meldung===(activeMenuTarget.dataset.meldung||'').trim())){
-            handleSelection(activeMenuTarget,{toggle:false});
+            handleSelection(activeMenuTarget);
           }else{
             updateSelectionStyles();
           }
