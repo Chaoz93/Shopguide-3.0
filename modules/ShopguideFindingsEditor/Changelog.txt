@@ -5,6 +5,17 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.0] – 2025-09-29
+### Added
+- Partnummern-Feld oberhalb des Labels mit dynamischen Eingabezeilen und "Plus"-Schaltfläche für mehrere Nummern.
+- Anzeige der Partnummern als Untertitel in der Findings-Liste inklusive Such- und Kopierunterstützung.
+
+### Changed
+- Export in alle unterstützten Formate übernimmt bereinigte Partnummernlisten.
+
+### Fixed
+- Bestehende `Part`-Felder werden nun als Partnummern übernommen und beim Speichern aktualisiert.
+
 ## [1.1.2] – 2025-09-27
 ### Added
 - Separate Eingabefelder für Bestelltext (`PNText`) und bis zu sechs Paarungen aus Teilenummer und Menge mit seitlichem Rasterlayout.

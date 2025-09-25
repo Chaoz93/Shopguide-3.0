@@ -1,6 +1,9 @@
 [
   {
     "id": "demo-entry",
+    "partNumbers": [
+      "DEMO-001"
+    ],
     "label": "Demo-Eintrag",
     "findings": "Beispielbefund zur Demonstration des Editors.",
     "actions": "Erforderliche Maßnahme dokumentieren.",
