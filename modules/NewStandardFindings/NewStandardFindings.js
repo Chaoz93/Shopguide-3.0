@@ -3,6 +3,7 @@
 
   const DATA_URL='Findings_Shopguide.json';
   const DATA_KEY='sf-data';
+  const FINDINGS_PATH_KEY='sf-findings-path';
   const STATE_KEY='sf-state';
   const STATE_KEY_SEPARATOR='::';
   const UNIT_BOARD_EVENT='unitBoard:update';
@@ -90,9 +91,10 @@
     updateValue(DOC_KEY);
     updateValue(DATA_KEY);
     updateValue(STATE_KEY);
+    updateValue(FINDINGS_PATH_KEY);
     window.addEventListener('storage',e=>{
       if(!e) return;
-      if(e.key===DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY){
+      if(e.key===DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
         lastValues[e.key]=localStorage.getItem(e.key);
         scheduleAll();
       }
@@ -105,11 +107,219 @@
       if(data!==lastValues[DATA_KEY]){lastValues[DATA_KEY]=data;scheduleAll();}
       const state=localStorage.getItem(STATE_KEY);
       if(state!==lastValues[STATE_KEY]){lastValues[STATE_KEY]=state;scheduleAll();}
+      const findingsPath=localStorage.getItem(FINDINGS_PATH_KEY);
+      if(findingsPath!==lastValues[FINDINGS_PATH_KEY]){lastValues[FINDINGS_PATH_KEY]=findingsPath;scheduleAll();}
     },WATCH_INTERVAL);
   }
 
   function clean(value){return value==null?'':String(value).trim();}
+  function normalizePart(value){
+    const text=clean(value);
+    return text?text.toUpperCase():'';
+  }
   function normalizeKey(value){return clean(value).toLowerCase();}
+  function canonicalKey(value){
+    return clean(value).toLowerCase().replace(/[^a-z0-9]+/g,'');
+  }
+
+  const ENTRY_COLLECTION_KEYS=new Set([
+    'entries','entry','findings','finding','items','item','records','record','list','liste',
+    'values','value','daten','data','standardfindings','standardfinding','library','collection','satz','saetze'
+  ].map(canonicalKey));
+
+  const DICTIONARY_KEYS=new Set([
+    'dictionary','lookup','meldungen','meldungsliste','mapping','map','dict','zuordnung','reference','lexikon',
+    'meldungszuordnung','meldungsmap','meldungsdictionary','meldungslookup','dictionaryentries','dictionaryentry'
+  ].map(canonicalKey));
+
+  const FIELD_ALIASES={
+    part:[
+      'part','partno','partnumber','partnr','pn','pnr','part_num','part_nummer','partnumber','part number',
+      'material','materialnr','materialnummer','materialno','material no','artikel','artikelnummer','artikel nr',
+      'component','componentno','componentnumber','partnummer'
+    ],
+    label:['label','title','name','beschreibung','desc','description','heading','überschrift','ueberschrift'],
+    finding:['finding','findings','findingtext','finding_text','befund','befunde','meldungstext','meldung','meldungen','befundtext'],
+    action:['action','actions','maßnahme','massnahme','maßnahmen','massnahmen','recommendation','empfehlung','correctiveaction','corrective_action','korrekturmaßnahme','korrektur'],
+    routine:['routine','routinetext','routine_text','routinefinding','routinefindingtext','routineaction','routinebeschreibung'],
+    nonroutine:['nonroutine','non_routine','nonroutinefinding','nonroutinefindingtext','nonroutineaction','nonroutinebeschreibung','non routine','non-routine'],
+    parts:['parts','ersatzteile','replacementparts','replacedparts','teile','bestellliste','spares','components'],
+    times:['times','time','zeit','zeiten','dauer','aufwand','arbeitszeit','stunden','timeestimate','time_estimate'],
+    mods:['mods','mod','modification','modifications','modifikation','modifikationen','changes','change','änderungen','aenderungen','modnotes']
+  };
+
+  const DICTIONARY_LABEL_ALIASES=[
+    'meldung','meldungsnr','meldungsnummer','meldungsno','meldungno','meldungsid','meldungid','meldungsname','melding',
+    'meldungscode','meldungstext','meldung_text','meldung title','key','label','finding','beschreibung','description','title','name'
+  ];
+  const DICTIONARY_PART_ALIASES=[
+    ...FIELD_ALIASES.part,
+    'value','wert','pn','pnr','partvalue','part_value','materialnummer','materialnr'
+  ];
+
+  const RESERVED_FIELDS=new Set(Object.values(FIELD_ALIASES).flat().map(canonicalKey));
+  RESERVED_FIELDS.add('finding');
+  RESERVED_FIELDS.add('label');
+  RESERVED_FIELDS.add('action');
+  RESERVED_FIELDS.add('part');
+
+  function buildFieldMap(raw){
+    const map={};
+    if(!raw||typeof raw!=='object') return map;
+    for(const [key,value] of Object.entries(raw)){
+      const canonical=canonicalKey(key);
+      if(!canonical) continue;
+      if(!(canonical in map)) map[canonical]=value;
+    }
+    return map;
+  }
+
+  function valueToText(value){
+    if(value==null) return '';
+    if(Array.isArray(value)){
+      const parts=value.map(v=>valueToText(v)).map(part=>clean(part)).filter(Boolean);
+      return Array.from(new Set(parts)).join('\n');
+    }
+    if(typeof value==='object'){
+      const candidates=['text','value','label','beschreibung','description','desc'];
+      for(const key of candidates){
+        if(Object.prototype.hasOwnProperty.call(value,key)){
+          const nested=valueToText(value[key]);
+          if(nested) return nested;
+        }
+      }
+      const pairs=[];
+      for(const [rawKey,rawVal] of Object.entries(value)){
+        const keyLabel=clean(rawKey);
+        if(!keyLabel) continue;
+        const nested=valueToText(rawVal);
+        if(!nested) continue;
+        pairs.push(`${keyLabel}: ${nested}`);
+      }
+      if(pairs.length) return pairs.join('\n');
+      try{
+        const serialized=JSON.stringify(value);
+        return clean(serialized);
+      }catch{
+        return '';
+      }
+    }
+    return clean(value);
+  }
+
+  function formatMetaValue(value){
+    const text=clean(value);
+    if(!text) return '';
+    const parts=text.split(/\r?\n/).map(part=>clean(part)).filter(Boolean);
+    return parts.join(' · ');
+  }
+
+  function extractField(map,aliases){
+    if(!map) return '';
+    for(const alias of aliases){
+      const key=canonicalKey(alias);
+      if(key&&Object.prototype.hasOwnProperty.call(map,key)){
+        const text=valueToText(map[key]);
+        if(text) return text;
+      }
+    }
+    return '';
+  }
+
+  function extractNestedField(raw,aliases,visited){
+    if(!raw||typeof raw!=='object') return '';
+    const seen=visited||new Set();
+    if(seen.has(raw)) return '';
+    seen.add(raw);
+    const map=buildFieldMap(raw);
+    const objectMatches=[];
+    for(const alias of aliases){
+      const key=canonicalKey(alias);
+      if(!key||!Object.prototype.hasOwnProperty.call(map,key)) continue;
+      const value=map[key];
+      if(value==null) continue;
+      if(typeof value==='object'){
+        objectMatches.push(value);
+      }else{
+        const text=valueToText(value);
+        if(text) return text;
+      }
+    }
+    for(const candidate of objectMatches){
+      const nested=extractNestedField(candidate,aliases,seen);
+      if(nested) return nested;
+      const fallback=valueToText(candidate);
+      if(fallback) return fallback;
+    }
+    for(const value of Object.values(raw)){
+      if(value==null) continue;
+      if(Array.isArray(value)){
+        for(const item of value){
+          const nested=extractNestedField(item,aliases,seen);
+          if(nested) return nested;
+        }
+        continue;
+      }
+      if(typeof value==='object'){
+        const nested=extractNestedField(value,aliases,seen);
+        if(nested) return nested;
+      }
+    }
+    return '';
+  }
+
+  function hasNestedField(raw,aliases){
+    return !!extractNestedField(raw,aliases);
+  }
+
+  function collectEntriesAndDictionary(parsed){
+    if(!parsed||typeof parsed!=='object') return {entries:[],dictionary:null};
+    const entries=[];
+    let dictionary=null;
+    const seenEntries=new Set();
+    const visited=new Set();
+
+    const visit=(value,isDictionary)=>{
+      if(value==null) return;
+      if(typeof value!=='object') return;
+      if(visited.has(value)) return;
+      visited.add(value);
+      if(Array.isArray(value)){
+        for(const item of value){
+          if(item&&typeof item==='object') visit(item,isDictionary);
+        }
+        return;
+      }
+      if(!isDictionary){
+        const hasPart=hasNestedField(value,FIELD_ALIASES.part);
+        const hasContent=hasNestedField(value,FIELD_ALIASES.finding)
+          ||hasNestedField(value,FIELD_ALIASES.action)
+          ||hasNestedField(value,FIELD_ALIASES.label);
+        if(hasPart&&hasContent&&!seenEntries.has(value)){
+          entries.push(value);
+          seenEntries.add(value);
+        }
+      }
+      for(const [key,val] of Object.entries(value)){
+        if(val==null) continue;
+        const canonical=canonicalKey(key);
+        if(!canonical) continue;
+        if(dictionary===null&&DICTIONARY_KEYS.has(canonical)){
+          dictionary=val;
+          visit(val,true);
+          continue;
+        }
+        if(ENTRY_COLLECTION_KEYS.has(canonical)){
+          visit(val,isDictionary);
+          continue;
+        }
+        visit(val,isDictionary);
+      }
+    };
+
+    visit(parsed,false);
+    return {entries,dictionary};
+  }
 
   function ensureData(){
     if(localStorage.getItem(DATA_KEY)) return Promise.resolve();
@@ -128,6 +338,10 @@
           localStorage.setItem(DATA_KEY,payload);
           lastValues[DATA_KEY]=payload;
         }
+        if(!localStorage.getItem(FINDINGS_PATH_KEY)){
+          localStorage.setItem(FINDINGS_PATH_KEY,DATA_URL);
+          lastValues[FINDINGS_PATH_KEY]=DATA_URL;
+        }
       }catch(err){
         console.warn('NSF: Findings_Shopguide.json konnte nicht geladen werden',err);
       }
@@ -144,10 +358,24 @@
     if(Array.isArray(parsed)){
       entriesRaw=parsed;
     }else if(parsed&&typeof parsed==='object'){
-      if(Array.isArray(parsed.entries)) entriesRaw=parsed.entries;
-      else if(Array.isArray(parsed.findings)) entriesRaw=parsed.findings;
-      if(parsed.dictionary) dictionaryRaw=parsed.dictionary;
-      else if(parsed.meldungen) dictionaryRaw=parsed.meldungen;
+      const extracted=collectEntriesAndDictionary(parsed);
+      if(extracted.entries&&extracted.entries.length) entriesRaw=extracted.entries;
+      if(extracted.dictionary) dictionaryRaw=extracted.dictionary;
+      if(!entriesRaw.length){
+        if(Array.isArray(parsed.entries)) entriesRaw=parsed.entries;
+        else if(Array.isArray(parsed.findings)) entriesRaw=parsed.findings;
+        else if(Array.isArray(parsed.items)) entriesRaw=parsed.items;
+        else if(Array.isArray(parsed.records)) entriesRaw=parsed.records;
+      }
+      if(dictionaryRaw==null){
+        if(parsed.dictionary) dictionaryRaw=parsed.dictionary;
+        else if(parsed.meldungen) dictionaryRaw=parsed.meldungen;
+        else if(parsed.lookup) dictionaryRaw=parsed.lookup;
+      }
+    }
+    if(!Array.isArray(entriesRaw)){
+      if(entriesRaw&&typeof entriesRaw==='object') entriesRaw=[entriesRaw];
+      else entriesRaw=[];
     }
     const normalizedEntries=normalizeEntries(entriesRaw);
     const dictionary=normalizeDictionary(dictionaryRaw);
@@ -174,25 +402,76 @@
     const counts=new Map();
     const result=[];
     for(const raw of list){
-      const part=clean(raw&&raw.part);
-      const label=clean(raw&&raw.label);
-      const finding=clean(raw&&raw.finding);
-      const action=clean(raw&&raw.action);
-      if(!part&& !finding && !action) continue;
-      const baseKey=[part,label,finding,action].join('||');
+      if(!raw||typeof raw!=='object') continue;
+      const part=normalizePart(extractNestedField(raw,FIELD_ALIASES.part));
+      const label=clean(extractNestedField(raw,FIELD_ALIASES.label));
+      const finding=clean(extractNestedField(raw,FIELD_ALIASES.finding));
+      const action=clean(extractNestedField(raw,FIELD_ALIASES.action));
+      const routine=clean(extractNestedField(raw,FIELD_ALIASES.routine));
+      const nonroutine=clean(extractNestedField(raw,FIELD_ALIASES.nonroutine));
+      const partsText=clean(extractNestedField(raw,FIELD_ALIASES.parts));
+      const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
+      const mods=clean(extractNestedField(raw,FIELD_ALIASES.mods));
+      const map=buildFieldMap(raw);
+      if(!part&&( !finding && !action && !label)) continue;
+      if(!part) continue;
+      const extras=[];
+      const extrasKeyParts=[];
+      const extrasSeen=new Set();
+      for(const [rawKey,value] of Object.entries(raw)){
+        const canonical=canonicalKey(rawKey);
+        if(!canonical) continue;
+        if(RESERVED_FIELDS.has(canonical)) continue;
+        if(extrasSeen.has(canonical)) continue;
+        const text=valueToText(value);
+        if(!text) continue;
+        extrasSeen.add(canonical);
+        const displayLabel=clean(rawKey)||rawKey;
+        const valueLower=text.toLowerCase();
+        extras.push({
+          key:rawKey,
+          label:displayLabel,
+          value:text,
+          valueLower
+        });
+        extrasKeyParts.push(text);
+      }
+      extras.sort((a,b)=>a.label.localeCompare(b.label,'de',{sensitivity:'base'}));
+      const baseKeyParts=[part,label,finding,action,routine,nonroutine,partsText,times,mods];
+      if(extrasKeyParts.length) baseKeyParts.push(...extrasKeyParts);
+      const baseKey=baseKeyParts.join('||');
       const count=counts.get(baseKey)||0;
       counts.set(baseKey,count+1);
       const key=count?`${baseKey}__${count}`:baseKey;
-      if(!part) continue;
+      const labelValue=label||'';
+      const findingValue=finding||'';
+      const actionValue=action||'';
+      const routineValue=routine||'';
+      const nonroutineValue=nonroutine||'';
+      const partsValue=partsText||'';
+      const timesValue=times||'';
+      const modsValue=mods||'';
       result.push({
         key,
         part,
-        label,
-        finding,
-        action,
-        labelLower:label.toLowerCase(),
-        findingLower:finding.toLowerCase(),
-        actionLower:action.toLowerCase()
+        label:labelValue,
+        finding:findingValue,
+        action:actionValue,
+        routine:routineValue,
+        nonroutine:nonroutineValue,
+        parts:partsValue,
+        times:timesValue,
+        mods:modsValue,
+        additional:extras,
+        additionalLower:extras.map(item=>item.valueLower),
+        labelLower:labelValue.toLowerCase(),
+        findingLower:findingValue.toLowerCase(),
+        actionLower:actionValue.toLowerCase(),
+        routineLower:routineValue.toLowerCase(),
+        nonroutineLower:nonroutineValue.toLowerCase(),
+        partsLower:partsValue.toLowerCase(),
+        timesLower:timesValue.toLowerCase(),
+        modsLower:modsValue.toLowerCase()
       });
     }
     return result;
@@ -202,15 +481,27 @@
     const map=new Map();
     if(Array.isArray(input)){
       for(const entry of input){
-        const meld=clean(entry&& (entry.meldung||entry.key||entry.label));
-        const part=clean(entry&& (entry.part||entry.partNo||entry.partNumber||entry.value));
+        if(!entry) continue;
+        if(typeof entry==='string'||typeof entry==='number'){continue;}
+        if(typeof entry!=='object') continue;
+        const mapEntry=buildFieldMap(entry);
+        const labelAliases=[...DICTIONARY_LABEL_ALIASES,...FIELD_ALIASES.finding,...FIELD_ALIASES.label];
+        const meldRaw=extractField(mapEntry,labelAliases) || valueToText(entry.meldung) || valueToText(entry.key);
+        const partRaw=extractField(mapEntry,DICTIONARY_PART_ALIASES) || valueToText(entry.value);
+        const meld=clean(meldRaw);
+        const part=normalizePart(partRaw);
         if(!meld||!part) continue;
         map.set(normalizeKey(meld),part);
       }
     }else if(input&&typeof input==='object'){
       for(const [meldung,partVal] of Object.entries(input)){
         const meld=clean(meldung);
-        const part=clean(partVal);
+        let part='';
+        if(partVal&&typeof partVal==='object'){
+          part=normalizePart(valueToText(partVal));
+        }else{
+          part=normalizePart(partVal);
+        }
         if(!meld||!part) continue;
         map.set(normalizeKey(meld),part);
       }
@@ -251,7 +542,7 @@
     ];
     let part='';
     for(const candidate of partCandidates){
-      const value=clean(candidate);
+      const value=normalizePart(candidate);
       if(value){part=value;break;}
     }
     const serialCandidates=[
@@ -310,7 +601,7 @@
 
   function extractPartFromBoard(entry){
     if(!entry||typeof entry!=='object') return '';
-    const direct=clean(entry.part||entry.Part||entry.PartNo||entry.PartNumber||entry.PartNr||entry.PN||entry.Material||entry.MaterialNr||entry.Materialnummer||entry.MaterialNo||entry.Artikel||entry.Artikelnummer||entry.Partnummer||entry['Part No']||entry['Part_Number']||entry['PartNumber']||entry['Part Nr']);
+    const direct=normalizePart(entry.part||entry.Part||entry.PartNo||entry.PartNumber||entry.PartNr||entry.PN||entry.Material||entry.MaterialNr||entry.Materialnummer||entry.MaterialNo||entry.Artikel||entry.Artikelnummer||entry.Partnummer||entry['Part No']||entry['Part_Number']||entry['PartNumber']||entry['Part Nr']);
     if(direct) return direct;
     const candidates=['part','partno','partnumber','part_no','part-number','part number','partnr','part nr','pn','material','materialnr','materialnummer','materialno','material nr','material-nr','artikel','artikelnummer','artikel nr','artikel-nr','partnummer'];
     const data=entry.data&&typeof entry.data==='object'?entry.data:{};
@@ -318,12 +609,12 @@
       if(!value) continue;
       const lower=key.toLowerCase();
       if(candidates.includes(lower)){
-        const cleanVal=clean(value);
+        const cleanVal=normalizePart(value);
         if(cleanVal) return cleanVal;
       }
     }
     for(const field of ['PartNo','PartNumber','Part_No','Part Number','Part_Number','PartNr','Part Nr','Part-Nr','Material','MaterialNr','Materialnummer','MaterialNo','Material Nr','Material-Nr','Artikel','Artikelnummer','Artikel Nr','Artikel-Nr','Partnummer']){
-      const candidate=clean(data[field]);
+      const candidate=normalizePart(data[field]);
       if(candidate) return candidate;
     }
     return '';
@@ -400,7 +691,7 @@
     if(!parts||typeof parts!=='object') return '';
     const meldung=clean(parts.meldung);
     if(!meldung) return '';
-    const part=clean(parts.part);
+    const part=normalizePart(parts.part);
     const serial=clean(parts.serial);
     return [meldung,part,serial].map(value=>encodeURIComponent(value||''))
       .join(STATE_KEY_SEPARATOR);
@@ -416,7 +707,7 @@
           finding:typeof sel.finding==='string'?sel.finding:'',
           action:typeof sel.action==='string'?sel.action:'',
           label:typeof sel.label==='string'?sel.label:'',
-          part:typeof sel.part==='string'?sel.part:''
+          part:typeof sel.part==='string'?normalizePart(sel.part):''
         }
       ));
   }
@@ -429,7 +720,7 @@
             finding:typeof sel.finding==='string'?sel.finding:'',
             action:typeof sel.action==='string'?sel.action:'',
             label:typeof sel.label==='string'?sel.label:'',
-            part:typeof sel.part==='string'?sel.part:''
+            part:typeof sel.part==='string'?normalizePart(sel.part):''
           }
         ))
       :[];
@@ -447,7 +738,7 @@
 
   function loadStateFor(keyParts){
     const normalized=keyParts&&typeof keyParts==='object'
-      ? {meldung:clean(keyParts.meldung),part:clean(keyParts.part),serial:clean(keyParts.serial)}
+      ? {meldung:clean(keyParts.meldung),part:normalizePart(keyParts.part),serial:clean(keyParts.serial)}
       : null;
     const compositeKey=buildCompositeKey(normalized);
     let global=loadGlobalState();
@@ -482,7 +773,7 @@
 
   function saveStateFor(keyParts,state,selections,globalState){
     const normalized=keyParts&&typeof keyParts==='object'
-      ? {meldung:clean(keyParts.meldung),part:clean(keyParts.part),serial:clean(keyParts.serial)}
+      ? {meldung:clean(keyParts.meldung),part:normalizePart(keyParts.part),serial:clean(keyParts.serial)}
       : null;
     const compositeKey=buildCompositeKey(normalized);
     if(!compositeKey) return;
@@ -502,8 +793,14 @@
   }
 
   function getHistoryForPart(global,part){
-    if(!part) return [];
-    const list=global.history[part];
+    const normalized=normalizePart(part);
+    if(!normalized) return [];
+    if(normalized!==part&&Array.isArray(global.history[part])&&!Array.isArray(global.history[normalized])){
+      global.history[normalized]=global.history[part];
+      delete global.history[part];
+      saveGlobalState(global);
+    }
+    const list=global.history[normalized]||global.history[part];
     if(!Array.isArray(list)) return [];
     const seen=new Set();
     const result=[];
@@ -516,7 +813,7 @@
         finding:clean(item.finding),
         action:clean(item.action),
         label:clean(item.label),
-        part:clean(item.part)
+        part:normalizePart(item.part)
       });
       if(result.length>=HISTORY_LIMIT) break;
     }
@@ -524,15 +821,20 @@
   }
 
   function pushHistory(global,part,entry){
-    if(!part||!entry||!entry.key) return;
-    if(!Array.isArray(global.history[part])) global.history[part]=[];
-    const list=global.history[part];
+    const normalized=normalizePart(part);
+    if(!normalized||!entry||!entry.key) return;
+    if(normalized!==part&&Array.isArray(global.history[part])&&!Array.isArray(global.history[normalized])){
+      global.history[normalized]=global.history[part];
+      delete global.history[part];
+    }
+    if(!Array.isArray(global.history[normalized])) global.history[normalized]=[];
+    const list=global.history[normalized];
     list.unshift({
       key:entry.key,
       finding:entry.finding||'',
       action:entry.action||'',
       label:entry.label||'',
-      part:entry.part||''
+      part:normalizePart(entry.part)||normalized
     });
     const unique=new Map();
     const filtered=[];
@@ -543,7 +845,7 @@
       filtered.push(item);
       if(filtered.length>=HISTORY_LIMIT) break;
     }
-    global.history[part]=filtered;
+    global.history[normalized]=filtered;
     saveGlobalState(global);
   }
 
@@ -594,6 +896,7 @@
       this.totalEntries=0;
       this.entryMap=new Map();
       this.dictionaryUsed=false;
+      this.findingsPath='';
     }
 
     scheduleRender(){
@@ -623,6 +926,7 @@
       setupWatchers();
       await ensureData();
       this.globalState=loadGlobalState();
+      this.findingsPath=clean(localStorage.getItem(FINDINGS_PATH_KEY)||'');
       const data=parseData();
       this.allEntries=data.entries;
       this.entryMap=data.entryMap;
@@ -771,6 +1075,12 @@
         aspenInfo.textContent='Aspen-Daten geladen';
         metaRow.appendChild(aspenInfo);
       }
+      if(this.findingsPath){
+        const findingsInfo=document.createElement('span');
+        findingsInfo.className='nsf-inline-info';
+        findingsInfo.textContent=`Findings-Datei: ${this.findingsPath}`;
+        metaRow.appendChild(findingsInfo);
+      }
       if(metaRow.childElementCount){
         contextWrap.appendChild(metaRow);
       }
@@ -792,6 +1102,25 @@
 
       const controls=document.createElement('div');
       controls.className='nsf-controls';
+
+      const findingsInput=document.createElement('input');
+      findingsInput.type='file';
+      findingsInput.accept='.json,.txt';
+      findingsInput.style.display='none';
+      findingsInput.addEventListener('change',()=>{
+        const file=findingsInput.files&&findingsInput.files[0];
+        if(file){
+          this.handleFindingsFile(file).finally(()=>{findingsInput.value='';});
+        }
+      });
+      contextSection.appendChild(findingsInput);
+
+      const findingsBtn=document.createElement('button');
+      findingsBtn.type='button';
+      findingsBtn.className='nsf-btn';
+      findingsBtn.textContent='🧾 Findings-Datei wählen …';
+      findingsBtn.addEventListener('click',()=>findingsInput.click());
+      controls.appendChild(findingsBtn);
 
       const fileInput=document.createElement('input');
       fileInput.type='file';
@@ -981,6 +1310,48 @@
       root.append(contextSection,inputSection,outputsSection);
     }
 
+    renderEntryMeta(target,entry,options){
+      if(!target) return;
+      const config={
+        showFinding:false,
+        showLabel:true,
+        showAction:true,
+        showAdditional:true,
+        ...options
+      };
+      target.innerHTML='';
+      if(!entry){
+        target.style.display='none';
+        return;
+      }
+      const addLine=(label,value)=>{
+        const text=formatMetaValue(value);
+        if(!text) return;
+        const row=document.createElement('div');
+        const strong=document.createElement('strong');
+        strong.textContent=`${label}:`;
+        row.append(strong,document.createTextNode(` ${text}`));
+        target.appendChild(row);
+      };
+      if(config.showFinding&&entry.finding) addLine('Finding',entry.finding);
+      if(config.showLabel&&entry.label) addLine('Label',entry.label);
+      if(config.showAction&&entry.action) addLine('Action',entry.action);
+      if(entry.routine) addLine('Routine',entry.routine);
+      if(entry.nonroutine) addLine('Nonroutine',entry.nonroutine);
+      if(entry.parts) addLine('Parts',entry.parts);
+      if(entry.times) addLine('Times',entry.times);
+      if(entry.mods) addLine('Mods',entry.mods);
+      if(config.showAdditional!==false&&Array.isArray(entry.additional)){
+        for(const extra of entry.additional){
+          const label=clean(extra.label||extra.key);
+          const value=clean(extra.value);
+          if(!label||!value) continue;
+          addLine(label,value);
+        }
+      }
+      target.style.display=target.childElementCount?'flex':'none';
+    }
+
     addInputRow(prefillEntry,focusNext){
       const row=document.createElement('div');
       row.className='nsf-input-row';
@@ -1016,23 +1387,7 @@
         entry:null
       };
       const showHelper=entry=>{
-        if(entry&&(entry.label||entry.action)){
-          helper.innerHTML='';
-          if(entry.label){
-            const labelLine=document.createElement('div');
-            labelLine.textContent=`Label: ${entry.label}`;
-            helper.appendChild(labelLine);
-          }
-          if(entry.action){
-            const actionLine=document.createElement('div');
-            actionLine.textContent=`Action: ${entry.action}`;
-            helper.appendChild(actionLine);
-          }
-          helper.style.display='flex';
-        }else{
-          helper.innerHTML='';
-          helper.style.display='none';
-        }
+        this.renderEntryMeta(helper,entry,{showFinding:true});
       };
       const closeSuggestions=()=>{
         row.classList.remove('show-suggestions');
@@ -1049,6 +1404,12 @@
           if(entry.findingLower.includes(query)) return true;
           if(entry.labelLower.includes(query)) return true;
           if(entry.actionLower.includes(query)) return true;
+          if(entry.routineLower&&entry.routineLower.includes(query)) return true;
+          if(entry.nonroutineLower&&entry.nonroutineLower.includes(query)) return true;
+          if(entry.partsLower&&entry.partsLower.includes(query)) return true;
+          if(entry.timesLower&&entry.timesLower.includes(query)) return true;
+          if(entry.modsLower&&entry.modsLower.includes(query)) return true;
+          if(entry.additionalLower&&entry.additionalLower.some(val=>val&&val.includes(query))) return true;
           return false;
         }).slice(0,20);
         state.suggestionsList=matches;
@@ -1171,29 +1532,16 @@
       state.suggestionsList=[];
       state.highlightIndex=-1;
       if(state.helper){
-        state.helper.innerHTML='';
-        state.helper.style.display='none';
+        this.renderEntryMeta(state.helper,null,{showFinding:true});
       }
-      state.meta.innerHTML='';
-      if(entry.label){
-        const labelRow=document.createElement('div');
-        const strong=document.createElement('strong');
-        strong.textContent='Label:';
-        labelRow.append(strong,document.createTextNode(' '+entry.label));
-        state.meta.appendChild(labelRow);
-      }
-      if(entry.action){
-        const actionRow=document.createElement('div');
-        const strong=document.createElement('strong');
-        strong.textContent='Action:';
-        actionRow.append(strong,document.createTextNode(' '+entry.action));
-        state.meta.appendChild(actionRow);
-      }
-      state.meta.style.display=state.meta.childElementCount?'flex':'none';
+      this.renderEntryMeta(state.meta,entry,{showFinding:true});
       if(opts.addOutputs!==false){
         this.appendOutput('findings',entry.finding);
         this.appendOutput('actions',entry.action);
         this.appendOutput('parts',entry.part);
+        if(entry.routine) this.appendOutput('routine',entry.routine);
+        if(entry.nonroutine) this.appendOutput('nonroutine',entry.nonroutine);
+        if(entry.parts) this.appendOutput('parts',entry.parts);
       }
       if(opts.persist!==false){
         this.addSelection(entry);
@@ -1255,6 +1603,9 @@
       this.removeOutput('findings',entry.finding);
       this.removeOutput('actions',entry.action);
       this.removeOutput('parts',entry.part);
+      this.removeOutput('routine',entry.routine);
+      this.removeOutput('nonroutine',entry.nonroutine);
+      this.removeOutput('parts',entry.parts);
     }
 
     removeOutput(field,text){
@@ -1325,6 +1676,29 @@
       if(force){
         this.globalState=loadGlobalState();
         this.history=getHistoryForPart(this.globalState,this.currentPart);
+      }
+    }
+
+    async handleFindingsFile(file){
+      if(!file) return;
+      try{
+        const content=await file.text();
+        if(!content) return;
+        let parsed;
+        try{parsed=JSON.parse(content);}
+        catch(err){console.warn('NSF: Findings-Datei ist keine gültige JSON',err);return;}
+        if(parsed==null) return;
+        const payload=JSON.stringify(parsed);
+        localStorage.setItem(DATA_KEY,payload);
+        lastValues[DATA_KEY]=payload;
+        const path=file.path||file.webkitRelativePath||file.name||'';
+        if(path){
+          localStorage.setItem(FINDINGS_PATH_KEY,path);
+          lastValues[FINDINGS_PATH_KEY]=path;
+        }
+        scheduleAll();
+      }catch(err){
+        console.warn('NSF: Findings-Datei konnte nicht gelesen werden',err);
       }
     }
 
