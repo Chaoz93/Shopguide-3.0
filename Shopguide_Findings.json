@@ -1,0 +1,11 @@
+[
+  {
+    "id": "demo-entry",
+    "label": "Demo-Eintrag",
+    "findings": "Beispielbefund zur Demonstration des Editors.",
+    "actions": "Erforderliche Maßnahme dokumentieren.",
+    "routine": "Routinebeschreibung eintragen.",
+    "nonroutine": "Besondere Hinweise für Nonroutine-Fälle ergänzen.",
+    "parts": "Artikelnummern oder Bestellhinweise hier aufführen."
+  }
+]
