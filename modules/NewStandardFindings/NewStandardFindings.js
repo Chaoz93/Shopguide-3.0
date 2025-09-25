@@ -78,10 +78,11 @@
       .nsf-chip-text{font-weight:500;}
       .nsf-input-wrapper{display:flex;flex-direction:column;gap:0.5rem;}
       .nsf-input-row{position:relative;background:rgba(15,23,42,0.18);border-radius:0.85rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-input-field{position:relative;display:flex;align-items:center;width:100%;}
       .nsf-input-row.locked{background:rgba(15,23,42,0.28);}
-      .nsf-remove-btn{position:absolute;top:0.4rem;right:0.45rem;background:rgba(248,113,113,0.25);border:none;border-radius:999px;color:inherit;width:1.6rem;height:1.6rem;display:flex;align-items:center;justify-content:center;font-size:0.9rem;cursor:pointer;opacity:0.85;transition:background 0.15s ease,opacity 0.15s ease;}
-      .nsf-remove-btn:hover{background:rgba(248,113,113,0.4);opacity:1;}
-      .nsf-input{width:100%;border:none;border-radius:0.65rem;padding:0.55rem 0.7rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
+      .nsf-remove-btn{position:absolute;top:50%;right:0.45rem;transform:translateY(-50%);background:rgba(248,113,113,0.25);border:none;border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
+      .nsf-remove-btn:hover{background:rgba(248,113,113,0.4);opacity:1;transform:translateY(-50%) scale(1.05);}
+      .nsf-input{width:100%;border:none;border-radius:0.65rem;padding:0.55rem 2.7rem 0.55rem 0.7rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
       .nsf-input:disabled{opacity:0.75;background:rgba(255,255,255,0.65);cursor:not-allowed;}
       .nsf-input::placeholder{color:rgba(107,114,128,0.8);}
       .nsf-suggestions{position:absolute;top:calc(100% - 0.2rem);left:0;right:0;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.25);padding:0.35rem;display:none;max-height:220px;overflow:auto;z-index:30;}
@@ -1499,18 +1500,21 @@
     addInputRow(prefillEntry,focusNext){
       const row=document.createElement('div');
       row.className='nsf-input-row';
-      const removeBtn=document.createElement('button');
-      removeBtn.type='button';
-      removeBtn.className='nsf-remove-btn';
-      removeBtn.textContent='✖';
       const input=document.createElement('input');
       input.type='text';
       input.className='nsf-input';
       input.placeholder=this.availableEntries.length?'Finding auswählen…':'Keine Findings verfügbar';
       input.disabled=!this.availableEntries.length;
+      const removeBtn=document.createElement('button');
+      removeBtn.type='button';
+      removeBtn.className='nsf-remove-btn';
+      removeBtn.textContent='✖';
+      const field=document.createElement('div');
+      field.className='nsf-input-field';
+      field.append(input,removeBtn);
       const suggestions=document.createElement('div');
       suggestions.className='nsf-suggestions';
-      row.append(removeBtn,input,suggestions);
+      row.append(field,suggestions);
       this.inputsContainer.appendChild(row);
       const state={
         row,
@@ -1646,7 +1650,7 @@
         label:entry.label||'',
         part:entry.part||this.currentPart||''
       };
-      state.input.value=entry.finding||entry.label||entry.action||'Auswahl';
+      state.input.value=entry.label||entry.finding||entry.action||'Auswahl';
       state.input.disabled=true;
       state.row.classList.add('locked');
       state.row.classList.remove('show-suggestions');
