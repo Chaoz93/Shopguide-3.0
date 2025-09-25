@@ -537,6 +537,7 @@
     menu.innerHTML=`
       <div class="mi mi-opt">⚙️ Optionen</div>
       <div class="mi mi-pick">Aspen.xlsx wählen</div>
+      <input type="file" accept=".xlsx" class="db-file-input" style="display:none">
       <div class="mi mi-disable">Alle deaktivieren</div>
       <div class="db-part-list"></div>
     `;
@@ -580,7 +581,8 @@
       btnClear:root.querySelector('.db-btn-clear'),
       menu,
       activeMenu,
-      partList:menu.querySelector('.db-part-list')
+      partList:menu.querySelector('.db-part-list'),
+      fileInput:menu.querySelector('.db-file-input')
     };
   }
 
@@ -637,7 +639,8 @@
         };
       }
       ensureSubFields(state.config);
-      if(Array.isArray(saved.items)) state.items=dedupeByMeldung(saved.items);
+      // Aspen-Daten werden ausschließlich aus der ausgewählten Datei geladen.
+      // Persistierte Einträge werden bewusst ignoriert, damit keine veralteten Daten erscheinen.
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
       if(typeof saved.activeListVisible==='boolean') state.activeListVisible=saved.activeListVisible;
@@ -658,7 +661,7 @@
         activeColors:{...state.config.activeColors},
         highlight:state.config.highlight
       },
-      items:state.items,
+      // Karten stammen ausschließlich aus der ausgewählten Aspen-Datei
       excluded:Array.from(state.excluded),
       filePath:state.filePath,
       activeListVisible:!!state.activeListVisible
@@ -1226,7 +1229,13 @@
       activeMenuTarget=null;
     }
 
-    elements.menu.querySelector('.mi-pick').addEventListener('click',pickFromExcel);
+    elements.menu.querySelector('.mi-pick').addEventListener('click',()=>pickFromExcel());
+    if(elements.fileInput){
+      elements.fileInput.addEventListener('change',event=>{
+        const file=event.target?.files?.[0];
+        if(file) pickFromExcel(file);
+      });
+    }
     elements.menu.querySelector('.mi-disable').addEventListener('click',()=>{
       state.items=dedupeByMeldung(state.items);
       state.excluded=new Set(state.items.map(item=>item.part));
@@ -1476,17 +1485,49 @@
     });
     mo.observe(document.body,{childList:true,subtree:true});
 
-    async function pickFromExcel(){
+    function triggerFileDialog(){
+      if(!elements.fileInput) return false;
+      try{elements.fileInput.value='';}catch{}
+      elements.fileInput.click();
+      return true;
+    }
+
+    async function pickFromExcel(source){
       closeMenu();
+      let file=null;
+      let pickedName='';
+      if(source instanceof File){
+        file=source;
+        pickedName=source.name||'';
+      }
       try{
-        const [handle]=await showOpenFilePicker({
-          types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
-          multiple:false
-        });
-        if(!handle) return;
+        if(!file && typeof showOpenFilePicker==='function'){
+          const [handle]=await showOpenFilePicker({
+            types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
+            multiple:false
+          });
+          if(!handle) return;
+          pickedName=handle.name||'';
+          file=await handle.getFile();
+        }
+      }catch(error){
+        if(error?.name==='AbortError') return;
+        if(!triggerFileDialog()){
+          console.error(error);
+        }
+        return;
+      }
+
+      if(!file){
+        if(!triggerFileDialog()){
+          console.warn('[AspenBoard] Keine Datei gewählt – showOpenFilePicker nicht verfügbar');
+        }
+        return;
+      }
+
+      try{
         await ensureXLSX();
-        const file=await handle.getFile();
-        state.filePath=handle.name||'';
+        state.filePath=pickedName||file.name||'';
         const buffer=await file.arrayBuffer();
         const workbook=XLSX.read(buffer,{type:'array'});
         const worksheet=workbook.Sheets[workbook.SheetNames[0]];
