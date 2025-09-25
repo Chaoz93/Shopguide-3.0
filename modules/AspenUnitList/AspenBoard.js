@@ -5,8 +5,18 @@
   const STYLE_ID = 'db-styles';
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
-    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
+    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;}
+    .db-title-text{flex:1;min-width:0;}
+    .db-title-text.is-empty{display:none;}
+    .db-toggle-active{flex:0 0 auto;padding:.35rem .75rem;border-radius:.5rem;border:1px solid var(--border-color,#e5e7eb);background:rgba(255,255,255,.8);color:inherit;font-weight:500;cursor:pointer;transition:background .2s ease,box-shadow .2s ease,transform .2s ease;}
+    .db-toggle-active:hover{background:rgba(255,255,255,.95);box-shadow:0 4px 12px rgba(0,0,0,.08);transform:translateY(-1px);}
+    .db-toggle-active.is-active{background:var(--dl-title,#2563eb);color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.35);}
     .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;}
+    .db-columns{flex:1;display:flex;gap:.75rem;min-height:0;}
+    .db-column{flex:1;display:flex;flex-direction:column;min-width:0;}
+    .db-column-right{display:none;}
+    .db-column-right.is-visible{display:flex;}
+    .db-column-title{font-weight:600;color:var(--dl-title,#2563eb);margin-bottom:.35rem;}
     .db-toolbar{display:flex;align-items:center;gap:.5rem;}
     .db-search{flex:1;padding:.45rem .65rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:#000;font-size:.9rem;transition:border-color .2s ease,box-shadow .2s ease;}
     .db-search:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
@@ -409,8 +419,39 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
-    const titleBar=initialTitle?`<div class="db-titlebar">${initialTitle}</div>`:'';
-    root.innerHTML=`${titleBar}<div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-list"></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`
+      <div class="db-titlebar">
+        <span class="db-title-text">${escapeHtml(initialTitle)}</span>
+        <button type="button" class="db-toggle-active" aria-pressed="false">Active Devices</button>
+      </div>
+      <div class="db-surface">
+        <div class="db-toolbar">
+          <input type="search" class="db-search" placeholder="Geräte suchen…">
+        </div>
+        <div class="db-columns">
+          <div class="db-column db-column-left">
+            <div class="db-list"></div>
+          </div>
+          <div class="db-column db-column-right">
+            <div class="db-column-title">Active Device List</div>
+            <div class="db-list db-active-list"></div>
+          </div>
+        </div>
+      </div>
+      <div class="db-modal">
+        <div class="db-panel">
+          <div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div>
+          <div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div>
+          <div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div>
+          <div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div>
+          <div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div>
+          <div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div>
+          <div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div>
+          <div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div>
+          <div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div>
+        </div>
+      </div>
+    `;
 
     const menu=document.createElement('div');
     menu.className='db-menu';
@@ -419,7 +460,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     return {
       root,
-      list:root.querySelector('.db-list'),
+      list:root.querySelector('.db-column-left .db-list'),
+      activeList:root.querySelector('.db-active-list'),
+      activeColumn:root.querySelector('.db-column-right'),
+      toggleBtn:root.querySelector('.db-toggle-active'),
+      titleText:root.querySelector('.db-title-text'),
       search:root.querySelector('.db-search'),
       modal:root.querySelector('.db-modal'),
       titleInput:root.querySelector('.db-title-input'),
@@ -450,7 +495,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       items:[],
       excluded:new Set(),
       filePath:'',
-      searchQuery:''
+      searchQuery:'',
+      activeListVisible:false
     };
   }
 
@@ -487,6 +533,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
       state.searchQuery=typeof saved.searchQuery==='string'?saved.searchQuery:'';
+      if(typeof saved.activeListVisible==='boolean') state.activeListVisible=saved.activeListVisible;
       const sortField=primarySubField(state.config);
       state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
     }catch(e){/* ignore */}
@@ -505,7 +552,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       items:state.items,
       excluded:Array.from(state.excluded),
       filePath:state.filePath,
-      searchQuery:state.searchQuery||''
+      searchQuery:state.searchQuery||'',
+      activeListVisible:!!state.activeListVisible
     };
     try{localStorage.setItem(LS_STATE,JSON.stringify(payload));}catch(e){/* ignore */}
   }
@@ -528,17 +576,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
   function updateTitleBar(root,title){
     const text=(title||'').trim();
-    let bar=root.querySelector('.db-titlebar');
-    if(!text){
-      if(bar) bar.remove();
-      return;
+    const bar=root.querySelector('.db-titlebar');
+    if(!bar) return;
+    const span=bar.querySelector('.db-title-text');
+    if(span){
+      span.textContent=text;
+      span.classList.toggle('is-empty',!text);
     }
-    if(!bar){
-      bar=document.createElement('div');
-      bar.className='db-titlebar';
-      root.insertBefore(bar,root.firstChild);
-    }
-    bar.textContent=text;
   }
 
   function buildCardMarkup(item,config){
@@ -656,6 +700,28 @@ der-radius:.4rem;background:transparent;color:inherit;}
     let tempSubFields=[];
 
     restoreState(state);
+
+    function setActiveListVisibility(visible,{persist=true}={}){
+      const show=typeof visible==='boolean'?visible:!state.activeListVisible;
+      state.activeListVisible=!!show;
+      if(elements.activeColumn){
+        elements.activeColumn.classList.toggle('is-visible',state.activeListVisible);
+      }
+      if(elements.toggleBtn){
+        elements.toggleBtn.setAttribute('aria-pressed',state.activeListVisible?'true':'false');
+        elements.toggleBtn.classList.toggle('is-active',state.activeListVisible);
+      }
+      elements.root.classList.toggle('active-list-visible',state.activeListVisible);
+      if(persist) persistState(state);
+    }
+
+    setActiveListVisibility(state.activeListVisible,{persist:false});
+
+    if(elements.toggleBtn){
+      elements.toggleBtn.addEventListener('click',()=>{
+        setActiveListVisibility(!state.activeListVisible);
+      });
+    }
 
     elements.cBg.value=state.config.colors.bg;
     elements.cItem.value=state.config.colors.item;
