@@ -5,6 +5,13 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.3] – 2025-09-25
+### Changed
+- Shopguide Findings Editor auf Version 1.1.1 aktualisiert; unterstützt nun den Import verschachtelter Arrays samt Erhalt der Originalstruktur beim Speichern.
+
+### Fixed
+- Fehlende Feldinhalte nach dem Laden verschachtelter Findings-Dateien im Editor.
+
 ## [3.6.2] – 2025-09-26
 ### Changed
 - Shopguide Findings Editor auf Version 1.1.0 aktualisiert; unterstützt nun auch Findings-Dateien mit Partnummern-Schlüsseln und automatischer Feldzuordnung.

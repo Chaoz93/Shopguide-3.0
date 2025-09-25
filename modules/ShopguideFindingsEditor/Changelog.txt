@@ -5,6 +5,14 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.1] – 2025-09-25
+### Added
+- Import-Mapping für verschachtelte Array-Struktur (`Routine`, `NonRoutine`, `Parts`) von `Findings_Shopguide.json`.
+- Strukturerhaltendes Speichern zurück ins ursprüngliche Format.
+
+### Fixed
+- Leere Felder nach Datei­auswahl, wenn die JSON nicht flach war.
+
 ## [1.1.0] – 2025-09-26
 ### Added
 - Unterstützung für Findings-Dateien im Partnummer-Format (`{"PN": {...}}`) mit automatischer Feldzuordnung.

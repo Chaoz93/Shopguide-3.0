@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const MODULE_VERSION='1.1.0';
+  const MODULE_VERSION='1.1.1';
   const STORAGE_KEY='shopguide-findings';
   const PATH_KEY='shopguide-findings-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
@@ -244,6 +244,9 @@
       this.onWindowClick=null;
       this.onWindowResize=null;
       this.activeHistorySignature=null;
+      this.sourceFormat='array-flat';
+      this.rawById=new Map();
+      this.partById=new Map();
       this.init();
     }
 
@@ -357,8 +360,8 @@
             const file=await handle.getFile();
             this.filePath=file.name||DEFAULT_FILE;
             localStorage.setItem(PATH_KEY,this.filePath);
-            await this.loadFromHandle(handle);
-            this.status('Datei geladen');
+            const format=await this.loadFromHandle(handle);
+            this.status(format?`Format: ${format} erkannt – Datei geladen`:'Datei konnte nicht verarbeitet werden');
             return;
           }
         }catch(err){
@@ -382,8 +385,8 @@
         localStorage.setItem(PATH_KEY,this.filePath);
         try{
           const text=await file.text();
-          this.applyExternalData(text);
-          this.status('Datei geladen (Lesemodus)');
+          const format=this.applyExternalData(text);
+          this.status(format?`Format: ${format} erkannt – Datei geladen (Lesemodus)`:'Datei konnte nicht verarbeitet werden');
         }catch(err){
           console.error(err);
           this.showError('Datei konnte nicht gelesen werden.');
@@ -395,15 +398,15 @@
     async loadInitialData(){
       const fromStorage=localStorage.getItem(STORAGE_KEY);
       if(fromStorage){
-        this.applyExternalData(fromStorage);
-        this.status('Lokale Daten geladen');
+        const format=this.applyExternalData(fromStorage);
+        this.status(format?`Format: ${format} erkannt – Lokale Daten geladen`:'Lokale Daten konnten nicht verarbeitet werden');
         return;
       }
       if(this.fileHandle){
         const text=await readFileHandle(this.fileHandle);
         if(text){
-          this.applyExternalData(text);
-          this.status('Datei geladen');
+          const format=this.applyExternalData(text);
+          this.status(format?`Format: ${format} erkannt – Datei geladen`:'Datei konnte nicht verarbeitet werden');
           return;
         }
       }
@@ -413,10 +416,10 @@
     async loadFromHandle(handle){
       const text=await readFileHandle(handle);
       if(text){
-        this.applyExternalData(text);
-      }else{
-        this.showError('Ausgewählte Datei konnte nicht gelesen werden.');
+        return this.applyExternalData(text);
       }
+      this.showError('Ausgewählte Datei konnte nicht gelesen werden.');
+      return null;
     }
 
     async loadFromPath(path){
@@ -426,8 +429,8 @@
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
         const text=await res.text();
         this.filePath=target;
-        this.applyExternalData(text);
-        this.status('Standarddatei geladen');
+        const format=this.applyExternalData(text);
+        this.status(format?`Format: ${format} erkannt – Standarddatei geladen`:'Standarddatei konnte nicht verarbeitet werden');
       }catch(err){
         console.warn('Konnte Datei nicht laden',err);
         this.data=[];
@@ -442,15 +445,70 @@
     applyExternalData(text){
       try{
         const parsed=JSON.parse(text);
+        this.rawById=new Map();
+        this.partById=new Map();
+        let detectedFormat='array-flat';
         let entries;
         if(Array.isArray(parsed)){
-          entries=parsed;
-        }else if(parsed && typeof parsed==='object'){
+          const hasNested=parsed.some(item=>{
+            if(!item||typeof item!=='object') return false;
+            const hasPrimary=item.Part!=null||item.part!=null||item.PartNumber!=null||item.Label!=null||item.label!=null||item.Findings!=null||item.findings!=null;
+            if(!hasPrimary) return false;
+            const hasDeep=(item.Routine&&typeof item.Routine==='object')||(item.routine&&typeof item.routine==='object')||(item.NonRoutine&&typeof item.NonRoutine==='object')||(item.nonRoutine&&typeof item.nonRoutine==='object')||(item.Nonroutine&&typeof item.Nonroutine==='object')||(item.parts&&typeof item.parts==='object')||(item.Parts&&typeof item.Parts==='object');
+            return hasDeep;
+          });
+          if(hasNested){
+            detectedFormat='array-nested';
+            entries=parsed.map(original=>{
+              const source=original&&typeof original==='object'?original:{};
+              const id=source.id!=null?String(source.id):ensureId();
+              const routineSource=(source.Routine&&typeof source.Routine==='object')?source.Routine:(source.routine&&typeof source.routine==='object'?source.routine:{});
+              const nonRoutineSource=(source.NonRoutine&&typeof source.NonRoutine==='object')?source.NonRoutine:(source.nonRoutine&&typeof source.nonRoutine==='object'?source.nonRoutine:(source.Nonroutine&&typeof source.Nonroutine==='object'?source.Nonroutine:{}));
+              const partsSource=(source.Parts&&typeof source.Parts==='object')?source.Parts:(source.parts&&typeof source.parts==='object'?source.parts:{});
+              const labelCandidates=[source.Label,source.label,source.Part,source.part,source.PartNumber];
+              let labelValue='';
+              for(const candidate of labelCandidates){
+                if(candidate==null) continue;
+                const cleaned=cleanString(candidate);
+                if(cleaned){
+                  labelValue=candidate;
+                  break;
+                }
+              }
+              const mapped={
+                id,
+                label:labelValue,
+                findings:source.Findings!=null?source.Findings:source.findings,
+                actions:source.Actions!=null?source.Actions:source.actions,
+                routine:routineSource&&typeof routineSource==='object'? (routineSource.RoutineFinding!=null?routineSource.RoutineFinding:routineSource.routineFinding):'',
+                nonroutine:nonRoutineSource&&typeof nonRoutineSource==='object'? (nonRoutineSource.NonRoutineFinding!=null?nonRoutineSource.NonRoutineFinding:nonRoutineSource.nonRoutineFinding):'',
+                parts:partsSource&&typeof partsSource==='object'? (partsSource.PNText!=null?partsSource.PNText:partsSource.pnText):''
+              };
+              this.rawById.set(id,cloneData(source));
+              return mapped;
+            });
+          }else{
+            detectedFormat='array-flat';
+            entries=parsed;
+          }
+        }else if(parsed&&typeof parsed==='object'){
+          detectedFormat='object-by-pn';
           entries=Object.entries(parsed).map(([partNumber,value])=>{
-            const source=(value && typeof value==='object')?value:{};
-            const rawLabel=source.Label!=null?source.Label:source.label;
-            const labelValue=rawLabel!=null && String(rawLabel).trim()?rawLabel:partNumber;
+            const source=value&&typeof value==='object'?value:{};
+            const id=source.id!=null?String(source.id):ensureId();
+            const labelCandidates=[source.Label,source.label];
+            let labelValue='';
+            for(const candidate of labelCandidates){
+              if(candidate==null) continue;
+              const cleaned=cleanString(candidate);
+              if(cleaned){
+                labelValue=candidate;
+                break;
+              }
+            }
+            if(!cleanString(labelValue)) labelValue=partNumber;
             const mapped={
+              id,
               label:labelValue,
               findings:source.Findings!=null?source.Findings:source.findings,
               actions:source.Actions!=null?source.Actions:source.actions,
@@ -458,13 +516,25 @@
               nonroutine:source.Nonroutine!=null?source.Nonroutine:source.nonroutine,
               parts:source.Bestellliste!=null?source.Bestellliste:source.parts
             };
-            if(source.id!=null) mapped.id=source.id;
+            this.rawById.set(id,cloneData(source));
+            this.partById.set(id,partNumber);
             return mapped;
           });
         }else{
           throw new Error('Ungültiges Format');
         }
-        this.data=entries.map(normalizeEntry);
+        this.sourceFormat=detectedFormat;
+        this.data=entries.map(entry=>{
+          const normalized=normalizeEntry(entry);
+          if(!normalized.label&&entry&&entry.label){
+            normalized.label=cleanString(entry.label);
+          }
+          if(!normalized.label&&detectedFormat==='object-by-pn'){
+            const partKey=this.partById.get(normalized.id);
+            if(partKey) normalized.label=partKey;
+          }
+          return normalized;
+        });
         this.filtered=[...this.data];
         this.selectedId=this.filtered[0]?this.filtered[0].id:null;
         this.undoStack=[];
@@ -474,9 +544,11 @@
         this.saveLocal();
         this.renderAll();
         this.showError('');
+        return detectedFormat;
       }catch(err){
         console.error('Ungültige Daten',err);
         this.showError('Die Datei enthält kein gültiges Findings-Format.');
+        return null;
       }
     }
 
@@ -489,9 +561,78 @@
       }
     }
 
+    buildExternalData(){
+      if(this.sourceFormat==='array-nested'){
+        const result=[];
+        for(const entry of this.data){
+          const stored=this.rawById.get(entry.id);
+          const raw=stored?cloneData(stored):{
+            Part:'',
+            Label:'',
+            Findings:'',
+            Actions:'',
+            Routine:{RoutineFinding:''},
+            NonRoutine:{NonRoutineFinding:''},
+            Parts:{PNText:''}
+          };
+          if(!raw.Part){
+            const fallback=cleanString(entry.label);
+            if(fallback) raw.Part=fallback;
+          }
+          raw.Label=entry.label||raw.Label||'';
+          raw.Findings=entry.findings||'';
+          raw.Actions=entry.actions||'';
+          if(!raw.Routine||typeof raw.Routine!=='object') raw.Routine={};
+          raw.Routine.RoutineFinding=entry.routine||'';
+          if(!raw.NonRoutine||typeof raw.NonRoutine!=='object') raw.NonRoutine={};
+          raw.NonRoutine.NonRoutineFinding=entry.nonroutine||'';
+          if(raw.Nonroutine&&typeof raw.Nonroutine==='object'){
+            raw.Nonroutine.NonRoutineFinding=entry.nonroutine||'';
+          }
+          if(!raw.Parts||typeof raw.Parts!=='object') raw.Parts={};
+          raw.Parts.PNText=entry.parts||'';
+          this.rawById.set(entry.id,cloneData(raw));
+          result.push(raw);
+        }
+        return result;
+      }
+      if(this.sourceFormat==='object-by-pn'){
+        const result={};
+        for(const entry of this.data){
+          const stored=this.rawById.get(entry.id);
+          const raw=stored?cloneData(stored):{};
+          raw.Label=entry.label||'';
+          raw.Findings=entry.findings||'';
+          raw.Actions=entry.actions||'';
+          raw.Routine=entry.routine||'';
+          raw.Nonroutine=entry.nonroutine||'';
+          raw.Bestellliste=entry.parts||'';
+          let key=this.partById.get(entry.id)||'';
+          key=cleanString(key);
+          if(!key){
+            const fallbackCandidates=[raw.PartNumber,raw.Part,entry.label,entry.id];
+            for(const candidate of fallbackCandidates){
+              const cleaned=cleanString(candidate);
+              if(cleaned){
+                key=cleaned;
+                break;
+              }
+            }
+          }
+          if(!key) key=entry.id;
+          this.partById.set(entry.id,key);
+          this.rawById.set(entry.id,cloneData(raw));
+          result[key]=raw;
+        }
+        return result;
+      }
+      return this.data.map(entry=>({...entry}));
+    }
+
     async saveNow(force){
       if(!this.dirty && !force) return;
-      const payload=JSON.stringify(this.data, null, 2);
+      const externalData=this.buildExternalData();
+      const payload=JSON.stringify(externalData, null, 2);
       this.saveLocal();
       if(this.fileHandle){
         try{
@@ -506,12 +647,14 @@
           this.showError('Speichern in Datei fehlgeschlagen.');
         }
       }else if(force){
-        this.status('Lokale Speicherung aktiv');
+        this.status('Nur lokale Speicherung');
         this.showError('Keine Datei gewählt – nur lokale Speicherung.');
         this.dirty=false;
+        this.pendingSave=false;
       }else{
         this.status('Auto-Save lokal');
         this.dirty=false;
+        this.pendingSave=false;
       }
     }
 
@@ -714,6 +857,27 @@
       const entry=normalizeEntry({label:'',findings:'',actions:'',routine:'',nonroutine:'',parts:''});
       this.pushHistory();
       this.data.unshift(entry);
+      if(this.sourceFormat==='array-nested'){
+        this.rawById.set(entry.id,{
+          Part:'',
+          Label:'',
+          Findings:'',
+          Actions:'',
+          Routine:{RoutineFinding:''},
+          NonRoutine:{NonRoutineFinding:''},
+          Parts:{PNText:''}
+        });
+      }else if(this.sourceFormat==='object-by-pn'){
+        this.rawById.set(entry.id,{
+          Label:'',
+          Findings:'',
+          Actions:'',
+          Routine:'',
+          Nonroutine:'',
+          Bestellliste:''
+        });
+        this.partById.set(entry.id,'');
+      }
       this.selectedId=entry.id;
       this.activeHistorySignature=null;
       this.dirty=true;
