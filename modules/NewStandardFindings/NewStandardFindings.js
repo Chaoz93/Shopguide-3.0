@@ -86,7 +86,7 @@
       .nsf-input::placeholder{color:rgba(107,114,128,0.8);}
       .nsf-suggestions{position:absolute;top:calc(100% - 0.2rem);left:0;right:0;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.25);padding:0.35rem;display:none;max-height:220px;overflow:auto;z-index:30;}
       .nsf-input-row.show-suggestions .nsf-suggestions{display:block;}
-      .nsf-suggestion{padding:0.45rem 0.55rem;border-radius:0.6rem;cursor:pointer;display:flex;flex-direction:column;gap:0.25rem;}
+      .nsf-suggestion{padding:0.35rem 0.55rem;border-radius:0.6rem;cursor:pointer;display:flex;align-items:center;gap:0.35rem;}
       .nsf-suggestion:hover,.nsf-suggestion.active{background:rgba(59,130,246,0.12);}
       .nsf-suggestion-label{font-weight:600;font-size:0.9rem;}
       .nsf-suggestion-finding{font-size:0.85rem;opacity:0.85;}
@@ -1557,14 +1557,8 @@
           item.className='nsf-suggestion';
           const label=document.createElement('div');
           label.className='nsf-suggestion-label';
-          label.textContent=entry.finding||entry.label||'Eintrag';
-          const finding=document.createElement('div');
-          finding.className='nsf-suggestion-finding';
-          finding.textContent=entry.label||entry.finding||'';
-          const action=document.createElement('div');
-          action.className='nsf-suggestion-action';
-          action.textContent=entry.action||'';
-          item.append(label,finding,action);
+          label.textContent=entry.label||entry.finding||entry.action||'Eintrag';
+          item.append(label);
           item.addEventListener('mousedown',e=>{
             e.preventDefault();
             this.acceptSelection(entry,state);
