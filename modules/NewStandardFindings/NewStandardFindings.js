@@ -32,6 +32,19 @@
       .nsf-header-toggle:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
       .nsf-header-summary{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
+      .nsf-selection-section{padding:0;gap:0;overflow:hidden;}
+      .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);cursor:pointer;}
+      .nsf-selection-header:focus-within{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
+      .nsf-selection-heading{display:flex;align-items:center;gap:0.4rem;font-size:0.95rem;font-weight:600;}
+      .nsf-selection-summary{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:0.35rem;font-size:0.78rem;line-height:1.2;}
+      .nsf-selection-summary-chip{background:rgba(148,163,184,0.16);border-radius:999px;padding:0.2rem 0.55rem;font-weight:500;white-space:nowrap;}
+      .nsf-selection-summary-more{opacity:0.75;font-weight:500;}
+      .nsf-selection-summary-empty{opacity:0.6;font-style:italic;}
+      .nsf-selection-body{display:flex;flex-direction:column;gap:0.6rem;padding:0.7rem 0.85rem;}
+      .nsf-selection-section.collapsed .nsf-selection-body{display:none;}
+      .nsf-selection-section.collapsed .nsf-selection-heading{display:none;}
+      .nsf-selection-section.collapsed .nsf-selection-summary{margin-left:0;}
+      .nsf-selection-section.collapsed .nsf-selection-header{border-bottom:none;}
       .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
       .nsf-header-action{background:rgba(255,255,255,0.12);border:none;border-radius:999px;padding:0.25rem 0.6rem;font:inherit;font-size:0.72rem;color:inherit;line-height:1;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-header-action:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
@@ -93,7 +106,7 @@
       .nsf-suggestion-finding{font-size:0.85rem;opacity:0.85;}
       .nsf-suggestion-action{font-size:0.8rem;opacity:0.65;}
       .nsf-empty{opacity:0.75;font-style:italic;}
-      .nsf-outputs{display:grid;gap:0.75rem;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+      .nsf-outputs{display:flex;flex-direction:column;gap:0.75rem;}
       .nsf-output{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;min-height:0;}
       .nsf-output-header{display:flex;align-items:center;justify-content:space-between;font-weight:600;}
       .nsf-copy-btn{background:rgba(255,255,255,0.16);border:none;border-radius:0.6rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;cursor:pointer;transition:background 0.15s ease;display:flex;align-items:center;gap:0.3rem;}
@@ -979,6 +992,7 @@
       this.entryMap=new Map();
       this.dictionaryUsed=false;
       this.findingsPath='';
+      this.selectionCollapsed=false;
       this.headerCollapsed=true;
       this.menuCleanup=null;
     }
@@ -1420,7 +1434,28 @@
       }
 
       const inputSection=document.createElement('div');
-      inputSection.className='nsf-section';
+      inputSection.className='nsf-section nsf-selection-section';
+      if(this.selectionCollapsed) inputSection.classList.add('collapsed');
+
+      const selectionHeader=document.createElement('div');
+      selectionHeader.className='nsf-selection-header';
+
+      const selectionToggle=document.createElement('button');
+      selectionToggle.type='button';
+      selectionToggle.className='nsf-header-toggle';
+      selectionToggle.textContent=this.selectionCollapsed?'▸':'▾';
+      selectionToggle.title=this.selectionCollapsed?'Auswahl anzeigen':'Auswahl ausblenden';
+      selectionToggle.setAttribute('aria-label',selectionToggle.title);
+      selectionToggle.setAttribute('aria-expanded',String(!this.selectionCollapsed));
+      selectionToggle.addEventListener('click',event=>{
+        event.stopPropagation();
+        this.selectionCollapsed=!this.selectionCollapsed;
+        this.render();
+      });
+      selectionHeader.appendChild(selectionToggle);
+
+      const heading=document.createElement('div');
+      heading.className='nsf-selection-heading';
       const title=document.createElement('div');
       title.className='nsf-section-title';
       title.textContent='Findings auswählen';
@@ -1430,7 +1465,44 @@
         badge.textContent=`${this.availableEntries.length} Einträge`;
         title.appendChild(badge);
       }
-      inputSection.appendChild(title);
+      heading.appendChild(title);
+      selectionHeader.appendChild(heading);
+
+      const summary=document.createElement('div');
+      summary.className='nsf-selection-summary';
+      const labelTexts=this.selectedEntries
+        .map(entry=>clean(entry.label)||clean(entry.finding)||clean(entry.action)||'')
+        .map(text=>text||'')
+        .filter(Boolean);
+      if(!labelTexts.length){
+        const empty=document.createElement('span');
+        empty.className='nsf-selection-summary-empty';
+        empty.textContent='Keine Auswahl';
+        summary.appendChild(empty);
+      }else{
+        const MAX_CHIPS=4;
+        labelTexts.slice(0,MAX_CHIPS).forEach(text=>{
+          const chip=document.createElement('span');
+          chip.className='nsf-selection-summary-chip';
+          chip.textContent=text;
+          summary.appendChild(chip);
+        });
+        if(labelTexts.length>MAX_CHIPS){
+          const more=document.createElement('span');
+          more.className='nsf-selection-summary-more';
+          more.textContent=`+${labelTexts.length-MAX_CHIPS}`;
+          summary.appendChild(more);
+        }
+      }
+      selectionHeader.appendChild(summary);
+      selectionHeader.addEventListener('click',event=>{
+        if(event.target.closest('button')) return;
+        this.selectionCollapsed=!this.selectionCollapsed;
+        this.render();
+      });
+
+      const selectionBody=document.createElement('div');
+      selectionBody.className='nsf-selection-body';
 
       const note=document.createElement('div');
       note.className='nsf-note';
@@ -1449,7 +1521,7 @@
       }else{
         note.textContent='Tippen, um Findings zu suchen. Mit Enter auswählen – es erscheint automatisch ein weiteres Eingabefeld.';
       }
-      inputSection.appendChild(note);
+      selectionBody.appendChild(note);
 
       if(this.history.length){
         const historyContainer=document.createElement('div');
@@ -1474,13 +1546,15 @@
           historyList.appendChild(chip);
         }
         historyContainer.append(historyHeader,historyList);
-        inputSection.appendChild(historyContainer);
+        selectionBody.appendChild(historyContainer);
       }
 
       const inputsWrapper=document.createElement('div');
       inputsWrapper.className='nsf-input-wrapper';
-      inputSection.appendChild(inputsWrapper);
+      selectionBody.appendChild(inputsWrapper);
       this.inputsContainer=inputsWrapper;
+
+      inputSection.append(selectionHeader,selectionBody);
 
       if(this.meldung){
         if(this.selectedEntries.length){
