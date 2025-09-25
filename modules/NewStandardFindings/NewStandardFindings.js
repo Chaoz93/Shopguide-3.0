@@ -25,6 +25,16 @@
     tag.textContent=`
       .nsf-module{display:flex;flex-direction:column;gap:1rem;height:100%;color:var(--text-color);}
       .nsf-section{background:rgba(255,255,255,0.08);border-radius:1rem;padding:0.65rem 0.85rem;display:flex;flex-direction:column;gap:0.55rem;}
+      .nsf-header-section{padding:0.4rem 0.6rem;gap:0.35rem;}
+      .nsf-header-section.collapsed{padding:0.3rem 0.5rem;}
+      .nsf-header-bar{display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;line-height:1.2;}
+      .nsf-header-toggle{background:rgba(255,255,255,0.12);border:none;border-radius:0.45rem;width:1.6rem;height:1.6rem;display:flex;align-items:center;justify-content:center;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-header-toggle:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
+      .nsf-header-summary{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
+      .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
+      .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-header-action{background:rgba(255,255,255,0.12);border:none;border-radius:999px;padding:0.25rem 0.6rem;font:inherit;font-size:0.72rem;color:inherit;line-height:1;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-header-action:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
       .nsf-context{display:flex;flex-direction:column;gap:0.6rem;font-size:0.88rem;}
       .nsf-context-top{display:flex;flex-wrap:wrap;align-items:flex-start;gap:0.65rem;}
       .nsf-context-info{display:flex;flex-direction:column;gap:0.45rem;flex:1 1 320px;min-width:240px;}
@@ -909,6 +919,8 @@
       this.entryMap=new Map();
       this.dictionaryUsed=false;
       this.findingsPath='';
+      this.headerCollapsed=true;
+      this.menuCleanup=null;
     }
 
     scheduleRender(){
@@ -1015,68 +1027,16 @@
       const root=this.root;
       root.innerHTML='';
       root.classList.add('nsf-module');
+      if(this.menuCleanup){
+        this.menuCleanup();
+        this.menuCleanup=null;
+      }
 
       const contextSection=document.createElement('div');
-      contextSection.className='nsf-section';
-      const contextWrap=document.createElement('div');
-      contextWrap.className='nsf-context';
-
-      const makeContextItem=(label,value)=>{
-        const container=document.createElement('div');
-        container.className='nsf-context-item';
-        const lbl=document.createElement('span');
-        lbl.className='nsf-context-label';
-        lbl.textContent=`${label}:`;
-        const val=document.createElement('span');
-        val.className='nsf-context-value';
-        val.textContent=value||'–';
-        container.append(lbl,val);
-        return container;
-      };
-
-      const headerRow=document.createElement('div');
-      headerRow.className='nsf-context-header';
-      headerRow.append(
-        makeContextItem('Meldung',this.meldung),
-        makeContextItem('Partnummer',this.currentPart),
-        makeContextItem('Seriennummer',this.serial)
-      );
-
-      const visibleCount=this.availableEntries.length;
-      const totalForPart=this.partEntries.length;
-      const totalLabel=totalForPart||this.totalEntries||visibleCount;
-      const statsWrap=document.createElement('div');
-      statsWrap.className='nsf-header-stats';
-      const findingsStat=document.createElement('div');
-      findingsStat.className='nsf-context-stat';
-      const countValue=document.createElement('span');
-      countValue.className='nsf-context-stat-value';
-      countValue.textContent=String(visibleCount);
-      findingsStat.appendChild(countValue);
-      const countLabel=document.createElement('span');
-      countLabel.className='nsf-context-stat-label';
-      countLabel.textContent='Findings geladen';
-      findingsStat.appendChild(countLabel);
-      const metaParts=[];
-      if(totalLabel&&totalLabel!==visibleCount){
-        metaParts.push(`von ${totalLabel}`);
+      contextSection.className='nsf-section nsf-header-section';
+      if(this.headerCollapsed){
+        contextSection.classList.add('collapsed');
       }
-      if(this.currentPart){
-        metaParts.push(`PN ${this.currentPart}`);
-      }
-      if(this.serial){
-        metaParts.push(`SN ${this.serial}`);
-      }
-      if(this.filterAll&&this.currentPart){
-        metaParts.push('Filter deaktiviert');
-      }
-      if(metaParts.length){
-        const meta=document.createElement('span');
-        meta.className='nsf-context-stat-meta';
-        meta.textContent=metaParts.join(' • ');
-        findingsStat.appendChild(meta);
-      }
-      statsWrap.appendChild(findingsStat);
 
       const findingsInput=document.createElement('input');
       findingsInput.type='file';
@@ -1100,184 +1060,302 @@
         }
       });
 
-      const controls=document.createElement('div');
-      controls.className='nsf-controls';
+      const headerBar=document.createElement('div');
+      headerBar.className='nsf-header-bar';
 
-      const quickActions=document.createElement('div');
-      quickActions.className='nsf-quick-actions';
-      controls.appendChild(quickActions);
-
-      const menuWrapper=document.createElement('div');
-      menuWrapper.className='nsf-menu';
-      const menuButton=document.createElement('button');
-      menuButton.type='button';
-      menuButton.className='nsf-menu-toggle';
-      menuButton.textContent='⋮';
-      menuButton.title='Weitere Aktionen';
-      menuButton.setAttribute('aria-label','Weitere Aktionen');
-      const menuList=document.createElement('div');
-      menuList.className='nsf-menu-list';
-      menuWrapper.append(menuButton,menuList);
-      controls.appendChild(menuWrapper);
-
-      const handleOutsideClick=event=>{
-        if(!menuWrapper.contains(event.target)){
-          closeMenu();
-        }
-      };
-      const closeMenu=()=>{
-        menuWrapper.classList.remove('open');
-        document.removeEventListener('click',handleOutsideClick);
-      };
-      const openMenu=()=>{
-        if(menuWrapper.classList.contains('open')){
-          closeMenu();
-        }else{
-          menuWrapper.classList.add('open');
-          document.addEventListener('click',handleOutsideClick);
-        }
-      };
-      menuButton.addEventListener('click',event=>{
-        event.stopPropagation();
-        openMenu();
-      });
-
-      const addMenuItem=(label,handler,options)=>{
-        const item=document.createElement('button');
-        item.type='button';
-        item.className='nsf-menu-item';
-        item.textContent=label;
-        if(options&&options.disabled) item.disabled=true;
-        item.addEventListener('click',()=>{
-          if(item.disabled) return;
-          closeMenu();
-          handler();
-        });
-        menuList.appendChild(item);
-        return item;
-      };
-
-      const toggleFilter=()=>{
-        if(!this.totalEntries) return;
-        this.filterAll=!this.filterAll;
-        this.availableEntries=this.filterAll?this.allEntries:this.partEntries;
+      const toggleButton=document.createElement('button');
+      toggleButton.type='button';
+      toggleButton.className='nsf-header-toggle';
+      toggleButton.textContent=this.headerCollapsed?'▸':'▾';
+      toggleButton.title=this.headerCollapsed?'Details anzeigen':'Details ausblenden';
+      toggleButton.setAttribute('aria-label',toggleButton.title);
+      toggleButton.setAttribute('aria-expanded',String(!this.headerCollapsed));
+      toggleButton.addEventListener('click',()=>{
+        this.headerCollapsed=!this.headerCollapsed;
         this.render();
-      };
-      const handleUndo=()=>{this.applyUndo();};
-      const handleClear=()=>{this.clearCurrentState();};
-      const handleSave=()=>{this.flushStateSave(true);};
+      });
+      headerBar.appendChild(toggleButton);
 
-      const makeIconButton=(icon,label,handler,disabled)=>{
+      const summary=document.createElement('div');
+      summary.className='nsf-header-summary';
+      const summaryItems=[
+        {label:'M',value:this.meldung},
+        {label:'P/N',value:this.currentPart},
+        {label:'S/N',value:this.serial}
+      ];
+      for(const item of summaryItems){
+        const span=document.createElement('span');
+        span.className='nsf-header-summary-item';
+        span.textContent=`${item.label}: ${item.value||'–'}`;
+        summary.appendChild(span);
+      }
+      headerBar.appendChild(summary);
+
+      const headerActions=document.createElement('div');
+      headerActions.className='nsf-header-actions';
+
+      const makeHeaderAction=(label,handler)=>{
         const btn=document.createElement('button');
         btn.type='button';
-        btn.className='nsf-icon-btn';
-        btn.textContent=icon;
+        btn.className='nsf-header-action';
+        btn.textContent=label;
         btn.title=label;
         btn.setAttribute('aria-label',label);
-        if(disabled) btn.disabled=true;
-        btn.addEventListener('click',()=>{
-          if(btn.disabled) return;
-          handler();
-        });
-        quickActions.appendChild(btn);
+        btn.addEventListener('click',handler);
         return btn;
       };
 
-      const filterBtn=makeIconButton(
-        this.filterAll?'🔒':'🔍',
-        this.filterAll?'PN-Filter aktivieren':'Alle Findings anzeigen',
-        toggleFilter,
-        !this.totalEntries
-      );
-      const undoBtn=makeIconButton('↩️','Undo',handleUndo,!this.undoBuffer);
-      const clearBtn=makeIconButton('🗑','Alles löschen',handleClear,!this.stateKey);
-      const saveBtn=makeIconButton('💾','Alles speichern',handleSave,!this.stateKey);
+      const findingsAction=makeHeaderAction('Findings',()=>findingsInput.click());
+      const aspenAction=makeHeaderAction('Aspen',()=>fileInput.click());
+      headerActions.append(findingsAction,aspenAction);
+      headerBar.appendChild(headerActions);
 
-      addMenuItem('🧾 Findings-Datei wählen …',()=>findingsInput.click());
-      addMenuItem('📂 Aspen-Datei wählen …',()=>fileInput.click());
-      const toggleItem=addMenuItem(
-        this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen',
-        toggleFilter,
-        {disabled:!this.totalEntries}
-      );
-      const undoItem=addMenuItem('↩️ Undo',handleUndo,{disabled:!this.undoBuffer});
-      const clearItem=addMenuItem('🗑 Alles löschen',handleClear,{disabled:!this.stateKey});
-      const saveItem=addMenuItem('💾 Alles speichern',handleSave,{disabled:!this.stateKey});
-
-      if(this.totalEntries){
-        toggleItem.textContent=this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen';
-      }
-      undoItem.disabled=!this.undoBuffer;
-      clearItem.disabled=!this.stateKey;
-      saveItem.disabled=!this.stateKey;
-      filterBtn.disabled=!this.totalEntries;
-      undoBtn.disabled=!this.undoBuffer;
-      clearBtn.disabled=!this.stateKey;
-      saveBtn.disabled=!this.stateKey;
-
-      const infoStack=document.createElement('div');
-      infoStack.className='nsf-context-info';
-      infoStack.appendChild(headerRow);
-      if(statsWrap.childElementCount){
-        infoStack.appendChild(statsWrap);
-      }
-
-      const topBar=document.createElement('div');
-      topBar.className='nsf-context-top';
-      topBar.append(infoStack,controls);
-      contextWrap.appendChild(topBar);
-
-      const metaRow=document.createElement('div');
-      metaRow.className='nsf-context-meta';
-      if(this.currentPart){
-        const source=document.createElement('span');
-        source.className='nsf-inline-info';
-        const sourceLabel=this.partSource==='dictionary'
-          ?'Dictionary'
-          :this.partSource==='aspen-board'
-            ?'Aspen-Board'
-            :this.partSource==='aspen-header'
-              ?'Aspen-Headerdaten'
-              :'Unbekannt';
-        source.textContent=`Partnummer-Quelle: ${sourceLabel}`;
-        metaRow.appendChild(source);
-      }else{
-        const source=document.createElement('span');
-        source.className='nsf-inline-info';
-        source.textContent='Keine Partnummer gefunden';
-        metaRow.appendChild(source);
-      }
-      if(this.hasAspenDoc){
-        const aspenInfo=document.createElement('span');
-        aspenInfo.className='nsf-inline-info';
-        aspenInfo.textContent='Aspen-Daten geladen';
-        metaRow.appendChild(aspenInfo);
-      }
-      if(this.findingsPath){
-        const findingsInfo=document.createElement('span');
-        findingsInfo.className='nsf-inline-info';
-        findingsInfo.textContent=`Findings-Datei: ${this.findingsPath}`;
-        metaRow.appendChild(findingsInfo);
-      }
-      if(metaRow.childElementCount){
-        contextWrap.appendChild(metaRow);
-      }
-
-      contextSection.appendChild(contextWrap);
+      contextSection.appendChild(headerBar);
       contextSection.appendChild(findingsInput);
       contextSection.appendChild(fileInput);
 
-      if(!this.hasAspenDoc){
-        const warn=document.createElement('div');
-        warn.className='nsf-alert';
-        warn.textContent='Keine Aspen-Daten vorhanden – bitte Datei laden.';
-        contextSection.appendChild(warn);
-      }
-      if(this.dictionaryUsed){
-        const info=document.createElement('div');
-        info.className='nsf-note';
-        info.textContent='Keine Partnummer in Aspen gefunden – Fallback Dictionary.';
-        contextSection.appendChild(info);
+      const makeContextItem=(label,value)=>{
+        const container=document.createElement('div');
+        container.className='nsf-context-item';
+        const lbl=document.createElement('span');
+        lbl.className='nsf-context-label';
+        lbl.textContent=`${label}:`;
+        const val=document.createElement('span');
+        val.className='nsf-context-value';
+        val.textContent=value||'–';
+        container.append(lbl,val);
+        return container;
+      };
+
+      if(!this.headerCollapsed){
+        const contextWrap=document.createElement('div');
+        contextWrap.className='nsf-context';
+
+        const headerRow=document.createElement('div');
+        headerRow.className='nsf-context-header';
+        headerRow.append(
+          makeContextItem('Meldung',this.meldung),
+          makeContextItem('Partnummer',this.currentPart),
+          makeContextItem('Seriennummer',this.serial)
+        );
+
+        const visibleCount=this.availableEntries.length;
+        const totalForPart=this.partEntries.length;
+        const totalLabel=totalForPart||this.totalEntries||visibleCount;
+        const statsWrap=document.createElement('div');
+        statsWrap.className='nsf-header-stats';
+        const findingsStat=document.createElement('div');
+        findingsStat.className='nsf-context-stat';
+        const countValue=document.createElement('span');
+        countValue.className='nsf-context-stat-value';
+        countValue.textContent=String(visibleCount);
+        findingsStat.appendChild(countValue);
+        const countLabel=document.createElement('span');
+        countLabel.className='nsf-context-stat-label';
+        countLabel.textContent='Findings geladen';
+        findingsStat.appendChild(countLabel);
+        const metaParts=[];
+        if(totalLabel&&totalLabel!==visibleCount){
+          metaParts.push(`von ${totalLabel}`);
+        }
+        if(this.currentPart){
+          metaParts.push(`PN ${this.currentPart}`);
+        }
+        if(this.serial){
+          metaParts.push(`SN ${this.serial}`);
+        }
+        if(this.filterAll&&this.currentPart){
+          metaParts.push('Filter deaktiviert');
+        }
+        if(metaParts.length){
+          const meta=document.createElement('span');
+          meta.className='nsf-context-stat-meta';
+          meta.textContent=metaParts.join(' • ');
+          findingsStat.appendChild(meta);
+        }
+        statsWrap.appendChild(findingsStat);
+
+        const controls=document.createElement('div');
+        controls.className='nsf-controls';
+
+        const quickActions=document.createElement('div');
+        quickActions.className='nsf-quick-actions';
+        controls.appendChild(quickActions);
+
+        const menuWrapper=document.createElement('div');
+        menuWrapper.className='nsf-menu';
+        const menuButton=document.createElement('button');
+        menuButton.type='button';
+        menuButton.className='nsf-menu-toggle';
+        menuButton.textContent='⋮';
+        menuButton.title='Weitere Aktionen';
+        menuButton.setAttribute('aria-label','Weitere Aktionen');
+        const menuList=document.createElement('div');
+        menuList.className='nsf-menu-list';
+        menuWrapper.append(menuButton,menuList);
+        controls.appendChild(menuWrapper);
+
+        const handleOutsideClick=event=>{
+          if(!menuWrapper.contains(event.target)){
+            closeMenu();
+          }
+        };
+        const closeMenu=()=>{
+          menuWrapper.classList.remove('open');
+          if(this.menuCleanup){
+            this.menuCleanup();
+            this.menuCleanup=null;
+          }
+        };
+        const openMenu=()=>{
+          if(menuWrapper.classList.contains('open')){
+            closeMenu();
+          }else{
+            menuWrapper.classList.add('open');
+            this.menuCleanup=()=>document.removeEventListener('click',handleOutsideClick);
+            document.addEventListener('click',handleOutsideClick);
+          }
+        };
+        menuButton.addEventListener('click',event=>{
+          event.stopPropagation();
+          openMenu();
+        });
+
+        const addMenuItem=(label,handler,options)=>{
+          const item=document.createElement('button');
+          item.type='button';
+          item.className='nsf-menu-item';
+          item.textContent=label;
+          if(options&&options.disabled) item.disabled=true;
+          item.addEventListener('click',()=>{
+            if(item.disabled) return;
+            closeMenu();
+            handler();
+          });
+          menuList.appendChild(item);
+          return item;
+        };
+
+        const toggleFilter=()=>{
+          if(!this.totalEntries) return;
+          this.filterAll=!this.filterAll;
+          this.availableEntries=this.filterAll?this.allEntries:this.partEntries;
+          this.render();
+        };
+        const handleUndo=()=>{this.applyUndo();};
+        const handleClear=()=>{this.clearCurrentState();};
+        const handleSave=()=>{this.flushStateSave(true);};
+
+        const makeIconButton=(icon,label,handler,disabled)=>{
+          const btn=document.createElement('button');
+          btn.type='button';
+          btn.className='nsf-icon-btn';
+          btn.textContent=icon;
+          btn.title=label;
+          btn.setAttribute('aria-label',label);
+          if(disabled) btn.disabled=true;
+          btn.addEventListener('click',()=>{
+            if(btn.disabled) return;
+            handler();
+          });
+          quickActions.appendChild(btn);
+          return btn;
+        };
+
+        const filterBtn=makeIconButton(
+          this.filterAll?'🔒':'🔍',
+          this.filterAll?'PN-Filter aktivieren':'Alle Findings anzeigen',
+          toggleFilter,
+          !this.totalEntries
+        );
+        const undoBtn=makeIconButton('↩️','Undo',handleUndo,!this.undoBuffer);
+        const clearBtn=makeIconButton('🗑','Alles löschen',handleClear,!this.stateKey);
+        const saveBtn=makeIconButton('💾','Alles speichern',handleSave,!this.stateKey);
+
+        addMenuItem('🧾 Findings-Datei wählen …',()=>findingsInput.click());
+        addMenuItem('📂 Aspen-Datei wählen …',()=>fileInput.click());
+        const toggleItem=addMenuItem(
+          this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen',
+          toggleFilter,
+          {disabled:!this.totalEntries}
+        );
+        const undoItem=addMenuItem('↩️ Undo',handleUndo,{disabled:!this.undoBuffer});
+        const clearItem=addMenuItem('🗑 Alles löschen',handleClear,{disabled:!this.stateKey});
+        const saveItem=addMenuItem('💾 Alles speichern',handleSave,{disabled:!this.stateKey});
+
+        if(this.totalEntries){
+          toggleItem.textContent=this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen';
+        }
+        undoItem.disabled=!this.undoBuffer;
+        clearItem.disabled=!this.stateKey;
+        saveItem.disabled=!this.stateKey;
+        filterBtn.disabled=!this.totalEntries;
+        undoBtn.disabled=!this.undoBuffer;
+        clearBtn.disabled=!this.stateKey;
+        saveBtn.disabled=!this.stateKey;
+
+        const infoStack=document.createElement('div');
+        infoStack.className='nsf-context-info';
+        infoStack.appendChild(headerRow);
+        if(statsWrap.childElementCount){
+          infoStack.appendChild(statsWrap);
+        }
+
+        const topBar=document.createElement('div');
+        topBar.className='nsf-context-top';
+        topBar.append(infoStack,controls);
+        contextWrap.appendChild(topBar);
+
+        const metaRow=document.createElement('div');
+        metaRow.className='nsf-context-meta';
+        if(this.currentPart){
+          const source=document.createElement('span');
+          source.className='nsf-inline-info';
+          const sourceLabel=this.partSource==='dictionary'
+            ?'Dictionary'
+            :this.partSource==='aspen-board'
+              ?'Aspen-Board'
+              :this.partSource==='aspen-header'
+                ?'Aspen-Headerdaten'
+                :'Unbekannt';
+          source.textContent=`Partnummer-Quelle: ${sourceLabel}`;
+          metaRow.appendChild(source);
+        }else{
+          const source=document.createElement('span');
+          source.className='nsf-inline-info';
+          source.textContent='Keine Partnummer gefunden';
+          metaRow.appendChild(source);
+        }
+        if(this.hasAspenDoc){
+          const aspenInfo=document.createElement('span');
+          aspenInfo.className='nsf-inline-info';
+          aspenInfo.textContent='Aspen-Daten geladen';
+          metaRow.appendChild(aspenInfo);
+        }
+        if(this.findingsPath){
+          const findingsInfo=document.createElement('span');
+          findingsInfo.className='nsf-inline-info';
+          findingsInfo.textContent=`Findings-Datei: ${this.findingsPath}`;
+          metaRow.appendChild(findingsInfo);
+        }
+        if(metaRow.childElementCount){
+          contextWrap.appendChild(metaRow);
+        }
+
+        contextSection.appendChild(contextWrap);
+
+        if(!this.hasAspenDoc){
+          const warn=document.createElement('div');
+          warn.className='nsf-alert';
+          warn.textContent='Keine Aspen-Daten vorhanden – bitte Datei laden.';
+          contextSection.appendChild(warn);
+        }
+        if(this.dictionaryUsed){
+          const info=document.createElement('div');
+          info.className='nsf-note';
+          info.textContent='Keine Partnummer in Aspen gefunden – Fallback Dictionary.';
+          contextSection.appendChild(info);
+        }
       }
 
       const inputSection=document.createElement('div');
