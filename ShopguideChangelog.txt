@@ -5,6 +5,13 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.5] – 2025-09-29
+### Added
+- New Standard Findings auf Version 1.2.3 angehoben; Dateiauswahl-Button und Kontextinfo zeigen nun den gespeicherten Findings-Pfad.
+
+### Changed
+- Shopguide Findings Editor auf Version 1.2.0 aktualisiert; Partnummern lassen sich in flexiblen Listen erfassen und erscheinen als Untertitel samt Export- und Suchunterstützung.
+
 ## [3.6.4] – 2025-09-27
 ### Changed
 - Shopguide Findings Editor auf Version 1.1.2 aktualisiert; Bestelltext (PNText) sowie bis zu sechs Teilenummer-/Mengen-Paare werden nun getrennt erfasst, durchsucht und im Originalformat gespeichert.
