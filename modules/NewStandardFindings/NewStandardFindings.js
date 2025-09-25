@@ -4,6 +4,8 @@
   const DATA_URL='Findings_Shopguide.json';
   const DATA_KEY='sf-data';
   const STATE_KEY='sf-state';
+  const STATE_KEY_SEPARATOR='::';
+  const UNIT_BOARD_EVENT='unitBoard:update';
   const DOC_KEY='module_data_v1';
   const WATCH_INTERVAL=600;
   const SAVE_DEBOUNCE=250;
@@ -95,6 +97,7 @@
         scheduleAll();
       }
     });
+    window.addEventListener(UNIT_BOARD_EVENT,()=>scheduleAll());
     setInterval(()=>{
       const doc=localStorage.getItem(DOC_KEY);
       if(doc!==lastValues[DOC_KEY]){lastValues[DOC_KEY]=doc;scheduleAll();}
@@ -275,6 +278,57 @@
     return {docRaw,meldung,part,serial,hasDoc};
   }
 
+  function findAspenBoardEntry(meldung){
+    const key=clean(meldung);
+    if(!key) return null;
+    try{
+      const shared=window.__UNIT_BOARD_SHARED__;
+      if(shared&&typeof shared.findAspenItem==='function'){
+        const entry=shared.findAspenItem(key);
+        if(entry&&typeof entry==='object') return entry;
+      }
+    }catch(err){console.warn('NSF: Aspen-Board Lookup fehlgeschlagen',err);}
+    return null;
+  }
+
+  function extractSerialFromBoard(entry){
+    if(!entry||typeof entry!=='object') return '';
+    const direct=clean(entry.serial||entry.Serial||entry.SerialNo||entry.SerialNumber||entry.SERIAL_NO||entry.SERIALNUMBER||entry.SN||entry.SNr||entry.SNR||entry['Serial No']||entry['SerialNumber']);
+    if(direct) return direct;
+    const candidates=['serial','serialno','serialnumber','serial_nr','serialnr','serial_no','serial nr','serial no','serial number','sn','snr','s/n','seriennummer','seriennr','serien nr'];
+    const data=entry.data&&typeof entry.data==='object'?entry.data:{};
+    for(const [key,value] of Object.entries(data)){
+      if(!value) continue;
+      const lower=key.toLowerCase();
+      if(candidates.includes(lower)){
+        const cleanVal=clean(value);
+        if(cleanVal) return cleanVal;
+      }
+    }
+    return '';
+  }
+
+  function extractPartFromBoard(entry){
+    if(!entry||typeof entry!=='object') return '';
+    const direct=clean(entry.part||entry.Part||entry.PartNo||entry.PartNumber||entry.PartNr||entry.PN||entry.Material||entry.MaterialNr||entry.Materialnummer||entry.MaterialNo||entry.Artikel||entry.Artikelnummer||entry.Partnummer||entry['Part No']||entry['Part_Number']||entry['PartNumber']||entry['Part Nr']);
+    if(direct) return direct;
+    const candidates=['part','partno','partnumber','part_no','part-number','part number','partnr','part nr','pn','material','materialnr','materialnummer','materialno','material nr','material-nr','artikel','artikelnummer','artikel nr','artikel-nr','partnummer'];
+    const data=entry.data&&typeof entry.data==='object'?entry.data:{};
+    for(const [key,value] of Object.entries(data)){
+      if(!value) continue;
+      const lower=key.toLowerCase();
+      if(candidates.includes(lower)){
+        const cleanVal=clean(value);
+        if(cleanVal) return cleanVal;
+      }
+    }
+    for(const field of ['PartNo','PartNumber','Part_No','Part Number','Part_Number','PartNr','Part Nr','Part-Nr','Material','MaterialNr','Materialnummer','MaterialNo','Material Nr','Material-Nr','Artikel','Artikelnummer','Artikel Nr','Artikel-Nr','Partnummer']){
+      const candidate=clean(data[field]);
+      if(candidate) return candidate;
+    }
+    return '';
+  }
+
   function detectDelimiter(line){
     if(line.includes(';')) return ';';
     if(line.includes('\t')) return '\t';
@@ -342,40 +396,108 @@
     lastValues[STATE_KEY]=payload;
   }
 
-  function loadStateFor(meldung){
-    const global=loadGlobalState();
-    const entry=global.meldungsbezogen[meldung];
-    const selections=Array.isArray(entry?.selections)?entry.selections.filter(sel=>sel&&typeof sel.key==='string'):[];
+  function buildCompositeKey(parts){
+    if(!parts||typeof parts!=='object') return '';
+    const meldung=clean(parts.meldung);
+    if(!meldung) return '';
+    const part=clean(parts.part);
+    const serial=clean(parts.serial);
+    return [meldung,part,serial].map(value=>encodeURIComponent(value||''))
+      .join(STATE_KEY_SEPARATOR);
+  }
+
+  function serializeSelections(selections){
+    if(!Array.isArray(selections)) return [];
+    return selections
+      .filter(sel=>sel&&typeof sel.key==='string')
+      .map(sel=>(
+        {
+          key:sel.key,
+          finding:typeof sel.finding==='string'?sel.finding:'',
+          action:typeof sel.action==='string'?sel.action:'',
+          label:typeof sel.label==='string'?sel.label:'',
+          part:typeof sel.part==='string'?sel.part:''
+        }
+      ));
+  }
+
+  function deserializeSelections(entry){
+    return Array.isArray(entry?.selections)
+      ? entry.selections.filter(sel=>sel&&typeof sel.key==='string').map(sel=>(
+          {
+            key:sel.key,
+            finding:typeof sel.finding==='string'?sel.finding:'',
+            action:typeof sel.action==='string'?sel.action:'',
+            label:typeof sel.label==='string'?sel.label:'',
+            part:typeof sel.part==='string'?sel.part:''
+          }
+        ))
+      :[];
+  }
+
+  function extractStateFromEntry(entry){
     return {
-      state: {
-        findings: typeof entry?.findings==='string'?entry.findings:'',
-        actions: typeof entry?.actions==='string'?entry.actions:'',
-        routine: typeof entry?.routine==='string'?entry.routine:'',
-        nonroutine: typeof entry?.nonroutine==='string'?entry.nonroutine:'',
-        parts: typeof entry?.parts==='string'?entry.parts:''
-      },
-      selections,
-      global
+      findings: typeof entry?.findings==='string'?entry.findings:'',
+      actions: typeof entry?.actions==='string'?entry.actions:'',
+      routine: typeof entry?.routine==='string'?entry.routine:'',
+      nonroutine: typeof entry?.nonroutine==='string'?entry.nonroutine:'',
+      parts: typeof entry?.parts==='string'?entry.parts:''
     };
   }
 
-  function saveStateFor(meldung,state,selections,globalState){
+  function loadStateFor(keyParts){
+    const normalized=keyParts&&typeof keyParts==='object'
+      ? {meldung:clean(keyParts.meldung),part:clean(keyParts.part),serial:clean(keyParts.serial)}
+      : null;
+    const compositeKey=buildCompositeKey(normalized);
+    let global=loadGlobalState();
+    let entry=compositeKey?global.meldungsbezogen[compositeKey]:null;
+    let migrated=false;
+    const legacyKey=normalized&&normalized.meldung;
+    if(!entry&&legacyKey){
+      const legacyEntry=global.meldungsbezogen[legacyKey];
+      if(legacyEntry){
+        entry=legacyEntry;
+        if(compositeKey&&compositeKey!==legacyKey){
+          global.meldungsbezogen[compositeKey]={
+            ...extractStateFromEntry(legacyEntry),
+            selections:serializeSelections(deserializeSelections(legacyEntry))
+          };
+          delete global.meldungsbezogen[legacyKey];
+          saveGlobalState(global);
+          global=loadGlobalState();
+          entry=global.meldungsbezogen[compositeKey];
+          migrated=true;
+        }
+      }
+    }
+    const selections=deserializeSelections(entry);
+    return {
+      state: extractStateFromEntry(entry),
+      selections,
+      global,
+      migrated
+    };
+  }
+
+  function saveStateFor(keyParts,state,selections,globalState){
+    const normalized=keyParts&&typeof keyParts==='object'
+      ? {meldung:clean(keyParts.meldung),part:clean(keyParts.part),serial:clean(keyParts.serial)}
+      : null;
+    const compositeKey=buildCompositeKey(normalized);
+    if(!compositeKey) return;
     const global=globalState||loadGlobalState();
-    global.meldungsbezogen[meldung]={
+    global.meldungsbezogen[compositeKey]={
       findings: typeof state.findings==='string'?state.findings:'',
       actions: typeof state.actions==='string'?state.actions:'',
       routine: typeof state.routine==='string'?state.routine:'',
       nonroutine: typeof state.nonroutine==='string'?state.nonroutine:'',
       parts: typeof state.parts==='string'?state.parts:'',
-      selections: Array.isArray(selections)?selections.map(sel=>({
-        key:sel.key,
-        finding:sel.finding||'',
-        action:sel.action||'',
-        label:sel.label||'',
-        part:sel.part||''
-      }))
-      :[]
+      selections: serializeSelections(selections)
     };
+    if(normalized&&normalized.meldung&&normalized.meldung!==compositeKey){
+      delete global.meldungsbezogen[normalized.meldung];
+    }
     saveGlobalState(global);
   }
 
@@ -450,6 +572,7 @@
       this.pending=false;
       this.destroyed=false;
       this.stateKey='';
+      this.stateKeyParts=null;
       this.activeState={findings:'',actions:'',routine:'',nonroutine:'',parts:''};
       this.allEntries=[];
       this.partEntries=[];
@@ -506,8 +629,19 @@
       this.totalEntries=this.allEntries.length;
       const docInfo=parseDocument();
       this.meldung=docInfo.meldung;
-      let part=docInfo.part;
-      let partSource='aspen';
+      const boardEntry=this.meldung?findAspenBoardEntry(this.meldung):null;
+      const boardPart=boardEntry?extractPartFromBoard(boardEntry):'';
+      const boardSerial=extractSerialFromBoard(boardEntry);
+      let part='';
+      let partSource='';
+      if(boardPart){
+        part=boardPart;
+        partSource='aspen-board';
+      }
+      if(!part&&docInfo.part){
+        part=docInfo.part;
+        partSource='aspen-header';
+      }
       if(!part){
         const fallback=this.meldung?data.dictionary.get(normalizeKey(this.meldung))||'':'';
         if(fallback){part=fallback;partSource='dictionary';}
@@ -515,7 +649,8 @@
       const previousPart=this.currentPart;
       this.currentPart=part;
       this.partSource=part?partSource:'';
-      this.serial=docInfo.serial;
+      const serialCandidate=docInfo.serial||boardSerial;
+      this.serial=serialCandidate;
       this.hasAspenDoc=docInfo.hasDoc;
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
@@ -523,18 +658,23 @@
       }
       this.partEntries=part?data.partMap.get(part)||[]:[];
       this.availableEntries=this.filterAll?this.allEntries:this.partEntries;
-      const key=clean(this.meldung);
+      const keyParts=this.meldung?{meldung:this.meldung,part:this.currentPart,serial:this.serial}:null;
+      const key=keyParts?buildCompositeKey(keyParts):'';
       const previousKey=this.stateKey;
       this.stateKey=key||'';
+      this.stateKeyParts=keyParts;
       if(this.stateKey!==previousKey){
         this.undoBuffer=null;
       }
       let selections=[];
       if(this.stateKey){
-        const loaded=loadStateFor(this.stateKey);
+        const loaded=loadStateFor(this.stateKeyParts);
         this.activeState=loaded.state;
         selections=loaded.selections||[];
         this.globalState=loaded.global;
+        if(loaded.migrated){
+          this.globalState=loadGlobalState();
+        }
       }else{
         this.activeState={findings:'',actions:'',routine:'',nonroutine:'',parts:''};
         selections=[];
@@ -610,7 +750,14 @@
       if(this.currentPart){
         const source=document.createElement('span');
         source.className='nsf-inline-info';
-        source.textContent=this.partSource==='dictionary'?'Partnummer aus Dictionary':'Partnummer aus Aspen';
+        const sourceLabel=this.partSource==='dictionary'
+          ?'Dictionary'
+          :this.partSource==='aspen-board'
+            ?'Aspen-Board'
+            :this.partSource==='aspen-header'
+              ?'Aspen-Headerdaten'
+              :'Unbekannt';
+        source.textContent=`Partnummer-Quelle: ${sourceLabel}`;
         metaRow.appendChild(source);
       }else{
         const source=document.createElement('span');
@@ -635,7 +782,8 @@
         warn.className='nsf-alert';
         warn.textContent='Keine Aspen-Daten vorhanden – bitte Datei laden.';
         contextSection.appendChild(warn);
-      }else if(this.dictionaryUsed){
+      }
+      if(this.dictionaryUsed){
         const info=document.createElement('div');
         info.className='nsf-note';
         info.textContent='Keine Partnummer in Aspen gefunden – Fallback Dictionary.';
@@ -1147,7 +1295,7 @@
     }
 
     clearCurrentState(){
-      if(!this.stateKey) return;
+      if(!this.stateKeyParts) return;
       this.activeState={findings:'',actions:'',routine:'',nonroutine:'',parts:''};
       this.selectedEntries=[];
       this.undoBuffer=null;
@@ -1155,25 +1303,25 @@
         const textarea=this.textareas[key];
         if(textarea) textarea.value='';
       }
-      saveStateFor(this.stateKey,this.activeState,this.selectedEntries,this.globalState);
+      saveStateFor(this.stateKeyParts,this.activeState,this.selectedEntries,this.globalState);
       this.render();
     }
 
     queueStateSave(){
-      if(!this.stateKey) return;
+      if(!this.stateKeyParts) return;
       if(this.saveTimer) clearTimeout(this.saveTimer);
       this.saveTimer=setTimeout(()=>{this.saveTimer=null;this.persistState();},SAVE_DEBOUNCE);
     }
 
     flushStateSave(force){
-      if(!this.stateKey) return;
+      if(!this.stateKeyParts) return;
       if(this.saveTimer){clearTimeout(this.saveTimer);this.saveTimer=null;}
       this.persistState(force);
     }
 
     persistState(force){
-      if(!this.stateKey) return;
-      saveStateFor(this.stateKey,this.activeState,this.selectedEntries,this.globalState);
+      if(!this.stateKeyParts) return;
+      saveStateFor(this.stateKeyParts,this.activeState,this.selectedEntries,this.globalState);
       if(force){
         this.globalState=loadGlobalState();
         this.history=getHistoryForPart(this.globalState,this.currentPart);
