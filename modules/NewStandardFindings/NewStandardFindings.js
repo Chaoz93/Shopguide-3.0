@@ -34,7 +34,15 @@
       .nsf-badge small{opacity:0.75;font-weight:500;}
       .nsf-section-title{font-weight:600;font-size:1rem;display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;}
       .nsf-section-title .nsf-count{opacity:0.7;font-size:0.85rem;font-weight:500;}
-      .nsf-controls{display:flex;flex-wrap:wrap;gap:0.5rem;}
+      .nsf-controls{display:flex;justify-content:flex-end;}
+      .nsf-menu{position:relative;}
+      .nsf-menu-toggle{background:rgba(255,255,255,0.14);border:none;border-radius:0.75rem;padding:0.45rem 0.9rem;color:inherit;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;}
+      .nsf-menu-toggle:hover{background:rgba(255,255,255,0.24);}
+      .nsf-menu-list{position:absolute;right:0;margin-top:0.35rem;background:rgba(15,23,42,0.92);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.45);padding:0.35rem;display:none;flex-direction:column;min-width:220px;z-index:40;backdrop-filter:blur(10px);}
+      .nsf-menu.open .nsf-menu-list{display:flex;}
+      .nsf-menu-item{background:transparent;border:none;border-radius:0.6rem;padding:0.45rem 0.75rem;color:inherit;font:inherit;text-align:left;cursor:pointer;display:flex;align-items:center;gap:0.5rem;}
+      .nsf-menu-item:hover{background:rgba(59,130,246,0.18);}
+      .nsf-menu-item:disabled{opacity:0.5;cursor:not-allowed;background:transparent;}
       .nsf-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.75rem;padding:0.45rem 0.9rem;color:inherit;font:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;display:inline-flex;align-items:center;gap:0.35rem;}
       .nsf-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
       .nsf-btn.secondary{background:rgba(148,163,184,0.2);}
@@ -52,7 +60,6 @@
       .nsf-input{width:100%;border:none;border-radius:0.65rem;padding:0.55rem 0.7rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
       .nsf-input:disabled{opacity:0.75;background:rgba(255,255,255,0.65);cursor:not-allowed;}
       .nsf-input::placeholder{color:rgba(107,114,128,0.8);}
-      .nsf-input-helper{font-size:0.75rem;opacity:0.75;display:flex;flex-direction:column;gap:0.15rem;}
       .nsf-suggestions{position:absolute;top:calc(100% - 0.2rem);left:0;right:0;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.25);padding:0.35rem;display:none;max-height:220px;overflow:auto;z-index:30;}
       .nsf-input-row.show-suggestions .nsf-suggestions{display:block;}
       .nsf-suggestion{padding:0.45rem 0.55rem;border-radius:0.6rem;cursor:pointer;display:flex;flex-direction:column;gap:0.25rem;}
@@ -60,8 +67,6 @@
       .nsf-suggestion-label{font-weight:600;font-size:0.9rem;}
       .nsf-suggestion-finding{font-size:0.85rem;opacity:0.85;}
       .nsf-suggestion-action{font-size:0.8rem;opacity:0.65;}
-      .nsf-selected-meta{font-size:0.8rem;opacity:0.75;display:flex;flex-direction:column;gap:0.25rem;padding:0.15rem 0.3rem 0.1rem;}
-      .nsf-selected-meta strong{font-weight:600;}
       .nsf-empty{opacity:0.75;font-style:italic;}
       .nsf-outputs{display:grid;gap:0.75rem;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
       .nsf-output{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;min-height:0;}
@@ -205,13 +210,6 @@
       }
     }
     return clean(value);
-  }
-
-  function formatMetaValue(value){
-    const text=clean(value);
-    if(!text) return '';
-    const parts=text.split(/\r?\n/).map(part=>clean(part)).filter(Boolean);
-    return parts.join(' · ');
   }
 
   function extractField(map,aliases){
@@ -1103,6 +1101,54 @@
       const controls=document.createElement('div');
       controls.className='nsf-controls';
 
+      const menuWrapper=document.createElement('div');
+      menuWrapper.className='nsf-menu';
+      const menuButton=document.createElement('button');
+      menuButton.type='button';
+      menuButton.className='nsf-menu-toggle';
+      menuButton.textContent='☰ Aktionen';
+      const menuList=document.createElement('div');
+      menuList.className='nsf-menu-list';
+      menuWrapper.append(menuButton,menuList);
+      controls.appendChild(menuWrapper);
+
+      const handleOutsideClick=event=>{
+        if(!menuWrapper.contains(event.target)){
+          closeMenu();
+        }
+      };
+      const closeMenu=()=>{
+        menuWrapper.classList.remove('open');
+        document.removeEventListener('click',handleOutsideClick);
+      };
+      const openMenu=()=>{
+        if(menuWrapper.classList.contains('open')){
+          closeMenu();
+        }else{
+          menuWrapper.classList.add('open');
+          document.addEventListener('click',handleOutsideClick);
+        }
+      };
+      menuButton.addEventListener('click',event=>{
+        event.stopPropagation();
+        openMenu();
+      });
+
+      const addMenuItem=(label,handler,options)=>{
+        const item=document.createElement('button');
+        item.type='button';
+        item.className='nsf-menu-item';
+        item.textContent=label;
+        if(options&&options.disabled) item.disabled=true;
+        item.addEventListener('click',()=>{
+          if(item.disabled) return;
+          closeMenu();
+          handler();
+        });
+        menuList.appendChild(item);
+        return item;
+      };
+
       const findingsInput=document.createElement('input');
       findingsInput.type='file';
       findingsInput.accept='.json,.txt';
@@ -1114,13 +1160,6 @@
         }
       });
       contextSection.appendChild(findingsInput);
-
-      const findingsBtn=document.createElement('button');
-      findingsBtn.type='button';
-      findingsBtn.className='nsf-btn';
-      findingsBtn.textContent='🧾 Findings-Datei wählen …';
-      findingsBtn.addEventListener('click',()=>findingsInput.click());
-      controls.appendChild(findingsBtn);
 
       const fileInput=document.createElement('input');
       fileInput.type='file';
@@ -1134,48 +1173,23 @@
       });
       contextSection.appendChild(fileInput);
 
-      const aspenBtn=document.createElement('button');
-      aspenBtn.type='button';
-      aspenBtn.className='nsf-btn';
-      aspenBtn.textContent='📂 Aspen-Datei wählen …';
-      aspenBtn.addEventListener('click',()=>fileInput.click());
-      controls.appendChild(aspenBtn);
-
-      const toggleBtn=document.createElement('button');
-      toggleBtn.type='button';
-      toggleBtn.className='nsf-btn';
-      toggleBtn.textContent=this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen';
-      toggleBtn.disabled=!this.totalEntries;
-      toggleBtn.addEventListener('click',()=>{
+      addMenuItem('🧾 Findings-Datei wählen …',()=>findingsInput.click());
+      addMenuItem('📂 Aspen-Datei wählen …',()=>fileInput.click());
+      const toggleItem=addMenuItem(this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen',()=>{
         this.filterAll=!this.filterAll;
         this.availableEntries=this.filterAll?this.allEntries:this.partEntries;
         this.render();
-      });
-      controls.appendChild(toggleBtn);
+      },{disabled:!this.totalEntries});
+      const undoItem=addMenuItem('↩️ Undo',()=>this.applyUndo(),{disabled:!this.undoBuffer});
+      const clearItem=addMenuItem('🗑 Alles löschen',()=>this.clearCurrentState(),{disabled:!this.stateKey});
+      const saveItem=addMenuItem('💾 Alles speichern',()=>this.flushStateSave(true),{disabled:!this.stateKey});
 
-      const undoBtn=document.createElement('button');
-      undoBtn.type='button';
-      undoBtn.className='nsf-btn secondary';
-      undoBtn.textContent='↩️ Undo';
-      undoBtn.disabled=!this.undoBuffer;
-      undoBtn.addEventListener('click',()=>this.applyUndo());
-      controls.appendChild(undoBtn);
-
-      const clearBtn=document.createElement('button');
-      clearBtn.type='button';
-      clearBtn.className='nsf-btn danger';
-      clearBtn.textContent='🗑 Alles löschen';
-      clearBtn.disabled=!this.stateKey;
-      clearBtn.addEventListener('click',()=>this.clearCurrentState());
-      controls.appendChild(clearBtn);
-
-      const saveBtn=document.createElement('button');
-      saveBtn.type='button';
-      saveBtn.className='nsf-btn secondary';
-      saveBtn.textContent='💾 Alles speichern';
-      saveBtn.disabled=!this.stateKey;
-      saveBtn.addEventListener('click',()=>this.flushStateSave(true));
-      controls.appendChild(saveBtn);
+      if(this.totalEntries){
+        toggleItem.textContent=this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen';
+      }
+      undoItem.disabled=!this.undoBuffer;
+      clearItem.disabled=!this.stateKey;
+      saveItem.disabled=!this.stateKey;
 
       contextSection.appendChild(controls);
 
@@ -1310,48 +1324,6 @@
       root.append(contextSection,inputSection,outputsSection);
     }
 
-    renderEntryMeta(target,entry,options){
-      if(!target) return;
-      const config={
-        showFinding:false,
-        showLabel:true,
-        showAction:true,
-        showAdditional:true,
-        ...options
-      };
-      target.innerHTML='';
-      if(!entry){
-        target.style.display='none';
-        return;
-      }
-      const addLine=(label,value)=>{
-        const text=formatMetaValue(value);
-        if(!text) return;
-        const row=document.createElement('div');
-        const strong=document.createElement('strong');
-        strong.textContent=`${label}:`;
-        row.append(strong,document.createTextNode(` ${text}`));
-        target.appendChild(row);
-      };
-      if(config.showFinding&&entry.finding) addLine('Finding',entry.finding);
-      if(config.showLabel&&entry.label) addLine('Label',entry.label);
-      if(config.showAction&&entry.action) addLine('Action',entry.action);
-      if(entry.routine) addLine('Routine',entry.routine);
-      if(entry.nonroutine) addLine('Nonroutine',entry.nonroutine);
-      if(entry.parts) addLine('Parts',entry.parts);
-      if(entry.times) addLine('Times',entry.times);
-      if(entry.mods) addLine('Mods',entry.mods);
-      if(config.showAdditional!==false&&Array.isArray(entry.additional)){
-        for(const extra of entry.additional){
-          const label=clean(extra.label||extra.key);
-          const value=clean(extra.value);
-          if(!label||!value) continue;
-          addLine(label,value);
-        }
-      }
-      target.style.display=target.childElementCount?'flex':'none';
-    }
-
     addInputRow(prefillEntry,focusNext){
       const row=document.createElement('div');
       row.className='nsf-input-row';
@@ -1366,35 +1338,23 @@
       input.disabled=!this.availableEntries.length;
       const suggestions=document.createElement('div');
       suggestions.className='nsf-suggestions';
-      const helper=document.createElement('div');
-      helper.className='nsf-input-helper';
-      helper.style.display='none';
-      const meta=document.createElement('div');
-      meta.className='nsf-selected-meta';
-      meta.style.display='none';
-      row.append(removeBtn,input,suggestions,helper,meta);
+      row.append(removeBtn,input,suggestions);
       this.inputsContainer.appendChild(row);
       const state={
         row,
         input,
         suggestions,
-        helper,
-        meta,
         removeBtn,
         suggestionsList:[],
         highlightIndex:-1,
         locked:false,
         entry:null
       };
-      const showHelper=entry=>{
-        this.renderEntryMeta(helper,entry,{showFinding:true});
-      };
       const closeSuggestions=()=>{
         row.classList.remove('show-suggestions');
         state.suggestionsList=[];
         state.highlightIndex=-1;
         suggestions.innerHTML='';
-        if(!state.locked) showHelper(null);
       };
       const updateSuggestions=()=>{
         if(state.locked) return;
@@ -1440,9 +1400,6 @@
           suggestions.appendChild(item);
           if(idx===state.highlightIndex) item.classList.add('active');
         });
-        if(state.highlightIndex>=0){
-          showHelper(state.suggestionsList[state.highlightIndex]);
-        }
       };
       const selectCurrent=()=>{
         if(state.highlightIndex<0) return;
@@ -1454,7 +1411,6 @@
         children.forEach((child,idx)=>{
           if(idx===state.highlightIndex){
             child.classList.add('active');
-            showHelper(state.suggestionsList[idx]);
           }else{
             child.classList.remove('active');
           }
@@ -1531,10 +1487,6 @@
       state.suggestions.innerHTML='';
       state.suggestionsList=[];
       state.highlightIndex=-1;
-      if(state.helper){
-        this.renderEntryMeta(state.helper,null,{showFinding:true});
-      }
-      this.renderEntryMeta(state.meta,entry,{showFinding:true});
       if(opts.addOutputs!==false){
         this.appendOutput('findings',entry.finding);
         this.appendOutput('actions',entry.action);
