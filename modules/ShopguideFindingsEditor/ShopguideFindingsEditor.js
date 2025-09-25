@@ -99,6 +99,16 @@
     return text.trim?text.trim():text;
   }
 
+  function disableAutocomplete(element){
+    if(!element) return;
+    try{
+      element.autocomplete='off';
+    }catch(err){
+      /* ignore unsupported autocomplete property */
+    }
+    element.setAttribute('autocomplete','off');
+  }
+
   function pickFirstFilled(...values){
     for(const value of values){
       if(value==null) continue;
@@ -268,11 +278,12 @@
   }
 
   class SuggestionsController{
-    constructor(container,values,getValue,setValue){
+    constructor(container,values,getValue,setValue,focusTarget){
       this.container=container;
       this.values=values;
       this.getValue=getValue;
       this.setValue=setValue;
+      this.focusTarget=focusTarget||container;
       this.element=document.createElement('div');
       this.element.className='sfe-suggestions';
       container.appendChild(this.element);
@@ -281,9 +292,10 @@
       this.attach();
     }
     attach(){
-      this.container.addEventListener('focusin',()=>this.update());
-      this.container.addEventListener('focusout',()=>setTimeout(()=>this.hide(),120));
-      this.container.addEventListener('input',()=>this.update());
+      if(!this.focusTarget) return;
+      this.focusTarget.addEventListener('focus',()=>this.update());
+      this.focusTarget.addEventListener('blur',()=>setTimeout(()=>this.hide(),120));
+      this.focusTarget.addEventListener('input',()=>this.update());
     }
     setValues(values){
       this.values=values;
@@ -924,6 +936,7 @@
         input.id=`${entry.id}-${key}`;
         input.value=entry[key]||'';
         input.placeholder=isSingleLine?`${FIELD_LABELS[key]} eingeben`:`${FIELD_LABELS[key]} eingeben`;
+        disableAutocomplete(input);
         input.addEventListener('input',()=>{
           const value=cleanString(input.value);
           this.updateEntry(entry.id,key,value);
@@ -935,7 +948,7 @@
         const controller=new SuggestionsController(field,this.getSuggestionsFor(key),()=>input.value,(val)=>{
           input.value=val;
           this.updateEntry(entry.id,key,cleanString(val));
-        });
+        },input);
         this.activeFieldControllers[key]=controller;
         fields.appendChild(field);
       }
@@ -969,6 +982,7 @@
       textarea.id=`${entry.id}-parts`;
       textarea.value=entry.parts||'';
       textarea.placeholder='Titel / Bestelltext eingeben';
+      disableAutocomplete(textarea);
       textarea.addEventListener('input',()=>{
         const value=cleanString(textarea.value);
         this.updateEntry(entry.id,'parts',value);
@@ -982,7 +996,7 @@
       const controller=new SuggestionsController(gridField,this.getSuggestionsFor('parts'),()=>textarea.value,(val)=>{
         textarea.value=val;
         this.updateEntry(entry.id,'parts',cleanString(val));
-      });
+      },textarea);
       this.activeFieldControllers.parts=controller;
       const grid=document.createElement('div');
       grid.className='sfe-parts-grid';
@@ -1008,6 +1022,7 @@
         partInput.id=`${entry.id}-part-${index+1}`;
         partInput.value=pair&&pair.part?pair.part:'';
         partInput.placeholder='Teilenummer';
+        disableAutocomplete(partInput);
         partInput.addEventListener('input',()=>{
           const value=cleanString(partInput.value);
           this.updatePartPair(entry.id,index,'part',value);
@@ -1028,6 +1043,7 @@
         qtyInput.id=`${entry.id}-qty-${index+1}`;
         qtyInput.value=pair&&pair.quantity?pair.quantity:'';
         qtyInput.placeholder='Menge';
+        disableAutocomplete(qtyInput);
         qtyInput.addEventListener('input',()=>{
           const value=cleanString(qtyInput.value);
           this.updatePartPair(entry.id,index,'quantity',value);
