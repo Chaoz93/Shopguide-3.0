@@ -1407,7 +1407,7 @@
           icon.textContent='↺';
           const label=document.createElement('span');
           label.className='nsf-chip-text';
-          label.textContent=entry.finding||entry.label||'Finding';
+          label.textContent=entry.label||entry.finding||'Eintrag';
           chip.append(icon,label);
           chip.addEventListener('click',()=>this.useEntry(entry));
           historyList.appendChild(chip);
