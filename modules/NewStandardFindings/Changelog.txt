@@ -9,6 +9,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Added
 - Neuer Button zum Auswählen einer Findings-JSON; die Auswahl wird eingelesen, gespeichert und der Dateipfad im Local Storage hinterlegt.
 - Kontextbereich zeigt nun den aktuell verwendeten Findings-Dateipfad an.
+- Schnellaktionen im Kopfbereich ermöglichen den direkten Zugriff auf die zuletzt genutzte Findings- oder Aspen-Datei ohne Umwege über das Kontextmenü.
+
+### Changed
+- Ausgewählte Findings-Pfade werden beim Laden synchronisiert und über Storage-Events zwischen Browser-Tabs aktuell gehalten.
 
 ## [1.2.2] – 2025-09-28
 ### Fixed

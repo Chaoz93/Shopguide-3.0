@@ -9,9 +9,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Added
 - Partnummern-Feld oberhalb des Labels mit dynamischen Eingabezeilen und "Plus"-Schaltfläche für mehrere Nummern.
 - Anzeige der Partnummern als Untertitel in der Findings-Liste inklusive Such- und Kopierunterstützung.
+- Globale Suche akzeptiert nun Wildcards (`*`) und hebt die Treffer in Listen- und Editoransichten hervor.
 
 ### Changed
 - Export in alle unterstützten Formate übernimmt bereinigte Partnummernlisten.
+- Die Suchlogik durchsucht jetzt sämtliche Eingabefelder samt Partnummernlisten aus dem Bestellraster, sodass relevante Informationen zusammenhängend gefunden werden.
 
 ### Fixed
 - Bestehende `Part`-Felder werden nun als Partnummern übernommen und beim Speichern aktualisiert.

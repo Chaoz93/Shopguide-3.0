@@ -6,6 +6,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ### Added
 - Schaltfläche zum Laden einer benutzerdefinierten Findings-Datei inklusive Speicherung des Dateipfads im Local Storage.
 - Anzeige des aktuell verwendeten Findings-Dateipfads in der Kontextübersicht.
+- Schnellaktionen im Kopfbereich öffnen direkt die zuletzt verwendeten Findings- oder Aspen-Dateien.
+
+### Changed
+- Ausgewählte Findings-Dateien werden beim Modulstart geladen und zwischen Browser-Tabs über Storage-Events synchron gehalten.
 
 ## 1.2.2 – 2025-09-28
 ### Fixed
