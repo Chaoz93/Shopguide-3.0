@@ -1468,8 +1468,8 @@
       heading.appendChild(title);
       selectionHeader.appendChild(heading);
 
-      const summary=document.createElement('div');
-      summary.className='nsf-selection-summary';
+      const selectionSummary=document.createElement('div');
+      selectionSummary.className='nsf-selection-summary';
       const labelTexts=this.selectedEntries
         .map(entry=>clean(entry.label)||clean(entry.finding)||clean(entry.action)||'')
         .map(text=>text||'')
@@ -1478,23 +1478,23 @@
         const empty=document.createElement('span');
         empty.className='nsf-selection-summary-empty';
         empty.textContent='Keine Auswahl';
-        summary.appendChild(empty);
+        selectionSummary.appendChild(empty);
       }else{
         const MAX_CHIPS=4;
         labelTexts.slice(0,MAX_CHIPS).forEach(text=>{
           const chip=document.createElement('span');
           chip.className='nsf-selection-summary-chip';
           chip.textContent=text;
-          summary.appendChild(chip);
+          selectionSummary.appendChild(chip);
         });
         if(labelTexts.length>MAX_CHIPS){
           const more=document.createElement('span');
           more.className='nsf-selection-summary-more';
           more.textContent=`+${labelTexts.length-MAX_CHIPS}`;
-          summary.appendChild(more);
+          selectionSummary.appendChild(more);
         }
       }
-      selectionHeader.appendChild(summary);
+      selectionHeader.appendChild(selectionSummary);
       selectionHeader.addEventListener('click',event=>{
         if(event.target.closest('button')) return;
         this.selectionCollapsed=!this.selectionCollapsed;
