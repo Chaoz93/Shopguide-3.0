@@ -1454,15 +1454,48 @@
       });
     }
 
-    targetDiv.addEventListener('contextmenu',event=>{
+    elements.root.addEventListener('contextmenu',event=>{
+      if(event.defaultPrevented) return;
+      const card=event.target.closest('.db-card');
+      if(card){
+        ensureCardSelected(card);
+      }
       event.preventDefault();
+      event.stopPropagation();
       closeActiveMenu();
+      closeMenu();
       openMenu(event.clientX,event.clientY);
     });
-    document.addEventListener('click',event=>{
-      if(!elements.menu.contains(event.target)) closeMenu();
-      if(!elements.activeMenu || !elements.activeMenu.contains(event.target)) closeActiveMenu();
-    });
+
+    function handleDocumentPointerDown(event){
+      if(elements.menu.classList.contains('open') && !elements.menu.contains(event.target)){
+        closeMenu();
+      }
+      if(elements.activeMenu && elements.activeMenu.classList.contains('open') && !elements.activeMenu.contains(event.target)){
+        closeActiveMenu();
+      }
+    }
+
+    function handleDocumentKeyDown(event){
+      if(event.key==='Escape'){
+        let handled=false;
+        if(elements.menu.classList.contains('open')){
+          closeMenu();
+          handled=true;
+        }
+        if(elements.activeMenu && elements.activeMenu.classList.contains('open')){
+          closeActiveMenu();
+          handled=true;
+        }
+        if(handled){
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }
+    }
+
+    document.addEventListener('pointerdown',handleDocumentPointerDown);
+    document.addEventListener('keydown',handleDocumentKeyDown);
 
     window.addEventListener('storage',event=>{
       if(event.key===LS_DOC){
@@ -1479,6 +1512,8 @@
       if(!document.body.contains(elements.root)){
         elements.menu.remove();
         if(elements.activeMenu) elements.activeMenu.remove();
+        document.removeEventListener('pointerdown',handleDocumentPointerDown);
+        document.removeEventListener('keydown',handleDocumentKeyDown);
         SHARED.clearAspenItems(instanceId);
         mo.disconnect();
       }
