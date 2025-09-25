@@ -25,13 +25,17 @@
     tag.textContent=`
       .nsf-module{display:flex;flex-direction:column;gap:1rem;height:100%;color:var(--text-color);}
       .nsf-section{background:rgba(255,255,255,0.08);border-radius:1rem;padding:0.75rem 1rem;display:flex;flex-direction:column;gap:0.65rem;}
-      .nsf-context{display:flex;flex-direction:column;gap:0.6rem;font-size:0.9rem;}
-      .nsf-context-header{display:flex;flex-wrap:wrap;gap:0.5rem 1.5rem;align-items:center;}
-      .nsf-context-label{opacity:0.7;font-weight:500;margin-right:0.35rem;}
-      .nsf-context-value{font-weight:600;color:var(--module-header-text,#fff);}
-      .nsf-context-meta{display:flex;flex-wrap:wrap;gap:0.4rem 1.2rem;}
-      .nsf-badge{display:inline-flex;align-items:center;gap:0.35rem;background:rgba(59,130,246,0.18);color:var(--module-header-text,#fff);border-radius:999px;padding:0.25rem 0.75rem;font-size:0.8rem;font-weight:600;}
-      .nsf-badge small{opacity:0.75;font-weight:500;}
+      .nsf-context{display:flex;flex-direction:column;gap:0.75rem;font-size:0.9rem;}
+      .nsf-context-header{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;align-items:stretch;}
+      .nsf-context-item{background:rgba(15,23,42,0.22);border-radius:0.85rem;padding:0.65rem 0.75rem;display:flex;flex-direction:column;gap:0.25rem;min-height:0;}
+      .nsf-context-label{opacity:0.65;font-weight:600;font-size:0.72rem;letter-spacing:0.06em;text-transform:uppercase;}
+      .nsf-context-value{font-weight:600;color:var(--module-header-text,#fff);font-size:0.95rem;}
+      .nsf-header-stats{display:flex;flex-wrap:wrap;gap:0.65rem;}
+      .nsf-context-stat{background:rgba(59,130,246,0.2);color:var(--module-header-text,#fff);border-radius:0.85rem;padding:0.6rem 0.85rem;display:flex;flex-direction:column;gap:0.2rem;min-width:150px;box-shadow:0 12px 24px rgba(15,23,42,0.25);}
+      .nsf-context-stat-value{font-size:1.15rem;font-weight:700;}
+      .nsf-context-stat-label{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;font-weight:600;}
+      .nsf-context-stat-meta{font-size:0.78rem;opacity:0.75;line-height:1.3;}
+      .nsf-context-meta{display:flex;flex-wrap:wrap;gap:0.45rem 1rem;padding:0.15rem 0;}
       .nsf-section-title{font-weight:600;font-size:1rem;display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;}
       .nsf-section-title .nsf-count{opacity:0.7;font-size:0.85rem;font-weight:500;}
       .nsf-controls{display:flex;justify-content:flex-end;}
@@ -49,9 +53,13 @@
       .nsf-btn.secondary:hover{background:rgba(148,163,184,0.32);}
       .nsf-btn.danger{background:rgba(248,113,113,0.22);}
       .nsf-btn.danger:hover{background:rgba(248,113,113,0.35);}
-      .nsf-history{display:flex;flex-wrap:wrap;gap:0.4rem;}
-      .nsf-history-chip{background:rgba(59,130,246,0.16);border:none;border-radius:999px;padding:0.3rem 0.75rem;font:inherit;font-size:0.8rem;color:inherit;cursor:pointer;transition:background 0.15s ease;display:flex;align-items:center;gap:0.3rem;}
-      .nsf-history-chip:hover{background:rgba(59,130,246,0.3);}
+      .nsf-history-container{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-history-header{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;display:flex;align-items:center;gap:0.35rem;}
+      .nsf-history{display:flex;flex-wrap:wrap;gap:0.45rem;}
+      .nsf-history-chip{background:rgba(148,163,184,0.16);border:1px solid rgba(148,163,184,0.35);border-radius:0.65rem;padding:0.35rem 0.65rem;font:inherit;font-size:0.78rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;display:inline-flex;align-items:center;gap:0.35rem;line-height:1;}
+      .nsf-history-chip:hover{background:rgba(59,130,246,0.2);transform:translateY(-1px);box-shadow:0 10px 18px rgba(15,23,42,0.3);}
+      .nsf-chip-icon{font-size:0.85rem;opacity:0.75;}
+      .nsf-chip-text{font-weight:500;}
       .nsf-input-wrapper{display:flex;flex-direction:column;gap:0.5rem;}
       .nsf-input-row{position:relative;background:rgba(15,23,42,0.18);border-radius:0.85rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.35rem;}
       .nsf-input-row.locked{background:rgba(15,23,42,0.28);}
@@ -1009,6 +1017,7 @@
 
       const makeContextItem=(label,value)=>{
         const container=document.createElement('div');
+        container.className='nsf-context-item';
         const lbl=document.createElement('span');
         lbl.className='nsf-context-label';
         lbl.textContent=`${label}:`;
@@ -1027,25 +1036,46 @@
         makeContextItem('Seriennummer',this.serial)
       );
 
+      contextWrap.appendChild(headerRow);
+
       const visibleCount=this.availableEntries.length;
       const totalForPart=this.partEntries.length;
-      if(this.totalEntries){
-        const badge=document.createElement('span');
-        badge.className='nsf-badge';
-        const totalLabel=totalForPart||this.totalEntries||visibleCount;
-        let badgeText=`${visibleCount} von ${totalLabel||visibleCount} Findings geladen`;
-        const details=[];
-        if(this.currentPart) details.push(`PN ${this.currentPart}`);
-        if(this.serial) details.push(`SN ${this.serial}`);
-        if(details.length) badgeText+=` (${details.join(', ')})`;
-        if(this.filterAll&&this.currentPart){
-          badgeText+=` — Filter deaktiviert`;
-        }
-        badge.textContent=badgeText;
-        headerRow.appendChild(badge);
+      const totalLabel=totalForPart||this.totalEntries||visibleCount;
+      const statsWrap=document.createElement('div');
+      statsWrap.className='nsf-header-stats';
+      const findingsStat=document.createElement('div');
+      findingsStat.className='nsf-context-stat';
+      const countValue=document.createElement('span');
+      countValue.className='nsf-context-stat-value';
+      countValue.textContent=String(visibleCount);
+      findingsStat.appendChild(countValue);
+      const countLabel=document.createElement('span');
+      countLabel.className='nsf-context-stat-label';
+      countLabel.textContent='Findings geladen';
+      findingsStat.appendChild(countLabel);
+      const metaParts=[];
+      if(totalLabel&&totalLabel!==visibleCount){
+        metaParts.push(`von ${totalLabel}`);
       }
-
-      contextWrap.appendChild(headerRow);
+      if(this.currentPart){
+        metaParts.push(`PN ${this.currentPart}`);
+      }
+      if(this.serial){
+        metaParts.push(`SN ${this.serial}`);
+      }
+      if(this.filterAll&&this.currentPart){
+        metaParts.push('Filter deaktiviert');
+      }
+      if(metaParts.length){
+        const meta=document.createElement('span');
+        meta.className='nsf-context-stat-meta';
+        meta.textContent=metaParts.join(' • ');
+        findingsStat.appendChild(meta);
+      }
+      statsWrap.appendChild(findingsStat);
+      if(statsWrap.childElementCount){
+        contextWrap.appendChild(statsWrap);
+      }
 
       const metaRow=document.createElement('div');
       metaRow.className='nsf-context-meta';
@@ -1227,20 +1257,27 @@
 
       if(this.history.length){
         const historyContainer=document.createElement('div');
-        const historyLabel=document.createElement('div');
-        historyLabel.className='nsf-inline-info';
-        historyLabel.textContent='Zuletzt verwendet:';
+        historyContainer.className='nsf-history-container';
+        const historyHeader=document.createElement('div');
+        historyHeader.className='nsf-history-header';
+        historyHeader.textContent='Zuletzt verwendet';
         const historyList=document.createElement('div');
         historyList.className='nsf-history';
         for(const entry of this.history){
           const chip=document.createElement('button');
           chip.type='button';
           chip.className='nsf-history-chip';
-          chip.textContent=entry.finding||entry.label||'Finding';
+          const icon=document.createElement('span');
+          icon.className='nsf-chip-icon';
+          icon.textContent='↺';
+          const label=document.createElement('span');
+          label.className='nsf-chip-text';
+          label.textContent=entry.finding||entry.label||'Finding';
+          chip.append(icon,label);
           chip.addEventListener('click',()=>this.useEntry(entry));
           historyList.appendChild(chip);
         }
-        historyContainer.append(historyLabel,historyList);
+        historyContainer.append(historyHeader,historyList);
         inputSection.appendChild(historyContainer);
       }
 
