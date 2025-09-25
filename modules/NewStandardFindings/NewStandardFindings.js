@@ -162,6 +162,23 @@
     'meldungszuordnung','meldungsmap','meldungsdictionary','meldungslookup','dictionaryentries','dictionaryentry'
   ].map(canonicalKey));
 
+  const ROUTINE_FINDING_ALIASES=[
+    'routinefinding','routinefindings','routinefindingtext','routine_findings','routine findings',
+    'routinefindingdescription','routinefindingdesc','routinefindingdetail','routinefindingsbeschreibung'
+  ];
+  const ROUTINE_ACTION_ALIASES=[
+    'routineaction','routineactions','routineactiontext','routine_action','routine action',
+    'routinemassnahme','routinemassnahmen','routinemaßnahme','routinemaßnahmen','routinecorrectiveaction'
+  ];
+  const NONROUTINE_FINDING_ALIASES=[
+    'nonroutinefinding','nonroutinefindings','nonroutinefindingtext','nonroutine_findings','non routine findings',
+    'nonroutinefindingdescription','nonroutinefindingdesc','nonroutinefindingdetail','nonroutinefindingsbeschreibung'
+  ];
+  const NONROUTINE_ACTION_ALIASES=[
+    'nonroutineaction','nonroutineactions','nonroutineactiontext','nonroutine_action','non routine action',
+    'nonroutinemassnahme','nonroutinemassnahmen','nonroutinemaßnahme','nonroutinemaßnahmen','nonroutinecorrectiveaction'
+  ];
+
   const FIELD_ALIASES={
     part:[
       'part','partno','partnumber','partnr','pn','pnr','part_num','part_nummer','partnumber','part number',
@@ -171,8 +188,8 @@
     label:['label','title','name','beschreibung','desc','description','heading','überschrift','ueberschrift'],
     finding:['finding','findings','findingtext','finding_text','befund','befunde','meldungstext','meldung','meldungen','befundtext'],
     action:['action','actions','maßnahme','massnahme','maßnahmen','massnahmen','recommendation','empfehlung','correctiveaction','corrective_action','korrekturmaßnahme','korrektur'],
-    routine:['routine','routinetext','routine_text','routinefinding','routinefindingtext','routineaction','routinebeschreibung'],
-    nonroutine:['nonroutine','non_routine','nonroutinefinding','nonroutinefindingtext','nonroutineaction','nonroutinebeschreibung','non routine','non-routine'],
+    routine:['routine','routinetext','routine_text','routinebeschreibung'],
+    nonroutine:['nonroutine','non_routine','nonroutinebeschreibung','non routine','non-routine'],
     parts:['parts','ersatzteile','replacementparts','replacedparts','teile','bestellliste','spares','components'],
     times:['times','time','zeit','zeiten','dauer','aufwand','arbeitszeit','stunden','timeestimate','time_estimate'],
     mods:['mods','mod','modification','modifications','modifikation','modifikationen','changes','change','änderungen','aenderungen','modnotes']
@@ -188,6 +205,14 @@
   ];
 
   const RESERVED_FIELDS=new Set(Object.values(FIELD_ALIASES).flat().map(canonicalKey));
+  [...ROUTINE_FINDING_ALIASES,
+    ...ROUTINE_ACTION_ALIASES,
+    ...NONROUTINE_FINDING_ALIASES,
+    ...NONROUTINE_ACTION_ALIASES
+  ].forEach(alias=>{
+    const key=canonicalKey(alias);
+    if(key) RESERVED_FIELDS.add(key);
+  });
   RESERVED_FIELDS.add('finding');
   RESERVED_FIELDS.add('label');
   RESERVED_FIELDS.add('action');
@@ -430,7 +455,11 @@
       const label=clean(extractNestedField(raw,FIELD_ALIASES.label));
       const finding=clean(extractNestedField(raw,FIELD_ALIASES.finding));
       const action=clean(extractNestedField(raw,FIELD_ALIASES.action));
+      const routineFinding=clean(extractNestedField(raw,ROUTINE_FINDING_ALIASES));
+      const routineAction=clean(extractNestedField(raw,ROUTINE_ACTION_ALIASES));
       const routine=clean(extractNestedField(raw,FIELD_ALIASES.routine));
+      const nonroutineFinding=clean(extractNestedField(raw,NONROUTINE_FINDING_ALIASES));
+      const nonroutineAction=clean(extractNestedField(raw,NONROUTINE_ACTION_ALIASES));
       const nonroutine=clean(extractNestedField(raw,FIELD_ALIASES.nonroutine));
       const partsText=clean(extractNestedField(raw,FIELD_ALIASES.parts));
       const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
@@ -460,7 +489,7 @@
         extrasKeyParts.push(text);
       }
       extras.sort((a,b)=>a.label.localeCompare(b.label,'de',{sensitivity:'base'}));
-      const baseKeyParts=[part,label,finding,action,routine,nonroutine,partsText,times,mods];
+      const baseKeyParts=[part,label,finding,action,routine,routineFinding,routineAction,nonroutine,nonroutineFinding,nonroutineAction,partsText,times,mods];
       if(extrasKeyParts.length) baseKeyParts.push(...extrasKeyParts);
       const baseKey=baseKeyParts.join('||');
       const count=counts.get(baseKey)||0;
@@ -470,7 +499,11 @@
       const findingValue=finding||'';
       const actionValue=action||'';
       const routineValue=routine||'';
+      const routineFindingValue=routineFinding||'';
+      const routineActionValue=routineAction||'';
       const nonroutineValue=nonroutine||'';
+      const nonroutineFindingValue=nonroutineFinding||'';
+      const nonroutineActionValue=nonroutineAction||'';
       const partsValue=partsText||'';
       const timesValue=times||'';
       const modsValue=mods||'';
@@ -481,7 +514,11 @@
         finding:findingValue,
         action:actionValue,
         routine:routineValue,
+        routineFinding:routineFindingValue,
+        routineAction:routineActionValue,
         nonroutine:nonroutineValue,
+        nonroutineFinding:nonroutineFindingValue,
+        nonroutineAction:nonroutineActionValue,
         parts:partsValue,
         times:timesValue,
         mods:modsValue,
@@ -490,8 +527,12 @@
         labelLower:labelValue.toLowerCase(),
         findingLower:findingValue.toLowerCase(),
         actionLower:actionValue.toLowerCase(),
-        routineLower:routineValue.toLowerCase(),
-        nonroutineLower:nonroutineValue.toLowerCase(),
+        routineLower:[routineValue,routineFindingValue,routineActionValue].filter(Boolean).join('\n').toLowerCase(),
+        routineFindingLower:routineFindingValue.toLowerCase(),
+        routineActionLower:routineActionValue.toLowerCase(),
+        nonroutineLower:[nonroutineValue,nonroutineFindingValue,nonroutineActionValue].filter(Boolean).join('\n').toLowerCase(),
+        nonroutineFindingLower:nonroutineFindingValue.toLowerCase(),
+        nonroutineActionLower:nonroutineActionValue.toLowerCase(),
         partsLower:partsValue.toLowerCase(),
         timesLower:timesValue.toLowerCase(),
         modsLower:modsValue.toLowerCase()
@@ -588,8 +629,25 @@
       const value=clean(candidate);
       if(value){serial=value;break;}
     }
+    const repairOrderCandidates=[
+      general&&general.RepairOrder,
+      general&&general.repairOrder,
+      general&&general.REPAIR_ORDER,
+      general&&general.Repairorder,
+      general&&general.repairorder,
+      general&&general['Repair Order'],
+      general&&general['repair order'],
+      general&&general['REPAIR ORDER'],
+      general&&general.Repair_Order,
+      general&&general['Repair_Order']
+    ];
+    let repairOrder='';
+    for(const candidate of repairOrderCandidates){
+      const value=clean(candidate);
+      if(value){repairOrder=value;break;}
+    }
     const hasDoc=!!docRaw;
-    return {docRaw,meldung,part,serial,hasDoc};
+    return {docRaw,meldung,part,serial,repairOrder,hasDoc};
   }
 
   function findAspenBoardEntry(meldung){
@@ -910,6 +968,7 @@
       this.partSource='';
       this.meldung='';
       this.serial='';
+      this.repairOrder='';
       this.hasAspenDoc=false;
       this.globalState=loadGlobalState();
       this.history=[];
@@ -958,6 +1017,7 @@
       this.totalEntries=this.allEntries.length;
       const docInfo=parseDocument();
       this.meldung=docInfo.meldung;
+      this.repairOrder=docInfo.repairOrder||'';
       const boardEntry=this.meldung?findAspenBoardEntry(this.meldung):null;
       const boardPart=boardEntry?extractPartFromBoard(boardEntry):'';
       const boardSerial=extractSerialFromBoard(boardEntry);
@@ -1497,6 +1557,65 @@
       root.append(contextSection,inputSection,outputsSection);
     }
 
+    resolveEntry(entry){
+      if(!entry||typeof entry!=='object') return null;
+      const hasExtendedFields=(key)=>Object.prototype.hasOwnProperty.call(entry,key);
+      if([
+        'routine','routineFinding','routineAction','nonroutine','nonroutineFinding','nonroutineAction','parts','additional','repairOrder'
+      ].some(hasExtendedFields)){
+        return entry;
+      }
+      if(entry.key&&this.entryMap instanceof Map){
+        const resolved=this.entryMap.get(entry.key);
+        if(resolved) return resolved;
+      }
+      return entry;
+    }
+
+    buildRoutineOutput(entry){
+      const resolved=this.resolveEntry(entry);
+      if(!resolved) return '';
+      const fallback=clean(resolved.routine||'');
+      const routineFinding=clean(resolved.routineFinding||resolved.routineFindings||'');
+      const routineAction=clean(resolved.routineAction||resolved.routineActions||'');
+      const repairOrder=clean(resolved.repairOrder||this.repairOrder);
+      const sections=[];
+      if(repairOrder){
+        sections.push({title:'Repair Order:',body:`${repairOrder} (Aus aspen)`});
+      }
+      if(routineFinding){
+        sections.push({title:'Findings:',body:routineFinding});
+      }
+      if(routineAction){
+        sections.push({title:'Actions performed/to perform:',body:routineAction});
+      }
+      if(!sections.length){
+        return fallback;
+      }
+      const lines=[];
+      sections.forEach((section,idx)=>{
+        lines.push(section.title);
+        lines.push(section.body);
+        if(idx<sections.length-1) lines.push('');
+      });
+      if(!fallback){
+        return lines.join('\n');
+      }
+      const baseText=lines.join('\n');
+      const normalizedBase=baseText.replace(/\s+/g,' ').toLowerCase();
+      const normalizedFallback=fallback.replace(/\s+/g,' ').toLowerCase();
+      if(!normalizedBase){
+        return fallback;
+      }
+      if(normalizedBase===normalizedFallback){
+        return fallback;
+      }
+      const finalLines=lines.slice();
+      if(finalLines[finalLines.length-1]!=='') finalLines.push('');
+      finalLines.push(fallback);
+      return finalLines.join('\n');
+    }
+
     addInputRow(prefillEntry,focusNext){
       const row=document.createElement('div');
       row.className='nsf-input-row';
@@ -1541,7 +1660,11 @@
           if(entry.labelLower.includes(query)) return true;
           if(entry.actionLower.includes(query)) return true;
           if(entry.routineLower&&entry.routineLower.includes(query)) return true;
+          if(entry.routineFindingLower&&entry.routineFindingLower.includes(query)) return true;
+          if(entry.routineActionLower&&entry.routineActionLower.includes(query)) return true;
           if(entry.nonroutineLower&&entry.nonroutineLower.includes(query)) return true;
+          if(entry.nonroutineFindingLower&&entry.nonroutineFindingLower.includes(query)) return true;
+          if(entry.nonroutineActionLower&&entry.nonroutineActionLower.includes(query)) return true;
           if(entry.partsLower&&entry.partsLower.includes(query)) return true;
           if(entry.timesLower&&entry.timesLower.includes(query)) return true;
           if(entry.modsLower&&entry.modsLower.includes(query)) return true;
@@ -1643,12 +1766,28 @@
       if(!state||!entry) return;
       const opts=options||{};
       state.locked=true;
+      const routineText=this.buildRoutineOutput(entry);
+      const nonroutineText=clean(entry.nonroutine||'');
+      const nonroutineFindingText=clean(entry.nonroutineFinding||'');
+      const nonroutineActionText=clean(entry.nonroutineAction||'');
+      const routineFindingText=clean(entry.routineFinding||'');
+      const routineActionText=clean(entry.routineAction||'');
+      const partsText=clean(entry.parts||'');
+      const repairOrderValue=clean(this.repairOrder||'');
       state.entry={
         key:entry.key,
         finding:entry.finding||'',
         action:entry.action||'',
         label:entry.label||'',
-        part:entry.part||this.currentPart||''
+        part:entry.part||this.currentPart||'',
+        routine:routineText,
+        routineFinding:routineFindingText,
+        routineAction:routineActionText,
+        nonroutine:nonroutineText,
+        nonroutineFinding:nonroutineFindingText,
+        nonroutineAction:nonroutineActionText,
+        parts:partsText,
+        repairOrder:repairOrderValue
       };
       state.input.value=entry.label||entry.finding||entry.action||'Auswahl';
       state.input.disabled=true;
@@ -1661,9 +1800,9 @@
         this.appendOutput('findings',entry.finding);
         this.appendOutput('actions',entry.action);
         this.appendOutput('parts',entry.part);
-        if(entry.routine) this.appendOutput('routine',entry.routine);
-        if(entry.nonroutine) this.appendOutput('nonroutine',entry.nonroutine);
-        if(entry.parts) this.appendOutput('parts',entry.parts);
+        if(routineText) this.appendOutput('routine',routineText);
+        if(nonroutineText) this.appendOutput('nonroutine',nonroutineText);
+        if(partsText) this.appendOutput('parts',partsText);
       }
       if(opts.persist!==false){
         this.addSelection(entry);
@@ -1722,12 +1861,20 @@
     }
 
     removeOutputsFor(entry){
-      this.removeOutput('findings',entry.finding);
-      this.removeOutput('actions',entry.action);
-      this.removeOutput('parts',entry.part);
-      this.removeOutput('routine',entry.routine);
-      this.removeOutput('nonroutine',entry.nonroutine);
-      this.removeOutput('parts',entry.parts);
+      if(!entry) return;
+      const resolved=this.resolveEntry(entry);
+      const findingText=clean(entry.finding||resolved?.finding||'');
+      if(findingText) this.removeOutput('findings',findingText);
+      const actionText=clean(entry.action||resolved?.action||'');
+      if(actionText) this.removeOutput('actions',actionText);
+      const partText=clean(entry.part||resolved?.part||'');
+      if(partText) this.removeOutput('parts',partText);
+      const routineText=this.buildRoutineOutput(resolved||entry);
+      if(routineText) this.removeOutput('routine',routineText);
+      const nonroutineText=clean(entry.nonroutine||resolved?.nonroutine||'');
+      if(nonroutineText) this.removeOutput('nonroutine',nonroutineText);
+      const partsExtra=clean(entry.parts||resolved?.parts||'');
+      if(partsExtra) this.removeOutput('parts',partsExtra);
     }
 
     removeOutput(field,text){
