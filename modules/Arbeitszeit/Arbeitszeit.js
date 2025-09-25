@@ -11,6 +11,10 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const DRESS_KEY = 'az-dress-' + inst;
   const FILE_PATH_KEY = 'az-json-path'; // remember last file name
   const DATA_KEY = 'az-data-' + inst;
+  const SHARED_STATE_KEY = 'arbeitszeit-shared-state';
+  const SHARED_HANDLE_KEY = 'arbeitszeit-shared-handle';
+  const SHARED_SIGNAL_ID = 'az-shared-signal';
+  const SHARED_SIGNAL_ATTR = 'data-az-ts';
   let fileHandle = null;
   let entriesCache = null;
   let regularHours = Number(localStorage.getItem(LS_KEY) || settings.regularHours || 7.5);
@@ -70,7 +74,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
           <button type="button" class="az-btn pause-plus">Pause +5</button>
         </div>
       </label>
-      <div class="pause-msg text-xs opacity-75 az-pause-indicator">Standardpausen gemacht</div>
+      <div class="pause-msg text-xs opacity-75 az-pause-indicator" title="Automatisch berechnet">Automatische Pause aktiv</div>
       <label class="block">
         <span class="opacity-90">Gehzeit</span>
         <div class="az-control-row mt-1">
@@ -78,7 +82,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
           <button type="button" class="az-btn end-now">Feierabend jetzt setzen</button>
         </div>
       </label>
-      <div class="az-row"><span class="diff-label"></span><span class="diff font-semibold"></span></div>
+      <div class="az-row diff-row font-bold"><span class="diff-label"></span><span class="diff"></span></div>
       <div class="warn text-red-500 text-xs"></div>
     </div>
   `;
@@ -98,6 +102,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   const tmaxEl = targetDiv.querySelector('.tmax');
   const tmaxRow = targetDiv.querySelector('.row-max');
   const diffEl = targetDiv.querySelector('.diff');
+  const diffRow = targetDiv.querySelector('.diff-row');
   const warnEl = targetDiv.querySelector('.warn');
   const labelEl = tregRow.querySelector('.label');
   const diffLabel = targetDiv.querySelector('.diff-label');
@@ -154,12 +159,75 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     if(minutes < 30) pauseMsg.classList.add('warn');
     else if(minutes >= 45) pauseMsg.classList.add('ok');
   }
+  function formatDiffDecimal(mins){
+    const sign = mins >= 0 ? '+' : '-';
+    const abs = Math.abs(mins);
+    return sign + (abs/60).toFixed(2) + ' h';
+  }
   function formatDiff(mins){
     const sign = mins >= 0 ? '+' : '-';
     const abs = Math.abs(mins);
     const hours = Math.floor(abs/60);
     const minutes = Math.abs(abs % 60);
     return sign + pad(hours) + ':' + pad(minutes);
+  }
+  function applyDiffDisplay(mins){
+    if(!diffEl) return;
+    const text = `${formatDiff(mins)} (${formatDiffDecimal(mins)})`;
+    diffEl.textContent = text;
+    diffEl.classList.remove('text-green-400','text-red-400');
+    if(diffRow) diffRow.classList.remove('text-green-400','text-red-400');
+    if(mins < 0){
+      diffEl.classList.add('text-red-400');
+      diffRow?.classList.add('text-red-400');
+    }else if(mins > 0){
+      diffEl.classList.add('text-green-400');
+      diffRow?.classList.add('text-green-400');
+    }
+  }
+  function clearDiffDisplay(){
+    if(!diffEl) return;
+    diffEl.textContent='';
+    diffEl.classList.remove('text-green-400','text-red-400');
+    diffRow?.classList.remove('text-green-400','text-red-400');
+  }
+  function ensureSharedSignal(){
+    let el = document.getElementById(SHARED_SIGNAL_ID);
+    if(!el){
+      el = document.createElement('meta');
+      el.id = SHARED_SIGNAL_ID;
+      el.setAttribute(SHARED_SIGNAL_ATTR,'0');
+      document.head.appendChild(el);
+    }
+    return el;
+  }
+  function storeSharedHandle(handle){
+    if(handle && window.serializeHandle){
+      try{ localStorage.setItem(SHARED_HANDLE_KEY, window.serializeHandle(handle)); }
+      catch(err){ console.warn('serializeHandle failed',err); }
+    }else if(handle){
+      console.warn('serializeHandle unavailable – handle not persisted');
+      localStorage.removeItem(SHARED_HANDLE_KEY);
+    }else{
+      localStorage.removeItem(SHARED_HANDLE_KEY);
+    }
+  }
+  function updateSharedState(){
+    const payload = {
+      mode: fileHandle ? 'file' : 'local',
+      fileName: fileHandle?.name || localStorage.getItem(FILE_PATH_KEY) || 'arbeitszeit.json',
+      data: entriesCache || {},
+      regularHours,
+      dressTime,
+      updatedAt: Date.now()
+    };
+    try{
+      localStorage.setItem(SHARED_STATE_KEY, JSON.stringify(payload));
+    }catch(err){
+      console.warn('updateSharedState failed',err);
+    }
+    const signal = ensureSharedSignal();
+    signal.setAttribute(SHARED_SIGNAL_ATTR, String(payload.updatedAt));
   }
   function toDateKey(date){ return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate()); }
   function previousDateKey(date){ return toDateKey(new Date(date.getTime()-24*60*60*1000)); }
@@ -227,6 +295,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
         console.warn('persistEntries file write failed',err);
       }
     }
+    updateSharedState();
   }
   async function appendRestWarning(warns,startDate){
     if(!startDate) return warns;
@@ -237,7 +306,8 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     const prevEnd = parseDateTime(prevKey,prevEntry.ende);
     if(!prevEnd) return warns;
     const restMinutes = (startDate - prevEnd)/60000;
-    if(restMinutes < 11*60 && !warns.includes('Ruhezeit <11h zum Vortag')) return [...warns,'Ruhezeit <11h zum Vortag'];
+    const restWarn = '⚠️ Ruhezeit <11h zum Vortag';
+    if(restMinutes < 11*60 && !warns.includes(restWarn)) return [...warns,restWarn];
     return warns;
   }
   function applyEntryToUI(entry){
@@ -245,8 +315,18 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     if(entry.start && start) start.value = entry.start;
     if(entry.ende && end) end.value = entry.ende;
     if(pauseInput){
-      if(Object.prototype.hasOwnProperty.call(entry,'pause')) pauseInput.value = entry.pause ?? '';
-      else pauseInput.value='';
+      const hasPauseProp = Object.prototype.hasOwnProperty.call(entry,'pause');
+      const isManual = entry.pauseSource === 'manual'
+        || (!entry.pauseSource && hasPauseProp && entry.pause !== '' && entry.pause !== null && entry.pause !== undefined);
+      if(isManual && hasPauseProp){
+        pauseInput.value = entry.pause ?? '';
+        pauseInput.placeholder = 'Minuten';
+      }else{
+        pauseInput.value='';
+        if(hasPauseProp && entry.pause !== undefined && entry.pause !== null && entry.pause !== ''){
+          pauseInput.placeholder = `Standard: ${entry.pause} min`;
+        }
+      }
       syncSelectFromInput();
     }
     if(entry.diff && diffEl) diffEl.textContent = entry.diff;
@@ -260,6 +340,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       pauseInput.value='';
       syncSelectFromInput();
     }
+    updateSharedState();
   }
   function updateStorageStatus(){
     if(!storageStatusEl) return;
@@ -303,6 +384,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     const handle = await requestFileHandle();
     if(!handle) return;
     fileHandle = handle;
+    storeSharedHandle(handle);
     entriesCache = null;
     localStorage.setItem(FILE_PATH_KEY, handle.name);
     const data = await getStoredEntries();
@@ -314,10 +396,12 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       syncSelectFromInput();
     }
     updateStorageStatus();
+    updateSharedState();
     safeRender();
   }
   function switchToLocalStorage(){
     fileHandle = null;
+    storeSharedHandle(null);
     entriesCache = null;
     const data = loadLocalEntries();
     entriesCache = data;
@@ -328,22 +412,26 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       syncSelectFromInput();
     }
     updateStorageStatus();
+    updateSharedState();
     safeRender();
   }
 
   async function renderTimes(){
     [t5El,t615El,tregEl,tmaxEl,diffEl].forEach(el=>{el.textContent='';el.classList.remove('text-red-500');});
+    clearDiffDisplay();
     warnEl.textContent='';
-    pauseMsg.textContent='Standardpausen gemacht';
+    pauseMsg.textContent='Automatische Pause aktiv';
+    pauseMsg.title='Automatisch berechnet';
+    if(pauseInput) pauseInput.placeholder = 'Minuten';
     updatePauseIndicator(null);
     lastT5=lastT615=lastTreg=lastTmax=undefined;
 
-    if(!start.value) return;
+    if(!start.value){ clearDiffDisplay(); return; }
     const s=parseTime(start.value);
-    if(!s) return;
+    if(!s){ clearDiffDisplay(); return; }
 
     lastT5=addMin(s,5*60); t5El.textContent=fmt(lastT5); updateColor(t5El,lastT5);
-    lastT615=addMin(s,6*60+15+30); t615El.textContent=fmt(lastT615); updateColor(t615El,lastT615);
+    lastT615=addMin(s,6*60+15+legalPause(6*60+15)); t615El.textContent=fmt(lastT615); updateColor(t615El,lastT615);
     lastTreg=addMin(s,regularHours*60+legalPause(regularHours*60)); tregEl.textContent=fmt(lastTreg); updateColor(tregEl,lastTreg);
     lastTmax=addMin(s,10*60+legalPause(10*60)); tmaxEl.textContent=fmt(lastTmax); updateColor(tmaxEl,lastTmax);
 
@@ -352,13 +440,15 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       if(manualVal){
         const manualPause = parsePauseValue(manualVal) ?? 0;
         pauseMsg.textContent = `Manuelle Pause: ${manualPause} min`;
+        pauseMsg.title = 'Manuell gesetzt';
         updatePauseIndicator(manualPause);
       }
+      clearDiffDisplay();
       return;
     }
 
     const e=parseTime(end.value);
-    if(!e) return;
+    if(!e){ clearDiffDisplay(); return; }
     const totalMin = Math.max(0,(e - s)/60000);
     const hasManualPause = pauseInput.value.trim() !== '';
     let userPause = hasManualPause ? parsePauseValue(pauseInput.value) : 0;
@@ -369,13 +459,18 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     pauseMsg.textContent = hasManualPause
       ? `Manuelle Pause: ${pauseMin} min`
       : `Berechnete Pause: ${pauseMin} min`;
+    pauseMsg.title = hasManualPause ? 'Manuell gesetzt' : 'Automatisch berechnet';
+    if(pauseInput){
+      if(hasManualPause) pauseInput.placeholder = 'Minuten';
+      else pauseInput.placeholder = `Standard: ${pauseMin} min`;
+    }
     updatePauseIndicator(pauseMin);
     const actualWork = Math.max(0,totalMin - pauseMin);
     const diffMin = Math.round(actualWork - regularHours*60 + dressTime);
-    diffEl.textContent = formatDiff(diffMin);
+    applyDiffDisplay(diffMin);
     const warns=[];
-    if(actualWork > 10*60) warns.push('>10h Arbeitszeit');
-    if(e.getHours()>20 || (e.getHours()===20 && e.getMinutes()>0)) warns.push('Gehzeit nach 20:00');
+    if(actualWork > 10*60) warns.push('⛔ >10h Arbeitszeit');
+    if(e.getHours()>20 || (e.getHours()===20 && e.getMinutes()>0)) warns.push('🌙 Gehzeit nach 20:00');
     const finalWarns = await appendRestWarning(warns,s);
     warnEl.textContent = finalWarns.join(' · ');
 
@@ -405,6 +500,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
         start: start.value,
         ende: end.value,
         pause: String(pauseMin),
+        pauseSource: hasManualPause ? 'manual' : 'auto',
         diff: diffEl.textContent,
         hinweis: warnEl.textContent.trim()
       };
@@ -522,6 +618,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       localStorage.setItem(LS_KEY,String(regularHours));
       updateLabel();
       updateVisibility();
+      updateSharedState();
       safeRender();
     }
   });
@@ -530,6 +627,7 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
     dressTime=parseInt(dressInput.value||'0',10);
     localStorage.setItem(DRESS_KEY,String(dressTime));
     updateDiffLabel();
+    updateSharedState();
     safeRender();
   });
 
