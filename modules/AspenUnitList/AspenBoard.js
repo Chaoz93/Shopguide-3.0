@@ -71,8 +71,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
     .db-panel .row.subs{display:flex;flex-direction:column;gap:.4rem;}
     .db-sub-list{display:flex;flex-direction:column;gap:.35rem;}
     .db-sub-row{display:flex;gap:.5rem;align-items:center;}
-    .db-sub-row select{flex:1;}
+    .db-sub-picker{flex:1;position:relative;display:flex;}
+    .db-sub-input{flex:1;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-sub-input:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-sub-row button{padding:.35rem .6rem;}
+    .db-sub-remove{padding:.35rem .55rem;}
     .db-add-sub{align-self:flex-start;padding:.35rem .6rem;}
     .db-panel .row.rules{display:flex;flex-direction:column;gap:.4rem;}
     .db-rule-label{font-size:.85rem;font-weight:600;}
@@ -1139,28 +1142,101 @@ der-radius:.4rem;background:transparent;color:inherit;}
       tempSubFields.forEach((field,index)=>{
         const row=document.createElement('div');
         row.className='db-sub-row';
-        const select=document.createElement('select');
         const choices=getAvailableFieldList(state,tempSubFields);
         if(field && !choices.includes(field)) choices.push(field);
-        select.innerHTML=choices.map(opt=>`<option value="${opt}" ${opt===field?'selected':''}>${opt}</option>`).join('');
+
+        const picker=document.createElement('div');
+        picker.className='db-sub-picker';
+        const input=document.createElement('input');
+        input.type='text';
+        input.className='db-sub-input';
+        input.placeholder='Spalte wählen';
+        input.autocomplete='off';
+        input.value=field||'';
         if(!field && choices.length){
-          select.value=choices[0];
           tempSubFields[index]=choices[0];
+          input.value=choices[0];
         }
-        select.addEventListener('change',()=>{tempSubFields[index]=select.value;});
+        const dataList=document.createElement('datalist');
+        const listId=`db-sub-options-${Date.now()}-${index}-${Math.floor(Math.random()*1000)}`;
+        dataList.id=listId;
+        input.setAttribute('list',listId);
+        const renderOptions=(filter='')=>{
+          const normalized=(filter||'').trim().toLowerCase();
+          const filtered=normalized?choices.filter(opt=>opt.toLowerCase().includes(normalized)):choices;
+          dataList.innerHTML=filtered.map(opt=>`<option value="${opt}"></option>`).join('');
+        };
+        renderOptions();
+        const commitInput=()=>{
+          const raw=(input.value||'').trim();
+          if(!raw){
+            tempSubFields[index]='';
+            input.value='';
+            renderOptions();
+            return;
+          }
+          const exact=choices.find(opt=>opt.toLowerCase()===raw.toLowerCase());
+          if(exact){
+            tempSubFields[index]=exact;
+            input.value=exact;
+            renderOptions();
+            return;
+          }
+          const partial=choices.find(opt=>opt.toLowerCase().includes(raw.toLowerCase()));
+          if(partial){
+            tempSubFields[index]=partial;
+            input.value=partial;
+            renderOptions();
+            return;
+          }
+          input.value=tempSubFields[index]||'';
+          renderOptions();
+        };
+        input.addEventListener('input',()=>{renderOptions(input.value);});
+        input.addEventListener('focus',()=>{renderOptions();});
+        input.addEventListener('change',commitInput);
+        input.addEventListener('keydown',event=>{
+          if(event.key==='Enter'){
+            event.preventDefault();
+            commitInput();
+            input.blur();
+          }
+        });
+        input.addEventListener('blur',()=>{setTimeout(commitInput,0);});
+        picker.appendChild(input);
+        row.appendChild(picker);
+        row.appendChild(dataList);
+
         const sortBtn=document.createElement('button');
         sortBtn.type='button';
         sortBtn.className='db-sort';
         sortBtn.textContent='Sortieren';
         sortBtn.addEventListener('click',()=>{
-          const fieldName=select.value;
+          commitInput();
+          const fieldName=(tempSubFields[index]||'').trim()||input.value.trim();
           if(!fieldName) return;
           syncFromDOM();
           state.items.sort((a,b)=>String(a?.data?.[fieldName]||'').localeCompare(String(b?.data?.[fieldName]||'')));
           render();
         });
-        row.appendChild(select);
         row.appendChild(sortBtn);
+
+        const removeBtn=document.createElement('button');
+        removeBtn.type='button';
+        removeBtn.className='db-sub-remove';
+        removeBtn.title='Feld entfernen';
+        removeBtn.setAttribute('aria-label','Feld entfernen');
+        removeBtn.textContent='✕';
+        removeBtn.addEventListener('click',()=>{
+          if(tempSubFields.length>1){
+            tempSubFields.splice(index,1);
+          }else{
+            tempSubFields[0]='';
+          }
+          renderSubFieldControls();
+        });
+        row.appendChild(removeBtn);
+
         elements.subList.appendChild(row);
       });
     }
@@ -1282,6 +1358,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
     });
 
     elements.saveBtn.addEventListener('click',()=>{
+      elements.subList.querySelectorAll('.db-sub-input').forEach(input=>{
+        input.dispatchEvent(new Event('change'));
+      });
       state.config.title=elements.titleInput.value.trim();
       const newPart=elements.selPart.value;
       const partChanged=state.config.partField!==newPart;
