@@ -510,6 +510,15 @@
     'serial-number','serialnummer','seriennummer','seriennr','serien nr','serien-nummer','sn','s/n','snr'
   ];
 
+  const FIELD_RECORD_KEY_PROPS=[
+    'key','name','label','field','fieldkey','source','sourcekey','originalkey','identifier','id',
+    'aspkey','aspfield','aspenkey','aspenfield','column','columnkey','header','slug'
+  ];
+  const FIELD_RECORD_VALUE_PROPS=[
+    'value','val','text','content','data','stringvalue','valuestring','fieldvalue','fieldval',
+    'valuetext','displayvalue','display','payload','body','rawvalue','actualvalue'
+  ];
+
   const DICTIONARY_LABEL_ALIASES=[
     'meldung','meldungsnr','meldungsnummer','meldungsno','meldungno','meldungsid','meldungid','meldungsname','melding',
     'meldungscode','meldungstext','meldung_text','meldung title','key','label','finding','beschreibung','description','title','name'
@@ -578,6 +587,35 @@
     return clean(value);
   }
 
+  function extractRecordValue(map){
+    if(!map||typeof map!=='object') return '';
+    for(const prop of FIELD_RECORD_VALUE_PROPS){
+      if(Object.prototype.hasOwnProperty.call(map,prop)){
+        const text=valueToText(map[prop]);
+        if(text) return text;
+      }
+    }
+    if(Object.prototype.hasOwnProperty.call(map,'values')){
+      const text=valueToText(map.values);
+      if(text) return text;
+    }
+    return '';
+  }
+
+  function matchRecordByAlias(map,aliasKey){
+    if(!map||typeof map!=='object'||!aliasKey) return '';
+    for(const prop of FIELD_RECORD_KEY_PROPS){
+      if(!Object.prototype.hasOwnProperty.call(map,prop)) continue;
+      const keyCandidate=valueToText(map[prop]);
+      const canonical=canonicalKey(keyCandidate);
+      if(canonical===aliasKey){
+        const value=extractRecordValue(map);
+        if(value) return value;
+      }
+    }
+    return '';
+  }
+
   function extractField(map,aliases){
     if(!map) return '';
     for(const alias of aliases){
@@ -597,9 +635,13 @@
     seen.add(raw);
     const map=buildFieldMap(raw);
     const objectMatches=[];
+    const aliasKeys=[];
     for(const alias of aliases){
       const key=canonicalKey(alias);
-      if(!key||!Object.prototype.hasOwnProperty.call(map,key)) continue;
+      if(key) aliasKeys.push(key);
+    }
+    for(const key of aliasKeys){
+      if(!Object.prototype.hasOwnProperty.call(map,key)) continue;
       const value=map[key];
       if(value==null) continue;
       if(typeof value==='object'){
@@ -608,6 +650,10 @@
         const text=valueToText(value);
         if(text) return text;
       }
+    }
+    for(const key of aliasKeys){
+      const recordMatch=matchRecordByAlias(map,key);
+      if(recordMatch) return recordMatch;
     }
     for(const candidate of objectMatches){
       const nested=extractNestedField(candidate,aliases,seen);
