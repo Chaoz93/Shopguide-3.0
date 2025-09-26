@@ -289,18 +289,14 @@
     const normalizedTitles=Array.isArray(titles)
       ? titles.map(title=>clean(title)).filter(Boolean)
       : [];
-    const detailLines=[...normalizedTitles];
     const rows=[];
     const titleQueue=[...normalizedTitles];
+    const partCopyLines=[];
     if(Array.isArray(pairs)&&pairs.length){
       pairs.forEach((pair,index)=>{
         const partText=clean(pair.part);
         const quantityText=clean(pair.quantity);
-        if(partText||quantityText){
-          const left=partText||'–';
-          const right=quantityText?`Menge (${quantityText})`:'';
-          detailLines.push(right?`${left} | ${right}`:left);
-        }
+        if(partText) partCopyLines.push(partText);
         const pnValue=titleQueue.length?titleQueue.shift():'';
         rows.push({
           pnLabel:`PN ${index+1}`,
@@ -325,7 +321,7 @@
         });
       });
     }
-    const text=detailLines.length?['Bestelltext','',...detailLines].join('\n'):'';
+    const text=partCopyLines.join('\n');
     return {text,rows};
   }
   function normalizePart(value){
