@@ -121,6 +121,14 @@
       .nsf-note{font-size:0.8rem;opacity:0.75;}
       .nsf-alert{background:rgba(248,113,113,0.2);border-radius:0.75rem;padding:0.5rem 0.75rem;font-size:0.85rem;}
       .nsf-inline-info{font-size:0.8rem;opacity:0.7;}
+      .nsf-hidden{display:none !important;}
+      .nsf-parts-grid{display:flex;flex-direction:column;gap:0.6rem;}
+      .nsf-part-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.55rem;background:rgba(15,23,42,0.22);border-radius:0.85rem;padding:0.6rem;}
+      .nsf-part-field{display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-part-field-label{font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.7;}
+      .nsf-part-field-input{border:none;border-radius:0.65rem;padding:0.55rem 0.65rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
+      .nsf-part-field-input:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
+      .nsf-part-field-input::placeholder{color:rgba(107,114,128,0.75);}
     `;
     document.head.appendChild(tag);
   }
@@ -277,26 +285,48 @@
     });
     return {titles,pairs};
   }
-  function buildPartsBlock(titles,pairs){
-    const detailLines=[];
-    if(Array.isArray(titles)&&titles.length){
-      titles.forEach(title=>{
-        const text=clean(title);
-        if(text) detailLines.push(text);
-      });
-    }
+  function buildPartsData(titles,pairs){
+    const normalizedTitles=Array.isArray(titles)
+      ? titles.map(title=>clean(title)).filter(Boolean)
+      : [];
+    const detailLines=[...normalizedTitles];
+    const rows=[];
+    const titleQueue=[...normalizedTitles];
     if(Array.isArray(pairs)&&pairs.length){
-      pairs.forEach(pair=>{
+      pairs.forEach((pair,index)=>{
         const partText=clean(pair.part);
         const quantityText=clean(pair.quantity);
-        if(!partText&& !quantityText) return;
-        const left=partText||'–';
-        const right=quantityText?`Menge (${quantityText})`:'';
-        detailLines.push(right?`${left} | ${right}`:left);
+        if(partText||quantityText){
+          const left=partText||'–';
+          const right=quantityText?`Menge (${quantityText})`:'';
+          detailLines.push(right?`${left} | ${right}`:left);
+        }
+        const pnValue=titleQueue.length?titleQueue.shift():'';
+        rows.push({
+          pnLabel:`PN ${index+1}`,
+          pnValue,
+          partLabel:`Part ${index+1}`,
+          partValue:partText,
+          quantityLabel:`Menge ${index+1}`,
+          quantityValue:quantityText
+        });
       });
     }
-    if(!detailLines.length) return '';
-    return ['Bestelltext','',...detailLines].join('\n');
+    if(titleQueue.length){
+      const offset=rows.length;
+      titleQueue.forEach((title,index)=>{
+        rows.push({
+          pnLabel:`PN ${offset+index+1}`,
+          pnValue:title,
+          partLabel:`Part ${offset+index+1}`,
+          partValue:'',
+          quantityLabel:`Menge ${offset+index+1}`,
+          quantityValue:''
+        });
+      });
+    }
+    const text=detailLines.length?['Bestelltext','',...detailLines].join('\n'):'';
+    return {text,rows};
   }
   function normalizePart(value){
     const text=clean(value);
@@ -1264,6 +1294,8 @@
       this.availableEntries=[];
       this.inputsContainer=null;
       this.textareas={};
+      this.partsRows=[];
+      this.partsFieldContainer=null;
       this.saveTimer=null;
       this.selectionRows=[];
       this.currentPart='';
@@ -1880,6 +1912,7 @@
       ];
 
       this.textareas={};
+      this.partsFieldContainer=null;
       for(const def of outputDefs){
         const box=document.createElement('div');
         box.className='nsf-output';
@@ -1906,16 +1939,32 @@
           });
         });
         head.append(label,btn);
-        const textarea=document.createElement('textarea');
-        textarea.className='nsf-textarea';
-        textarea.value='';
-        textarea.disabled=!this.meldung;
-        textarea.readOnly=true;
-        textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
-        this.textareas[def.key]=textarea;
-        box.append(head,textarea);
+        let textarea;
+        if(def.key==='parts'){
+          textarea=document.createElement('textarea');
+          textarea.className='nsf-textarea nsf-hidden';
+          textarea.value='';
+          textarea.disabled=!this.meldung;
+          textarea.readOnly=true;
+          textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
+          this.textareas[def.key]=textarea;
+          box.append(head,textarea);
+          const partsContainer=document.createElement('div');
+          partsContainer.className='nsf-parts-grid';
+          this.partsFieldContainer=partsContainer;
+          box.appendChild(partsContainer);
+        }else{
+          textarea=document.createElement('textarea');
+          textarea.className='nsf-textarea';
+          textarea.value='';
+          textarea.disabled=!this.meldung;
+          textarea.readOnly=true;
+          textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
+          this.textareas[def.key]=textarea;
+          box.append(head,textarea);
+          requestAnimationFrame(()=>autoResizeTextarea(textarea));
+        }
         outputsWrapper.appendChild(box);
-        requestAnimationFrame(()=>autoResizeTextarea(textarea));
       }
 
       this.syncOutputsWithSelections({persist:false});
@@ -1998,18 +2047,22 @@
         const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
       }
+      const partsData=buildPartsData(bestellTitles,partPairs);
       return {
         findings:lists.findings.join('\n'),
         actions:lists.actions.join('\n'),
         routine:lists.routine.join('\n\n'),
         nonroutine:lists.nonroutine.join('\n'),
-        parts:buildPartsBlock(bestellTitles,partPairs)
+        parts:partsData.text,
+        partsRows:partsData.rows
       };
     }
 
     syncOutputsWithSelections(options){
       const opts=options||{};
       const computed=this.buildOutputsFromSelections();
+      const effectiveRows=opts.forceEmpty?[]:(Array.isArray(computed.partsRows)?computed.partsRows:[]);
+      this.partsRows=effectiveRows;
       let changed=false;
       for(const key of Object.keys(this.activeState)){
         const value=opts.forceEmpty?'' : computed[key]||'';
@@ -2022,12 +2075,63 @@
           if(textarea.value!==value){
             textarea.value=value;
           }
-          autoResizeTextarea(textarea);
+          if(textarea.offsetParent!==null){
+            autoResizeTextarea(textarea);
+          }
         }
       }
+      this.renderPartsRows(this.partsRows);
       if(changed&&opts.persist!==false){
         this.queueStateSave();
       }
+    }
+
+    renderPartsRows(rows){
+      const container=this.partsFieldContainer;
+      if(!container) return;
+      container.innerHTML='';
+      if(!this.meldung){
+        const note=document.createElement('div');
+        note.className='nsf-empty';
+        note.textContent='Keine Meldung ausgewählt.';
+        container.appendChild(note);
+        return;
+      }
+      const data=Array.isArray(rows)?rows.filter(row=>row&&typeof row==='object') : [];
+      const items=data.length?data:[{
+        pnLabel:'PN 1',pnValue:'',
+        partLabel:'Part 1',partValue:'',
+        quantityLabel:'Menge 1',quantityValue:''
+      }];
+      const makeField=(labelText,value,placeholder)=>{
+        const field=document.createElement('label');
+        field.className='nsf-part-field';
+        const label=document.createElement('span');
+        label.className='nsf-part-field-label';
+        label.textContent=labelText||'';
+        const input=document.createElement('input');
+        input.type='text';
+        input.className='nsf-part-field-input';
+        const displayValue=clean(value);
+        input.value=displayValue;
+        input.placeholder=placeholder||'';
+        input.title=displayValue||placeholder||'';
+        input.readOnly=true;
+        input.addEventListener('focus',()=>{input.select();});
+        input.addEventListener('click',()=>{input.select();});
+        field.append(label,input);
+        return field;
+      };
+      items.forEach(item=>{
+        const row=document.createElement('div');
+        row.className='nsf-part-row';
+        row.append(
+          makeField(item.pnLabel,item.pnValue,'PN-Text'),
+          makeField(item.partLabel,item.partValue,'Teilenummer'),
+          makeField(item.quantityLabel,item.quantityValue,'Menge')
+        );
+        container.appendChild(row);
+      });
     }
 
     resolveEntry(entry){
