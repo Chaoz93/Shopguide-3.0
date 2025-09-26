@@ -56,6 +56,16 @@ s:.75rem;min-width:260px;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relativ
     .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
     .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);bor
 der-radius:.4rem;background:transparent;color:inherit;}
+    .db-panel .db-part-select{position:relative;}
+    .db-panel .db-part-select::after{content:'▾';position:absolute;right:.6rem;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--dl-sub,#4b5563);font-size:.75rem;}
+    .db-part-select-input{width:100%;padding:.35rem 2rem .35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-part-select-input:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .db-part-options{position:absolute;top:calc(100% + .25rem);left:0;right:0;max-height:220px;overflow:auto;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);padding:.25rem 0;display:none;z-index:2220;}
+    .db-part-options.open{display:flex;flex-direction:column;}
+    .db-part-option{display:block;width:100%;padding:.35rem .75rem;text-align:left;background:none;border:0;font:inherit;color:inherit;cursor:pointer;}
+    .db-part-option:hover,.db-part-option.is-active{background:rgba(37,99,235,.08);}
+    .db-part-options .db-empty{padding:.35rem .75rem;}
+    .db-sel-part{display:none;}
     .db-color{width:100%;height:2.25rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;
 }
     .db-panel .row.subs{display:flex;flex-direction:column;gap:.4rem;}
@@ -432,7 +442,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
-    root.innerHTML=`<div class="db-titlebar" hidden></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -460,6 +470,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
       subList:root.querySelector('.db-sub-list'),
       addSubBtn:root.querySelector('.db-add-sub'),
       selPart:root.querySelector('.db-sel-part'),
+      partSelectWrap:root.querySelector('.db-part-select'),
+      partSelectInput:root.querySelector('.db-part-select-input'),
+      partSelectOptions:root.querySelector('.db-part-options'),
       saveBtn:root.querySelector('.db-save'),
       closeBtn:root.querySelector('.db-close'),
       cBg:root.querySelector('.db-c-bg'),
@@ -799,6 +812,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
     const instanceId=instanceIdOf(elements.root);
     let tempSubFields=[];
     let tempTitleRules=[];
+    let partOptions=[];
+    let filteredPartOptions=[];
+    let partSelectOpen=false;
+    let highlightedPartIndex=-1;
+    let partSelectOutsideHandler=null;
 
     restoreState(state);
 
@@ -820,6 +838,167 @@ der-radius:.4rem;background:transparent;color:inherit;}
       };
       elements.search.addEventListener('input',handleSearchChange);
       elements.search.addEventListener('search',handleSearchChange);
+    }
+
+
+    function syncPartSelectInputValue(){
+      if(elements.partSelectInput){
+        elements.partSelectInput.value=elements.selPart?.value||'';
+      }
+    }
+
+    function updatePartSelectHighlight(){
+      if(!elements.partSelectOptions) return;
+      const nodes=Array.from(elements.partSelectOptions.querySelectorAll('.db-part-option'));
+      nodes.forEach((node,index)=>{
+        const isActive=index===highlightedPartIndex;
+        node.classList.toggle('is-active',isActive);
+        if(isActive){
+          node.scrollIntoView({block:'nearest'});
+        }
+      });
+    }
+
+    function renderPartSelectOptions(query){
+      if(!elements.partSelectOptions) return;
+      const normalized=(query||'').trim().toLowerCase();
+      filteredPartOptions=normalized?partOptions.filter(option=>option.toLowerCase().includes(normalized)):partOptions.slice();
+      if(!filteredPartOptions.length){
+        elements.partSelectOptions.innerHTML='<div class="db-empty">Keine Treffer</div>';
+        highlightedPartIndex=-1;
+        return;
+      }
+      elements.partSelectOptions.innerHTML=filteredPartOptions.map((option,index)=>`<button type="button" class="db-part-option" data-index="${index}" data-value="${option}">${option}</button>`).join('');
+      elements.partSelectOptions.querySelectorAll('.db-part-option').forEach(btn=>{
+        btn.addEventListener('mousedown',event=>event.preventDefault());
+        btn.addEventListener('click',()=>{
+          choosePartOption(btn.dataset.value);
+        });
+      });
+      const currentValue=elements.selPart?.value||'';
+      const matchIndex=filteredPartOptions.findIndex(option=>option===currentValue);
+      highlightedPartIndex=matchIndex>=0?matchIndex:0;
+      updatePartSelectHighlight();
+    }
+
+    function setHighlightedPartIndex(next){
+      if(!filteredPartOptions.length){
+        highlightedPartIndex=-1;
+        updatePartSelectHighlight();
+        return;
+      }
+      const clampedIndex=Math.max(0,Math.min(filteredPartOptions.length-1,next));
+      highlightedPartIndex=clampedIndex;
+      updatePartSelectHighlight();
+    }
+
+    function closePartSelectDropdown(){
+      if(!partSelectOpen) return;
+      partSelectOpen=false;
+      highlightedPartIndex=-1;
+      if(elements.partSelectOptions){
+        elements.partSelectOptions.classList.remove('open');
+      }
+      if(partSelectOutsideHandler){
+        document.removeEventListener('mousedown',partSelectOutsideHandler);
+        partSelectOutsideHandler=null;
+      }
+    }
+
+    function openPartSelectDropdown(){
+      if(!elements.partSelectOptions) return;
+      if(!partSelectOpen){
+        partSelectOpen=true;
+        elements.partSelectOptions.classList.add('open');
+        partSelectOutsideHandler=event=>{
+          if(!elements.partSelectWrap?.contains(event.target)){
+            closePartSelectDropdown();
+          }
+        };
+        document.addEventListener('mousedown',partSelectOutsideHandler);
+      }
+      renderPartSelectOptions(elements.partSelectInput?.value||'');
+    }
+
+    function choosePartOption(value){
+      if(!value) return;
+      if(elements.partSelectInput){
+        elements.partSelectInput.value=value;
+      }
+      if(elements.selPart && elements.selPart.value!==value){
+        elements.selPart.value=value;
+        elements.selPart.dispatchEvent(new Event('change',{bubbles:true}));
+      }
+      closePartSelectDropdown();
+    }
+
+    function handlePartSelectKeydown(event){
+      if(event.key==='ArrowDown'){
+        event.preventDefault();
+        openPartSelectDropdown();
+        if(filteredPartOptions.length){
+          const nextIndex=highlightedPartIndex<0?0:Math.min(filteredPartOptions.length-1,highlightedPartIndex+1);
+          setHighlightedPartIndex(nextIndex);
+        }
+        return;
+      }
+      if(event.key==='ArrowUp'){
+        event.preventDefault();
+        openPartSelectDropdown();
+        if(filteredPartOptions.length){
+          const nextIndex=highlightedPartIndex<=0?0:highlightedPartIndex-1;
+          setHighlightedPartIndex(nextIndex);
+        }
+        return;
+      }
+      if(event.key==='Enter'){
+        if(partSelectOpen){
+          event.preventDefault();
+          const option=highlightedPartIndex>=0?filteredPartOptions[highlightedPartIndex]:filteredPartOptions[0];
+          if(option){
+            choosePartOption(option);
+          }
+        }
+        return;
+      }
+      if(event.key==='Escape' && partSelectOpen){
+        event.preventDefault();
+        closePartSelectDropdown();
+      }
+    }
+
+
+    if(elements.partSelectInput){
+      syncPartSelectInputValue();
+      elements.partSelectInput.addEventListener('focus',()=>{
+        openPartSelectDropdown();
+        requestAnimationFrame(()=>{
+          try{elements.partSelectInput.select();}catch(e){/* ignore */}
+        });
+      });
+      elements.partSelectInput.addEventListener('input',()=>{
+        openPartSelectDropdown();
+        renderPartSelectOptions(elements.partSelectInput.value);
+      });
+      elements.partSelectInput.addEventListener('keydown',handlePartSelectKeydown);
+      elements.partSelectInput.addEventListener('blur',()=>{
+        setTimeout(()=>{
+          if(!partSelectOpen) return;
+          const active=document.activeElement;
+          if(!elements.partSelectWrap || !elements.partSelectWrap.contains(active)){
+            closePartSelectDropdown();
+          }
+        },100);
+      });
+    }
+
+    if(elements.partSelectWrap){
+      elements.partSelectWrap.addEventListener('mousedown',event=>{
+        if(event.target===elements.partSelectInput) return;
+        if(event.target.closest('.db-part-options')) return;
+        event.preventDefault();
+        elements.partSelectInput?.focus();
+      });
     }
 
     if(elements.partFilter){
@@ -844,6 +1023,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!options.includes(state.config.partField)){
         state.config.partField=options[0]||DEFAULT_SUB_FIELD;
         elements.selPart.value=state.config.partField;
+      }
+      partOptions=options.slice();
+      syncPartSelectInputValue();
+      if(partSelectOpen){
+        renderPartSelectOptions(elements.partSelectInput?.value||'');
       }
       if(elements.modal?.classList.contains('open')){
         renderRuleControls();
@@ -1053,6 +1237,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }
 
     function openOptions(){
+      closePartSelectDropdown();
       tempSubFields=Array.isArray(state.config.subFields)?state.config.subFields.slice():[];
       tempTitleRules=Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[];
       populateFieldSelects();
@@ -1065,11 +1250,14 @@ der-radius:.4rem;background:transparent;color:inherit;}
       elements.cSub.value=state.config.colors.sub;
       elements.cActive.value=state.config.colors.active;
       elements.modal.classList.add('open');
+      syncPartSelectInputValue();
     }
     function closeOptions(){
       elements.modal.classList.remove('open');
       tempSubFields=[];
       tempTitleRules=[];
+      closePartSelectDropdown();
+      syncPartSelectInputValue();
     }
 
     if(elements.addRuleBtn){
@@ -1146,6 +1334,10 @@ der-radius:.4rem;background:transparent;color:inherit;}
       state.excluded.clear();
       render();
       persistState(state);
+      syncPartSelectInputValue();
+      if(partSelectOpen){
+        renderPartSelectOptions(elements.partSelectInput?.value||'');
+      }
     });
 
     const handleCardClick=event=>{
