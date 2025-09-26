@@ -123,7 +123,10 @@
       .nsf-inline-info{font-size:0.8rem;opacity:0.7;}
       .nsf-hidden{display:none !important;}
       .nsf-parts-grid{display:flex;flex-direction:column;gap:0.6rem;}
-      .nsf-part-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.55rem;background:rgba(15,23,42,0.22);border-radius:0.85rem;padding:0.6rem;}
+      .nsf-part-group{display:flex;flex-direction:column;gap:0.45rem;background:rgba(15,23,42,0.22);border-radius:0.95rem;padding:0.6rem;border:1px solid rgba(148,163,184,0.18);}
+      .nsf-part-group+.nsf-part-group{margin-top:0.35rem;}
+      .nsf-part-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.55rem;}
+      .nsf-part-row+.nsf-part-row{border-top:1px solid rgba(148,163,184,0.18);padding-top:0.45rem;margin-top:0.45rem;}
       .nsf-part-field{display:flex;flex-direction:column;gap:0.35rem;}
       .nsf-part-field-label{font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.7;}
       .nsf-part-field-input{border:none;border-radius:0.65rem;padding:0.55rem 0.65rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
@@ -185,24 +188,41 @@
     const titleKeys=new Set();
     const pairs=[];
     const pairKeys=new Set();
+    const groups=[];
+    let currentGroupIndex=-1;
+    const ensureGroupIndex=()=>{
+      if(currentGroupIndex>-1) return currentGroupIndex;
+      const group={title:'',parts:[]};
+      currentGroupIndex=groups.length;
+      groups.push(group);
+      return currentGroupIndex;
+    };
+    const createGroup=(value)=>{
+      const title=clean(value);
+      const group={title,parts:[]};
+      currentGroupIndex=groups.length;
+      groups.push(group);
+      if(title) pushUniqueLine(titles,titleKeys,title);
+      return currentGroupIndex;
+    };
     const fallbackParts=Array.isArray(opts.fallbackParts)?opts.fallbackParts:[];
     const fallbackPartSet=new Set(fallbackParts.map(normalizePart).filter(Boolean));
-    if(!rawValue) return {titles,pairs};
+    if(!rawValue) return {titles,pairs,groups};
     const lines=String(rawValue).split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
-    if(!lines.length) return {titles,pairs};
+    if(!lines.length) return {titles,pairs,groups};
     const pairMap=new Map();
     const orderKeys=[];
     const knownParts=new Set();
     const ensurePair=(key)=>{
       const resolvedKey=key==null?`auto-${orderKeys.length}`:key;
       if(!pairMap.has(resolvedKey)){
-        pairMap.set(resolvedKey,{part:'',quantity:'',order:orderKeys.length});
+        const groupIndex=ensureGroupIndex();
+        pairMap.set(resolvedKey,{part:'',quantity:'',order:orderKeys.length,groupIndex});
         orderKeys.push(resolvedKey);
       }
       return pairMap.get(resolvedKey);
     };
     let lastKey=null;
-    const addTitle=(value)=>pushUniqueLine(titles,titleKeys,value);
     const skipByPartValue=value=>{
       const normalized=normalizePart(value);
       if(!normalized) return false;
@@ -230,7 +250,7 @@
           return;
         }
         if(/bestell|pntext|ordertext|ordertitle/.test(normalizedKey)){
-          addTitle(value);
+          createGroup(value);
           lastKey=null;
           return;
         }
@@ -260,7 +280,7 @@
           lastKey=null;
           return;
         }
-        addTitle(value);
+        createGroup(value);
         lastKey=null;
         return;
       }
@@ -268,61 +288,91 @@
         lastKey=null;
         return;
       }
-      addTitle(line);
+      createGroup(line);
       lastKey=null;
     });
     const orderedPairs=Array.from(pairMap.values())
       .sort((a,b)=>a.order-b.order)
-      .map(entry=>({part:clean(entry.part),quantity:clean(entry.quantity)}))
+      .map(entry=>({
+        part:clean(entry.part),
+        quantity:clean(entry.quantity),
+        groupIndex:typeof entry.groupIndex==='number'?entry.groupIndex:-1
+      }))
       .filter(entry=>entry.part||entry.quantity);
+    const groupParts=groups.map(group=>({
+      title:clean(group.title),
+      parts:[]
+    }));
     orderedPairs.forEach(entry=>{
       const partKey=normalizePart(entry.part);
       const quantityKey=(entry.quantity||'').toLowerCase();
       const key=`${partKey}||${quantityKey}`;
       if(pairKeys.has(key)) return;
       pairKeys.add(key);
-      pairs.push(entry);
+      pairs.push({part:entry.part,quantity:entry.quantity});
+      const idx=entry.groupIndex>=0&&entry.groupIndex<groupParts.length
+        ? entry.groupIndex
+        : (groupParts.length?groupParts.length-1:-1);
+      if(idx>=0){
+        groupParts[idx].parts.push({part:entry.part,quantity:entry.quantity});
+      }else{
+        groupParts.push({title:'',parts:[{part:entry.part,quantity:entry.quantity}]});
+      }
     });
-    return {titles,pairs};
+    const filledGroups=groupParts.filter(group=>group.title||group.parts.length);
+    filledGroups.forEach(group=>{
+      if(group.title) pushUniqueLine(titles,titleKeys,group.title);
+    });
+    return {titles,pairs,groups:filledGroups};
   }
-  function buildPartsData(titles,pairs){
+  function buildPartsData(titles,groups){
     const normalizedTitles=Array.isArray(titles)
       ? titles.map(title=>clean(title)).filter(Boolean)
       : [];
-    const rows=[];
-    const titleQueue=[...normalizedTitles];
     const partCopyLines=[];
-    if(Array.isArray(pairs)&&pairs.length){
-      pairs.forEach((pair,index)=>{
-        const partText=clean(pair.part);
-        const quantityText=clean(pair.quantity);
-        if(partText) partCopyLines.push(partText);
-        const pnValue=titleQueue.length?titleQueue.shift():'';
-        rows.push({
-          pnLabel:`PN ${index+1}`,
-          pnValue,
-          partLabel:`Part ${index+1}`,
-          partValue:partText,
-          quantityLabel:`Menge ${index+1}`,
-          quantityValue:quantityText
-        });
+    const usedTitles=new Set();
+    const groupsOutput=[];
+    let rowCounter=0;
+    const makeRow=(pnValue,partValue,quantityValue)=>{
+      rowCounter+=1;
+      return {
+        pnLabel:`PN ${rowCounter}`,
+        pnValue,
+        partLabel:`Part ${rowCounter}`,
+        partValue,
+        quantityLabel:`Menge ${rowCounter}`,
+        quantityValue
+      };
+    };
+    if(Array.isArray(groups)&&groups.length){
+      groups.forEach(group=>{
+        const titleText=clean(group&&group.title);
+        const partsArray=Array.isArray(group&&group.parts)?group.parts:[];
+        if(partsArray.length){
+          const groupRows=[];
+          partsArray.forEach((pair,index)=>{
+            const partText=clean(pair.part);
+            const quantityText=clean(pair.quantity);
+            if(partText) partCopyLines.push(partText);
+            const pnValue=index===0?titleText:'';
+            groupRows.push(makeRow(pnValue,partText,quantityText));
+          });
+          if(titleText) usedTitles.add(titleText.toLowerCase());
+          groupsOutput.push({title:titleText,rows:groupRows});
+        }else if(titleText){
+          usedTitles.add(titleText.toLowerCase());
+          groupsOutput.push({title:titleText,rows:[makeRow(titleText,'','')]});
+        }
       });
     }
-    if(titleQueue.length){
-      const offset=rows.length;
-      titleQueue.forEach((title,index)=>{
-        rows.push({
-          pnLabel:`PN ${offset+index+1}`,
-          pnValue:title,
-          partLabel:`Part ${offset+index+1}`,
-          partValue:'',
-          quantityLabel:`Menge ${offset+index+1}`,
-          quantityValue:''
-        });
-      });
-    }
+    normalizedTitles.forEach(title=>{
+      const key=title.toLowerCase();
+      if(usedTitles.has(key)) return;
+      usedTitles.add(key);
+      groupsOutput.push({title,rows:[makeRow(title,'','')]});
+    });
     const text=partCopyLines.join('\n');
-    return {text,rows};
+    return {text,rows:groupsOutput};
   }
   function normalizePart(value){
     const text=clean(value);
@@ -1986,17 +2036,28 @@
       };
       const bestellTitles=[];
       const bestellTitleKeys=new Set();
-      const partPairs=[];
       const partPairKeys=new Set();
+      const partGroups=[];
       const addBestellTitle=value=>pushUniqueLine(bestellTitles,bestellTitleKeys,value);
-      const addPartPair=(part,quantity)=>{
-        const partText=clean(part);
-        const quantityText=clean(quantity);
-        if(!partText&& !quantityText) return;
-        const key=`${normalizePart(partText)}||${quantityText.toLowerCase()}`;
-        if(partPairKeys.has(key)) return;
-        partPairKeys.add(key);
-        partPairs.push({part:partText,quantity:quantityText});
+      const addPartGroup=group=>{
+        if(!group||typeof group!=='object') return;
+        const titleText=clean(group.title);
+        if(titleText) addBestellTitle(titleText);
+        const rawParts=Array.isArray(group.parts)?group.parts:[];
+        const filteredParts=[];
+        rawParts.forEach(pair=>{
+          if(!pair||typeof pair!=='object') return;
+          const partText=clean(pair.part);
+          const quantityText=clean(pair.quantity);
+          if(!partText&&!quantityText) return;
+          const key=`${normalizePart(partText)}||${quantityText.toLowerCase()}`;
+          if(partPairKeys.has(key)) return;
+          partPairKeys.add(key);
+          filteredParts.push({part:partText,quantity:quantityText});
+        });
+        if(filteredParts.length||titleText){
+          partGroups.push({title:titleText,parts:filteredParts});
+        }
       };
       const pushLines=(field,value)=>{
         const text=clean(value);
@@ -2033,8 +2094,14 @@
           }
         }
         const partsInfo=parsePartsDetails(resolved.parts||'',{fallbackParts});
-        partsInfo.titles.forEach(addBestellTitle);
-        partsInfo.pairs.forEach(pair=>addPartPair(pair.part,pair.quantity));
+        if(partsInfo&&Array.isArray(partsInfo.titles)){
+          partsInfo.titles.forEach(addBestellTitle);
+        }
+        if(partsInfo&&Array.isArray(partsInfo.groups)&&partsInfo.groups.length){
+          partsInfo.groups.forEach(addPartGroup);
+        }else if(partsInfo&&Array.isArray(partsInfo.pairs)&&partsInfo.pairs.length){
+          addPartGroup({title:'',parts:partsInfo.pairs});
+        }
         const nonroutineCandidates=[resolved.nonroutineFinding||'',resolved.nonroutine||''];
         nonroutineCandidates.forEach(text=>{
           const stripped=stripNonRoutineFindingPrefix(text);
@@ -2043,7 +2110,7 @@
         const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
       }
-      const partsData=buildPartsData(bestellTitles,partPairs);
+      const partsData=buildPartsData(bestellTitles,partGroups);
       return {
         findings:lists.findings.join('\n'),
         actions:lists.actions.join('\n'),
@@ -2093,11 +2160,14 @@
         container.appendChild(note);
         return;
       }
-      const data=Array.isArray(rows)?rows.filter(row=>row&&typeof row==='object') : [];
-      const items=data.length?data:[{
-        pnLabel:'PN 1',pnValue:'',
-        partLabel:'Part 1',partValue:'',
-        quantityLabel:'Menge 1',quantityValue:''
+      const groups=Array.isArray(rows)?rows.filter(group=>group&&typeof group==='object'):[];
+      const items=groups.length?groups:[{
+        title:'',
+        rows:[{
+          pnLabel:'PN 1',pnValue:'',
+          partLabel:'Part 1',partValue:'',
+          quantityLabel:'Menge 1',quantityValue:''
+        }]
       }];
       const makeField=(labelText,value,placeholder)=>{
         const field=document.createElement('label');
@@ -2118,15 +2188,26 @@
         field.append(label,input);
         return field;
       };
-      items.forEach(item=>{
-        const row=document.createElement('div');
-        row.className='nsf-part-row';
-        row.append(
-          makeField(item.pnLabel,item.pnValue,'PN-Text'),
-          makeField(item.partLabel,item.partValue,'Teilenummer'),
-          makeField(item.quantityLabel,item.quantityValue,'Menge')
-        );
-        container.appendChild(row);
+      items.forEach(group=>{
+        const groupWrapper=document.createElement('div');
+        groupWrapper.className='nsf-part-group';
+        const rowsList=Array.isArray(group.rows)?group.rows.filter(row=>row&&typeof row==='object'):[];
+        const groupRows=rowsList.length?rowsList:[{
+          pnLabel:'PN 1',pnValue:'',
+          partLabel:'Part 1',partValue:'',
+          quantityLabel:'Menge 1',quantityValue:''
+        }];
+        groupRows.forEach(rowData=>{
+          const row=document.createElement('div');
+          row.className='nsf-part-row';
+          row.append(
+            makeField(rowData.pnLabel,rowData.pnValue,'PN-Text'),
+            makeField(rowData.partLabel,rowData.partValue,'Teilenummer'),
+            makeField(rowData.quantityLabel,rowData.quantityValue,'Menge')
+          );
+          groupWrapper.appendChild(row);
+        });
+        container.appendChild(groupWrapper);
       });
     }
 
