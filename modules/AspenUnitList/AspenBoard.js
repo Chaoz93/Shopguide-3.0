@@ -5,8 +5,12 @@
   const STYLE_ID = 'db-styles';
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
-    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
+    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;}
     .db-titlebar[hidden]{display:none;}
+    .db-title-text{flex:1;min-width:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}
+    .db-refresh{flex:0 0 auto;padding:.3rem .55rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;background:rgba(255,255,255,.75);color:inherit;font-size:.85rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease;}
+    .db-refresh:hover{background:rgba(37,99,235,.08);border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .db-refresh[hidden]{display:none;}
     .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;}
     .db-toolbar{display:flex;align-items:center;gap:.5rem;}
     .db-toggle-active{flex:0 0 auto;padding:.45rem .75rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:var(--dl-title,#2563eb);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
@@ -445,11 +449,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
-    root.innerHTML=`<div class="db-titlebar" hidden></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><span class="db-title-text"></span><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
-      titleBar.textContent=initialTitle||'';
+      const titleText=titleBar.querySelector('.db-title-text');
+      if(titleText) titleText.textContent=initialTitle||'';
       titleBar.hidden=!(initialTitle||'').trim();
     }
 
@@ -466,6 +471,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       toggleActive:root.querySelector('.db-toggle-active'),
       search:root.querySelector('.db-search'),
       titleBar,
+      titleText:root.querySelector('.db-title-text'),
+      refreshBtn:root.querySelector('.db-refresh'),
       modal:root.querySelector('.db-modal'),
       titleInput:root.querySelector('.db-title-input'),
       ruleList:root.querySelector('.db-rule-list'),
@@ -623,12 +630,27 @@ der-radius:.4rem;background:transparent;color:inherit;}
     root.style.setProperty('--dl-active',colors.active);
   }
 
-  function updateTitleBar(root,title){
+  function updateTitleBar(root,title,options){
     const bar=root.querySelector('.db-titlebar');
     if(!bar) return;
-    const text=(title||'').trim();
-    bar.textContent=text;
-    bar.hidden=!text;
+    const textNode=bar.querySelector('.db-title-text');
+    const refreshBtn=bar.querySelector('.db-refresh');
+    const fallback=(options?.filePath||'').trim();
+    const text=(title||'').trim()||fallback;
+    if(textNode){
+      textNode.textContent=text;
+    }else{
+      bar.textContent=text;
+    }
+    const canRefresh=!!options?.canRefresh;
+    const showRefresh=canRefresh||!!fallback;
+    if(refreshBtn){
+      refreshBtn.hidden=!showRefresh;
+      const label=canRefresh?'Aspen-Datei aktualisieren':'Aspen-Datei wählen';
+      refreshBtn.title=label;
+      refreshBtn.setAttribute('aria-label',label);
+    }
+    bar.hidden=!text && !showRefresh;
   }
 
   function parseNumericValue(value){
@@ -813,6 +835,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     const state=createInitialState(initialTitle);
     const instanceId=instanceIdOf(elements.root);
+    let fileHandle=null;
     let tempSubFields=[];
     let tempTitleRules=[];
     let partOptions=[];
@@ -831,7 +854,23 @@ der-radius:.4rem;background:transparent;color:inherit;}
     elements.titleInput.value=state.config.title||'';
 
     applyColors(elements.root,state.config.colors);
-    updateTitleBar(elements.root,state.config.title);
+    updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
+
+    if(elements.refreshBtn){
+      elements.refreshBtn.addEventListener('click',async()=>{
+        if(elements.refreshBtn.disabled) return;
+        elements.refreshBtn.disabled=true;
+        try{
+          if(fileHandle){
+            await loadAspenFromHandle(fileHandle,{silent:false});
+          }else{
+            await pickFromExcel();
+          }
+        }finally{
+          elements.refreshBtn.disabled=false;
+        }
+      });
+    }
 
     if(elements.search){
       elements.search.value=state.searchQuery||'';
@@ -1081,7 +1120,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!(state.activeMeldungen instanceof Set)){
         state.activeMeldungen=new Set(Array.isArray(state.activeMeldungen)?state.activeMeldungen:[]);
       }
-      updateTitleBar(elements.root,state.config.title);
+      updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
       if(elements.search){
         elements.search.value=state.searchQuery||'';
       }
@@ -1381,7 +1420,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         sub:elements.cSub.value,
         active:elements.cActive.value
       };
-      updateTitleBar(elements.root,state.config.title);
+      updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
       applyColors(elements.root,state.config.colors);
       if(partChanged){
         state.items.forEach(item=>{
@@ -1464,6 +1503,96 @@ der-radius:.4rem;background:transparent;color:inherit;}
     });
     mo.observe(document.body,{childList:true,subtree:true});
 
+    async function loadAspenFromHandle(handle,{silent=false}={}){
+      if(!handle) return false;
+      try{
+        await ensureXLSX();
+        const file=await handle.getFile();
+        const buffer=await file.arrayBuffer();
+        const workbook=XLSX.read(buffer,{type:'array'});
+        const worksheet=workbook.Sheets[workbook.SheetNames[0]];
+        fileHandle=handle;
+        state.filePath=handle.name||state.filePath||'';
+        if(!worksheet){
+          state.fields=[];
+          state.items=[];
+          state.activeMeldungen=new Set();
+          state.excluded.clear();
+          populateFieldSelects();
+          render();
+          return true;
+        }
+        const rows=XLSX.utils.sheet_to_json(worksheet,{defval:''});
+        const fieldSet=new Set();
+        rows.forEach(row=>{if(row&&typeof row==='object'){Object.keys(row).forEach(key=>fieldSet.add(key));}});
+        const availableFields=Array.from(fieldSet);
+        state.fields=availableFields;
+        const preferredPartFields=[
+          state.config.partField,
+          availableFields.find(field=>/part/i.test(field)),
+          availableFields[0],
+          TITLE_FIELD,
+          DEFAULT_SUB_FIELD
+        ].map(val=>val||'');
+        const resolvedPartField=preferredPartFields.find(field=>field && availableFields.includes(field))
+          || preferredPartFields.find(Boolean)
+          || DEFAULT_SUB_FIELD;
+        state.config.partField=resolvedPartField;
+        const previousSubs=Array.isArray(state.config.subFields)?state.config.subFields.slice():[];
+        const preservedSubs=[];
+        previousSubs.forEach(field=>{
+          const trimmed=(field||'').trim();
+          if(trimmed && availableFields.includes(trimmed) && !preservedSubs.includes(trimmed)){
+            preservedSubs.push(trimmed);
+          }
+        });
+        if(!preservedSubs.length && resolvedPartField){
+          preservedSubs.push(resolvedPartField);
+        }
+        if(!preservedSubs.length && availableFields.includes(DEFAULT_SUB_FIELD)){
+          preservedSubs.push(DEFAULT_SUB_FIELD);
+        }
+        if(!preservedSubs.length && availableFields.length){
+          preservedSubs.push(availableFields[0]);
+        }
+        if(!preservedSubs.length){
+          preservedSubs.push(DEFAULT_SUB_FIELD);
+        }
+        state.config.subFields=preservedSubs;
+        ensureSubFields(state.config);
+        const newItems=rows.map(row=>{
+          const safeRow=row&&typeof row==='object'?row:{};
+          const titleVal=String(safeRow[TITLE_FIELD]||'').trim();
+          const partRaw=String(safeRow[resolvedPartField]||'').trim();
+          const part=(partRaw.split(':')[0]||'').trim();
+          const meldung=String(safeRow[MELDUNG_FIELD]||'').trim();
+          if(!titleVal && !part && !meldung) return null;
+          const data={...safeRow,[TITLE_FIELD]:titleVal,[resolvedPartField]:part,[MELDUNG_FIELD]:meldung};
+          return {id:'it-'+Math.random().toString(36).slice(2),part,meldung,data};
+        }).filter(Boolean);
+        const deduped=dedupeByMeldung(newItems);
+        const sortField=primarySubField(state.config);
+        deduped.sort((a,b)=>String(a.data?.[sortField]||'').localeCompare(String(b.data?.[sortField]||'')));
+        state.items=deduped;
+        const availableMeldungen=new Set(deduped.map(item=>item.meldung).filter(Boolean));
+        const prevActive=state.activeMeldungen instanceof Set?Array.from(state.activeMeldungen):Array.isArray(state.activeMeldungen)?state.activeMeldungen:[];
+        state.activeMeldungen=new Set(prevActive.filter(meldung=>availableMeldungen.has(meldung)));
+        const availableParts=new Set(deduped.map(item=>item.part).filter(Boolean));
+        if(!(state.excluded instanceof Set)){
+          state.excluded=new Set(Array.isArray(state.excluded)?state.excluded:[]);
+        }
+        state.excluded=new Set(Array.from(state.excluded).filter(part=>availableParts.has(part)));
+        populateFieldSelects();
+        render();
+        return true;
+      }catch(error){
+        if(!silent) console.error(error);
+        fileHandle=null;
+        updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:false});
+        return false;
+      }
+    }
+
     async function pickFromExcel(){
       closeMenu();
       try{
@@ -1472,39 +1601,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
           multiple:false
         });
         if(!handle) return;
-        await ensureXLSX();
-        const file=await handle.getFile();
-        state.filePath=handle.name||'';
-        const buffer=await file.arrayBuffer();
-        const workbook=XLSX.read(buffer,{type:'array'});
-        const worksheet=workbook.Sheets[workbook.SheetNames[0]];
-        if(!worksheet){
-          state.items=[];
-          state.activeMeldungen=new Set();
-          render();
-          return;
-        }
-        const rows=XLSX.utils.sheet_to_json(worksheet,{defval:''});
-        state.fields=Object.keys(rows[0]||{});
-        const partField=state.fields.find(field=>/part/i.test(field))||state.fields[0]||TITLE_FIELD;
-        state.config.partField=partField;
-        state.config.subFields=[partField];
-        const newItems=rows.map(row=>{
-          const titleVal=String(row[TITLE_FIELD]||'').trim();
-          const rawPart=String(row[partField]||'').trim();
-          const part=(rawPart.split(':')[0]||'').trim();
-          const meldung=String(row[MELDUNG_FIELD]||'').trim();
-          if(!titleVal && !part && !meldung) return null;
-          const data={...row,[TITLE_FIELD]:titleVal,[partField]:part,[MELDUNG_FIELD]:meldung};
-          return {id:'it-'+Math.random().toString(36).slice(2),part,meldung,data};
-        }).filter(Boolean);
-        state.items=dedupeByMeldung(newItems);
-        state.activeMeldungen=new Set();
-        const sortField=primarySubField(state.config);
-        state.items.sort((a,b)=>String(a.data?.[sortField]||'').localeCompare(String(b.data?.[sortField]||'')));
-        state.excluded.clear();
-        populateFieldSelects();
-        render();
+        await loadAspenFromHandle(handle,{silent:false});
       }catch(error){console.error(error);}
     }
 
