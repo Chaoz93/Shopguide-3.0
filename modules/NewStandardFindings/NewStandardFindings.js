@@ -158,6 +158,146 @@
   }
 
   function clean(value){return value==null?'':String(value).trim();}
+  function stripNonRoutineFindingPrefix(value){
+    const text=clean(value);
+    if(!text) return '';
+    return text.replace(/^\s*non\s*routine\s*finding:\s*/i,'').trim();
+  }
+  function pushUniqueLine(list,set,value){
+    const text=clean(value);
+    if(!text) return;
+    const key=text.toLowerCase();
+    if(set.has(key)) return;
+    set.add(key);
+    list.push(text);
+  }
+  function parsePartsDetails(rawValue,options){
+    const opts=options||{};
+    const titles=[];
+    const titleKeys=new Set();
+    const pairs=[];
+    const pairKeys=new Set();
+    const fallbackParts=Array.isArray(opts.fallbackParts)?opts.fallbackParts:[];
+    const fallbackPartSet=new Set(fallbackParts.map(normalizePart).filter(Boolean));
+    if(!rawValue) return {titles,pairs};
+    const lines=String(rawValue).split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
+    if(!lines.length) return {titles,pairs};
+    const pairMap=new Map();
+    const orderKeys=[];
+    const knownParts=new Set();
+    const ensurePair=(key)=>{
+      const resolvedKey=key==null?`auto-${orderKeys.length}`:key;
+      if(!pairMap.has(resolvedKey)){
+        pairMap.set(resolvedKey,{part:'',quantity:'',order:orderKeys.length});
+        orderKeys.push(resolvedKey);
+      }
+      return pairMap.get(resolvedKey);
+    };
+    let lastKey=null;
+    const addTitle=(value)=>pushUniqueLine(titles,titleKeys,value);
+    const skipByPartValue=value=>{
+      const normalized=normalizePart(value);
+      if(!normalized) return false;
+      if(fallbackPartSet.has(normalized)) return true;
+      if(knownParts.has(normalized)) return true;
+      return false;
+    };
+    const extractIndex=key=>{
+      if(!key) return null;
+      const compact=key.replace(/\s+/g,'');
+      const match=compact.match(/(\d+)/);
+      if(!match) return null;
+      const num=parseInt(match[1],10);
+      return Number.isNaN(num)?null:num;
+    };
+    lines.forEach(line=>{
+      const colonIndex=line.indexOf(':');
+      if(colonIndex> -1){
+        const rawKey=line.slice(0,colonIndex).trim();
+        let value=line.slice(colonIndex+1).trim();
+        if(!value) return;
+        const normalizedKey=rawKey.toLowerCase();
+        const normalizedCompact=normalizedKey.replace(/\s+/g,'');
+        if(/label|beschreibung|description|partnummer|part number|teilenummer/.test(normalizedKey)){
+          return;
+        }
+        if(/bestell|pntext|ordertext|ordertitle/.test(normalizedKey)){
+          addTitle(value);
+          lastKey=null;
+          return;
+        }
+        if(/^(part|pn|artikel)/.test(normalizedKey)){
+          const index=extractIndex(normalizedCompact);
+          if(index==null && skipByPartValue(value)){
+            lastKey=null;
+            return;
+          }
+          const key=index!=null?`index-${index}`:`auto-${orderKeys.length}`;
+          const pair=ensurePair(key);
+          pair.part=value;
+          const normalizedPart=normalizePart(value);
+          if(normalizedPart) knownParts.add(normalizedPart);
+          lastKey=key;
+          return;
+        }
+        if(/^(menge|qty|quantity|anzahl|stck|stück)/.test(normalizedKey)){
+          const index=extractIndex(normalizedCompact);
+          const key=index!=null?`index-${index}`:(lastKey||`auto-${orderKeys.length}`);
+          const pair=ensurePair(key);
+          pair.quantity=value;
+          lastKey=key;
+          return;
+        }
+        if(skipByPartValue(value)){
+          lastKey=null;
+          return;
+        }
+        addTitle(value);
+        lastKey=null;
+        return;
+      }
+      if(skipByPartValue(line)){
+        lastKey=null;
+        return;
+      }
+      addTitle(line);
+      lastKey=null;
+    });
+    const orderedPairs=Array.from(pairMap.values())
+      .sort((a,b)=>a.order-b.order)
+      .map(entry=>({part:clean(entry.part),quantity:clean(entry.quantity)}))
+      .filter(entry=>entry.part||entry.quantity);
+    orderedPairs.forEach(entry=>{
+      const partKey=normalizePart(entry.part);
+      const quantityKey=(entry.quantity||'').toLowerCase();
+      const key=`${partKey}||${quantityKey}`;
+      if(pairKeys.has(key)) return;
+      pairKeys.add(key);
+      pairs.push(entry);
+    });
+    return {titles,pairs};
+  }
+  function buildPartsBlock(titles,pairs){
+    const detailLines=[];
+    if(Array.isArray(titles)&&titles.length){
+      titles.forEach(title=>{
+        const text=clean(title);
+        if(text) detailLines.push(text);
+      });
+    }
+    if(Array.isArray(pairs)&&pairs.length){
+      pairs.forEach(pair=>{
+        const partText=clean(pair.part);
+        const quantityText=clean(pair.quantity);
+        if(!partText&& !quantityText) return;
+        const left=partText||'–';
+        const right=quantityText?`Menge (${quantityText})`:'';
+        detailLines.push(right?`${left} | ${right}`:left);
+      });
+    }
+    if(!detailLines.length) return '';
+    return ['Bestelltext','',...detailLines].join('\n');
+  }
   function normalizePart(value){
     const text=clean(value);
     return text?text.toUpperCase():'';
@@ -1791,15 +1931,27 @@
         findings:[],
         actions:[],
         routine:[],
-        nonroutine:[],
-        parts:[]
+        nonroutine:[]
       };
       const seen={
         findings:new Set(),
         actions:new Set(),
         routine:new Set(),
-        nonroutine:new Set(),
-        parts:new Set()
+        nonroutine:new Set()
+      };
+      const bestellTitles=[];
+      const bestellTitleKeys=new Set();
+      const partPairs=[];
+      const partPairKeys=new Set();
+      const addBestellTitle=value=>pushUniqueLine(bestellTitles,bestellTitleKeys,value);
+      const addPartPair=(part,quantity)=>{
+        const partText=clean(part);
+        const quantityText=clean(quantity);
+        if(!partText&& !quantityText) return;
+        const key=`${normalizePart(partText)}||${quantityText.toLowerCase()}`;
+        if(partPairKeys.has(key)) return;
+        partPairKeys.add(key);
+        partPairs.push({part:partText,quantity:quantityText});
       };
       const pushLines=(field,value)=>{
         const text=clean(value);
@@ -1826,12 +1978,23 @@
         pushLines('findings',findingText);
         const actionText=resolved.action||selection.action||'';
         pushLines('actions',actionText);
-        const partText=selection.part||resolved.part||'';
-        pushLines('parts',partText);
-        const partsExtra=resolved.parts||'';
-        pushLines('parts',partsExtra);
-        const nonroutineText=resolved.nonroutine||'';
-        pushLines('nonroutine',nonroutineText);
+        const fallbackParts=[];
+        const primaryPart=normalizePart(selection.part||resolved.part||'');
+        if(primaryPart) fallbackParts.push(primaryPart);
+        if(Array.isArray(resolved.partNumbers)){
+          for(const partNum of resolved.partNumbers){
+            const normalizedPart=normalizePart(partNum);
+            if(normalizedPart&&!fallbackParts.includes(normalizedPart)) fallbackParts.push(normalizedPart);
+          }
+        }
+        const partsInfo=parsePartsDetails(resolved.parts||'',{fallbackParts});
+        partsInfo.titles.forEach(addBestellTitle);
+        partsInfo.pairs.forEach(pair=>addPartPair(pair.part,pair.quantity));
+        const nonroutineCandidates=[resolved.nonroutineFinding||'',resolved.nonroutine||''];
+        nonroutineCandidates.forEach(text=>{
+          const stripped=stripNonRoutineFindingPrefix(text);
+          pushLines('nonroutine',stripped);
+        });
         const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
       }
@@ -1840,7 +2003,7 @@
         actions:lists.actions.join('\n'),
         routine:lists.routine.join('\n\n'),
         nonroutine:lists.nonroutine.join('\n'),
-        parts:lists.parts.join('\n')
+        parts:buildPartsBlock(bestellTitles,partPairs)
       };
     }
 
