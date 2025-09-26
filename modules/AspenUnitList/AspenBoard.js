@@ -1306,15 +1306,71 @@ der-radius:.4rem;background:transparent;color:inherit;}
         const row=document.createElement('div');
         row.className='db-rule-row';
 
-        const fieldSelect=document.createElement('select');
-        const options=['',...available.filter(Boolean)];
-        if(normalized.field && !options.includes(normalized.field)) options.push(normalized.field);
-        fieldSelect.innerHTML=options.map(field=>`<option value="${field}">${field||'(Spalte wählen)'}</option>`).join('');
-        fieldSelect.value=normalized.field||'';
-        fieldSelect.addEventListener('change',()=>{
-          tempTitleRules[index].field=fieldSelect.value;
+        const fieldChoices=available.slice();
+        if(normalized.field && !fieldChoices.includes(normalized.field)) fieldChoices.push(normalized.field);
+        const fieldInput=document.createElement('input');
+        fieldInput.type='text';
+        fieldInput.className='db-rule-field';
+        fieldInput.placeholder='Spalte wählen';
+        fieldInput.autocomplete='off';
+        fieldInput.value=normalized.field||'';
+        const dataList=document.createElement('datalist');
+        const listId=`db-rule-options-${Date.now()}-${index}-${Math.floor(Math.random()*1000)}`;
+        dataList.id=listId;
+        dataList.style.display='none';
+        fieldInput.setAttribute('list',listId);
+        const renderFieldOptions=(filter='')=>{
+          const normalizedFilter=(filter||'').trim().toLowerCase();
+          const filtered=normalizedFilter?fieldChoices.filter(opt=>opt.toLowerCase().includes(normalizedFilter)):fieldChoices;
+          dataList.innerHTML=filtered.map(opt=>`<option value="${opt}"></option>`).join('');
+        };
+        const commitField=()=>{
+          const raw=(fieldInput.value||'').trim();
+          if(!raw){
+            tempTitleRules[index].field='';
+            fieldInput.value='';
+            renderFieldOptions();
+            return;
+          }
+          const lower=raw.toLowerCase();
+          const exact=fieldChoices.find(opt=>opt.toLowerCase()===lower);
+          if(exact){
+            tempTitleRules[index].field=exact;
+            fieldInput.value=exact;
+            renderFieldOptions();
+            return;
+          }
+          const partial=fieldChoices.find(opt=>opt.toLowerCase().includes(lower));
+          if(partial){
+            tempTitleRules[index].field=partial;
+            fieldInput.value=partial;
+            renderFieldOptions();
+            return;
+          }
+          tempTitleRules[index].field=raw;
+          fieldInput.value=raw;
+          if(!fieldChoices.includes(raw)){
+            fieldChoices.push(raw);
+          }
+          renderFieldOptions();
+        };
+        renderFieldOptions();
+        fieldInput.addEventListener('input',()=>{
+          renderFieldOptions(fieldInput.value);
+          tempTitleRules[index].field=fieldInput.value;
         });
-        row.appendChild(fieldSelect);
+        fieldInput.addEventListener('focus',()=>{renderFieldOptions();});
+        fieldInput.addEventListener('change',commitField);
+        fieldInput.addEventListener('keydown',event=>{
+          if(event.key==='Enter'){
+            event.preventDefault();
+            commitField();
+            fieldInput.blur();
+          }
+        });
+        fieldInput.addEventListener('blur',()=>{setTimeout(commitField,0);});
+        row.appendChild(fieldInput);
+        row.appendChild(dataList);
 
         const operatorSelect=document.createElement('select');
         const operators=[
@@ -1414,6 +1470,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     elements.saveBtn.addEventListener('click',()=>{
       elements.subList.querySelectorAll('.db-sub-input').forEach(input=>{
+        input.dispatchEvent(new Event('change'));
+      });
+      elements.ruleList.querySelectorAll('.db-rule-field').forEach(input=>{
         input.dispatchEvent(new Event('change'));
       });
       state.config.title=elements.titleInput.value.trim();
