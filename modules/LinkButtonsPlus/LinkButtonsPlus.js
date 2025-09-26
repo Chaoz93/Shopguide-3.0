@@ -77,20 +77,25 @@
     document.head.appendChild(tag);
   }
 
-  // ---------- storage & dictionary helpers ----------
+  // ---------- storage helpers ----------
   const LS_KEY = 'module_data_v1';
   const IDB_NAME = 'modulesApp';
   const IDB_STORE = 'fs-handles';
-  const GLOBAL_DICT_KEY = 'globalDict';
+  const GLOBAL_ASPEN_KEY = 'linkbuttonsplus-aspen';
   const SHEET_NAME = 'records';
-  const HEAD = ['meldung','auftrag','part','serial'];
+  const HEAD_OPTIONS = {
+    meldung: ['meldung','meldungsno','meldungno','meldungsnummer','meldungnr'],
+    auftrag: ['auftrag','auftragsno','auftragno','auftragsnummer','auftragsnr','auftragnummer'],
+    part: ['part','partno','material','materialno','materialnr','materialnummer','matnr','pn'],
+    serial: ['serial','serialno','serialnumber','serialnr','serialnummer','sn','snr']
+  };
   const WORKFORCE_FILTER_KEY = 'linkbuttonsplus-filters';
 
   function loadDoc(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || {general:{}}; } catch { return {general:{}}; } }
   function saveDoc(doc){ try{ localStorage.setItem(LS_KEY, JSON.stringify(doc)); }catch{} }
   function activeMeldung(){ return (loadDoc().general.Meldung || '').trim(); }
-  function saveDictFileName(name){ const d=loadDoc(); d.general ||= {}; d.general.dictFileName=name; saveDoc(d); }
-  function loadDictFileName(){ return loadDoc().general.dictFileName || ''; }
+  function saveAspenFileName(name){ const d=loadDoc(); d.general ||= {}; d.general.aspenFileName=name; saveDoc(d); }
+  function loadAspenFileName(){ return loadDoc().general.aspenFileName || ''; }
 
   function loadWorkforceFilters(){
     try{
@@ -134,6 +139,27 @@
     return window.__XLSX_LOAD_PROMISE__;
   }
 
+  function normalizeHeader(value){
+    let str = String(value || '').toLowerCase();
+    try{
+      if(typeof str.normalize === 'function'){
+        str = str.normalize('NFD');
+      }
+    }catch{}
+    return str
+      .replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9]/g,'');
+  }
+
+  function findIndex(headerInfo, key){
+    const wanted = HEAD_OPTIONS[key];
+    if(!wanted || !wanted.length) return -1;
+    for(const info of headerInfo){
+      if(wanted.includes(info.norm)) return info.idx;
+    }
+    return -1;
+  }
+
   async function readAll(handle){
     await ensureXLSX();
     const f = await handle.getFile();
@@ -143,13 +169,19 @@
     const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
     if(!ws) return [];
     const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-    const hdr = rows[0]?.map(h=>String(h||'').toLowerCase().trim()) || [];
-    const idx = Object.fromEntries(HEAD.map(h=>[h, hdr.indexOf(h)]));
+    const hdrRaw = rows[0] || [];
+    const headerInfo = hdrRaw.map((raw, idx)=>({ raw, idx, norm: normalizeHeader(raw) }));
+    const idx = {
+      meldung: findIndex(headerInfo,'meldung'),
+      auftrag: findIndex(headerInfo,'auftrag'),
+      part: findIndex(headerInfo,'part'),
+      serial: findIndex(headerInfo,'serial')
+    };
     return rows.slice(1).map(r=>({
-      meldung:String(r[idx.meldung]??''),
-      auftrag:String(r[idx.auftrag]??''),
-      part:String(r[idx.part]??''),
-      serial:String(r[idx.serial]??'')
+      meldung: idx.meldung>=0 ? String(r[idx.meldung]??'').trim() : '',
+      auftrag: idx.auftrag>=0 ? String(r[idx.auftrag]??'').trim() : '',
+      part: idx.part>=0 ? String(r[idx.part]??'').trim() : '',
+      serial: idx.serial>=0 ? String(r[idx.serial]??'').trim() : ''
     })).filter(r=>r.meldung||r.auftrag||r.part||r.serial);
   }
 
@@ -213,7 +245,7 @@
     };
     const openNew = (url) => window.open(url, '_blank', 'noopener,noreferrer');
 
-    // ---- Dictionary state ----
+    // ---- Aspen state ----
     let fileHandle = null;
     let cache = [];
 
@@ -309,7 +341,7 @@
       <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
         ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
         <hr>
-        <button type="button" class="ops-pick ops-action-button">Dictionary wählen</button>
+        <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
         <div class="ops-file"></div>
       </div>
       <div class="ops-tab ops-tab-filters" data-tab="filters">
@@ -331,7 +363,7 @@
       });
     });
     const fileLbl = menu.querySelector('.ops-file');
-    fileLbl.textContent = loadDictFileName() ? `• ${loadDictFileName()}` : 'Kein Dictionary';
+    fileLbl.textContent = loadAspenFileName() ? `• ${loadAspenFileName()}` : 'Keine Aspen-Datei';
 
     const filterList = menu.querySelector('.ops-filter-list');
     const clearFiltersBtn = menu.querySelector('.ops-filter-clear');
@@ -425,18 +457,18 @@
       });
     }
 
-    async function pickDict(){
+    async function pickAspen(){
       try{
-        alert('Bitte wählen Sie die Dictionary-Datei aus');
+        alert('Bitte wählen Sie die Aspen-Datei aus');
         const [h] = await showOpenFilePicker({
-          types:[{description:'Dictionary (Excel)', accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
+          types:[{description:'Aspen (Excel)', accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
           excludeAcceptAllOption:false, multiple:false
         });
         if(h && await ensureRWPermission(h)){
           fileHandle = h;
-          await idbSet(GLOBAL_DICT_KEY,h);
-          saveDictFileName(h.name || 'Dictionary.xlsx');
-          fileLbl.textContent = `• ${h.name || 'Dictionary.xlsx'}`;
+          await idbSet(GLOBAL_ASPEN_KEY,h);
+          saveAspenFileName(h.name || 'Aspen.xlsx');
+          fileLbl.textContent = `• ${h.name || 'Aspen.xlsx'}`;
           cache = await readAll(h);
         }
       }catch(e){/* ignore */}
@@ -445,16 +477,16 @@
     menu.querySelector('.ops-pick').addEventListener('click', ()=>{
       persistFilters();
       menu.classList.remove('open');
-      pickDict();
+      pickAspen();
     });
 
     (async()=>{
       try{
-        const h = await idbGet(GLOBAL_DICT_KEY);
+        const h = await idbGet(GLOBAL_ASPEN_KEY);
         if(h && await ensureRWPermission(h)){
           fileHandle = h;
           cache = await readAll(h);
-          fileLbl.textContent = `• ${loadDictFileName() || h.name || 'Dictionary.xlsx'}`;
+          fileLbl.textContent = `• ${loadAspenFileName() || h.name || 'Aspen.xlsx'}`;
         }
       }catch{}
     })();
