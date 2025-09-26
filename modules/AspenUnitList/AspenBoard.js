@@ -43,7 +43,10 @@ f);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-colo
     .db-menu.open{display:block;}
     .db-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
     .db-menu .mi:hover{background:rgba(0,0,0,.06);}
-    .db-part-list{max-height:240px;overflow:auto;padding:.25rem .5rem;display:flex;flex-direction:column;gap:.25rem;}
+    .db-part-filter{padding:.35rem .5rem .15rem;}
+    .db-part-filter input{width:100%;padding:.35rem .55rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;background:transparent;color:inherit;font-size:.85rem;}
+    .db-part-filter input:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .db-part-list{max-height:240px;overflow:auto;padding:.25rem .5rem .5rem;display:flex;flex-direction:column;gap:.25rem;}
     .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
     .db-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:2150;}
     .db-modal.open{display:flex;}
@@ -439,7 +442,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Aspen.xlsx wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-list"></div>';
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Aspen.xlsx wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     return {
@@ -465,7 +468,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       cSub:root.querySelector('.db-c-sub'),
       cActive:root.querySelector('.db-c-active'),
       menu,
-      partList:menu.querySelector('.db-part-list')
+      partList:menu.querySelector('.db-part-list'),
+      partFilter:menu.querySelector('.db-part-filter-input')
     };
   }
 
@@ -483,6 +487,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       excluded:new Set(),
       filePath:'',
       searchQuery:'',
+      partFilter:'',
       activeMeldungen:new Set(),
       showActiveList:false
     };
@@ -553,6 +558,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
       state.searchQuery=typeof saved.searchQuery==='string'?saved.searchQuery:'';
+      state.partFilter=typeof saved.partFilter==='string'?saved.partFilter:'';
       if(Array.isArray(saved.activeMeldungen)){
         const normalized=saved.activeMeldungen.map(val=>String(val||'').trim()).filter(Boolean);
         state.activeMeldungen=new Set(normalized);
@@ -578,6 +584,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       excluded:Array.from(state.excluded),
       filePath:state.filePath,
       searchQuery:state.searchQuery||'',
+      partFilter:state.partFilter||'',
       activeMeldungen:Array.from(state.activeMeldungen||[]).map(val=>String(val||'').trim()).filter(Boolean),
       showActiveList:!!state.showActiveList
     };
@@ -720,8 +727,17 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function refreshMenu(menuEl,state,renderFn){
     if(!menuEl?.partList) return;
     state.items=dedupeByMeldung(state.items);
+    const filterRaw=(state.partFilter||'').trim().toLowerCase();
     const parts=Array.from(new Set(state.items.map(item=>item.part))).sort();
-    menuEl.partList.innerHTML=parts.map(part=>`<label class="db-check"><input type="checkbox" data-part="${part}" ${state.excluded.has(part)?'':'checked'}> ${part}</label>`).join('');
+    const filtered=filterRaw?parts.filter(part=>part.toLowerCase().includes(filterRaw)):parts;
+    if(menuEl.partFilter){
+      menuEl.partFilter.value=state.partFilter||'';
+    }
+    if(!filtered.length){
+      menuEl.partList.innerHTML='<div class="db-empty">Keine Treffer</div>';
+      return;
+    }
+    menuEl.partList.innerHTML=filtered.map(part=>`<label class="db-check"><input type="checkbox" data-part="${part}" ${state.excluded.has(part)?'':'checked'}> ${part}</label>`).join('');
     menuEl.partList.querySelectorAll('input').forEach(input=>{
       input.addEventListener('change',()=>{
         const part=input.dataset.part;
@@ -804,6 +820,14 @@ der-radius:.4rem;background:transparent;color:inherit;}
       };
       elements.search.addEventListener('input',handleSearchChange);
       elements.search.addEventListener('search',handleSearchChange);
+    }
+
+    if(elements.partFilter){
+      elements.partFilter.value=state.partFilter||'';
+      elements.partFilter.addEventListener('input',()=>{
+        state.partFilter=elements.partFilter.value;
+        refreshMenu(elements,state,render);
+      });
     }
 
     if(elements.toggleActive){
