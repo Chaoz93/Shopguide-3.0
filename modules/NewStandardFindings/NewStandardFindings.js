@@ -505,6 +505,11 @@
     mods:['mods','mod','modification','modifications','modifikation','modifikationen','changes','change','änderungen','aenderungen','modnotes']
   };
 
+  const SERIAL_FIELD_ALIASES=[
+    'serial','serialno','serialnumber','serial_nr','serialnr','serial_no','serial nr','serial no','serial number',
+    'serial-number','serialnummer','seriennummer','seriennr','serien nr','serien-nummer','sn','s/n','snr'
+  ];
+
   const DICTIONARY_LABEL_ALIASES=[
     'meldung','meldungsnr','meldungsnummer','meldungsno','meldungno','meldungsid','meldungid','meldungsname','melding',
     'meldungscode','meldungstext','meldung_text','meldung title','key','label','finding','beschreibung','description','title','name'
@@ -998,6 +1003,10 @@
       const value=clean(candidate);
       if(value){serial=value;break;}
     }
+    if(!serial){
+      const nestedSerial=clean(extractNestedField(general,SERIAL_FIELD_ALIASES));
+      if(nestedSerial) serial=nestedSerial;
+    }
     const repairOrderCandidates=[
       general&&general.RepairOrder,
       general&&general.repairOrder,
@@ -1046,6 +1055,14 @@
         if(cleanVal) return cleanVal;
       }
     }
+    const nestedSources=[data,entry.general,entry.General];
+    for(const source of nestedSources){
+      if(!source||typeof source!=='object') continue;
+      const nested=clean(extractNestedField(source,SERIAL_FIELD_ALIASES));
+      if(nested) return nested;
+    }
+    const fallback=clean(extractNestedField(entry,SERIAL_FIELD_ALIASES));
+    if(fallback) return fallback;
     return '';
   }
 
