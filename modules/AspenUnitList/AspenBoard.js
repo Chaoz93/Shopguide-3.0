@@ -538,9 +538,14 @@ der-radius:.4rem;background:transparent;color:inherit;}
       '==':'=',
       '===':'=',
       '!=':'!=',
-      '≠':'!='
+      '≠':'!=',
+      'contains':'contains',
+      'enthält':'contains',
+      'enthaelt':'contains',
+      '~':'contains'
     };
-    return map[raw]||'=';
+    const key=raw.toLowerCase();
+    return map[key]||map[raw]||'=';
   }
 
   function normalizeTitleRule(rule){
@@ -679,6 +684,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
       case '>=': return numeric && leftNum>=rightNum;
       case '<': return numeric && leftNum<rightNum;
       case '<=': return numeric && leftNum<=rightNum;
+      case 'contains':
+        if(!rightRaw) return false;
+        return leftRaw.toLowerCase().includes(rightRaw.toLowerCase());
       case '!=':
         if(numeric) return leftNum!==rightNum;
         return leftRaw.toLowerCase()!==rightRaw.toLowerCase();
@@ -1309,9 +1317,17 @@ der-radius:.4rem;background:transparent;color:inherit;}
         row.appendChild(fieldSelect);
 
         const operatorSelect=document.createElement('select');
-        const operators=['>','>=','=','<','<=','!='];
+        const operators=[
+          {value:'>',label:'>'},
+          {value:'>=',label:'>='},
+          {value:'=',label:'='},
+          {value:'<',label:'<'},
+          {value:'<=',label:'<='},
+          {value:'!=',label:'≠'},
+          {value:'contains',label:'enthält'}
+        ];
         const currentOp=normalizeOperator(normalized.operator);
-        operatorSelect.innerHTML=operators.map(op=>`<option value="${op}" ${op===currentOp?'selected':''}>${op}</option>`).join('');
+        operatorSelect.innerHTML=operators.map(op=>`<option value="${op.value}" ${op.value===currentOp?'selected':''}>${op.label}</option>`).join('');
         operatorSelect.value=currentOp;
         operatorSelect.addEventListener('change',()=>{
           tempTitleRules[index].operator=operatorSelect.value;
