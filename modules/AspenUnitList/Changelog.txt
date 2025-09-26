@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.9] – 2025-09-26
+### Changed
+- Modulmanifest aktualisiert und die Version auf 1.1.9 erhöht.
+
 ## [1.1.8] – 2025-09-24
 ### Changed
 - Kontextmenü, Modaldialog und Konfigurationspanel erhalten höhere Z-Indizes, damit sie zuverlässig über anderen Overlays des Dashboards liegen.

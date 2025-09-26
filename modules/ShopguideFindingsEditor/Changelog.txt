@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.1] – 2025-09-26
+### Changed
+- Modulmanifest aktualisiert und die Version auf 1.2.1 erhöht.
+
 ## [1.2.0] – 2025-09-29
 ### Added
 - Partnummern-Feld oberhalb des Labels mit dynamischen Eingabezeilen und "Plus"-Schaltfläche für mehrere Nummern.
