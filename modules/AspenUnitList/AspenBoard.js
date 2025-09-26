@@ -5,7 +5,11 @@
   const STYLE_ID = 'db-styles';
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
-    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
+    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;}
+    .db-titlebar[hidden]{display:none;}
+    .db-titlebar-left{flex:0 1 auto;min-width:0;}
+    .db-titlebar-right{margin-left:auto;display:flex;flex-wrap:wrap;gap:.35rem;justify-content:flex-end;}
+    .db-title-tag{background:rgba(37,99,235,.12);color:var(--dl-title,#2563eb);padding:.1rem .4rem;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap;}
     .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;}
     .db-toolbar{display:flex;align-items:center;gap:.5rem;}
     .db-toggle-active{flex:0 0 auto;padding:.45rem .75rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:var(--dl-title,#2563eb);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
@@ -57,6 +61,14 @@ der-radius:.4rem;background:transparent;color:inherit;}
     .db-sub-row select{flex:1;}
     .db-sub-row button{padding:.35rem .6rem;}
     .db-add-sub{align-self:flex-start;padding:.35rem .6rem;}
+    .db-panel .row.rules{display:flex;flex-direction:column;gap:.4rem;}
+    .db-rule-label{font-size:.85rem;font-weight:600;}
+    .db-rule-list{display:flex;flex-direction:column;gap:.35rem;}
+    .db-rule-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,1fr) auto;gap:.4rem;align-items:center;}
+    .db-rule-row select,.db-rule-row input{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-rule-row .db-rule-remove{padding:.35rem .55rem;}
+    .db-rule-empty{font-size:.85rem;opacity:.7;}
+    .db-add-rule{align-self:flex-start;padding:.35rem .6rem;}
     .db-sub-line+.db-sub-line{margin-top:.15rem;}
     .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
   `;
@@ -417,8 +429,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
-    const titleBar=initialTitle?`<div class="db-titlebar">${initialTitle}</div>`:'';
-    root.innerHTML=`${titleBar}<div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-titlebar-left"></div><div class="db-titlebar-right"></div></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+
+    const titleBar=root.querySelector('.db-titlebar');
+    const titleLeft=root.querySelector('.db-titlebar-left');
+    if(titleLeft) titleLeft.textContent=initialTitle||'';
+    if(titleBar) titleBar.hidden=!(initialTitle||'').trim();
 
     const menu=document.createElement('div');
     menu.className='db-menu';
@@ -432,8 +448,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
       activeList:root.querySelector('.db-active-list'),
       toggleActive:root.querySelector('.db-toggle-active'),
       search:root.querySelector('.db-search'),
+      titleBar,
+      titleBarLeft:titleLeft,
+      titleBarRight:root.querySelector('.db-titlebar-right'),
       modal:root.querySelector('.db-modal'),
       titleInput:root.querySelector('.db-title-input'),
+      ruleList:root.querySelector('.db-rule-list'),
+      addRuleBtn:root.querySelector('.db-add-rule'),
       subList:root.querySelector('.db-sub-list'),
       addSubBtn:root.querySelector('.db-add-sub'),
       selPart:root.querySelector('.db-sel-part'),
@@ -456,7 +477,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
         subFields:[DEFAULT_SUB_FIELD],
         partField:TITLE_FIELD,
         title:initialTitle,
-        colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'}
+        colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'},
+        titleRules:[]
       },
       items:[],
       excluded:new Set(),
@@ -475,6 +497,35 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }
   }
 
+  function normalizeOperator(value){
+    const raw=typeof value==='string'?value.trim():'';
+    if(!raw) return '=';
+    const map={
+      '>':'>',
+      '>=':'>=',
+      '≥':'>=',
+      '<':'<',
+      '<=':'<=',
+      '≤':'<=',
+      '=':'=',
+      '==':'=',
+      '===':'=',
+      '!=':'!=',
+      '≠':'!='
+    };
+    return map[raw]||'=';
+  }
+
+  function normalizeTitleRule(rule){
+    const source=rule&&typeof rule==='object'?rule:{};
+    const field=typeof source.field==='string'?source.field:'';
+    const operator=normalizeOperator(source.operator);
+    const valueRaw=source.value;
+    const value=typeof valueRaw==='number'?String(valueRaw):typeof valueRaw==='string'?valueRaw:'';
+    const text=typeof source.text==='string'?source.text:'';
+    return {field,operator,value,text};
+  }
+
   function primarySubField(config){
     ensureSubFields(config);
     return config.subFields[0]||DEFAULT_SUB_FIELD;
@@ -488,11 +539,14 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(Array.isArray(saved.fields)) state.fields=saved.fields;
       if(saved.config){
         const colors={...state.config.colors,...(saved.config.colors||{})};
+        const savedRules=Array.isArray(saved.config.titleRules)?saved.config.titleRules.map(rule=>normalizeTitleRule(rule)):
+          state.config.titleRules.slice();
         state.config={
           subFields:Array.isArray(saved.config.subFields)&&saved.config.subFields.length?saved.config.subFields.slice():state.config.subFields.slice(),
           partField:saved.config.partField||state.config.partField,
           title:typeof saved.config.title==='string'?saved.config.title:state.config.title,
-          colors
+          colors,
+          titleRules:savedRules
         };
       }
       ensureSubFields(state.config);
@@ -518,7 +572,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
         subFields:state.config.subFields.slice(),
         partField:state.config.partField,
         title:state.config.title,
-        colors:{...state.config.colors}
+        colors:{...state.config.colors},
+        titleRules:Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[]
       },
       items:state.items,
       excluded:Array.from(state.excluded),
@@ -546,19 +601,78 @@ der-radius:.4rem;background:transparent;color:inherit;}
     root.style.setProperty('--dl-active',colors.active);
   }
 
-  function updateTitleBar(root,title){
+  function updateTitleBar(root,title,rightTexts){
+    const bar=root.querySelector('.db-titlebar');
+    if(!bar) return;
+    const left=bar.querySelector('.db-titlebar-left')||bar;
+    const right=bar.querySelector('.db-titlebar-right');
     const text=(title||'').trim();
-    let bar=root.querySelector('.db-titlebar');
-    if(!text){
-      if(bar) bar.remove();
-      return;
+    const extras=(Array.isArray(rightTexts)?rightTexts:[]).map(val=>String(val||'').trim()).filter(Boolean);
+    if(left) left.textContent=text;
+    if(right){
+      right.innerHTML=extras.map(val=>`<span class="db-title-tag">${escapeHtml(val)}</span>`).join('');
+      right.hidden=extras.length===0;
     }
-    if(!bar){
-      bar=document.createElement('div');
-      bar.className='db-titlebar';
-      root.insertBefore(bar,root.firstChild);
+    const show=!!text||extras.length>0;
+    bar.hidden=!show;
+    bar.classList.toggle('db-titlebar--has-right',extras.length>0);
+  }
+
+  function parseNumericValue(value){
+    if(typeof value==='number' && Number.isFinite(value)) return value;
+    if(typeof value==='boolean') return value?1:0;
+    const raw=typeof value==='string'?value.trim():value;
+    if(typeof raw==='string'){
+      if(!raw) return NaN;
+      const normalized=raw.replace(/,/g,'.');
+      const num=Number(normalized);
+      return Number.isNaN(num)?NaN:num;
     }
-    bar.textContent=text;
+    const coerced=Number(raw);
+    return Number.isNaN(coerced)?NaN:coerced;
+  }
+
+  function compareRuleValue(rawValue,operator,targetValue){
+    const op=normalizeOperator(operator);
+    const leftRaw=rawValue==null?'':String(rawValue).trim();
+    const rightRaw=targetValue==null?'':String(targetValue).trim();
+    const leftNum=parseNumericValue(rawValue);
+    const rightNum=parseNumericValue(targetValue);
+    const numeric=!Number.isNaN(leftNum) && !Number.isNaN(rightNum);
+    switch(op){
+      case '>': return numeric && leftNum>rightNum;
+      case '>=': return numeric && leftNum>=rightNum;
+      case '<': return numeric && leftNum<rightNum;
+      case '<=': return numeric && leftNum<=rightNum;
+      case '!=':
+        if(numeric) return leftNum!==rightNum;
+        return leftRaw.toLowerCase()!==rightRaw.toLowerCase();
+      case '=':
+      default:
+        if(numeric) return leftNum===rightNum;
+        return leftRaw.toLowerCase()===rightRaw.toLowerCase();
+    }
+  }
+
+  function evaluateTitleRules(state){
+    if(!state||!state.config) return [];
+    const rules=Array.isArray(state.config.titleRules)?state.config.titleRules:[];
+    if(!rules.length) return [];
+    const items=Array.isArray(state.items)?state.items:[];
+    return rules.map(rule=>{
+      const normalized=normalizeTitleRule(rule);
+      const field=(normalized.field||'').trim();
+      const text=(normalized.text||'').trim();
+      if(!field || !text) return '';
+      const operator=normalizeOperator(normalized.operator);
+      const value=normalized.value;
+      const matches=items.some(item=>{
+        if(!item||typeof item!=='object') return false;
+        const data=item.data&&typeof item.data==='object'?item.data:{};
+        return compareRuleValue(data[field],operator,value);
+      });
+      return matches?text:'';
+    }).filter(Boolean);
   }
 
   function buildCardMarkup(item,config){
@@ -676,6 +790,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     const state=createInitialState(initialTitle);
     const instanceId=instanceIdOf(elements.root);
     let tempSubFields=[];
+    let tempTitleRules=[];
 
     restoreState(state);
 
@@ -687,7 +802,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     elements.titleInput.value=state.config.title||'';
 
     applyColors(elements.root,state.config.colors);
-    updateTitleBar(elements.root,state.config.title);
+    updateTitleBar(elements.root,state.config.title,evaluateTitleRules(state));
 
     if(elements.search){
       elements.search.value=state.searchQuery||'';
@@ -713,6 +828,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!options.includes(state.config.partField)){
         state.config.partField=options[0]||DEFAULT_SUB_FIELD;
         elements.selPart.value=state.config.partField;
+      }
+      if(elements.modal?.classList.contains('open')){
+        renderRuleControls();
       }
     }
 
@@ -760,6 +878,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!(state.activeMeldungen instanceof Set)){
         state.activeMeldungen=new Set(Array.isArray(state.activeMeldungen)?state.activeMeldungen:[]);
       }
+      updateTitleBar(elements.root,state.config.title,evaluateTitleRules(state));
       if(elements.search){
         elements.search.value=state.searchQuery||'';
       }
@@ -846,10 +965,83 @@ der-radius:.4rem;background:transparent;color:inherit;}
       });
     }
 
+    function renderRuleControls(){
+      if(!elements.ruleList) return;
+      const rules=Array.isArray(tempTitleRules)?tempTitleRules:[];
+      const available=getAvailableFieldList(state,rules.map(rule=>rule?.field).filter(Boolean));
+      elements.ruleList.innerHTML='';
+      if(!rules.length){
+        const empty=document.createElement('div');
+        empty.className='db-rule-empty';
+        empty.textContent='Keine Regeln hinterlegt';
+        elements.ruleList.appendChild(empty);
+        return;
+      }
+      rules.forEach((rule,index)=>{
+        const normalized=normalizeTitleRule(rule);
+        tempTitleRules[index]=normalized;
+        const row=document.createElement('div');
+        row.className='db-rule-row';
+
+        const fieldSelect=document.createElement('select');
+        const options=['',...available.filter(Boolean)];
+        if(normalized.field && !options.includes(normalized.field)) options.push(normalized.field);
+        fieldSelect.innerHTML=options.map(field=>`<option value="${field}">${field||'(Spalte wählen)'}</option>`).join('');
+        fieldSelect.value=normalized.field||'';
+        fieldSelect.addEventListener('change',()=>{
+          tempTitleRules[index].field=fieldSelect.value;
+        });
+        row.appendChild(fieldSelect);
+
+        const operatorSelect=document.createElement('select');
+        const operators=['>','>=','=','<','<=','!='];
+        const currentOp=normalizeOperator(normalized.operator);
+        operatorSelect.innerHTML=operators.map(op=>`<option value="${op}" ${op===currentOp?'selected':''}>${op}</option>`).join('');
+        operatorSelect.value=currentOp;
+        operatorSelect.addEventListener('change',()=>{
+          tempTitleRules[index].operator=operatorSelect.value;
+        });
+        row.appendChild(operatorSelect);
+
+        const valueInput=document.createElement('input');
+        valueInput.type='text';
+        valueInput.placeholder='Vergleichswert';
+        valueInput.value=normalized.value||'';
+        valueInput.addEventListener('input',()=>{
+          tempTitleRules[index].value=valueInput.value;
+        });
+        row.appendChild(valueInput);
+
+        const textInput=document.createElement('input');
+        textInput.type='text';
+        textInput.placeholder='Titelergänzung';
+        textInput.value=normalized.text||'';
+        textInput.addEventListener('input',()=>{
+          tempTitleRules[index].text=textInput.value;
+        });
+        row.appendChild(textInput);
+
+        const removeBtn=document.createElement('button');
+        removeBtn.type='button';
+        removeBtn.className='db-rule-remove';
+        removeBtn.title='Regel entfernen';
+        removeBtn.textContent='✕';
+        removeBtn.addEventListener('click',()=>{
+          tempTitleRules.splice(index,1);
+          renderRuleControls();
+        });
+        row.appendChild(removeBtn);
+
+        elements.ruleList.appendChild(row);
+      });
+    }
+
     function openOptions(){
       tempSubFields=Array.isArray(state.config.subFields)?state.config.subFields.slice():[];
+      tempTitleRules=Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[];
       populateFieldSelects();
       renderSubFieldControls();
+      renderRuleControls();
       elements.titleInput.value=state.config.title||'';
       elements.cBg.value=state.config.colors.bg;
       elements.cItem.value=state.config.colors.item;
@@ -861,6 +1053,16 @@ der-radius:.4rem;background:transparent;color:inherit;}
     function closeOptions(){
       elements.modal.classList.remove('open');
       tempSubFields=[];
+      tempTitleRules=[];
+    }
+
+    if(elements.addRuleBtn){
+      elements.addRuleBtn.addEventListener('click',()=>{
+        const defaults=getAvailableFieldList(state,tempTitleRules.map(rule=>rule?.field).filter(Boolean));
+        const defaultField=defaults[0]||'';
+        tempTitleRules.push(normalizeTitleRule({field:defaultField,operator:'=',value:'',text:''}));
+        renderRuleControls();
+      });
     }
 
     elements.addSubBtn.addEventListener('click',()=>{
@@ -882,6 +1084,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
       state.config.partField=newPart;
       const collected=(tempSubFields||[]).map(v=>v||'').filter(Boolean);
       state.config.subFields=collected.length?collected:[getAvailableFieldList(state)[0]||DEFAULT_SUB_FIELD];
+      const preparedRules=(tempTitleRules||[]).map(rule=>normalizeTitleRule(rule)).map(rule=>({
+        field:(rule.field||'').trim(),
+        operator:normalizeOperator(rule.operator),
+        value:typeof rule.value==='string'?rule.value.trim():(rule.value==null?'':String(rule.value).trim()),
+        text:(rule.text||'').trim()
+      })).filter(rule=>rule.field&&rule.text);
+      state.config.titleRules=preparedRules;
       state.config.colors={
         bg:elements.cBg.value,
         item:elements.cItem.value,
@@ -889,7 +1098,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         sub:elements.cSub.value,
         active:elements.cActive.value
       };
-      updateTitleBar(elements.root,state.config.title);
+      updateTitleBar(elements.root,state.config.title,evaluateTitleRules(state));
       applyColors(elements.root,state.config.colors);
       if(partChanged){
         state.items.forEach(item=>{
