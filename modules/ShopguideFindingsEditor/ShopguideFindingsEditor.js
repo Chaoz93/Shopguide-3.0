@@ -368,29 +368,48 @@
     return normalized;
   }
 
+  function stripNonRoutineFindingPrefix(value){
+    const text=cleanString(value);
+    if(!text) return '';
+    const normalized=text.replace(/^NonRoutineFinding:\s*/i,'');
+    return cleanString(normalized);
+  }
+
   function buildCopyText(entry){
     const parts=[];
-    const partNumbers=getCleanPartNumbers(entry);
-    if(partNumbers.length) parts.push(`Partnummern: ${partNumbers.join(', ')}`);
-    if(entry.label) parts.push(`Label: ${entry.label}`);
-    if(entry.findings) parts.push(`Findings: ${entry.findings}`);
-    if(entry.actions) parts.push(`Actions: ${entry.actions}`);
-    if(entry.routine) parts.push(`Routine: ${entry.routine}`);
-    if(entry.nonroutine) parts.push(`Nonroutine: ${entry.nonroutine}`);
-    if(entry.parts) parts.push(`Bestelltext: ${entry.parts}`);
+    const findings=cleanString(entry.findings);
+    if(findings) parts.push(`Findings: ${findings}`);
+    const actions=cleanString(entry.actions);
+    if(actions) parts.push(`Actions: ${actions}`);
+    const routine=cleanString(entry.routine);
+    if(routine) parts.push(`Routine: ${routine}`);
+    const nonroutine=stripNonRoutineFindingPrefix(entry.nonroutine);
+    if(nonroutine) parts.push(`Nonroutine: ${nonroutine}`);
+
+    const bestellText=cleanString(entry.parts);
+    const pairLines=[];
     if(entry.partsPairs&&entry.partsPairs.length){
-      const pairLines=[];
-      entry.partsPairs.forEach((pair,index)=>{
+      entry.partsPairs.forEach(pair=>{
         if(!pair) return;
-        const part=cleanString(pair.part);
-        const quantity=cleanString(pair.quantity);
-        if(!part && !quantity) return;
-        const base=`PN ${index+1}: ${part||'–'}`;
-        pairLines.push(quantity?`${base} (Menge: ${quantity})`:base);
+        const partValue=cleanString(pair.part);
+        const quantityValue=cleanString(pair.quantity);
+        if(!partValue&& !quantityValue) return;
+        const left=partValue||'–';
+        const right=quantityValue?`Menge (${quantityValue})`:'';
+        pairLines.push(right?`${left} | ${right}`:left);
       });
-      if(pairLines.length){
-        parts.push(`${PARTS_GRID_LABEL}:\n${pairLines.join('\n')}`);
+    }
+    const hasBestellContent=bestellText||pairLines.length;
+    if(hasBestellContent){
+      const lines=['Bestelltext'];
+      const details=[];
+      if(bestellText) details.push(bestellText);
+      if(pairLines.length) details.push(...pairLines);
+      if(details.length){
+        lines.push('');
+        lines.push(...details);
       }
+      parts.push(lines.join('\n'));
     }
     return parts.join('\n\n');
   }

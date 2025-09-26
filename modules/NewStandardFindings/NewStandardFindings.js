@@ -121,6 +121,14 @@
       .nsf-note{font-size:0.8rem;opacity:0.75;}
       .nsf-alert{background:rgba(248,113,113,0.2);border-radius:0.75rem;padding:0.5rem 0.75rem;font-size:0.85rem;}
       .nsf-inline-info{font-size:0.8rem;opacity:0.7;}
+      .nsf-hidden{display:none !important;}
+      .nsf-parts-grid{display:flex;flex-direction:column;gap:0.6rem;}
+      .nsf-part-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.55rem;background:rgba(15,23,42,0.22);border-radius:0.85rem;padding:0.6rem;}
+      .nsf-part-field{display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-part-field-label{font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.7;}
+      .nsf-part-field-input{border:none;border-radius:0.65rem;padding:0.55rem 0.65rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
+      .nsf-part-field-input:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
+      .nsf-part-field-input::placeholder{color:rgba(107,114,128,0.75);}
     `;
     document.head.appendChild(tag);
   }
@@ -158,6 +166,164 @@
   }
 
   function clean(value){return value==null?'':String(value).trim();}
+  function stripNonRoutineFindingPrefix(value){
+    const text=clean(value);
+    if(!text) return '';
+    return text.replace(/^\s*non\s*routine\s*finding:\s*/i,'').trim();
+  }
+  function pushUniqueLine(list,set,value){
+    const text=clean(value);
+    if(!text) return;
+    const key=text.toLowerCase();
+    if(set.has(key)) return;
+    set.add(key);
+    list.push(text);
+  }
+  function parsePartsDetails(rawValue,options){
+    const opts=options||{};
+    const titles=[];
+    const titleKeys=new Set();
+    const pairs=[];
+    const pairKeys=new Set();
+    const fallbackParts=Array.isArray(opts.fallbackParts)?opts.fallbackParts:[];
+    const fallbackPartSet=new Set(fallbackParts.map(normalizePart).filter(Boolean));
+    if(!rawValue) return {titles,pairs};
+    const lines=String(rawValue).split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
+    if(!lines.length) return {titles,pairs};
+    const pairMap=new Map();
+    const orderKeys=[];
+    const knownParts=new Set();
+    const ensurePair=(key)=>{
+      const resolvedKey=key==null?`auto-${orderKeys.length}`:key;
+      if(!pairMap.has(resolvedKey)){
+        pairMap.set(resolvedKey,{part:'',quantity:'',order:orderKeys.length});
+        orderKeys.push(resolvedKey);
+      }
+      return pairMap.get(resolvedKey);
+    };
+    let lastKey=null;
+    const addTitle=(value)=>pushUniqueLine(titles,titleKeys,value);
+    const skipByPartValue=value=>{
+      const normalized=normalizePart(value);
+      if(!normalized) return false;
+      if(fallbackPartSet.has(normalized)) return true;
+      if(knownParts.has(normalized)) return true;
+      return false;
+    };
+    const extractIndex=key=>{
+      if(!key) return null;
+      const compact=key.replace(/\s+/g,'');
+      const match=compact.match(/(\d+)/);
+      if(!match) return null;
+      const num=parseInt(match[1],10);
+      return Number.isNaN(num)?null:num;
+    };
+    lines.forEach(line=>{
+      const colonIndex=line.indexOf(':');
+      if(colonIndex> -1){
+        const rawKey=line.slice(0,colonIndex).trim();
+        let value=line.slice(colonIndex+1).trim();
+        if(!value) return;
+        const normalizedKey=rawKey.toLowerCase();
+        const normalizedCompact=normalizedKey.replace(/\s+/g,'');
+        if(/label|beschreibung|description|partnummer|part number|teilenummer/.test(normalizedKey)){
+          return;
+        }
+        if(/bestell|pntext|ordertext|ordertitle/.test(normalizedKey)){
+          addTitle(value);
+          lastKey=null;
+          return;
+        }
+        if(/^(part|pn|artikel)/.test(normalizedKey)){
+          const index=extractIndex(normalizedCompact);
+          if(index==null && skipByPartValue(value)){
+            lastKey=null;
+            return;
+          }
+          const key=index!=null?`index-${index}`:`auto-${orderKeys.length}`;
+          const pair=ensurePair(key);
+          pair.part=value;
+          const normalizedPart=normalizePart(value);
+          if(normalizedPart) knownParts.add(normalizedPart);
+          lastKey=key;
+          return;
+        }
+        if(/^(menge|qty|quantity|anzahl|stck|stück)/.test(normalizedKey)){
+          const index=extractIndex(normalizedCompact);
+          const key=index!=null?`index-${index}`:(lastKey||`auto-${orderKeys.length}`);
+          const pair=ensurePair(key);
+          pair.quantity=value;
+          lastKey=key;
+          return;
+        }
+        if(skipByPartValue(value)){
+          lastKey=null;
+          return;
+        }
+        addTitle(value);
+        lastKey=null;
+        return;
+      }
+      if(skipByPartValue(line)){
+        lastKey=null;
+        return;
+      }
+      addTitle(line);
+      lastKey=null;
+    });
+    const orderedPairs=Array.from(pairMap.values())
+      .sort((a,b)=>a.order-b.order)
+      .map(entry=>({part:clean(entry.part),quantity:clean(entry.quantity)}))
+      .filter(entry=>entry.part||entry.quantity);
+    orderedPairs.forEach(entry=>{
+      const partKey=normalizePart(entry.part);
+      const quantityKey=(entry.quantity||'').toLowerCase();
+      const key=`${partKey}||${quantityKey}`;
+      if(pairKeys.has(key)) return;
+      pairKeys.add(key);
+      pairs.push(entry);
+    });
+    return {titles,pairs};
+  }
+  function buildPartsData(titles,pairs){
+    const normalizedTitles=Array.isArray(titles)
+      ? titles.map(title=>clean(title)).filter(Boolean)
+      : [];
+    const rows=[];
+    const titleQueue=[...normalizedTitles];
+    const partCopyLines=[];
+    if(Array.isArray(pairs)&&pairs.length){
+      pairs.forEach((pair,index)=>{
+        const partText=clean(pair.part);
+        const quantityText=clean(pair.quantity);
+        if(partText) partCopyLines.push(partText);
+        const pnValue=titleQueue.length?titleQueue.shift():'';
+        rows.push({
+          pnLabel:`PN ${index+1}`,
+          pnValue,
+          partLabel:`Part ${index+1}`,
+          partValue:partText,
+          quantityLabel:`Menge ${index+1}`,
+          quantityValue:quantityText
+        });
+      });
+    }
+    if(titleQueue.length){
+      const offset=rows.length;
+      titleQueue.forEach((title,index)=>{
+        rows.push({
+          pnLabel:`PN ${offset+index+1}`,
+          pnValue:title,
+          partLabel:`Part ${offset+index+1}`,
+          partValue:'',
+          quantityLabel:`Menge ${offset+index+1}`,
+          quantityValue:''
+        });
+      });
+    }
+    const text=partCopyLines.join('\n');
+    return {text,rows};
+  }
   function normalizePart(value){
     const text=clean(value);
     return text?text.toUpperCase():'';
@@ -1124,6 +1290,8 @@
       this.availableEntries=[];
       this.inputsContainer=null;
       this.textareas={};
+      this.partsRows=[];
+      this.partsFieldContainer=null;
       this.saveTimer=null;
       this.selectionRows=[];
       this.currentPart='';
@@ -1740,6 +1908,7 @@
       ];
 
       this.textareas={};
+      this.partsFieldContainer=null;
       for(const def of outputDefs){
         const box=document.createElement('div');
         box.className='nsf-output';
@@ -1766,16 +1935,32 @@
           });
         });
         head.append(label,btn);
-        const textarea=document.createElement('textarea');
-        textarea.className='nsf-textarea';
-        textarea.value='';
-        textarea.disabled=!this.meldung;
-        textarea.readOnly=true;
-        textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
-        this.textareas[def.key]=textarea;
-        box.append(head,textarea);
+        let textarea;
+        if(def.key==='parts'){
+          textarea=document.createElement('textarea');
+          textarea.className='nsf-textarea nsf-hidden';
+          textarea.value='';
+          textarea.disabled=!this.meldung;
+          textarea.readOnly=true;
+          textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
+          this.textareas[def.key]=textarea;
+          box.append(head,textarea);
+          const partsContainer=document.createElement('div');
+          partsContainer.className='nsf-parts-grid';
+          this.partsFieldContainer=partsContainer;
+          box.appendChild(partsContainer);
+        }else{
+          textarea=document.createElement('textarea');
+          textarea.className='nsf-textarea';
+          textarea.value='';
+          textarea.disabled=!this.meldung;
+          textarea.readOnly=true;
+          textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
+          this.textareas[def.key]=textarea;
+          box.append(head,textarea);
+          requestAnimationFrame(()=>autoResizeTextarea(textarea));
+        }
         outputsWrapper.appendChild(box);
-        requestAnimationFrame(()=>autoResizeTextarea(textarea));
       }
 
       this.syncOutputsWithSelections({persist:false});
@@ -1791,15 +1976,27 @@
         findings:[],
         actions:[],
         routine:[],
-        nonroutine:[],
-        parts:[]
+        nonroutine:[]
       };
       const seen={
         findings:new Set(),
         actions:new Set(),
         routine:new Set(),
-        nonroutine:new Set(),
-        parts:new Set()
+        nonroutine:new Set()
+      };
+      const bestellTitles=[];
+      const bestellTitleKeys=new Set();
+      const partPairs=[];
+      const partPairKeys=new Set();
+      const addBestellTitle=value=>pushUniqueLine(bestellTitles,bestellTitleKeys,value);
+      const addPartPair=(part,quantity)=>{
+        const partText=clean(part);
+        const quantityText=clean(quantity);
+        if(!partText&& !quantityText) return;
+        const key=`${normalizePart(partText)}||${quantityText.toLowerCase()}`;
+        if(partPairKeys.has(key)) return;
+        partPairKeys.add(key);
+        partPairs.push({part:partText,quantity:quantityText});
       };
       const pushLines=(field,value)=>{
         const text=clean(value);
@@ -1826,27 +2023,42 @@
         pushLines('findings',findingText);
         const actionText=resolved.action||selection.action||'';
         pushLines('actions',actionText);
-        const partText=selection.part||resolved.part||'';
-        pushLines('parts',partText);
-        const partsExtra=resolved.parts||'';
-        pushLines('parts',partsExtra);
-        const nonroutineText=resolved.nonroutine||'';
-        pushLines('nonroutine',nonroutineText);
+        const fallbackParts=[];
+        const primaryPart=normalizePart(selection.part||resolved.part||'');
+        if(primaryPart) fallbackParts.push(primaryPart);
+        if(Array.isArray(resolved.partNumbers)){
+          for(const partNum of resolved.partNumbers){
+            const normalizedPart=normalizePart(partNum);
+            if(normalizedPart&&!fallbackParts.includes(normalizedPart)) fallbackParts.push(normalizedPart);
+          }
+        }
+        const partsInfo=parsePartsDetails(resolved.parts||'',{fallbackParts});
+        partsInfo.titles.forEach(addBestellTitle);
+        partsInfo.pairs.forEach(pair=>addPartPair(pair.part,pair.quantity));
+        const nonroutineCandidates=[resolved.nonroutineFinding||'',resolved.nonroutine||''];
+        nonroutineCandidates.forEach(text=>{
+          const stripped=stripNonRoutineFindingPrefix(text);
+          pushLines('nonroutine',stripped);
+        });
         const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
       }
+      const partsData=buildPartsData(bestellTitles,partPairs);
       return {
         findings:lists.findings.join('\n'),
         actions:lists.actions.join('\n'),
         routine:lists.routine.join('\n\n'),
         nonroutine:lists.nonroutine.join('\n'),
-        parts:lists.parts.join('\n')
+        parts:partsData.text,
+        partsRows:partsData.rows
       };
     }
 
     syncOutputsWithSelections(options){
       const opts=options||{};
       const computed=this.buildOutputsFromSelections();
+      const effectiveRows=opts.forceEmpty?[]:(Array.isArray(computed.partsRows)?computed.partsRows:[]);
+      this.partsRows=effectiveRows;
       let changed=false;
       for(const key of Object.keys(this.activeState)){
         const value=opts.forceEmpty?'' : computed[key]||'';
@@ -1859,12 +2071,63 @@
           if(textarea.value!==value){
             textarea.value=value;
           }
-          autoResizeTextarea(textarea);
+          if(textarea.offsetParent!==null){
+            autoResizeTextarea(textarea);
+          }
         }
       }
+      this.renderPartsRows(this.partsRows);
       if(changed&&opts.persist!==false){
         this.queueStateSave();
       }
+    }
+
+    renderPartsRows(rows){
+      const container=this.partsFieldContainer;
+      if(!container) return;
+      container.innerHTML='';
+      if(!this.meldung){
+        const note=document.createElement('div');
+        note.className='nsf-empty';
+        note.textContent='Keine Meldung ausgewählt.';
+        container.appendChild(note);
+        return;
+      }
+      const data=Array.isArray(rows)?rows.filter(row=>row&&typeof row==='object') : [];
+      const items=data.length?data:[{
+        pnLabel:'PN 1',pnValue:'',
+        partLabel:'Part 1',partValue:'',
+        quantityLabel:'Menge 1',quantityValue:''
+      }];
+      const makeField=(labelText,value,placeholder)=>{
+        const field=document.createElement('label');
+        field.className='nsf-part-field';
+        const label=document.createElement('span');
+        label.className='nsf-part-field-label';
+        label.textContent=labelText||'';
+        const input=document.createElement('input');
+        input.type='text';
+        input.className='nsf-part-field-input';
+        const displayValue=clean(value);
+        input.value=displayValue;
+        input.placeholder=placeholder||'';
+        input.title=displayValue||placeholder||'';
+        input.readOnly=true;
+        input.addEventListener('focus',()=>{input.select();});
+        input.addEventListener('click',()=>{input.select();});
+        field.append(label,input);
+        return field;
+      };
+      items.forEach(item=>{
+        const row=document.createElement('div');
+        row.className='nsf-part-row';
+        row.append(
+          makeField(item.pnLabel,item.pnValue,'PN-Text'),
+          makeField(item.partLabel,item.partValue,'Teilenummer'),
+          makeField(item.quantityLabel,item.quantityValue,'Menge')
+        );
+        container.appendChild(row);
+      });
     }
 
     resolveEntry(entry){
