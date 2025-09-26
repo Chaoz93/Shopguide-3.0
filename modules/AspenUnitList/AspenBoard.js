@@ -5,11 +5,8 @@
   const STYLE_ID = 'db-styles';
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
-    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;}
+    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;}
     .db-titlebar[hidden]{display:none;}
-    .db-titlebar-left{flex:0 1 auto;min-width:0;}
-    .db-titlebar-right{margin-left:auto;display:flex;flex-wrap:wrap;gap:.35rem;justify-content:flex-end;}
-    .db-title-tag{background:rgba(37,99,235,.12);color:var(--dl-title,#2563eb);padding:.1rem .4rem;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap;}
     .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;}
     .db-toolbar{display:flex;align-items:center;gap:.5rem;}
     .db-toggle-active{flex:0 0 auto;padding:.45rem .75rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:var(--dl-title,#2563eb);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
@@ -29,6 +26,9 @@
     .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:
 0 2px 6px rgba(0,0,0,.06);display:flex;align-items:center;gap:.75rem;user-select:none;}
     .db-flex{flex:1;display:flex;flex-direction:column;}
+    .db-card-header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+    .db-card-tags{margin-left:auto;display:flex;flex-wrap:wrap;gap:.35rem;justify-content:flex-end;}
+    .db-card-tag{background:rgba(37,99,235,.12);color:var(--dl-title,#2563eb);padding:.1rem .4rem;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap;}
     .db-title{color:var(--dl-title,#2563eb);font-weight:600;line-height:1.1;}
     .db-sub{color:var(--dl-sub,#4b5563);font-size:.85rem;margin-top:.15rem;}
     .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;bor
@@ -429,12 +429,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-titlebar-left"></div><div class="db-titlebar-right"></div></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<select class="db-sel-part"></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
-    const titleLeft=root.querySelector('.db-titlebar-left');
-    if(titleLeft) titleLeft.textContent=initialTitle||'';
-    if(titleBar) titleBar.hidden=!(initialTitle||'').trim();
+    if(titleBar){
+      titleBar.textContent=initialTitle||'';
+      titleBar.hidden=!(initialTitle||'').trim();
+    }
 
     const menu=document.createElement('div');
     menu.className='db-menu';
@@ -449,8 +450,6 @@ der-radius:.4rem;background:transparent;color:inherit;}
       toggleActive:root.querySelector('.db-toggle-active'),
       search:root.querySelector('.db-search'),
       titleBar,
-      titleBarLeft:titleLeft,
-      titleBarRight:root.querySelector('.db-titlebar-right'),
       modal:root.querySelector('.db-modal'),
       titleInput:root.querySelector('.db-title-input'),
       ruleList:root.querySelector('.db-rule-list'),
@@ -601,21 +600,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
     root.style.setProperty('--dl-active',colors.active);
   }
 
-  function updateTitleBar(root,title,rightTexts){
+  function updateTitleBar(root,title){
     const bar=root.querySelector('.db-titlebar');
     if(!bar) return;
-    const left=bar.querySelector('.db-titlebar-left')||bar;
-    const right=bar.querySelector('.db-titlebar-right');
     const text=(title||'').trim();
-    const extras=(Array.isArray(rightTexts)?rightTexts:[]).map(val=>String(val||'').trim()).filter(Boolean);
-    if(left) left.textContent=text;
-    if(right){
-      right.innerHTML=extras.map(val=>`<span class="db-title-tag">${escapeHtml(val)}</span>`).join('');
-      right.hidden=extras.length===0;
-    }
-    const show=!!text||extras.length>0;
-    bar.hidden=!show;
-    bar.classList.toggle('db-titlebar--has-right',extras.length>0);
+    bar.textContent=text;
+    bar.hidden=!text;
   }
 
   function parseNumericValue(value){
@@ -654,11 +644,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }
   }
 
-  function evaluateTitleRules(state){
-    if(!state||!state.config) return [];
+  function collectRuleTextsForItem(item,state){
+    if(!state?.config || !item) return [];
     const rules=Array.isArray(state.config.titleRules)?state.config.titleRules:[];
     if(!rules.length) return [];
-    const items=Array.isArray(state.items)?state.items:[];
+    const data=item.data&&typeof item.data==='object'?item.data:{};
     return rules.map(rule=>{
       const normalized=normalizeTitleRule(rule);
       const field=(normalized.field||'').trim();
@@ -666,16 +656,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!field || !text) return '';
       const operator=normalizeOperator(normalized.operator);
       const value=normalized.value;
-      const matches=items.some(item=>{
-        if(!item||typeof item!=='object') return false;
-        const data=item.data&&typeof item.data==='object'?item.data:{};
-        return compareRuleValue(data[field],operator,value);
-      });
-      return matches?text:'';
+      return compareRuleValue(data[field],operator,value)?text:'';
     }).filter(Boolean);
   }
 
-  function buildCardMarkup(item,config){
+  function buildCardMarkup(item,config,ruleTexts){
     const titleValue=item.data?.[TITLE_FIELD]||'';
     const meldung=item.meldung||'';
     const subs=(Array.isArray(config.subFields)?config.subFields:[])
@@ -685,10 +670,15 @@ der-radius:.4rem;background:transparent;color:inherit;}
       })
       .filter(Boolean)
       .join('');
+    const tags=Array.isArray(ruleTexts)?ruleTexts.map(val=>String(val||'').trim()).filter(Boolean):[];
+    const tagHtml=tags.length?`<div class="db-card-tags">${tags.map(val=>`<span class="db-card-tag">${escapeHtml(val)}</span>`).join('')}</div>`:'';
     return `
       <div class="db-card" data-id="${item.id}" data-meldung="${meldung}" data-part="${item.part}">
         <div class="db-flex">
-          <div class="db-title">${titleValue}</div>
+          <div class="db-card-header">
+            <div class="db-title">${titleValue}</div>
+            ${tagHtml}
+          </div>
           <div class="db-sub">${subs}</div>
         </div>
         <div class="db-handle" title="Ziehen">⋮⋮</div>
@@ -714,7 +704,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
       updateHighlights(listEl);
       return;
     }
-    listEl.innerHTML=visible.map(item=>buildCardMarkup(item,state.config)).join('');
+    listEl.innerHTML=visible
+      .map(item=>buildCardMarkup(item,state.config,collectRuleTextsForItem(item,state)))
+      .join('');
     const nodes=listEl.querySelectorAll('.db-card');
     visible.forEach((item,index)=>{
       const node=nodes[index];
@@ -802,7 +794,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     elements.titleInput.value=state.config.title||'';
 
     applyColors(elements.root,state.config.colors);
-    updateTitleBar(elements.root,state.config.title,evaluateTitleRules(state));
+    updateTitleBar(elements.root,state.config.title);
 
     if(elements.search){
       elements.search.value=state.searchQuery||'';
@@ -878,7 +870,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!(state.activeMeldungen instanceof Set)){
         state.activeMeldungen=new Set(Array.isArray(state.activeMeldungen)?state.activeMeldungen:[]);
       }
-      updateTitleBar(elements.root,state.config.title,evaluateTitleRules(state));
+      updateTitleBar(elements.root,state.config.title);
       if(elements.search){
         elements.search.value=state.searchQuery||'';
       }
@@ -1098,7 +1090,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         sub:elements.cSub.value,
         active:elements.cActive.value
       };
-      updateTitleBar(elements.root,state.config.title,evaluateTitleRules(state));
+      updateTitleBar(elements.root,state.config.title);
       applyColors(elements.root,state.config.colors);
       if(partChanged){
         state.items.forEach(item=>{
