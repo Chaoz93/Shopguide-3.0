@@ -138,15 +138,6 @@
     return normalizeKey(part)+'||'+normalizeKey(serial);
   }
 
-  function ensureRowLength(row,length){
-    if(!Array.isArray(row)) return;
-    while(row.length<length) row.push('');
-  }
-
-  function createEmptyRow(length){
-    return Array(length).fill('');
-  }
-
   function readGeneralIdentifiers(){
     const doc=loadDoc();
     const general=doc?.general||{};
@@ -167,7 +158,7 @@
     root.innerHTML=`
       ${hasTitle?`<div class="dc-title">${title}</div>`:''}
       <div class="dc-status">
-        <div class="dc-line"><span class="dc-label">Dictionary</span><span class="dc-value" data-dict>Keine Datei</span></div>
+        <div class="dc-line"><span class="dc-label">Aspen</span><span class="dc-value" data-aspen>Keine Daten</span></div>
         <div class="dc-line"><span class="dc-label">Kommentare</span><span class="dc-value" data-comments>Keine Datei</span></div>
       </div>
       <div class="dc-unit">
@@ -193,11 +184,9 @@
     const menu=document.createElement('div');
     menu.className='dc-menu';
     menu.innerHTML=`
-      <button type="button" data-action="pick-dict">📘 Dictionary wählen</button>
       <button type="button" data-action="pick-comments">📂 Kommentar-Datei wählen</button>
       <button type="button" data-action="create-comments">🆕 Kommentar-Datei erstellen</button>
       <div class="dc-menu-sep"></div>
-      <button type="button" data-action="reload-dict">🔄 Dictionary neu laden</button>
       <button type="button" data-action="reload-comments">🔄 Kommentare neu laden</button>
       <div class="dc-menu-sep"></div>
       <button type="button" data-action="clear-comment">🗑️ Kommentar löschen</button>
@@ -206,7 +195,7 @@
     return {
       root,
       menu,
-      dictLabel:root.querySelector('[data-dict]'),
+      aspenLabel:root.querySelector('[data-aspen]'),
       commentsLabel:root.querySelector('[data-comments]'),
       meldung:root.querySelector('[data-meldung]'),
       part:root.querySelector('[data-part]'),
@@ -232,79 +221,6 @@
       return fallbackIndex;
     }
     return header.length?0:-1;
-  }
-
-  async function readDictionary(handle){
-    await ensureXLSX();
-    const file=await handle.getFile();
-    const sheetData={rows:[],sheetName:'records'};
-    if(file.size>0){
-      const buffer=await file.arrayBuffer();
-      const workbook=XLSX.read(buffer,{type:'array'});
-      const sheet=workbook.Sheets['records']||workbook.Sheets[workbook.SheetNames[0]];
-      if(sheet){
-        sheetData.sheetName=workbook.SheetNames.find(name=>workbook.Sheets[name]===sheet)||sheetData.sheetName;
-        sheetData.rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
-      }
-    }
-    let rows=Array.isArray(sheetData.rows)?sheetData.rows:[];
-    rows=rows.map(row=>Array.isArray(row)?row.map(cell=>{
-      if(cell==null) return '';
-      if(typeof cell==='string') return cell;
-      if(typeof cell==='number'||typeof cell==='boolean') return String(cell);
-      return '';
-    }):[]);
-    if(!rows.length){
-      rows=[['Meldung','Part','Serial']];
-    }
-    if(!rows[0]||!rows[0].length){
-      rows[0]=['Meldung','Part','Serial'];
-    }
-    const header=rows[0].map(cell=>trim(cell));
-    rows[0]=header;
-    let width=header.length;
-    for(let i=1;i<rows.length;i++){
-      const row=rows[i]=Array.isArray(rows[i])?rows[i]:[];
-      ensureRowLength(row,width);
-      for(let j=0;j<width;j++){
-        if(row[j]==null) row[j]='';
-        else if(typeof row[j]!=='string') row[j]=String(row[j]);
-      }
-    }
-    let meldIdx=findColumn(header,MELD_PATTERNS,0);
-    if(meldIdx<0){
-      header.push('Meldung');
-      meldIdx=header.length-1;
-      width=header.length;
-      for(let i=1;i<rows.length;i++){
-        const row=rows[i];
-        ensureRowLength(row,width);
-        if(row[meldIdx]==null) row[meldIdx]='';
-      }
-    }
-    let partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0);
-    let serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1));
-    if(partIdx===meldIdx) partIdx=-1;
-    if(serialIdx===meldIdx||serialIdx===partIdx) serialIdx=-1;
-    const map=new Map();
-    for(let i=1;i<rows.length;i++){
-      const row=rows[i];
-      ensureRowLength(row,header.length);
-      const meld=trim(row[meldIdx]);
-      const part=partIdx>=0?trim(row[partIdx]):'';
-      const serial=serialIdx>=0?trim(row[serialIdx]):'';
-      if(!meld&&!part&&!serial) continue;
-      if(!meld) continue;
-      map.set(normalizeKey(meld),{meldung:meld,part,serial,rowIndex:i});
-    }
-    return {
-      map,
-      rows,
-      sheetName:sheetData.sheetName,
-      meldIdx,
-      partIdx,
-      serialIdx
-    };
   }
 
   async function readComments(handle){
@@ -343,41 +259,6 @@
       map.set(key,{meldung,part,serial,comment});
     }
     return map;
-  }
-
-  function ensureDictionaryColumn(info,label){
-    if(!info||!Array.isArray(info.rows)||!info.rows.length) return -1;
-    const header=info.rows[0];
-    header.push(label);
-    const idx=header.length-1;
-    for(let i=1;i<info.rows.length;i++){
-      const row=info.rows[i];
-      ensureRowLength(row,header.length);
-      if(row[idx]==null) row[idx]='';
-    }
-    return idx;
-  }
-
-  async function commitDictionary(handle,info){
-    if(!handle||!info||!Array.isArray(info.rows)||!info.rows.length) return;
-    await ensureXLSX();
-    const width=info.rows[0]?.length||0;
-    const aoa=info.rows.map(row=>{
-      const src=Array.isArray(row)?row:[];
-      const copy=new Array(width).fill('');
-      for(let i=0;i<width;i++){
-        const value=src[i];
-        copy[i]=value==null?'':value;
-      }
-      return copy;
-    });
-    const workbook=XLSX.utils.book_new();
-    const sheet=XLSX.utils.aoa_to_sheet(aoa);
-    XLSX.utils.book_append_sheet(workbook,sheet,info.sheetName||'records');
-    const buffer=XLSX.write(workbook,{bookType:'xlsx',type:'array'});
-    const writable=await handle.createWritable();
-    await writable.write(buffer);
-    await writable.close();
   }
 
   async function writeComments(handle,entries){
@@ -440,17 +321,6 @@
     });
   }
 
-  async function ensureRPermission(handle){
-    if(!handle?.queryPermission) return true;
-    const query=await handle.queryPermission({mode:'read'});
-    if(query==='granted') return true;
-    if(query==='prompt'){
-      const request=await handle.requestPermission({mode:'read'});
-      return request==='granted';
-    }
-    return false;
-  }
-
   async function ensureRWPermission(handle){
     if(!handle?.queryPermission) return true;
     const query=await handle.queryPermission({mode:'readwrite'});
@@ -460,16 +330,6 @@
       return request==='granted';
     }
     return false;
-  }
-
-  async function saveGlobalDict(handle,name){
-    try{await idbSet('globalDict',handle);}catch(err){console.warn('UnitComments: global dict store failed',err);}
-    const doc=loadDoc();
-    doc.general ||= {};
-    if(doc.general.dictFileName!==name){
-      doc.general.dictFileName=name;
-      saveDoc(doc);
-    }
   }
 
   function updateGeneralPartSerial(state,part,serial){
@@ -502,17 +362,12 @@
     const title=opts?.moduleJson?.settings?.title||'';
     const instanceId=instanceIdOf(targetDiv);
     const handleKey=`unitComments:comments:${instanceId}`;
-    const dictHandleKey=`unitComments:dict:${instanceId}`;
 
     const state={
       instanceId,
       comments:new Map(),
-      dict:new Map(),
-      dictInfo:null,
       commentHandle:null,
-      dictHandle:null,
       commentName:'',
-      dictName:'',
       activeMeldung:'',
       activePart:'',
       activeSerial:'',
@@ -521,15 +376,12 @@
       noteTimer:null,
       writeTimer:null,
       updatingTextarea:false,
-      baseNote:null,
-      dictUpdating:false,
-      pendingDictUpdate:null
+      baseNote:null
     };
 
     const stored=loadLocalState(instanceId);
     if(stored){
       state.commentName=stored.commentFileName||'';
-      state.dictName=stored.dictFileName||'';
       if(Array.isArray(stored.comments)){
         stored.comments.forEach(entry=>{
           const part=trim(entry?.part);
@@ -548,7 +400,6 @@
     function persistState(){
       const payload={
         commentFileName:state.commentName,
-        dictFileName:state.dictName,
         comments:Array.from(state.comments.values()).map(entry=>({
           part:entry.part||'',
           serial:entry.serial||'',
@@ -559,81 +410,139 @@
       saveLocalState(instanceId,payload);
     }
 
-    async function ensureDictionaryEntry(part,serial){
-      const normalizedPart=trim(part);
-      const normalizedSerial=trim(serial);
-      if(!state.dictHandle||!state.dictInfo||!state.activeMeldung) return;
-      if(!normalizedPart&&!normalizedSerial) return;
-      const key=normalizeKey(state.activeMeldung);
-      const existing=state.dict.get(key);
-      const existingPart=existing?trim(existing.part):'';
-      const existingSerial=existing?trim(existing.serial):'';
-      if(existingPart===normalizedPart&&existingSerial===normalizedSerial) return;
-      if(state.dictUpdating){
-        state.pendingDictUpdate={part:normalizedPart,serial:normalizedSerial};
-        return;
-      }
-      state.dictUpdating=true;
+    function findAspenEntry(meldung){
+      const key=trim(meldung);
+      if(!key) return null;
       try{
-        const allowed=await ensureRWPermission(state.dictHandle);
-        if(!allowed){
-          flashNote('Keine Berechtigung zum Dictionary-Schreiben','error');
-          return;
+        const shared=window.__UNIT_BOARD_SHARED__;
+        if(shared){
+          if(typeof shared.findAspenItem==='function'){
+            const found=shared.findAspenItem(key);
+            if(found&&typeof found==='object') return found;
+          }
+          const records=shared.aspenRecords;
+          if(records instanceof Map){
+            for(const map of records.values()){
+              if(!(map instanceof Map)) continue;
+              const entry=map.get(key);
+              if(entry&&typeof entry==='object') return entry;
+            }
+          }
         }
-        const info=state.dictInfo;
-        if(!info||!Array.isArray(info.rows)||!info.rows.length) return;
-        if(info.meldIdx==null||info.meldIdx<0){
-          info.meldIdx=ensureDictionaryColumn(info,'Meldung');
-        }
-        if(info.partIdx==null||info.partIdx<0){
-          info.partIdx=ensureDictionaryColumn(info,'Partnummer');
-        }
-        if(info.serialIdx==null||info.serialIdx<0){
-          info.serialIdx=ensureDictionaryColumn(info,'Seriennummer');
-        }
-        const headerLength=info.rows[0]?.length||0;
-        let rowIndex=existing?.rowIndex;
-        if(!(rowIndex>=1&&rowIndex<info.rows.length)){
-          const newRow=createEmptyRow(headerLength);
-          rowIndex=info.rows.length;
-          info.rows.push(newRow);
-        }
-        const row=info.rows[rowIndex];
-        ensureRowLength(row,info.rows[0].length);
-        row[info.meldIdx]=state.activeMeldung;
-        row[info.partIdx]=normalizedPart;
-        row[info.serialIdx]=normalizedSerial;
-        await commitDictionary(state.dictHandle,info);
-        state.dict.set(key,{meldung:state.activeMeldung,part:normalizedPart,serial:normalizedSerial,rowIndex});
-        flashNote('Dictionary aktualisiert','success');
       }catch(err){
-        console.warn('UnitComments: dictionary write failed',err);
-        flashNote('Dictionary konnte nicht aktualisiert werden','error');
-      }finally{
-        state.dictUpdating=false;
-        if(state.pendingDictUpdate){
-          const next=state.pendingDictUpdate;
-          state.pendingDictUpdate=null;
-          ensureDictionaryEntry(next.part,next.serial);
+        console.warn('UnitComments: Aspen-Lookup fehlgeschlagen',err);
+      }
+      return null;
+    }
+
+    function normalizePartValue(value){
+      const text=trim(value);
+      if(!text) return '';
+      const [first]=text.split(':');
+      return trim(first);
+    }
+
+    function extractAspenPart(entry){
+      if(!entry||typeof entry!=='object') return '';
+      const directCandidates=[
+        entry.part,
+        entry.Part,
+        entry.PartNo,
+        entry.PartNumber,
+        entry.PartNr,
+        entry.PN,
+        entry.Material,
+        entry.MaterialNr,
+        entry.Materialnummer,
+        entry.MaterialNo,
+        entry.Artikel,
+        entry.Artikelnummer,
+        entry.Partnummer,
+        entry['Part No'],
+        entry['Part_Number'],
+        entry['PartNumber'],
+        entry['Part Nr']
+      ];
+      for(const candidate of directCandidates){
+        const normalized=normalizePartValue(candidate);
+        if(normalized) return normalized;
+      }
+      const data=entry.data&&typeof entry.data==='object'?entry.data:entry;
+      const keys=['part','partno','partnumber','part_no','part-number','part number','partnr','part nr','pn','material','materialnr','materialnummer','materialno','material nr','material-nr','artikel','artikelnummer','artikel nr','artikel-nr','partnummer'];
+      for(const [key,value] of Object.entries(data)){
+        const normalizedKey=key.toLowerCase();
+        if(!keys.includes(normalizedKey)) continue;
+        const normalized=normalizePartValue(value);
+        if(normalized) return normalized;
+      }
+      return '';
+    }
+
+    function extractAspenSerial(entry){
+      if(!entry||typeof entry!=='object') return '';
+      const directCandidates=[
+        entry.serial,
+        entry.Serial,
+        entry.SerialNo,
+        entry.SerialNumber,
+        entry.SerialNr,
+        entry.SN,
+        entry.SNr,
+        entry.SNR,
+        entry['Serial No'],
+        entry['Serial_Number'],
+        entry['SerialNumber'],
+        entry['Serial Nr']
+      ];
+      for(const candidate of directCandidates){
+        const normalized=trim(candidate);
+        if(normalized) return normalized;
+      }
+      const data=entry.data&&typeof entry.data==='object'?entry.data:entry;
+      const keys=['serial','serialno','serialnumber','serial_nr','serial-nr','serial nr','serial no','serial number','serialno.','serialnr','sn','s/n','snr','seriennummer','serien nr','serien-nr','seriennr'];
+      for(const [key,value] of Object.entries(data)){
+        const normalizedKey=key.toLowerCase();
+        if(!keys.includes(normalizedKey)) continue;
+        const normalized=trim(value);
+        if(normalized) return normalized;
+      }
+      return '';
+    }
+
+    function updateAspenStatus(entry){
+      if(!elements.aspenLabel) return;
+      let label='Keine Daten';
+      if(entry){
+        label='Eintrag gefunden';
+      }else{
+        try{
+          const shared=window.__UNIT_BOARD_SHARED__;
+          const records=shared?.aspenRecords;
+          if(records instanceof Map){
+            let total=0;
+            for(const map of records.values()){
+              if(map instanceof Map) total+=map.size;
+            }
+            label=total?`${total} Einträge`:'Verbunden';
+          }
+        }catch(err){
+          console.warn('UnitComments: Aspen-Status konnte nicht gelesen werden',err);
         }
       }
+      elements.aspenLabel.textContent=label;
     }
 
     function updateFileLabels(){
-      elements.dictLabel.textContent=state.dictName?`• ${state.dictName}`:'Keine Datei';
       elements.commentsLabel.textContent=state.commentName?`• ${state.commentName}`:'Keine Datei';
     }
 
     function refreshBaseNote(){
       let message='';
       let tone='';
-      if(!state.dictHandle){
-        message='Rechtsklick → Dictionary wählen';
-        tone='warn';
-      }else if(!state.activeMeldung){
+      if(!state.activeMeldung){
         message='Keine aktive Meldung gefunden';
       }else if(!(state.activePart||state.activeSerial)){
-        message='Kein PN/SN im Dictionary für aktuelle Meldung';
+        message='Keine PN/SN in Aspen für aktuelle Meldung';
         tone='warn';
       }else if(!state.commentHandle){
         message='Rechtsklick → Kommentar-Datei wählen';
@@ -674,24 +583,19 @@
     }
 
     function updateUnitInfo(){
-      let part='';
-      let serial='';
+      let entry=null;
       if(state.activeMeldung){
-        const entry=state.dict.get(normalizeKey(state.activeMeldung));
-        if(entry){
-          part=entry.part||'';
-          serial=entry.serial||'';
-        }
+        entry=findAspenEntry(state.activeMeldung);
       }
-      let filledFromGeneral=false;
+      updateAspenStatus(entry);
+      let part=entry?extractAspenPart(entry):'';
+      let serial=entry?extractAspenSerial(entry):'';
       const generalIds=readGeneralIdentifiers();
       if(!part&&generalIds.part){
         part=generalIds.part;
-        filledFromGeneral=true;
       }
       if(!serial&&generalIds.serial){
         serial=generalIds.serial;
-        filledFromGeneral=true;
       }
       state.activePart=part;
       state.activeSerial=serial;
@@ -700,9 +604,6 @@
       updateGeneralPartSerial(state,part,serial);
       updateTextareaState();
       refreshBaseNote();
-      if(filledFromGeneral){
-        ensureDictionaryEntry(part,serial);
-      }
     }
 
     function refreshActive(force){
@@ -711,12 +612,8 @@
       if(changed||force){
         state.activeMeldung=current;
         elements.meldung.textContent=current||'—';
-        updateUnitInfo();
-        return;
       }
-      if(!(state.activePart||state.activeSerial)){
-        updateUnitInfo();
-      }
+      updateUnitInfo();
     }
 
     function updateCommentEntry(comment){
@@ -758,27 +655,6 @@
       },350);
     }
 
-    async function loadDictionaryHandle(handle){
-      if(!handle) return;
-      const allowed=await ensureRPermission(handle);
-      if(!allowed){
-        applyNote(elements,'Keine Berechtigung für Dictionary','error');
-        return;
-      }
-      try{
-        const info=await readDictionary(handle);
-        state.dictInfo=info;
-        state.dict=info.map;
-        state.pendingDictUpdate=null;
-        state.dictUpdating=false;
-        refreshActive(true);
-        refreshBaseNote();
-      }catch(err){
-        console.warn('UnitComments: dictionary read failed',err);
-        applyNote(elements,'Dictionary konnte nicht gelesen werden','error');
-      }
-    }
-
     async function loadCommentsHandle(handle){
       if(!handle) return;
       const allowed=await ensureRWPermission(handle);
@@ -794,32 +670,6 @@
       }catch(err){
         console.warn('UnitComments: comments read failed',err);
         applyNote(elements,'Kommentare konnten nicht gelesen werden','error');
-      }
-    }
-
-    async function pickDictionary(){
-      try{
-        const [handle]=await window.showOpenFilePicker({
-          multiple:false,
-          types:[{
-            description:'Dictionary',
-            accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx','.xlsm'],
-                    'application/vnd.ms-excel':['.xls'],
-                    'text/csv':['.csv']}
-          }]
-        });
-        if(!handle) return;
-        state.dictHandle=handle;
-        state.dictName=handle.name||state.dictName||'dictionary.xlsx';
-        updateFileLabels();
-        persistState();
-        try{await idbSet(dictHandleKey,handle);}catch(err){console.warn('UnitComments: store dict handle failed',err);}
-        await saveGlobalDict(handle,state.dictName);
-        await loadDictionaryHandle(handle);
-      }catch(err){
-        if(err?.name==='AbortError') return;
-        console.warn('UnitComments: dictionary pick failed',err);
-        applyNote(elements,'Dictionary konnte nicht geöffnet werden','error');
       }
     }
 
@@ -879,14 +729,6 @@
       }
     }
 
-    async function reloadDictionary(){
-      if(!state.dictHandle){
-        flashNote('Kein Dictionary gewählt','warn',1600);
-        return;
-      }
-      await loadDictionaryHandle(state.dictHandle);
-    }
-
     async function reloadComments(){
       if(!state.commentHandle){
         flashNote('Keine Kommentar-Datei gewählt','warn',1600);
@@ -926,10 +768,8 @@
       if(!button) return;
       const action=button.dataset.action;
       closeMenu();
-      if(action==='pick-dict') pickDictionary();
-      else if(action==='pick-comments') pickCommentsFile();
+      if(action==='pick-comments') pickCommentsFile();
       else if(action==='create-comments') createCommentsFile();
-      else if(action==='reload-dict') reloadDictionary();
       else if(action==='reload-comments') reloadComments();
       else if(action==='clear-comment') clearActiveComment();
     });
@@ -984,27 +824,6 @@
     refreshBaseNote();
 
     persistState();
-
-    (async()=>{
-      try{
-        let handle=await idbGet(dictHandleKey);
-        if(!handle){
-          handle=await idbGet('globalDict');
-          if(handle){
-            try{await idbSet(dictHandleKey,handle);}catch(err){console.warn('UnitComments: copy global dict handle failed',err);} }
-        }
-        if(handle){
-          state.dictHandle=handle;
-          if(!state.dictName) state.dictName=handle.name||state.dictName||'';
-          updateFileLabels();
-          persistState();
-          await loadDictionaryHandle(handle);
-          refreshBaseNote();
-        }
-      }catch(err){
-        console.warn('UnitComments: restore dictionary handle failed',err);
-      }
-    })();
 
     (async()=>{
       try{
