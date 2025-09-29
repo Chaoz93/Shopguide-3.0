@@ -110,6 +110,23 @@
     return text.trim?text.trim():text;
   }
 
+  function normalizeStoredPath(rawPath){
+    const cleaned=cleanString(rawPath);
+    if(!cleaned) return DEFAULT_FILE;
+    if(/^file:/i.test(cleaned)) return DEFAULT_FILE;
+    if(/^[a-z]:[\\/]/i.test(cleaned)||cleaned.startsWith('\\\\')) return DEFAULT_FILE;
+    if(/^[a-z]+:\/\//i.test(cleaned)){
+      try{
+        const url=new URL(cleaned,window.location.href);
+        if(url.origin!==window.location.origin) return DEFAULT_FILE;
+        return url.pathname||DEFAULT_FILE;
+      }catch(err){
+        return DEFAULT_FILE;
+      }
+    }
+    return cleaned;
+  }
+
   function disableAutocomplete(element){
     if(!element) return;
     try{
@@ -515,7 +532,7 @@
       this.root=root;
       this.fileHandle=window[GLOBAL_HANDLE_KEY]||null;
       const storedPath=window[GLOBAL_PATH_VAR]||localStorage.getItem(GLOBAL_PATH_STORAGE_KEY)||localStorage.getItem(PATH_KEY)||DEFAULT_FILE;
-      this.filePath=storedPath||DEFAULT_FILE;
+      this.filePath=normalizeStoredPath(storedPath);
       this.data=[];
       this.filtered=[];
       this.selectedId=null;
@@ -718,7 +735,7 @@
     }
 
     async loadFromPath(path){
-      const target=path||DEFAULT_FILE;
+      const target=normalizeStoredPath(path);
       try{
         const res=await fetch(target,{cache:'no-store'});
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1003,7 +1020,7 @@
     }
 
     updateStoredPath(path){
-      const cleaned=cleanString(path);
+      const cleaned=normalizeStoredPath(path);
       if(!cleaned) return;
       try{
         localStorage.setItem(PATH_KEY,cleaned);
