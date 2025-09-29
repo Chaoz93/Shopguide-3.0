@@ -1210,69 +1210,21 @@
     renderPartNumbersField(container,entry){
       const field=document.createElement('div');
       field.className='sfe-field sfe-partnumbers-field';
-      const header=document.createElement('div');
-      header.className='sfe-partnumbers-header';
       const label=document.createElement('label');
       label.textContent=PART_NUMBERS_LABEL;
-      label.setAttribute('for',`${entry.id}-partnumber-0`);
-      header.appendChild(label);
-      const addBtn=document.createElement('button');
-      addBtn.type='button';
-      addBtn.className='sfe-partnumbers-add';
-      addBtn.innerHTML='<span>+</span> Partnummer';
-      header.appendChild(addBtn);
-      field.appendChild(header);
-      const list=document.createElement('div');
-      list.className='sfe-partnumbers-list';
-      field.appendChild(list);
-
-      const renderRows=()=>{
-        const numbers=this.ensurePartNumbers(entry);
-        list.innerHTML='';
-        const values=numbers.length?numbers:[''];
-        if(values.length){
-          label.setAttribute('for',`${entry.id}-partnumber-0`);
-        }else{
-          label.removeAttribute('for');
-        }
-        values.forEach((value,index)=>{
-          const row=document.createElement('div');
-          row.className='sfe-partnumbers-row';
-          const input=document.createElement('input');
-          input.type='text';
-          input.className='sfe-input';
-          input.id=`${entry.id}-partnumber-${index}`;
-          input.value=value||'';
-          input.placeholder='Partnummer eingeben';
-          input.addEventListener('input',()=>{
-            this.updatePartNumber(entry.id,index,input.value);
-          });
-          input.addEventListener('blur',()=>{this.activeHistorySignature=null;});
-          row.appendChild(input);
-          if(values.length>1){
-            const removeBtn=document.createElement('button');
-            removeBtn.type='button';
-            removeBtn.className='sfe-partnumbers-remove';
-            removeBtn.setAttribute('aria-label',`Partnummer ${index+1} entfernen`);
-            removeBtn.textContent='–';
-            removeBtn.addEventListener('click',()=>{
-              this.removePartNumber(entry.id,index);
-              renderRows();
-            });
-            row.appendChild(removeBtn);
-          }
-          list.appendChild(row);
-        });
-      };
-
-      addBtn.addEventListener('click',()=>{
-        this.addPartNumber(entry.id);
-        renderRows();
-        const inputs=list.querySelectorAll('input');
-        if(inputs.length) inputs[inputs.length-1].focus();
+      label.setAttribute('for',`${entry.id}-partnumbers`);
+      field.appendChild(label);
+      const textarea=document.createElement('textarea');
+      textarea.className='sfe-textarea';
+      textarea.id=`${entry.id}-partnumbers`;
+      textarea.placeholder='Eine Partnummer pro Zeile eingeben';
+      textarea.value=this.ensurePartNumbers(entry).join('\n');
+      disableAutocomplete(textarea);
+      textarea.addEventListener('input',()=>{
+        this.updatePartNumbers(entry.id,textarea.value);
       });
-
-      renderRows();
+      textarea.addEventListener('blur',()=>{this.activeHistorySignature=null;});
+      field.appendChild(textarea);
       container.appendChild(field);
     }
 
@@ -1456,47 +1408,19 @@
       this.refreshViewAfterChange(entry,'partsPairs');
     }
 
-    updatePartNumber(id,index,value){
+    updatePartNumbers(id,value){
       const entry=this.data.find(item=>item.id===id);
       if(!entry) return;
       const numbers=this.ensurePartNumbers(entry);
-      const targetIndex=Math.max(0,Math.min(index,numbers.length?numbers.length-1:0));
-      const cleaned=value==null?'':cleanString(value);
-      if(numbers[targetIndex]===cleaned) return;
-      const signature=`${id}:partNumbers:${targetIndex}`;
+      const input=value==null?'':String(value);
+      const cleanedValues=input.split(/\r?\n/).map(line=>cleanString(line)).filter(Boolean);
+      if(arraysEqual(numbers,cleanedValues)) return;
+      const signature=`${id}:partNumbers`;
       if(this.activeHistorySignature!==signature){
         this.pushHistory();
         this.activeHistorySignature=signature;
       }
-      numbers[targetIndex]=cleaned;
-      entry.partNumbers=[...numbers];
-      if(this.sourceFormat==='object-by-pn') this.partById.set(entry.id,getPrimaryPartNumber(entry));
-      this.refreshViewAfterChange(entry,'partNumbers');
-    }
-
-    addPartNumber(id){
-      const entry=this.data.find(item=>item.id===id);
-      if(!entry) return;
-      const numbers=this.ensurePartNumbers(entry);
-      const next=[...numbers,''];
-      this.pushHistory();
-      this.activeHistorySignature=null;
-      entry.partNumbers=next;
-      if(this.sourceFormat==='object-by-pn') this.partById.set(entry.id,getPrimaryPartNumber(entry));
-      this.refreshViewAfterChange(entry,'partNumbers');
-    }
-
-    removePartNumber(id,index){
-      const entry=this.data.find(item=>item.id===id);
-      if(!entry) return;
-      const numbers=this.ensurePartNumbers(entry);
-      if(!numbers.length) return;
-      const next=[...numbers];
-      next.splice(index,1);
-      if(!next.length) next.push('');
-      this.pushHistory();
-      this.activeHistorySignature=null;
-      entry.partNumbers=next.map(value=>value==null?'':cleanString(value));
+      entry.partNumbers=cleanedValues;
       if(this.sourceFormat==='object-by-pn') this.partById.set(entry.id,getPrimaryPartNumber(entry));
       this.refreshViewAfterChange(entry,'partNumbers');
     }
