@@ -5,13 +5,167 @@
   const PATH_KEY='shopguide-findings-path';
   const GLOBAL_PATH_STORAGE_KEY='shopguide-findings-global-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
+  const BUNDLED_FINDINGS_DATA=[
+    {
+      id:'demo-entry',
+      partNumbers:['DEMO-001'],
+      label:'Demo-Eintrag',
+      findings:'Beispielbefund zur Demonstration des Editors.',
+      actions:'Erforderliche Maßnahme dokumentieren.',
+      routine:'Routinebeschreibung eintragen.',
+      nonroutine:'Besondere Hinweise für Nonroutine-Fälle ergänzen.',
+      parts:'Artikelnummern oder Bestellhinweise hier aufführen.'
+    }
+  ];
+  const BUNDLED_FINDINGS_JSON=JSON.stringify(BUNDLED_FINDINGS_DATA,null,2);
   const AUTOSAVE_INTERVAL=5000;
   const HISTORY_LIMIT=10;
   const STYLE_ID='sfe-styles';
   const GLOBAL_HANDLE_KEY='__shopguideFindingsFileHandle';
   const GLOBAL_PATH_VAR='__shopguideFindingsFilePath';
+  const IDB_DB_NAME='shopguide-findings-editor';
+  const IDB_STORE_NAME='handles';
+  const IDB_HANDLE_KEY='primary';
 
   const FIELD_KEYS=['label','findings','actions','routine','nonroutine','parts'];
+
+  function supportsIndexedDB(){
+    try{
+      return typeof indexedDB!=='undefined';
+    }catch(err){
+      return false;
+    }
+  }
+
+  async function openHandleDb(){
+    if(!supportsIndexedDB()) return null;
+    return new Promise((resolve,reject)=>{
+      const request=indexedDB.open(IDB_DB_NAME,1);
+      request.onupgradeneeded=()=>{
+        const db=request.result;
+        if(!db.objectStoreNames.contains(IDB_STORE_NAME)){
+          db.createObjectStore(IDB_STORE_NAME);
+        }
+      };
+      request.onsuccess=()=>{
+        const db=request.result;
+        db.onversionchange=()=>{
+          try{db.close();}catch(err){}
+        };
+        resolve(db);
+      };
+      request.onerror=()=>{
+        reject(request.error);
+      };
+    }).catch(err=>{
+      console.warn('IndexedDB konnte nicht geöffnet werden',err);
+      return null;
+    });
+  }
+
+  function finalizeTransaction(tx,db){
+    const cleanup=()=>{
+      try{db.close();}catch(err){}
+    };
+    tx.oncomplete=cleanup;
+    tx.onabort=cleanup;
+    tx.onerror=cleanup;
+  }
+
+  async function idbGetHandle(key){
+    try{
+      const db=await openHandleDb();
+      if(!db) return null;
+      return await new Promise((resolve,reject)=>{
+        const tx=db.transaction(IDB_STORE_NAME,'readonly');
+        finalizeTransaction(tx,db);
+        const store=tx.objectStore(IDB_STORE_NAME);
+        const request=store.get(key);
+        request.onsuccess=()=>resolve(request.result||null);
+        request.onerror=()=>reject(request.error);
+      });
+    }catch(err){
+      console.warn('Lesen aus IndexedDB fehlgeschlagen',err);
+      return null;
+    }
+  }
+
+  async function idbSetHandle(key,value){
+    try{
+      const db=await openHandleDb();
+      if(!db) return false;
+      return await new Promise((resolve,reject)=>{
+        const tx=db.transaction(IDB_STORE_NAME,'readwrite');
+        finalizeTransaction(tx,db);
+        const store=tx.objectStore(IDB_STORE_NAME);
+        const request=store.put(value,key);
+        request.onsuccess=()=>resolve(true);
+        request.onerror=()=>reject(request.error);
+      });
+    }catch(err){
+      console.warn('Schreiben in IndexedDB fehlgeschlagen',err);
+      return false;
+    }
+  }
+
+  async function idbDeleteHandle(key){
+    try{
+      const db=await openHandleDb();
+      if(!db) return false;
+      return await new Promise((resolve,reject)=>{
+        const tx=db.transaction(IDB_STORE_NAME,'readwrite');
+        finalizeTransaction(tx,db);
+        const store=tx.objectStore(IDB_STORE_NAME);
+        const request=store.delete(key);
+        request.onsuccess=()=>resolve(true);
+        request.onerror=()=>reject(request.error);
+      });
+    }catch(err){
+      console.warn('Löschen aus IndexedDB fehlgeschlagen',err);
+      return false;
+    }
+  }
+
+  async function loadPersistedHandle(){
+    return await idbGetHandle(IDB_HANDLE_KEY);
+  }
+
+  async function persistHandle(handle){
+    if(!handle){
+      await idbDeleteHandle(IDB_HANDLE_KEY);
+      return;
+    }
+    await idbSetHandle(IDB_HANDLE_KEY,handle);
+  }
+
+  async function clearPersistedHandle(){
+    await idbDeleteHandle(IDB_HANDLE_KEY);
+  }
+
+  async function ensurePermission(handle,mode,shouldRequest){
+    if(!handle) return false;
+    const queryFn=typeof handle.queryPermission==='function'?handle.queryPermission.bind(handle):null;
+    const requestFn=typeof handle.requestPermission==='function'?handle.requestPermission.bind(handle):null;
+    if(!queryFn) return true;
+    try{
+      const status=await queryFn({mode});
+      if(status==='granted') return true;
+      if(!shouldRequest||status==='denied'||!requestFn) return false;
+      const result=await requestFn({mode});
+      return result==='granted';
+    }catch(err){
+      console.warn('Berechtigungsprüfung fehlgeschlagen',err);
+      return false;
+    }
+  }
+
+  function ensureReadPermission(handle,shouldRequest=true){
+    return ensurePermission(handle,'read',shouldRequest);
+  }
+
+  function ensureReadWritePermission(handle,shouldRequest=true){
+    return ensurePermission(handle,'readwrite',shouldRequest);
+  }
   const PART_NUMBERS_LABEL='Partnummern';
   const PART_PAIR_COUNT=6;
   const FIELD_LABELS={
@@ -108,6 +262,24 @@
     if(value==null) return '';
     const text=String(value);
     return text.trim?text.trim():text;
+  }
+
+  function normalizeStoredPath(rawPath){
+    let cleaned=cleanString(rawPath);
+    if(!cleaned) return DEFAULT_FILE;
+    if(cleaned.startsWith('./')) cleaned=cleaned.slice(2);
+    if(/^file:/i.test(cleaned)) return DEFAULT_FILE;
+    if(/^[a-z]:[\\/]/i.test(cleaned)||cleaned.startsWith('\\\\')) return DEFAULT_FILE;
+    if(/^[a-z]+:\/\//i.test(cleaned)){
+      try{
+        const url=new URL(cleaned,window.location.href);
+        if(url.origin!==window.location.origin) return DEFAULT_FILE;
+        return url.pathname||DEFAULT_FILE;
+      }catch(err){
+        return DEFAULT_FILE;
+      }
+    }
+    return cleaned;
   }
 
   function disableAutocomplete(element){
@@ -515,7 +687,8 @@
       this.root=root;
       this.fileHandle=window[GLOBAL_HANDLE_KEY]||null;
       const storedPath=window[GLOBAL_PATH_VAR]||localStorage.getItem(GLOBAL_PATH_STORAGE_KEY)||localStorage.getItem(PATH_KEY)||DEFAULT_FILE;
-      this.filePath=storedPath||DEFAULT_FILE;
+      this.filePath=normalizeStoredPath(storedPath);
+      this.hasWriteAccess=false;
       this.data=[];
       this.filtered=[];
       this.selectedId=null;
@@ -644,6 +817,18 @@
       if(this.contextMenu) this.contextMenu.classList.remove('open');
     }
 
+    async detachHandle(){
+      this.fileHandle=null;
+      this.hasWriteAccess=false;
+      try{
+        window[GLOBAL_HANDLE_KEY]=null;
+      }catch(err){
+        /* ignore */
+      }
+      await clearPersistedHandle();
+      this.renderFileInfo();
+    }
+
     async chooseFile(){
       if(window.showOpenFilePicker){
         try{
@@ -656,13 +841,43 @@
             }]
           });
           if(handle){
+            let hasWrite=await ensureReadWritePermission(handle,true);
+            let hasRead=hasWrite;
+            if(!hasRead){
+              hasRead=await ensureReadPermission(handle,true);
+            }
+            if(!hasRead){
+              this.status('Zugriff verweigert');
+              this.showError('Datei konnte nicht geladen werden. Berechtigung erforderlich.');
+              this.renderFileInfo();
+              return;
+            }
             this.fileHandle=handle;
             window[GLOBAL_HANDLE_KEY]=handle;
-            const file=await handle.getFile();
-            this.filePath=file.name||DEFAULT_FILE;
+            this.hasWriteAccess=hasWrite;
+            try{
+              await persistHandle(handle);
+            }catch(err){
+              console.warn('Handle konnte nicht gespeichert werden',err);
+            }
+            try{
+              const file=await handle.getFile();
+              this.filePath=file.name||DEFAULT_FILE;
+            }catch(err){
+              this.filePath=handle.name||DEFAULT_FILE;
+            }
             this.updateStoredPath(this.filePath);
             const format=await this.loadFromHandle(handle);
-            this.status(format?`Format: ${format} erkannt – Datei geladen`:'Datei konnte nicht verarbeitet werden');
+            if(format){
+              const modeText=hasWrite?'Datei geladen':'Datei geladen (Lesemodus)';
+              this.status(`Format: ${format} erkannt – ${modeText}`);
+              if(!hasWrite){
+                this.showError('Schreibzugriff nicht erteilt. Speichern ist möglicherweise deaktiviert.');
+              }
+            }else{
+              this.status('Datei konnte nicht verarbeitet werden');
+            }
+            this.renderFileInfo();
             return;
           }
         }catch(err){
@@ -680,10 +895,9 @@
       input.addEventListener('change',async()=>{
         const file=input.files&&input.files[0];
         if(!file) return;
-        this.fileHandle=null;
-        window[GLOBAL_HANDLE_KEY]=null;
         this.filePath=file.name||DEFAULT_FILE;
         this.updateStoredPath(this.filePath);
+        await this.detachHandle();
         try{
           const text=await file.text();
           const format=this.applyExternalData(text);
@@ -692,20 +906,59 @@
           console.error(err);
           this.showError('Datei konnte nicht gelesen werden.');
         }
+        this.hasWriteAccess=false;
+        this.renderFileInfo();
       },{once:true});
       input.click();
     }
 
     async loadInitialData(){
+      await this.restoreStoredHandle();
       if(this.fileHandle){
         const text=await readFileHandle(this.fileHandle);
         if(text){
           const format=this.applyExternalData(text);
-          this.status(format?`Format: ${format} erkannt – Datei geladen`:'Datei konnte nicht verarbeitet werden');
+          if(format){
+            const modeText=this.hasWriteAccess?'Datei geladen':'Datei geladen (Lesemodus)';
+            this.status(`Format: ${format} erkannt – ${modeText}`);
+            if(!this.hasWriteAccess){
+              this.showError('Schreibzugriff nicht erteilt. Speichern ist möglicherweise deaktiviert.');
+            }
+          }else{
+            this.status('Datei konnte nicht verarbeitet werden');
+          }
           return;
         }
+        this.showError('Ausgewählte Datei konnte nicht gelesen werden.');
+        await this.detachHandle();
       }
       await this.loadFromPath(this.filePath||DEFAULT_FILE);
+    }
+
+    async restoreStoredHandle(){
+      if(this.fileHandle){
+        this.hasWriteAccess=await ensureReadWritePermission(this.fileHandle,false);
+        return true;
+      }
+      const storedHandle=await loadPersistedHandle();
+      if(!storedHandle) return false;
+      const canRead=await ensureReadPermission(storedHandle,false);
+      if(!canRead){
+        this.status('Berechtigung erforderlich');
+        this.showError('Bitte die Findings-Datei erneut auswählen, um Zugriff zu gewähren.');
+        await this.detachHandle();
+        return false;
+      }
+      this.fileHandle=storedHandle;
+      window[GLOBAL_HANDLE_KEY]=storedHandle;
+      this.hasWriteAccess=await ensureReadWritePermission(storedHandle,false);
+      const inferredName=storedHandle.name||this.filePath||DEFAULT_FILE;
+      if(inferredName){
+        this.filePath=normalizeStoredPath(inferredName);
+        this.updateStoredPath(this.filePath);
+      }
+      this.renderFileInfo();
+      return true;
     }
 
     async loadFromHandle(handle){
@@ -718,16 +971,32 @@
     }
 
     async loadFromPath(path){
-      const target=path||DEFAULT_FILE;
+      const target=normalizeStoredPath(path);
       try{
         const res=await fetch(target,{cache:'no-store'});
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
         const text=await res.text();
         this.filePath=target;
+        this.fileHandle=null;
+        try{
+          window[GLOBAL_HANDLE_KEY]=null;
+        }catch(err){
+          /* ignore */
+        }
+        this.hasWriteAccess=false;
         const format=this.applyExternalData(text);
         this.status(format?`Format: ${format} erkannt – Standarddatei geladen`:'Standarddatei konnte nicht verarbeitet werden');
+        this.renderFileInfo();
       }catch(err){
         console.warn('Konnte Datei nicht laden',err);
+        if(this.tryLoadBundledDefault(target)) return;
+        this.fileHandle=null;
+        try{
+          window[GLOBAL_HANDLE_KEY]=null;
+        }catch(err2){
+          /* ignore */
+        }
+        this.hasWriteAccess=false;
         this.data=[];
         this.filtered=[];
         this.renderList();
@@ -984,12 +1253,23 @@
       const externalData=this.buildExternalData();
       const payload=JSON.stringify(externalData, null, 2);
       if(this.fileHandle){
+        const hasWrite=await ensureReadWritePermission(this.fileHandle,true);
+        if(!hasWrite){
+          this.hasWriteAccess=false;
+          this.pendingSave=true;
+          this.status('Schreibberechtigung erforderlich');
+          this.showError('Speichern fehlgeschlagen: Schreibzugriff wurde nicht gewährt.');
+          this.renderFileInfo();
+          return;
+        }
         try{
           await writeFileHandle(this.fileHandle,payload);
           this.status(force?'Manuell gespeichert':'Automatisch gespeichert');
+          this.hasWriteAccess=true;
           this.dirty=false;
           this.pendingSave=false;
           this.showError('');
+          this.renderFileInfo();
         }catch(err){
           this.pendingSave=true;
           this.status('Fehler beim Speichern');
@@ -1003,7 +1283,7 @@
     }
 
     updateStoredPath(path){
-      const cleaned=cleanString(path);
+      const cleaned=normalizeStoredPath(path);
       if(!cleaned) return;
       try{
         localStorage.setItem(PATH_KEY,cleaned);
@@ -1016,6 +1296,21 @@
       }catch(err){
         /* Ignorieren, falls window schreibgeschützt ist */
       }
+    }
+
+    tryLoadBundledDefault(target){
+      if(target!==DEFAULT_FILE) return false;
+      if(!BUNDLED_FINDINGS_JSON) return false;
+      this.filePath=DEFAULT_FILE;
+      this.hasWriteAccess=false;
+      const format=this.applyExternalData(BUNDLED_FINDINGS_JSON);
+      if(format){
+        this.status(`Format: ${format} erkannt – eingebettete Standarddaten geladen`);
+        this.showError('');
+        this.renderFileInfo();
+        return true;
+      }
+      return false;
     }
 
     status(text){
@@ -1076,9 +1371,14 @@
 
     renderFileInfo(){
       if(!this.fileInfoEl) return;
-        const path=this.filePath||DEFAULT_FILE;
-        const mode=this.fileHandle?'Schreibzugriff aktiv':'Schreibzugriff nicht verfügbar';
-        const lines=[`Quelle: ${path}`,`Modus: ${mode}`,`Version: ${MODULE_VERSION}`];
+      const path=this.filePath||DEFAULT_FILE;
+      let mode;
+      if(this.fileHandle){
+        mode=this.hasWriteAccess?'Schreibzugriff aktiv':'Lesemodus (kein Schreibrecht)';
+      }else{
+        mode='Lesemodus';
+      }
+      const lines=[`Quelle: ${path}`,`Modus: ${mode}`,`Version: ${MODULE_VERSION}`];
       this.fileInfoEl.textContent=lines.join('\n');
     }
 
