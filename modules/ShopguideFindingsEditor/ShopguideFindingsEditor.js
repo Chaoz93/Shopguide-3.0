@@ -1,14 +1,15 @@
 (function(){
   'use strict';
 
-  const MODULE_VERSION='1.2.0';
-  const STORAGE_KEY='shopguide-findings';
+  const MODULE_VERSION='1.3.0';
   const PATH_KEY='shopguide-findings-path';
+  const GLOBAL_PATH_STORAGE_KEY='shopguide-findings-global-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
   const AUTOSAVE_INTERVAL=5000;
   const HISTORY_LIMIT=10;
   const STYLE_ID='sfe-styles';
   const GLOBAL_HANDLE_KEY='__shopguideFindingsFileHandle';
+  const GLOBAL_PATH_VAR='__shopguideFindingsFilePath';
 
   const FIELD_KEYS=['label','findings','actions','routine','nonroutine','parts'];
   const PART_NUMBERS_LABEL='Partnummern';
@@ -513,7 +514,8 @@
     constructor(root){
       this.root=root;
       this.fileHandle=window[GLOBAL_HANDLE_KEY]||null;
-      this.filePath=localStorage.getItem(PATH_KEY)||DEFAULT_FILE;
+      const storedPath=window[GLOBAL_PATH_VAR]||localStorage.getItem(GLOBAL_PATH_STORAGE_KEY)||localStorage.getItem(PATH_KEY)||DEFAULT_FILE;
+      this.filePath=storedPath||DEFAULT_FILE;
       this.data=[];
       this.filtered=[];
       this.selectedId=null;
@@ -542,6 +544,7 @@
       this.sourceFormat='array-flat';
       this.rawById=new Map();
       this.partById=new Map();
+      this.updateStoredPath(this.filePath);
       this.init();
     }
 
@@ -657,7 +660,7 @@
             window[GLOBAL_HANDLE_KEY]=handle;
             const file=await handle.getFile();
             this.filePath=file.name||DEFAULT_FILE;
-            localStorage.setItem(PATH_KEY,this.filePath);
+            this.updateStoredPath(this.filePath);
             const format=await this.loadFromHandle(handle);
             this.status(format?`Format: ${format} erkannt – Datei geladen`:'Datei konnte nicht verarbeitet werden');
             return;
@@ -680,7 +683,7 @@
         this.fileHandle=null;
         window[GLOBAL_HANDLE_KEY]=null;
         this.filePath=file.name||DEFAULT_FILE;
-        localStorage.setItem(PATH_KEY,this.filePath);
+        this.updateStoredPath(this.filePath);
         try{
           const text=await file.text();
           const format=this.applyExternalData(text);
@@ -694,12 +697,6 @@
     }
 
     async loadInitialData(){
-      const fromStorage=localStorage.getItem(STORAGE_KEY);
-      if(fromStorage){
-        const format=this.applyExternalData(fromStorage);
-        this.status(format?`Format: ${format} erkannt – Lokale Daten geladen`:'Lokale Daten konnten nicht verarbeitet werden');
-        return;
-      }
       if(this.fileHandle){
         const text=await readFileHandle(this.fileHandle);
         if(text){
@@ -868,8 +865,7 @@
         this.undoStack=[];
         this.redoStack=[];
         this.dirty=false;
-        if(this.filePath) localStorage.setItem(PATH_KEY,this.filePath);
-        this.saveLocal();
+        if(this.filePath) this.updateStoredPath(this.filePath);
         this.renderAll();
         this.showError('');
         return detectedFormat;
@@ -877,15 +873,6 @@
         console.error('Ungültige Daten',err);
         this.showError('Die Datei enthält kein gültiges Findings-Format.');
         return null;
-      }
-    }
-
-    saveLocal(){
-      try{
-        const payload=JSON.stringify(this.data, null, 2);
-        localStorage.setItem(STORAGE_KEY,payload);
-      }catch(err){
-        console.warn('Konnte lokale Daten nicht speichern',err);
       }
     }
 
@@ -996,7 +983,6 @@
       if(!this.dirty && !force) return;
       const externalData=this.buildExternalData();
       const payload=JSON.stringify(externalData, null, 2);
-      this.saveLocal();
       if(this.fileHandle){
         try{
           await writeFileHandle(this.fileHandle,payload);
@@ -1009,15 +995,26 @@
           this.status('Fehler beim Speichern');
           this.showError('Speichern in Datei fehlgeschlagen.');
         }
-      }else if(force){
-        this.status('Nur lokale Speicherung');
-        this.showError('Keine Datei gewählt – nur lokale Speicherung.');
-        this.dirty=false;
-        this.pendingSave=false;
       }else{
-        this.status('Auto-Save lokal');
-        this.dirty=false;
-        this.pendingSave=false;
+        this.pendingSave=true;
+        this.status('Keine Datei mit Schreibzugriff');
+        this.showError('Bitte eine JSON-Datei auswählen, um Änderungen zu speichern.');
+      }
+    }
+
+    updateStoredPath(path){
+      const cleaned=cleanString(path);
+      if(!cleaned) return;
+      try{
+        localStorage.setItem(PATH_KEY,cleaned);
+        localStorage.setItem(GLOBAL_PATH_STORAGE_KEY,cleaned);
+      }catch(err){
+        console.warn('Pfad konnte nicht in localStorage gespeichert werden',err);
+      }
+      try{
+        window[GLOBAL_PATH_VAR]=cleaned;
+      }catch(err){
+        /* Ignorieren, falls window schreibgeschützt ist */
       }
     }
 
@@ -1079,9 +1076,9 @@
 
     renderFileInfo(){
       if(!this.fileInfoEl) return;
-      const path=this.filePath||DEFAULT_FILE;
-      const mode=this.fileHandle?'Lese- & Schreibzugriff':'Nur lokale Speicherung';
-      const lines=[`Quelle: ${path}`,`Modus: ${mode}`,`Version: ${MODULE_VERSION}`];
+        const path=this.filePath||DEFAULT_FILE;
+        const mode=this.fileHandle?'Schreibzugriff aktiv':'Schreibzugriff nicht verfügbar';
+        const lines=[`Quelle: ${path}`,`Modus: ${mode}`,`Version: ${MODULE_VERSION}`];
       this.fileInfoEl.textContent=lines.join('\n');
     }
 
