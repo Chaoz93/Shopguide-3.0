@@ -5,6 +5,19 @@
   const PATH_KEY='shopguide-findings-path';
   const GLOBAL_PATH_STORAGE_KEY='shopguide-findings-global-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
+  const BUNDLED_FINDINGS_DATA=[
+    {
+      id:'demo-entry',
+      partNumbers:['DEMO-001'],
+      label:'Demo-Eintrag',
+      findings:'Beispielbefund zur Demonstration des Editors.',
+      actions:'Erforderliche Maßnahme dokumentieren.',
+      routine:'Routinebeschreibung eintragen.',
+      nonroutine:'Besondere Hinweise für Nonroutine-Fälle ergänzen.',
+      parts:'Artikelnummern oder Bestellhinweise hier aufführen.'
+    }
+  ];
+  const BUNDLED_FINDINGS_JSON=JSON.stringify(BUNDLED_FINDINGS_DATA,null,2);
   const AUTOSAVE_INTERVAL=5000;
   const HISTORY_LIMIT=10;
   const STYLE_ID='sfe-styles';
@@ -111,8 +124,9 @@
   }
 
   function normalizeStoredPath(rawPath){
-    const cleaned=cleanString(rawPath);
+    let cleaned=cleanString(rawPath);
     if(!cleaned) return DEFAULT_FILE;
+    if(cleaned.startsWith('./')) cleaned=cleaned.slice(2);
     if(/^file:/i.test(cleaned)) return DEFAULT_FILE;
     if(/^[a-z]:[\\/]/i.test(cleaned)||cleaned.startsWith('\\\\')) return DEFAULT_FILE;
     if(/^[a-z]+:\/\//i.test(cleaned)){
@@ -745,6 +759,7 @@
         this.status(format?`Format: ${format} erkannt – Standarddatei geladen`:'Standarddatei konnte nicht verarbeitet werden');
       }catch(err){
         console.warn('Konnte Datei nicht laden',err);
+        if(this.tryLoadBundledDefault(target)) return;
         this.data=[];
         this.filtered=[];
         this.renderList();
@@ -1033,6 +1048,19 @@
       }catch(err){
         /* Ignorieren, falls window schreibgeschützt ist */
       }
+    }
+
+    tryLoadBundledDefault(target){
+      if(target!==DEFAULT_FILE) return false;
+      if(!BUNDLED_FINDINGS_JSON) return false;
+      this.filePath=DEFAULT_FILE;
+      const format=this.applyExternalData(BUNDLED_FINDINGS_JSON);
+      if(format){
+        this.status(`Format: ${format} erkannt – eingebettete Standarddaten geladen`);
+        this.showError('');
+        return true;
+      }
+      return false;
     }
 
     status(text){
