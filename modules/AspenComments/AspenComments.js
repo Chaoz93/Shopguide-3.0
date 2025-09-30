@@ -26,6 +26,10 @@
     .dc-menu button{width:100%;display:flex;align-items:center;gap:.45rem;padding:.55rem .75rem;border:none;background:transparent;color:inherit;font:inherit;cursor:pointer;border-radius:.55rem;text-align:left;}
     .dc-menu button:hover{background:rgba(148,163,184,.18);}
     .dc-menu-sep{height:1px;margin:.25rem 0;background:rgba(148,163,184,.35);}
+    .dc-menu-section{padding:.35rem .45rem .5rem;display:flex;flex-direction:column;gap:.35rem;}
+    .dc-menu-section label{display:flex;flex-direction:column;gap:.35rem;font-size:.75rem;font-weight:600;opacity:.75;}
+    .dc-menu-select{width:100%;padding:.4rem .55rem;border-radius:.55rem;border:1px solid var(--border-color,#d1d5db);background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);font:inherit;}
+    .dc-menu-select:disabled{opacity:.6;cursor:not-allowed;}
   `;
 
   const XLSX_URLS=[
@@ -184,6 +188,14 @@
     const menu=document.createElement('div');
     menu.className='dc-menu';
     menu.innerHTML=`
+      <div class="dc-menu-section">
+        <label>Aspen-Auswahl
+          <select class="dc-menu-select" data-aspen-select>
+            <option value="">Automatisch (aktive Meldung)</option>
+          </select>
+        </label>
+      </div>
+      <div class="dc-menu-sep"></div>
       <button type="button" data-action="pick-comments">📂 Kommentar-Datei wählen</button>
       <button type="button" data-action="create-comments">🆕 Kommentar-Datei erstellen</button>
       <div class="dc-menu-sep"></div>
@@ -373,6 +385,10 @@
       activeSerial:'',
       lastGeneralPart:'',
       lastGeneralSerial:'',
+      manualAspenKey:'',
+      manualAspenEntry:null,
+      aspenOptions:[],
+      aspenSnapshot:'',
       noteTimer:null,
       writeTimer:null,
       updatingTextarea:false,
@@ -382,6 +398,9 @@
     const stored=loadLocalState(instanceId);
     if(stored){
       state.commentName=stored.commentFileName||'';
+      if(typeof stored.manualAspenKey==='string'){
+        state.manualAspenKey=stored.manualAspenKey;
+      }
       if(Array.isArray(stored.comments)){
         stored.comments.forEach(entry=>{
           const part=trim(entry?.part);
@@ -400,6 +419,7 @@
     function persistState(){
       const payload={
         commentFileName:state.commentName,
+        manualAspenKey:state.manualAspenKey||'',
         comments:Array.from(state.comments.values()).map(entry=>({
           part:entry.part||'',
           serial:entry.serial||'',
@@ -408,6 +428,134 @@
         }))
       };
       saveLocalState(instanceId,payload);
+    }
+
+    function encodeAspenKey(instanceId,meldung){
+      return `${instanceId||''}::${encodeURIComponent(meldung||'')}`;
+    }
+
+    function collectAspenOptions(shared){
+      const result=[];
+      const records=shared?.aspenRecords;
+      if(records instanceof Map){
+        for(const [instanceId,map] of records.entries()){
+          if(!(map instanceof Map)) continue;
+          for(const entry of map.values()){
+            if(!entry) continue;
+            const meldung=trim(entry.meldung||entry.Meldung||(entry.data?.Meldung)||(entry.data?.meldung)||'');
+            if(!meldung) continue;
+            const part=extractAspenPart(entry);
+            const serial=extractAspenSerial(entry);
+            const labelParts=[meldung];
+            if(part) labelParts.push(`PN ${part}`);
+            if(serial) labelParts.push(`SN ${serial}`);
+            const label=labelParts.join(' · ');
+            result.push({
+              key:encodeAspenKey(instanceId,meldung),
+              instanceId,
+              meldung,
+              part,
+              serial,
+              label,
+              entry
+            });
+          }
+        }
+      }
+      const seen=new Set();
+      const deduped=[];
+      for(const option of result){
+        if(seen.has(option.key)) continue;
+        seen.add(option.key);
+        deduped.push(option);
+      }
+      deduped.sort((a,b)=>a.meldung.localeCompare(b.meldung,'de',{numeric:true,sensitivity:'base'}));
+      return deduped;
+    }
+
+    function buildAspenSnapshot(shared){
+      const records=shared?.aspenRecords;
+      if(!(records instanceof Map) || records.size===0) return '';
+      const parts=[];
+      for(const [instanceId,map] of records.entries()){
+        if(!(map instanceof Map)){
+          parts.push(`${instanceId}:0`);
+          continue;
+        }
+        const keys=Array.from(map.keys()).slice(0,10).join(',');
+        parts.push(`${instanceId}:${map.size}:${keys}`);
+      }
+      return parts.sort().join('|');
+    }
+
+    function resolveManualAspenSelection(opts={}){
+      const {clearMissing=false} = opts;
+      if(!state.manualAspenKey){
+        state.manualAspenEntry=null;
+        return;
+      }
+      const options=Array.isArray(state.aspenOptions)?state.aspenOptions:[];
+      const found=options.find(option=>option.key===state.manualAspenKey);
+      if(found){
+        state.manualAspenEntry=found;
+      }else{
+        state.manualAspenEntry=null;
+        if(clearMissing){
+          state.manualAspenKey='';
+          persistState();
+        }
+      }
+    }
+
+    function updateAspenSelectOptions(){
+      const select=elements.menu?.querySelector('[data-aspen-select]');
+      if(!select) return;
+      const options=Array.isArray(state.aspenOptions)?state.aspenOptions:[];
+      const frag=document.createDocumentFragment();
+      const autoOption=document.createElement('option');
+      if(options.length===0 && !state.manualAspenKey){
+        autoOption.textContent='Keine Aspen-Daten verfügbar';
+        autoOption.value='';
+      }else{
+        const current=state.activeMeldung?`Automatisch (${state.activeMeldung})`:'Automatisch (keine Meldung)';
+        autoOption.textContent=current;
+        autoOption.value='';
+      }
+      frag.appendChild(autoOption);
+      options.forEach(option=>{
+        const opt=document.createElement('option');
+        opt.value=option.key;
+        opt.textContent=option.label;
+        frag.appendChild(opt);
+      });
+      let needsMissingOption=false;
+      if(state.manualAspenKey && !options.some(option=>option.key===state.manualAspenKey)){
+        needsMissingOption=true;
+        const missing=document.createElement('option');
+        missing.value=state.manualAspenKey;
+        missing.textContent='(Auswahl nicht verfügbar)';
+        frag.appendChild(missing);
+      }
+      select.replaceChildren(frag);
+      if(state.manualAspenKey && (needsMissingOption || options.some(option=>option.key===state.manualAspenKey))){
+        select.value=state.manualAspenKey;
+      }else{
+        select.value='';
+      }
+      select.disabled=options.length===0 && !state.manualAspenKey;
+    }
+
+    function ensureAspenOptions(){
+      const shared=window.__UNIT_BOARD_SHARED__;
+      const snapshot=buildAspenSnapshot(shared);
+      if(snapshot!==state.aspenSnapshot){
+        state.aspenSnapshot=snapshot;
+        state.aspenOptions=collectAspenOptions(shared);
+        resolveManualAspenSelection({clearMissing:false});
+        updateAspenSelectOptions();
+      }else if(state.manualAspenKey){
+        resolveManualAspenSelection({clearMissing:false});
+      }
     }
 
     function findAspenEntry(meldung){
@@ -509,24 +657,28 @@
       return '';
     }
 
-    function updateAspenStatus(entry){
+    function updateAspenStatus(entry,{manualSelection=false}={}){
       if(!elements.aspenLabel) return;
       let label='Keine Daten';
       if(entry){
-        label='Eintrag gefunden';
+        label=manualSelection?'Manuell ausgewählt':'Eintrag gefunden';
       }else{
-        try{
-          const shared=window.__UNIT_BOARD_SHARED__;
-          const records=shared?.aspenRecords;
-          if(records instanceof Map){
-            let total=0;
-            for(const map of records.values()){
-              if(map instanceof Map) total+=map.size;
+        if(manualSelection && state.manualAspenKey){
+          label='Auswahl nicht verfügbar';
+        }else{
+          try{
+            const shared=window.__UNIT_BOARD_SHARED__;
+            const records=shared?.aspenRecords;
+            if(records instanceof Map){
+              let total=0;
+              for(const map of records.values()){
+                if(map instanceof Map) total+=map.size;
+              }
+              label=total?`${total} Einträge`:'Verbunden';
             }
-            label=total?`${total} Einträge`:'Verbunden';
+          }catch(err){
+            console.warn('UnitComments: Aspen-Status konnte nicht gelesen werden',err);
           }
-        }catch(err){
-          console.warn('UnitComments: Aspen-Status konnte nicht gelesen werden',err);
         }
       }
       elements.aspenLabel.textContent=label;
@@ -536,20 +688,59 @@
       elements.commentsLabel.textContent=state.commentName?`• ${state.commentName}`:'Keine Datei';
     }
 
-    function refreshBaseNote(){
-      let message='';
-      let tone='';
-      if(!state.activeMeldung){
-        message='Keine aktive Meldung gefunden';
-      }else if(!(state.activePart||state.activeSerial)){
-        message='Keine PN/SN in Aspen für aktuelle Meldung';
-        tone='warn';
-      }else if(!state.commentHandle){
-        message='Rechtsklick → Kommentar-Datei wählen';
-        tone='warn';
-      }else{
-        message='Änderungen werden automatisch gespeichert';
+    function getActiveCommentEntry(){
+      if(!(state.activePart||state.activeSerial)) return null;
+      const key=makeKey(state.activePart,state.activeSerial);
+      if(!key || key==='||') return null;
+      return state.comments.get(key)||null;
+    }
+
+    function computeVisitNote(){
+      const entry=getActiveCommentEntry();
+      if(!entry) return null;
+      const stored=trim(entry.meldung||'');
+      const current=trim(state.activeMeldung||'');
+      if(stored && current && stored!==current){
+        return {message:`Hinweis: Unit war bereits mit Meldung ${stored} hier`,tone:'warn'};
       }
+      if(stored && !current){
+        return {message:`Hinweis: Kommentar von Meldung ${stored}`,tone:'warn'};
+      }
+      return null;
+    }
+
+    function refreshBaseNote(){
+      const notes=[];
+      let tone='';
+      if(state.commentHandle){
+        notes.push('Änderungen werden automatisch gespeichert');
+      }else{
+        notes.push('Rechtsklick → Kommentar-Datei wählen');
+        tone='warn';
+      }
+      if(!state.activeMeldung){
+        notes.push('Keine aktive Meldung gefunden');
+        tone=tone||'warn';
+      }else if(!(state.activePart||state.activeSerial)){
+        notes.push('Keine PN/SN in Aspen für aktuelle Meldung');
+        tone=tone||'warn';
+      }
+      if(state.manualAspenKey){
+        if(state.manualAspenEntry){
+          notes.push('Aspen-Eintrag manuell gewählt');
+          tone=tone||'warn';
+        }else{
+          notes.push('Ausgewählter Aspen-Eintrag nicht verfügbar');
+          tone='error';
+        }
+      }
+      const visitNote=computeVisitNote();
+      if(visitNote){
+        notes.push(visitNote.message);
+        if(visitNote.tone==='error') tone='error';
+        else if(tone!=='error') tone=visitNote.tone||tone;
+      }
+      const message=notes.filter(Boolean).join(' · ');
       state.baseNote={message,tone};
       applyNote(elements,message,tone);
     }
@@ -583,13 +774,23 @@
     }
 
     function updateUnitInfo(){
+      ensureAspenOptions();
       let entry=null;
-      if(state.activeMeldung){
+      let manualSelection=!!state.manualAspenKey;
+      if(state.manualAspenKey){
+        resolveManualAspenSelection({clearMissing:false});
+        if(state.manualAspenEntry){
+          entry=state.manualAspenEntry.entry;
+        }
+      }
+      if(!entry && state.activeMeldung){
         entry=findAspenEntry(state.activeMeldung);
       }
-      updateAspenStatus(entry);
-      let part=entry?extractAspenPart(entry):'';
-      let serial=entry?extractAspenSerial(entry):'';
+      updateAspenStatus(entry,{manualSelection});
+      let part=manualSelection&&state.manualAspenEntry?state.manualAspenEntry.part:'';
+      let serial=manualSelection&&state.manualAspenEntry?state.manualAspenEntry.serial:'';
+      if(!part && entry) part=extractAspenPart(entry);
+      if(!serial && entry) serial=extractAspenSerial(entry);
       const generalIds=readGeneralIdentifiers();
       if(!part&&generalIds.part){
         part=generalIds.part;
@@ -612,6 +813,7 @@
       if(changed||force){
         state.activeMeldung=current;
         elements.meldung.textContent=current||'—';
+        updateAspenSelectOptions();
       }
       updateUnitInfo();
     }
@@ -631,10 +833,11 @@
         }
         return;
       }
-      const entry=state.comments.get(key)||{part,serial,comment:'',meldung:state.activeMeldung||''};
+      const sourceMeldung=state.manualAspenEntry?.meldung||state.activeMeldung||'';
+      const entry=state.comments.get(key)||{part,serial,comment:'',meldung:sourceMeldung};
       entry.part=part;
       entry.serial=serial;
-      entry.meldung=state.activeMeldung||entry.meldung||'';
+      entry.meldung=sourceMeldung||entry.meldung||'';
       entry.comment=text;
       state.comments.set(key,entry);
       persistState();
@@ -667,6 +870,7 @@
         state.comments=map;
         persistState();
         updateTextareaState();
+        refreshBaseNote();
       }catch(err){
         console.warn('UnitComments: comments read failed',err);
         applyNote(elements,'Kommentare konnten nicht gelesen werden','error');
@@ -689,7 +893,6 @@
         persistState();
         try{await idbSet(handleKey,handle);}catch(err){console.warn('UnitComments: store comment handle failed',err);}
         await loadCommentsHandle(handle);
-        refreshBaseNote();
       }catch(err){
         if(err?.name==='AbortError') return;
         console.warn('UnitComments: comment file pick failed',err);
@@ -746,6 +949,7 @@
       persistState();
       updateTextareaState();
       scheduleWrite();
+      refreshBaseNote();
       flashNote('Kommentar gelöscht','success');
     }
 
@@ -754,6 +958,8 @@
     }
 
     function openMenu(x,y){
+      ensureAspenOptions();
+      updateAspenSelectOptions();
       elements.menu.classList.add('open');
       const rect=elements.menu.getBoundingClientRect();
       const pad=12;
@@ -773,6 +979,27 @@
       else if(action==='reload-comments') reloadComments();
       else if(action==='clear-comment') clearActiveComment();
     });
+
+    const aspenSelect=elements.menu.querySelector('[data-aspen-select]');
+    if(aspenSelect){
+      aspenSelect.addEventListener('change',()=>{
+        const value=aspenSelect.value;
+        if(value===state.manualAspenKey) return;
+        if(!value){
+          state.manualAspenKey='';
+          state.manualAspenEntry=null;
+          persistState();
+          updateUnitInfo();
+          updateAspenSelectOptions();
+          return;
+        }
+        state.manualAspenKey=value;
+        resolveManualAspenSelection({clearMissing:false});
+        persistState();
+        updateUnitInfo();
+        updateAspenSelectOptions();
+      });
+    }
 
     const handleContextMenu=event=>{
       event.preventDefault();
@@ -820,8 +1047,6 @@
 
     updateFileLabels();
     refreshActive(true);
-    updateTextareaState();
-    refreshBaseNote();
 
     persistState();
 
@@ -834,7 +1059,6 @@
           updateFileLabels();
           persistState();
           await loadCommentsHandle(handle);
-          refreshBaseNote();
         }
       }catch(err){
         console.warn('UnitComments: restore comment handle failed',err);
