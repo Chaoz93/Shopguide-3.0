@@ -13,6 +13,9 @@
   .rs-form::-webkit-scrollbar{width:0;height:0;display:none}
   .rs-actions{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;flex-wrap:wrap}
   .rs-inline-file{font-size:.85rem;opacity:.8;flex:1}
+  .rs-aspen-status{display:none;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;line-height:1;margin-left:.35rem;transition:background .2s,color .2s}
+  .rs-aspen-status.ok{display:inline-flex;background:rgba(16,185,129,.18);color:#10b981}
+  .rs-aspen-status.warn{display:inline-flex;background:rgba(234,179,8,.18);color:#ca8a04}
   .rs-aspen-refresh{margin-left:auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--module-border-color);background:rgba(255,255,255,.08);color:var(--text-color);cursor:pointer}
   .rs-aspen-refresh:hover{background:rgba(255,255,255,.12)}
   .rs-aspen-refresh:active{transform:scale(.96)}
@@ -154,6 +157,7 @@
         <div class="rs-form">
           <div class="rs-actions">
             <span class="rs-inline-file"></span>
+            <span class="rs-aspen-status" role="img" aria-live="polite"></span>
             <button type="button" class="rs-aspen-refresh" title="Aspen aktualisieren" aria-label="Aspen aktualisieren">↻</button>
           </div>
           <div class="rs-aspen-hint"></div>
@@ -214,6 +218,7 @@
       mClose:root.querySelector('.rs-close'),
       head:root.querySelector('.rs-head'),
       aspenInlineFile:root.querySelector('.rs-inline-file'),
+      aspenStatus:root.querySelector('.rs-aspen-status'),
       aspenRefresh:root.querySelector('.rs-aspen-refresh'),
       aspenHint:root.querySelector('.rs-aspen-hint'),
       mRulePick:root.querySelector('.rs-rule-pick'),
@@ -339,12 +344,35 @@
         els.aspenRefresh.setAttribute('aria-label',refreshLabel);
         els.aspenRefresh.title=refreshLabel;
       }
+      if(els.aspenStatus){
+        els.aspenStatus.classList.remove('ok','warn');
+        if(hasHandle){
+          els.aspenStatus.textContent='✓';
+          els.aspenStatus.classList.add('ok');
+          els.aspenStatus.style.display='inline-flex';
+          els.aspenStatus.title='Aspen-Autoabgleich aktiv.';
+          els.aspenStatus.setAttribute('aria-label','Aspen-Autoabgleich aktiv.');
+        }else if(hasFileName){
+          els.aspenStatus.textContent='!';
+          els.aspenStatus.classList.add('warn');
+          els.aspenStatus.style.display='inline-flex';
+          els.aspenStatus.title='Kein Zugriff – bitte neu verbinden.';
+          els.aspenStatus.setAttribute('aria-label','Kein Zugriff – bitte neu verbinden.');
+        }else{
+          els.aspenStatus.textContent='';
+          els.aspenStatus.style.display='none';
+          els.aspenStatus.removeAttribute('title');
+          els.aspenStatus.removeAttribute('aria-label');
+        }
+      }
       if(els.aspenHint){
-        els.aspenHint.textContent=hasHandle
-          ?'Aspen-Autoabgleich aktiv.'
-          :hasFileName
+        const hint=!hasHandle
+          ?hasFileName
             ?'Kein Zugriff – bitte neu verbinden.'
-            :'Aspen-Datei auswählen, um Daten zu laden.';
+            :'Aspen-Datei auswählen, um Daten zu laden.'
+          :'';
+        els.aspenHint.textContent=hint;
+        els.aspenHint.style.display=hint?'block':'none';
       }
       if(!hasHandle&&!hasFileName){
         setNote('');
