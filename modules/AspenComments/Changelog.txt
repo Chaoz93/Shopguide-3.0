@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.0] – 2025-10-02
+### Added
+- Kontextmenü mit Aktionen zum Auswählen, Erstellen, Neuladen und Löschen der Kommentar-Datei direkt im Modul.
+- Unterstützung zum Erstellen einer neuen Excel-Kommentarvorlage inklusive Speicherung des Datei-Handles in IndexedDB für spätere Sitzungen.
+- Automatische Aktualisierung der aktiven Meldung sowie PN/SN und Kommentare via Storage-/Event-Listener und periodischem Hintergrundabgleich.
+
 ## [1.1.4] – 2025-09-23
 ### Changed
 - Modulbreite auf Minimalwerte reduziert

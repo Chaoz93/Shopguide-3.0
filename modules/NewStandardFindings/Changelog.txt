@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.3.0] – 2025-10-02
+### Added
+- Routine-Editor mit Overlay, Tabs und Drag-and-Drop-Blöcken ermöglicht das Zusammenstellen von Findings-, Actions-, Routine- und Nonroutine-Textbausteinen inklusive Aspen-Vorschau und Mehrfachausgaben.
+- Preset-Verwaltung speichert eigene Layouts samt Favoriten für häufig verwendete Parameter lokal und macht sie zwischen Sitzungen verfügbar.
+- Hintergrundbeobachtung synchronisiert Inhalte automatisch, sobald Aspen-/Board-Daten, Findings-Datei oder Zustände in anderen Tabs aktualisiert werden.
+
 ## [1.2.5] – 2025-09-26
 ### Changed
 - Modulmanifest aktualisiert und die Version auf 1.2.5 erhöht.

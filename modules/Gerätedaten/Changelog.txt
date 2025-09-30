@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.0] – 2025-10-02
+### Added
+- Kopfzeile blendet automatisch den ermittelten Gerätenamen aus den Namensregeln ein und aktualisiert sich bei Änderungen am P/N-Feld.
+- Aspen-Verbindungsstatus wird nun direkt im Modul angezeigt, inklusive Hinweistext bei fehlenden Berechtigungen.
+- Storage- und Visibility-Watcher halten Werte aktuell, sobald Meldung oder Aspen-Daten im Hintergrund wechseln.
+
 ## [1.4.1] – 2025-10-01
 ### Fixed
 - Fehlerzustände werden nun direkt im Kopfbereich angezeigt, inklusive Debug-Hinweisen bei Problemen mit Dateiauswahl oder Berechtigungen.
