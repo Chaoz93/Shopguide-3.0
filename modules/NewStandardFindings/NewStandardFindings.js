@@ -18,7 +18,7 @@
   const ROUTINE_EDITOR_CUSTOM_PREFIX='custom:';
   const ROUTINE_EDITOR_PRESETS_KEY='nsf-routine-editor-presets';
   const ROUTINE_EDITOR_ACTIVE_PRESET_KEY='nsf-routine-editor-active';
-  const ROUTINE_EDITOR_BLOCKS=[
+  const ROUTINE_EDITOR_BASE_BLOCKS_ROUTINE=[
     {key:'prefix',label:'Prefix',defaultLabel:'Prefix',editable:true,persist:true,removable:true},
     {key:'findings',label:'Findings',defaultLabel:'Findings',editable:false,persist:false,removable:true},
     {key:'actions',label:'Actions',defaultLabel:'Actions',editable:false,persist:false,removable:true},
@@ -27,6 +27,40 @@
   const ROUTINE_EDITOR_LINE_BREAK_TOKEN='__nsf_line_break__';
   const ROUTINE_EDITOR_PARAMETER_FAVORITES_KEY='nsf-routine-parameter-favorites';
   const ROUTINE_EDITOR_ACTIVE_TAB_KEY='nsf-routine-editor-active-tab';
+  const ROUTINE_EDITOR_TAB_CONFIG={
+    routine:{
+      key:'routine',
+      baseBlocks:ROUTINE_EDITOR_BASE_BLOCKS_ROUTINE,
+      allowAspen:true,
+      allowParameters:true,
+      derivedBlocks:{findings:'findings',actions:'actions'},
+      previewEmpty:'Keine Routine-Daten vorhanden.'
+    },
+    findings:{
+      key:'findings',
+      baseBlocks:[{key:'findings',label:'Findings',defaultLabel:'Findings',editable:false,persist:false,removable:false}],
+      allowAspen:false,
+      allowParameters:true,
+      primaryTextarea:'findings',
+      previewEmpty:'Keine Findings-Daten vorhanden.'
+    },
+    actions:{
+      key:'actions',
+      baseBlocks:[{key:'actions',label:'Actions',defaultLabel:'Actions',editable:false,persist:false,removable:false}],
+      allowAspen:false,
+      allowParameters:true,
+      primaryTextarea:'actions',
+      previewEmpty:'Keine Actions-Daten vorhanden.'
+    },
+    nonroutine:{
+      key:'nonroutine',
+      baseBlocks:[{key:'nonroutine',label:'Nonroutine',defaultLabel:'Nonroutine',editable:false,persist:false,removable:false}],
+      allowAspen:false,
+      allowParameters:true,
+      primaryTextarea:'nonroutine',
+      previewEmpty:'Keine Nonroutine-Daten vorhanden.'
+    }
+  };
   const ROUTINE_EDITOR_PARAMETER_FIELDS=[
     {key:'label',label:'Titel',getter:entry=>entry.label||''},
     {key:'finding',label:'Finding',getter:entry=>entry.finding||''},
@@ -129,10 +163,26 @@
   let watchersInitialized=false;
   let ensureDataPromise=null;
   const lastValues={};
-  function createDefaultRoutineEditorState(){
-    const order=ROUTINE_EDITOR_BLOCKS.map(block=>block.key);
+
+  function getRoutineEditorTabKey(tabKey){
+    return ROUTINE_EDITOR_PREVIEW_TAB_KEYS.includes(tabKey)?tabKey:'routine';
+  }
+
+  function getRoutineEditorTabConfig(tabKey){
+    const key=getRoutineEditorTabKey(tabKey);
+    return ROUTINE_EDITOR_TAB_CONFIG[key]||ROUTINE_EDITOR_TAB_CONFIG.routine;
+  }
+
+  function getRoutineEditorBaseBlocksForTab(tabKey){
+    const config=getRoutineEditorTabConfig(tabKey);
+    return Array.isArray(config.baseBlocks)?config.baseBlocks:ROUTINE_EDITOR_BASE_BLOCKS_ROUTINE;
+  }
+
+  function createDefaultRoutineEditorTabState(tabKey){
+    const baseBlocks=getRoutineEditorBaseBlocksForTab(tabKey);
+    const order=baseBlocks.map(block=>block.key);
     const blocks={};
-    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+    baseBlocks.forEach(block=>{
       blocks[block.key]={
         lines:block.editable===false?[]:['']
       };
@@ -140,12 +190,21 @@
     return {order,blocks,customBlocks:[],blockMeta:{},hiddenBaseBlocks:[]};
   }
 
-  function normalizeRoutineEditorState(raw){
-    const base=createDefaultRoutineEditorState();
+  function createDefaultRoutineEditorState(){
+    const tabs={};
+    ROUTINE_EDITOR_PREVIEW_TAB_KEYS.forEach(key=>{
+      tabs[key]=createDefaultRoutineEditorTabState(key);
+    });
+    return {tabs};
+  }
+
+  function normalizeRoutineEditorTabState(raw,tabKey){
+    const base=createDefaultRoutineEditorTabState(tabKey);
     if(!raw||typeof raw!=='object') return base;
+    const baseBlocks=getRoutineEditorBaseBlocksForTab(tabKey);
     const rawOrder=Array.isArray(raw.order)?raw.order:[];
-    const allowedKeys=new Set(ROUTINE_EDITOR_BLOCKS.map(block=>block.key));
-    const removableBaseKeys=new Set(ROUTINE_EDITOR_BLOCKS.filter(block=>block.removable!==false).map(block=>block.key));
+    const allowedKeys=new Set(baseBlocks.map(block=>block.key));
+    const removableBaseKeys=new Set(baseBlocks.filter(block=>block.removable!==false).map(block=>block.key));
     const rawHiddenBase=Array.isArray(raw.hiddenBaseBlocks)?raw.hiddenBaseBlocks:[];
     const hiddenBaseBlocks=new Set();
     rawHiddenBase.forEach(key=>{
@@ -194,7 +253,7 @@
         if(!normalizedOrder.includes(key)) normalizedOrder.push(key);
       }
     });
-    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+    baseBlocks.forEach(block=>{
       if(hiddenBaseBlocks.has(block.key)) return;
       if(!normalizedOrder.includes(block.key)) normalizedOrder.push(block.key);
     });
@@ -205,7 +264,7 @@
     base.order=normalizedOrder;
     base.hiddenBaseBlocks=Array.from(hiddenBaseBlocks);
     const rawBlocks=raw.blocks&&typeof raw.blocks==='object'?raw.blocks:null;
-    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+    baseBlocks.forEach(block=>{
       const legacyEntry=raw[block.key];
       const entry=rawBlocks&&rawBlocks[block.key]?rawBlocks[block.key]:legacyEntry;
       const rawLines=Array.isArray(entry&&entry.lines)?entry.lines:Array.isArray(entry)?entry:[];
@@ -216,7 +275,7 @@
     });
     const rawBlockMeta=raw.blockMeta&&typeof raw.blockMeta==='object'?raw.blockMeta:{};
     const blockMeta={};
-    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+    baseBlocks.forEach(block=>{
       const metaEntry=rawBlockMeta[block.key];
       const label=typeof metaEntry==='string'
         ?sanitizeRoutineEditorLabel(metaEntry)
@@ -227,6 +286,66 @@
     });
     base.blockMeta=blockMeta;
     return base;
+  }
+
+  function normalizeRoutineEditorState(raw){
+    const normalized={tabs:{}};
+    if(raw&&typeof raw==='object'&&raw.tabs&&typeof raw.tabs==='object'){
+      ROUTINE_EDITOR_PREVIEW_TAB_KEYS.forEach(key=>{
+        normalized.tabs[key]=normalizeRoutineEditorTabState(raw.tabs[key],key);
+      });
+    }else{
+      normalized.tabs.routine=normalizeRoutineEditorTabState(raw,'routine');
+    }
+    ROUTINE_EDITOR_PREVIEW_TAB_KEYS.forEach(key=>{
+      if(!normalized.tabs[key]){
+        normalized.tabs[key]=createDefaultRoutineEditorTabState(key);
+      }
+    });
+    return normalized;
+  }
+
+  function serializeRoutineEditorTabState(state,tabKey){
+    const normalized=normalizeRoutineEditorTabState(state,tabKey);
+    const baseBlocks=getRoutineEditorBaseBlocksForTab(tabKey);
+    const payload={
+      order:Array.isArray(normalized.order)?normalized.order.slice():[],
+      blocks:{},
+      blockMeta:{},
+    };
+    baseBlocks.forEach(block=>{
+      const lines=normalized.blocks&&normalized.blocks[block.key]?normalized.blocks[block.key].lines:null;
+      const safeLines=Array.isArray(lines)?lines.map(value=>typeof value==='string'?value:''):[''];
+      payload.blocks[block.key]={lines:safeLines.length?safeLines:['']};
+      const meta=normalized.blockMeta&&normalized.blockMeta[block.key];
+      const label=meta&&meta.label?sanitizeRoutineEditorLabel(meta.label):'';
+      if(label){
+        payload.blockMeta[block.key]={label};
+      }
+    });
+    if(!Object.keys(payload.blockMeta).length){
+      delete payload.blockMeta;
+    }
+    const hiddenBase=Array.isArray(normalized.hiddenBaseBlocks)?normalized.hiddenBaseBlocks.filter(key=>baseBlocks.some(block=>block.key===key&&block.removable!==false)):[];
+    if(hiddenBase.length){
+      payload.hiddenBaseBlocks=hiddenBase;
+    }
+    payload.customBlocks=Array.isArray(normalized.customBlocks)?normalized.customBlocks.map(block=>{
+      const id=block&&typeof block.id==='string'?block.id:'';
+      if(!id) return null;
+      const lines=Array.isArray(block&&block.lines)?block.lines.map(value=>typeof value==='string'?value:''):[''];
+      const type=block&&block.type==='aspen'?'aspen':block&&block.type==='linebreak'?'linebreak':'text';
+      const normalizedLines=type==='linebreak'?['']:(lines.length?lines:['']);
+      return {
+        id,
+        type,
+        label:block&&block.label?sanitizeRoutineEditorLabel(block.label):'',
+        aspenField:block&&typeof block.aspenField==='string'?block.aspenField:'',
+        parameterKey:type==='text'&&block&&typeof block.parameterKey==='string'?block.parameterKey:'',
+        lines:normalizedLines
+      };
+    }).filter(Boolean):[];
+    return payload;
   }
 
   function loadRoutineEditorState(){
@@ -244,118 +363,27 @@
   function storeRoutineEditorState(state){
     try{
       const normalized=normalizeRoutineEditorState(state);
-      const payload={
-        order:Array.isArray(normalized.order)?normalized.order.slice():[],
-        blocks:{},
-        blockMeta:{}
-      };
-      ROUTINE_EDITOR_BLOCKS.forEach(block=>{
-        const lines=normalized.blocks&&normalized.blocks[block.key]?normalized.blocks[block.key].lines:null;
-        const safeLines=Array.isArray(lines)?lines.map(value=>typeof value==='string'?value:''):[''];
-        payload.blocks[block.key]={lines:safeLines.length?safeLines:['']};
-        const meta=normalized.blockMeta&&normalized.blockMeta[block.key];
-        const label=meta&&meta.label?sanitizeRoutineEditorLabel(meta.label):'';
-        if(label){
-          payload.blockMeta[block.key]={label};
-        }
+      const payload={tabs:{}};
+      ROUTINE_EDITOR_PREVIEW_TAB_KEYS.forEach(key=>{
+        payload.tabs[key]=serializeRoutineEditorTabState(normalized.tabs[key],key);
       });
-      if(!Object.keys(payload.blockMeta).length){
-        delete payload.blockMeta;
-      }
-      const hiddenBase=Array.isArray(normalized.hiddenBaseBlocks)?normalized.hiddenBaseBlocks.filter(key=>ROUTINE_EDITOR_BLOCKS.some(block=>block.key===key&&block.removable!==false)):[];
-      if(hiddenBase.length){
-        payload.hiddenBaseBlocks=hiddenBase;
-      }
-      payload.customBlocks=Array.isArray(normalized.customBlocks)?normalized.customBlocks.map(block=>{
-        const id=block&&typeof block.id==='string'?block.id:'';
-        if(!id) return null;
-        const lines=Array.isArray(block&&block.lines)?block.lines.map(value=>typeof value==='string'?value:''):[''];
-        const type=block&&block.type==='aspen'?'aspen':block&&block.type==='linebreak'?'linebreak':'text';
-        const normalizedLines=type==='linebreak'?['']:(lines.length?lines:['']);
-        return {
-          id,
-          type,
-          label:block&&block.label?sanitizeRoutineEditorLabel(block.label):'',
-          aspenField:block&&typeof block.aspenField==='string'?block.aspenField:'',
-          parameterKey:type==='text'&&block&&typeof block.parameterKey==='string'?block.parameterKey:'',
-          lines:normalizedLines
-        };
-      }).filter(Boolean):[];
       localStorage.setItem(ROUTINE_EDITOR_STORAGE_KEY,JSON.stringify(payload));
     }catch(err){
       console.warn('NSF: Routine-Editor konnte nicht gespeichert werden',err);
     }
   }
 
-  function loadRoutineEditorParameterFavorites(){
-    try{
-      const raw=localStorage.getItem(ROUTINE_EDITOR_PARAMETER_FAVORITES_KEY);
-      if(!raw) return [];
-      const parsed=JSON.parse(raw);
-      if(!Array.isArray(parsed)) return [];
-      return parsed.map(value=>typeof value==='string'?value.trim():'').filter(Boolean);
-    }catch(err){
-      console.warn('NSF: Parameter-Favoriten konnten nicht geladen werden',err);
-      return [];
-    }
-  }
-
-  function storeRoutineEditorParameterFavorites(favorites){
-    try{
-      const payload=Array.isArray(favorites)?favorites.map(value=>typeof value==='string'?value.trim():'').filter(Boolean):[];
-      if(payload.length){
-        localStorage.setItem(ROUTINE_EDITOR_PARAMETER_FAVORITES_KEY,JSON.stringify(payload));
-      }else{
-        localStorage.removeItem(ROUTINE_EDITOR_PARAMETER_FAVORITES_KEY);
-      }
-    }catch(err){
-      console.warn('NSF: Parameter-Favoriten konnten nicht gespeichert werden',err);
-    }
-  }
-
-  function loadRoutineEditorActiveTab(){
-    try{
-      const raw=localStorage.getItem(ROUTINE_EDITOR_ACTIVE_TAB_KEY);
-      if(!raw) return 'routine';
-      const key=String(raw);
-      return ROUTINE_EDITOR_PREVIEW_TAB_KEYS.includes(key)?key:'routine';
-    }catch(err){
-      console.warn('NSF: Vorschau-Tab konnte nicht geladen werden',err);
-      return 'routine';
-    }
-  }
-
-  function storeRoutineEditorActiveTab(key){
-    try{
-      if(ROUTINE_EDITOR_PREVIEW_TAB_KEYS.includes(key)){
-        localStorage.setItem(ROUTINE_EDITOR_ACTIVE_TAB_KEY,key);
-      }else{
-        localStorage.removeItem(ROUTINE_EDITOR_ACTIVE_TAB_KEY);
-      }
-    }catch(err){
-      console.warn('NSF: Vorschau-Tab konnte nicht gespeichert werden',err);
-    }
-  }
-
-  function sanitizePresetName(name){
-    if(typeof name!=='string') return '';
-    return name.trim().slice(0,80);
-  }
-
-  function createRoutinePresetId(){
-    return `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
-  }
-
-  function cloneRoutineEditorState(state){
-    const normalized=normalizeRoutineEditorState(state);
+  function cloneRoutineEditorTabState(state,tabKey){
+    const normalized=normalizeRoutineEditorTabState(state,tabKey);
     const clone={
       order:Array.isArray(normalized.order)?normalized.order.slice():[],
       blocks:{},
       customBlocks:[],
-      blockMeta:{}
+      blockMeta:{},
+      hiddenBaseBlocks:Array.isArray(normalized.hiddenBaseBlocks)?normalized.hiddenBaseBlocks.slice():[],
     };
-    clone.hiddenBaseBlocks=Array.isArray(normalized.hiddenBaseBlocks)?normalized.hiddenBaseBlocks.slice():[];
-    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+    const baseBlocks=getRoutineEditorBaseBlocksForTab(tabKey);
+    baseBlocks.forEach(block=>{
       const entry=normalized.blocks&&normalized.blocks[block.key];
       const lines=Array.isArray(entry&&entry.lines)?entry.lines:[];
       clone.blocks[block.key]={lines:lines.slice()};
@@ -377,6 +405,15 @@
         }
       });
     }
+    return clone;
+  }
+
+  function cloneRoutineEditorState(state){
+    const normalized=normalizeRoutineEditorState(state);
+    const clone={tabs:{}};
+    ROUTINE_EDITOR_PREVIEW_TAB_KEYS.forEach(key=>{
+      clone.tabs[key]=cloneRoutineEditorTabState(normalized.tabs[key],key);
+    });
     return clone;
   }
 
@@ -453,20 +490,13 @@
     if(!a||!b) return false;
     const stateA=cloneRoutineEditorState(a);
     const stateB=cloneRoutineEditorState(b);
-    const orderA=Array.isArray(stateA.order)?stateA.order:[];
-    const orderB=Array.isArray(stateB.order)?stateB.order:[];
-    if(orderA.length!==orderB.length) return false;
-    for(let i=0;i<orderA.length;i+=1){
-      if(orderA[i]!==orderB[i]) return false;
-    }
-    for(const block of ROUTINE_EDITOR_BLOCKS){
-      if(block.persist===false) continue;
-      const linesA=stateA.blocks&&stateA.blocks[block.key]&&Array.isArray(stateA.blocks[block.key].lines)?stateA.blocks[block.key].lines:[];
-      const linesB=stateB.blocks&&stateB.blocks[block.key]&&Array.isArray(stateB.blocks[block.key].lines)?stateB.blocks[block.key].lines:[];
-      if(linesA.length!==linesB.length) return false;
-      for(let idx=0;idx<linesA.length;idx+=1){
-        if(linesA[idx]!==linesB[idx]) return false;
-      }
+    for(const key of ROUTINE_EDITOR_PREVIEW_TAB_KEYS){
+      const tabA=stateA.tabs&&stateA.tabs[key];
+      const tabB=stateB.tabs&&stateB.tabs[key];
+      if(!tabA||!tabB) return false;
+      const serializedA=JSON.stringify(cloneRoutineEditorTabState(tabA,key));
+      const serializedB=JSON.stringify(cloneRoutineEditorTabState(tabB,key));
+      if(serializedA!==serializedB) return false;
     }
     return true;
   }
@@ -2292,6 +2322,8 @@
       this.routineEditorMenuCleanup=null;
       this.routineEditorContextHandler=null;
       this.routineEditorContextTarget=null;
+      this.routineEditorContextHandlers=new Map();
+      this.routineEditorMenuTabKey=null;
       this.routineEditorActiveTab=loadRoutineEditorActiveTab();
       this.routineEditorDerivedLines={findings:[],actions:[]};
       this.routineEditorDragState=null;
@@ -3455,9 +3487,32 @@
     ensureRoutineEditorState(){
       if(!this.routineEditorState||typeof this.routineEditorState!=='object'){
         this.routineEditorState=loadRoutineEditorState();
-      }else{
+      }
+      this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
+    }
+
+    getActiveRoutineEditorTab(){
+      return getRoutineEditorTabKey(this.routineEditorActiveTab);
+    }
+
+    getRoutineEditorTabState(tabKey=this.getActiveRoutineEditorTab()){
+      this.ensureRoutineEditorState();
+      const key=getRoutineEditorTabKey(tabKey);
+      if(!this.routineEditorState.tabs||typeof this.routineEditorState.tabs!=='object'){
         this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
       }
+      if(!this.routineEditorState.tabs[key]){
+        this.routineEditorState.tabs[key]=createDefaultRoutineEditorTabState(key);
+      }
+      return this.routineEditorState.tabs[key];
+    }
+
+    getRoutineEditorBaseBlocks(tabKey=this.getActiveRoutineEditorTab()){
+      return getRoutineEditorBaseBlocksForTab(tabKey);
+    }
+
+    getRoutineEditorTabConfig(tabKey=this.getActiveRoutineEditorTab()){
+      return getRoutineEditorTabConfig(tabKey);
     }
 
     ensureRoutineEditorPresets(forceReload){
@@ -3498,39 +3553,56 @@
     }
 
     setupRoutineEditorInteraction(){
-      const routineTextarea=this.textareas&&this.textareas.routine;
-      if(!routineTextarea) return;
-      if(this.routineEditorContextTarget&&this.routineEditorContextHandler){
-        this.routineEditorContextTarget.removeEventListener('contextmenu',this.routineEditorContextHandler);
+      if(!(this.routineEditorContextHandlers instanceof Map)){
+        this.routineEditorContextHandlers=new Map();
       }
-      const handler=event=>{
-        event.preventDefault();
-        this.openRoutineEditorMenu(event);
-      };
-      routineTextarea.addEventListener('contextmenu',handler);
-      this.routineEditorContextHandler=handler;
-      this.routineEditorContextTarget=routineTextarea;
+      this.routineEditorContextHandlers.forEach(({target,handler})=>{
+        if(target&&handler){
+          target.removeEventListener('contextmenu',handler);
+        }
+      });
+      this.routineEditorContextHandlers.clear();
+      ROUTINE_EDITOR_PREVIEW_TAB_KEYS.forEach(tabKey=>{
+        const textarea=this.textareas&&this.textareas[tabKey];
+        if(!textarea) return;
+        const handler=event=>{
+          event.preventDefault();
+          this.openRoutineEditorMenu(event,tabKey);
+        };
+        textarea.addEventListener('contextmenu',handler);
+        this.routineEditorContextHandlers.set(tabKey,{target:textarea,handler});
+      });
     }
 
     teardownRoutineEditorInteraction(){
       this.closeRoutineEditorMenu();
-      if(this.routineEditorContextTarget&&this.routineEditorContextHandler){
-        this.routineEditorContextTarget.removeEventListener('contextmenu',this.routineEditorContextHandler);
+      if(this.routineEditorContextHandlers instanceof Map){
+        this.routineEditorContextHandlers.forEach(({target,handler})=>{
+          if(target&&handler){
+            target.removeEventListener('contextmenu',handler);
+          }
+        });
+        this.routineEditorContextHandlers.clear();
       }
       this.routineEditorContextTarget=null;
       this.routineEditorContextHandler=null;
     }
 
-    openRoutineEditorMenu(event){
+    openRoutineEditorMenu(event,tabKey){
       this.closeRoutineEditorMenu();
+      const targetTab=getRoutineEditorTabKey(tabKey);
       const menu=document.createElement('div');
       menu.className='nsf-editor-menu';
       const editBtn=document.createElement('button');
       editBtn.type='button';
       editBtn.className='nsf-editor-menu-btn';
-      editBtn.textContent='Routine bearbeiten';
+      const tabDef=OUTPUT_DEFS.find(def=>def.key===targetTab)||OUTPUT_DEFS.find(def=>def.key==='routine');
+      const label=tabDef?tabDef.label:'Routine';
+      editBtn.textContent=`${label} bearbeiten`;
       editBtn.addEventListener('click',()=>{
+        const key=this.routineEditorMenuTabKey||targetTab;
         this.closeRoutineEditorMenu();
+        this.setRoutineEditorActiveTab(key);
         this.openRoutineEditorOverlay();
       });
       menu.appendChild(editBtn);
@@ -3558,6 +3630,7 @@
         window.removeEventListener('keydown',keyHandler,true);
       };
       this.routineEditorMenu=menu;
+      this.routineEditorMenuTabKey=targetTab;
     }
 
     closeRoutineEditorMenu(){
@@ -3569,6 +3642,7 @@
         this.routineEditorMenu.remove();
         this.routineEditorMenu=null;
       }
+      this.routineEditorMenuTabKey=null;
     }
 
     refreshRoutineEditorPresetUi(options={}){
@@ -3970,13 +4044,6 @@
       this.routineEditorBlocks={};
 
       this.renderRoutineEditorOverlayContent();
-      const order=this.routineEditorState&&Array.isArray(this.routineEditorState.order)&&this.routineEditorState.order.length?this.routineEditorState.order:ROUTINE_EDITOR_BLOCKS.map(block=>block.key);
-      order.forEach(key=>{
-        const def=ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
-        if(!def) return;
-        const block=this.createRoutineEditorBlock(def);
-        if(block) list.appendChild(block);
-      });
       const actions=document.createElement('div');
       actions.className='nsf-editor-actions';
       const saveButton=document.createElement('button');
@@ -4075,12 +4142,13 @@
     }
 
     getRoutineEditorOrder(){
-      this.ensureRoutineEditorState();
-      const allowedKeys=new Set(ROUTINE_EDITOR_BLOCKS.map(block=>block.key));
-      const customBlocks=Array.isArray(this.routineEditorState.customBlocks)?this.routineEditorState.customBlocks.slice():[];
+      const tabState=this.getRoutineEditorTabState();
+      const baseBlocks=this.getRoutineEditorBaseBlocks();
+      const allowedKeys=new Set(baseBlocks.map(block=>block.key));
+      const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
       const customKeys=new Set(customBlocks.map(block=>`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`));
-      const rawOrder=Array.isArray(this.routineEditorState.order)?this.routineEditorState.order:[];
-      const hiddenBaseArray=Array.isArray(this.routineEditorState.hiddenBaseBlocks)?this.routineEditorState.hiddenBaseBlocks:[];
+      const rawOrder=Array.isArray(tabState.order)?tabState.order:[];
+      const hiddenBaseArray=Array.isArray(tabState.hiddenBaseBlocks)?tabState.hiddenBaseBlocks:[];
       const hiddenBase=new Set(hiddenBaseArray.filter(key=>allowedKeys.has(key)));
       const normalized=[];
       rawOrder.forEach(key=>{
@@ -4094,7 +4162,7 @@
           if(!normalized.includes(key)) normalized.push(key);
         }
       });
-      ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+      baseBlocks.forEach(block=>{
         if(hiddenBase.has(block.key)) return;
         if(!normalized.includes(block.key)) normalized.push(block.key);
       });
@@ -4107,9 +4175,11 @@
 
     getRoutineEditorBlockDefinition(key,position=null,order=null){
       if(!key||typeof key!=='string') return null;
-      const base=ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
+      const tabState=this.getRoutineEditorTabState();
+      const baseBlocks=this.getRoutineEditorBaseBlocks();
+      const base=baseBlocks.find(block=>block.key===key);
       if(base){
-        const storedLabel=this.routineEditorState&&this.routineEditorState.blockMeta&&this.routineEditorState.blockMeta[base.key];
+        const storedLabel=tabState&&tabState.blockMeta&&tabState.blockMeta[base.key];
         const metaLabel=storedLabel&&storedLabel.label?sanitizeRoutineEditorLabel(storedLabel.label):'';
         const defaultLabel=base.defaultLabel||base.label||'';
         return {...base,label:metaLabel||defaultLabel,defaultLabel};
@@ -4117,7 +4187,7 @@
       if(key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)){
         const id=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
         if(!id) return null;
-        const customBlocks=Array.isArray(this.routineEditorState&&this.routineEditorState.customBlocks)?this.routineEditorState.customBlocks:[];
+        const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks:[];
         const entryIndex=customBlocks.findIndex(block=>block&&block.id===id);
         const entry=entryIndex>=0?customBlocks[entryIndex]:null;
         const customType=entry&&entry.type==='aspen'?'aspen':entry&&entry.type==='linebreak'?'linebreak':'text';
@@ -4198,49 +4268,57 @@
       linebreakOption.value='linebreak';
       linebreakOption.textContent='Zeilenumbruch';
       select.appendChild(linebreakOption);
-      const aspenOption=document.createElement('option');
-      aspenOption.value='aspen';
-      aspenOption.textContent='Aspendaten';
-      select.appendChild(aspenOption);
-      const parameterOptions=Array.isArray(this.routineEditorParameterOptions)?this.routineEditorParameterOptions:[];
-      const totalParameterCount=this.routineEditorParameterOptionMap instanceof Map?this.routineEditorParameterOptionMap.size:0;
-      if(parameterOptions.length){
-        const favoriteOptions=parameterOptions.filter(option=>option&&option.favorite);
-        const otherOptions=parameterOptions.filter(option=>option&&!option.favorite);
-        if(favoriteOptions.length){
-          const favGroup=document.createElement('optgroup');
-          favGroup.label='Favoriten';
-          favoriteOptions.forEach(option=>{
-            const opt=document.createElement('option');
-            opt.value=`param:${option.id}`;
-            opt.textContent=option.label;
-            favGroup.appendChild(opt);
-          });
-          select.appendChild(favGroup);
-        }
-        if(otherOptions.length){
+      const config=this.getRoutineEditorTabConfig();
+      const allowAspen=config&&config.allowAspen!==false;
+      if(allowAspen){
+        const aspenOption=document.createElement('option');
+        aspenOption.value='aspen';
+        aspenOption.textContent='Aspendaten';
+        select.appendChild(aspenOption);
+      }
+      const allowParameters=config&&config.allowParameters!==false;
+      if(allowParameters){
+        const parameterOptions=Array.isArray(this.routineEditorParameterOptions)?this.routineEditorParameterOptions:[];
+        const totalParameterCount=this.routineEditorParameterOptionMap instanceof Map?this.routineEditorParameterOptionMap.size:0;
+        if(parameterOptions.length){
+          const favoriteOptions=parameterOptions.filter(option=>option&&option.favorite);
+          const otherOptions=parameterOptions.filter(option=>option&&!option.favorite);
+          if(favoriteOptions.length){
+            const favGroup=document.createElement('optgroup');
+            favGroup.label='Favoriten';
+            favoriteOptions.forEach(option=>{
+              const opt=document.createElement('option');
+              opt.value=`param:${option.id}`;
+              opt.textContent=option.label;
+              favGroup.appendChild(opt);
+            });
+            select.appendChild(favGroup);
+          }
+          if(otherOptions.length){
+            const group=document.createElement('optgroup');
+            group.label='Shopguide-Parameter';
+            otherOptions.forEach(option=>{
+              const opt=document.createElement('option');
+              opt.value=`param:${option.id}`;
+              opt.textContent=option.label;
+              group.appendChild(opt);
+            });
+            select.appendChild(group);
+          }
+        }else if(this.routineEditorParameterFavoritesOnly&&totalParameterCount>0){
           const group=document.createElement('optgroup');
-          group.label='Shopguide-Parameter';
-          otherOptions.forEach(option=>{
-            const opt=document.createElement('option');
-            opt.value=`param:${option.id}`;
-            opt.textContent=option.label;
-            group.appendChild(opt);
-          });
+          group.label='Favoriten';
+          const opt=document.createElement('option');
+          opt.value='';
+          opt.disabled=true;
+          opt.textContent='Keine Favoriten verfügbar';
+          group.appendChild(opt);
           select.appendChild(group);
         }
-      }else if(this.routineEditorParameterFavoritesOnly&&totalParameterCount>0){
-        const group=document.createElement('optgroup');
-        group.label='Favoriten';
-        const opt=document.createElement('option');
-        opt.value='';
-        opt.disabled=true;
-        opt.textContent='Keine Favoriten verfügbar';
-        group.appendChild(opt);
-        select.appendChild(group);
       }
       const orderSet=new Set(Array.isArray(order)?order:[]);
-      ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+      const baseBlocks=this.getRoutineEditorBaseBlocks();
+      baseBlocks.forEach(block=>{
         if(block.removable===false) return;
         if(orderSet.has(block.key)) return;
         const baseOption=document.createElement('option');
@@ -4264,12 +4342,12 @@
         select.value='';
         placeholder.selected=true;
         if(!type) return;
-        if(type==='text'||type==='aspen'||type==='linebreak'){
+        if(type==='text'||type==='linebreak'||(type==='aspen'&&allowAspen)){
           this.addRoutineEditorCustomBlockAt(index,type);
         }else if(type.startsWith('base:')){
           const baseKey=type.slice(5);
           this.addRoutineEditorBaseBlockAt(index,baseKey);
-        }else if(type.startsWith('param:')){
+        }else if(type.startsWith('param:')&&allowParameters){
           const paramId=type.slice(6);
           const option=this.getRoutineEditorParameterOption(paramId);
           this.addRoutineEditorParameterBlockAt(index,option);
@@ -4280,13 +4358,16 @@
     }
 
     renderRoutineEditorOverlayContent(){
+    renderRoutineEditorOverlayContent(){
+    renderRoutineEditorOverlayContent(){
       if(!this.routineEditorList) return;
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
+      const tabState=this.getRoutineEditorTabState();
       const order=this.getRoutineEditorOrder();
-      this.routineEditorState.order=order.slice();
-      if(Array.isArray(this.routineEditorState.hiddenBaseBlocks)){
-        this.routineEditorState.hiddenBaseBlocks=this.routineEditorState.hiddenBaseBlocks.filter(key=>!order.includes(key));
+      tabState.order=order.slice();
+      if(Array.isArray(tabState.hiddenBaseBlocks)){
+        tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(key=>!order.includes(key));
       }
       this.routineEditorBlocks={};
       this.routineEditorList.innerHTML='';
@@ -4304,10 +4385,13 @@
     }
 
     addRoutineEditorCustomBlockAt(index,type='text',options={}){
-      this.ensureRoutineEditorState();
+      const tabState=this.getRoutineEditorTabState();
+      const config=this.getRoutineEditorTabConfig();
+      const allowAspen=config&&config.allowAspen!==false;
       const id=createCustomSectionId();
-      if(!Array.isArray(this.routineEditorState.customBlocks)) this.routineEditorState.customBlocks=[];
-      const blockType=type==='aspen'?'aspen':type==='linebreak'?'linebreak':'text';
+      if(!Array.isArray(tabState.customBlocks)) tabState.customBlocks=[];
+      const requestedType=typeof type==='string'?type:'';
+      const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
       const entry={
         id,
         type:blockType,
@@ -4338,11 +4422,11 @@
           entry.lines=presetLines;
         }
       }
-      this.routineEditorState.customBlocks.push(entry);
+      tabState.customBlocks.push(entry);
       const order=this.getRoutineEditorOrder();
       const clampedIndex=Math.max(0,Math.min(Number.isFinite(index)?index:order.length,order.length));
       order.splice(clampedIndex,0,`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`);
-      this.routineEditorState.order=order;
+      tabState.order=order;
       this.renderRoutineEditorOverlayContent();
       this.syncRoutineEditorStateFromDom();
       requestAnimationFrame(()=>{
@@ -4357,6 +4441,7 @@
       });
     }
 
+    addRoutineEditorParameterBlockAt(index,option){
     addRoutineEditorParameterBlockAt(index,option){
       if(!option) return;
       const valueText=typeof option.value==='string'?option.value:'';
@@ -4481,14 +4566,15 @@
 
     removeRoutineEditorBaseBlock(key){
       if(!key||typeof key!=='string') return;
-      const def=ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
+      const baseBlocks=this.getRoutineEditorBaseBlocks();
+      const def=baseBlocks.find(block=>block.key===key);
       if(!def||def.removable===false) return;
-      this.ensureRoutineEditorState();
+      const tabState=this.getRoutineEditorTabState();
       const order=this.getRoutineEditorOrder().filter(entry=>entry!==key);
-      this.routineEditorState.order=order;
-      if(!Array.isArray(this.routineEditorState.hiddenBaseBlocks)) this.routineEditorState.hiddenBaseBlocks=[];
-      if(!this.routineEditorState.hiddenBaseBlocks.includes(key)){
-        this.routineEditorState.hiddenBaseBlocks.push(key);
+      tabState.order=order;
+      if(!Array.isArray(tabState.hiddenBaseBlocks)) tabState.hiddenBaseBlocks=[];
+      if(!tabState.hiddenBaseBlocks.includes(key)){
+        tabState.hiddenBaseBlocks.push(key);
       }
       this.renderRoutineEditorOverlayContent();
       this.syncRoutineEditorStateFromDom();
@@ -4496,17 +4582,18 @@
 
     addRoutineEditorBaseBlockAt(index,key){
       if(!key||typeof key!=='string') return;
-      const def=ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
+      const baseBlocks=this.getRoutineEditorBaseBlocks();
+      const def=baseBlocks.find(block=>block.key===key);
       if(!def||def.removable===false) return;
-      this.ensureRoutineEditorState();
+      const tabState=this.getRoutineEditorTabState();
       const order=this.getRoutineEditorOrder().filter(entry=>entry!==key);
       const clampedIndex=Math.max(0,Math.min(Number.isFinite(index)?index:order.length,order.length));
       order.splice(clampedIndex,0,key);
-      this.routineEditorState.order=order;
-      if(Array.isArray(this.routineEditorState.hiddenBaseBlocks)){
-        this.routineEditorState.hiddenBaseBlocks=this.routineEditorState.hiddenBaseBlocks.filter(entry=>entry!==key);
+      tabState.order=order;
+      if(Array.isArray(tabState.hiddenBaseBlocks)){
+        tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(entry=>entry!==key);
       }else{
-        this.routineEditorState.hiddenBaseBlocks=[];
+        tabState.hiddenBaseBlocks=[];
       }
       this.renderRoutineEditorOverlayContent();
       this.syncRoutineEditorStateFromDom();
@@ -4522,11 +4609,36 @@
       const customKey=key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)?key:`${ROUTINE_EDITOR_CUSTOM_PREFIX}${key}`;
       const id=customKey.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
       if(!id) return;
-      this.ensureRoutineEditorState();
-      this.routineEditorState.customBlocks=(Array.isArray(this.routineEditorState.customBlocks)?this.routineEditorState.customBlocks:[]).filter(block=>block&&block.id!==id);
-      this.routineEditorState.order=this.getRoutineEditorOrder().filter(entry=>entry!==customKey);
+      const tabState=this.getRoutineEditorTabState();
+      tabState.customBlocks=(Array.isArray(tabState.customBlocks)?tabState.customBlocks:[]).filter(block=>block&&block.id!==id);
+      tabState.order=this.getRoutineEditorOrder().filter(entry=>entry!==customKey);
       this.renderRoutineEditorOverlayContent();
       this.syncRoutineEditorStateFromDom();
+    }
+
+    setRoutineEditorBlockLabel(key,label){
+      const tabState=this.getRoutineEditorTabState();
+      const sanitized=sanitizeRoutineEditorLabel(label);
+      if(key&&key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)){
+        const id=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
+        if(!id) return;
+        const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
+        const entry=customBlocks.find(block=>block&&block.id===id);
+        if(entry){
+          entry.label=sanitized;
+        }
+        return;
+      }
+      const baseBlocks=this.getRoutineEditorBaseBlocks();
+      const def=baseBlocks.find(block=>block.key===key);
+      if(!def) return;
+      const baseLabel=def.defaultLabel||def.label||'';
+      if(sanitized&&sanitized!==baseLabel){
+        if(!tabState.blockMeta||typeof tabState.blockMeta!=='object') tabState.blockMeta={};
+        tabState.blockMeta[key]={label:sanitized};
+      }else if(tabState.blockMeta&&typeof tabState.blockMeta==='object'){
+        delete tabState.blockMeta[key];
+      }
     }
 
     handleRoutineEditorRename(key){
@@ -4549,31 +4661,6 @@
         this.renderRoutineEditorOverlayContent();
       }
       this.syncRoutineEditorStateFromDom();
-    }
-
-    setRoutineEditorBlockLabel(key,label){
-      this.ensureRoutineEditorState();
-      const sanitized=sanitizeRoutineEditorLabel(label);
-      if(key&&key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)){
-        const id=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
-        if(!id) return;
-        const customBlocks=Array.isArray(this.routineEditorState.customBlocks)?this.routineEditorState.customBlocks:[];
-        const entry=customBlocks.find(block=>block&&block.id===id);
-        if(entry){
-          entry.label=sanitized;
-        }
-        return;
-      }
-      const def=ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
-      if(!def) return;
-      const baseLabel=def.defaultLabel||def.label||'';
-      if(sanitized&&sanitized!==baseLabel){
-        this.routineEditorState.blockMeta[key]={label:sanitized};
-      }else{
-        if(this.routineEditorState.blockMeta){
-          delete this.routineEditorState.blockMeta[key];
-        }
-      }
     }
 
     computeAspenFieldOptions(doc,repairOrder,boardInfo){
@@ -4670,13 +4757,13 @@
     }
 
     updateAspenBlocksFromDoc(){
-      this.ensureRoutineEditorState();
+      const tabState=this.getRoutineEditorTabState('routine');
       const options=this.getAspenFieldOptions();
       const validKeys=new Set(options.map(option=>option.key));
       if(clean(this.repairOrder||'')) validKeys.add('repairOrder');
       const defaultKey=this.getDefaultAspenFieldKey();
       let changed=false;
-      const customBlocks=Array.isArray(this.routineEditorState.customBlocks)?this.routineEditorState.customBlocks:[];
+      const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
       customBlocks.forEach(block=>{
         if(!block||block.type!=='aspen') return;
         if(!block.aspenField||!validKeys.has(block.aspenField)){
@@ -4699,11 +4786,11 @@
 
     handleAspenFieldSelection(key,value){
       const sanitized=typeof value==='string'?value:'';
-      this.ensureRoutineEditorState();
+      const tabState=this.getRoutineEditorTabState();
       const customKey=key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)?key:`${ROUTINE_EDITOR_CUSTOM_PREFIX}${key}`;
       const id=customKey.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
       if(!id) return;
-      const customBlocks=Array.isArray(this.routineEditorState.customBlocks)?this.routineEditorState.customBlocks:[];
+      const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
       const entry=customBlocks.find(block=>block&&block.id===id);
       if(entry){
         entry.aspenField=sanitized;
@@ -4809,19 +4896,31 @@
     }
 
     getRoutineEditorLinesForBlock(key,editable){
-      if(key==='findings'||key==='actions'){
+      const activeTab=this.getActiveRoutineEditorTab();
+      if(activeTab==='routine'&&(key==='findings'||key==='actions')){
         const derived=this.routineEditorDerivedLines&&Array.isArray(this.routineEditorDerivedLines[key])?this.routineEditorDerivedLines[key]:[];
         return derived.slice();
       }
       if(key&&key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)){
         const id=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
-        const customBlocks=Array.isArray(this.routineEditorState&&this.routineEditorState.customBlocks)?this.routineEditorState.customBlocks:[];
+        const tabState=this.getRoutineEditorTabState();
+        const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks:[];
         const entry=customBlocks.find(block=>block&&block.id===id);
         const lines=Array.isArray(entry&&entry.lines)?entry.lines:[];
         if(editable&&lines.length===0) return [''];
         return lines.slice();
       }
-      const entry=this.routineEditorState&&this.routineEditorState.blocks?this.routineEditorState.blocks[key]:null;
+      const config=this.getRoutineEditorTabConfig(activeTab);
+      if(config&&config.primaryTextarea===key){
+        const textarea=this.textareas&&this.textareas[key];
+        const value=textarea?textarea.value:'';
+        const segments=value.split(/
+?
+/);
+        return segments;
+      }
+      const tabState=this.getRoutineEditorTabState();
+      const entry=tabState&&tabState.blocks?tabState.blocks[key]:null;
       const lines=Array.isArray(entry&&entry.lines)?entry.lines:[];
       if(editable&&lines.length===0) return [''];
       return lines.slice();
@@ -4832,7 +4931,7 @@
       if(!info) return;
       const order=this.getRoutineEditorOrder();
       const position=order.indexOf(key);
-      const def=this.getRoutineEditorBlockDefinition(key,position,order)||info.definition||ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
+      const def=this.getRoutineEditorBlockDefinition(key,position,order)||info.definition;
       info.definition=def;
       if(info.aspenPicker&&typeof info.aspenPicker.destroy==='function'){
         info.aspenPicker.destroy();
@@ -5222,8 +5321,11 @@
 
     syncRoutineEditorStateFromDom(){
       if(!this.routineEditorBlocks||!this.routineEditorList) return;
-      const previousState=normalizeRoutineEditorState(this.routineEditorState);
-      const state=createDefaultRoutineEditorState();
+      const activeTab=this.getActiveRoutineEditorTab();
+      const previousState=cloneRoutineEditorTabState(this.getRoutineEditorTabState(activeTab),activeTab);
+      const baseBlocks=this.getRoutineEditorBaseBlocks(activeTab);
+      const allowedKeys=new Set(baseBlocks.map(block=>block.key));
+      const state=createDefaultRoutineEditorTabState(activeTab);
       state.hiddenBaseBlocks=Array.isArray(previousState.hiddenBaseBlocks)?previousState.hiddenBaseBlocks.slice():[];
       const orderNodes=Array.from(this.routineEditorList.children).filter(el=>el.classList&&el.classList.contains('nsf-editor-block'));
       const order=[];
@@ -5233,7 +5335,7 @@
       if(order.length) state.order=order;
       state.hiddenBaseBlocks=state.hiddenBaseBlocks.filter(key=>!order.includes(key));
       const customEntries=[];
-      ROUTINE_EDITOR_BLOCKS.forEach(def=>{
+      baseBlocks.forEach(def=>{
         const info=this.routineEditorBlocks[def.key];
         if(!info){
           const previousBlock=previousState.blocks&&previousState.blocks[def.key];
@@ -5261,6 +5363,9 @@
         const filtered=lines.filter((line,idx)=>line!==''||idx===0);
         state.blocks[def.key]={lines:filtered.length?filtered:['']};
       });
+      const tabState=this.getRoutineEditorTabState(activeTab);
+      const existingCustom=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
+      const orderKeys=new Set(order);
       order.forEach((key,index)=>{
         if(!key||!key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return;
         const info=this.routineEditorBlocks[key];
@@ -5276,16 +5381,14 @@
         const datasetLabel=element&&element.dataset?sanitizeRoutineEditorLabel(element.dataset.label||''):'';
         const datasetField=element&&element.dataset&&element.dataset.aspenField?element.dataset.aspenField:'';
         const datasetParameter=element&&element.dataset&&element.dataset.parameterKey?element.dataset.parameterKey:'';
-        const def=this.getRoutineEditorBlockDefinition(key,index,order);
-        const defaultLabel=def&&def.defaultLabel?def.defaultLabel:'';
-        const labelToStore=datasetLabel&&datasetLabel!==defaultLabel?datasetLabel:'';
+        const defaultDef=existingCustom.find(block=>block&&block.id===id) || previousState.customBlocks.find(block=>block&&block.id===id);
         if(datasetType==='aspen'){
-          const previous=previousState.customBlocks.find(block=>block&&block.id===id)||{lines:['']};
+          const previous=existingCustom.find(block=>block&&block.id===id)||previousState.customBlocks.find(block=>block&&block.id===id)||{lines:['']};
           const lines=Array.isArray(previous.lines)?previous.lines.slice():[''];
           customEntries.push({
             id,
             type:'aspen',
-            label:labelToStore,
+            label:datasetLabel,
             aspenField:datasetField,
             lines:lines.length?lines:['']
           });
@@ -5293,7 +5396,7 @@
           customEntries.push({
             id,
             type:'linebreak',
-            label:labelToStore,
+            label:datasetLabel,
             aspenField:'',
             lines:['']
           });
@@ -5304,7 +5407,7 @@
           customEntries.push({
             id,
             type:'text',
-            label:labelToStore,
+            label:datasetLabel,
             aspenField:'',
             parameterKey:datasetParameter,
             lines:filtered.length?filtered:['']
@@ -5312,12 +5415,17 @@
         }
       });
       state.customBlocks=customEntries;
-      this.routineEditorState=state;
-      storeRoutineEditorState(state);
+      if(!this.routineEditorState||typeof this.routineEditorState!=='object'){
+        this.routineEditorState=createDefaultRoutineEditorState();
+      }
+      if(!this.routineEditorState.tabs||typeof this.routineEditorState.tabs!=='object'){
+        this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
+      }
+      this.routineEditorState.tabs[activeTab]=state;
+      storeRoutineEditorState(this.routineEditorState);
       this.refreshRoutineEditorPreview();
       this.evaluateRoutineEditorPresetMatch();
     }
-
     refreshRoutineEditorDerivedLines(source){
       const computed=source||{};
       const findingsText=typeof computed.findings==='string'?computed.findings:(this.textareas&&this.textareas.findings?this.textareas.findings.value:'');
@@ -5340,17 +5448,8 @@
       const activeTab=this.routineEditorActiveTab&&ROUTINE_EDITOR_PREVIEW_TAB_KEYS.includes(this.routineEditorActiveTab)
         ?this.routineEditorActiveTab
         :'routine';
-      if(activeTab!=='routine'){
-        const textarea=this.textareas&&this.textareas[activeTab];
-        const value=textarea?textarea.value:'';
-        const hasContent=clean(value).length>0;
-        this.routineEditorPreviewContent.textContent=hasContent?value:'Keine Daten vorhanden.';
-        if(this.routineEditorPreviewPanel){
-          this.routineEditorPreviewPanel.classList.toggle('is-empty',!hasContent);
-        }
-        return;
-      }
-      this.ensureRoutineEditorState();
+      const config=this.getRoutineEditorTabConfig(activeTab);
+      const emptyMessage=config&&config.previewEmpty?config.previewEmpty:'Keine Daten vorhanden.';
       const order=this.getRoutineEditorOrder();
       const combined=[];
       order.forEach(key=>{
@@ -5367,7 +5466,7 @@
       const hasLineBreak=combined.some(line=>line==='');
       const previewText=combined.join('\n');
       const displayText=previewText||(hasLineBreak?'\n':'');
-      this.routineEditorPreviewContent.textContent=displayText||'Keine Routine-Daten vorhanden.';
+      this.routineEditorPreviewContent.textContent=displayText||emptyMessage;
       if(this.routineEditorPreviewPanel){
         this.routineEditorPreviewPanel.classList.toggle('is-empty',!previewText&&!hasLineBreak);
       }
@@ -5376,9 +5475,15 @@
     setRoutineEditorActiveTab(tabKey){
       const allowed=ROUTINE_EDITOR_PREVIEW_TAB_KEYS.includes(tabKey)?tabKey:'routine';
       if(this.routineEditorActiveTab===allowed) return;
+      if(this.routineEditorBlocks&&this.routineEditorList){
+        this.syncRoutineEditorStateFromDom();
+      }
       this.routineEditorActiveTab=allowed;
       storeRoutineEditorActiveTab(allowed);
       this.updateRoutineEditorPreviewTabs();
+      if(this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
+        this.renderRoutineEditorOverlayContent();
+      }
       this.refreshRoutineEditorPreview();
     }
 
@@ -5399,7 +5504,7 @@
     replaceRoutineEditorBlockLines(key,lines){
       const info=this.routineEditorBlocks&&this.routineEditorBlocks[key];
       if(!info) return;
-      const def=info.definition||ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
+      const def=info.definition||this.getRoutineEditorBlockDefinition(key);
       if(!def) return;
       const editable=def.editable!==false;
       const container=info.linesContainer;
@@ -5423,13 +5528,15 @@
     }
 
     collectRoutineEditorBlockLines(key){
-      if(key==='findings'||key==='actions'){
+      const activeTab=this.getActiveRoutineEditorTab();
+      if(activeTab==='routine'&&(key==='findings'||key==='actions')){
         const derived=this.routineEditorDerivedLines&&Array.isArray(this.routineEditorDerivedLines[key])?this.routineEditorDerivedLines[key]:[];
         return derived.map(line=>clean(line)).filter(Boolean);
       }
       if(key&&key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)){
         const id=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
-        const customBlocks=Array.isArray(this.routineEditorState&&this.routineEditorState.customBlocks)?this.routineEditorState.customBlocks:[];
+        const tabState=this.getRoutineEditorTabState();
+        const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks:[];
         const entry=customBlocks.find(block=>block&&block.id===id);
         if(entry&&entry.type==='linebreak'){
           return [ROUTINE_EDITOR_LINE_BREAK_TOKEN];
@@ -5447,13 +5554,24 @@
         });
         return values;
       }
-      const entry=this.routineEditorState&&this.routineEditorState.blocks?this.routineEditorState.blocks[key]:null;
+      const config=this.getRoutineEditorTabConfig(activeTab);
+      if(config&&config.primaryTextarea===key){
+        const textarea=this.textareas&&this.textareas[key];
+        const value=textarea?textarea.value:'';
+        const segments=value.split(/
+?
+/);
+        return segments.map(segment=>segment?segment:ROUTINE_EDITOR_LINE_BREAK_TOKEN);
+      }
+      const tabState=this.getRoutineEditorTabState();
+      const entry=tabState&&tabState.blocks?tabState.blocks[key]:null;
       const lines=Array.isArray(entry&&entry.lines)?entry.lines:[];
       return lines.map(line=>clean(line)).filter(Boolean);
     }
 
     handleRoutineEditorSave(){
       this.syncRoutineEditorStateFromDom();
+      const activeTab=this.getActiveRoutineEditorTab();
       const order=this.getRoutineEditorOrder();
       const combined=[];
       order.forEach(key=>{
@@ -5461,19 +5579,19 @@
         lines.forEach(line=>{
           if(line===ROUTINE_EDITOR_LINE_BREAK_TOKEN){
             combined.push('');
-          }else if(line){
-            combined.push(line);
+          }else if(typeof line==='string'&&line){
+            combined.push(clean(line));
           }
         });
       });
-      const routineText=combined.join('\n');
-      const textarea=this.textareas&&this.textareas.routine;
+      const finalText=combined.join('\n');
+      const textarea=this.textareas&&this.textareas[activeTab];
       if(textarea){
-        textarea.value=routineText;
+        textarea.value=finalText;
         autoResizeTextarea(textarea);
       }
       if(this.activeState&&typeof this.activeState==='object'){
-        this.activeState.routine=routineText;
+        this.activeState[activeTab]=finalText;
       }
       this.queueStateSave();
       this.closeRoutineEditorOverlay();
