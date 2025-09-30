@@ -7,7 +7,8 @@
   const STATE_KEY='sf-state';
   const STATE_KEY_SEPARATOR='::';
   const UNIT_BOARD_EVENT='unitBoard:update';
-  const DOC_KEY='module_data_v1';
+  const BOARD_DOC_KEY='module_data_v1';
+  const ASPEN_DOC_KEY='nsf-aspen-doc';
   const WATCH_INTERVAL=600;
   const SAVE_DEBOUNCE=250;
   const HISTORY_LIMIT=10;
@@ -45,6 +46,65 @@
 
   const OUTPUT_KEYS=OUTPUT_DEFS.map(def=>def.key);
   const CUSTOM_SLOT_COUNT=OUTPUT_DEFS.length+1;
+  const XLSX_URLS=[
+    'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.20.2/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.20.2/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.2/xlsx.full.min.js'
+  ];
+
+  let ensureXlsxPromise=null;
+
+  function loadScriptOnce(url){
+    return new Promise((resolve,reject)=>{
+      if(typeof document==='undefined'){reject(new Error('Kein Dokument'));return;}
+      const scripts=document.getElementsByTagName('script');
+      for(let i=0;i<scripts.length;i+=1){
+        const existing=scripts[i];
+        if(!existing) continue;
+        if(existing.dataset&&existing.dataset.nsfLoader===url){
+          const handleResolve=()=>resolve();
+          const handleReject=()=>reject(new Error('load '+url));
+          if(existing.dataset.nsfLoaded==='true'){resolve();return;}
+          existing.addEventListener('load',handleResolve,{once:true});
+          existing.addEventListener('error',handleReject,{once:true});
+          return;
+        }
+      }
+      const script=document.createElement('script');
+      script.src=url;
+      script.async=true;
+      if(script.dataset) script.dataset.nsfLoader=url;
+      script.addEventListener('load',()=>{
+        if(script.dataset) script.dataset.nsfLoaded='true';
+        resolve();
+      },{once:true});
+      script.addEventListener('error',()=>reject(new Error('load '+url)),{once:true});
+      document.head.appendChild(script);
+    });
+  }
+
+  async function ensureXlsx(){
+    if(typeof window==='undefined') throw new Error('Kein window');
+    if(window.XLSX) return;
+    if(ensureXlsxPromise) return ensureXlsxPromise;
+    ensureXlsxPromise=(async()=>{
+      let lastError;
+      for(const url of XLSX_URLS){
+        try{
+          await loadScriptOnce(url);
+          if(window.XLSX) return;
+        }catch(err){lastError=err;}
+      }
+      if(!window.XLSX) throw lastError||new Error('XLSX konnte nicht geladen werden');
+    })();
+    try{
+      await ensureXlsxPromise;
+    }catch(err){
+      ensureXlsxPromise=null;
+      throw err;
+    }
+  }
 
   const instances=new Set();
   let watchersInitialized=false;
@@ -332,6 +392,7 @@
       .nsf-header-toggle:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
       .nsf-header-summary{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
+      .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;}
       .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
       .nsf-selection-section.collapsed{overflow:hidden;}
       .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);cursor:pointer;}
@@ -424,7 +485,7 @@
       .nsf-custom-block.dragging{opacity:0.85;box-shadow:0 12px 28px rgba(15,23,42,0.45);}
       .nsf-custom-handle{align-self:flex-start;font-size:1.15rem;line-height:1;opacity:0.65;cursor:grab;user-select:none;}
       .nsf-custom-handle:active{cursor:grabbing;}
-      .nsf-custom-textarea{width:100%;border:none;border-radius:0.65rem;padding:0.6rem 0.75rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);resize:none;min-height:3.5rem;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.1);}
+      .nsf-custom-textarea{width:100%;border:none;border-radius:0.65rem;padding:0.6rem 0.75rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);resize:none;min-height:0;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.1);}
       .nsf-custom-textarea::placeholder{color:rgba(107,114,128,0.7);}
       .nsf-custom-remove{align-self:flex-end;background:rgba(248,113,113,0.25);border:none;border-radius:999px;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(248,113,113,0.95);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-custom-remove:hover{background:rgba(248,113,113,0.38);transform:scale(1.05);}
@@ -528,7 +589,7 @@
       .nsf-copy-btn.copied{background:rgba(16,185,129,0.35);}
       .nsf-copy-btn .nsf-copy-feedback{font-size:0.85rem;opacity:0;transition:opacity 0.15s ease;}
       .nsf-copy-btn.copied .nsf-copy-feedback{opacity:1;}
-      .nsf-textarea{flex:1;min-height:120px;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow:hidden;}
+      .nsf-textarea{flex:1;min-height:0;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow:hidden;}
       .nsf-textarea:disabled{opacity:0.6;background:rgba(255,255,255,0.5);cursor:not-allowed;}
       .nsf-note{font-size:0.8rem;opacity:0.75;}
       .nsf-alert{background:rgba(248,113,113,0.2);border-radius:0.75rem;padding:0.5rem 0.75rem;font-size:0.85rem;}
@@ -556,21 +617,24 @@
     if(watchersInitialized) return;
     watchersInitialized=true;
     const updateValue=(key)=>{lastValues[key]=localStorage.getItem(key);};
-    updateValue(DOC_KEY);
+    updateValue(BOARD_DOC_KEY);
+    updateValue(ASPEN_DOC_KEY);
     updateValue(DATA_KEY);
     updateValue(STATE_KEY);
     updateValue(FINDINGS_PATH_KEY);
     window.addEventListener('storage',e=>{
       if(!e) return;
-      if(e.key===DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
+      if(e.key===BOARD_DOC_KEY||e.key===ASPEN_DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
         lastValues[e.key]=localStorage.getItem(e.key);
         scheduleAll();
       }
     });
     window.addEventListener(UNIT_BOARD_EVENT,()=>scheduleAll());
     setInterval(()=>{
-      const doc=localStorage.getItem(DOC_KEY);
-      if(doc!==lastValues[DOC_KEY]){lastValues[DOC_KEY]=doc;scheduleAll();}
+      const boardDoc=localStorage.getItem(BOARD_DOC_KEY);
+      if(boardDoc!==lastValues[BOARD_DOC_KEY]){lastValues[BOARD_DOC_KEY]=boardDoc;scheduleAll();}
+      const aspenDoc=localStorage.getItem(ASPEN_DOC_KEY);
+      if(aspenDoc!==lastValues[ASPEN_DOC_KEY]){lastValues[ASPEN_DOC_KEY]=aspenDoc;scheduleAll();}
       const data=localStorage.getItem(DATA_KEY);
       if(data!==lastValues[DATA_KEY]){lastValues[DATA_KEY]=data;scheduleAll();}
       const state=localStorage.getItem(STATE_KEY);
@@ -921,6 +985,16 @@
     'serial','serialno','serialnumber','serial_nr','serialnr','serial_no','serial nr','serial no','serial number',
     'serial-number','serialnummer','seriennummer','seriennr','serien nr','serien-nummer','sn','s/n','snr'
   ];
+
+  const ASPEN_MELDUNG_FIELD_ALIASES=[
+    'Meldung','Meldungsnummer','Meldungsnr','Meldungs_No','MELDUNGS_NO','MELDUNG','MELDUNG_NO','Meldungs ID','Meldungs-ID',
+    'Meldungs Id','MeldungsCode','Meldungscode','Meldungs Code','Meldung Nr','MeldungsNr','Meldungsnummer',
+    'Notification','Notification No','Notification_No','Notification Number','NotificationNumber','NotificationNr',
+    'Notification_Id','NotificationId','Notification ID','Notif','Notif No','Notif_No','Notif Number','NotifNumber','NotifNr'
+  ];
+
+  const SERIAL_FIELD_KEYS=Array.from(new Set(SERIAL_FIELD_ALIASES.map(alias=>canonicalKey(alias)).filter(Boolean)));
+  const ASPEN_MELDUNG_FIELD_KEYS=Array.from(new Set(ASPEN_MELDUNG_FIELD_ALIASES.map(alias=>canonicalKey(alias)).filter(Boolean)));
 
   const FIELD_RECORD_KEY_PROPS=[
     'key','name','label','field','fieldkey','source','sourcekey','originalkey','identifier','id',
@@ -1405,14 +1479,14 @@
     return map;
   }
 
-  function parseDocument(){
+  function parseBoardDocument(){
     let docRaw='';
     let doc=null;
-    try{docRaw=localStorage.getItem(DOC_KEY)||'';}
+    try{docRaw=localStorage.getItem(BOARD_DOC_KEY)||'';}
     catch(err){console.warn('NSF: module_data_v1 konnte nicht gelesen werden',err);}
     if(docRaw){
       try{doc=JSON.parse(docRaw);}
-      catch(err){console.warn('NSF: Aspen-Daten konnten nicht geparst werden',err);doc=null;docRaw='';}
+      catch(err){console.warn('NSF: module_data_v1 konnte nicht geparst werden',err);doc=null;docRaw='';}
     }
     if(!doc||typeof doc!=='object') doc={};
     const general=doc&&typeof doc==='object'?doc.general||{}:{};
@@ -1446,30 +1520,6 @@
       const value=normalizePart(candidate);
       if(value){part=value;break;}
     }
-    const serialCandidates=[
-      general&&general.Serial,
-      general&&general.SerialNo,
-      general&&general.SerialNumber,
-      general&&general.SerialNr,
-      general&&general.SN,
-      general&&general.Snr,
-      general&&general.SNr,
-      general&&general.Seriennummer,
-      general&&general.SerienNr,
-      general&&general.Serien,
-      general&&general.SERIAL_NO,
-      general&&general['Serial No'],
-      general&&general['Serial_Number']
-    ];
-    let serial='';
-    for(const candidate of serialCandidates){
-      const value=clean(candidate);
-      if(value){serial=value;break;}
-    }
-    if(!serial){
-      const nestedSerial=clean(extractNestedField(general,SERIAL_FIELD_ALIASES));
-      if(nestedSerial) serial=nestedSerial;
-    }
     const repairOrderCandidates=[
       general&&general.RepairOrder,
       general&&general.repairOrder,
@@ -1488,7 +1538,43 @@
       if(value){repairOrder=value;break;}
     }
     const hasDoc=!!docRaw;
-    return {docRaw,meldung,part,serial,repairOrder,hasDoc,doc};
+    return {docRaw,meldung,part,repairOrder,hasDoc,doc};
+  }
+
+  function parseAspenDocument(){
+    let docRaw='';
+    let doc=null;
+    try{docRaw=localStorage.getItem(ASPEN_DOC_KEY)||'';}
+    catch(err){console.warn('NSF: nsf-aspen-doc konnte nicht gelesen werden',err);}
+    if(docRaw){
+      try{doc=JSON.parse(docRaw);}
+      catch(err){console.warn('NSF: Aspen-Daten konnten nicht geparst werden',err);doc=null;docRaw='';}
+    }
+    if(!doc||typeof doc!=='object') doc=null;
+    const general=doc&&typeof doc==='object'&&!Array.isArray(doc)?doc.general||{}:{};
+    const partCandidates=[
+      general&&general.PartNo,
+      general&&general.PartNumber,
+      general&&general.Part,
+      general&&general.PN,
+      general&&general.Material,
+      general&&general.MaterialNr,
+      general&&general.Materialnummer,
+      general&&general.MaterialNo,
+      general&&general.Artikel,
+      general&&general.Artikelnummer,
+      general&&general.Part_No,
+      general&&general.PART_NO,
+      general&&general['Part No'],
+      general&&general['Part_Number']
+    ];
+    let part='';
+    for(const candidate of partCandidates){
+      const value=normalizePart(candidate);
+      if(value){part=value;break;}
+    }
+    const hasDoc=!!docRaw;
+    return {docRaw,doc,hasDoc,general,part};
   }
 
   function loadAspenBoardState(){
@@ -1593,6 +1679,92 @@
     return '';
   }
 
+  function findSerialForMeldung(doc,meldung){
+    const lookupTarget=clean(meldung);
+    const normalizedTarget=lookupTarget.toLowerCase();
+    if(!doc||typeof doc!=='object'){
+      return {serial:'',reason:'Keine Aspen-Datei geladen',lookup:lookupTarget};
+    }
+    if(!normalizedTarget){
+      return {serial:'',reason:'Keine Meldung ausgewählt',lookup:lookupTarget};
+    }
+    const visited=new Set();
+    let foundMeldung=false;
+    let foundMeldungWithoutSerial=false;
+
+    const extractFromNode=(node,aliasKeys,map)=>{
+      if(!node||typeof node!=='object') return '';
+      const fieldMap=map&&typeof map==='object'?map:buildFieldMap(node);
+      for(const key of aliasKeys){
+        if(Object.prototype.hasOwnProperty.call(fieldMap,key)){
+          const text=valueToText(fieldMap[key]);
+          const cleaned=clean(text);
+          if(cleaned) return cleaned;
+        }
+      }
+      for(const [rawKey,rawValue] of Object.entries(node)){
+        if(rawValue==null) continue;
+        const canonical=canonicalKey(rawKey);
+        if(!canonical) continue;
+        for(const alias of aliasKeys){
+          if(!alias) continue;
+          if(canonical===alias||canonical.includes(alias)){
+            const cleaned=valueToText(rawValue);
+            if(cleaned) return clean(cleaned);
+          }
+        }
+      }
+      for(const key of aliasKeys){
+        const recordValue=matchRecordByAlias(fieldMap,key);
+        const cleaned=clean(recordValue);
+        if(cleaned) return cleaned;
+      }
+      return '';
+    };
+
+    const search=node=>{
+      if(!node||typeof node!=='object') return '';
+      if(visited.has(node)) return '';
+      visited.add(node);
+      if(Array.isArray(node)){
+        for(const item of node){
+          const result=search(item);
+          if(result) return result;
+        }
+        return '';
+      }
+      const map=buildFieldMap(node);
+      for(const value of Object.values(node)){
+        if(value&&typeof value==='object'){
+          const nested=search(value);
+          if(nested) return nested;
+        }
+      }
+      const meldungValue=extractFromNode(node,ASPEN_MELDUNG_FIELD_KEYS,map);
+      if(meldungValue&&clean(meldungValue).toLowerCase()===normalizedTarget){
+        foundMeldung=true;
+        let serialValue=extractFromNode(node,SERIAL_FIELD_KEYS,map);
+        if(!serialValue){
+          serialValue=clean(extractNestedField(node,SERIAL_FIELD_ALIASES));
+        }
+        if(serialValue){
+          return clean(serialValue);
+        }
+        foundMeldungWithoutSerial=true;
+      }
+      return '';
+    };
+
+    const serial=clean(search(doc));
+    if(serial){
+      return {serial,reason:'Seriennummer aus Aspen übernommen',lookup:lookupTarget};
+    }
+    if(foundMeldungWithoutSerial){
+      return {serial:'',reason:'Meldung gefunden, aber ohne Seriennummer',lookup:lookupTarget};
+    }
+    return {serial:'',reason:'Meldung in Aspen-Datei nicht gefunden',lookup:lookupTarget};
+  }
+
   function detectDelimiter(line){
     if(line.includes(';')) return ';';
     if(line.includes('\t')) return '\t';
@@ -1621,6 +1793,30 @@
     return result.map(val=>clean(val));
   }
 
+  function buildAspenDataset(headers,dataRows){
+    const normalizedHeaders=Array.isArray(headers)
+      ? headers.map(header=>clean(header))
+      : [];
+    if(!normalizedHeaders.some(Boolean)) return null;
+    const records=[];
+    if(Array.isArray(dataRows)){
+      dataRows.forEach(row=>{
+        if(!Array.isArray(row)) return;
+        const record={};
+        let hasValue=false;
+        normalizedHeaders.forEach((header,idx)=>{
+          if(!header) return;
+          const value=clean(row[idx]);
+          if(value) hasValue=true;
+          record[header]=value;
+        });
+        if(Object.keys(record).length&&hasValue) records.push(record);
+      });
+    }
+    if(!records.length) return null;
+    return {general:{...records[0]},rows:records};
+  }
+
   function parseAspenCsv(text){
     const trimmed=(text||'').trim();
     if(!trimmed) return null;
@@ -1629,19 +1825,50 @@
     const delimiter=detectDelimiter(lines[0]);
     const headers=splitCsvLine(lines[0],delimiter);
     if(!headers.length) return null;
-    let valuesLine='';
+    const rowValues=[];
     for(let i=1;i<lines.length;i+=1){
-      if(lines[i]){valuesLine=lines[i];break;}
+      const line=lines[i];
+      if(!line) continue;
+      rowValues.push(splitCsvLine(line,delimiter));
     }
-    const values=valuesLine?splitCsvLine(valuesLine,delimiter):[];
-    const general={};
-    headers.forEach((header,idx)=>{
-      const key=clean(header);
-      if(!key) return;
-      general[key]=clean(values[idx]||'');
-    });
-    if(!Object.keys(general).length) return null;
-    return {general};
+    return buildAspenDataset(headers,rowValues);
+  }
+
+  async function parseAspenXlsx(file){
+    if(!file) return null;
+    try{await ensureXlsx();}
+    catch(err){console.warn('NSF: XLSX konnte nicht geladen werden',err);return null;}
+    let buffer;
+    try{buffer=await file.arrayBuffer();}
+    catch(err){console.warn('NSF: Aspen-XLSX konnte nicht gelesen werden',err);return null;}
+    if(!buffer||!buffer.byteLength) return null;
+    let workbook;
+    try{workbook=XLSX.read(buffer,{type:'array'});}
+    catch(err){console.warn('NSF: Aspen-XLSX konnte nicht geparst werden',err);return null;}
+    const sheetNames=Array.isArray(workbook?.SheetNames)?workbook.SheetNames:[];
+    for(const name of sheetNames){
+      if(!name) continue;
+      const sheet=workbook.Sheets?.[name];
+      if(!sheet) continue;
+      let rows;
+      try{rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});}
+      catch(err){console.warn('NSF: Aspen-XLSX konnte nicht gelesen werden',err);continue;}
+      if(!Array.isArray(rows)||!rows.length) continue;
+      let headerIndex=-1;
+      for(let i=0;i<rows.length;i+=1){
+        const candidate=rows[i];
+        if(Array.isArray(candidate)&&candidate.some(cell=>clean(cell))){
+          headerIndex=i;
+          break;
+        }
+      }
+      if(headerIndex<0) continue;
+      const headerRow=rows[headerIndex];
+      const dataRows=rows.slice(headerIndex+1);
+      const dataset=buildAspenDataset(headerRow,dataRows);
+      if(dataset) return dataset;
+    }
+    return null;
   }
 
   function loadGlobalState(){
@@ -1715,6 +1942,20 @@
       id:typeof section?.id==='string'?section.id:'',
       text:typeof section?.text==='string'?section.text:'',
       slot:Number.isFinite(section?.slot)?section.slot:0
+    };
+  }
+
+  function cloneActiveState(state){
+    if(!state||typeof state!=='object') return createEmptyActiveState();
+    return {
+      findings:typeof state.findings==='string'?state.findings:'',
+      actions:typeof state.actions==='string'?state.actions:'',
+      routine:typeof state.routine==='string'?state.routine:'',
+      nonroutine:typeof state.nonroutine==='string'?state.nonroutine:'',
+      parts:typeof state.parts==='string'?state.parts:'',
+      customSections:Array.isArray(state.customSections)
+        ?state.customSections.map(cloneCustomSection)
+        :[]
     };
   }
 
@@ -1886,7 +2127,17 @@
     if(!(textarea instanceof HTMLTextAreaElement)) return;
     textarea.style.height='auto';
     const computed=window.getComputedStyle(textarea);
-    const minHeight=parseFloat(computed.minHeight)||0;
+    const lineHeight=parseFloat(computed.lineHeight)||16;
+    const paddingTop=parseFloat(computed.paddingTop)||0;
+    const paddingBottom=parseFloat(computed.paddingBottom)||0;
+    const borderTop=parseFloat(computed.borderTopWidth)||0;
+    const borderBottom=parseFloat(computed.borderBottomWidth)||0;
+    const minRowsValue=Number(textarea.dataset?.minRows);
+    const minRows=Number.isFinite(minRowsValue)?minRowsValue:0;
+    const rawValue=typeof textarea.value==='string'?textarea.value:'';
+    const lineCount=Math.max(rawValue.split('\n').length,minRows||1);
+    const baseHeight=lineCount*lineHeight+paddingTop+paddingBottom+borderTop+borderBottom;
+    const minHeight=Math.max(parseFloat(computed.minHeight)||0,baseHeight);
     const nextHeight=Math.max(textarea.scrollHeight,minHeight);
     textarea.style.height=`${nextHeight}px`;
   }
@@ -1948,6 +2199,8 @@
       this.partSource='';
       this.meldung='';
       this.serial='';
+      this.serialStatus='';
+      this.serialLookupMeldung='';
       this.repairOrder='';
       this.hasAspenDoc=false;
       this.globalState=loadGlobalState();
@@ -1962,6 +2215,8 @@
       this.selectionCollapsed=false;
       this.headerCollapsed=true;
       this.menuCleanup=null;
+      this.preservedAspenState=null;
+      this.restoredAspenState=false;
     }
 
     scheduleRender(){
@@ -1996,29 +2251,33 @@
       this.allEntries=data.entries;
       this.entryMap=data.entryMap;
       this.totalEntries=this.allEntries.length;
-      const docInfo=parseDocument();
-      this.repairOrder=docInfo.repairOrder||'';
-      this.aspenDoc=docInfo.doc&&typeof docInfo.doc==='object'?docInfo.doc:null;
-      const boardInfo=findAspenBoardRecord(docInfo.meldung,this.repairOrder);
+      const boardDocInfo=parseBoardDocument();
+      const aspenDocInfo=parseAspenDocument();
+      this.repairOrder=boardDocInfo.repairOrder||'';
+      this.aspenDoc=aspenDocInfo.doc&&typeof aspenDocInfo.doc==='object'?aspenDocInfo.doc:null;
+      const boardInfo=findAspenBoardRecord(boardDocInfo.meldung,this.repairOrder);
       this.aspenBoardRecord=boardInfo.record;
       this.aspenFieldOptions=this.computeAspenFieldOptions(this.aspenDoc,this.repairOrder,boardInfo);
-      this.hasAspenDoc=docInfo.hasDoc||!!(this.aspenFieldOptions&&this.aspenFieldOptions.length);
+      this.hasAspenDoc=aspenDocInfo.hasDoc||!!(this.aspenFieldOptions&&this.aspenFieldOptions.length);
       if(this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
         this.refreshAspenPickerOptions();
       }
-      this.meldung=docInfo.meldung;
+      this.meldung=boardDocInfo.meldung;
       this.updateAspenBlocksFromDoc();
       const boardEntry=this.meldung?findAspenBoardEntry(this.meldung):null;
       const boardPart=boardEntry?extractPartFromBoard(boardEntry):'';
-      const boardSerial=extractSerialFromBoard(boardEntry);
       let part='';
       let partSource='';
       if(boardPart){
         part=boardPart;
         partSource='aspen-board';
       }
-      if(!part&&docInfo.part){
-        part=docInfo.part;
+      if(!part&&boardDocInfo.part){
+        part=boardDocInfo.part;
+        partSource='module-data';
+      }
+      if(!part&&aspenDocInfo.part){
+        part=aspenDocInfo.part;
         partSource='aspen-header';
       }
       if(!part){
@@ -2028,8 +2287,10 @@
       const previousPart=this.currentPart;
       this.currentPart=part;
       this.partSource=part?partSource:'';
-      const serialCandidate=docInfo.serial||boardSerial;
-      this.serial=serialCandidate;
+      const serialResult=findSerialForMeldung(this.aspenDoc,this.meldung);
+      this.serial=serialResult.serial||'';
+      this.serialStatus=serialResult.reason||'';
+      this.serialLookupMeldung=serialResult.lookup||'';
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
         this.filterAll=false;
@@ -2041,11 +2302,26 @@
       const previousKey=this.stateKey;
       this.stateKey=key||'';
       this.stateKeyParts=keyParts;
+      const preserved=this.preservedAspenState;
+      this.preservedAspenState=null;
+      this.restoredAspenState=false;
       if(this.stateKey!==previousKey){
         this.undoBuffer=null;
       }
       let selections=[];
-      if(this.stateKey){
+      const canRestorePreserved=preserved
+        &&clean(preserved.meldung)===clean(this.meldung)
+        &&normalizePart(preserved.part)===normalizePart(this.currentPart);
+      if(canRestorePreserved){
+        this.activeState=cloneActiveState(preserved.activeState);
+        selections=Array.isArray(preserved.selections)
+          ?preserved.selections.map(sel=>({...sel}))
+          :[];
+        if(typeof preserved.filterAll==='boolean'){
+          this.filterAll=preserved.filterAll;
+        }
+        this.restoredAspenState=true;
+      }else if(this.stateKey){
         const loaded=loadStateFor(this.stateKeyParts);
         const loadedState=loaded.state&&typeof loaded.state==='object'?loaded.state:createEmptyActiveState();
         this.activeState={...createEmptyActiveState(),...loadedState};
@@ -2079,6 +2355,10 @@
       });
       this.selectionRows=[];
       this.renderDom();
+      if(this.restoredAspenState&&this.stateKey){
+        this.persistState(true);
+        this.restoredAspenState=false;
+      }
     }
 
     renderDom(){
@@ -2116,7 +2396,7 @@
 
       const fileInput=document.createElement('input');
       fileInput.type='file';
-      fileInput.accept='.json,.csv,.txt';
+      fileInput.accept='.json,.csv,.txt,.xlsx,.xlsm';
       fileInput.style.display='none';
       fileInput.addEventListener('change',()=>{
         const file=fileInput.files&&fileInput.files[0];
@@ -2155,6 +2435,13 @@
         span.textContent=`${item.label}: ${item.value||'–'}`;
         summary.appendChild(span);
       }
+      const debugSpan=document.createElement('span');
+      debugSpan.className='nsf-header-debug';
+      const statusText=this.serialStatus||'';
+      const lookupText=this.serialLookupMeldung||'';
+      const lookupDisplay=lookupText||'–';
+      debugSpan.textContent=`Seriennummer-Status: ${statusText||'–'} | Aspen-Meldung gesucht: ${lookupDisplay}`;
+      summary.appendChild(debugSpan);
       headerBar.appendChild(summary);
 
       const headerActions=document.createElement('div');
@@ -2383,7 +2670,9 @@
               ?'Aspen-Board'
               :this.partSource==='aspen-header'
                 ?'Aspen-Headerdaten'
-                :'Unbekannt';
+                :this.partSource==='module-data'
+                  ?'Modul-Daten'
+                  :'Unbekannt';
           source.textContent=`Partnummer-Quelle: ${sourceLabel}`;
           metaRow.appendChild(source);
         }else{
@@ -2611,6 +2900,7 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
+          textarea.dataset.minRows='1';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
           const partsContainer=document.createElement('div');
@@ -2624,6 +2914,7 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
+          textarea.dataset.minRows='1';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
           requestAnimationFrame(()=>autoResizeTextarea(textarea));
@@ -2664,6 +2955,7 @@
       textarea.className='nsf-custom-textarea';
       textarea.placeholder='Eigener Text…';
       textarea.value=section.text||'';
+      textarea.dataset.minRows='1';
       textarea.addEventListener('input',()=>{
         section.text=textarea.value;
         autoResizeTextarea(textarea);
@@ -5075,26 +5367,55 @@
     async handleAspenFile(file){
       if(!file) return;
       try{
-        const content=await file.text();
-        if(!content) return;
-        let parsed=null;
-        try{parsed=JSON.parse(content);}
-        catch{parsed=null;}
         let payload='';
-        if(parsed&&typeof parsed==='object'){
-          payload=JSON.stringify(parsed);
-        }else{
-          const csvParsed=parseAspenCsv(content);
-          if(csvParsed) payload=JSON.stringify(csvParsed);
+        const fileName=typeof file.name==='string'?file.name.toLowerCase():'';
+        const fileType=typeof file.type==='string'?file.type.toLowerCase():'';
+        const looksLikeXlsx=fileName.endsWith('.xlsx')||fileName.endsWith('.xlsm')||fileName.endsWith('.xls')||fileType.includes('spreadsheetml')||fileType.includes('ms-excel');
+        if(looksLikeXlsx){
+          const xlsxParsed=await parseAspenXlsx(file);
+          if(xlsxParsed) payload=JSON.stringify(xlsxParsed);
+        }
+        let content=null;
+        if(!payload){
+          content=await file.text();
+          if(!content) return;
+          let parsed=null;
+          try{parsed=JSON.parse(content);}
+          catch{parsed=null;}
+          if(parsed&&typeof parsed==='object'){
+            payload=JSON.stringify(parsed);
+          }else{
+            const csvParsed=parseAspenCsv(content);
+            if(csvParsed) payload=JSON.stringify(csvParsed);
+          }
         }
         if(payload){
-          localStorage.setItem(DOC_KEY,payload);
-          lastValues[DOC_KEY]=payload;
+          instances.forEach(inst=>{
+            if(inst&&typeof inst.prepareForAspenReload==='function'){
+              inst.prepareForAspenReload();
+            }
+          });
+          localStorage.setItem(ASPEN_DOC_KEY,payload);
+          lastValues[ASPEN_DOC_KEY]=payload;
           scheduleAll();
         }
       }catch(err){
         console.warn('NSF: Aspen-Datei konnte nicht gelesen werden',err);
       }
+    }
+
+    prepareForAspenReload(){
+      if(this.destroyed) return;
+      if(!this.meldung) return;
+      const clonedState=cloneActiveState(this.activeState);
+      const selections=serializeSelections(this.selectedEntries);
+      this.preservedAspenState={
+        meldung:this.meldung,
+        part:this.currentPart,
+        activeState:clonedState,
+        selections,
+        filterAll:this.filterAll
+      };
     }
   }
 
