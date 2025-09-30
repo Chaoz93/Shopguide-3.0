@@ -14,7 +14,8 @@
   const STYLE_ID='nsf-styles';
   const ROUTINE_EDITOR_STORAGE_KEY='nsf-routine-editor';
   const ROUTINE_EDITOR_CUSTOM_PREFIX='custom:';
-
+  const ROUTINE_EDITOR_PRESETS_KEY='nsf-routine-editor-presets';
+  const ROUTINE_EDITOR_ACTIVE_PRESET_KEY='nsf-routine-editor-active';
   const ROUTINE_EDITOR_BLOCKS=[
     {key:'prefix',label:'Prefix',editable:true,persist:true},
     {key:'findings',label:'Findings',editable:false,persist:false},
@@ -146,6 +147,121 @@
     }
   }
 
+  function sanitizePresetName(name){
+    if(typeof name!=='string') return '';
+    return name.trim().slice(0,80);
+  }
+
+  function createRoutinePresetId(){
+    return `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+  }
+
+  function cloneRoutineEditorState(state){
+    const normalized=normalizeRoutineEditorState(state);
+    const clone={
+      order:Array.isArray(normalized.order)?normalized.order.slice():[],
+      blocks:{}
+    };
+    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+      if(block.persist===false) return;
+      const entry=normalized.blocks&&normalized.blocks[block.key];
+      const lines=Array.isArray(entry&&entry.lines)?entry.lines:[];
+      clone.blocks[block.key]={lines:lines.slice()};
+    });
+    return clone;
+  }
+
+  function normalizeRoutineEditorPreset(raw){
+    if(!raw||typeof raw!=='object') return null;
+    const name=sanitizePresetName(raw.name||'');
+    if(!name) return null;
+    const id=typeof raw.id==='string'&&raw.id.trim()?raw.id.trim():createRoutinePresetId();
+    const state=cloneRoutineEditorState(raw.state||raw.data||raw);
+    return {id,name,state};
+  }
+
+  function loadRoutineEditorPresets(){
+    try{
+      const raw=localStorage.getItem(ROUTINE_EDITOR_PRESETS_KEY);
+      if(!raw) return [];
+      const parsed=JSON.parse(raw);
+      if(!Array.isArray(parsed)) return [];
+      const seen=new Set();
+      const presets=[];
+      parsed.forEach(entry=>{
+        const normalized=normalizeRoutineEditorPreset(entry);
+        if(!normalized) return;
+        if(seen.has(normalized.id)) return;
+        seen.add(normalized.id);
+        presets.push(normalized);
+      });
+      return presets;
+    }catch(err){
+      console.warn('NSF: Routine-Profile konnten nicht geladen werden',err);
+      return [];
+    }
+  }
+
+  function storeRoutineEditorPresets(presets){
+    try{
+      const payload=Array.isArray(presets)?presets.map(preset=>({
+        id:preset.id,
+        name:preset.name,
+        state:cloneRoutineEditorState(preset.state)
+      })):[];
+      localStorage.setItem(ROUTINE_EDITOR_PRESETS_KEY,JSON.stringify(payload));
+    }catch(err){
+      console.warn('NSF: Routine-Profile konnten nicht gespeichert werden',err);
+    }
+  }
+
+  function loadRoutineEditorActivePresetId(presets){
+    try{
+      const raw=localStorage.getItem(ROUTINE_EDITOR_ACTIVE_PRESET_KEY);
+      if(!raw) return '';
+      const id=String(raw);
+      if(Array.isArray(presets)&&presets.some(preset=>preset.id===id)) return id;
+      return '';
+    }catch(err){
+      console.warn('NSF: Aktives Routine-Profil konnte nicht geladen werden',err);
+      return '';
+    }
+  }
+
+  function storeRoutineEditorActivePresetId(id){
+    try{
+      if(id){
+        localStorage.setItem(ROUTINE_EDITOR_ACTIVE_PRESET_KEY,String(id));
+      }else{
+        localStorage.removeItem(ROUTINE_EDITOR_ACTIVE_PRESET_KEY);
+      }
+    }catch(err){
+      console.warn('NSF: Aktives Routine-Profil konnte nicht gespeichert werden',err);
+    }
+  }
+
+  function isRoutineEditorStateEqual(a,b){
+    if(!a||!b) return false;
+    const stateA=cloneRoutineEditorState(a);
+    const stateB=cloneRoutineEditorState(b);
+    const orderA=Array.isArray(stateA.order)?stateA.order:[];
+    const orderB=Array.isArray(stateB.order)?stateB.order:[];
+    if(orderA.length!==orderB.length) return false;
+    for(let i=0;i<orderA.length;i+=1){
+      if(orderA[i]!==orderB[i]) return false;
+    }
+    for(const block of ROUTINE_EDITOR_BLOCKS){
+      if(block.persist===false) continue;
+      const linesA=stateA.blocks&&stateA.blocks[block.key]&&Array.isArray(stateA.blocks[block.key].lines)?stateA.blocks[block.key].lines:[];
+      const linesB=stateB.blocks&&stateB.blocks[block.key]&&Array.isArray(stateB.blocks[block.key].lines)?stateB.blocks[block.key].lines:[];
+      if(linesA.length!==linesB.length) return false;
+      for(let idx=0;idx<linesA.length;idx+=1){
+        if(linesA[idx]!==linesB[idx]) return false;
+      }
+    }
+    return true;
+  }
+
   function injectStyles(){
     if(document.getElementById(STYLE_ID)) return;
     const tag=document.createElement('style');
@@ -259,6 +375,31 @@
       .nsf-editor-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.72);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;padding:3rem 1.5rem;z-index:400;}
       .nsf-editor-overlay.open{display:flex;}
       .nsf-editor-dialog{background:rgba(15,23,42,0.95);border-radius:1.1rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 24px 64px rgba(15,23,42,0.55);max-width:720px;width:100%;max-height:calc(100vh - 6rem);overflow:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;color:#e2e8f0;}
+      .nsf-editor-content{display:flex;flex-direction:row;gap:1.5rem;align-items:stretch;}
+      .nsf-editor-main{flex:1;display:flex;flex-direction:column;gap:1rem;}
+      .nsf-editor-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;margin-bottom:0.3rem;}
+      .nsf-editor-profile-label{display:flex;flex-direction:column;gap:0.3rem;font-size:0.74rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;opacity:0.75;}
+      .nsf-editor-profile-select{background:rgba(15,23,42,0.55);border:1px solid rgba(148,163,184,0.35);border-radius:0.65rem;padding:0.45rem 0.6rem;color:#e2e8f0;font:inherit;min-width:160px;}
+      .nsf-editor-profile-select:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
+      .nsf-editor-sidebar{flex:0 0 240px;display:flex;flex-direction:column;gap:0.75rem;background:rgba(15,23,42,0.55);border-radius:0.95rem;border:1px solid rgba(148,163,184,0.25);padding:0.85rem;max-height:100%;overflow:auto;}
+      .nsf-editor-presets-header{font-weight:700;font-size:0.95rem;}
+      .nsf-editor-presets-list{display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-editor-preset{display:flex;align-items:center;gap:0.35rem;background:rgba(148,163,184,0.16);border-radius:0.75rem;padding:0.4rem 0.5rem;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-editor-preset.active{border:1px solid rgba(59,130,246,0.45);background:rgba(59,130,246,0.2);}
+      .nsf-editor-preset-load{flex:1;background:transparent;border:none;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+      .nsf-editor-preset-load:hover{color:#fff;}
+      .nsf-editor-preset-remove{background:rgba(248,113,113,0.24);border:none;border-radius:999px;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(248,113,113,0.95);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-editor-preset-remove:hover{background:rgba(248,113,113,0.35);transform:scale(1.05);}
+      .nsf-editor-presets-empty{opacity:0.7;font-size:0.85rem;font-style:italic;}
+      .nsf-editor-presets-save{display:flex;flex-direction:column;gap:0.5rem;margin-top:auto;}
+      .nsf-editor-presets-label{font-size:0.74rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;opacity:0.75;}
+      .nsf-editor-presets-input{background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.35);border-radius:0.65rem;padding:0.45rem 0.6rem;color:#e2e8f0;font:inherit;}
+      .nsf-editor-presets-input:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
+      .nsf-editor-presets-save .nsf-btn{align-self:flex-start;}
+      @media (max-width:860px){
+        .nsf-editor-content{flex-direction:column;}
+        .nsf-editor-sidebar{flex:1 1 auto;}
+      }
       .nsf-editor-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
       .nsf-editor-dialog-title{font-size:1.2rem;font-weight:700;margin:0;}
       .nsf-editor-close{background:rgba(248,113,113,0.2);border:none;border-radius:999px;width:2.2rem;height:2.2rem;color:rgba(248,113,113,0.95);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background 0.15s ease,transform 0.15s ease;}
@@ -287,7 +428,7 @@
       .nsf-editor-add{align-self:flex-start;background:rgba(59,130,246,0.22);border:1px solid rgba(59,130,246,0.45);border-radius:0.65rem;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(191,219,254,0.95);font-size:1.1rem;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-editor-add:hover{background:rgba(59,130,246,0.32);transform:translateY(-1px);}
       .nsf-editor-block[data-editable='0'] .nsf-editor-add{display:none;}
-      .nsf-editor-actions{display:flex;justify-content:flex-end;}
+      .nsf-editor-actions{display:flex;justify-content:flex-end;gap:0.6rem;margin-top:auto;flex-wrap:wrap;}
       .nsf-editor-save{background:linear-gradient(135deg,rgba(59,130,246,0.85),rgba(96,165,250,0.9));color:#fff;border:none;border-radius:0.8rem;padding:0.65rem 1.4rem;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 18px 32px rgba(59,130,246,0.35);transition:transform 0.15s ease,box-shadow 0.15s ease;}
       .nsf-editor-save:hover{transform:translateY(-1px);box-shadow:0 20px 38px rgba(59,130,246,0.45);}
       .nsf-editor-save:active{transform:translateY(0);box-shadow:0 16px 28px rgba(59,130,246,0.4);}
@@ -1637,9 +1778,23 @@
       this.customSlotSortables=[];
       this.customSectionMap=new Map();
       this.routineEditorState=loadRoutineEditorState();
+      this.routineEditorPresets=loadRoutineEditorPresets();
+      this.routineEditorActivePresetId=loadRoutineEditorActivePresetId(this.routineEditorPresets);
+      if(!this.routineEditorActivePresetId&&Array.isArray(this.routineEditorPresets)&&this.routineEditorPresets.length){
+        const match=this.routineEditorPresets.find(preset=>isRoutineEditorStateEqual(preset.state,this.routineEditorState));
+        if(match){
+          this.routineEditorActivePresetId=match.id;
+          storeRoutineEditorActivePresetId(this.routineEditorActivePresetId);
+        }
+      }
+      if(!Array.isArray(this.routineEditorPresets)) this.routineEditorPresets=[];
       this.routineEditorBlocks={};
       this.routineEditorOverlay=null;
       this.routineEditorList=null;
+      this.routineEditorPresetSelect=null;
+      this.routineEditorPresetList=null;
+      this.routineEditorPresetNameInput=null;
+      this.routineEditorPresetSaveButton=null;
       this.routineEditorMenu=null;
       this.routineEditorMenuCleanup=null;
       this.routineEditorContextHandler=null;
@@ -1784,6 +1939,7 @@
       this.customSlots=[];
       root.classList.add('nsf-module');
       this.ensureRoutineEditorState();
+      this.ensureRoutineEditorPresets(true);
       this.teardownRoutineEditorOverlay();
       this.teardownRoutineEditorInteraction();
       this.routineEditorBlocks={};
@@ -2751,6 +2907,21 @@
       }
     }
 
+    ensureRoutineEditorPresets(forceReload){
+      if(forceReload||!Array.isArray(this.routineEditorPresets)){
+        this.routineEditorPresets=loadRoutineEditorPresets();
+      }
+      if(!Array.isArray(this.routineEditorPresets)) this.routineEditorPresets=[];
+      this.routineEditorPresets.sort((a,b)=>a.name.localeCompare(b.name,'de',{sensitivity:'base'}));
+      if(typeof this.routineEditorActivePresetId!=='string'){
+        this.routineEditorActivePresetId='';
+      }
+      if(this.routineEditorActivePresetId&&!this.routineEditorPresets.some(preset=>preset.id===this.routineEditorActivePresetId)){
+        this.routineEditorActivePresetId='';
+        storeRoutineEditorActivePresetId('');
+      }
+    }
+
     teardownRoutineEditorOverlay(){
       this.closeRoutineEditorMenu();
       if(this.routineEditorOverlay){
@@ -2759,6 +2930,10 @@
       }
       this.routineEditorOverlay=null;
       this.routineEditorList=null;
+      this.routineEditorPresetSelect=null;
+      this.routineEditorPresetList=null;
+      this.routineEditorPresetNameInput=null;
+      this.routineEditorPresetSaveButton=null;
       this.routineEditorBlocks={};
       this.routineEditorDragState=null;
     }
@@ -2837,9 +3012,161 @@
       }
     }
 
+    refreshRoutineEditorPresetUi(){
+      if(this.routineEditorPresetSelect){
+        const select=this.routineEditorPresetSelect;
+        select.innerHTML='';
+        const defaultOption=document.createElement('option');
+        defaultOption.value='';
+        defaultOption.textContent='Individuell';
+        select.appendChild(defaultOption);
+        if(Array.isArray(this.routineEditorPresets)){
+          this.routineEditorPresets.forEach(preset=>{
+            const option=document.createElement('option');
+            option.value=preset.id;
+            option.textContent=preset.name;
+            select.appendChild(option);
+          });
+        }
+        const activeValue=this.routineEditorActivePresetId&&this.routineEditorPresets.some(preset=>preset.id===this.routineEditorActivePresetId)?this.routineEditorActivePresetId:'';
+        select.value=activeValue;
+      }
+      if(this.routineEditorPresetList){
+        const container=this.routineEditorPresetList;
+        container.innerHTML='';
+        if(!this.routineEditorPresets.length){
+          const empty=document.createElement('div');
+          empty.className='nsf-editor-presets-empty';
+          empty.textContent='Keine Profile gespeichert.';
+          container.appendChild(empty);
+        }else{
+          this.routineEditorPresets.forEach(preset=>{
+            const item=document.createElement('div');
+            item.className='nsf-editor-preset';
+            if(preset.id===this.routineEditorActivePresetId){
+              item.classList.add('active');
+            }
+            const loadBtn=document.createElement('button');
+            loadBtn.type='button';
+            loadBtn.className='nsf-editor-preset-load';
+            loadBtn.textContent=preset.name;
+            loadBtn.title='Profil anwenden';
+            loadBtn.addEventListener('click',()=>this.applyRoutineEditorPreset(preset.id));
+            const removeBtn=document.createElement('button');
+            removeBtn.type='button';
+            removeBtn.className='nsf-editor-preset-remove';
+            removeBtn.textContent='🗑';
+            removeBtn.title='Profil löschen';
+            removeBtn.addEventListener('click',event=>{
+              event.stopPropagation();
+              this.deleteRoutineEditorPreset(preset.id);
+            });
+            item.append(loadBtn,removeBtn);
+            container.appendChild(item);
+          });
+        }
+      }
+      this.updateRoutineEditorPresetSaveState();
+    }
+
+    updateRoutineEditorPresetSaveState(){
+      if(!this.routineEditorPresetSaveButton) return;
+      const value=this.routineEditorPresetNameInput?this.routineEditorPresetNameInput.value:'';
+      const sanitized=sanitizePresetName(value||'');
+      this.routineEditorPresetSaveButton.disabled=!sanitized;
+    }
+
+    evaluateRoutineEditorPresetMatch(){
+      if(!Array.isArray(this.routineEditorPresets)){
+        this.routineEditorPresets=[];
+      }
+      const match=this.routineEditorPresets.find(preset=>isRoutineEditorStateEqual(preset.state,this.routineEditorState));
+      const nextId=match?match.id:'';
+      if(nextId!==this.routineEditorActivePresetId){
+        this.routineEditorActivePresetId=nextId;
+        storeRoutineEditorActivePresetId(nextId);
+      }
+      this.refreshRoutineEditorPresetUi();
+    }
+
+    applyRoutineEditorPreset(id){
+      if(!id) return;
+      const preset=this.routineEditorPresets.find(entry=>entry.id===id);
+      if(!preset) return;
+      const state=cloneRoutineEditorState(preset.state);
+      this.routineEditorState=state;
+      storeRoutineEditorState(state);
+      const order=Array.isArray(state.order)&&state.order.length?state.order.slice():ROUTINE_EDITOR_BLOCKS.map(block=>block.key);
+      if(this.routineEditorList){
+        order.forEach(key=>{
+          const info=this.routineEditorBlocks[key];
+          if(info&&info.element){
+            this.routineEditorList.appendChild(info.element);
+          }
+        });
+        ROUTINE_EDITOR_BLOCKS.forEach(def=>this.populateRoutineEditorBlock(def.key));
+      }
+      this.routineEditorActivePresetId=id;
+      storeRoutineEditorActivePresetId(id);
+      this.refreshRoutineEditorPresetUi();
+    }
+
+    deleteRoutineEditorPreset(id){
+      if(!id) return;
+      const index=this.routineEditorPresets.findIndex(preset=>preset.id===id);
+      if(index===-1) return;
+      this.routineEditorPresets.splice(index,1);
+      storeRoutineEditorPresets(this.routineEditorPresets);
+      if(this.routineEditorActivePresetId===id){
+        this.routineEditorActivePresetId='';
+        storeRoutineEditorActivePresetId('');
+        this.evaluateRoutineEditorPresetMatch();
+      }else{
+        this.refreshRoutineEditorPresetUi();
+      }
+    }
+
+    handleRoutineEditorPresetCreate(name){
+      const label=sanitizePresetName(name||'');
+      if(!label) return;
+      const state=cloneRoutineEditorState(this.routineEditorState);
+      const existing=this.routineEditorPresets.find(preset=>preset.name.toLowerCase()===label.toLowerCase());
+      if(existing){
+        existing.state=state;
+        this.routineEditorActivePresetId=existing.id;
+      }else{
+        const preset={id:createRoutinePresetId(),name:label,state};
+        this.routineEditorPresets.push(preset);
+        this.routineEditorPresets.sort((a,b)=>a.name.localeCompare(b.name,'de',{sensitivity:'base'}));
+        this.routineEditorActivePresetId=preset.id;
+      }
+      storeRoutineEditorPresets(this.routineEditorPresets);
+      storeRoutineEditorActivePresetId(this.routineEditorActivePresetId);
+      if(this.routineEditorPresetNameInput) this.routineEditorPresetNameInput.value='';
+      this.refreshRoutineEditorPresetUi();
+    }
+
+    handleRoutineEditorPresetFormSubmit(event){
+      if(event){
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const value=this.routineEditorPresetNameInput?this.routineEditorPresetNameInput.value:'';
+      this.handleRoutineEditorPresetCreate(value);
+    }
+
+    handleRoutineEditorProfileSelect(value){
+      if(!value){
+        this.evaluateRoutineEditorPresetMatch();
+        return;
+      }
+      this.applyRoutineEditorPreset(value);
+    }
+
     ensureRoutineEditorOverlay(){
       if(this.routineEditorOverlay) return this.routineEditorOverlay;
       this.ensureRoutineEditorState();
+      this.ensureRoutineEditorPresets(true);
       const overlay=document.createElement('div');
       overlay.className='nsf-editor-overlay';
       overlay.setAttribute('role','dialog');
@@ -2864,12 +3191,45 @@
       closeBtn.addEventListener('click',()=>this.closeRoutineEditorOverlay());
       header.append(title,closeBtn);
       dialog.appendChild(header);
+      const content=document.createElement('div');
+      content.className='nsf-editor-content';
+      dialog.appendChild(content);
+
+      const main=document.createElement('div');
+      main.className='nsf-editor-main';
+      content.appendChild(main);
+
+      const toolbar=document.createElement('div');
+      toolbar.className='nsf-editor-toolbar';
+      const profileLabel=document.createElement('label');
+      profileLabel.className='nsf-editor-profile-label';
+      const profileText=document.createElement('span');
+      profileText.textContent='Profil';
+      const profileSelect=document.createElement('select');
+      profileSelect.className='nsf-editor-profile-select';
+      const profileSelectId=`nsf-editor-profile-${Date.now().toString(36)}`;
+      profileSelect.id=profileSelectId;
+      profileLabel.setAttribute('for',profileSelectId);
+      profileSelect.addEventListener('change',()=>this.handleRoutineEditorProfileSelect(profileSelect.value));
+      profileLabel.append(profileText,profileSelect);
+      toolbar.appendChild(profileLabel);
+      main.appendChild(toolbar);
+      this.routineEditorPresetSelect=profileSelect;
+
       const list=document.createElement('div');
       list.className='nsf-editor-list';
-      dialog.appendChild(list);
+      main.appendChild(list);
       this.routineEditorList=list;
       this.routineEditorBlocks={};
+
       this.renderRoutineEditorOverlayContent();
+      const order=this.routineEditorState&&Array.isArray(this.routineEditorState.order)&&this.routineEditorState.order.length?this.routineEditorState.order:ROUTINE_EDITOR_BLOCKS.map(block=>block.key);
+      order.forEach(key=>{
+        const def=ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
+        if(!def) return;
+        const block=this.createRoutineEditorBlock(def);
+        if(block) list.appendChild(block);
+      });
       const actions=document.createElement('div');
       actions.className='nsf-editor-actions';
       const saveButton=document.createElement('button');
@@ -2879,7 +3239,43 @@
       saveButton.title='Routine-Text aus den Blöcken übernehmen';
       saveButton.addEventListener('click',()=>this.handleRoutineEditorSave());
       actions.appendChild(saveButton);
-      dialog.appendChild(actions);
+      main.appendChild(actions);
+
+      const sidebar=document.createElement('aside');
+      sidebar.className='nsf-editor-sidebar';
+      content.appendChild(sidebar);
+      const presetsHeader=document.createElement('div');
+      presetsHeader.className='nsf-editor-presets-header';
+      presetsHeader.textContent='Gespeicherte Profile';
+      sidebar.appendChild(presetsHeader);
+      const presetList=document.createElement('div');
+      presetList.className='nsf-editor-presets-list';
+      sidebar.appendChild(presetList);
+      this.routineEditorPresetList=presetList;
+      const saveForm=document.createElement('form');
+      saveForm.className='nsf-editor-presets-save';
+      saveForm.addEventListener('submit',event=>this.handleRoutineEditorPresetFormSubmit(event));
+      const nameId=`nsf-preset-${Date.now().toString(36)}`;
+      const nameLabel=document.createElement('label');
+      nameLabel.className='nsf-editor-presets-label';
+      nameLabel.setAttribute('for',nameId);
+      nameLabel.textContent='Profil speichern';
+      const nameInput=document.createElement('input');
+      nameInput.type='text';
+      nameInput.id=nameId;
+      nameInput.className='nsf-editor-presets-input';
+      nameInput.placeholder='Profilname';
+      nameInput.addEventListener('input',()=>this.updateRoutineEditorPresetSaveState());
+      this.routineEditorPresetNameInput=nameInput;
+      const presetSaveButton=document.createElement('button');
+      presetSaveButton.type='submit';
+      presetSaveButton.className='nsf-btn';
+      presetSaveButton.textContent='💾 Profil speichern';
+      this.routineEditorPresetSaveButton=presetSaveButton;
+      presetSaveButton.disabled=true;
+      saveForm.append(nameLabel,nameInput,presetSaveButton);
+      sidebar.appendChild(saveForm);
+
       document.body.appendChild(overlay);
       overlay.addEventListener('keydown',event=>{
         if(event.key==='Escape'){
@@ -2889,6 +3285,7 @@
       });
       this.routineEditorOverlay=overlay;
       this.refreshRoutineEditorDerivedLines();
+      this.evaluateRoutineEditorPresetMatch();
       return overlay;
     }
 
@@ -3288,6 +3685,7 @@
       state.customBlocks=customEntries;
       this.routineEditorState=state;
       storeRoutineEditorState(state);
+      this.evaluateRoutineEditorPresetMatch();
     }
 
     refreshRoutineEditorDerivedLines(source){
