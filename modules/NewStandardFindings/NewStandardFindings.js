@@ -12,11 +12,80 @@
   const SAVE_DEBOUNCE=250;
   const HISTORY_LIMIT=10;
   const STYLE_ID='nsf-styles';
+  const ROUTINE_EDITOR_STORAGE_KEY='nsf-routine-editor';
+  const ROUTINE_EDITOR_BLOCKS=[
+    {key:'prefix',label:'Prefix'},
+    {key:'findings',label:'Findings'},
+    {key:'actions',label:'Actions'},
+    {key:'suffix',label:'Suffix'}
+  ];
+  const ROUTINE_EDITOR_DEFAULT_POSITIONS=[
+    {x:0,y:0},
+    {x:260,y:0},
+    {x:0,y:210},
+    {x:260,y:210}
+  ];
 
   const instances=new Set();
   let watchersInitialized=false;
   let ensureDataPromise=null;
   const lastValues={};
+
+  function createDefaultRoutineEditorState(){
+    const state={};
+    ROUTINE_EDITOR_BLOCKS.forEach((block,idx)=>{
+      const fallback=ROUTINE_EDITOR_DEFAULT_POSITIONS[idx]||{x:0,y:idx*200};
+      state[block.key]={
+        lines:[''],
+        position:{
+          x:Number.isFinite(fallback.x)?fallback.x:0,
+          y:Number.isFinite(fallback.y)?fallback.y:0
+        }
+      };
+    });
+    return state;
+  }
+
+  function normalizeRoutineEditorState(raw){
+    const base=createDefaultRoutineEditorState();
+    if(!raw||typeof raw!=='object') return base;
+    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+      const entry=raw[block.key];
+      if(!entry||typeof entry!=='object') return;
+      const rawLines=Array.isArray(entry.lines)?entry.lines:[];
+      const lines=rawLines.map(value=>typeof value==='string'?value:'');
+      base[block.key].lines=lines.length?lines:[''];
+      const pos=entry.position||{};
+      const parsedX=Number.parseFloat(pos.x);
+      const parsedY=Number.parseFloat(pos.y);
+      base[block.key].position={
+        x:Number.isFinite(parsedX)?parsedX:0,
+        y:Number.isFinite(parsedY)?parsedY:0
+      };
+    });
+    return base;
+  }
+
+  function loadRoutineEditorState(){
+    try{
+      const raw=localStorage.getItem(ROUTINE_EDITOR_STORAGE_KEY);
+      if(!raw) return createDefaultRoutineEditorState();
+      const parsed=JSON.parse(raw);
+      return normalizeRoutineEditorState(parsed);
+    }catch(err){
+      console.warn('NSF: Routine-Editor konnte nicht geladen werden',err);
+      return createDefaultRoutineEditorState();
+    }
+  }
+
+  function storeRoutineEditorState(state){
+    try{
+      const normalized=normalizeRoutineEditorState(state);
+      localStorage.setItem(ROUTINE_EDITOR_STORAGE_KEY,JSON.stringify(normalized));
+    }catch(err){
+      console.warn('NSF: Routine-Editor konnte nicht gespeichert werden',err);
+    }
+  }
 
   function injectStyles(){
     if(document.getElementById(STYLE_ID)) return;
@@ -109,6 +178,25 @@
       .nsf-suggestion-action{font-size:0.8rem;opacity:0.65;}
       .nsf-empty{opacity:0.75;font-style:italic;}
       .nsf-outputs{display:flex;flex-direction:column;gap:0.75rem;}
+      .nsf-outputs-layout{display:flex;flex-wrap:wrap;gap:1.25rem;align-items:flex-start;}
+      .nsf-outputs-layout .nsf-outputs{flex:1 1 360px;}
+      .nsf-editor-panel{position:relative;flex:1 1 340px;min-height:420px;padding:1rem 1rem 2.5rem;background:rgba(15,23,42,0.22);border-radius:1rem;border:1px solid rgba(148,163,184,0.2);box-shadow:0 20px 40px rgba(15,23,42,0.35);overflow:visible;}
+      .nsf-editor-panel::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:1px solid rgba(255,255,255,0.05);}
+      .nsf-editor-block{position:absolute;background:rgba(15,23,42,0.92);border-radius:0.9rem;border:1px solid rgba(148,163,184,0.28);box-shadow:0 18px 36px rgba(15,23,42,0.55);padding:0.85rem;display:flex;flex-direction:column;gap:0.65rem;width:calc(50% - 0.75rem);min-width:220px;cursor:grab;transition:box-shadow 0.15s ease,transform 0.15s ease;z-index:1;}
+      .nsf-editor-block.dragging{box-shadow:0 22px 44px rgba(59,130,246,0.45);transform:scale(1.01);cursor:grabbing;z-index:5;}
+      .nsf-editor-header{font-weight:700;font-size:0.92rem;display:flex;align-items:center;justify-content:space-between;gap:0.45rem;user-select:none;touch-action:none;}
+      .nsf-editor-lines{display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-editor-line{display:flex;align-items:center;gap:0.45rem;background:rgba(15,23,42,0.4);border-radius:0.75rem;padding:0.4rem 0.45rem;}
+      .nsf-editor-input{flex:1;border:none;border-radius:0.6rem;padding:0.45rem 0.55rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);}
+      .nsf-editor-input::placeholder{color:rgba(107,114,128,0.65);}
+      .nsf-editor-remove{background:rgba(248,113,113,0.18);border:none;border-radius:0.55rem;width:1.8rem;height:1.8rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(248,113,113,0.92);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-editor-remove:hover{background:rgba(248,113,113,0.3);transform:scale(1.05);}
+      .nsf-editor-add{align-self:flex-start;background:rgba(59,130,246,0.22);border:1px solid rgba(59,130,246,0.45);border-radius:0.65rem;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(191,219,254,0.95);font-size:1.1rem;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-editor-add:hover{background:rgba(59,130,246,0.32);transform:translateY(-1px);}
+      .nsf-editor-save-wrapper{margin-top:1.25rem;display:flex;justify-content:flex-end;}
+      .nsf-editor-save{background:linear-gradient(135deg,rgba(59,130,246,0.85),rgba(96,165,250,0.9));color:#fff;border:none;border-radius:0.8rem;padding:0.65rem 1.4rem;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 18px 32px rgba(59,130,246,0.35);transition:transform 0.15s ease,box-shadow 0.15s ease;}
+      .nsf-editor-save:hover{transform:translateY(-1px);box-shadow:0 20px 38px rgba(59,130,246,0.45);}
+      .nsf-editor-save:active{transform:translateY(0);box-shadow:0 16px 28px rgba(59,130,246,0.4);}
       .nsf-output{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;min-height:0;}
       .nsf-output-header{display:flex;align-items:center;justify-content:space-between;font-weight:600;}
       .nsf-copy-btn{background:rgba(255,255,255,0.16);border:none;border-radius:0.6rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;cursor:pointer;transition:background 0.15s ease;display:flex;align-items:center;gap:0.3rem;}
@@ -1405,6 +1493,9 @@
       this.textareas={};
       this.partsRows=[];
       this.partsFieldContainer=null;
+      this.routineEditorState=loadRoutineEditorState();
+      this.routineEditorBlocks={};
+      this.routineEditorPanel=null;
       this.saveTimer=null;
       this.selectionRows=[];
       this.currentPart='';
@@ -1536,6 +1627,9 @@
       const root=this.root;
       root.innerHTML='';
       root.classList.add('nsf-module');
+      this.ensureRoutineEditorState();
+      this.routineEditorPanel=null;
+      this.routineEditorBlocks={};
       if(this.menuCleanup){
         this.menuCleanup();
         this.menuCleanup=null;
@@ -2008,9 +2102,13 @@
       outputsTitle.textContent='Ausgaben';
       outputsSection.appendChild(outputsTitle);
 
+      const outputsLayout=document.createElement('div');
+      outputsLayout.className='nsf-outputs-layout';
+      outputsSection.appendChild(outputsLayout);
+
       const outputsWrapper=document.createElement('div');
       outputsWrapper.className='nsf-outputs';
-      outputsSection.appendChild(outputsWrapper);
+      outputsLayout.appendChild(outputsWrapper);
 
       const outputDefs=[
         {key:'findings',label:'Findings'},
@@ -2075,6 +2173,20 @@
         }
         outputsWrapper.appendChild(box);
       }
+
+      const editorPanel=this.buildRoutineEditorPanel();
+      outputsLayout.appendChild(editorPanel);
+
+      const saveWrapper=document.createElement('div');
+      saveWrapper.className='nsf-editor-save-wrapper';
+      const saveButton=document.createElement('button');
+      saveButton.type='button';
+      saveButton.className='nsf-editor-save';
+      saveButton.textContent='💾 Routine aktualisieren';
+      saveButton.title='Routine-Text aus den Blöcken übernehmen';
+      saveButton.addEventListener('click',()=>this.handleRoutineEditorSave());
+      saveWrapper.appendChild(saveButton);
+      outputsSection.appendChild(saveWrapper);
 
       this.syncOutputsWithSelections({persist:false});
 
@@ -2272,6 +2384,219 @@
         });
         container.appendChild(groupWrapper);
       });
+    }
+
+    ensureRoutineEditorState(){
+      if(!this.routineEditorState||typeof this.routineEditorState!=='object'){
+        this.routineEditorState=loadRoutineEditorState();
+      }
+    }
+
+    buildRoutineEditorPanel(){
+      this.ensureRoutineEditorState();
+      const panel=document.createElement('div');
+      panel.className='nsf-editor-panel';
+      panel.setAttribute('role','group');
+      panel.setAttribute('aria-label','Routine-Editor');
+      this.routineEditorPanel=panel;
+      this.routineEditorBlocks={};
+      ROUTINE_EDITOR_BLOCKS.forEach((def,index)=>{
+        const block=this.createRoutineEditorBlock(panel,def,index);
+        panel.appendChild(block);
+      });
+      requestAnimationFrame(()=>this.updateRoutineEditorPanelBounds());
+      return panel;
+    }
+
+    createRoutineEditorBlock(panel,def,index){
+      const block=document.createElement('div');
+      block.className='nsf-editor-block';
+      block.dataset.type=def.key;
+
+      const header=document.createElement('div');
+      header.className='nsf-editor-header';
+      header.textContent=def.label;
+      block.appendChild(header);
+
+      const linesContainer=document.createElement('div');
+      linesContainer.className='nsf-editor-lines';
+      block.appendChild(linesContainer);
+
+      const defaults=createDefaultRoutineEditorState();
+      const stored=this.routineEditorState&&this.routineEditorState[def.key];
+      const blockState=stored&&typeof stored==='object'?stored:defaults[def.key];
+      const lines=Array.isArray(blockState.lines)&&blockState.lines.length?blockState.lines:[''];
+      lines.forEach(value=>{
+        const line=this.createRoutineEditorLine(def.key,value);
+        linesContainer.appendChild(line);
+      });
+
+      const addButton=document.createElement('button');
+      addButton.type='button';
+      addButton.className='nsf-editor-add';
+      addButton.textContent='+';
+      addButton.title=`${def.label} Zeile hinzufügen`;
+      addButton.setAttribute('aria-label',addButton.title);
+      addButton.addEventListener('click',()=>{
+        const line=this.createRoutineEditorLine(def.key,'');
+        linesContainer.appendChild(line);
+        const input=line.querySelector('input');
+        if(input) input.focus();
+        this.syncRoutineEditorStateFromDom();
+      });
+      block.appendChild(addButton);
+
+      const position=blockState&&blockState.position?blockState.position:defaults[def.key].position;
+      this.setRoutineEditorBlockPosition(block,position?.x,position?.y);
+
+      header.addEventListener('pointerdown',event=>this.startRoutineEditorDrag(event,block,panel));
+
+      this.routineEditorBlocks[def.key]={element:block,linesContainer};
+      return block;
+    }
+
+    createRoutineEditorLine(type,value){
+      const line=document.createElement('div');
+      line.className='nsf-editor-line';
+
+      const input=document.createElement('input');
+      input.type='text';
+      input.className='nsf-editor-input';
+      input.value=typeof value==='string'?value:'';
+      input.placeholder='Text…';
+      input.addEventListener('input',()=>this.syncRoutineEditorStateFromDom());
+      line.appendChild(input);
+
+      const remove=document.createElement('button');
+      remove.type='button';
+      remove.className='nsf-editor-remove';
+      remove.textContent='✖';
+      remove.setAttribute('aria-label','Zeile entfernen');
+      remove.addEventListener('click',()=>{
+        const container=line.parentElement;
+        line.remove();
+        if(container&&container.children.length===0){
+          const replacement=this.createRoutineEditorLine(type,'');
+          container.appendChild(replacement);
+          const focusInput=replacement.querySelector('input');
+          if(focusInput) focusInput.focus();
+        }
+        this.syncRoutineEditorStateFromDom();
+        if(container){
+          const focusTarget=container.querySelector('input');
+          if(focusTarget) focusTarget.focus();
+        }
+      });
+      line.appendChild(remove);
+
+      return line;
+    }
+
+    startRoutineEditorDrag(event,block,panel){
+      if(!block||!panel) return;
+      if(event.button!==0&&event.pointerType!=='touch'&&event.pointerType!=='pen') return;
+      event.preventDefault();
+      const pointerId=event.pointerId;
+      const blockRect=block.getBoundingClientRect();
+      const offsetX=event.clientX-blockRect.left;
+      const offsetY=event.clientY-blockRect.top;
+      block.classList.add('dragging');
+      const handleMove=ev=>{
+        if(pointerId!=null&&ev.pointerId!==pointerId) return;
+        const panelRect=panel.getBoundingClientRect();
+        const rawX=ev.clientX-panelRect.left-offsetX;
+        const rawY=ev.clientY-panelRect.top-offsetY;
+        const maxX=Math.max(0,panel.clientWidth-block.offsetWidth);
+        const maxY=Math.max(0,panel.clientHeight-block.offsetHeight);
+        const clampedX=Math.min(Math.max(rawX,0),maxX);
+        const clampedY=Math.min(Math.max(rawY,0),maxY);
+        this.setRoutineEditorBlockPosition(block,clampedX,clampedY);
+      };
+      const stopDrag=ev=>{
+        if(pointerId!=null&&ev.pointerId!==pointerId) return;
+        block.classList.remove('dragging');
+        window.removeEventListener('pointermove',handleMove);
+        window.removeEventListener('pointerup',stopDrag);
+        window.removeEventListener('pointercancel',stopDrag);
+        this.syncRoutineEditorStateFromDom();
+      };
+      window.addEventListener('pointermove',handleMove);
+      window.addEventListener('pointerup',stopDrag);
+      window.addEventListener('pointercancel',stopDrag);
+    }
+
+    setRoutineEditorBlockPosition(block,x,y){
+      if(!block) return;
+      const parsedX=Number.parseFloat(x);
+      const parsedY=Number.parseFloat(y);
+      const safeX=Number.isFinite(parsedX)?Math.max(0,parsedX):0;
+      const safeY=Number.isFinite(parsedY)?Math.max(0,parsedY):0;
+      block.style.left=`${safeX}px`;
+      block.style.top=`${safeY}px`;
+      block.dataset.x=String(safeX);
+      block.dataset.y=String(safeY);
+    }
+
+    syncRoutineEditorStateFromDom(){
+      if(!this.routineEditorBlocks||typeof this.routineEditorBlocks!=='object') return;
+      const state=createDefaultRoutineEditorState();
+      ROUTINE_EDITOR_BLOCKS.forEach(def=>{
+        const info=this.routineEditorBlocks[def.key];
+        if(!info||!info.element) return;
+        const inputs=Array.from(info.linesContainer?info.linesContainer.querySelectorAll('input.nsf-editor-input'):[]);
+        const lines=inputs.length?inputs.map(input=>String(input.value||'')):[''];
+        const parsedX=Number.parseFloat(info.element.dataset.x);
+        const parsedY=Number.parseFloat(info.element.dataset.y);
+        state[def.key]={
+          lines,
+          position:{
+            x:Number.isFinite(parsedX)?parsedX:0,
+            y:Number.isFinite(parsedY)?parsedY:0
+          }
+        };
+      });
+      this.routineEditorState=state;
+      storeRoutineEditorState(state);
+      this.updateRoutineEditorPanelBounds();
+    }
+
+    updateRoutineEditorPanelBounds(){
+      if(!this.routineEditorPanel) return;
+      const baseHeight=420;
+      let maxBottom=baseHeight;
+      ROUTINE_EDITOR_BLOCKS.forEach(def=>{
+        const info=this.routineEditorBlocks[def.key];
+        if(!info||!info.element) return;
+        const parsedTop=Number.parseFloat(info.element.dataset.y);
+        const top=Number.isFinite(parsedTop)?parsedTop:0;
+        const height=info.element.offsetHeight||0;
+        const bottom=top+height+24;
+        if(bottom>maxBottom) maxBottom=bottom;
+      });
+      this.routineEditorPanel.style.minHeight=`${Math.max(baseHeight,Math.ceil(maxBottom))}px`;
+    }
+
+    handleRoutineEditorSave(){
+      this.syncRoutineEditorStateFromDom();
+      const combined=[];
+      ['prefix','findings','actions','suffix'].forEach(key=>{
+        const blockState=this.routineEditorState&&this.routineEditorState[key];
+        if(!blockState||!Array.isArray(blockState.lines)) return;
+        blockState.lines.forEach(line=>{
+          const text=clean(line);
+          if(text) combined.push(text);
+        });
+      });
+      const routineText=combined.join('\n');
+      const textarea=this.textareas&&this.textareas.routine;
+      if(textarea){
+        textarea.value=routineText;
+        autoResizeTextarea(textarea);
+      }
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.routine=routineText;
+      }
+      this.queueStateSave();
     }
 
     resolveEntry(entry){
