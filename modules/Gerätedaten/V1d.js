@@ -12,11 +12,15 @@
   .rs-form{flex:1;overflow:auto;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none}
   .rs-form::-webkit-scrollbar{width:0;height:0;display:none}
   .rs-actions{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;flex-wrap:wrap}
-  .rs-aspen-inline{border:none;border-radius:.5rem;padding:.4rem .75rem;background:rgba(0,0,0,.12);color:var(--text-color);cursor:pointer;font-weight:600}
-  .rs-aspen-inline:hover{background:rgba(0,0,0,.18)}
-  .rs-aspen-inline:active{transform:scale(.98)}
-  .rs-inline-file{font-size:.85rem;opacity:.8}
-  .rs-aspen-hint{font-size:.8rem;opacity:.75;margin-bottom:.45rem;color:var(--text-color)}
+  .rs-inline-file{font-size:.85rem;opacity:.8;flex:1}
+  .rs-aspen-status{display:none;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;line-height:1;margin-left:.35rem;transition:background .2s,color .2s}
+  .rs-aspen-status.ok{display:inline-flex;background:rgba(16,185,129,.18);color:#10b981}
+  .rs-aspen-status.warn{display:inline-flex;background:rgba(234,179,8,.18);color:#ca8a04}
+  .rs-aspen-refresh{margin-left:auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--module-border-color);background:rgba(255,255,255,.08);color:var(--text-color);cursor:pointer}
+  .rs-aspen-refresh:hover{background:rgba(255,255,255,.12)}
+  .rs-aspen-refresh:active{transform:scale(.96)}
+  .rs-aspen-refresh:disabled{opacity:.45;cursor:default;transform:none}
+  .rs-aspen-hint{font-size:.8rem;opacity:.7;margin-bottom:.45rem;color:var(--text-color)}
   .rs-grid{display:grid;gap:.9rem}
   .rs-field{display:flex;flex-direction:column;gap:.35rem}
   .rs-labelwrap{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;color:var(--text-color)}
@@ -68,6 +72,7 @@
   const WATCH_INTERVAL=300;
   const GLOBAL_NAME_KEY='globalNameRules';
   const BASE_FIELD_KEYS=['meldung','auftrag','part','serial'];
+  const ASPEN_MELDUNGS_COLUMN='MELDUNGS_NO';
   const GROUP_LABELS={base:'Basisfeld',extra:'Zusatzfeld',aspen:'Aspen-Feld'};
   const MAX_HISTORY=50;
   const LABEL_BLOCKLIST=/[<>#]/;
@@ -142,7 +147,7 @@
     const header=Array.isArray(rows[0])?rows[0]:[];
     const headers=header.map((cell,idx)=>{const original=String(cell||'').trim();const key=original.toLowerCase();return{original,key,index:idx};}).filter(h=>h.key);
     const dataRows=rows.slice(1).map(r=>{const entry={};const lower={};headers.forEach(h=>{const value=String(r[h.index]??'');entry[h.original]=value;lower[h.key]=value;});entry.__lower=lower;return entry;}).filter(row=>headers.some(h=>(row[h.original]||'').trim()!==''));
-    return{headers,rows:dataRows,dataRows};
+    return{headers,rows:dataRows};
   }
 
   function buildUI(root){
@@ -151,8 +156,9 @@
         <div class="rs-head" style="display:none"></div>
         <div class="rs-form">
           <div class="rs-actions">
-            <button type="button" class="rs-aspen-inline">Aspen-Datei wählen</button>
             <span class="rs-inline-file"></span>
+            <span class="rs-aspen-status" role="img" aria-live="polite"></span>
+            <button type="button" class="rs-aspen-refresh" title="Aspen aktualisieren" aria-label="Aspen aktualisieren">↻</button>
           </div>
           <div class="rs-aspen-hint"></div>
           <div class="rs-grid"></div>
@@ -211,8 +217,9 @@
       modal:root.querySelector('.rs-modal'),
       mClose:root.querySelector('.rs-close'),
       head:root.querySelector('.rs-head'),
-      aspenInlineBtn:root.querySelector('.rs-aspen-inline'),
       aspenInlineFile:root.querySelector('.rs-inline-file'),
+      aspenStatus:root.querySelector('.rs-aspen-status'),
+      aspenRefresh:root.querySelector('.rs-aspen-refresh'),
       aspenHint:root.querySelector('.rs-aspen-hint'),
       mRulePick:root.querySelector('.rs-rule-pick'),
       mRuleFile:root.querySelector('.rs-rule-file'),
@@ -257,11 +264,12 @@
     function cloneFields(list){const normalized=normalizeFields(Array.isArray(list)?list.map(f=>({...f})) : []);return normalized.length?normalized:defaultFields.map(f=>({...f}));}
     function loadCfg(){
       const doc=loadDoc();
+      const general=doc?.general||{};
       const raw=doc?.instances?.[instanceId]?.recordSheet||{};
       const fields=cloneFields(Array.isArray(raw.fields)?raw.fields:defaultFields);
       return{
         ruleIdbKey:raw.ruleIdbKey||ruleIdbKey,
-        ruleFileName:raw.ruleFileName||g.nameFileName||'',
+        ruleFileName:raw.ruleFileName||general.nameFileName||'',
         aspenIdbKey:raw.aspenIdbKey||aspenIdbKey,
         aspenFileName:raw.aspenFileName||'',
         fields,
@@ -269,7 +277,7 @@
       };
     }
     function serializeFields(fields){return fields.map(f=>({id:f.id,key:f.key,label:f.label,enabled:!!f.enabled,group:f.group||'extra',originalKey:f.originalKey||f.key||f.id}));}
-    function saveCfg(current){const doc=loadDoc();doc.instances||={};doc.instances[instanceId]||={};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),columns:current.columns};saveDoc(doc);}
+    function saveCfg(current){const doc=loadDoc();doc.instances=doc.instances||{};doc.instances[instanceId]=doc.instances[instanceId]||{};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),columns:current.columns};saveDoc(doc);}
     function removeCfg(){const doc=loadDoc();if(doc?.instances?.[instanceId]){delete doc.instances[instanceId].recordSheet;if(!Object.keys(doc.instances[instanceId]).length)delete doc.instances[instanceId];saveDoc(doc);}}
 
     const setNote=s=>els.note.textContent=s||'';
@@ -312,7 +320,7 @@
 
     function getAspenValue(row,field){if(!row||!field)return'';const column=resolveAspenColumn(field);if(!column)return'';if(Object.prototype.hasOwnProperty.call(row,column))return String(row[column]||'');const lower=column.toLowerCase();if(row.__lower&&Object.prototype.hasOwnProperty.call(row.__lower,lower))return String(row.__lower[lower]||'');return'';}
 
-    function findAspenRow(meldung){const field=cfg.fields.find(f=>f.key==='meldung');const column=resolveAspenColumn(field||{originalKey:'meldung',key:'meldung',id:'meldung'});if(!column)return null;const target=String(meldung||'').trim().toLowerCase();if(!target)return null;return aspenData.find(row=>String((row[column]??(row.__lower?row.__lower[column.toLowerCase()]:''))||'').trim().toLowerCase()===target)||null;}
+    function findAspenRow(meldung){const column=ASPEN_MELDUNGS_COLUMN;const target=String(meldung||'').trim().toLowerCase();if(!target)return null;const lowerKey=column.toLowerCase();return aspenData.find(row=>{const raw=row[column];if(typeof raw==='string'||typeof raw==='number'){if(String(raw||'').trim().toLowerCase()===target)return true;}const alt=row.__lower?.[lowerKey];return typeof alt==='string'||typeof alt==='number'?String(alt||'').trim().toLowerCase()===target:false;})||null;}
 
     function alignFieldSources(){if(!aspenHeaders.length)return;const byOriginal=new Map();const byKey=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();if(originalLower&&!byOriginal.has(originalLower))byOriginal.set(originalLower,h);if(h.key&&!byKey.has(h.key))byKey.set(h.key,h);});let changed=false;cfg.fields.forEach(field=>{const existing=String(field.originalKey||'').trim();if(existing&&byOriginal.has(existing.toLowerCase()))return;const candidates=[field.key,field.label,field.id].map(v=>String(v||'').trim()).filter(Boolean);for(const cand of candidates){const lower=cand.toLowerCase();const match=byOriginal.get(lower)||byKey.get(lower);if(match){if(field.originalKey!==match.original){field.originalKey=match.original;changed=true;}break;}}});if(changed)saveCfg(cfg);}
 
@@ -329,22 +337,78 @@
       const fileName=cfg.aspenFileName||aspenHandle?.name||'';
       const hasFileName=!!fileName;
       if(els.mAspenFile)els.mAspenFile.textContent=hasFileName?`• ${fileName}`:'Keine Aspen-Datei';
-      if(els.aspenInlineFile)els.aspenInlineFile.textContent=hasFileName?`Aktuell: ${fileName}`:'Keine Aspen-Datei';
-      if(els.aspenInlineBtn){
-        els.aspenInlineBtn.textContent=hasHandle?'Aspen-Datei wechseln':(hasFileName?'Aspen-Datei erneut verbinden':'Aspen-Datei wählen');
+      if(els.aspenInlineFile)els.aspenInlineFile.textContent=hasFileName?`Aspen: ${fileName}`:'Aspen: keine Datei';
+      if(els.aspenRefresh){
+        const refreshLabel=hasHandle?'Aspen aktualisieren':'Keine Aspen-Datei verbunden';
+        els.aspenRefresh.disabled=!hasHandle;
+        els.aspenRefresh.setAttribute('aria-label',refreshLabel);
+        els.aspenRefresh.title=refreshLabel;
+      }
+      if(els.aspenStatus){
+        els.aspenStatus.classList.remove('ok','warn');
+        if(hasHandle){
+          els.aspenStatus.textContent='✓';
+          els.aspenStatus.classList.add('ok');
+          els.aspenStatus.style.display='inline-flex';
+          els.aspenStatus.title='Aspen-Autoabgleich aktiv.';
+          els.aspenStatus.setAttribute('aria-label','Aspen-Autoabgleich aktiv.');
+        }else if(hasFileName){
+          els.aspenStatus.textContent='!';
+          els.aspenStatus.classList.add('warn');
+          els.aspenStatus.style.display='inline-flex';
+          els.aspenStatus.title='Kein Zugriff – bitte neu verbinden.';
+          els.aspenStatus.setAttribute('aria-label','Kein Zugriff – bitte neu verbinden.');
+        }else{
+          els.aspenStatus.textContent='';
+          els.aspenStatus.style.display='none';
+          els.aspenStatus.removeAttribute('title');
+          els.aspenStatus.removeAttribute('aria-label');
+        }
       }
       if(els.aspenHint){
-        els.aspenHint.textContent=hasHandle
-          ?'Aspen-Daten werden automatisch anhand der Meldung geladen.'
-          :hasFileName
-            ?'Kein Zugriff – bitte Aspen-Datei erneut auswählen.'
-            :'Bitte eine Aspen-Datei auswählen, um Gerätedaten zu laden.';
+        const hint=!hasHandle
+          ?hasFileName
+            ?'Kein Zugriff – bitte neu verbinden.'
+            :'Aspen-Datei auswählen, um Daten zu laden.'
+          :'';
+        els.aspenHint.textContent=hint;
+        els.aspenHint.style.display=hint?'block':'none';
       }
       if(!hasHandle&&!hasFileName){
         setNote('');
       }
     }
     const copy=async val=>{try{await navigator.clipboard.writeText(val||'');setNote('Kopiert.');setTimeout(()=>setNote(''),800);}catch(err){setNote('Kopieren fehlgeschlagen');setDebugInfo('Clipboard-API nicht verfügbar.');console.warn('Clipboard copy failed',err);}};
+
+    async function refreshAspenData(){
+      if(!aspenHandle){
+        setNote('Keine Aspen-Datei verbunden.');
+        return;
+      }
+      try{
+        const ok=await ensureRPermission(aspenHandle);
+        if(!ok){
+          setNote('Berechtigung verweigert.');
+          setDebugInfo('Aspen-Refresh: Berechtigung verweigert.');
+          return;
+        }
+        const result=await readAspenFile(aspenHandle);
+        aspenHeaders=result.headers||[];
+        aspenData=result.rows||[];
+        alignFieldSources();
+        rebuildAspenHeaderMaps();
+        updateAspenFieldList();
+        refreshFromAspen();
+        clearDebugInfo();
+        setNote('Aspen aktualisiert.');
+      }catch(err){
+        console.warn('Aspen-Refresh fehlgeschlagen:',err);
+        setNote('Aspen konnte nicht aktualisiert werden.');
+        setDebugInfo(`Aspen-Refresh fehlgeschlagen: ${err?.message||err}`);
+      }finally{
+        updateAspenDisplays();
+      }
+    }
     if(els.mUndo)els.mUndo.addEventListener('click',undo);
     if(els.mRedo)els.mRedo.addEventListener('click',redo);
     if(els.mNewSearch)els.mNewSearch.addEventListener('input',()=>updateAspenFieldList());
@@ -457,7 +521,11 @@
         toggle.addEventListener('change',()=>{const desired=toggle.checked;mutateFields(fields=>{const target=fields.find(x=>x.id===f.id);if(target)target.enabled=desired;return fields;});});
         removeBtn.addEventListener('click',()=>{if(removeBtn.disabled)return;mutateFields(fields=>fields.filter(x=>x.id!==f.id));});
       });
-      listSortable=new Sortable(list,{animation:150,handle:'.rs-item-handle',onEnd:()=>{const order=Array.from(list.children).map(li=>li.dataset.id);mutateFields(fields=>{const map=new Map(fields.map(f=>[f.id,f]));const next=[];order.forEach(id=>{const item=map.get(id);if(item)next.push(item);});fields.forEach(field=>{if(!order.includes(field.id))next.push(field);});return next;});}});
+      if(typeof window.Sortable==='function'){
+        listSortable=new window.Sortable(list,{animation:150,handle:'.rs-item-handle',onEnd:()=>{const order=Array.from(list.children).map(li=>li.dataset.id);mutateFields(fields=>{const map=new Map(fields.map(f=>[f.id,f]));const next=[];order.forEach(id=>{const item=map.get(id);if(item)next.push(item);});fields.forEach(field=>{if(!order.includes(field.id))next.push(field);});return next;});}});
+      }else{
+        console.warn('SortableJS nicht verfügbar – Sortieren im Gerätedaten-Modul deaktiviert.');
+      }
       updateUndoRedoButtons();
     }
 
@@ -534,7 +602,7 @@
       }
     };
     if(els.mAspenPick)els.mAspenPick.addEventListener('click',openAspenPicker);
-    if(els.aspenInlineBtn)els.aspenInlineBtn.addEventListener('click',openAspenPicker);
+    if(els.aspenRefresh)els.aspenRefresh.addEventListener('click',refreshAspenData);
     updateAspenFieldList();
     (async()=>{try{const stored=await idbGet(cfg.aspenIdbKey);if(stored&&await ensureRPermission(stored)){aspenHandle=stored;if(!cfg.aspenFileName){cfg.aspenFileName=stored.name||'Aspen.xlsx';saveCfg(cfg);}updateAspenDisplays();try{const result=await readAspenFile(stored);aspenHeaders=result.headers||[];aspenData=result.rows||[];alignFieldSources();clearDebugInfo();}catch(err){console.warn('Aspen-Daten konnten nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setDebugInfo(`Aspen-Init fehlgeschlagen: ${err?.message||err}`);}}}catch(err){console.warn('Lesen der Aspen-Datei fehlgeschlagen:',err);setDebugInfo(`Aspen-Zugriff fehlgeschlagen: ${err?.message||err}`);}finally{rebuildAspenHeaderMaps();updateAspenFieldList();refreshFromAspen();}})();
 
