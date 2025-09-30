@@ -31,6 +31,35 @@
   const OUTPUT_KEYS=OUTPUT_DEFS.map(def=>def.key);
   const CUSTOM_SLOT_COUNT=OUTPUT_DEFS.length+1;
 
+  function describeCustomSlot(index){
+    const total=OUTPUT_DEFS.length;
+    if(!Number.isFinite(index)||total<=0){
+      return 'Textfeld einfügen';
+    }
+    if(index<=0){
+      const first=OUTPUT_DEFS[0];
+      return first&&first.label?`Textfeld vor ${first.label}`:'Textfeld einfügen';
+    }
+    if(index>=total){
+      const last=OUTPUT_DEFS[total-1];
+      return last&&last.label?`Textfeld nach ${last.label}`:'Textfeld einfügen';
+    }
+    const prev=OUTPUT_DEFS[index-1];
+    const next=OUTPUT_DEFS[index];
+    const prevLabel=prev&&prev.label?prev.label:'';
+    const nextLabel=next&&next.label?next.label:'';
+    if(prevLabel&&nextLabel){
+      return `Textfeld zwischen ${prevLabel} und ${nextLabel}`;
+    }
+    if(nextLabel){
+      return `Textfeld vor ${nextLabel}`;
+    }
+    if(prevLabel){
+      return `Textfeld nach ${prevLabel}`;
+    }
+    return 'Textfeld einfügen';
+  }
+
   const instances=new Set();
   let watchersInitialized=false;
   let ensureDataPromise=null;
@@ -165,6 +194,8 @@
       .nsf-menu-item{background:transparent;border:none;border-radius:0.6rem;padding:0.45rem 0.75rem;color:inherit;font:inherit;text-align:left;cursor:pointer;display:flex;align-items:center;gap:0.5rem;}
       .nsf-menu-item:hover{background:rgba(59,130,246,0.18);}
       .nsf-menu-item:disabled{opacity:0.5;cursor:not-allowed;background:transparent;}
+      .nsf-editor-menu-label{padding:0.35rem 0.55rem;font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;opacity:0.6;}
+      .nsf-editor-menu-divider{height:1px;background:rgba(148,163,184,0.28);margin:0.35rem 0;}
       .nsf-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.75rem;padding:0.45rem 0.9rem;color:inherit;font:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;display:inline-flex;align-items:center;gap:0.35rem;}
       .nsf-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
       .nsf-btn.secondary{background:rgba(148,163,184,0.2);}
@@ -199,6 +230,9 @@
       .nsf-outputs{display:flex;flex-direction:column;gap:0.75rem;}
       .nsf-outputs-layout{display:flex;flex-direction:column;gap:1.25rem;}
       .nsf-custom-slot{display:flex;flex-direction:column;gap:0.55rem;}
+      .nsf-custom-slot-empty{display:none;}
+      .nsf-custom-slot-dragging{display:flex;}
+      .nsf-custom-slot-dragging .nsf-custom-list{min-height:1.35rem;border:1px dashed rgba(148,163,184,0.35);border-radius:0.65rem;padding:0.3rem;background:rgba(15,23,42,0.25);}
       .nsf-custom-add{align-self:flex-start;background:rgba(59,130,246,0.22);border:1px solid rgba(59,130,246,0.45);border-radius:0.65rem;padding:0.35rem 0.75rem;font:inherit;color:rgba(191,219,254,0.95);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;display:inline-flex;align-items:center;gap:0.35rem;}
       .nsf-custom-add::before{content:'+';font-size:1.1rem;line-height:1;}
       .nsf-custom-add:hover{background:rgba(59,130,246,0.32);transform:translateY(-1px);}
@@ -2283,19 +2317,12 @@
 
     createCustomSlot(index){
       const wrapper=document.createElement('div');
-      wrapper.className='nsf-custom-slot';
-      const addBtn=document.createElement('button');
-      addBtn.type='button';
-      addBtn.className='nsf-custom-add';
-      addBtn.textContent='Textfeld hinzufügen';
-      addBtn.title='Freitextfeld hinzufügen';
-      addBtn.setAttribute('aria-label','Freitextfeld hinzufügen');
-      addBtn.addEventListener('click',()=>this.addCustomSection(index));
+      wrapper.className='nsf-custom-slot nsf-custom-slot-empty';
       const list=document.createElement('div');
       list.className='nsf-custom-list';
       list.dataset.slotIndex=String(index);
-      wrapper.append(addBtn,list);
-      this.customSlots.push({index,wrapper,list,addBtn});
+      wrapper.appendChild(list);
+      this.customSlots.push({index,wrapper,list});
       return wrapper;
     }
 
@@ -2330,11 +2357,31 @@
       return block;
     }
 
+    updateCustomSlotState(slot){
+      if(!slot||!slot.wrapper||!slot.list) return;
+      const empty=slot.list.childElementCount===0;
+      if(empty){
+        slot.wrapper.classList.add('nsf-custom-slot-empty');
+      }else{
+        slot.wrapper.classList.remove('nsf-custom-slot-empty');
+      }
+    }
+
+    updateAllCustomSlotStates(){
+      if(!Array.isArray(this.customSlots)) return;
+      this.customSlots.forEach(slot=>this.updateCustomSlotState(slot));
+    }
+
     renderCustomSections(){
       this.destroyCustomSectionSortables();
       if(!Array.isArray(this.customSlots)) this.customSlots=[];
       this.customSlots.forEach(slot=>{
-        if(slot&&slot.list) slot.list.innerHTML='';
+        if(!slot) return;
+        if(slot.list) slot.list.innerHTML='';
+        if(slot.wrapper){
+          slot.wrapper.classList.add('nsf-custom-slot-empty');
+          slot.wrapper.classList.remove('nsf-custom-slot-dragging');
+        }
       });
       if(!Array.isArray(this.customSections)) this.customSections=[];
       const slotCount=this.customSlots.length||CUSTOM_SLOT_COUNT;
@@ -2350,6 +2397,7 @@
           const block=this.createCustomBlock(section);
           slot.list.appendChild(block);
         });
+        this.updateCustomSlotState(slot);
       });
       this.setupCustomSectionSortables();
     }
@@ -2367,14 +2415,29 @@
           draggable:'.nsf-custom-block',
           onStart:evt=>{
             if(evt?.item) evt.item.classList.add('dragging');
+            this.setCustomSlotDragging(true);
           },
           onEnd:evt=>{
             if(evt?.item) evt.item.classList.remove('dragging');
+            this.setCustomSlotDragging(false);
             this.syncCustomSectionsFromDom();
           }
         });
         this.customSlotSortables.push(sortable);
       });
+    }
+
+    setCustomSlotDragging(active){
+      if(!Array.isArray(this.customSlots)) return;
+      this.customSlots.forEach(slot=>{
+        if(!slot||!slot.wrapper) return;
+        if(active){
+          slot.wrapper.classList.add('nsf-custom-slot-dragging');
+        }else{
+          slot.wrapper.classList.remove('nsf-custom-slot-dragging');
+        }
+      });
+      if(!active) this.updateAllCustomSlotStates();
     }
 
     destroyCustomSectionSortables(){
@@ -2386,6 +2449,7 @@
         });
       }
       this.customSlotSortables=[];
+      this.setCustomSlotDragging(false);
     }
 
     syncCustomSectionsFromDom(){
@@ -2406,6 +2470,7 @@
       this.customSections=normalizeCustomSections(collected,this.customSlots.length||CUSTOM_SLOT_COUNT);
       this.rebuildCustomSectionMap();
       this.syncCustomSectionsToActiveState();
+      this.updateAllCustomSlotStates();
     }
 
     addCustomSection(slotIndex){
@@ -2421,6 +2486,7 @@
       if(slot&&slot.list){
         const block=this.createCustomBlock(section);
         slot.list.appendChild(block);
+        this.updateCustomSlotState(slot);
         this.setupCustomSectionSortables();
         const textarea=block.querySelector('textarea');
         if(textarea) textarea.focus();
@@ -2442,6 +2508,7 @@
           const node=Array.from(slot.list.children||[]).find(child=>child.dataset&&child.dataset.id===id);
           if(node&&node.parentNode===slot.list){
             slot.list.removeChild(node);
+            this.updateCustomSlotState(slot);
           }
         });
       }
@@ -2708,12 +2775,39 @@
       const editBtn=document.createElement('button');
       editBtn.type='button';
       editBtn.className='nsf-editor-menu-btn';
-      editBtn.textContent='Ändern';
+      editBtn.textContent='Routine bearbeiten';
       editBtn.addEventListener('click',()=>{
         this.closeRoutineEditorMenu();
         this.openRoutineEditorOverlay();
       });
       menu.appendChild(editBtn);
+      const slots=Array.isArray(this.customSlots)?this.customSlots.slice():[];
+      slots.sort((a,b)=>{
+        const ai=Number(a&&a.index)||0;
+        const bi=Number(b&&b.index)||0;
+        return ai-bi;
+      });
+      if(slots.length){
+        const divider=document.createElement('div');
+        divider.className='nsf-editor-menu-divider';
+        menu.appendChild(divider);
+        const label=document.createElement('div');
+        label.className='nsf-editor-menu-label';
+        label.textContent='Textfeld einfügen';
+        menu.appendChild(label);
+        slots.forEach(slot=>{
+          if(!slot) return;
+          const btn=document.createElement('button');
+          btn.type='button';
+          btn.className='nsf-editor-menu-btn';
+          btn.textContent=describeCustomSlot(slot.index);
+          btn.addEventListener('click',()=>{
+            this.addCustomSection(slot.index);
+            this.closeRoutineEditorMenu();
+          });
+          menu.appendChild(btn);
+        });
+      }
       document.body.appendChild(menu);
       const rect=menu.getBoundingClientRect();
       const maxLeft=Math.max(0,window.innerWidth-rect.width-12);
