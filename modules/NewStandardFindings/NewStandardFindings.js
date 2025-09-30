@@ -4682,9 +4682,14 @@
           document.addEventListener('pointerdown',pickerState.outsideHandler,true);
           updateFiltered(input.value);
         };
-        input.addEventListener('input',()=>{
-          if(!pickerState.open) openDropdown();
-          else updateFiltered(input.value);
+        input.addEventListener('input',event=>{
+          if(pickerState.open){
+            updateFiltered(input.value);
+            return;
+          }
+          if(event.isTrusted&&document.activeElement===input){
+            openDropdown();
+          }
         });
         input.addEventListener('blur',()=>{
           setTimeout(()=>closeDropdown(),120);
