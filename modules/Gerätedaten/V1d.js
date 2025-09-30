@@ -12,11 +12,12 @@
   .rs-form{flex:1;overflow:auto;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none}
   .rs-form::-webkit-scrollbar{width:0;height:0;display:none}
   .rs-actions{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;flex-wrap:wrap}
-  .rs-aspen-inline{border:none;border-radius:.5rem;padding:.4rem .75rem;background:rgba(0,0,0,.12);color:var(--text-color);cursor:pointer;font-weight:600}
-  .rs-aspen-inline:hover{background:rgba(0,0,0,.18)}
-  .rs-aspen-inline:active{transform:scale(.98)}
-  .rs-inline-file{font-size:.85rem;opacity:.8}
-  .rs-aspen-hint{font-size:.8rem;opacity:.75;margin-bottom:.45rem;color:var(--text-color)}
+  .rs-inline-file{font-size:.85rem;opacity:.8;flex:1}
+  .rs-aspen-refresh{margin-left:auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--module-border-color);background:rgba(255,255,255,.08);color:var(--text-color);cursor:pointer}
+  .rs-aspen-refresh:hover{background:rgba(255,255,255,.12)}
+  .rs-aspen-refresh:active{transform:scale(.96)}
+  .rs-aspen-refresh:disabled{opacity:.45;cursor:default;transform:none}
+  .rs-aspen-hint{font-size:.8rem;opacity:.7;margin-bottom:.45rem;color:var(--text-color)}
   .rs-grid{display:grid;gap:.9rem}
   .rs-field{display:flex;flex-direction:column;gap:.35rem}
   .rs-labelwrap{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;color:var(--text-color)}
@@ -152,8 +153,8 @@
         <div class="rs-head" style="display:none"></div>
         <div class="rs-form">
           <div class="rs-actions">
-            <button type="button" class="rs-aspen-inline">Aspen-Datei wählen</button>
             <span class="rs-inline-file"></span>
+            <button type="button" class="rs-aspen-refresh" title="Aspen aktualisieren" aria-label="Aspen aktualisieren">↻</button>
           </div>
           <div class="rs-aspen-hint"></div>
           <div class="rs-grid"></div>
@@ -212,8 +213,8 @@
       modal:root.querySelector('.rs-modal'),
       mClose:root.querySelector('.rs-close'),
       head:root.querySelector('.rs-head'),
-      aspenInlineBtn:root.querySelector('.rs-aspen-inline'),
       aspenInlineFile:root.querySelector('.rs-inline-file'),
+      aspenRefresh:root.querySelector('.rs-aspen-refresh'),
       aspenHint:root.querySelector('.rs-aspen-hint'),
       mRulePick:root.querySelector('.rs-rule-pick'),
       mRuleFile:root.querySelector('.rs-rule-file'),
@@ -331,22 +332,55 @@
       const fileName=cfg.aspenFileName||aspenHandle?.name||'';
       const hasFileName=!!fileName;
       if(els.mAspenFile)els.mAspenFile.textContent=hasFileName?`• ${fileName}`:'Keine Aspen-Datei';
-      if(els.aspenInlineFile)els.aspenInlineFile.textContent=hasFileName?`Aktuell: ${fileName}`:'Keine Aspen-Datei';
-      if(els.aspenInlineBtn){
-        els.aspenInlineBtn.textContent=hasHandle?'Aspen-Datei wechseln':(hasFileName?'Aspen-Datei erneut verbinden':'Aspen-Datei wählen');
+      if(els.aspenInlineFile)els.aspenInlineFile.textContent=hasFileName?`Aspen: ${fileName}`:'Aspen: keine Datei';
+      if(els.aspenRefresh){
+        const refreshLabel=hasHandle?'Aspen aktualisieren':'Keine Aspen-Datei verbunden';
+        els.aspenRefresh.disabled=!hasHandle;
+        els.aspenRefresh.setAttribute('aria-label',refreshLabel);
+        els.aspenRefresh.title=refreshLabel;
       }
       if(els.aspenHint){
         els.aspenHint.textContent=hasHandle
-          ?'Aspen-Daten werden automatisch anhand der Meldung geladen.'
+          ?'Aspen-Autoabgleich aktiv.'
           :hasFileName
-            ?'Kein Zugriff – bitte Aspen-Datei erneut auswählen.'
-            :'Bitte eine Aspen-Datei auswählen, um Gerätedaten zu laden.';
+            ?'Kein Zugriff – bitte neu verbinden.'
+            :'Aspen-Datei auswählen, um Daten zu laden.';
       }
       if(!hasHandle&&!hasFileName){
         setNote('');
       }
     }
     const copy=async val=>{try{await navigator.clipboard.writeText(val||'');setNote('Kopiert.');setTimeout(()=>setNote(''),800);}catch(err){setNote('Kopieren fehlgeschlagen');setDebugInfo('Clipboard-API nicht verfügbar.');console.warn('Clipboard copy failed',err);}};
+
+    async function refreshAspenData(){
+      if(!aspenHandle){
+        setNote('Keine Aspen-Datei verbunden.');
+        return;
+      }
+      try{
+        const ok=await ensureRPermission(aspenHandle);
+        if(!ok){
+          setNote('Berechtigung verweigert.');
+          setDebugInfo('Aspen-Refresh: Berechtigung verweigert.');
+          return;
+        }
+        const result=await readAspenFile(aspenHandle);
+        aspenHeaders=result.headers||[];
+        aspenData=result.rows||[];
+        alignFieldSources();
+        rebuildAspenHeaderMaps();
+        updateAspenFieldList();
+        refreshFromAspen();
+        clearDebugInfo();
+        setNote('Aspen aktualisiert.');
+      }catch(err){
+        console.warn('Aspen-Refresh fehlgeschlagen:',err);
+        setNote('Aspen konnte nicht aktualisiert werden.');
+        setDebugInfo(`Aspen-Refresh fehlgeschlagen: ${err?.message||err}`);
+      }finally{
+        updateAspenDisplays();
+      }
+    }
     if(els.mUndo)els.mUndo.addEventListener('click',undo);
     if(els.mRedo)els.mRedo.addEventListener('click',redo);
     if(els.mNewSearch)els.mNewSearch.addEventListener('input',()=>updateAspenFieldList());
@@ -540,7 +574,7 @@
       }
     };
     if(els.mAspenPick)els.mAspenPick.addEventListener('click',openAspenPicker);
-    if(els.aspenInlineBtn)els.aspenInlineBtn.addEventListener('click',openAspenPicker);
+    if(els.aspenRefresh)els.aspenRefresh.addEventListener('click',refreshAspenData);
     updateAspenFieldList();
     (async()=>{try{const stored=await idbGet(cfg.aspenIdbKey);if(stored&&await ensureRPermission(stored)){aspenHandle=stored;if(!cfg.aspenFileName){cfg.aspenFileName=stored.name||'Aspen.xlsx';saveCfg(cfg);}updateAspenDisplays();try{const result=await readAspenFile(stored);aspenHeaders=result.headers||[];aspenData=result.rows||[];alignFieldSources();clearDebugInfo();}catch(err){console.warn('Aspen-Daten konnten nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setDebugInfo(`Aspen-Init fehlgeschlagen: ${err?.message||err}`);}}}catch(err){console.warn('Lesen der Aspen-Datei fehlgeschlagen:',err);setDebugInfo(`Aspen-Zugriff fehlgeschlagen: ${err?.message||err}`);}finally{rebuildAspenHeaderMaps();updateAspenFieldList();refreshFromAspen();}})();
 
