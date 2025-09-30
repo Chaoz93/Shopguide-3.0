@@ -1448,35 +1448,10 @@
       const value=normalizePart(candidate);
       if(value){part=value;break;}
     }
-    const serialCandidates=[
-      general&&general.Serial,
-      general&&general.SerialNo,
-      general&&general.SerialNumber,
-      general&&general.SerialNr,
-      general&&general.SN,
-      general&&general.Snr,
-      general&&general.SNr,
-      general&&general.Seriennummer,
-      general&&general.SerienNr,
-      general&&general.Serien,
-      general&&general.SERIAL_NO,
-      general&&general['Serial No'],
-      general&&general['Serial_Number']
-    ];
     let serial='';
     if(meldung){
       const matchedSerial=findSerialForMeldung(doc,meldung);
       if(matchedSerial) serial=matchedSerial;
-    }
-    if(!serial){
-      for(const candidate of serialCandidates){
-        const value=clean(candidate);
-        if(value){serial=value;break;}
-      }
-    }
-    if(!serial){
-      const nestedSerial=clean(extractNestedField(general,SERIAL_FIELD_ALIASES));
-      if(nestedSerial) serial=nestedSerial;
     }
     const repairOrderCandidates=[
       general&&general.RepairOrder,
@@ -2106,7 +2081,6 @@
       this.updateAspenBlocksFromDoc();
       const boardEntry=this.meldung?findAspenBoardEntry(this.meldung):null;
       const boardPart=boardEntry?extractPartFromBoard(boardEntry):'';
-      const boardSerial=boardEntry?extractSerialFromBoard(boardEntry):'';
       let part='';
       let partSource='';
       if(boardPart){
@@ -2124,8 +2098,7 @@
       const previousPart=this.currentPart;
       this.currentPart=part;
       this.partSource=part?partSource:'';
-      const serialCandidate=docInfo.serial||boardSerial||'';
-      this.serial=serialCandidate;
+      this.serial=docInfo.serial||'';
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
         this.filterAll=false;
