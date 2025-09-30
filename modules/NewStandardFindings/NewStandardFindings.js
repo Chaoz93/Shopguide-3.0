@@ -91,6 +91,15 @@
     return value.trim().slice(0,120);
   }
 
+  function sanitizePresetName(name){
+    if(typeof name!=='string') return '';
+    return name.trim().slice(0,80);
+  }
+
+  function createRoutinePresetId(){
+    return `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+  }
+
   function autoSizeTextarea(textarea){
     if(!textarea) return;
     textarea.style.height='auto';
@@ -166,6 +175,26 @@
 
   function getRoutineEditorTabKey(tabKey){
     return ROUTINE_EDITOR_PREVIEW_TAB_KEYS.includes(tabKey)?tabKey:'routine';
+  }
+
+  function loadRoutineEditorActiveTab(){
+    try{
+      const raw=localStorage.getItem(ROUTINE_EDITOR_ACTIVE_TAB_KEY);
+      if(!raw) return 'routine';
+      return getRoutineEditorTabKey(String(raw));
+    }catch(err){
+      console.warn('NSF: Aktiver Routine-Tab konnte nicht geladen werden',err);
+      return 'routine';
+    }
+  }
+
+  function storeRoutineEditorActiveTab(tabKey){
+    try{
+      const key=getRoutineEditorTabKey(tabKey);
+      localStorage.setItem(ROUTINE_EDITOR_ACTIVE_TAB_KEY,key);
+    }catch(err){
+      console.warn('NSF: Aktiver Routine-Tab konnte nicht gespeichert werden',err);
+    }
   }
 
   function getRoutineEditorTabConfig(tabKey){
@@ -483,6 +512,44 @@
       }
     }catch(err){
       console.warn('NSF: Aktives Routine-Profil konnte nicht gespeichert werden',err);
+    }
+  }
+
+  function loadRoutineEditorParameterFavorites(){
+    try{
+      const raw=localStorage.getItem(ROUTINE_EDITOR_PARAMETER_FAVORITES_KEY);
+      if(!raw) return [];
+      const parsed=JSON.parse(raw);
+      if(!Array.isArray(parsed)) return [];
+      const seen=new Set();
+      const favorites=[];
+      parsed.forEach(entry=>{
+        if(typeof entry!=='string') return;
+        const key=entry.trim();
+        if(!key||seen.has(key)) return;
+        seen.add(key);
+        favorites.push(key);
+      });
+      return favorites;
+    }catch(err){
+      console.warn('NSF: Routine-Parameter-Favoriten konnten nicht geladen werden',err);
+      return [];
+    }
+  }
+
+  function storeRoutineEditorParameterFavorites(favorites){
+    try{
+      const seen=new Set();
+      const payload=Array.isArray(favorites)?favorites.map(entry=>{
+        if(typeof entry!=='string') return '';
+        const key=entry.trim();
+        if(!key||seen.has(key)) return '';
+        seen.add(key);
+        return key;
+      }).filter(Boolean):[];
+      localStorage.setItem(ROUTINE_EDITOR_PARAMETER_FAVORITES_KEY,JSON.stringify(payload));
+    }catch(err){
+      console.warn('NSF: Routine-Parameter-Favoriten konnten nicht gespeichert werden',err);
     }
   }
 
