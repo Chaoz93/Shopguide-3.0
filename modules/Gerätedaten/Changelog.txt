@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.1] – 2025-10-01
+### Fixed
+- Fehlerzustände werden nun direkt im Kopfbereich angezeigt, inklusive Debug-Hinweisen bei Problemen mit Dateiauswahl oder Berechtigungen.
+- Inline-Auswahl der Aspen-Datei öffnet jetzt zuverlässig die Optionen, wenn der File-Picker nicht unterstützt wird.
+
 ## [1.4.0] – 2025-09-30
 ### Changed
 - Gerätedaten lesen jetzt ausschließlich aus der Aspen-Datei; Dictionary-Unterstützung entfernt und Eingabefelder auf Lesezugriff umgestellt.

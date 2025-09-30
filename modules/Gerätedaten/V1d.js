@@ -248,6 +248,8 @@
     const defaultColumns=defaults.columns||2;
 
     const els=buildUI(root);
+    let debugInfo='';
+    let deviceName='';
     const instanceId=instanceIdOf(root);
     const ruleIdbKey=`recordSheetRules:${instanceId}`;
     const aspenIdbKey=`recordSheetAspen:${instanceId}`;
@@ -271,6 +273,22 @@
     function removeCfg(){const doc=loadDoc();if(doc?.instances?.[instanceId]){delete doc.instances[instanceId].recordSheet;if(!Object.keys(doc.instances[instanceId]).length)delete doc.instances[instanceId];saveDoc(doc);}}
 
     const setNote=s=>els.note.textContent=s||'';
+    function renderHead(){
+      if(debugInfo){
+        els.head.style.display='block';
+        els.head.textContent=`⚠️ ${debugInfo}`;
+        return;
+      }
+      if(deviceName){
+        els.head.style.display='block';
+        els.head.textContent=deviceName;
+        return;
+      }
+      els.head.style.display='none';
+      els.head.textContent='';
+    }
+    const setDebugInfo=message=>{debugInfo=String(message||'').trim();renderHead();};
+    const clearDebugInfo=()=>{debugInfo='';renderHead();};
 
     let cfg=loadCfg();
     let aspenHandle=null;
@@ -326,16 +344,16 @@
         setNote('');
       }
     }
-    const copy=async val=>{try{await navigator.clipboard.writeText(val||'');setNote('Kopiert.');setTimeout(()=>setNote(''),800);}catch{setNote('Kopieren fehlgeschlagen');}};
+    const copy=async val=>{try{await navigator.clipboard.writeText(val||'');setNote('Kopiert.');setTimeout(()=>setNote(''),800);}catch(err){setNote('Kopieren fehlgeschlagen');setDebugInfo('Clipboard-API nicht verfügbar.');console.warn('Clipboard copy failed',err);}};
     if(els.mUndo)els.mUndo.addEventListener('click',undo);
     if(els.mRedo)els.mRedo.addEventListener('click',redo);
     if(els.mNewSearch)els.mNewSearch.addEventListener('input',()=>updateAspenFieldList());
 
-    async function bindAspenHandle(handle){try{const ok=await ensureRPermission(handle);if(!ok){setNote('Berechtigung verweigert.');return false;}aspenHandle=handle;await idbSet(cfg.aspenIdbKey,handle);cfg.aspenFileName=handle.name||'Aspen.xlsx';saveCfg(cfg);updateAspenDisplays();let success=false;try{const result=await readAspenFile(handle);aspenHeaders=result.headers||[];aspenData=result.rows||[];success=true;}catch(err){console.warn('Aspen-Datei konnte nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setNote('Aspen-Daten konnten nicht gelesen werden.');}rebuildAspenHeaderMaps();if(success){alignFieldSources();setNote('Aspen-Datei geladen.');}refreshFromAspen();updateAspenFieldList();return true;}catch(err){console.warn('Aspen-Datei konnte nicht gebunden werden:',err);setNote('Aspen-Datei konnte nicht geladen werden.');return false;}}
+    async function bindAspenHandle(handle){try{const ok=await ensureRPermission(handle);if(!ok){setNote('Berechtigung verweigert.');setDebugInfo('Aspen: Berechtigung verweigert.');return false;}aspenHandle=handle;await idbSet(cfg.aspenIdbKey,handle);cfg.aspenFileName=handle.name||'Aspen.xlsx';saveCfg(cfg);updateAspenDisplays();let success=false;try{const result=await readAspenFile(handle);aspenHeaders=result.headers||[];aspenData=result.rows||[];success=true;clearDebugInfo();}catch(err){console.warn('Aspen-Datei konnte nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setNote('Aspen-Daten konnten nicht gelesen werden.');setDebugInfo(`Aspen-Leseproblem: ${err?.message||err}`);}rebuildAspenHeaderMaps();if(success){alignFieldSources();setNote('Aspen-Datei geladen.');}refreshFromAspen();updateAspenFieldList();return true;}catch(err){console.warn('Aspen-Datei konnte nicht gebunden werden:',err);setNote('Aspen-Datei konnte nicht geladen werden.');setDebugInfo(`Aspen-Bindung fehlgeschlagen: ${err?.message||err}`);return false;}}
 
     let fieldEls={};
     const lookupName=pn=>{for(const r of rules){if(pn.startsWith(r.prefix))return r.name;}return'';};
-    function updateName(){if(!rules.length){els.head.style.display='none';return;}const partField=cfg.fields.find(f=>f.key==='part'&&f.enabled);const pn=partField?(fieldEls[partField.id]?.input?.value||'').trim():'';const name=lookupName(pn);els.head.style.display='block';els.head.textContent=name||'Unbekanntes Gerät';}
+    function updateName(){if(!rules.length){deviceName='';renderHead();return;}const partField=cfg.fields.find(f=>f.key==='part'&&f.enabled);const pn=partField?(fieldEls[partField.id]?.input?.value||'').trim():'';const name=lookupName(pn);deviceName=name||'Unbekanntes Gerät';renderHead();}
 
     function applyColumns(){const cols=Math.max(1,parseInt(cfg.columns)||1);els.grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;}
     function renderFields(){
@@ -503,21 +521,22 @@
         ? window.showOpenFilePicker.bind(window)
         : null;
       if(!picker){
-        toggleModal(true);
+        openModal();
         setNote('Dateiauswahl wird nicht unterstützt. Bitte über die Optionen öffnen.');
+        setDebugInfo('File-Picker fehlt – Optionen geöffnet.');
         return;
       }
       try{
         const [handle]=await picker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});
-        if(handle)await bindAspenHandle(handle);
+        if(handle){await bindAspenHandle(handle);}
       }catch(e){
-        if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');
+        if(e?.name!=='AbortError'){setNote('Auswahl fehlgeschlagen.');setDebugInfo(`File-Picker Fehler: ${e?.message||e}`);}
       }
     };
     if(els.mAspenPick)els.mAspenPick.addEventListener('click',openAspenPicker);
     if(els.aspenInlineBtn)els.aspenInlineBtn.addEventListener('click',openAspenPicker);
     updateAspenFieldList();
-    (async()=>{try{const stored=await idbGet(cfg.aspenIdbKey);if(stored&&await ensureRPermission(stored)){aspenHandle=stored;if(!cfg.aspenFileName){cfg.aspenFileName=stored.name||'Aspen.xlsx';saveCfg(cfg);}updateAspenDisplays();try{const result=await readAspenFile(stored);aspenHeaders=result.headers||[];aspenData=result.rows||[];alignFieldSources();}catch(err){console.warn('Aspen-Daten konnten nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];}}}catch(err){console.warn('Lesen der Aspen-Datei fehlgeschlagen:',err);}finally{rebuildAspenHeaderMaps();updateAspenFieldList();refreshFromAspen();}})();
+    (async()=>{try{const stored=await idbGet(cfg.aspenIdbKey);if(stored&&await ensureRPermission(stored)){aspenHandle=stored;if(!cfg.aspenFileName){cfg.aspenFileName=stored.name||'Aspen.xlsx';saveCfg(cfg);}updateAspenDisplays();try{const result=await readAspenFile(stored);aspenHeaders=result.headers||[];aspenData=result.rows||[];alignFieldSources();clearDebugInfo();}catch(err){console.warn('Aspen-Daten konnten nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setDebugInfo(`Aspen-Init fehlgeschlagen: ${err?.message||err}`);}}}catch(err){console.warn('Lesen der Aspen-Datei fehlgeschlagen:',err);setDebugInfo(`Aspen-Zugriff fehlgeschlagen: ${err?.message||err}`);}finally{rebuildAspenHeaderMaps();updateAspenFieldList();refreshFromAspen();}})();
 
 
     renderFields();
