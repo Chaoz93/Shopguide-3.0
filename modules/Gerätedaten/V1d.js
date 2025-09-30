@@ -68,6 +68,7 @@
   const WATCH_INTERVAL=300;
   const GLOBAL_NAME_KEY='globalNameRules';
   const BASE_FIELD_KEYS=['meldung','auftrag','part','serial'];
+  const ASPEN_MELDUNGS_COLUMN='MELDUNGS_NO';
   const GROUP_LABELS={base:'Basisfeld',extra:'Zusatzfeld',aspen:'Aspen-Feld'};
   const MAX_HISTORY=50;
   const LABEL_BLOCKLIST=/[<>#]/;
@@ -313,7 +314,7 @@
 
     function getAspenValue(row,field){if(!row||!field)return'';const column=resolveAspenColumn(field);if(!column)return'';if(Object.prototype.hasOwnProperty.call(row,column))return String(row[column]||'');const lower=column.toLowerCase();if(row.__lower&&Object.prototype.hasOwnProperty.call(row.__lower,lower))return String(row.__lower[lower]||'');return'';}
 
-    function findAspenRow(meldung){const field=cfg.fields.find(f=>f.key==='meldung');const column=resolveAspenColumn(field||{originalKey:'meldung',key:'meldung',id:'meldung'});if(!column)return null;const target=String(meldung||'').trim().toLowerCase();if(!target)return null;return aspenData.find(row=>String((row[column]??(row.__lower?row.__lower[column.toLowerCase()]:''))||'').trim().toLowerCase()===target)||null;}
+    function findAspenRow(meldung){const column=ASPEN_MELDUNGS_COLUMN;const target=String(meldung||'').trim().toLowerCase();if(!target)return null;const lowerKey=column.toLowerCase();return aspenData.find(row=>{const raw=row[column];if(typeof raw==='string'||typeof raw==='number'){if(String(raw||'').trim().toLowerCase()===target)return true;}const alt=row.__lower?.[lowerKey];return typeof alt==='string'||typeof alt==='number'?String(alt||'').trim().toLowerCase()===target:false;})||null;}
 
     function alignFieldSources(){if(!aspenHeaders.length)return;const byOriginal=new Map();const byKey=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();if(originalLower&&!byOriginal.has(originalLower))byOriginal.set(originalLower,h);if(h.key&&!byKey.has(h.key))byKey.set(h.key,h);});let changed=false;cfg.fields.forEach(field=>{const existing=String(field.originalKey||'').trim();if(existing&&byOriginal.has(existing.toLowerCase()))return;const candidates=[field.key,field.label,field.id].map(v=>String(v||'').trim()).filter(Boolean);for(const cand of candidates){const lower=cand.toLowerCase();const match=byOriginal.get(lower)||byKey.get(lower);if(match){if(field.originalKey!==match.original){field.originalKey=match.original;changed=true;}break;}}});if(changed)saveCfg(cfg);}
 
