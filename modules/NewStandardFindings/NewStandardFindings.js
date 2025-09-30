@@ -41,6 +41,15 @@
     {key:'times',label:'Arbeitszeiten',getter:entry=>entry.times||''},
     {key:'mods',label:'Modifikationen',getter:entry=>entry.mods||''}
   ];
+
+  const OUTPUT_DEFS=[
+    {key:'findings',label:'Findings'},
+    {key:'actions',label:'Actions'},
+    {key:'routine',label:'Routine'},
+    {key:'nonroutine',label:'Nonroutine'},
+    {key:'parts',label:'Bestellliste'}
+  ];
+
   const ROUTINE_EDITOR_PREVIEW_TAB_KEYS=OUTPUT_DEFS.filter(def=>def.key!=='parts').map(def=>def.key);
 
   function sanitizeRoutineEditorLabel(value){
@@ -53,14 +62,6 @@
     textarea.style.height='auto';
     textarea.style.height=`${Math.max(textarea.scrollHeight,textarea.dataset.minHeight?Number(textarea.dataset.minHeight):0)}px`;
   }
-
-  const OUTPUT_DEFS=[
-    {key:'findings',label:'Findings'},
-    {key:'actions',label:'Actions'},
-    {key:'routine',label:'Routine'},
-    {key:'nonroutine',label:'Nonroutine'},
-    {key:'parts',label:'Bestellliste'}
-  ];
 
   const OUTPUT_KEYS=OUTPUT_DEFS.map(def=>def.key);
   const CUSTOM_SLOT_COUNT=OUTPUT_DEFS.length+1;
