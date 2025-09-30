@@ -12,6 +12,7 @@
   const SAVE_DEBOUNCE=250;
   const HISTORY_LIMIT=10;
   const STYLE_ID='nsf-styles';
+  const ASPEN_BOARD_STATE_KEY='aspenUnitListState';
   const ROUTINE_EDITOR_STORAGE_KEY='nsf-routine-editor';
   const ROUTINE_EDITOR_CUSTOM_PREFIX='custom:';
   const ROUTINE_EDITOR_PRESETS_KEY='nsf-routine-editor-presets';
@@ -1482,6 +1483,49 @@
     return {docRaw,meldung,part,serial,repairOrder,hasDoc,doc};
   }
 
+  function loadAspenBoardState(){
+    let raw='';
+    try{raw=localStorage.getItem(ASPEN_BOARD_STATE_KEY)||'';}
+    catch(err){console.warn('NSF: aspenUnitListState konnte nicht gelesen werden',err);}
+    if(!raw) return null;
+    try{
+      const parsed=JSON.parse(raw);
+      return parsed&&typeof parsed==='object'?parsed:null;
+    }catch(err){
+      console.warn('NSF: aspenUnitListState konnte nicht geparst werden',err);
+      return null;
+    }
+  }
+
+  function findAspenBoardRecord(meldung,repairOrder){
+    const state=loadAspenBoardState();
+    if(!state) return {state:null,record:null,fields:[]};
+    const items=Array.isArray(state.items)?state.items:[];
+    const normalizedMeldung=clean(meldung||'');
+    let record=null;
+    if(normalizedMeldung){
+      record=items.find(item=>clean(item&&item.meldung)===normalizedMeldung)||null;
+    }
+    if(!record){
+      const normalizedRepair=clean(repairOrder||'').toLowerCase();
+      if(normalizedRepair){
+        record=items.find(item=>{
+          const data=item&&item.data&&typeof item.data==='object'?item.data:{};
+          return Object.entries(data).some(([key,val])=>{
+            const canonical=canonicalKey(key);
+            if(!canonical) return false;
+            if(canonical==='repairorder'||canonical==='auftragsno'||canonical==='auftrag'||canonical==='auftragsnummer'){
+              return clean(val||'').toLowerCase()===normalizedRepair;
+            }
+            return false;
+          });
+        })||null;
+      }
+    }
+    const fields=Array.isArray(state.fields)?state.fields.slice():[];
+    return {state,record,fields};
+  }
+
   function findAspenBoardEntry(meldung){
     const key=clean(meldung);
     if(!key) return null;
@@ -1861,6 +1905,7 @@
       this.customSectionMap=new Map();
       this.aspenDoc=null;
       this.aspenFieldOptions=[];
+      this.aspenBoardRecord=null;
       this.aspenFileInput=null;
       this.routineEditorState=loadRoutineEditorState();
       this.routineEditorPresets=loadRoutineEditorPresets();
@@ -1946,8 +1991,10 @@
       const docInfo=parseDocument();
       this.repairOrder=docInfo.repairOrder||'';
       this.aspenDoc=docInfo.doc&&typeof docInfo.doc==='object'?docInfo.doc:null;
-      this.hasAspenDoc=docInfo.hasDoc;
-      this.aspenFieldOptions=this.computeAspenFieldOptions(this.aspenDoc,this.repairOrder);
+      const boardInfo=findAspenBoardRecord(docInfo.meldung,this.repairOrder);
+      this.aspenBoardRecord=boardInfo.record;
+      this.aspenFieldOptions=this.computeAspenFieldOptions(this.aspenDoc,this.repairOrder,boardInfo);
+      this.hasAspenDoc=docInfo.hasDoc||!!(this.aspenFieldOptions&&this.aspenFieldOptions.length);
       if(this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
         this.refreshAspenPickerOptions();
       }
@@ -3818,21 +3865,47 @@
       }
     }
 
-    computeAspenFieldOptions(doc,repairOrder){
+    computeAspenFieldOptions(doc,repairOrder,boardInfo){
       const options=[];
+      const seen=new Set();
+      const pushOption=(key,label,value)=>{
+        if(!key||seen.has(key)) return;
+        const text=valueToText(value);
+        const option={
+          key,
+          label:label||this.formatAspenFieldLabel(key.split('.').pop()||key),
+          value:text
+        };
+        options.push(option);
+        seen.add(key);
+      };
       const repair=clean(repairOrder||'');
       if(repair){
-        options.push({key:'repairOrder',label:'Repair Order',value:repair});
+        pushOption('repairOrder','Repair Order',repair);
       }
       const general=doc&&typeof doc==='object'&&doc.general&&typeof doc.general==='object'?doc.general:{};
       Object.keys(general).forEach(key=>{
-        const raw=general[key];
-        if(raw==null) return;
-        const text=clean(typeof raw==='string'||typeof raw==='number'?String(raw):'');
-        if(!text) return;
         const optionKey=`general.${key}`;
-        if(options.some(entry=>entry.key===optionKey)) return;
-        options.push({key:optionKey,label:this.formatAspenFieldLabel(key),value:text});
+        pushOption(optionKey,this.formatAspenFieldLabel(key),general[key]);
+      });
+      const boardRecord=boardInfo&&boardInfo.record&&boardInfo.record.data&&typeof boardInfo.record.data==='object'
+        ?boardInfo.record.data
+        :null;
+      if(boardRecord){
+        Object.keys(boardRecord).forEach(key=>{
+          const optionKey=`board.${key}`;
+          pushOption(optionKey,this.formatAspenFieldLabel(key),boardRecord[key]);
+        });
+      }
+      const boardFields=boardInfo&&Array.isArray(boardInfo.fields)?boardInfo.fields:[];
+      boardFields.forEach(rawField=>{
+        if(!rawField) return;
+        const optionKey=`board.${rawField}`;
+        if(seen.has(optionKey)) return;
+        const value=boardRecord&&Object.prototype.hasOwnProperty.call(boardRecord,rawField)
+          ?boardRecord[rawField]
+          :'';
+        pushOption(optionKey,this.formatAspenFieldLabel(rawField),value);
       });
       return options.sort((a,b)=>{
         return a.label.localeCompare(b.label,'de',{sensitivity:'base'});
