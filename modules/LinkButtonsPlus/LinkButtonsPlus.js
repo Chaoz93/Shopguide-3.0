@@ -4,7 +4,17 @@
   if (!document.getElementById('ops-panel-styles')) {
     const css = `
     .ops-root{ height:100%; }
-    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; }
+    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; }
+    .ops-refresh-btn{
+      position:absolute; top:.55rem; right:.55rem; width:2.5rem; height:2.5rem;
+      display:inline-flex; align-items:center; justify-content:center;
+      border:none; border-radius:999px; background:rgba(17,24,39,.92); color:#fff;
+      font-size:1.25rem; line-height:1; cursor:pointer;
+      box-shadow:0 8px 18px rgba(0,0,0,.2); transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+    }
+    .ops-refresh-btn:hover:not([disabled]){ transform:translateY(-1px); box-shadow:0 10px 22px rgba(0,0,0,.24); }
+    .ops-refresh-btn:active:not([disabled]){ transform:translateY(0); }
+    .ops-refresh-btn[disabled]{ opacity:.45; cursor:not-allowed; box-shadow:none; }
     .ops-grid{
       height:100%; box-sizing:border-box; display:grid;
       grid-template-columns: 1fr 1fr; grid-template-rows: repeat(6, 1fr);
@@ -240,6 +250,7 @@
 
     root.innerHTML = `
       <div class="ops-outer">
+        <button type="button" class="ops-refresh-btn" title="Aspendaten aktualisieren" aria-label="Aspendaten aktualisieren">↻</button>
         <div class="ops-grid">
           <div class="ops-card leftTop" data-slot="left0">${leftTop}</div>
           <div class="ops-card leftBot" data-slot="left1">${leftBottom}</div>
@@ -370,7 +381,6 @@
         ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
         <hr>
         <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
-        <button type="button" class="ops-refresh ops-action-button" disabled>Aspendaten aktualisieren</button>
         <div class="ops-file"></div>
         <div class="ops-file-hint"></div>
       </div>
@@ -394,18 +404,24 @@
     });
     const fileLbl = menu.querySelector('.ops-file');
     const fileHint = menu.querySelector('.ops-file-hint');
-    const refreshBtn = menu.querySelector('.ops-refresh');
+    const refreshControl = root.querySelector('.ops-refresh-btn');
 
     function updateFileState(){
       const storedName = loadAspenFileName();
       const resolvedName = storedName || fileHandle?.name || '';
       if(fileHandle){
         if(fileLbl) fileLbl.textContent = resolvedName ? `• ${resolvedName}` : 'Aspen-Datei geladen';
-        if(refreshBtn) refreshBtn.disabled = false;
+        if(refreshControl){
+          refreshControl.disabled = false;
+          refreshControl.title = 'Aspendaten aktualisieren';
+        }
         if(fileHint) fileHint.textContent = '';
       } else {
         if(fileLbl) fileLbl.textContent = storedName ? `• ${storedName}` : 'Keine Aspen-Datei';
-        if(refreshBtn) refreshBtn.disabled = true;
+        if(refreshControl){
+          refreshControl.disabled = true;
+          refreshControl.title = 'Bitte zuerst eine Aspen-Datei wählen';
+        }
         if(fileHint) fileHint.textContent = 'Hinweis: Bisher keine Aspen-Datei gewählt.';
       }
     }
@@ -527,10 +543,9 @@
       pickAspen();
     });
 
-    if(refreshBtn){
-      refreshBtn.addEventListener('click', async ()=>{
-        persistFilters();
-        menu.classList.remove('open');
+    if(refreshControl){
+      refreshControl.addEventListener('click', async ()=>{
+        if(refreshControl.disabled) return;
         if(!fileHandle){
           alert('Bitte zuerst eine Aspen-Datei wählen.');
           return;
