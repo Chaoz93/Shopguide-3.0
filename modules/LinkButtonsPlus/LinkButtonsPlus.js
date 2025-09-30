@@ -91,6 +91,25 @@
   };
   const WORKFORCE_FILTER_KEY = 'linkbuttonsplus-filters';
 
+  function normalizeLookupKey(value){
+    return String(value ?? '')
+      .trim()
+      .replace(/\s+/g, '')
+      .toUpperCase();
+  }
+
+  function buildLookupMap(rows){
+    const map = new Map();
+    if(!Array.isArray(rows)) return map;
+    for(const row of rows){
+      const key = normalizeLookupKey(row?.meldung);
+      if(key && !map.has(key)){
+        map.set(key, row);
+      }
+    }
+    return map;
+  }
+
   function loadDoc(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || {general:{}}; } catch { return {general:{}}; } }
   function saveDoc(doc){ try{ localStorage.setItem(LS_KEY, JSON.stringify(doc)); }catch{} }
   function activeMeldung(){ return (loadDoc().general.Meldung || '').trim(); }
@@ -168,7 +187,7 @@
     const wb = XLSX.read(buf,{type:'array'});
     const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
     if(!ws) return [];
-    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
     const hdrRaw = rows[0] || [];
     const headerInfo = hdrRaw.map((raw, idx)=>({ raw, idx, norm: normalizeHeader(raw) }));
     const idx = {
@@ -248,11 +267,18 @@
     // ---- Aspen state ----
     let fileHandle = null;
     let cache = [];
+    let cacheMap = new Map();
+
+    function updateCache(rows){
+      cache = Array.isArray(rows) ? rows : [];
+      cacheMap = buildLookupMap(cache);
+    }
 
     function lookup(){
       const m = activeMeldung();
       if(!m) return {m:'',aun:'',part:'',serial:''};
-      const row = cache.find(r => (r.meldung||'').trim() === m);
+      const row = cacheMap.get(normalizeLookupKey(m))
+        || cache.find(r => normalizeLookupKey(r.meldung) === normalizeLookupKey(m));
       return { m, aun:(row?.auftrag||'').trim(), part:(row?.part||'').trim(), serial:(row?.serial||'').trim() };
     }
 
@@ -469,7 +495,7 @@
           await idbSet(GLOBAL_ASPEN_KEY,h);
           saveAspenFileName(h.name || 'Aspen.xlsx');
           fileLbl.textContent = `• ${h.name || 'Aspen.xlsx'}`;
-          cache = await readAll(h);
+          updateCache(await readAll(h));
         }
       }catch(e){/* ignore */}
     }
@@ -485,7 +511,7 @@
         const h = await idbGet(GLOBAL_ASPEN_KEY);
         if(h && await ensureRWPermission(h)){
           fileHandle = h;
-          cache = await readAll(h);
+          updateCache(await readAll(h));
           fileLbl.textContent = `• ${loadAspenFileName() || h.name || 'Aspen.xlsx'}`;
         }
       }catch{}
