@@ -1624,17 +1624,30 @@
     let foundMeldung=false;
     let foundMeldungWithoutSerial=false;
 
-    const extractFromMap=(map,aliasKeys)=>{
-      if(!map||typeof map!=='object') return '';
+    const extractFromNode=(node,aliasKeys,map)=>{
+      if(!node||typeof node!=='object') return '';
+      const fieldMap=map&&typeof map==='object'?map:buildFieldMap(node);
       for(const key of aliasKeys){
-        if(Object.prototype.hasOwnProperty.call(map,key)){
-          const text=valueToText(map[key]);
+        if(Object.prototype.hasOwnProperty.call(fieldMap,key)){
+          const text=valueToText(fieldMap[key]);
           const cleaned=clean(text);
           if(cleaned) return cleaned;
         }
       }
+      for(const [rawKey,rawValue] of Object.entries(node)){
+        if(rawValue==null) continue;
+        const canonical=canonicalKey(rawKey);
+        if(!canonical) continue;
+        for(const alias of aliasKeys){
+          if(!alias) continue;
+          if(canonical===alias||canonical.includes(alias)){
+            const cleaned=valueToText(rawValue);
+            if(cleaned) return clean(cleaned);
+          }
+        }
+      }
       for(const key of aliasKeys){
-        const recordValue=matchRecordByAlias(map,key);
+        const recordValue=matchRecordByAlias(fieldMap,key);
         const cleaned=clean(recordValue);
         if(cleaned) return cleaned;
       }
@@ -1659,10 +1672,10 @@
           if(nested) return nested;
         }
       }
-      const meldungValue=extractFromMap(map,ASPEN_MELDUNG_FIELD_KEYS);
+      const meldungValue=extractFromNode(node,ASPEN_MELDUNG_FIELD_KEYS,map);
       if(meldungValue&&clean(meldungValue).toLowerCase()===normalizedTarget){
         foundMeldung=true;
-        let serialValue=extractFromMap(map,SERIAL_FIELD_KEYS);
+        let serialValue=extractFromNode(node,SERIAL_FIELD_KEYS,map);
         if(!serialValue){
           serialValue=clean(extractNestedField(node,SERIAL_FIELD_ALIASES));
         }
