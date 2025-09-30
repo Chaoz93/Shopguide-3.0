@@ -1613,12 +1613,13 @@
   }
 
   function findSerialForMeldung(doc,meldung){
-    const normalizedTarget=clean(meldung).toLowerCase();
+    const lookupTarget=clean(meldung);
+    const normalizedTarget=lookupTarget.toLowerCase();
     if(!doc||typeof doc!=='object'){
-      return {serial:'',reason:'Keine Aspen-Datei geladen'};
+      return {serial:'',reason:'Keine Aspen-Datei geladen',lookup:lookupTarget};
     }
     if(!normalizedTarget){
-      return {serial:'',reason:'Keine Meldung ausgewählt'};
+      return {serial:'',reason:'Keine Meldung ausgewählt',lookup:lookupTarget};
     }
     const visited=new Set();
     let foundMeldung=false;
@@ -1689,12 +1690,12 @@
 
     const serial=clean(search(doc));
     if(serial){
-      return {serial,reason:'Seriennummer aus Aspen übernommen'};
+      return {serial,reason:'Seriennummer aus Aspen übernommen',lookup:lookupTarget};
     }
     if(foundMeldungWithoutSerial){
-      return {serial:'',reason:'Meldung gefunden, aber ohne Seriennummer'};
+      return {serial:'',reason:'Meldung gefunden, aber ohne Seriennummer',lookup:lookupTarget};
     }
-    return {serial:'',reason:'Meldung in Aspen-Datei nicht gefunden'};
+    return {serial:'',reason:'Meldung in Aspen-Datei nicht gefunden',lookup:lookupTarget};
   }
 
   function detectDelimiter(line){
@@ -2083,6 +2084,7 @@
       this.meldung='';
       this.serial='';
       this.serialStatus='';
+      this.serialLookupMeldung='';
       this.repairOrder='';
       this.hasAspenDoc=false;
       this.globalState=loadGlobalState();
@@ -2172,6 +2174,7 @@
       const serialResult=findSerialForMeldung(this.aspenDoc,this.meldung);
       this.serial=serialResult.serial||'';
       this.serialStatus=serialResult.reason||'';
+      this.serialLookupMeldung=serialResult.lookup||'';
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
         this.filterAll=false;
@@ -2319,7 +2322,9 @@
       const debugSpan=document.createElement('span');
       debugSpan.className='nsf-header-debug';
       const statusText=this.serialStatus||'';
-      debugSpan.textContent=`Seriennummer-Status: ${statusText||'–'}`;
+      const lookupText=this.serialLookupMeldung||'';
+      const lookupDisplay=lookupText||'–';
+      debugSpan.textContent=`Seriennummer-Status: ${statusText||'–'} | Aspen-Meldung gesucht: ${lookupDisplay}`;
       summary.appendChild(debugSpan);
       headerBar.appendChild(summary);
 
