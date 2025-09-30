@@ -424,7 +424,7 @@
       .nsf-custom-block.dragging{opacity:0.85;box-shadow:0 12px 28px rgba(15,23,42,0.45);}
       .nsf-custom-handle{align-self:flex-start;font-size:1.15rem;line-height:1;opacity:0.65;cursor:grab;user-select:none;}
       .nsf-custom-handle:active{cursor:grabbing;}
-      .nsf-custom-textarea{width:100%;border:none;border-radius:0.65rem;padding:0.6rem 0.75rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);resize:none;min-height:3.5rem;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.1);}
+      .nsf-custom-textarea{width:100%;border:none;border-radius:0.65rem;padding:0.6rem 0.75rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);resize:none;min-height:0;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.1);}
       .nsf-custom-textarea::placeholder{color:rgba(107,114,128,0.7);}
       .nsf-custom-remove{align-self:flex-end;background:rgba(248,113,113,0.25);border:none;border-radius:999px;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(248,113,113,0.95);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-custom-remove:hover{background:rgba(248,113,113,0.38);transform:scale(1.05);}
@@ -520,7 +520,7 @@
       .nsf-copy-btn.copied{background:rgba(16,185,129,0.35);}
       .nsf-copy-btn .nsf-copy-feedback{font-size:0.85rem;opacity:0;transition:opacity 0.15s ease;}
       .nsf-copy-btn.copied .nsf-copy-feedback{opacity:1;}
-      .nsf-textarea{flex:1;min-height:120px;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow:hidden;}
+      .nsf-textarea{flex:1;min-height:0;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow:hidden;}
       .nsf-textarea:disabled{opacity:0.6;background:rgba(255,255,255,0.5);cursor:not-allowed;}
       .nsf-note{font-size:0.8rem;opacity:0.75;}
       .nsf-alert{background:rgba(248,113,113,0.2);border-radius:0.75rem;padding:0.5rem 0.75rem;font-size:0.85rem;}
@@ -1710,6 +1710,20 @@
     };
   }
 
+  function cloneActiveState(state){
+    if(!state||typeof state!=='object') return createEmptyActiveState();
+    return {
+      findings:typeof state.findings==='string'?state.findings:'',
+      actions:typeof state.actions==='string'?state.actions:'',
+      routine:typeof state.routine==='string'?state.routine:'',
+      nonroutine:typeof state.nonroutine==='string'?state.nonroutine:'',
+      parts:typeof state.parts==='string'?state.parts:'',
+      customSections:Array.isArray(state.customSections)
+        ?state.customSections.map(cloneCustomSection)
+        :[]
+    };
+  }
+
   function normalizeCustomSections(value,slotCount=CUSTOM_SLOT_COUNT){
     const maxSlot=Math.max(0,(Number.isFinite(slotCount)?slotCount:1)-1);
     if(!Array.isArray(value)) return [];
@@ -1878,7 +1892,17 @@
     if(!(textarea instanceof HTMLTextAreaElement)) return;
     textarea.style.height='auto';
     const computed=window.getComputedStyle(textarea);
-    const minHeight=parseFloat(computed.minHeight)||0;
+    const lineHeight=parseFloat(computed.lineHeight)||16;
+    const paddingTop=parseFloat(computed.paddingTop)||0;
+    const paddingBottom=parseFloat(computed.paddingBottom)||0;
+    const borderTop=parseFloat(computed.borderTopWidth)||0;
+    const borderBottom=parseFloat(computed.borderBottomWidth)||0;
+    const minRowsValue=Number(textarea.dataset?.minRows);
+    const minRows=Number.isFinite(minRowsValue)?minRowsValue:0;
+    const rawValue=typeof textarea.value==='string'?textarea.value:'';
+    const lineCount=Math.max(rawValue.split('\n').length,minRows||1);
+    const baseHeight=lineCount*lineHeight+paddingTop+paddingBottom+borderTop+borderBottom;
+    const minHeight=Math.max(parseFloat(computed.minHeight)||0,baseHeight);
     const nextHeight=Math.max(textarea.scrollHeight,minHeight);
     textarea.style.height=`${nextHeight}px`;
   }
@@ -1954,6 +1978,8 @@
       this.selectionCollapsed=false;
       this.headerCollapsed=true;
       this.menuCleanup=null;
+      this.preservedAspenState=null;
+      this.restoredAspenState=false;
     }
 
     scheduleRender(){
@@ -2002,7 +2028,6 @@
       this.updateAspenBlocksFromDoc();
       const boardEntry=this.meldung?findAspenBoardEntry(this.meldung):null;
       const boardPart=boardEntry?extractPartFromBoard(boardEntry):'';
-      const boardSerial=extractSerialFromBoard(boardEntry);
       let part='';
       let partSource='';
       if(boardPart){
@@ -2020,7 +2045,7 @@
       const previousPart=this.currentPart;
       this.currentPart=part;
       this.partSource=part?partSource:'';
-      const serialCandidate=docInfo.serial||boardSerial;
+      const serialCandidate=docInfo.serial||'';
       this.serial=serialCandidate;
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
@@ -2033,11 +2058,26 @@
       const previousKey=this.stateKey;
       this.stateKey=key||'';
       this.stateKeyParts=keyParts;
+      const preserved=this.preservedAspenState;
+      this.preservedAspenState=null;
+      this.restoredAspenState=false;
       if(this.stateKey!==previousKey){
         this.undoBuffer=null;
       }
       let selections=[];
-      if(this.stateKey){
+      const canRestorePreserved=preserved
+        &&clean(preserved.meldung)===clean(this.meldung)
+        &&normalizePart(preserved.part)===normalizePart(this.currentPart);
+      if(canRestorePreserved){
+        this.activeState=cloneActiveState(preserved.activeState);
+        selections=Array.isArray(preserved.selections)
+          ?preserved.selections.map(sel=>({...sel}))
+          :[];
+        if(typeof preserved.filterAll==='boolean'){
+          this.filterAll=preserved.filterAll;
+        }
+        this.restoredAspenState=true;
+      }else if(this.stateKey){
         const loaded=loadStateFor(this.stateKeyParts);
         const loadedState=loaded.state&&typeof loaded.state==='object'?loaded.state:createEmptyActiveState();
         this.activeState={...createEmptyActiveState(),...loadedState};
@@ -2071,6 +2111,10 @@
       });
       this.selectionRows=[];
       this.renderDom();
+      if(this.restoredAspenState&&this.stateKey){
+        this.persistState(true);
+        this.restoredAspenState=false;
+      }
     }
 
     renderDom(){
@@ -2603,6 +2647,7 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
+          textarea.dataset.minRows='1';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
           const partsContainer=document.createElement('div');
@@ -2616,6 +2661,7 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
+          textarea.dataset.minRows='1';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
           requestAnimationFrame(()=>autoResizeTextarea(textarea));
@@ -2656,6 +2702,7 @@
       textarea.className='nsf-custom-textarea';
       textarea.placeholder='Eigener Text…';
       textarea.value=section.text||'';
+      textarea.dataset.minRows='1';
       textarea.addEventListener('input',()=>{
         section.text=textarea.value;
         autoResizeTextarea(textarea);
@@ -5006,6 +5053,11 @@
           if(csvParsed) payload=JSON.stringify(csvParsed);
         }
         if(payload){
+          instances.forEach(inst=>{
+            if(inst&&typeof inst.prepareForAspenReload==='function'){
+              inst.prepareForAspenReload();
+            }
+          });
           localStorage.setItem(DOC_KEY,payload);
           lastValues[DOC_KEY]=payload;
           scheduleAll();
@@ -5013,6 +5065,20 @@
       }catch(err){
         console.warn('NSF: Aspen-Datei konnte nicht gelesen werden',err);
       }
+    }
+
+    prepareForAspenReload(){
+      if(this.destroyed) return;
+      if(!this.meldung) return;
+      const clonedState=cloneActiveState(this.activeState);
+      const selections=serializeSelections(this.selectedEntries);
+      this.preservedAspenState={
+        meldung:this.meldung,
+        part:this.currentPart,
+        activeState:clonedState,
+        selections,
+        filterAll:this.filterAll
+      };
     }
   }
 
