@@ -4358,8 +4358,6 @@
     }
 
     renderRoutineEditorOverlayContent(){
-    renderRoutineEditorOverlayContent(){
-    renderRoutineEditorOverlayContent(){
       if(!this.routineEditorList) return;
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
@@ -4441,7 +4439,6 @@
       });
     }
 
-    addRoutineEditorParameterBlockAt(index,option){
     addRoutineEditorParameterBlockAt(index,option){
       if(!option) return;
       const valueText=typeof option.value==='string'?option.value:'';
@@ -4914,9 +4911,7 @@
       if(config&&config.primaryTextarea===key){
         const textarea=this.textareas&&this.textareas[key];
         const value=textarea?textarea.value:'';
-        const segments=value.split(/
-?
-/);
+        const segments=value.split(/\r?\n/);
         return segments;
       }
       const tabState=this.getRoutineEditorTabState();
@@ -5558,9 +5553,7 @@
       if(config&&config.primaryTextarea===key){
         const textarea=this.textareas&&this.textareas[key];
         const value=textarea?textarea.value:'';
-        const segments=value.split(/
-?
-/);
+        const segments=value.split(/\r?\n/);
         return segments.map(segment=>segment?segment:ROUTINE_EDITOR_LINE_BREAK_TOKEN);
       }
       const tabState=this.getRoutineEditorTabState();
