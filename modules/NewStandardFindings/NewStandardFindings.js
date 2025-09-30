@@ -7,7 +7,8 @@
   const STATE_KEY='sf-state';
   const STATE_KEY_SEPARATOR='::';
   const UNIT_BOARD_EVENT='unitBoard:update';
-  const DOC_KEY='module_data_v1';
+  const BOARD_DOC_KEY='module_data_v1';
+  const ASPEN_DOC_KEY='nsf-aspen-doc';
   const WATCH_INTERVAL=600;
   const SAVE_DEBOUNCE=250;
   const HISTORY_LIMIT=10;
@@ -548,21 +549,24 @@
     if(watchersInitialized) return;
     watchersInitialized=true;
     const updateValue=(key)=>{lastValues[key]=localStorage.getItem(key);};
-    updateValue(DOC_KEY);
+    updateValue(BOARD_DOC_KEY);
+    updateValue(ASPEN_DOC_KEY);
     updateValue(DATA_KEY);
     updateValue(STATE_KEY);
     updateValue(FINDINGS_PATH_KEY);
     window.addEventListener('storage',e=>{
       if(!e) return;
-      if(e.key===DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
+      if(e.key===BOARD_DOC_KEY||e.key===ASPEN_DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
         lastValues[e.key]=localStorage.getItem(e.key);
         scheduleAll();
       }
     });
     window.addEventListener(UNIT_BOARD_EVENT,()=>scheduleAll());
     setInterval(()=>{
-      const doc=localStorage.getItem(DOC_KEY);
-      if(doc!==lastValues[DOC_KEY]){lastValues[DOC_KEY]=doc;scheduleAll();}
+      const boardDoc=localStorage.getItem(BOARD_DOC_KEY);
+      if(boardDoc!==lastValues[BOARD_DOC_KEY]){lastValues[BOARD_DOC_KEY]=boardDoc;scheduleAll();}
+      const aspenDoc=localStorage.getItem(ASPEN_DOC_KEY);
+      if(aspenDoc!==lastValues[ASPEN_DOC_KEY]){lastValues[ASPEN_DOC_KEY]=aspenDoc;scheduleAll();}
       const data=localStorage.getItem(DATA_KEY);
       if(data!==lastValues[DATA_KEY]){lastValues[DATA_KEY]=data;scheduleAll();}
       const state=localStorage.getItem(STATE_KEY);
@@ -1407,14 +1411,14 @@
     return map;
   }
 
-  function parseDocument(){
+  function parseBoardDocument(){
     let docRaw='';
     let doc=null;
-    try{docRaw=localStorage.getItem(DOC_KEY)||'';}
+    try{docRaw=localStorage.getItem(BOARD_DOC_KEY)||'';}
     catch(err){console.warn('NSF: module_data_v1 konnte nicht gelesen werden',err);}
     if(docRaw){
       try{doc=JSON.parse(docRaw);}
-      catch(err){console.warn('NSF: Aspen-Daten konnten nicht geparst werden',err);doc=null;docRaw='';}
+      catch(err){console.warn('NSF: module_data_v1 konnte nicht geparst werden',err);doc=null;docRaw='';}
     }
     if(!doc||typeof doc!=='object') doc={};
     const general=doc&&typeof doc==='object'?doc.general||{}:{};
@@ -1448,11 +1452,6 @@
       const value=normalizePart(candidate);
       if(value){part=value;break;}
     }
-    let serial='';
-    if(meldung){
-      const matchedSerial=findSerialForMeldung(doc,meldung);
-      if(matchedSerial) serial=matchedSerial;
-    }
     const repairOrderCandidates=[
       general&&general.RepairOrder,
       general&&general.repairOrder,
@@ -1471,7 +1470,43 @@
       if(value){repairOrder=value;break;}
     }
     const hasDoc=!!docRaw;
-    return {docRaw,meldung,part,serial,repairOrder,hasDoc,doc};
+    return {docRaw,meldung,part,repairOrder,hasDoc,doc};
+  }
+
+  function parseAspenDocument(){
+    let docRaw='';
+    let doc=null;
+    try{docRaw=localStorage.getItem(ASPEN_DOC_KEY)||'';}
+    catch(err){console.warn('NSF: nsf-aspen-doc konnte nicht gelesen werden',err);}
+    if(docRaw){
+      try{doc=JSON.parse(docRaw);}
+      catch(err){console.warn('NSF: Aspen-Daten konnten nicht geparst werden',err);doc=null;docRaw='';}
+    }
+    if(!doc||typeof doc!=='object') doc=null;
+    const general=doc&&typeof doc==='object'&&!Array.isArray(doc)?doc.general||{}:{};
+    const partCandidates=[
+      general&&general.PartNo,
+      general&&general.PartNumber,
+      general&&general.Part,
+      general&&general.PN,
+      general&&general.Material,
+      general&&general.MaterialNr,
+      general&&general.Materialnummer,
+      general&&general.MaterialNo,
+      general&&general.Artikel,
+      general&&general.Artikelnummer,
+      general&&general.Part_No,
+      general&&general.PART_NO,
+      general&&general['Part No'],
+      general&&general['Part_Number']
+    ];
+    let part='';
+    for(const candidate of partCandidates){
+      const value=normalizePart(candidate);
+      if(value){part=value;break;}
+    }
+    const hasDoc=!!docRaw;
+    return {docRaw,doc,hasDoc,general,part};
   }
 
   function loadAspenBoardState(){
@@ -2067,17 +2102,18 @@
       this.allEntries=data.entries;
       this.entryMap=data.entryMap;
       this.totalEntries=this.allEntries.length;
-      const docInfo=parseDocument();
-      this.repairOrder=docInfo.repairOrder||'';
-      this.aspenDoc=docInfo.doc&&typeof docInfo.doc==='object'?docInfo.doc:null;
-      const boardInfo=findAspenBoardRecord(docInfo.meldung,this.repairOrder);
+      const boardDocInfo=parseBoardDocument();
+      const aspenDocInfo=parseAspenDocument();
+      this.repairOrder=boardDocInfo.repairOrder||'';
+      this.aspenDoc=aspenDocInfo.doc&&typeof aspenDocInfo.doc==='object'?aspenDocInfo.doc:null;
+      const boardInfo=findAspenBoardRecord(boardDocInfo.meldung,this.repairOrder);
       this.aspenBoardRecord=boardInfo.record;
       this.aspenFieldOptions=this.computeAspenFieldOptions(this.aspenDoc,this.repairOrder,boardInfo);
-      this.hasAspenDoc=docInfo.hasDoc||!!(this.aspenFieldOptions&&this.aspenFieldOptions.length);
+      this.hasAspenDoc=aspenDocInfo.hasDoc||!!(this.aspenFieldOptions&&this.aspenFieldOptions.length);
       if(this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
         this.refreshAspenPickerOptions();
       }
-      this.meldung=docInfo.meldung;
+      this.meldung=boardDocInfo.meldung;
       this.updateAspenBlocksFromDoc();
       const boardEntry=this.meldung?findAspenBoardEntry(this.meldung):null;
       const boardPart=boardEntry?extractPartFromBoard(boardEntry):'';
@@ -2087,8 +2123,12 @@
         part=boardPart;
         partSource='aspen-board';
       }
-      if(!part&&docInfo.part){
-        part=docInfo.part;
+      if(!part&&boardDocInfo.part){
+        part=boardDocInfo.part;
+        partSource='module-data';
+      }
+      if(!part&&aspenDocInfo.part){
+        part=aspenDocInfo.part;
         partSource='aspen-header';
       }
       if(!part){
@@ -2098,7 +2138,12 @@
       const previousPart=this.currentPart;
       this.currentPart=part;
       this.partSource=part?partSource:'';
-      this.serial=docInfo.serial||'';
+      let serial='';
+      if(this.meldung&&this.aspenDoc){
+        const matchedSerial=findSerialForMeldung(this.aspenDoc,this.meldung);
+        if(matchedSerial) serial=matchedSerial;
+      }
+      this.serial=serial;
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
         this.filterAll=false;
@@ -2471,7 +2516,9 @@
               ?'Aspen-Board'
               :this.partSource==='aspen-header'
                 ?'Aspen-Headerdaten'
-                :'Unbekannt';
+                :this.partSource==='module-data'
+                  ?'Modul-Daten'
+                  :'Unbekannt';
           source.textContent=`Partnummer-Quelle: ${sourceLabel}`;
           metaRow.appendChild(source);
         }else{
@@ -5110,8 +5157,8 @@
               inst.prepareForAspenReload();
             }
           });
-          localStorage.setItem(DOC_KEY,payload);
-          lastValues[DOC_KEY]=payload;
+          localStorage.setItem(ASPEN_DOC_KEY,payload);
+          lastValues[ASPEN_DOC_KEY]=payload;
           scheduleAll();
         }
       }catch(err){
