@@ -49,47 +49,6 @@
   let watchersInitialized=false;
   let ensureDataPromise=null;
   const lastValues={};
-  const BUNDLED_ASPEN_DOC={
-    general:{
-      MELDUNGS_NO:'100000000001',
-      AUFTRAGS_NO:'5000123456',
-      PART_NO:'PN-1234567',
-      SERIAL_NO:'SN-987654',
-      MATERIAL_NO:'4711-000-001',
-      MATERIAL_BESCHREIBUNG:'Generator Control Unit',
-      CUSTOMER:'Demo Airline GmbH',
-      CUSTOMER_NAME:'Demo Airline GmbH',
-      CUSTOMER_LOCATION:'Hamburg',
-      UC:'UC01',
-      REPAIR_ORDER:'RO-2024-0001',
-      STATUS:'IN BEARBEITUNG',
-      PRIORITY:'HOCH',
-      EQUIPMENT:'Generator Unit',
-      ATA:'24-20-00',
-      HOURS_IN_SERVICE:'1342',
-      CYCLE_COUNT:'567',
-      BUILD_DATE:'2022-06-15',
-      RECEIVED_DATE:'2024-05-01',
-      START_DATE:'2024-05-03',
-      FINISH_DATE:'2024-05-12',
-      TECHNICIAN:'Max Mustermann',
-      COMMENTS:'Standarddatensatz für Aspen-Felder.',
-      REASON_FOR_REMOVAL:'Scheduled shop visit',
-      CUSTOMER_REFERENCE:'REF-2024-001',
-      LOCATION:'Werkstatt 3',
-      PLANT:'HAM',
-      WORKCENTER:'SH01',
-      SHOP_FLOOR:'Line A',
-      PRIOR_WORKORDER:'4001234567',
-      NOTIFICATION_TYPE:'M1',
-      EQUIPMENT_NO:'EQ-123456',
-      PART_DESCRIPTION:'Generator Control Unit Assembly',
-      PROGRAM:'A320',
-      AIRCRAFT_REGISTRATION:'D-AIAA'
-    }
-  };
-  const BUNDLED_ASPEN_JSON=JSON.stringify(BUNDLED_ASPEN_DOC);
-
   function createDefaultRoutineEditorState(){
     const order=ROUTINE_EDITOR_BLOCKS.map(block=>block.key);
     const blocks={};
@@ -1442,13 +1401,11 @@
     let doc=null;
     try{docRaw=localStorage.getItem(DOC_KEY)||'';}
     catch(err){console.warn('NSF: module_data_v1 konnte nicht gelesen werden',err);}
-    if(!docRaw&&BUNDLED_ASPEN_JSON){
-      docRaw=BUNDLED_ASPEN_JSON;
-      try{localStorage.setItem(DOC_KEY,docRaw);}
-      catch(err){console.warn('NSF: Standard-Aspen-Daten konnten nicht persistiert werden',err);}
+    if(docRaw){
+      try{doc=JSON.parse(docRaw);}
+      catch(err){console.warn('NSF: Aspen-Daten konnten nicht geparst werden',err);doc=null;docRaw='';}
     }
-    try{doc=JSON.parse(docRaw||'{}');}
-    catch(err){console.warn('NSF: Aspen-Daten konnten nicht geparst werden',err);doc={};}
+    if(!doc||typeof doc!=='object') doc={};
     const general=doc&&typeof doc==='object'?doc.general||{}:{};
     const meldungCandidates=[
       general&&general.Meldung,
@@ -3772,18 +3729,15 @@
         lines:['']
       };
       if(blockType==='aspen'){
-        if(!this.hasAspenDoc){
-          if(this.aspenFileInput){
-            window.alert('Bitte Aspen-Datei auswählen, um Aspendaten verwenden zu können.');
-            this.aspenFileInput.click();
-          }else{
-            window.alert('Keine Aspen-Datei verfügbar.');
-          }
+        if(!this.hasAspenDoc&&this.aspenFileInput){
+          this.aspenFileInput.click();
         }
-        const defaultField=this.getDefaultAspenFieldKey();
-        if(defaultField){
-          entry.aspenField=defaultField;
-          entry.lines=[this.resolveAspenFieldValue(defaultField)];
+        if(this.hasAspenDoc){
+          const defaultField=this.getDefaultAspenFieldKey();
+          if(defaultField){
+            entry.aspenField=defaultField;
+            entry.lines=[this.resolveAspenFieldValue(defaultField)];
+          }
         }
       }
       this.routineEditorState.customBlocks.push(entry);
