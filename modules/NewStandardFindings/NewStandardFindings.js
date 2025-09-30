@@ -431,9 +431,15 @@
       .nsf-editor-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.72);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;padding:3rem 1.5rem;z-index:400;}
       .nsf-editor-overlay.open{display:flex;}
       .nsf-editor-overlay.nsf-hide-inserts .nsf-editor-insert{display:none;}
-      .nsf-editor-dialog{background:rgba(15,23,42,0.95);border-radius:1.1rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 24px 64px rgba(15,23,42,0.55);max-width:1040px;width:100%;max-height:calc(100vh - 6rem);overflow:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;color:#e2e8f0;}
-      .nsf-editor-content{display:flex;flex-direction:row;gap:1.5rem;align-items:stretch;}
-      .nsf-editor-main{flex:1;display:flex;flex-direction:column;gap:1rem;}
+      .nsf-editor-dialog{background:rgba(15,23,42,0.95);border-radius:1.1rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 24px 64px rgba(15,23,42,0.55);max-width:1560px;width:100%;max-height:calc(100vh - 6rem);overflow:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;color:#e2e8f0;}
+      .nsf-editor-content{display:flex;flex-direction:row;gap:1.75rem;align-items:stretch;}
+      .nsf-editor-main{flex:1;display:flex;flex-direction:column;gap:1.1rem;}
+      .nsf-editor-workspace{display:flex;flex-direction:row;gap:1.35rem;align-items:flex-start;}
+      .nsf-editor-structure{flex:1;display:flex;flex-direction:column;gap:0.95rem;min-width:0;}
+      .nsf-editor-preview-panel{flex:0 0 760px;display:flex;flex-direction:column;gap:0.65rem;background:rgba(15,23,42,0.55);border-radius:0.9rem;border:1px solid rgba(148,163,184,0.25);padding:0.85rem;max-height:100%;overflow:auto;}
+      .nsf-editor-preview-title{font-weight:700;font-size:0.95rem;letter-spacing:0.02em;}
+      .nsf-editor-preview-content{flex:1;white-space:pre-wrap;background:rgba(15,23,42,0.35);border-radius:0.75rem;padding:0.65rem;font-family:var(--nsf-mono-font,inherit);line-height:1.45;min-height:200px;overflow:auto;}
+      .nsf-editor-preview-panel.is-empty .nsf-editor-preview-content{opacity:0.7;font-style:italic;}
       .nsf-editor-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.3rem;}
       .nsf-editor-active-info{font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;opacity:0.82;}
       .nsf-editor-active-info.dirty{color:rgba(251,191,36,0.95);}
@@ -459,6 +465,8 @@
       .nsf-editor-presets-save .nsf-btn{align-self:flex-start;}
       @media (max-width:860px){
         .nsf-editor-content{flex-direction:column;}
+        .nsf-editor-workspace{flex-direction:column;}
+        .nsf-editor-preview-panel{width:100%;}
         .nsf-editor-sidebar{flex:1 1 auto;}
       }
       .nsf-editor-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
@@ -3076,6 +3084,8 @@
       this.routineEditorPresetList=null;
       this.routineEditorPresetNameInput=null;
       this.routineEditorPresetSaveButton=null;
+      this.routineEditorPreviewPanel=null;
+      this.routineEditorPreviewContent=null;
       this.routineEditorBlocks={};
       this.routineEditorDragState=null;
     }
@@ -3500,9 +3510,30 @@
       this.routineEditorNewPresetButton=newButton;
       main.appendChild(toolbar);
 
+      const workspace=document.createElement('div');
+      workspace.className='nsf-editor-workspace';
+      main.appendChild(workspace);
+
+      const previewPanel=document.createElement('div');
+      previewPanel.className='nsf-editor-preview-panel is-empty';
+      const previewHeader=document.createElement('div');
+      previewHeader.className='nsf-editor-preview-title';
+      previewHeader.textContent='Routine-Vorschau';
+      const previewContent=document.createElement('pre');
+      previewContent.className='nsf-editor-preview-content';
+      previewContent.textContent='Keine Routine-Daten vorhanden.';
+      previewPanel.append(previewHeader,previewContent);
+      workspace.appendChild(previewPanel);
+      this.routineEditorPreviewPanel=previewPanel;
+      this.routineEditorPreviewContent=previewContent;
+
+      const listWrapper=document.createElement('div');
+      listWrapper.className='nsf-editor-structure';
+      workspace.appendChild(listWrapper);
+
       const list=document.createElement('div');
       list.className='nsf-editor-list';
-      main.appendChild(list);
+      listWrapper.appendChild(list);
       this.routineEditorList=list;
       this.routineEditorBlocks={};
 
@@ -3761,6 +3792,7 @@
       });
       const finalInsert=this.createRoutineEditorInsertControl(order.length,order);
       if(finalInsert) this.routineEditorList.appendChild(finalInsert);
+      this.refreshRoutineEditorPreview();
     }
 
     addRoutineEditorCustomBlockAt(index,type='text'){
@@ -3868,16 +3900,23 @@
     computeAspenFieldOptions(doc,repairOrder,boardInfo){
       const options=[];
       const seen=new Set();
+      const seenLabels=new Set();
       const pushOption=(key,label,value)=>{
         if(!key||seen.has(key)) return;
         const text=valueToText(value);
+        const optionLabel=label||this.formatAspenFieldLabel(key.split('.').pop()||key);
+        const normalizedLabel=(optionLabel||'').trim().toLowerCase();
+        const normalizedValue=clean(text||'').toLowerCase();
+        const dedupeKey=normalizedLabel?`${normalizedLabel}::${normalizedValue}`:`::${normalizedValue}`;
+        if(dedupeKey&&seenLabels.has(dedupeKey)) return;
         const option={
           key,
-          label:label||this.formatAspenFieldLabel(key.split('.').pop()||key),
+          label:optionLabel,
           value:text
         };
         options.push(option);
         seen.add(key);
+        if(dedupeKey) seenLabels.add(dedupeKey);
       };
       const repair=clean(repairOrder||'');
       if(repair){
@@ -4536,6 +4575,7 @@
       state.customBlocks=customEntries;
       this.routineEditorState=state;
       storeRoutineEditorState(state);
+      this.refreshRoutineEditorPreview();
       this.evaluateRoutineEditorPresetMatch();
     }
 
@@ -4552,6 +4592,26 @@
         actions:splitLines(actionsText)
       };
       ['findings','actions'].forEach(key=>this.replaceRoutineEditorBlockLines(key,this.routineEditorDerivedLines[key]));
+      this.refreshRoutineEditorPreview();
+    }
+
+    refreshRoutineEditorPreview(){
+      if(!this.routineEditorPreviewContent) return;
+      this.ensureRoutineEditorState();
+      const order=this.getRoutineEditorOrder();
+      const combined=[];
+      order.forEach(key=>{
+        const lines=this.collectRoutineEditorBlockLines(key);
+        lines.forEach(line=>{
+          const trimmed=clean(line);
+          if(trimmed) combined.push(trimmed);
+        });
+      });
+      const previewText=combined.join('\n');
+      this.routineEditorPreviewContent.textContent=previewText||'Keine Routine-Daten vorhanden.';
+      if(this.routineEditorPreviewPanel){
+        this.routineEditorPreviewPanel.classList.toggle('is-empty',!previewText);
+      }
     }
 
     replaceRoutineEditorBlockLines(key,lines){
@@ -4706,13 +4766,18 @@
         suggestionsList:[],
         highlightIndex:-1,
         locked:false,
-        entry:null
+        entry:null,
+        outsideHandler:null
       };
       const closeSuggestions=()=>{
         row.classList.remove('show-suggestions');
         state.suggestionsList=[];
         state.highlightIndex=-1;
         suggestions.innerHTML='';
+        if(state.outsideHandler){
+          document.removeEventListener('pointerdown',state.outsideHandler,true);
+          state.outsideHandler=null;
+        }
       };
       const updateSuggestions=()=>{
         if(state.locked) return;
@@ -4740,6 +4805,12 @@
         if(!matches.length){
           closeSuggestions();
           return;
+        }
+        if(!state.outsideHandler){
+          state.outsideHandler=event=>{
+            if(!row.contains(event.target)) closeSuggestions();
+          };
+          document.addEventListener('pointerdown',state.outsideHandler,true);
         }
         row.classList.add('show-suggestions');
         matches.forEach((entry,idx)=>{
@@ -4798,7 +4869,10 @@
         }
       });
       input.addEventListener('blur',()=>{
-        setTimeout(()=>closeSuggestions(),150);
+        setTimeout(()=>{
+          const active=document.activeElement;
+          if(active!==input&&!row.contains(active)) closeSuggestions();
+        },150);
       });
       removeBtn.addEventListener('click',()=>{
         if(state.locked) this.removeSelection(state);
@@ -4829,6 +4903,10 @@
     lockRow(state,entry,options){
       if(!state||!entry) return;
       const opts=options||{};
+      if(state.outsideHandler){
+        document.removeEventListener('pointerdown',state.outsideHandler,true);
+        state.outsideHandler=null;
+      }
       state.locked=true;
       const routineText=this.buildRoutineOutput(entry);
       const nonroutineText=clean(entry.nonroutine||'');
@@ -4898,6 +4976,10 @@
 
     removeRow(state){
       if(!state) return;
+      if(state.outsideHandler){
+        document.removeEventListener('pointerdown',state.outsideHandler,true);
+        state.outsideHandler=null;
+      }
       const idx=this.selectionRows.indexOf(state);
       if(idx>=0) this.selectionRows.splice(idx,1);
       if(state.row&&state.row.parentNode) state.row.parentNode.removeChild(state.row);
