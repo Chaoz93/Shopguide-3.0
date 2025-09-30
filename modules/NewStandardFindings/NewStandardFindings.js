@@ -12,11 +12,88 @@
   const SAVE_DEBOUNCE=250;
   const HISTORY_LIMIT=10;
   const STYLE_ID='nsf-styles';
+  const ROUTINE_EDITOR_STORAGE_KEY='nsf-routine-editor';
+  const ROUTINE_EDITOR_BLOCKS=[
+    {key:'prefix',label:'Prefix',editable:true,persist:true},
+    {key:'findings',label:'Findings',editable:false,persist:false},
+    {key:'actions',label:'Actions',editable:false,persist:false},
+    {key:'suffix',label:'Suffix',editable:true,persist:true}
+  ];
 
   const instances=new Set();
   let watchersInitialized=false;
   let ensureDataPromise=null;
   const lastValues={};
+
+  function createDefaultRoutineEditorState(){
+    const order=ROUTINE_EDITOR_BLOCKS.map(block=>block.key);
+    const blocks={};
+    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+      blocks[block.key]={
+        lines:block.editable===false?[]:['']
+      };
+    });
+    return {order,blocks};
+  }
+
+  function normalizeRoutineEditorState(raw){
+    const base=createDefaultRoutineEditorState();
+    if(!raw||typeof raw!=='object') return base;
+    const rawOrder=Array.isArray(raw.order)?raw.order:[];
+    const orderSet=new Set();
+    rawOrder.forEach(key=>{
+      if(ROUTINE_EDITOR_BLOCKS.some(block=>block.key===key)){
+        orderSet.add(key);
+      }
+    });
+    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+      if(!orderSet.has(block.key)) orderSet.add(block.key);
+    });
+    base.order=Array.from(orderSet);
+    const rawBlocks=raw.blocks&&typeof raw.blocks==='object'?raw.blocks:null;
+    ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+      if(block.persist===false) return;
+      const legacyEntry=raw[block.key];
+      const entry=rawBlocks&&rawBlocks[block.key]?rawBlocks[block.key]:legacyEntry;
+      const rawLines=Array.isArray(entry&&entry.lines)?entry.lines:Array.isArray(entry)?entry:[];
+      const lines=rawLines.map(value=>typeof value==='string'?value:'');
+      base.blocks[block.key]={
+        lines:lines.length?lines:['']
+      };
+    });
+    return base;
+  }
+
+  function loadRoutineEditorState(){
+    try{
+      const raw=localStorage.getItem(ROUTINE_EDITOR_STORAGE_KEY);
+      if(!raw) return createDefaultRoutineEditorState();
+      const parsed=JSON.parse(raw);
+      return normalizeRoutineEditorState(parsed);
+    }catch(err){
+      console.warn('NSF: Routine-Editor konnte nicht geladen werden',err);
+      return createDefaultRoutineEditorState();
+    }
+  }
+
+  function storeRoutineEditorState(state){
+    try{
+      const normalized=normalizeRoutineEditorState(state);
+      const payload={
+        order:Array.isArray(normalized.order)?normalized.order.slice():[],
+        blocks:{}
+      };
+      ROUTINE_EDITOR_BLOCKS.forEach(block=>{
+        if(block.persist===false) return;
+        const lines=normalized.blocks&&normalized.blocks[block.key]?normalized.blocks[block.key].lines:null;
+        const safeLines=Array.isArray(lines)?lines.map(value=>typeof value==='string'?value:''):[''];
+        payload.blocks[block.key]={lines:safeLines.length?safeLines:['']};
+      });
+      localStorage.setItem(ROUTINE_EDITOR_STORAGE_KEY,JSON.stringify(payload));
+    }catch(err){
+      console.warn('NSF: Routine-Editor konnte nicht gespeichert werden',err);
+    }
+  }
 
   function injectStyles(){
     if(document.getElementById(STYLE_ID)) return;
@@ -109,6 +186,37 @@
       .nsf-suggestion-action{font-size:0.8rem;opacity:0.65;}
       .nsf-empty{opacity:0.75;font-style:italic;}
       .nsf-outputs{display:flex;flex-direction:column;gap:0.75rem;}
+      .nsf-outputs-layout{display:flex;flex-direction:column;gap:1.25rem;}
+      .nsf-editor-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.72);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;padding:3rem 1.5rem;z-index:400;}
+      .nsf-editor-overlay.open{display:flex;}
+      .nsf-editor-dialog{background:rgba(15,23,42,0.95);border-radius:1.1rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 24px 64px rgba(15,23,42,0.55);max-width:720px;width:100%;max-height:calc(100vh - 6rem);overflow:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;color:#e2e8f0;}
+      .nsf-editor-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+      .nsf-editor-dialog-title{font-size:1.2rem;font-weight:700;margin:0;}
+      .nsf-editor-close{background:rgba(248,113,113,0.2);border:none;border-radius:999px;width:2.2rem;height:2.2rem;color:rgba(248,113,113,0.95);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-editor-close:hover{background:rgba(248,113,113,0.32);transform:scale(1.05);}
+      .nsf-editor-list{display:flex;flex-direction:column;gap:0.85rem;}
+      .nsf-editor-block{background:rgba(15,23,42,0.88);border-radius:0.95rem;border:1px solid rgba(148,163,184,0.25);box-shadow:0 18px 36px rgba(15,23,42,0.5);padding:0.9rem;display:flex;flex-direction:column;gap:0.65rem;cursor:grab;position:relative;transition:box-shadow 0.15s ease,transform 0.15s ease;}
+      .nsf-editor-block.dragging{opacity:0.9;box-shadow:0 22px 44px rgba(59,130,246,0.45);}
+      .nsf-editor-header{font-weight:700;font-size:0.96rem;display:flex;align-items:center;justify-content:space-between;gap:0.45rem;user-select:none;touch-action:none;}
+      .nsf-editor-block[data-editable='0'] .nsf-editor-header{opacity:0.85;}
+      .nsf-editor-lines{display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-editor-line{display:flex;align-items:center;gap:0.45rem;background:rgba(15,23,42,0.4);border-radius:0.75rem;padding:0.4rem 0.45rem;}
+      .nsf-editor-input{flex:1;border:none;border-radius:0.6rem;padding:0.45rem 0.55rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);}
+      .nsf-editor-input::placeholder{color:rgba(107,114,128,0.65);}
+      .nsf-editor-block[data-editable='0'] .nsf-editor-input{background:rgba(15,23,42,0.25);color:#cbd5f5;cursor:default;}
+      .nsf-editor-input:read-only{cursor:default;}
+      .nsf-editor-remove{background:rgba(248,113,113,0.18);border:none;border-radius:0.55rem;width:1.8rem;height:1.8rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(248,113,113,0.92);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-editor-remove:hover{background:rgba(248,113,113,0.3);transform:scale(1.05);}
+      .nsf-editor-add{align-self:flex-start;background:rgba(59,130,246,0.22);border:1px solid rgba(59,130,246,0.45);border-radius:0.65rem;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(191,219,254,0.95);font-size:1.1rem;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-editor-add:hover{background:rgba(59,130,246,0.32);transform:translateY(-1px);}
+      .nsf-editor-block[data-editable='0'] .nsf-editor-add{display:none;}
+      .nsf-editor-actions{display:flex;justify-content:flex-end;}
+      .nsf-editor-save{background:linear-gradient(135deg,rgba(59,130,246,0.85),rgba(96,165,250,0.9));color:#fff;border:none;border-radius:0.8rem;padding:0.65rem 1.4rem;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 18px 32px rgba(59,130,246,0.35);transition:transform 0.15s ease,box-shadow 0.15s ease;}
+      .nsf-editor-save:hover{transform:translateY(-1px);box-shadow:0 20px 38px rgba(59,130,246,0.45);}
+      .nsf-editor-save:active{transform:translateY(0);box-shadow:0 16px 28px rgba(59,130,246,0.4);}
+      .nsf-editor-menu{position:fixed;z-index:410;background:rgba(15,23,42,0.95);border-radius:0.85rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 18px 36px rgba(15,23,42,0.55);padding:0.35rem;display:flex;flex-direction:column;min-width:170px;}
+      .nsf-editor-menu-btn{background:transparent;border:none;border-radius:0.65rem;padding:0.5rem 0.75rem;font:inherit;color:#f8fafc;text-align:left;cursor:pointer;transition:background 0.15s ease;}
+      .nsf-editor-menu-btn:hover{background:rgba(59,130,246,0.22);}
       .nsf-output{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;min-height:0;}
       .nsf-output-header{display:flex;align-items:center;justify-content:space-between;font-weight:600;}
       .nsf-copy-btn{background:rgba(255,255,255,0.16);border:none;border-radius:0.6rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;cursor:pointer;transition:background 0.15s ease;display:flex;align-items:center;gap:0.3rem;}
@@ -1405,6 +1513,16 @@
       this.textareas={};
       this.partsRows=[];
       this.partsFieldContainer=null;
+      this.routineEditorState=loadRoutineEditorState();
+      this.routineEditorBlocks={};
+      this.routineEditorOverlay=null;
+      this.routineEditorList=null;
+      this.routineEditorMenu=null;
+      this.routineEditorMenuCleanup=null;
+      this.routineEditorContextHandler=null;
+      this.routineEditorContextTarget=null;
+      this.routineEditorDerivedLines={findings:[],actions:[]};
+      this.routineEditorDragState=null;
       this.saveTimer=null;
       this.selectionRows=[];
       this.currentPart='';
@@ -1536,6 +1654,10 @@
       const root=this.root;
       root.innerHTML='';
       root.classList.add('nsf-module');
+      this.ensureRoutineEditorState();
+      this.teardownRoutineEditorOverlay();
+      this.teardownRoutineEditorInteraction();
+      this.routineEditorBlocks={};
       if(this.menuCleanup){
         this.menuCleanup();
         this.menuCleanup=null;
@@ -2008,9 +2130,13 @@
       outputsTitle.textContent='Ausgaben';
       outputsSection.appendChild(outputsTitle);
 
+      const outputsLayout=document.createElement('div');
+      outputsLayout.className='nsf-outputs-layout';
+      outputsSection.appendChild(outputsLayout);
+
       const outputsWrapper=document.createElement('div');
       outputsWrapper.className='nsf-outputs';
-      outputsSection.appendChild(outputsWrapper);
+      outputsLayout.appendChild(outputsWrapper);
 
       const outputDefs=[
         {key:'findings',label:'Findings'},
@@ -2075,6 +2201,8 @@
         }
         outputsWrapper.appendChild(box);
       }
+
+      this.setupRoutineEditorInteraction();
 
       this.syncOutputsWithSelections({persist:false});
 
@@ -2207,6 +2335,7 @@
         }
       }
       this.renderPartsRows(this.partsRows);
+      this.refreshRoutineEditorDerivedLines(computed);
       if(changed&&opts.persist!==false){
         this.queueStateSave();
       }
@@ -2272,6 +2401,459 @@
         });
         container.appendChild(groupWrapper);
       });
+    }
+
+    ensureRoutineEditorState(){
+      if(!this.routineEditorState||typeof this.routineEditorState!=='object'){
+        this.routineEditorState=loadRoutineEditorState();
+      }else{
+        this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
+      }
+    }
+
+    teardownRoutineEditorOverlay(){
+      this.closeRoutineEditorMenu();
+      if(this.routineEditorOverlay){
+        this.closeRoutineEditorOverlay();
+        this.routineEditorOverlay.remove();
+      }
+      this.routineEditorOverlay=null;
+      this.routineEditorList=null;
+      this.routineEditorBlocks={};
+      this.routineEditorDragState=null;
+    }
+
+    setupRoutineEditorInteraction(){
+      const routineTextarea=this.textareas&&this.textareas.routine;
+      if(!routineTextarea) return;
+      if(this.routineEditorContextTarget&&this.routineEditorContextHandler){
+        this.routineEditorContextTarget.removeEventListener('contextmenu',this.routineEditorContextHandler);
+      }
+      const handler=event=>{
+        event.preventDefault();
+        this.openRoutineEditorMenu(event);
+      };
+      routineTextarea.addEventListener('contextmenu',handler);
+      this.routineEditorContextHandler=handler;
+      this.routineEditorContextTarget=routineTextarea;
+    }
+
+    teardownRoutineEditorInteraction(){
+      this.closeRoutineEditorMenu();
+      if(this.routineEditorContextTarget&&this.routineEditorContextHandler){
+        this.routineEditorContextTarget.removeEventListener('contextmenu',this.routineEditorContextHandler);
+      }
+      this.routineEditorContextTarget=null;
+      this.routineEditorContextHandler=null;
+    }
+
+    openRoutineEditorMenu(event){
+      this.closeRoutineEditorMenu();
+      const menu=document.createElement('div');
+      menu.className='nsf-editor-menu';
+      const editBtn=document.createElement('button');
+      editBtn.type='button';
+      editBtn.className='nsf-editor-menu-btn';
+      editBtn.textContent='Ändern';
+      editBtn.addEventListener('click',()=>{
+        this.closeRoutineEditorMenu();
+        this.openRoutineEditorOverlay();
+      });
+      menu.appendChild(editBtn);
+      document.body.appendChild(menu);
+      const rect=menu.getBoundingClientRect();
+      const maxLeft=Math.max(0,window.innerWidth-rect.width-12);
+      const maxTop=Math.max(0,window.innerHeight-rect.height-12);
+      const left=Math.min(event.clientX,maxLeft);
+      const top=Math.min(event.clientY,maxTop);
+      menu.style.left=`${left}px`;
+      menu.style.top=`${top}px`;
+      const outsideHandler=ev=>{
+        if(!menu.contains(ev.target)) this.closeRoutineEditorMenu();
+      };
+      const keyHandler=ev=>{
+        if(ev.key==='Escape'){
+          ev.preventDefault();
+          this.closeRoutineEditorMenu();
+        }
+      };
+      window.addEventListener('pointerdown',outsideHandler,true);
+      window.addEventListener('keydown',keyHandler,true);
+      this.routineEditorMenuCleanup=()=>{
+        window.removeEventListener('pointerdown',outsideHandler,true);
+        window.removeEventListener('keydown',keyHandler,true);
+      };
+      this.routineEditorMenu=menu;
+    }
+
+    closeRoutineEditorMenu(){
+      if(this.routineEditorMenuCleanup){
+        this.routineEditorMenuCleanup();
+        this.routineEditorMenuCleanup=null;
+      }
+      if(this.routineEditorMenu){
+        this.routineEditorMenu.remove();
+        this.routineEditorMenu=null;
+      }
+    }
+
+    ensureRoutineEditorOverlay(){
+      if(this.routineEditorOverlay) return this.routineEditorOverlay;
+      this.ensureRoutineEditorState();
+      const overlay=document.createElement('div');
+      overlay.className='nsf-editor-overlay';
+      overlay.setAttribute('role','dialog');
+      overlay.setAttribute('aria-modal','true');
+      overlay.addEventListener('click',event=>{
+        if(event.target===overlay) this.closeRoutineEditorOverlay();
+      });
+      const dialog=document.createElement('div');
+      dialog.className='nsf-editor-dialog';
+      dialog.tabIndex=-1;
+      overlay.appendChild(dialog);
+      const header=document.createElement('div');
+      header.className='nsf-editor-dialog-header';
+      const title=document.createElement('h2');
+      title.className='nsf-editor-dialog-title';
+      title.textContent='Routine bearbeiten';
+      const closeBtn=document.createElement('button');
+      closeBtn.type='button';
+      closeBtn.className='nsf-editor-close';
+      closeBtn.textContent='✖';
+      closeBtn.setAttribute('aria-label','Editor schließen');
+      closeBtn.addEventListener('click',()=>this.closeRoutineEditorOverlay());
+      header.append(title,closeBtn);
+      dialog.appendChild(header);
+      const list=document.createElement('div');
+      list.className='nsf-editor-list';
+      dialog.appendChild(list);
+      this.routineEditorList=list;
+      this.routineEditorBlocks={};
+      const order=this.routineEditorState&&Array.isArray(this.routineEditorState.order)&&this.routineEditorState.order.length?this.routineEditorState.order:ROUTINE_EDITOR_BLOCKS.map(block=>block.key);
+      order.forEach(key=>{
+        const def=ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
+        if(!def) return;
+        const block=this.createRoutineEditorBlock(def);
+        if(block) list.appendChild(block);
+      });
+      const actions=document.createElement('div');
+      actions.className='nsf-editor-actions';
+      const saveButton=document.createElement('button');
+      saveButton.type='button';
+      saveButton.className='nsf-editor-save';
+      saveButton.textContent='💾 Routine aktualisieren';
+      saveButton.title='Routine-Text aus den Blöcken übernehmen';
+      saveButton.addEventListener('click',()=>this.handleRoutineEditorSave());
+      actions.appendChild(saveButton);
+      dialog.appendChild(actions);
+      document.body.appendChild(overlay);
+      overlay.addEventListener('keydown',event=>{
+        if(event.key==='Escape'){
+          event.preventDefault();
+          this.closeRoutineEditorOverlay();
+        }
+      });
+      this.routineEditorOverlay=overlay;
+      this.refreshRoutineEditorDerivedLines();
+      return overlay;
+    }
+
+    openRoutineEditorOverlay(){
+      const overlay=this.ensureRoutineEditorOverlay();
+      if(!overlay) return;
+      this.refreshRoutineEditorDerivedLines();
+      overlay.classList.add('open');
+      const focusTarget=overlay.querySelector('.nsf-editor-block[data-editable="1"] input');
+      if(focusTarget){
+        focusTarget.focus();
+      }else{
+        const dialog=this.routineEditorOverlay.querySelector('.nsf-editor-dialog');
+        if(dialog) dialog.focus();
+      }
+    }
+
+    closeRoutineEditorOverlay(){
+      if(!this.routineEditorOverlay) return;
+      this.syncRoutineEditorStateFromDom();
+      this.routineEditorOverlay.classList.remove('open');
+      if(this.routineEditorDragState){
+        const {handleMove,stop}=this.routineEditorDragState;
+        if(handleMove){
+          window.removeEventListener('pointermove',handleMove);
+        }
+        if(stop){
+          window.removeEventListener('pointerup',stop);
+          window.removeEventListener('pointercancel',stop);
+        }
+        this.routineEditorDragState=null;
+      }
+    }
+
+    createRoutineEditorBlock(def){
+      if(!def) return null;
+      const block=document.createElement('div');
+      block.className='nsf-editor-block';
+      block.dataset.type=def.key;
+      block.dataset.editable=def.editable===false?'0':'1';
+      const header=document.createElement('div');
+      header.className='nsf-editor-header';
+      header.textContent=def.label;
+      header.addEventListener('pointerdown',event=>this.startRoutineEditorReorder(event,block));
+      block.appendChild(header);
+      const linesContainer=document.createElement('div');
+      linesContainer.className='nsf-editor-lines';
+      block.appendChild(linesContainer);
+      this.routineEditorBlocks[def.key]={element:block,linesContainer,definition:def};
+      this.populateRoutineEditorBlock(def.key);
+      if(def.editable!==false){
+        const addButton=document.createElement('button');
+        addButton.type='button';
+        addButton.className='nsf-editor-add';
+        addButton.textContent='+';
+        addButton.title=`${def.label} Zeile hinzufügen`;
+        addButton.setAttribute('aria-label',addButton.title);
+        addButton.addEventListener('click',()=>{
+          const line=this.createRoutineEditorLine(def.key,'',true);
+          linesContainer.appendChild(line);
+          const input=line.querySelector('input');
+          if(input) input.focus();
+          this.syncRoutineEditorStateFromDom();
+        });
+        block.appendChild(addButton);
+      }
+      return block;
+    }
+
+    getRoutineEditorLinesForBlock(key,editable){
+      if(key==='findings'||key==='actions'){
+        const derived=this.routineEditorDerivedLines&&Array.isArray(this.routineEditorDerivedLines[key])?this.routineEditorDerivedLines[key]:[];
+        return derived.slice();
+      }
+      const entry=this.routineEditorState&&this.routineEditorState.blocks?this.routineEditorState.blocks[key]:null;
+      const lines=Array.isArray(entry&&entry.lines)?entry.lines:[];
+      if(editable&&lines.length===0) return [''];
+      return lines.slice();
+    }
+
+    populateRoutineEditorBlock(key){
+      const info=this.routineEditorBlocks&&this.routineEditorBlocks[key];
+      if(!info) return;
+      const def=info.definition||ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
+      const editable=def&&def.editable!==false;
+      const container=info.linesContainer;
+      container.innerHTML='';
+      const lines=this.getRoutineEditorLinesForBlock(key,editable);
+      if(!lines.length){
+        if(editable){
+          container.appendChild(this.createRoutineEditorLine(key,'',true));
+        }else{
+          const empty=document.createElement('div');
+          empty.className='nsf-empty';
+          empty.textContent='Keine Daten vorhanden.';
+          container.appendChild(empty);
+        }
+        return;
+      }
+      lines.forEach(value=>{
+        const line=this.createRoutineEditorLine(key,value,editable);
+        container.appendChild(line);
+      });
+    }
+
+    createRoutineEditorLine(type,value,editable){
+      const line=document.createElement('div');
+      line.className='nsf-editor-line';
+      const input=document.createElement('input');
+      input.type='text';
+      input.className='nsf-editor-input';
+      input.value=typeof value==='string'?value:'';
+      if(editable){
+        input.placeholder='Text…';
+        input.addEventListener('input',()=>this.syncRoutineEditorStateFromDom());
+      }else{
+        input.readOnly=true;
+        input.tabIndex=-1;
+      }
+      line.appendChild(input);
+      if(editable){
+        const remove=document.createElement('button');
+        remove.type='button';
+        remove.className='nsf-editor-remove';
+        remove.textContent='✖';
+        remove.setAttribute('aria-label','Zeile entfernen');
+        remove.addEventListener('click',()=>{
+          const container=line.parentElement;
+          line.remove();
+          if(container&&container.children.length===0){
+            container.appendChild(this.createRoutineEditorLine(type,'',true));
+          }
+          this.syncRoutineEditorStateFromDom();
+          const focusTarget=container?container.querySelector('input'):null;
+          if(focusTarget) focusTarget.focus();
+        });
+        line.appendChild(remove);
+      }
+      return line;
+    }
+
+    startRoutineEditorReorder(event,block){
+      if(!block||!this.routineEditorList) return;
+      if(event.button!==0&&event.pointerType!=='touch'&&event.pointerType!=='pen') return;
+      event.preventDefault();
+      if(this.routineEditorDragState){
+        const {handleMove,stop}=this.routineEditorDragState;
+        if(handleMove){
+          window.removeEventListener('pointermove',handleMove);
+        }
+        if(stop){
+          window.removeEventListener('pointerup',stop);
+          window.removeEventListener('pointercancel',stop);
+        }
+        this.routineEditorDragState=null;
+      }
+      block.classList.add('dragging');
+      const pointerId=event.pointerId;
+      const handleMove=ev=>{
+        if(pointerId!=null&&ev.pointerId!==pointerId) return;
+        ev.preventDefault();
+        this.reorderRoutineEditorBlocks(block,ev.clientY);
+      };
+      const stop=ev=>{
+        if(pointerId!=null&&ev.pointerId!==pointerId) return;
+        block.classList.remove('dragging');
+        window.removeEventListener('pointermove',handleMove);
+        window.removeEventListener('pointerup',stop);
+        window.removeEventListener('pointercancel',stop);
+        this.syncRoutineEditorStateFromDom();
+      };
+      window.addEventListener('pointermove',handleMove);
+      window.addEventListener('pointerup',stop);
+      window.addEventListener('pointercancel',stop);
+      this.routineEditorDragState={pointerId,handleMove,stop};
+    }
+
+    reorderRoutineEditorBlocks(block,clientY){
+      if(!this.routineEditorList) return;
+      const siblings=Array.from(this.routineEditorList.children).filter(el=>el.classList&&el.classList.contains('nsf-editor-block'));
+      let nextSibling=null;
+      for(const sibling of siblings){
+        if(sibling===block) continue;
+        const rect=sibling.getBoundingClientRect();
+        if(clientY<rect.top+rect.height/2){
+          nextSibling=sibling;
+          break;
+        }
+      }
+      if(nextSibling){
+        if(nextSibling!==block.nextSibling){
+          this.routineEditorList.insertBefore(block,nextSibling);
+        }
+      }else{
+        if(block!==this.routineEditorList.lastElementChild){
+          this.routineEditorList.appendChild(block);
+        }
+      }
+    }
+
+    syncRoutineEditorStateFromDom(){
+      if(!this.routineEditorBlocks||!this.routineEditorList) return;
+      const state=createDefaultRoutineEditorState();
+      const orderNodes=Array.from(this.routineEditorList.children).filter(el=>el.classList&&el.classList.contains('nsf-editor-block'));
+      const order=[];
+      orderNodes.forEach(node=>{
+        if(node.dataset&&node.dataset.type) order.push(node.dataset.type);
+      });
+      if(order.length) state.order=order;
+      ROUTINE_EDITOR_BLOCKS.forEach(def=>{
+        const info=this.routineEditorBlocks[def.key];
+        if(!info) return;
+        if(def.editable===false){
+          state.blocks[def.key]={lines:this.getRoutineEditorLinesForBlock(def.key,false)};
+          return;
+        }
+        const inputs=Array.from(info.linesContainer?info.linesContainer.querySelectorAll('input.nsf-editor-input'):[]);
+        const lines=inputs.length?inputs.map(input=>String(input.value||'')):[''];
+        const filtered=lines.filter((line,idx)=>line!==''||idx===0);
+        state.blocks[def.key]={lines:filtered.length?filtered:['']};
+      });
+      this.routineEditorState=state;
+      storeRoutineEditorState(state);
+    }
+
+    refreshRoutineEditorDerivedLines(source){
+      const computed=source||{};
+      const findingsText=typeof computed.findings==='string'?computed.findings:(this.textareas&&this.textareas.findings?this.textareas.findings.value:'');
+      const actionsText=typeof computed.actions==='string'?computed.actions:(this.textareas&&this.textareas.actions?this.textareas.actions.value:'');
+      const splitLines=text=>{
+        if(!text) return [];
+        return text.split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
+      };
+      this.routineEditorDerivedLines={
+        findings:splitLines(findingsText),
+        actions:splitLines(actionsText)
+      };
+      ['findings','actions'].forEach(key=>this.replaceRoutineEditorBlockLines(key,this.routineEditorDerivedLines[key]));
+    }
+
+    replaceRoutineEditorBlockLines(key,lines){
+      const info=this.routineEditorBlocks&&this.routineEditorBlocks[key];
+      if(!info) return;
+      const def=info.definition||ROUTINE_EDITOR_BLOCKS.find(block=>block.key===key);
+      if(!def) return;
+      const editable=def.editable!==false;
+      const container=info.linesContainer;
+      if(!container) return;
+      container.innerHTML='';
+      const values=Array.isArray(lines)?lines.slice():[];
+      if(!values.length){
+        if(editable){
+          container.appendChild(this.createRoutineEditorLine(key,'',true));
+        }else{
+          const empty=document.createElement('div');
+          empty.className='nsf-empty';
+          empty.textContent='Keine Daten vorhanden.';
+          container.appendChild(empty);
+        }
+        return;
+      }
+      values.forEach(value=>{
+        container.appendChild(this.createRoutineEditorLine(key,value,editable));
+      });
+    }
+
+    collectRoutineEditorBlockLines(key){
+      if(key==='findings'||key==='actions'){
+        const derived=this.routineEditorDerivedLines&&Array.isArray(this.routineEditorDerivedLines[key])?this.routineEditorDerivedLines[key]:[];
+        return derived.map(line=>clean(line)).filter(Boolean);
+      }
+      const info=this.routineEditorBlocks&&this.routineEditorBlocks[key];
+      if(!info) return [];
+      const inputs=Array.from(info.linesContainer?info.linesContainer.querySelectorAll('input.nsf-editor-input'):[]);
+      return inputs.map(input=>clean(input.value)).filter(Boolean);
+    }
+
+    handleRoutineEditorSave(){
+      this.syncRoutineEditorStateFromDom();
+      const order=this.routineEditorState&&Array.isArray(this.routineEditorState.order)&&this.routineEditorState.order.length?this.routineEditorState.order:['prefix','findings','actions','suffix'];
+      const combined=[];
+      order.forEach(key=>{
+        if(!ROUTINE_EDITOR_BLOCKS.some(block=>block.key===key)) return;
+        const lines=this.collectRoutineEditorBlockLines(key);
+        lines.forEach(line=>{
+          if(line) combined.push(line);
+        });
+      });
+      const routineText=combined.join('\n');
+      const textarea=this.textareas&&this.textareas.routine;
+      if(textarea){
+        textarea.value=routineText;
+        autoResizeTextarea(textarea);
+      }
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.routine=routineText;
+      }
+      this.queueStateSave();
+      this.closeRoutineEditorOverlay();
     }
 
     resolveEntry(entry){
