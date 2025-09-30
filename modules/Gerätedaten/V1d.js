@@ -498,7 +498,22 @@
     let lastDocString=getDocString();
     const watcher=setInterval(()=>{const now=getDocString();if(now!==lastDocString){lastDocString=now;refreshFromAspen();}},WATCH_INTERVAL);
 
-    const openAspenPicker=async()=>{try{const [handle]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(handle)await bindAspenHandle(handle);}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
+    const openAspenPicker=async()=>{
+      const picker=typeof window.showOpenFilePicker==='function'
+        ? window.showOpenFilePicker.bind(window)
+        : null;
+      if(!picker){
+        toggleModal(true);
+        setNote('Dateiauswahl wird nicht unterstützt. Bitte über die Optionen öffnen.');
+        return;
+      }
+      try{
+        const [handle]=await picker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});
+        if(handle)await bindAspenHandle(handle);
+      }catch(e){
+        if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');
+      }
+    };
     if(els.mAspenPick)els.mAspenPick.addEventListener('click',openAspenPicker);
     if(els.aspenInlineBtn)els.aspenInlineBtn.addEventListener('click',openAspenPicker);
     updateAspenFieldList();
