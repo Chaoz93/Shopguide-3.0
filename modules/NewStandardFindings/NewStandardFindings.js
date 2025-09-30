@@ -914,6 +914,16 @@
     'serial-number','serialnummer','seriennummer','seriennr','serien nr','serien-nummer','sn','s/n','snr'
   ];
 
+  const ASPEN_MELDUNG_FIELD_ALIASES=[
+    'Meldung','Meldungsnummer','Meldungsnr','Meldungs_No','MELDUNGS_NO','MELDUNG','MELDUNG_NO','Meldungs ID','Meldungs-ID',
+    'Meldungs Id','MeldungsCode','Meldungscode','Meldungs Code','Meldung Nr','MeldungsNr','Meldungsnummer',
+    'Notification','Notification No','Notification_No','Notification Number','NotificationNumber','NotificationNr',
+    'Notification_Id','NotificationId','Notification ID','Notif','Notif No','Notif_No','Notif Number','NotifNumber','NotifNr'
+  ];
+
+  const SERIAL_FIELD_KEYS=Array.from(new Set(SERIAL_FIELD_ALIASES.map(alias=>canonicalKey(alias)).filter(Boolean)));
+  const ASPEN_MELDUNG_FIELD_KEYS=Array.from(new Set(ASPEN_MELDUNG_FIELD_ALIASES.map(alias=>canonicalKey(alias)).filter(Boolean)));
+
   const FIELD_RECORD_KEY_PROPS=[
     'key','name','label','field','fieldkey','source','sourcekey','originalkey','identifier','id',
     'aspkey','aspfield','aspenkey','aspenfield','column','columnkey','header','slug'
@@ -1454,9 +1464,15 @@
       general&&general['Serial_Number']
     ];
     let serial='';
-    for(const candidate of serialCandidates){
-      const value=clean(candidate);
-      if(value){serial=value;break;}
+    if(meldung){
+      const matchedSerial=findSerialForMeldung(doc,meldung);
+      if(matchedSerial) serial=matchedSerial;
+    }
+    if(!serial){
+      for(const candidate of serialCandidates){
+        const value=clean(candidate);
+        if(value){serial=value;break;}
+      }
     }
     if(!serial){
       const nestedSerial=clean(extractNestedField(general,SERIAL_FIELD_ALIASES));
@@ -1585,6 +1601,62 @@
     return '';
   }
 
+  function findSerialForMeldung(doc,meldung){
+    const normalizedTarget=clean(meldung).toLowerCase();
+    if(!normalizedTarget) return '';
+    const visited=new Set();
+
+    const extractFromMap=(map,aliasKeys)=>{
+      if(!map||typeof map!=='object') return '';
+      for(const key of aliasKeys){
+        if(Object.prototype.hasOwnProperty.call(map,key)){
+          const text=valueToText(map[key]);
+          const cleaned=clean(text);
+          if(cleaned) return cleaned;
+        }
+      }
+      for(const key of aliasKeys){
+        const recordValue=matchRecordByAlias(map,key);
+        const cleaned=clean(recordValue);
+        if(cleaned) return cleaned;
+      }
+      return '';
+    };
+
+    const search=node=>{
+      if(!node||typeof node!=='object') return '';
+      if(visited.has(node)) return '';
+      visited.add(node);
+      if(Array.isArray(node)){
+        for(const item of node){
+          const result=search(item);
+          if(result) return result;
+        }
+        return '';
+      }
+      const map=buildFieldMap(node);
+      for(const value of Object.values(node)){
+        if(value&&typeof value==='object'){
+          const nested=search(value);
+          if(nested) return nested;
+        }
+      }
+      const meldungValue=extractFromMap(map,ASPEN_MELDUNG_FIELD_KEYS);
+      if(meldungValue&&clean(meldungValue).toLowerCase()===normalizedTarget){
+        let serialValue=extractFromMap(map,SERIAL_FIELD_KEYS);
+        if(!serialValue){
+          serialValue=clean(extractNestedField(node,SERIAL_FIELD_ALIASES));
+        }
+        if(serialValue){
+          return clean(serialValue);
+        }
+      }
+      return '';
+    };
+
+    return search(doc);
+  }
+
   function detectDelimiter(line){
     if(line.includes(';')) return ';';
     if(line.includes('\t')) return '\t';
@@ -1621,19 +1693,25 @@
     const delimiter=detectDelimiter(lines[0]);
     const headers=splitCsvLine(lines[0],delimiter);
     if(!headers.length) return null;
-    let valuesLine='';
+    const rows=[];
     for(let i=1;i<lines.length;i+=1){
-      if(lines[i]){valuesLine=lines[i];break;}
+      const line=lines[i];
+      if(!line) continue;
+      const values=splitCsvLine(line,delimiter);
+      const record={};
+      let hasValue=false;
+      headers.forEach((header,idx)=>{
+        const key=clean(header);
+        if(!key) return;
+        const value=clean(values[idx]||'');
+        if(value) hasValue=true;
+        record[key]=value;
+      });
+      if(Object.keys(record).length&&hasValue) rows.push(record);
     }
-    const values=valuesLine?splitCsvLine(valuesLine,delimiter):[];
-    const general={};
-    headers.forEach((header,idx)=>{
-      const key=clean(header);
-      if(!key) return;
-      general[key]=clean(values[idx]||'');
-    });
-    if(!Object.keys(general).length) return null;
-    return {general};
+    if(!rows.length) return null;
+    const general={...rows[0]};
+    return {general,rows};
   }
 
   function loadGlobalState(){
@@ -2028,6 +2106,7 @@
       this.updateAspenBlocksFromDoc();
       const boardEntry=this.meldung?findAspenBoardEntry(this.meldung):null;
       const boardPart=boardEntry?extractPartFromBoard(boardEntry):'';
+      const boardSerial=boardEntry?extractSerialFromBoard(boardEntry):'';
       let part='';
       let partSource='';
       if(boardPart){
@@ -2045,7 +2124,7 @@
       const previousPart=this.currentPart;
       this.currentPart=part;
       this.partSource=part?partSource:'';
-      const serialCandidate=docInfo.serial||'';
+      const serialCandidate=docInfo.serial||boardSerial||'';
       this.serial=serialCandidate;
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
