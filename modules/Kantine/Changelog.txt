@@ -1,0 +1,10 @@
+# Changelog – Kantine
+
+Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
+Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
+
+---
+
+## [1.0.0] – 2025-09-30
+### Added
+- Erstveröffentlichung des Kantine-Moduls mit kompaktem iframe-Embed des Betriebsrestaurants.

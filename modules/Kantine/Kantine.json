@@ -1,0 +1,11 @@
+{
+  "name": "Kantine",
+  "icon": "🍽️",
+  "script": "renderKantine",
+  "minW": 2,
+  "minH": 4,
+  "w": 4,
+  "h": 6,
+  "moduleId": "Kantine",
+  "version": "1.0.0"
+}
