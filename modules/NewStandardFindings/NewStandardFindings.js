@@ -472,13 +472,19 @@
       .nsf-input-wrapper{display:flex;flex-direction:column;gap:0.5rem;}
       .nsf-input-row{position:relative;background:rgba(15,23,42,0.18);border-radius:0.85rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.35rem;z-index:1;}
       .nsf-input-row.show-suggestions{z-index:120;}
-      .nsf-input-field{position:relative;display:flex;align-items:center;width:100%;}
+      .nsf-input-field{position:relative;display:flex;align-items:center;width:100%;gap:0.35rem;}
       .nsf-input-row.locked{background:rgba(15,23,42,0.28);}
       .nsf-remove-btn{position:absolute;top:50%;right:0.45rem;transform:translateY(-50%);background:rgba(248,113,113,0.25);border:none;border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
       .nsf-remove-btn:hover{background:rgba(248,113,113,0.4);opacity:1;transform:translateY(-50%) scale(1.05);}
-      .nsf-input{width:100%;border:none;border-radius:0.65rem;padding:0.55rem 2.7rem 0.55rem 0.7rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
+      .nsf-input{width:100%;border:none;border-radius:0.65rem;padding:0.55rem 5rem 0.55rem 0.7rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
       .nsf-input:disabled{opacity:0.75;background:rgba(255,255,255,0.65);cursor:not-allowed;}
       .nsf-input::placeholder{color:rgba(107,114,128,0.8);}
+      .nsf-suggestions-toggle{position:absolute;top:50%;right:2.7rem;transform:translateY(-50%);background:rgba(59,130,246,0.18);border:none;border-radius:999px;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease,opacity 0.15s ease;}
+      .nsf-suggestions-toggle:hover{background:rgba(59,130,246,0.28);transform:translateY(-50%) scale(1.05);}
+      .nsf-suggestions-toggle.is-active{background:rgba(59,130,246,0.35);}
+      .nsf-suggestions-toggle:disabled{opacity:0.5;cursor:not-allowed;transform:translateY(-50%);background:rgba(59,130,246,0.18);}
+      .nsf-suggestions-toggle svg{width:1rem;height:1rem;pointer-events:none;}
+      .nsf-input-row.locked .nsf-suggestions-toggle{display:none;}
       .nsf-suggestions{position:absolute;top:calc(100% - 0.2rem);left:0;right:0;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.4);padding:0.35rem;display:none;max-height:220px;overflow:auto;z-index:180;}
       .nsf-input-row.show-suggestions .nsf-suggestions{display:block;}
       .nsf-suggestion{padding:0.35rem 0.55rem;border-radius:0.6rem;cursor:pointer;display:flex;align-items:center;gap:0.35rem;}
@@ -578,10 +584,17 @@
       .nsf-editor-remove:hover{background:rgba(248,113,113,0.3);transform:scale(1.05);}
       .nsf-editor-aspen-controls{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-start;}
       .nsf-editor-aspen-picker{position:relative;flex:1;min-width:220px;display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-editor-aspen-input-wrapper{position:relative;flex:1;min-width:0;display:flex;align-items:stretch;}
       .nsf-editor-aspen-picker.is-disabled{opacity:0.65;}
-      .nsf-editor-aspen-input{background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.55);border-radius:0.65rem;padding:0.45rem 0.65rem;font:inherit;color:#f8fafc;}
+      .nsf-editor-aspen-input{flex:1 1 auto;min-width:0;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.55);border-radius:0.65rem;padding:0.45rem 2.65rem 0.45rem 0.65rem;font:inherit;color:#f8fafc;}
       .nsf-editor-aspen-input:focus{outline:2px solid rgba(96,165,250,0.6);outline-offset:2px;}
       .nsf-editor-aspen-input::placeholder{color:rgba(226,232,240,0.55);}
+      .nsf-editor-aspen-toggle{position:absolute;top:50%;right:0.55rem;transform:translateY(-50%);width:2.1rem;height:2.1rem;border-radius:999px;border:1px solid rgba(148,163,184,0.55);background:rgba(15,23,42,0.7);color:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.15s ease,border-color 0.15s ease,box-shadow 0.15s ease;}
+      .nsf-editor-aspen-toggle:hover{background:rgba(30,41,59,0.9);}
+      .nsf-editor-aspen-toggle:focus-visible{outline:2px solid rgba(96,165,250,0.6);outline-offset:2px;}
+      .nsf-editor-aspen-toggle.is-active{background:rgba(59,130,246,0.35);border-color:rgba(96,165,250,0.7);box-shadow:0 0 0 2px rgba(96,165,250,0.25);}
+      .nsf-editor-aspen-toggle svg{width:0.95rem;height:0.95rem;pointer-events:none;}
+      .nsf-editor-aspen-toggle:disabled{cursor:default;opacity:0.6;pointer-events:none;}
       .nsf-editor-aspen-options{position:absolute;top:calc(100% + 0.35rem);left:0;right:0;max-height:220px;overflow:auto;background:rgba(15,23,42,0.98);border:1px solid rgba(148,163,184,0.55);border-radius:0.65rem;box-shadow:0 18px 36px rgba(15,23,42,0.6);display:none;flex-direction:column;z-index:12;}
       .nsf-editor-aspen-options.open{display:flex;}
       .nsf-editor-aspen-option{background:transparent;border:none;padding:0.5rem 0.75rem;text-align:left;font:inherit;color:#f8fafc;cursor:pointer;}
@@ -2816,7 +2829,7 @@
           note.textContent='Keine Findings verfügbar.';
         }
       }else{
-        note.textContent='Tippen, um Findings zu suchen. Mit Enter auswählen – es erscheint automatisch ein weiteres Eingabefeld.';
+        note.textContent='Tippen, um Findings zu suchen oder über den Pfeil-Button rechts die Auswahlliste öffnen. Mit Enter auswählen – es erscheint automatisch ein weiteres Eingabefeld.';
       }
       selectionBody.appendChild(note);
 
@@ -4550,13 +4563,23 @@
         input.spellcheck=false;
         input.className='nsf-editor-aspen-input';
         input.placeholder=this.hasAspenDoc?'Aspen-Feld suchen…':'Keine Aspen-Datei geladen';
+        const toggle=document.createElement('button');
+        toggle.type='button';
+        toggle.className='nsf-editor-aspen-toggle';
+        toggle.innerHTML='<svg aria-hidden="true" viewBox="0 0 20 20" focusable="false"><path fill="currentColor" d="M5.22 7.47a.75.75 0 0 1 1.06 0L10 11.19l3.72-3.72a.75.75 0 0 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.53a.75.75 0 0 1 0-1.06Z"/></svg>';
+        toggle.setAttribute('aria-label','Auswahlliste öffnen');
+        toggle.setAttribute('aria-expanded','false');
+        const inputWrapper=document.createElement('div');
+        inputWrapper.className='nsf-editor-aspen-input-wrapper';
+        inputWrapper.append(input,toggle);
         if(!this.hasAspenDoc){
           input.disabled=true;
+          toggle.disabled=true;
           picker.classList.add('is-disabled');
         }
         const dropdown=document.createElement('div');
         dropdown.className='nsf-editor-aspen-options';
-        picker.append(input,dropdown);
+        picker.append(inputWrapper,dropdown);
         controls.appendChild(picker);
         if(!this.hasAspenDoc){
           const loadBtn=document.createElement('button');
@@ -4601,6 +4624,8 @@
           if(!pickerState.open) return;
           pickerState.open=false;
           dropdown.classList.remove('open');
+          toggle.classList.remove('is-active');
+          toggle.setAttribute('aria-expanded','false');
           if(pickerState.outsideHandler){
             document.removeEventListener('pointerdown',pickerState.outsideHandler,true);
             pickerState.outsideHandler=null;
@@ -4655,21 +4680,35 @@
           if(!this.hasAspenDoc||pickerState.open) return;
           pickerState.open=true;
           dropdown.classList.add('open');
+          toggle.classList.add('is-active');
+          toggle.setAttribute('aria-expanded','true');
           pickerState.outsideHandler=event=>{
             if(!picker.contains(event.target)) closeDropdown();
           };
           document.addEventListener('pointerdown',pickerState.outsideHandler,true);
           updateFiltered(input.value);
         };
-        input.addEventListener('focus',()=>{
-          if(this.hasAspenDoc) openDropdown();
-        });
-        input.addEventListener('input',()=>{
-          if(!pickerState.open) openDropdown();
-          else updateFiltered(input.value);
+        input.addEventListener('input',event=>{
+          if(pickerState.open){
+            updateFiltered(input.value);
+            return;
+          }
+          if(event.isTrusted&&document.activeElement===input){
+            openDropdown();
+          }
         });
         input.addEventListener('blur',()=>{
           setTimeout(()=>closeDropdown(),120);
+        });
+        toggle.addEventListener('click',event=>{
+          event.preventDefault();
+          if(pickerState.open){
+            closeDropdown();
+          }else{
+            if(!this.hasAspenDoc) return;
+            input.focus();
+            openDropdown();
+          }
         });
         input.addEventListener('keydown',event=>{
           if(event.key==='ArrowDown'){
@@ -4702,19 +4741,21 @@
           }
         });
         applySelection(pickerState.selectedKey);
-        info.aspenPicker={
-          refresh:(optionsList,hasDoc)=>{
-            pickerState.options=Array.isArray(optionsList)?optionsList:[];
-            if(hasDoc){
-              input.disabled=false;
-              picker.classList.remove('is-disabled');
-              input.placeholder='Aspen-Feld suchen…';
-            }else{
-              input.disabled=true;
-              picker.classList.add('is-disabled');
-              input.placeholder='Keine Aspen-Datei geladen';
-              closeDropdown();
-            }
+          info.aspenPicker={
+            refresh:(optionsList,hasDoc)=>{
+              pickerState.options=Array.isArray(optionsList)?optionsList:[];
+              if(hasDoc){
+                input.disabled=false;
+                toggle.disabled=false;
+                picker.classList.remove('is-disabled');
+                input.placeholder='Aspen-Feld suchen…';
+              }else{
+                input.disabled=true;
+                toggle.disabled=true;
+                picker.classList.add('is-disabled');
+                input.placeholder='Keine Aspen-Datei geladen';
+                closeDropdown();
+              }
             const currentOption=this.getAspenFieldOption(pickerState.selectedKey);
             if(!currentOption){
               applySelection('');
@@ -5140,13 +5181,20 @@
       input.className='nsf-input';
       input.placeholder=this.availableEntries.length?'Finding auswählen…':'Keine Findings verfügbar';
       input.disabled=!this.availableEntries.length;
+      const toggle=document.createElement('button');
+      toggle.type='button';
+      toggle.className='nsf-suggestions-toggle';
+      toggle.innerHTML='<svg aria-hidden="true" viewBox="0 0 20 20" focusable="false"><path fill="currentColor" d="M5.22 7.47a.75.75 0 0 1 1.06 0L10 11.19l3.72-3.72a.75.75 0 0 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.53a.75.75 0 0 1 0-1.06Z"/></svg>';
+      toggle.setAttribute('aria-label','Vorschläge anzeigen');
+      toggle.setAttribute('aria-expanded','false');
+      toggle.disabled=!this.availableEntries.length;
       const removeBtn=document.createElement('button');
       removeBtn.type='button';
       removeBtn.className='nsf-remove-btn';
       removeBtn.textContent='✖';
       const field=document.createElement('div');
       field.className='nsf-input-field';
-      field.append(input,removeBtn);
+      field.append(toggle,input,removeBtn);
       const suggestions=document.createElement('div');
       suggestions.className='nsf-suggestions';
       row.append(field,suggestions);
@@ -5154,16 +5202,32 @@
       const state={
         row,
         input,
+        toggle,
         suggestions,
         removeBtn,
         suggestionsList:[],
         highlightIndex:-1,
         locked:false,
         entry:null,
-        outsideHandler:null
+        outsideHandler:null,
+        isOpen:false
+      };
+      const updateHighlight=()=>{
+        if(!state.isOpen) return;
+        const children=Array.from(suggestions.children);
+        children.forEach((child,idx)=>{
+          if(idx===state.highlightIndex){
+            child.classList.add('active');
+          }else{
+            child.classList.remove('active');
+          }
+        });
       };
       const closeSuggestions=()=>{
+        state.isOpen=false;
         row.classList.remove('show-suggestions');
+        toggle.classList.remove('is-active');
+        toggle.setAttribute('aria-expanded','false');
         state.suggestionsList=[];
         state.highlightIndex=-1;
         suggestions.innerHTML='';
@@ -5193,19 +5257,18 @@
           return false;
         }).slice(0,20);
         state.suggestionsList=matches;
-        state.highlightIndex=matches.length?0:-1;
-        suggestions.innerHTML='';
         if(!matches.length){
-          closeSuggestions();
+          state.highlightIndex=-1;
+          if(state.isOpen){
+            closeSuggestions();
+          }
           return;
         }
-        if(!state.outsideHandler){
-          state.outsideHandler=event=>{
-            if(!row.contains(event.target)) closeSuggestions();
-          };
-          document.addEventListener('pointerdown',state.outsideHandler,true);
+        if(state.highlightIndex<0||state.highlightIndex>=matches.length){
+          state.highlightIndex=0;
         }
-        row.classList.add('show-suggestions');
+        suggestions.innerHTML='';
+        if(!state.isOpen) return;
         matches.forEach((entry,idx)=>{
           const item=document.createElement('div');
           item.className='nsf-suggestion';
@@ -5221,44 +5284,76 @@
           if(idx===state.highlightIndex) item.classList.add('active');
         });
       };
+      const openSuggestions=()=>{
+        if(state.locked||!this.availableEntries.length) return;
+        if(!state.isOpen){
+          state.isOpen=true;
+          row.classList.add('show-suggestions');
+          toggle.classList.add('is-active');
+          toggle.setAttribute('aria-expanded','true');
+          if(!state.outsideHandler){
+            state.outsideHandler=event=>{
+              if(!row.contains(event.target)) closeSuggestions();
+            };
+            document.addEventListener('pointerdown',state.outsideHandler,true);
+          }
+        }
+        updateSuggestions();
+        updateHighlight();
+      };
       const selectCurrent=()=>{
-        if(state.highlightIndex<0) return;
+        if(!state.isOpen||state.highlightIndex<0) return;
         const entry=state.suggestionsList[state.highlightIndex];
         if(entry) this.acceptSelection(entry,state);
       };
-      const updateHighlight=()=>{
-        const children=Array.from(suggestions.children);
-        children.forEach((child,idx)=>{
-          if(idx===state.highlightIndex){
-            child.classList.add('active');
-          }else{
-            child.classList.remove('active');
-          }
-        });
-      };
-      input.addEventListener('input',updateSuggestions);
-      input.addEventListener('focus',updateSuggestions);
+      toggle.addEventListener('click',event=>{
+        event.preventDefault();
+        if(state.locked||toggle.disabled) return;
+        if(state.isOpen){
+          closeSuggestions();
+        }else{
+          input.focus();
+          openSuggestions();
+        }
+      });
+      input.addEventListener('input',()=>{
+        if(state.locked) return;
+        openSuggestions();
+      });
       input.addEventListener('keydown',e=>{
         if(state.locked) return;
         if(e.key==='ArrowDown'){
+          if(!state.isOpen){
+            e.preventDefault();
+            openSuggestions();
+            return;
+          }
           if(state.suggestionsList.length){
             e.preventDefault();
             state.highlightIndex=(state.highlightIndex+1)%state.suggestionsList.length;
             updateHighlight();
           }
         }else if(e.key==='ArrowUp'){
+          if(!state.isOpen){
+            e.preventDefault();
+            openSuggestions();
+            return;
+          }
           if(state.suggestionsList.length){
             e.preventDefault();
             state.highlightIndex=(state.highlightIndex-1+state.suggestionsList.length)%state.suggestionsList.length;
             updateHighlight();
           }
         }else if(e.key==='Enter'){
-          if(state.suggestionsList.length){
+          if(state.isOpen&&state.suggestionsList.length){
             e.preventDefault();
             selectCurrent();
           }
         }else if(e.key==='Escape'){
-          closeSuggestions();
+          if(state.isOpen){
+            e.preventDefault();
+            closeSuggestions();
+          }
         }
       });
       input.addEventListener('blur',()=>{
@@ -5271,6 +5366,8 @@
         if(state.locked) this.removeSelection(state);
         else this.removeRow(state);
       });
+      state.closeSuggestions=closeSuggestions;
+      state.openSuggestions=openSuggestions;
       this.selectionRows.push(state);
       if(prefillEntry){
         this.lockRow(state,prefillEntry,{persist:false,updateState:false,syncOutputs:false});
@@ -5301,6 +5398,9 @@
         state.outsideHandler=null;
       }
       state.locked=true;
+      if(typeof state.closeSuggestions==='function'){
+        state.closeSuggestions();
+      }
       const routineText=this.buildRoutineOutput(entry);
       const nonroutineText=clean(entry.nonroutine||'');
       const nonroutineFindingText=clean(entry.nonroutineFinding||'');
@@ -5327,7 +5427,11 @@
       state.input.value=entry.label||entry.finding||entry.action||'Auswahl';
       state.input.disabled=true;
       state.row.classList.add('locked');
-      state.row.classList.remove('show-suggestions');
+      if(state.toggle){
+        state.toggle.disabled=true;
+        state.toggle.classList.remove('is-active');
+        state.toggle.setAttribute('aria-expanded','false');
+      }
       state.suggestions.innerHTML='';
       state.suggestionsList=[];
       state.highlightIndex=-1;
@@ -5369,6 +5473,9 @@
 
     removeRow(state){
       if(!state) return;
+      if(typeof state.closeSuggestions==='function'){
+        state.closeSuggestions();
+      }
       if(state.outsideHandler){
         document.removeEventListener('pointerdown',state.outsideHandler,true);
         state.outsideHandler=null;
