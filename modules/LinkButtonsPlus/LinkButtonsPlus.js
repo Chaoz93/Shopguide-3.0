@@ -62,6 +62,7 @@
     .ops-tab-filters{padding:.35rem .35rem .45rem;}
     .ops-menu .ops-action-button{display:block; width:100%; margin:.25rem 0 0; padding:.35rem .6rem; border:none;
       border-radius:.4rem; background:var(--button-bg); color:var(--button-text); cursor:pointer;}
+    .ops-menu .ops-action-button:disabled{opacity:.55; cursor:not-allowed;}
     .ops-filter-hint{padding:.2rem .35rem; font-size:.78rem; opacity:.7;}
     .ops-filter-list{padding:.1rem 0;}
     .ops-filter-row{padding:.2rem .35rem;}
@@ -70,6 +71,7 @@
     .ops-filter-actions{padding:.3rem .35rem 0;}
     .ops-filter-actions .ops-action-button{margin:0;}
     .ops-menu .ops-file{display:block; font-size:.75rem; opacity:.8; padding:.2rem .6rem 0;}
+    .ops-menu .ops-file-hint{display:block; font-size:.72rem; opacity:.65; padding:.15rem .6rem .2rem; min-height:1em;}
     `;
     const tag = document.createElement('style');
     tag.id = 'ops-panel-styles';
@@ -368,7 +370,9 @@
         ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
         <hr>
         <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
+        <button type="button" class="ops-refresh ops-action-button" disabled>Aspendaten aktualisieren</button>
         <div class="ops-file"></div>
+        <div class="ops-file-hint"></div>
       </div>
       <div class="ops-tab ops-tab-filters" data-tab="filters">
         <div class="ops-filter-hint">Namen für Workforce-Filter (ein Name pro Zeile)</div>
@@ -389,7 +393,24 @@
       });
     });
     const fileLbl = menu.querySelector('.ops-file');
-    fileLbl.textContent = loadAspenFileName() ? `• ${loadAspenFileName()}` : 'Keine Aspen-Datei';
+    const fileHint = menu.querySelector('.ops-file-hint');
+    const refreshBtn = menu.querySelector('.ops-refresh');
+
+    function updateFileState(){
+      const storedName = loadAspenFileName();
+      const resolvedName = storedName || fileHandle?.name || '';
+      if(fileHandle){
+        if(fileLbl) fileLbl.textContent = resolvedName ? `• ${resolvedName}` : 'Aspen-Datei geladen';
+        if(refreshBtn) refreshBtn.disabled = false;
+        if(fileHint) fileHint.textContent = '';
+      } else {
+        if(fileLbl) fileLbl.textContent = storedName ? `• ${storedName}` : 'Keine Aspen-Datei';
+        if(refreshBtn) refreshBtn.disabled = true;
+        if(fileHint) fileHint.textContent = 'Hinweis: Bisher keine Aspen-Datei gewählt.';
+      }
+    }
+
+    updateFileState();
 
     const filterList = menu.querySelector('.ops-filter-list');
     const clearFiltersBtn = menu.querySelector('.ops-filter-clear');
@@ -494,10 +515,10 @@
           fileHandle = h;
           await idbSet(GLOBAL_ASPEN_KEY,h);
           saveAspenFileName(h.name || 'Aspen.xlsx');
-          fileLbl.textContent = `• ${h.name || 'Aspen.xlsx'}`;
           updateCache(await readAll(h));
         }
       }catch(e){/* ignore */}
+      updateFileState();
     }
 
     menu.querySelector('.ops-pick').addEventListener('click', ()=>{
@@ -506,15 +527,37 @@
       pickAspen();
     });
 
+    if(refreshBtn){
+      refreshBtn.addEventListener('click', async ()=>{
+        persistFilters();
+        menu.classList.remove('open');
+        if(!fileHandle){
+          alert('Bitte zuerst eine Aspen-Datei wählen.');
+          return;
+        }
+        try{
+          updateCache(await readAll(fileHandle));
+        }catch(err){
+          console.error(err);
+          alert('Aspen-Daten konnten nicht aktualisiert werden.');
+        }
+        updateFileState();
+      });
+    }
+
     (async()=>{
       try{
         const h = await idbGet(GLOBAL_ASPEN_KEY);
         if(h && await ensureRWPermission(h)){
           fileHandle = h;
           updateCache(await readAll(h));
-          fileLbl.textContent = `• ${loadAspenFileName() || h.name || 'Aspen.xlsx'}`;
+        } else {
+          fileHandle = null;
         }
-      }catch{}
+      }catch{
+        fileHandle = null;
+      }
+      updateFileState();
     })();
 
     menu.querySelectorAll('input[type="checkbox"]').forEach(chk => {
