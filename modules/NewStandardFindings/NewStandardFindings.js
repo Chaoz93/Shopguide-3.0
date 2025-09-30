@@ -20,6 +20,17 @@
     {key:'suffix',label:'Suffix',editable:true,persist:true}
   ];
 
+  const OUTPUT_DEFS=[
+    {key:'findings',label:'Findings'},
+    {key:'actions',label:'Actions'},
+    {key:'routine',label:'Routine'},
+    {key:'nonroutine',label:'Nonroutine'},
+    {key:'parts',label:'Bestellliste'}
+  ];
+
+  const OUTPUT_KEYS=OUTPUT_DEFS.map(def=>def.key);
+  const CUSTOM_SLOT_COUNT=OUTPUT_DEFS.length+1;
+
   const instances=new Set();
   let watchersInitialized=false;
   let ensureDataPromise=null;
@@ -187,6 +198,19 @@
       .nsf-empty{opacity:0.75;font-style:italic;}
       .nsf-outputs{display:flex;flex-direction:column;gap:0.75rem;}
       .nsf-outputs-layout{display:flex;flex-direction:column;gap:1.25rem;}
+      .nsf-custom-slot{display:flex;flex-direction:column;gap:0.55rem;}
+      .nsf-custom-add{align-self:flex-start;background:rgba(59,130,246,0.22);border:1px solid rgba(59,130,246,0.45);border-radius:0.65rem;padding:0.35rem 0.75rem;font:inherit;color:rgba(191,219,254,0.95);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;display:inline-flex;align-items:center;gap:0.35rem;}
+      .nsf-custom-add::before{content:'+';font-size:1.1rem;line-height:1;}
+      .nsf-custom-add:hover{background:rgba(59,130,246,0.32);transform:translateY(-1px);}
+      .nsf-custom-list{display:flex;flex-direction:column;gap:0.55rem;width:100%;}
+      .nsf-custom-block{position:relative;background:rgba(15,23,42,0.22);border-radius:0.85rem;padding:0.65rem 0.75rem 0.75rem;display:flex;flex-direction:column;gap:0.55rem;cursor:default;}
+      .nsf-custom-block.dragging{opacity:0.85;box-shadow:0 12px 28px rgba(15,23,42,0.45);}
+      .nsf-custom-handle{align-self:flex-start;font-size:1.15rem;line-height:1;opacity:0.65;cursor:grab;user-select:none;}
+      .nsf-custom-handle:active{cursor:grabbing;}
+      .nsf-custom-textarea{width:100%;border:none;border-radius:0.65rem;padding:0.6rem 0.75rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);resize:none;min-height:3.5rem;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.1);}
+      .nsf-custom-textarea::placeholder{color:rgba(107,114,128,0.7);}
+      .nsf-custom-remove{align-self:flex-end;background:rgba(248,113,113,0.25);border:none;border-radius:999px;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(248,113,113,0.95);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-custom-remove:hover{background:rgba(248,113,113,0.38);transform:scale(1.05);}
       .nsf-editor-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.72);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;padding:3rem 1.5rem;z-index:400;}
       .nsf-editor-overlay.open{display:flex;}
       .nsf-editor-dialog{background:rgba(15,23,42,0.95);border-radius:1.1rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 24px 64px rgba(15,23,42,0.55);max-width:720px;width:100%;max-height:calc(100vh - 6rem);overflow:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;color:#e2e8f0;}
@@ -1347,13 +1371,54 @@
       :[];
   }
 
+  function createEmptyActiveState(){
+    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',customSections:[]};
+  }
+
+  let customSectionIdCounter=0;
+
+  function createCustomSectionId(){
+    customSectionIdCounter=(customSectionIdCounter+1)%1e6;
+    return `nsf-custom-${Date.now().toString(36)}-${customSectionIdCounter.toString(36)}`;
+  }
+
+  function cloneCustomSection(section){
+    return {
+      id:typeof section?.id==='string'?section.id:'',
+      text:typeof section?.text==='string'?section.text:'',
+      slot:Number.isFinite(section?.slot)?section.slot:0
+    };
+  }
+
+  function normalizeCustomSections(value,slotCount=CUSTOM_SLOT_COUNT){
+    const maxSlot=Math.max(0,(Number.isFinite(slotCount)?slotCount:1)-1);
+    if(!Array.isArray(value)) return [];
+    const seen=new Set();
+    const result=[];
+    value.forEach(raw=>{
+      if(!raw||typeof raw!=='object') return;
+      let id=typeof raw.id==='string'?raw.id.trim():'';
+      if(!id||seen.has(id)){
+        id=createCustomSectionId();
+      }
+      seen.add(id);
+      const text=typeof raw.text==='string'?raw.text:'';
+      let slot=Number.isFinite(raw.slot)?Math.floor(raw.slot):0;
+      if(slot<0) slot=0;
+      if(slot>maxSlot) slot=maxSlot;
+      result.push({id,text,slot});
+    });
+    return result;
+  }
+
   function extractStateFromEntry(entry){
     return {
       findings: typeof entry?.findings==='string'?entry.findings:'',
       actions: typeof entry?.actions==='string'?entry.actions:'',
       routine: typeof entry?.routine==='string'?entry.routine:'',
       nonroutine: typeof entry?.nonroutine==='string'?entry.nonroutine:'',
-      parts: typeof entry?.parts==='string'?entry.parts:''
+      parts: typeof entry?.parts==='string'?entry.parts:'',
+      customSections: normalizeCustomSections(entry?.customSections)
     };
   }
 
@@ -1405,6 +1470,7 @@
       routine: typeof state.routine==='string'?state.routine:'',
       nonroutine: typeof state.nonroutine==='string'?state.nonroutine:'',
       parts: typeof state.parts==='string'?state.parts:'',
+      customSections: Array.isArray(state.customSections)?state.customSections.map(cloneCustomSection):[],
       selections: serializeSelections(selections)
     };
     if(normalized&&normalized.meldung&&normalized.meldung!==compositeKey){
@@ -1505,7 +1571,7 @@
       this.destroyed=false;
       this.stateKey='';
       this.stateKeyParts=null;
-      this.activeState={findings:'',actions:'',routine:'',nonroutine:'',parts:''};
+      this.activeState=createEmptyActiveState();
       this.allEntries=[];
       this.partEntries=[];
       this.availableEntries=[];
@@ -1513,6 +1579,10 @@
       this.textareas={};
       this.partsRows=[];
       this.partsFieldContainer=null;
+      this.customSections=[];
+      this.customSlots=[];
+      this.customSlotSortables=[];
+      this.customSectionMap=new Map();
       this.routineEditorState=loadRoutineEditorState();
       this.routineEditorBlocks={};
       this.routineEditorOverlay=null;
@@ -1620,16 +1690,20 @@
       let selections=[];
       if(this.stateKey){
         const loaded=loadStateFor(this.stateKeyParts);
-        this.activeState=loaded.state;
+        const loadedState=loaded.state&&typeof loaded.state==='object'?loaded.state:createEmptyActiveState();
+        this.activeState={...createEmptyActiveState(),...loadedState};
         selections=loaded.selections||[];
         this.globalState=loaded.global;
         if(loaded.migrated){
           this.globalState=loadGlobalState();
         }
       }else{
-        this.activeState={findings:'',actions:'',routine:'',nonroutine:'',parts:''};
+        this.activeState=createEmptyActiveState();
         selections=[];
       }
+      this.customSections=normalizeCustomSections(this.activeState.customSections);
+      this.rebuildCustomSectionMap();
+      this.syncCustomSectionsToActiveState({save:false});
       this.history=getHistoryForPart(this.globalState,this.currentPart);
       this.selectedEntries=selections.map(sel=>{
         const resolved=this.entryMap.get(sel.key);
@@ -1652,7 +1726,9 @@
 
     renderDom(){
       const root=this.root;
+      this.destroyCustomSectionSortables();
       root.innerHTML='';
+      this.customSlots=[];
       root.classList.add('nsf-module');
       this.ensureRoutineEditorState();
       this.teardownRoutineEditorOverlay();
@@ -2138,17 +2214,11 @@
       outputsWrapper.className='nsf-outputs';
       outputsLayout.appendChild(outputsWrapper);
 
-      const outputDefs=[
-        {key:'findings',label:'Findings'},
-        {key:'actions',label:'Actions'},
-        {key:'routine',label:'Routine'},
-        {key:'nonroutine',label:'Nonroutine'},
-        {key:'parts',label:'Bestellliste'}
-      ];
-
       this.textareas={};
       this.partsFieldContainer=null;
-      for(const def of outputDefs){
+      this.customSlots=[];
+      OUTPUT_DEFS.forEach((def,idx)=>{
+        outputsWrapper.appendChild(this.createCustomSlot(idx));
         const box=document.createElement('div');
         box.className='nsf-output';
         const head=document.createElement('div');
@@ -2200,13 +2270,197 @@
           requestAnimationFrame(()=>autoResizeTextarea(textarea));
         }
         outputsWrapper.appendChild(box);
-      }
+      });
+      outputsWrapper.appendChild(this.createCustomSlot(OUTPUT_DEFS.length));
 
       this.setupRoutineEditorInteraction();
 
       this.syncOutputsWithSelections({persist:false});
 
       root.append(contextSection,inputSection,outputsSection);
+      this.renderCustomSections();
+    }
+
+    createCustomSlot(index){
+      const wrapper=document.createElement('div');
+      wrapper.className='nsf-custom-slot';
+      const addBtn=document.createElement('button');
+      addBtn.type='button';
+      addBtn.className='nsf-custom-add';
+      addBtn.textContent='Textfeld hinzufügen';
+      addBtn.title='Freitextfeld hinzufügen';
+      addBtn.setAttribute('aria-label','Freitextfeld hinzufügen');
+      addBtn.addEventListener('click',()=>this.addCustomSection(index));
+      const list=document.createElement('div');
+      list.className='nsf-custom-list';
+      list.dataset.slotIndex=String(index);
+      wrapper.append(addBtn,list);
+      this.customSlots.push({index,wrapper,list,addBtn});
+      return wrapper;
+    }
+
+    createCustomBlock(section){
+      const block=document.createElement('div');
+      block.className='nsf-custom-block';
+      block.dataset.id=section.id;
+      const handle=document.createElement('div');
+      handle.className='nsf-custom-handle';
+      handle.textContent='⠿';
+      handle.title='Zum Verschieben ziehen';
+      block.appendChild(handle);
+      const textarea=document.createElement('textarea');
+      textarea.className='nsf-custom-textarea';
+      textarea.placeholder='Eigener Text…';
+      textarea.value=section.text||'';
+      textarea.addEventListener('input',()=>{
+        section.text=textarea.value;
+        autoResizeTextarea(textarea);
+        this.syncCustomSectionsToActiveState();
+      });
+      block.appendChild(textarea);
+      requestAnimationFrame(()=>autoResizeTextarea(textarea));
+      const remove=document.createElement('button');
+      remove.type='button';
+      remove.className='nsf-custom-remove';
+      remove.textContent='✖';
+      remove.title='Textfeld entfernen';
+      remove.setAttribute('aria-label','Textfeld entfernen');
+      remove.addEventListener('click',()=>this.removeCustomSection(section.id));
+      block.appendChild(remove);
+      return block;
+    }
+
+    renderCustomSections(){
+      this.destroyCustomSectionSortables();
+      if(!Array.isArray(this.customSlots)) this.customSlots=[];
+      this.customSlots.forEach(slot=>{
+        if(slot&&slot.list) slot.list.innerHTML='';
+      });
+      if(!Array.isArray(this.customSections)) this.customSections=[];
+      const slotCount=this.customSlots.length||CUSTOM_SLOT_COUNT;
+      const buckets=Array.from({length:slotCount},()=>[]);
+      this.customSections.forEach(section=>{
+        if(!section||typeof section.id!=='string') return;
+        const slotIndex=Math.max(0,Math.min(Number(section.slot)||0,slotCount-1));
+        buckets[slotIndex].push(section);
+      });
+      this.customSlots.forEach(slot=>{
+        const sections=buckets[slot.index]||[];
+        sections.forEach(section=>{
+          const block=this.createCustomBlock(section);
+          slot.list.appendChild(block);
+        });
+      });
+      this.setupCustomSectionSortables();
+    }
+
+    setupCustomSectionSortables(){
+      this.destroyCustomSectionSortables();
+      this.customSlotSortables=[];
+      if(!window.Sortable||!Array.isArray(this.customSlots)) return;
+      this.customSlots.forEach(slot=>{
+        if(!slot||!slot.list) return;
+        const sortable=window.Sortable.create(slot.list,{
+          group:'nsf-custom-sections',
+          animation:150,
+          handle:'.nsf-custom-handle',
+          draggable:'.nsf-custom-block',
+          onStart:evt=>{
+            if(evt?.item) evt.item.classList.add('dragging');
+          },
+          onEnd:evt=>{
+            if(evt?.item) evt.item.classList.remove('dragging');
+            this.syncCustomSectionsFromDom();
+          }
+        });
+        this.customSlotSortables.push(sortable);
+      });
+    }
+
+    destroyCustomSectionSortables(){
+      if(Array.isArray(this.customSlotSortables)){
+        this.customSlotSortables.forEach(sortable=>{
+          if(sortable&&typeof sortable.destroy==='function'){
+            try{sortable.destroy();}catch{}
+          }
+        });
+      }
+      this.customSlotSortables=[];
+    }
+
+    syncCustomSectionsFromDom(){
+      if(!Array.isArray(this.customSlots)) return;
+      const collected=[];
+      this.customSlots.forEach(slot=>{
+        if(!slot||!slot.list) return;
+        const slotIndex=Number(slot.index)||0;
+        Array.from(slot.list.children||[]).forEach(node=>{
+          if(!(node instanceof HTMLElement)) return;
+          const id=node.dataset?node.dataset.id:'';
+          if(!id) return;
+          const textarea=node.querySelector('textarea');
+          const text=textarea?textarea.value:(this.customSectionMap.get(id)?.text||'');
+          collected.push({id,text,slot:slotIndex});
+        });
+      });
+      this.customSections=normalizeCustomSections(collected,this.customSlots.length||CUSTOM_SLOT_COUNT);
+      this.rebuildCustomSectionMap();
+      this.syncCustomSectionsToActiveState();
+    }
+
+    addCustomSection(slotIndex){
+      const slotCount=this.customSlots.length||CUSTOM_SLOT_COUNT;
+      let targetSlot=Number.isFinite(slotIndex)?Math.floor(slotIndex):0;
+      if(targetSlot<0) targetSlot=0;
+      if(targetSlot>=slotCount) targetSlot=slotCount-1;
+      const section={id:createCustomSectionId(),text:'',slot:targetSlot};
+      this.customSections.push(section);
+      this.rebuildCustomSectionMap();
+      this.syncCustomSectionsToActiveState();
+      const slot=this.customSlots.find(item=>item&&item.index===targetSlot);
+      if(slot&&slot.list){
+        const block=this.createCustomBlock(section);
+        slot.list.appendChild(block);
+        this.setupCustomSectionSortables();
+        const textarea=block.querySelector('textarea');
+        if(textarea) textarea.focus();
+      }else{
+        this.renderCustomSections();
+      }
+    }
+
+    removeCustomSection(id){
+      if(!id) return;
+      const index=this.customSections.findIndex(section=>section.id===id);
+      if(index<0) return;
+      this.customSections.splice(index,1);
+      this.rebuildCustomSectionMap();
+      this.syncCustomSectionsToActiveState();
+      if(Array.isArray(this.customSlots)){
+        this.customSlots.forEach(slot=>{
+          if(!slot||!slot.list) return;
+          const node=Array.from(slot.list.children||[]).find(child=>child.dataset&&child.dataset.id===id);
+          if(node&&node.parentNode===slot.list){
+            slot.list.removeChild(node);
+          }
+        });
+      }
+    }
+
+    syncCustomSectionsToActiveState(options={}){
+      const save=options.save!==false;
+      this.activeState.customSections=this.customSections.map(cloneCustomSection);
+      if(save) this.queueStateSave();
+    }
+
+    rebuildCustomSectionMap(){
+      this.customSectionMap=new Map();
+      if(!Array.isArray(this.customSections)) return;
+      this.customSections.forEach(section=>{
+        if(section&&typeof section.id==='string'){
+          this.customSectionMap.set(section.id,section);
+        }
+      });
     }
 
     buildOutputsFromSelections(){
@@ -2318,7 +2572,7 @@
       const effectiveRows=opts.forceEmpty?[]:(Array.isArray(computed.partsRows)?computed.partsRows:[]);
       this.partsRows=effectiveRows;
       let changed=false;
-      for(const key of Object.keys(this.activeState)){
+      for(const key of OUTPUT_KEYS){
         const value=opts.forceEmpty?'' : computed[key]||'';
         if(this.activeState[key]!==value){
           this.activeState[key]=value;
@@ -3165,7 +3419,10 @@
 
     clearCurrentState(){
       if(!this.stateKeyParts) return;
-      this.activeState={findings:'',actions:'',routine:'',nonroutine:'',parts:''};
+      this.activeState=createEmptyActiveState();
+      this.customSections=[];
+      this.rebuildCustomSectionMap();
+      this.syncCustomSectionsToActiveState({save:false});
       this.selectedEntries=[];
       this.undoBuffer=null;
       for(const key of Object.keys(this.textareas||{})){
