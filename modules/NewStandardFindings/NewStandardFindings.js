@@ -578,10 +578,15 @@
       .nsf-editor-remove:hover{background:rgba(248,113,113,0.3);transform:scale(1.05);}
       .nsf-editor-aspen-controls{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-start;}
       .nsf-editor-aspen-picker{position:relative;flex:1;min-width:220px;display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-editor-aspen-input-wrapper{display:flex;align-items:center;gap:0.35rem;}
       .nsf-editor-aspen-picker.is-disabled{opacity:0.65;}
-      .nsf-editor-aspen-input{background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.55);border-radius:0.65rem;padding:0.45rem 0.65rem;font:inherit;color:#f8fafc;}
+      .nsf-editor-aspen-input{flex:1 1 auto;min-width:0;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.55);border-radius:0.65rem;padding:0.45rem 0.65rem;font:inherit;color:#f8fafc;}
       .nsf-editor-aspen-input:focus{outline:2px solid rgba(96,165,250,0.6);outline-offset:2px;}
       .nsf-editor-aspen-input::placeholder{color:rgba(226,232,240,0.55);}
+      .nsf-editor-aspen-toggle{flex:0 0 auto;height:100%;min-height:2.35rem;display:flex;align-items:center;justify-content:center;padding:0 0.65rem;border-radius:0.65rem;border:1px solid rgba(148,163,184,0.55);background:rgba(15,23,42,0.7);color:#e2e8f0;font-size:1rem;cursor:pointer;transition:background 0.15s ease,border-color 0.15s ease;}
+      .nsf-editor-aspen-toggle:hover{background:rgba(30,41,59,0.9);}
+      .nsf-editor-aspen-toggle.is-active{background:rgba(59,130,246,0.35);border-color:rgba(96,165,250,0.7);}
+      .nsf-editor-aspen-toggle:disabled{cursor:default;opacity:0.6;}
       .nsf-editor-aspen-options{position:absolute;top:calc(100% + 0.35rem);left:0;right:0;max-height:220px;overflow:auto;background:rgba(15,23,42,0.98);border:1px solid rgba(148,163,184,0.55);border-radius:0.65rem;box-shadow:0 18px 36px rgba(15,23,42,0.6);display:none;flex-direction:column;z-index:12;}
       .nsf-editor-aspen-options.open{display:flex;}
       .nsf-editor-aspen-option{background:transparent;border:none;padding:0.5rem 0.75rem;text-align:left;font:inherit;color:#f8fafc;cursor:pointer;}
@@ -4550,13 +4555,23 @@
         input.spellcheck=false;
         input.className='nsf-editor-aspen-input';
         input.placeholder=this.hasAspenDoc?'Aspen-Feld suchen…':'Keine Aspen-Datei geladen';
+        const toggle=document.createElement('button');
+        toggle.type='button';
+        toggle.className='nsf-editor-aspen-toggle';
+        toggle.innerHTML='<span aria-hidden="true">▾</span>';
+        toggle.setAttribute('aria-label','Auswahlliste öffnen');
+        toggle.setAttribute('aria-expanded','false');
+        const inputWrapper=document.createElement('div');
+        inputWrapper.className='nsf-editor-aspen-input-wrapper';
+        inputWrapper.append(input,toggle);
         if(!this.hasAspenDoc){
           input.disabled=true;
+          toggle.disabled=true;
           picker.classList.add('is-disabled');
         }
         const dropdown=document.createElement('div');
         dropdown.className='nsf-editor-aspen-options';
-        picker.append(input,dropdown);
+        picker.append(inputWrapper,dropdown);
         controls.appendChild(picker);
         if(!this.hasAspenDoc){
           const loadBtn=document.createElement('button');
@@ -4601,6 +4616,8 @@
           if(!pickerState.open) return;
           pickerState.open=false;
           dropdown.classList.remove('open');
+          toggle.classList.remove('is-active');
+          toggle.setAttribute('aria-expanded','false');
           if(pickerState.outsideHandler){
             document.removeEventListener('pointerdown',pickerState.outsideHandler,true);
             pickerState.outsideHandler=null;
@@ -4655,21 +4672,30 @@
           if(!this.hasAspenDoc||pickerState.open) return;
           pickerState.open=true;
           dropdown.classList.add('open');
+          toggle.classList.add('is-active');
+          toggle.setAttribute('aria-expanded','true');
           pickerState.outsideHandler=event=>{
             if(!picker.contains(event.target)) closeDropdown();
           };
           document.addEventListener('pointerdown',pickerState.outsideHandler,true);
           updateFiltered(input.value);
         };
-        input.addEventListener('focus',()=>{
-          if(this.hasAspenDoc) openDropdown();
-        });
         input.addEventListener('input',()=>{
           if(!pickerState.open) openDropdown();
           else updateFiltered(input.value);
         });
         input.addEventListener('blur',()=>{
           setTimeout(()=>closeDropdown(),120);
+        });
+        toggle.addEventListener('click',event=>{
+          event.preventDefault();
+          if(pickerState.open){
+            closeDropdown();
+          }else{
+            if(!this.hasAspenDoc) return;
+            input.focus();
+            openDropdown();
+          }
         });
         input.addEventListener('keydown',event=>{
           if(event.key==='ArrowDown'){
@@ -4702,19 +4728,21 @@
           }
         });
         applySelection(pickerState.selectedKey);
-        info.aspenPicker={
-          refresh:(optionsList,hasDoc)=>{
-            pickerState.options=Array.isArray(optionsList)?optionsList:[];
-            if(hasDoc){
-              input.disabled=false;
-              picker.classList.remove('is-disabled');
-              input.placeholder='Aspen-Feld suchen…';
-            }else{
-              input.disabled=true;
-              picker.classList.add('is-disabled');
-              input.placeholder='Keine Aspen-Datei geladen';
-              closeDropdown();
-            }
+          info.aspenPicker={
+            refresh:(optionsList,hasDoc)=>{
+              pickerState.options=Array.isArray(optionsList)?optionsList:[];
+              if(hasDoc){
+                input.disabled=false;
+                toggle.disabled=false;
+                picker.classList.remove('is-disabled');
+                input.placeholder='Aspen-Feld suchen…';
+              }else{
+                input.disabled=true;
+                toggle.disabled=true;
+                picker.classList.add('is-disabled');
+                input.placeholder='Keine Aspen-Datei geladen';
+                closeDropdown();
+              }
             const currentOption=this.getAspenFieldOption(pickerState.selectedKey);
             if(!currentOption){
               applySelection('');
