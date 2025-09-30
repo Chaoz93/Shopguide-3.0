@@ -333,6 +333,7 @@
       .nsf-header-toggle:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
       .nsf-header-summary{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
+      .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;}
       .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
       .nsf-selection-section.collapsed{overflow:hidden;}
       .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);cursor:pointer;}
@@ -1613,8 +1614,15 @@
 
   function findSerialForMeldung(doc,meldung){
     const normalizedTarget=clean(meldung).toLowerCase();
-    if(!normalizedTarget) return '';
+    if(!doc||typeof doc!=='object'){
+      return {serial:'',reason:'Keine Aspen-Datei geladen'};
+    }
+    if(!normalizedTarget){
+      return {serial:'',reason:'Keine Meldung ausgewählt'};
+    }
     const visited=new Set();
+    let foundMeldung=false;
+    let foundMeldungWithoutSerial=false;
 
     const extractFromMap=(map,aliasKeys)=>{
       if(!map||typeof map!=='object') return '';
@@ -1653,6 +1661,7 @@
       }
       const meldungValue=extractFromMap(map,ASPEN_MELDUNG_FIELD_KEYS);
       if(meldungValue&&clean(meldungValue).toLowerCase()===normalizedTarget){
+        foundMeldung=true;
         let serialValue=extractFromMap(map,SERIAL_FIELD_KEYS);
         if(!serialValue){
           serialValue=clean(extractNestedField(node,SERIAL_FIELD_ALIASES));
@@ -1660,11 +1669,19 @@
         if(serialValue){
           return clean(serialValue);
         }
+        foundMeldungWithoutSerial=true;
       }
       return '';
     };
 
-    return search(doc);
+    const serial=clean(search(doc));
+    if(serial){
+      return {serial,reason:'Seriennummer aus Aspen übernommen'};
+    }
+    if(foundMeldungWithoutSerial){
+      return {serial:'',reason:'Meldung gefunden, aber ohne Seriennummer'};
+    }
+    return {serial:'',reason:'Meldung in Aspen-Datei nicht gefunden'};
   }
 
   function detectDelimiter(line){
@@ -2052,6 +2069,7 @@
       this.partSource='';
       this.meldung='';
       this.serial='';
+      this.serialStatus='';
       this.repairOrder='';
       this.hasAspenDoc=false;
       this.globalState=loadGlobalState();
@@ -2138,12 +2156,9 @@
       const previousPart=this.currentPart;
       this.currentPart=part;
       this.partSource=part?partSource:'';
-      let serial='';
-      if(this.meldung&&this.aspenDoc){
-        const matchedSerial=findSerialForMeldung(this.aspenDoc,this.meldung);
-        if(matchedSerial) serial=matchedSerial;
-      }
-      this.serial=serial;
+      const serialResult=findSerialForMeldung(this.aspenDoc,this.meldung);
+      this.serial=serialResult.serial||'';
+      this.serialStatus=serialResult.reason||'';
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
         this.filterAll=false;
@@ -2288,6 +2303,11 @@
         span.textContent=`${item.label}: ${item.value||'–'}`;
         summary.appendChild(span);
       }
+      const debugSpan=document.createElement('span');
+      debugSpan.className='nsf-header-debug';
+      const statusText=this.serialStatus||'';
+      debugSpan.textContent=`Seriennummer-Status: ${statusText||'–'}`;
+      summary.appendChild(debugSpan);
       headerBar.appendChild(summary);
 
       const headerActions=document.createElement('div');
