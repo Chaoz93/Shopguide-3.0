@@ -33,35 +33,6 @@
   const OUTPUT_KEYS=OUTPUT_DEFS.map(def=>def.key);
   const CUSTOM_SLOT_COUNT=OUTPUT_DEFS.length+1;
 
-  function describeCustomSlot(index){
-    const total=OUTPUT_DEFS.length;
-    if(!Number.isFinite(index)||total<=0){
-      return 'Textfeld einfügen';
-    }
-    if(index<=0){
-      const first=OUTPUT_DEFS[0];
-      return first&&first.label?`Textfeld vor ${first.label}`:'Textfeld einfügen';
-    }
-    if(index>=total){
-      const last=OUTPUT_DEFS[total-1];
-      return last&&last.label?`Textfeld nach ${last.label}`:'Textfeld einfügen';
-    }
-    const prev=OUTPUT_DEFS[index-1];
-    const next=OUTPUT_DEFS[index];
-    const prevLabel=prev&&prev.label?prev.label:'';
-    const nextLabel=next&&next.label?next.label:'';
-    if(prevLabel&&nextLabel){
-      return `Textfeld zwischen ${prevLabel} und ${nextLabel}`;
-    }
-    if(nextLabel){
-      return `Textfeld vor ${nextLabel}`;
-    }
-    if(prevLabel){
-      return `Textfeld nach ${prevLabel}`;
-    }
-    return 'Textfeld einfügen';
-  }
-
   const instances=new Set();
   let watchersInitialized=false;
   let ensureDataPromise=null;
@@ -2829,33 +2800,6 @@
         this.openRoutineEditorOverlay();
       });
       menu.appendChild(editBtn);
-      const slots=Array.isArray(this.customSlots)?this.customSlots.slice():[];
-      slots.sort((a,b)=>{
-        const ai=Number(a&&a.index)||0;
-        const bi=Number(b&&b.index)||0;
-        return ai-bi;
-      });
-      if(slots.length){
-        const divider=document.createElement('div');
-        divider.className='nsf-editor-menu-divider';
-        menu.appendChild(divider);
-        const label=document.createElement('div');
-        label.className='nsf-editor-menu-label';
-        label.textContent='Textfeld einfügen';
-        menu.appendChild(label);
-        slots.forEach(slot=>{
-          if(!slot) return;
-          const btn=document.createElement('button');
-          btn.type='button';
-          btn.className='nsf-editor-menu-btn';
-          btn.textContent=describeCustomSlot(slot.index);
-          btn.addEventListener('click',()=>{
-            this.addCustomSection(slot.index);
-            this.closeRoutineEditorMenu();
-          });
-          menu.appendChild(btn);
-        });
-      }
       document.body.appendChild(menu);
       const rect=menu.getBoundingClientRect();
       const maxLeft=Math.max(0,window.innerWidth-rect.width-12);
