@@ -436,7 +436,7 @@
       .nsf-editor-main{flex:1;display:flex;flex-direction:column;gap:1.1rem;}
       .nsf-editor-workspace{display:flex;flex-direction:row;gap:1.35rem;align-items:flex-start;}
       .nsf-editor-structure{flex:1;display:flex;flex-direction:column;gap:0.95rem;min-width:0;}
-      .nsf-editor-preview-panel{flex:0 0 360px;display:flex;flex-direction:column;gap:0.65rem;background:rgba(15,23,42,0.55);border-radius:0.9rem;border:1px solid rgba(148,163,184,0.25);padding:0.85rem;max-height:100%;overflow:auto;}
+      .nsf-editor-preview-panel{flex:0 0 720px;display:flex;flex-direction:column;gap:0.65rem;background:rgba(15,23,42,0.55);border-radius:0.9rem;border:1px solid rgba(148,163,184,0.25);padding:0.85rem;max-height:100%;overflow:auto;}
       .nsf-editor-preview-title{font-weight:700;font-size:0.95rem;letter-spacing:0.02em;}
       .nsf-editor-preview-content{flex:1;white-space:pre-wrap;background:rgba(15,23,42,0.35);border-radius:0.75rem;padding:0.65rem;font-family:var(--nsf-mono-font,inherit);line-height:1.45;min-height:200px;overflow:auto;}
       .nsf-editor-preview-panel.is-empty .nsf-editor-preview-content{opacity:0.7;font-style:italic;}
