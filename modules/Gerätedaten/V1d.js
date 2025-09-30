@@ -142,7 +142,7 @@
     const header=Array.isArray(rows[0])?rows[0]:[];
     const headers=header.map((cell,idx)=>{const original=String(cell||'').trim();const key=original.toLowerCase();return{original,key,index:idx};}).filter(h=>h.key);
     const dataRows=rows.slice(1).map(r=>{const entry={};const lower={};headers.forEach(h=>{const value=String(r[h.index]??'');entry[h.original]=value;lower[h.key]=value;});entry.__lower=lower;return entry;}).filter(row=>headers.some(h=>(row[h.original]||'').trim()!==''));
-    return{headers,rows:dataRows,dataRows};
+    return{headers,rows:dataRows};
   }
 
   function buildUI(root){
@@ -257,11 +257,12 @@
     function cloneFields(list){const normalized=normalizeFields(Array.isArray(list)?list.map(f=>({...f})) : []);return normalized.length?normalized:defaultFields.map(f=>({...f}));}
     function loadCfg(){
       const doc=loadDoc();
+      const general=doc?.general||{};
       const raw=doc?.instances?.[instanceId]?.recordSheet||{};
       const fields=cloneFields(Array.isArray(raw.fields)?raw.fields:defaultFields);
       return{
         ruleIdbKey:raw.ruleIdbKey||ruleIdbKey,
-        ruleFileName:raw.ruleFileName||g.nameFileName||'',
+        ruleFileName:raw.ruleFileName||general.nameFileName||'',
         aspenIdbKey:raw.aspenIdbKey||aspenIdbKey,
         aspenFileName:raw.aspenFileName||'',
         fields,
@@ -269,7 +270,7 @@
       };
     }
     function serializeFields(fields){return fields.map(f=>({id:f.id,key:f.key,label:f.label,enabled:!!f.enabled,group:f.group||'extra',originalKey:f.originalKey||f.key||f.id}));}
-    function saveCfg(current){const doc=loadDoc();doc.instances||={};doc.instances[instanceId]||={};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),columns:current.columns};saveDoc(doc);}
+    function saveCfg(current){const doc=loadDoc();doc.instances=doc.instances||{};doc.instances[instanceId]=doc.instances[instanceId]||{};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),columns:current.columns};saveDoc(doc);}
     function removeCfg(){const doc=loadDoc();if(doc?.instances?.[instanceId]){delete doc.instances[instanceId].recordSheet;if(!Object.keys(doc.instances[instanceId]).length)delete doc.instances[instanceId];saveDoc(doc);}}
 
     const setNote=s=>els.note.textContent=s||'';
@@ -457,7 +458,11 @@
         toggle.addEventListener('change',()=>{const desired=toggle.checked;mutateFields(fields=>{const target=fields.find(x=>x.id===f.id);if(target)target.enabled=desired;return fields;});});
         removeBtn.addEventListener('click',()=>{if(removeBtn.disabled)return;mutateFields(fields=>fields.filter(x=>x.id!==f.id));});
       });
-      listSortable=new Sortable(list,{animation:150,handle:'.rs-item-handle',onEnd:()=>{const order=Array.from(list.children).map(li=>li.dataset.id);mutateFields(fields=>{const map=new Map(fields.map(f=>[f.id,f]));const next=[];order.forEach(id=>{const item=map.get(id);if(item)next.push(item);});fields.forEach(field=>{if(!order.includes(field.id))next.push(field);});return next;});}});
+      if(typeof window.Sortable==='function'){
+        listSortable=new window.Sortable(list,{animation:150,handle:'.rs-item-handle',onEnd:()=>{const order=Array.from(list.children).map(li=>li.dataset.id);mutateFields(fields=>{const map=new Map(fields.map(f=>[f.id,f]));const next=[];order.forEach(id=>{const item=map.get(id);if(item)next.push(item);});fields.forEach(field=>{if(!order.includes(field.id))next.push(field);});return next;});}});
+      }else{
+        console.warn('SortableJS nicht verfügbar – Sortieren im Gerätedaten-Modul deaktiviert.');
+      }
       updateUndoRedoButtons();
     }
 
