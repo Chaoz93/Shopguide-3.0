@@ -46,6 +46,65 @@
 
   const OUTPUT_KEYS=OUTPUT_DEFS.map(def=>def.key);
   const CUSTOM_SLOT_COUNT=OUTPUT_DEFS.length+1;
+  const XLSX_URLS=[
+    'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.20.2/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.20.2/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.2/xlsx.full.min.js'
+  ];
+
+  let ensureXlsxPromise=null;
+
+  function loadScriptOnce(url){
+    return new Promise((resolve,reject)=>{
+      if(typeof document==='undefined'){reject(new Error('Kein Dokument'));return;}
+      const scripts=document.getElementsByTagName('script');
+      for(let i=0;i<scripts.length;i+=1){
+        const existing=scripts[i];
+        if(!existing) continue;
+        if(existing.dataset&&existing.dataset.nsfLoader===url){
+          const handleResolve=()=>resolve();
+          const handleReject=()=>reject(new Error('load '+url));
+          if(existing.dataset.nsfLoaded==='true'){resolve();return;}
+          existing.addEventListener('load',handleResolve,{once:true});
+          existing.addEventListener('error',handleReject,{once:true});
+          return;
+        }
+      }
+      const script=document.createElement('script');
+      script.src=url;
+      script.async=true;
+      if(script.dataset) script.dataset.nsfLoader=url;
+      script.addEventListener('load',()=>{
+        if(script.dataset) script.dataset.nsfLoaded='true';
+        resolve();
+      },{once:true});
+      script.addEventListener('error',()=>reject(new Error('load '+url)),{once:true});
+      document.head.appendChild(script);
+    });
+  }
+
+  async function ensureXlsx(){
+    if(typeof window==='undefined') throw new Error('Kein window');
+    if(window.XLSX) return;
+    if(ensureXlsxPromise) return ensureXlsxPromise;
+    ensureXlsxPromise=(async()=>{
+      let lastError;
+      for(const url of XLSX_URLS){
+        try{
+          await loadScriptOnce(url);
+          if(window.XLSX) return;
+        }catch(err){lastError=err;}
+      }
+      if(!window.XLSX) throw lastError||new Error('XLSX konnte nicht geladen werden');
+    })();
+    try{
+      await ensureXlsxPromise;
+    }catch(err){
+      ensureXlsxPromise=null;
+      throw err;
+    }
+  }
 
   const instances=new Set();
   let watchersInitialized=false;
@@ -1726,6 +1785,30 @@
     return result.map(val=>clean(val));
   }
 
+  function buildAspenDataset(headers,dataRows){
+    const normalizedHeaders=Array.isArray(headers)
+      ? headers.map(header=>clean(header))
+      : [];
+    if(!normalizedHeaders.some(Boolean)) return null;
+    const records=[];
+    if(Array.isArray(dataRows)){
+      dataRows.forEach(row=>{
+        if(!Array.isArray(row)) return;
+        const record={};
+        let hasValue=false;
+        normalizedHeaders.forEach((header,idx)=>{
+          if(!header) return;
+          const value=clean(row[idx]);
+          if(value) hasValue=true;
+          record[header]=value;
+        });
+        if(Object.keys(record).length&&hasValue) records.push(record);
+      });
+    }
+    if(!records.length) return null;
+    return {general:{...records[0]},rows:records};
+  }
+
   function parseAspenCsv(text){
     const trimmed=(text||'').trim();
     if(!trimmed) return null;
@@ -1734,25 +1817,50 @@
     const delimiter=detectDelimiter(lines[0]);
     const headers=splitCsvLine(lines[0],delimiter);
     if(!headers.length) return null;
-    const rows=[];
+    const rowValues=[];
     for(let i=1;i<lines.length;i+=1){
       const line=lines[i];
       if(!line) continue;
-      const values=splitCsvLine(line,delimiter);
-      const record={};
-      let hasValue=false;
-      headers.forEach((header,idx)=>{
-        const key=clean(header);
-        if(!key) return;
-        const value=clean(values[idx]||'');
-        if(value) hasValue=true;
-        record[key]=value;
-      });
-      if(Object.keys(record).length&&hasValue) rows.push(record);
+      rowValues.push(splitCsvLine(line,delimiter));
     }
-    if(!rows.length) return null;
-    const general={...rows[0]};
-    return {general,rows};
+    return buildAspenDataset(headers,rowValues);
+  }
+
+  async function parseAspenXlsx(file){
+    if(!file) return null;
+    try{await ensureXlsx();}
+    catch(err){console.warn('NSF: XLSX konnte nicht geladen werden',err);return null;}
+    let buffer;
+    try{buffer=await file.arrayBuffer();}
+    catch(err){console.warn('NSF: Aspen-XLSX konnte nicht gelesen werden',err);return null;}
+    if(!buffer||!buffer.byteLength) return null;
+    let workbook;
+    try{workbook=XLSX.read(buffer,{type:'array'});}
+    catch(err){console.warn('NSF: Aspen-XLSX konnte nicht geparst werden',err);return null;}
+    const sheetNames=Array.isArray(workbook?.SheetNames)?workbook.SheetNames:[];
+    for(const name of sheetNames){
+      if(!name) continue;
+      const sheet=workbook.Sheets?.[name];
+      if(!sheet) continue;
+      let rows;
+      try{rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});}
+      catch(err){console.warn('NSF: Aspen-XLSX konnte nicht gelesen werden',err);continue;}
+      if(!Array.isArray(rows)||!rows.length) continue;
+      let headerIndex=-1;
+      for(let i=0;i<rows.length;i+=1){
+        const candidate=rows[i];
+        if(Array.isArray(candidate)&&candidate.some(cell=>clean(cell))){
+          headerIndex=i;
+          break;
+        }
+      }
+      if(headerIndex<0) continue;
+      const headerRow=rows[headerIndex];
+      const dataRows=rows.slice(headerIndex+1);
+      const dataset=buildAspenDataset(headerRow,dataRows);
+      if(dataset) return dataset;
+    }
+    return null;
   }
 
   function loadGlobalState(){
@@ -2280,7 +2388,7 @@
 
       const fileInput=document.createElement('input');
       fileInput.type='file';
-      fileInput.accept='.json,.csv,.txt';
+      fileInput.accept='.json,.csv,.txt,.xlsx,.xlsm';
       fileInput.style.display='none';
       fileInput.addEventListener('change',()=>{
         const file=fileInput.files&&fileInput.files[0];
@@ -5177,17 +5285,27 @@
     async handleAspenFile(file){
       if(!file) return;
       try{
-        const content=await file.text();
-        if(!content) return;
-        let parsed=null;
-        try{parsed=JSON.parse(content);}
-        catch{parsed=null;}
         let payload='';
-        if(parsed&&typeof parsed==='object'){
-          payload=JSON.stringify(parsed);
-        }else{
-          const csvParsed=parseAspenCsv(content);
-          if(csvParsed) payload=JSON.stringify(csvParsed);
+        const fileName=typeof file.name==='string'?file.name.toLowerCase():'';
+        const fileType=typeof file.type==='string'?file.type.toLowerCase():'';
+        const looksLikeXlsx=fileName.endsWith('.xlsx')||fileName.endsWith('.xlsm')||fileName.endsWith('.xls')||fileType.includes('spreadsheetml')||fileType.includes('ms-excel');
+        if(looksLikeXlsx){
+          const xlsxParsed=await parseAspenXlsx(file);
+          if(xlsxParsed) payload=JSON.stringify(xlsxParsed);
+        }
+        let content=null;
+        if(!payload){
+          content=await file.text();
+          if(!content) return;
+          let parsed=null;
+          try{parsed=JSON.parse(content);}
+          catch{parsed=null;}
+          if(parsed&&typeof parsed==='object'){
+            payload=JSON.stringify(parsed);
+          }else{
+            const csvParsed=parseAspenCsv(content);
+            if(csvParsed) payload=JSON.stringify(csvParsed);
+          }
         }
         if(payload){
           instances.forEach(inst=>{
