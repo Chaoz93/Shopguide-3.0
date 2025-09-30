@@ -58,7 +58,7 @@
       const rawLines=Array.isArray(entry&&entry.lines)?entry.lines:Array.isArray(entry)?entry:[];
       const lines=rawLines.map(value=>typeof value==='string'?value:'');
       base.blocks[block.key]={
-        lines=lines.length?lines:['']
+        lines:lines.length?lines:['']
       };
     });
     return base;
