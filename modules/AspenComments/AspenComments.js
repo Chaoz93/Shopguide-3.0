@@ -451,17 +451,108 @@
     return `${normalizeKey(meldung)}||${normalizeKey(part)}||${normalizeKey(serial)}`;
   }
 
+  function createAspenDebug(){
+    return {
+      sheetNames:[],
+      selectedSheet:'',
+      headerRowIndex:-1,
+      headerScore:-1,
+      headerSample:[],
+      meldIdx:-1,
+      partIdx:-1,
+      serialIdx:-1,
+      messages:[],
+      missing:[]
+    };
+  }
+
+  function buildAspenDebugNote(debug){
+    if(!debug) return null;
+    const missing=Array.isArray(debug.missing)?debug.missing.filter(Boolean):[];
+    const hasMissingColumns=missing.length>0;
+    const hasInvalidIndices=
+      !(typeof debug.meldIdx==='number'&&debug.meldIdx>=0)||
+      !(typeof debug.partIdx==='number'&&debug.partIdx>=0)||
+      !(typeof debug.serialIdx==='number'&&debug.serialIdx>=0);
+    const hasHeaderIssue=typeof debug.headerRowIndex!=='number'||debug.headerRowIndex<0;
+    const hasMessages=Array.isArray(debug.messages)&&debug.messages.length>0;
+    const hasIssue=hasMissingColumns||hasInvalidIndices||hasHeaderIssue||hasMessages;
+    if(!hasIssue) return null;
+    const parts=[];
+    let tone='';
+    if(debug.selectedSheet){
+      parts.push(`Tabelle ${debug.selectedSheet}`);
+    }
+    if(typeof debug.headerRowIndex==='number'&&debug.headerRowIndex>=0){
+      const score=typeof debug.headerScore==='number'&&debug.headerScore>=0?` (Score ${debug.headerScore})`:'';
+      parts.push(`Header Zeile ${debug.headerRowIndex+1}${score}`);
+    }
+    if(Array.isArray(debug.headerSample)&&debug.headerSample.length){
+      const headerPreview=debug.headerSample.map(value=>value||'∅').join(' | ');
+      parts.push(`Header: ${headerPreview}`);
+    }
+    if(Array.isArray(debug.sheetNames)&&debug.sheetNames.length){
+      const list=debug.sheetNames.slice(0,5).join(', ');
+      parts.push(`Tabellen: ${list}${debug.sheetNames.length>5?'…':''}`);
+    }
+    if(missing.length){
+      parts.push(`Fehlend: ${missing.join(', ')}`);
+      tone='error';
+    }else if(
+      typeof debug.meldIdx==='number'&&debug.meldIdx>=0&&
+      typeof debug.partIdx==='number'&&debug.partIdx>=0&&
+      typeof debug.serialIdx==='number'&&debug.serialIdx>=0
+    ){
+      parts.push(`Spalten OK (Meld ${debug.meldIdx+1}, Part ${debug.partIdx+1}, Serial ${debug.serialIdx+1})`);
+    }else{
+      const flags=[];
+      flags.push(`Meld ${debug.meldIdx>=0?'OK':'✖'}`);
+      flags.push(`Part ${debug.partIdx>=0?'OK':'✖'}`);
+      flags.push(`Serial ${debug.serialIdx>=0?'OK':'✖'}`);
+      parts.push(`Spaltenstatus: ${flags.join(', ')}`);
+      tone=tone||'warn';
+    }
+    if(Array.isArray(debug.messages)&&debug.messages.length){
+      debug.messages.forEach(msg=>{if(msg) parts.push(msg);});
+      if(!tone) tone='warn';
+    }
+    if(!parts.length) return null;
+    return {message:`Aspen-Debug: ${parts.join(' · ')}`,tone};
+  }
+
+  function logAspenDebug(debug){
+    try{console.debug('UnitComments: Aspen-Header-Debug',debug);}catch{}
+  }
+
   async function readAspen(handle){
     await ensureXLSX();
     const file=await handle.getFile();
-    if(file.size===0) return [];
+    const debug=createAspenDebug();
+    if(file.size===0){
+      debug.messages.push('Datei ist leer');
+      logAspenDebug(debug);
+      return {entries:[],debug};
+    }
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
+    debug.sheetNames=Array.isArray(workbook?.SheetNames)?[...workbook.SheetNames]:[];
     const selection=pickSheet(workbook,{requiredHeaderGroups:[MELD_HEADER_PRIORITY,PART_HEADER_PRIORITY,SERIAL_HEADER_PRIORITY]});
-    if(!selection) return [];
+    if(!selection){
+      debug.messages.push('Keine passende Tabelle gefunden');
+      logAspenDebug(debug);
+      return {entries:[],debug};
+    }
+    debug.selectedSheet=selection.name||'';
     const rows=selection.rows;
-    if(!rows.length) return [];
-    const {header,index:headerRowIndex}=selection.headerInfo;
+    if(!rows.length){
+      debug.messages.push('Ausgewählte Tabelle enthält keine Zeilen');
+      logAspenDebug(debug);
+      return {entries:[],debug};
+    }
+    const {header,index:headerRowIndex,score:headerScore}=selection.headerInfo;
+    debug.headerRowIndex=typeof headerRowIndex==='number'?headerRowIndex:-1;
+    debug.headerScore=typeof headerScore==='number'?headerScore:-1;
+    debug.headerSample=Array.isArray(header)?header.slice(0,8).map(cell=>trim(cell)):[];
     const used=new Set();
     const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
     if(meldIdx>=0) used.add(meldIdx);
@@ -469,6 +560,12 @@
     if(partIdx>=0) used.add(partIdx);
     const serialIdx=findColumn(header,SERIAL_PATTERNS,{preferred:SERIAL_HEADER_PRIORITY,exclude:used});
     if(serialIdx>=0) used.add(serialIdx);
+    debug.meldIdx=meldIdx;
+    debug.partIdx=partIdx;
+    debug.serialIdx=serialIdx;
+    if(meldIdx<0) debug.missing.push('Meldung');
+    if(partIdx<0) debug.missing.push('Part');
+    if(serialIdx<0) debug.missing.push('Serial');
     const resolvedMeldIdx=(meldIdx>=0&&meldIdx<header.length)?meldIdx:-1;
     const resolvedPartIdx=(partIdx>=0&&partIdx<header.length)?partIdx:-1;
     const resolvedSerialIdx=(serialIdx>=0&&serialIdx<header.length)?serialIdx:-1;
@@ -500,7 +597,8 @@
       if(serial!==0) return serial;
       return a.rowIndex-b.rowIndex;
     });
-    return entries;
+    logAspenDebug(debug);
+    return {entries,debug};
   }
 
   function applyNote(elements,message,tone){
@@ -594,6 +692,7 @@
       aspenOptions:[],
       aspenByKey:new Map(),
       aspenByMeldung:new Map(),
+      aspenDebug:null,
       activeMeldung:'',
       activePart:'',
       activeSerial:'',
@@ -758,11 +857,15 @@
       state.aspenHandle=handle;
       const allowed=await ensurePermission(handle,'read');
       if(!allowed){
-        applyNote(elements,'Keine Berechtigung für Aspen-Datei','error');
+        state.aspenDebug=createAspenDebug();
+        state.aspenDebug.messages.push('Keine Berechtigung für Aspen-Datei');
+        refreshBaseNote();
+        flashNote('Keine Berechtigung für Aspen-Datei','error',3000);
         return false;
       }
       try{
-        const entries=await readAspen(handle);
+        const {entries,debug}=await readAspen(handle);
+        state.aspenDebug=debug;
         if(updateName){
           state.aspenName=handle.name||state.aspenName||'';
         }
@@ -773,7 +876,10 @@
         return true;
       }catch(err){
         console.warn('UnitComments: Aspen-Datei konnte nicht gelesen werden',err);
-        applyNote(elements,'Aspen-Datei konnte nicht gelesen werden','error');
+        state.aspenDebug=createAspenDebug();
+        state.aspenDebug.messages.push(`Lesefehler: ${err?.message||err}`);
+        refreshBaseNote();
+        flashNote('Aspen-Datei konnte nicht gelesen werden','error',3000);
         return false;
       }
     }
@@ -893,6 +999,12 @@
           notes.push('Ausgewählter Aspen-Eintrag nicht verfügbar');
           tone='error';
         }
+      }
+      const debugNote=buildAspenDebugNote(state.aspenDebug);
+      if(debugNote){
+        notes.push(debugNote.message);
+        if(debugNote.tone==='error') tone='error';
+        else if(debugNote.tone==='warn'&&tone!=='error') tone=tone||'warn';
       }
       const visitNote=computeVisitNote();
       if(visitNote){
