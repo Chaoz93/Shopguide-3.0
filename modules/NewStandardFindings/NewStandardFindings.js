@@ -4495,12 +4495,31 @@
       this.refreshRoutineEditorPreview();
     }
 
+    normalizeRoutineEditorInsertIndex(index,length){
+      const numericIndex=typeof index==='number'&&Number.isFinite(index)
+        ?index
+        :typeof index==='string'&&index.trim()!==''
+          ?Number.parseInt(index,10)
+          :NaN;
+      if(Number.isFinite(numericIndex)){
+        const max=Math.max(0,Number.isFinite(length)?length:0);
+        return Math.max(0,Math.min(numericIndex,max));
+      }
+      return Math.max(0,Number.isFinite(length)?length:0);
+    }
+
     addRoutineEditorCustomBlockAt(index,type='text',options={}){
       const tabState=this.getRoutineEditorTabState();
       const config=this.getRoutineEditorTabConfig();
       const allowAspen=config&&config.allowAspen!==false;
       const id=createCustomSectionId();
-      if(!Array.isArray(tabState.customBlocks)) tabState.customBlocks=[];
+      const currentOrder=this.getRoutineEditorOrder();
+      const sanitizedOrder=currentOrder.filter(entry=>entry!==`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`);
+      const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,sanitizedOrder.length);
+      const existingCustomBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
+      const existingMap=new Map(existingCustomBlocks
+        .map(block=>block&&typeof block.id==='string'?[block.id,block]:null)
+        .filter(Boolean));
       const requestedType=typeof type==='string'?type:'';
       const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
       const entry={
@@ -4533,10 +4552,27 @@
           entry.lines=presetLines;
         }
       }
-      tabState.customBlocks.push(entry);
-      const order=this.getRoutineEditorOrder();
-      const clampedIndex=Math.max(0,Math.min(Number.isFinite(index)?index:order.length,order.length));
-      order.splice(clampedIndex,0,`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`);
+      const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
+      const order=sanitizedOrder.slice();
+      order.splice(clampedIndex,0,customKey);
+      const orderedCustomBlocks=[];
+      order.forEach(key=>{
+        if(!key||typeof key!=='string'||!key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return;
+        const customId=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
+        if(customId===id){
+          orderedCustomBlocks.push(entry);
+          return;
+        }
+        const existing=existingMap.get(customId);
+        if(existing){
+          orderedCustomBlocks.push(existing);
+          existingMap.delete(customId);
+        }
+      });
+      existingMap.forEach(block=>{
+        if(block) orderedCustomBlocks.push(block);
+      });
+      tabState.customBlocks=orderedCustomBlocks;
       tabState.order=order;
       this.renderRoutineEditorOverlayContent();
       this.syncRoutineEditorStateFromDom();
@@ -4697,7 +4733,7 @@
       if(!def||def.removable===false) return;
       const tabState=this.getRoutineEditorTabState();
       const order=this.getRoutineEditorOrder().filter(entry=>entry!==key);
-      const clampedIndex=Math.max(0,Math.min(Number.isFinite(index)?index:order.length,order.length));
+      const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,order.length);
       order.splice(clampedIndex,0,key);
       tabState.order=order;
       if(Array.isArray(tabState.hiddenBaseBlocks)){
