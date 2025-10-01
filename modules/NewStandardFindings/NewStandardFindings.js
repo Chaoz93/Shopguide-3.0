@@ -4959,6 +4959,24 @@
       }
       storeRoutineEditorState(state);
       console.log('[addCustomBlock] state saved:',state);
+      try{
+        const overlay=document.querySelector('.nsf-editor-overlay.open');
+        const container=overlay?.querySelector('.nsf-editor-tab.active .nsf-blocks')||overlay?.querySelector('.nsf-editor-list');
+        const newBlock=Array.isArray(tabState.customBlocks)?tabState.customBlocks.find(block=>block&&block.id===id):null;
+        if(overlay&&container&&newBlock){
+          let blockEl=null;
+          if(typeof renderRoutineEditorBlock==='function'){
+            blockEl=renderRoutineEditorBlock(newBlock,targetTab);
+          }else if(typeof this.renderRoutineEditorBlock==='function'){
+            blockEl=this.renderRoutineEditorBlock(newBlock,targetTab);
+          }
+          if(blockEl instanceof Element){
+            container.appendChild(blockEl);
+          }
+        }
+      }catch(err){
+        console.warn('NSF: Custom-Block konnte nicht direkt gerendert werden',err);
+      }
       this.ensureRoutineEditorState();
       this.evaluateRoutineEditorPresetMatch();
       const activeTab=this.getActiveRoutineEditorTab();
