@@ -195,6 +195,15 @@
     return normalizeKey(part)+'||'+normalizeKey(serial);
   }
 
+  function deriveFileMeta(handle,file){
+    const handleName=typeof handle?.name==='string'?handle.name:'';
+    const fileName=file?.name||'';
+    const relativePath=typeof file?.webkitRelativePath==='string'?file.webkitRelativePath:'';
+    const name=fileName||handleName||'';
+    const path=(relativePath&&relativePath.trim())||name;
+    return {name,path};
+  }
+
   function readGeneralIdentifiers(){
     const doc=loadDoc();
     const general=doc?.general||{};
@@ -385,13 +394,14 @@
   async function readComments(handle){
     await ensureXLSX();
     const file=await handle.getFile();
-    if(file.size===0) return new Map();
+    const meta=deriveFileMeta(handle,file);
+    if(file.size===0) return {map:new Map(),meta};
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
     const selection=pickSheet(workbook,{preferredNames:[COMMENTS_SHEET]});
-    if(!selection) return new Map();
+    if(!selection) return {map:new Map(),meta};
     const rows=selection.rows;
-    if(!rows.length) return new Map();
+    if(!rows.length) return {map:new Map(),meta};
     const {header,index:headerRowIndex}=selection.headerInfo;
     const used=new Set();
     const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
@@ -421,7 +431,7 @@
       const key=makeKey(part,serial);
       map.set(key,{meldung,part,serial,comment});
     }
-    return map;
+    return {map,meta};
   }
 
   async function writeComments(handle,entries){
@@ -534,11 +544,12 @@
   async function readAspen(handle){
     await ensureXLSX();
     const file=await handle.getFile();
+    const meta=deriveFileMeta(handle,file);
     const debug=createAspenDebug();
     if(file.size===0){
       debug.messages.push('Datei ist leer');
       logAspenDebug(debug);
-      return {entries:[],debug};
+      return {entries:[],debug,meta};
     }
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
@@ -547,14 +558,14 @@
     if(!selection){
       debug.messages.push('Keine passende Tabelle gefunden');
       logAspenDebug(debug);
-      return {entries:[],debug};
+      return {entries:[],debug,meta};
     }
     debug.selectedSheet=selection.name||'';
     const rows=selection.rows;
     if(!rows.length){
       debug.messages.push('Ausgewählte Tabelle enthält keine Zeilen');
       logAspenDebug(debug);
-      return {entries:[],debug};
+      return {entries:[],debug,meta};
     }
     const {header,index:headerRowIndex,score:headerScore}=selection.headerInfo;
     debug.headerRowIndex=typeof headerRowIndex==='number'?headerRowIndex:-1;
@@ -605,7 +616,7 @@
       return a.rowIndex-b.rowIndex;
     });
     logAspenDebug(debug);
-    return {entries,debug};
+    return {entries,debug,meta};
   }
 
   function applyNote(elements,message,tone){
@@ -693,8 +704,10 @@
       comments:new Map(),
       commentHandle:null,
       commentName:'',
+      commentPath:'',
       aspenHandle:null,
       aspenName:'',
+      aspenPath:'',
       aspenEntries:[],
       aspenOptions:[],
       aspenByKey:new Map(),
@@ -717,8 +730,14 @@
     const stored=loadLocalState(instanceId);
     if(stored){
       state.commentName=stored.commentFileName||'';
+      if(typeof stored.commentFilePath==='string'){
+        state.commentPath=stored.commentFilePath;
+      }
       if(typeof stored.aspenFileName==='string'){
         state.aspenName=stored.aspenFileName;
+      }
+      if(typeof stored.aspenFilePath==='string'){
+        state.aspenPath=stored.aspenFilePath;
       }
       if(typeof stored.manualAspenKey==='string'){
         state.manualAspenKey=stored.manualAspenKey;
@@ -738,13 +757,22 @@
       }
     }
 
+    if(!state.commentPath && state.commentName){
+      state.commentPath=state.commentName;
+    }
+    if(!state.aspenPath && state.aspenName){
+      state.aspenPath=state.aspenName;
+    }
+
     const elements=createUI(title);
     targetDiv.appendChild(elements.root);
 
     function persistState(){
       const payload={
         commentFileName:state.commentName,
+        commentFilePath:state.commentPath||'',
         aspenFileName:state.aspenName||'',
+        aspenFilePath:state.aspenPath||'',
         manualAspenKey:state.manualAspenKey||'',
         manualAspenStableKey:state.manualAspenStableKey||'',
         comments:Array.from(state.comments.values()).map(entry=>({
@@ -871,10 +899,27 @@
         return false;
       }
       try{
-        const {entries,debug}=await readAspen(handle);
+        const {entries,debug,meta}=await readAspen(handle);
         state.aspenDebug=debug;
-        if(updateName){
+        if(meta){
+          if(updateName){
+            state.aspenName=meta.name||state.aspenName||'';
+          }else if(!state.aspenName){
+            state.aspenName=meta.name||state.aspenName||'';
+          }
+          if(meta.path){
+            state.aspenPath=meta.path;
+          }else if(!state.aspenPath){
+            state.aspenPath=state.aspenName||meta.name||'';
+          }
+        }else if(updateName){
           state.aspenName=handle.name||state.aspenName||'';
+          if(!state.aspenPath){
+            state.aspenPath=state.aspenName||handle.name||'';
+          }
+        }
+        if(!state.aspenPath && state.aspenName){
+          state.aspenPath=state.aspenName;
         }
         setAspenEntries(entries);
         persistState();
@@ -903,6 +948,7 @@
         if(!handle) return;
         state.aspenHandle=handle;
         state.aspenName=handle.name||state.aspenName||'Aspen.xlsx';
+        state.aspenPath=handle.name||state.aspenName||state.aspenPath||'Aspen.xlsx';
         persistState();
         try{await idbSet(aspenHandleKey,handle);}catch(err){console.warn('UnitComments: store aspen handle failed',err);}
         const ok=await loadAspenHandle(handle,{updateName:false});
@@ -926,8 +972,9 @@
     function updateAspenStatus(entry,{manualSelection=false}={}){
       if(!elements.aspenLabel) return;
       let label='Keine Aspen-Datei';
-      if(state.aspenHandle||state.aspenName){
-        const prefix=state.aspenName?`• ${state.aspenName}`:'Datei geladen';
+      if(state.aspenHandle||state.aspenName||state.aspenPath){
+        const sourceName=state.aspenPath||state.aspenName;
+        const prefix=sourceName?`• ${sourceName}`:'Datei geladen';
         if(entry){
           label=manualSelection?`${prefix} · Manuell`:`${prefix} · Automatisch`;
         }else if(manualSelection && state.manualAspenKey){
@@ -944,7 +991,8 @@
     }
 
     function updateFileLabels(){
-      elements.commentsLabel.textContent=state.commentName?`• ${state.commentName}`:'Keine Datei';
+      const commentSource=state.commentPath||state.commentName;
+      elements.commentsLabel.textContent=commentSource?`• ${commentSource}`:'Keine Datei';
     }
 
     function getActiveCommentEntry(){
@@ -1141,8 +1189,17 @@
         return;
       }
       try{
-        const map=await readComments(handle);
+        const {map,meta}=await readComments(handle);
         state.comments=map;
+        if(meta){
+          if(!state.commentName){
+            state.commentName=meta.name||state.commentName||'';
+          }
+          state.commentPath=meta.path||state.commentPath||state.commentName||'';
+        }else if(!state.commentPath){
+          state.commentPath=state.commentName||'';
+        }
+        updateFileLabels();
         persistState();
         updateTextareaState();
         refreshBaseNote();
@@ -1164,6 +1221,7 @@
         if(!handle) return;
         state.commentHandle=handle;
         state.commentName=handle.name||state.commentName||'unit-comments.xlsx';
+        state.commentPath=handle.name||state.commentName||state.commentPath||'unit-comments.xlsx';
         updateFileLabels();
         persistState();
         try{await idbSet(handleKey,handle);}catch(err){console.warn('UnitComments: store comment handle failed',err);}
@@ -1195,6 +1253,7 @@
         await writable.close();
         state.commentHandle=handle;
         state.commentName=handle.name||'unit-comments.xlsx';
+        state.commentPath=state.commentName||state.commentPath||'unit-comments.xlsx';
         updateFileLabels();
         persistState();
         try{await idbSet(handleKey,handle);}catch(err){console.warn('UnitComments: store comment handle failed',err);}
@@ -1340,6 +1399,7 @@
         if(handle){
           state.commentHandle=handle;
           if(!state.commentName) state.commentName=handle.name||state.commentName||'';
+          if(!state.commentPath) state.commentPath=state.commentName||handle.name||'';
           updateFileLabels();
           persistState();
           await loadCommentsHandle(handle);
@@ -1353,7 +1413,9 @@
       try{
         const handle=await idbGet(aspenHandleKey);
         if(handle){
+          state.aspenHandle=handle;
           if(!state.aspenName) state.aspenName=handle.name||state.aspenName||'';
+          if(!state.aspenPath) state.aspenPath=state.aspenName||handle.name||'';
           persistState();
           await loadAspenHandle(handle,{updateName:false});
         }else{
