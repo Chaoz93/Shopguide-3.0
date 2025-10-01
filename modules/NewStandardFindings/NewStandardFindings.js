@@ -5217,7 +5217,12 @@
             }
             return;
           }
-          if(term&&document.activeElement===input){
+          if(term){
+            openDropdown();
+          }
+        });
+        input.addEventListener('focus',()=>{
+          if((input.value||'').trim()){
             openDropdown();
           }
         });
