@@ -4495,6 +4495,19 @@
       this.refreshRoutineEditorPreview();
     }
 
+    normalizeRoutineEditorInsertIndex(index,length){
+      const numericIndex=typeof index==='number'&&Number.isFinite(index)
+        ?index
+        :typeof index==='string'&&index.trim()!==''
+          ?Number.parseInt(index,10)
+          :NaN;
+      if(Number.isFinite(numericIndex)){
+        const max=Math.max(0,Number.isFinite(length)?length:0);
+        return Math.max(0,Math.min(numericIndex,max));
+      }
+      return Math.max(0,Number.isFinite(length)?length:0);
+    }
+
     addRoutineEditorCustomBlockAt(index,type='text',options={}){
       const tabState=this.getRoutineEditorTabState();
       const config=this.getRoutineEditorTabConfig();
@@ -4535,7 +4548,7 @@
       }
       tabState.customBlocks.push(entry);
       const order=this.getRoutineEditorOrder();
-      const clampedIndex=Math.max(0,Math.min(Number.isFinite(index)?index:order.length,order.length));
+      const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,order.length);
       order.splice(clampedIndex,0,`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`);
       tabState.order=order;
       this.renderRoutineEditorOverlayContent();
@@ -4697,7 +4710,7 @@
       if(!def||def.removable===false) return;
       const tabState=this.getRoutineEditorTabState();
       const order=this.getRoutineEditorOrder().filter(entry=>entry!==key);
-      const clampedIndex=Math.max(0,Math.min(Number.isFinite(index)?index:order.length,order.length));
+      const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,order.length);
       order.splice(clampedIndex,0,key);
       tabState.order=order;
       if(Array.isArray(tabState.hiddenBaseBlocks)){
