@@ -46,12 +46,56 @@
   const COMMENTS_SHEET='Comments';
   const WATCH_INTERVAL=500;
 
-  const MELD_HEADER_PRIORITY=['MELDUNGS_NO','MELDUNGSNR','MELDUNG_NR'];
-  const PART_HEADER_PRIORITY=['PART_NO','PARTNR','PART_NUMBER','PARTNUMBER'];
-  const SERIAL_HEADER_PRIORITY=['SERIAL_NO','SERIALNR','SERIAL_NUMBER','SERIALNUMBER'];
-  const MELD_PATTERNS=[/meldung/i,/meldung\s*nr/i,/meldungnummer/i,/message/i];
-  const PART_PATTERNS=[/part/i,/p\/?n/i,/artikel/i,/material/i];
-  const SERIAL_PATTERNS=[/serial/i,/sn/i,/serien/i];
+  const MELD_HEADER_PRIORITY=[
+    'MELDUNGS_NO',
+    'MELDUNGSNR',
+    'MELDUNG_NR',
+    'MELDUNG',
+    'MELDUNGNR',
+    'MELDUNGNO',
+    'MELD_NR',
+    'MELD_NO',
+    'MELDNR',
+    'MELDNO',
+    'MELDE_NR'
+  ];
+  const PART_HEADER_PRIORITY=[
+    'PART_NO',
+    'PARTNR',
+    'PART_NUMBER',
+    'PARTNUMBER',
+    'MATNR',
+    'MATERIAL_NR',
+    'MATERIALNR',
+    'MATERIALNO',
+    'ARTNR',
+    'ARTIKELNR',
+    'ARTIKEL_NO'
+  ];
+  const SERIAL_HEADER_PRIORITY=[
+    'SERIAL_NO',
+    'SERIALNR',
+    'SERIAL_NUMBER',
+    'SERIALNUMBER',
+    'SNR',
+    'S_NR',
+    'SN',
+    'GERAETENR',
+    'GERÄTENR',
+    'GERAETE_NR',
+    'GERÄTE_NR'
+  ];
+  const MELD_PATTERNS=[
+    /\bmeldung\b/i,
+    /\bmeldung\s*nr\b/i,
+    /\bmeldung\s*no\b/i,
+    /\bmeld\s*nr\b/i,
+    /\bmeld\s*no\b/i,
+    /meldungnummer/i,
+    /\bmessage\b/i
+  ];
+  const PART_PATTERNS=[/part/i,/p\/?n/i,/artikel/i,/material/i,/matnr/i,/ger[aä]t/i];
+  const SERIAL_PATTERNS=[/serial/i,/sn/i,/serien/i,/s\.?nr/i,/geraetenr/i,/ger[aä]te?nr/i];
   const COMMENT_PATTERNS=[/comment/i,/bemerk/i,/notiz/i,/note/i,/hinweis/i];
   const HEADER_SCAN_LIMIT=25;
   const HEADER_MAX_SCORE=14;
