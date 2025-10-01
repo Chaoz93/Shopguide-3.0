@@ -255,18 +255,39 @@
       seenCustomIds.add(id);
       const rawLines=Array.isArray(entry.lines)?entry.lines:[];
       const lines=rawLines.map(value=>typeof value==='string'?value:'');
-      const type=entry.type==='aspen'?'aspen':entry.type==='linebreak'?'linebreak':'text';
+      const typeRaw=typeof entry.type==='string'?entry.type:'';
+      const type=typeRaw==='aspen'
+        ?'aspen'
+        :typeRaw==='linebreak'
+          ?'linebreak'
+          :typeRaw==='aspenfield'
+            ?'aspenfield'
+            :'text';
       const label=sanitizeRoutineEditorLabel(entry.label||'');
       const aspenField=typeof entry.aspenField==='string'?entry.aspenField.trim():'';
       const parameterKey=typeof entry.parameterKey==='string'?entry.parameterKey.trim():'';
-      const normalizedLines=type==='linebreak'?['']:(lines.length?lines:['']);
+      const valueRaw=typeof entry.value==='string'?entry.value:'';
+      const contentRaw=typeof entry.content==='string'?entry.content:'';
+      const normalizedLines=type==='linebreak'
+        ?['']
+        :type==='aspenfield'
+          ?(valueRaw? [valueRaw]: (lines.length?lines:['']))
+          :(lines.length?lines:['']);
+      const content=type==='text'
+        ?(contentRaw||normalizedLines[0]||'')
+        :'';
+      const value=type==='aspenfield'
+        ?(valueRaw||normalizedLines[0]||'')
+        :'';
       customBlocks.push({
         id,
         type,
         label,
         aspenField,
         parameterKey:type==='text'?parameterKey:'',
-        lines:normalizedLines
+        lines:normalizedLines,
+        content:type==='text'?content:'',
+        value:type==='aspenfield'?value:''
       });
     });
     base.customBlocks=customBlocks;
@@ -367,15 +388,27 @@
       const id=block&&typeof block.id==='string'?block.id:'';
       if(!id) return null;
       const lines=Array.isArray(block&&block.lines)?block.lines.map(value=>typeof value==='string'?value:''):[''];
-      const type=block&&block.type==='aspen'?'aspen':block&&block.type==='linebreak'?'linebreak':'text';
-      const normalizedLines=type==='linebreak'?['']:(lines.length?lines:['']);
+      const type=block&&block.type==='aspen'
+        ?'aspen'
+        :block&&block.type==='linebreak'
+          ?'linebreak'
+          :block&&block.type==='aspenfield'
+            ?'aspenfield'
+            :'text';
+      const normalizedLines=type==='linebreak'
+        ?['']
+        :type==='aspenfield'
+          ?(block&&typeof block.value==='string'&&block.value!==''?[block.value]:lines.length?lines:[''])
+          :(lines.length?lines:['']);
       return {
         id,
         type,
         label:block&&block.label?sanitizeRoutineEditorLabel(block.label):'',
         aspenField:block&&typeof block.aspenField==='string'?block.aspenField:'',
         parameterKey:type==='text'&&block&&typeof block.parameterKey==='string'?block.parameterKey:'',
-        lines:normalizedLines
+        lines:normalizedLines,
+        content:type==='text'&&block&&typeof block.content==='string'?block.content:'',
+        value:type==='aspenfield'&&block&&typeof block.value==='string'?block.value:''
       };
     }).filter(Boolean):[];
     return payload;
@@ -477,7 +510,13 @@
     const config=getRoutineEditorTabConfig(targetTab);
     const allowAspen=config&&config.allowAspen!==false;
     const requestedType=typeof type==='string'?type:'';
-    const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
+    const blockType=requestedType==='linebreak'
+      ?'linebreak'
+      :requestedType==='aspen'&&allowAspen
+        ?'aspen'
+        :requestedType==='aspenfield'&&allowAspen
+          ?'aspenfield'
+          :'text';
     const blockId=createCustomSectionId();
     const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${blockId}`;
     const baseOrder=Array.isArray(tabState.order)?tabState.order.filter(entry=>entry!==customKey):[];
@@ -503,13 +542,32 @@
       label:providedLabel,
       aspenField:'',
       parameterKey:'',
-      lines:['']
+      lines:[''],
+      content:'',
+      value:''
     };
-    if(blockType==='text'){
-      block.parameterKey=typeof opts.parameterKey==='string'?opts.parameterKey:'';
-    }
     if(Array.isArray(opts.lines)&&opts.lines.length){
       block.lines=opts.lines.map(value=>typeof value==='string'?value:'');
+    }
+    if(blockType==='text'){
+      block.parameterKey=typeof opts.parameterKey==='string'?opts.parameterKey:'';
+      block.content=typeof opts.content==='string'?opts.content:'';
+      if(!block.content&&block.lines.length){
+        block.content=typeof block.lines[0]==='string'?block.lines[0]:'';
+      }
+      if(!block.lines.length){
+        block.lines=[block.content||''];
+      }
+    }else if(blockType==='aspen'){
+      block.content='';
+    }else if(blockType==='aspenfield'){
+      block.value=typeof opts.value==='string'?opts.value:'';
+      if(!block.value&&block.lines.length){
+        block.value=typeof block.lines[0]==='string'?block.lines[0]:'';
+      }
+      if(!block.lines.length){
+        block.lines=[block.value||''];
+      }
     }
     const updatedOrder=baseOrder.slice();
     updatedOrder.splice(insertIndex,0,customKey);
@@ -519,7 +577,23 @@
     tabState.order=updatedOrder;
     state.tabs[targetTab]=tabState;
     storeRoutineEditorState(state);
-    renderRoutineEditor();
+    try{
+      renderRoutineEditor();
+    }catch(err){
+      console.warn('NSF: Routine-Editor konnte nach Custom-Block-Aktualisierung nicht gerendert werden',err);
+    }
+    instances.forEach(instance=>{
+      if(!instance) return;
+      try{
+        const overlay=instance.routineEditorOverlay;
+        if(!overlay||!overlay.classList||!overlay.classList.contains('open')) return;
+        if(typeof instance.renderRoutineEditorOverlayContent==='function'){
+          instance.renderRoutineEditorOverlayContent(targetTab);
+        }
+      }catch(err){
+        console.warn('NSF: Routine-Editor Overlay konnte nicht aktualisiert werden',err);
+      }
+    });
     return {id:blockId,key:customKey,type:blockType,tabKey:targetTab};
   }
 
@@ -540,11 +614,19 @@
     });
     clone.customBlocks=Array.isArray(normalized.customBlocks)?normalized.customBlocks.map(block=>({
       id:block&&typeof block.id==='string'?block.id:'',
-      type:block&&block.type==='aspen'?'aspen':block&&block.type==='linebreak'?'linebreak':'text',
+      type:block&&block.type==='aspen'
+        ?'aspen'
+        :block&&block.type==='linebreak'
+          ?'linebreak'
+          :block&&block.type==='aspenfield'
+            ?'aspenfield'
+            :'text',
       label:block&&block.label?sanitizeRoutineEditorLabel(block.label):'',
       aspenField:block&&typeof block.aspenField==='string'?block.aspenField:'',
       parameterKey:block&&block.type==='text'&&typeof block.parameterKey==='string'?block.parameterKey:'',
-      lines:Array.isArray(block&&block.lines)?block.lines.slice():['']
+      lines:Array.isArray(block&&block.lines)?block.lines.slice():[''],
+      content:block&&block.type==='text'&&typeof block.content==='string'?block.content:'',
+      value:block&&block.type==='aspenfield'&&typeof block.value==='string'?block.value:''
     })).filter(entry=>entry.id):[];
     if(normalized.blockMeta&&typeof normalized.blockMeta==='object'){
       Object.keys(normalized.blockMeta).forEach(key=>{
@@ -882,7 +964,11 @@
       .nsf-editor-block[data-editable='0'] .nsf-editor-header{opacity:0.85;}
       .nsf-editor-lines{display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-editor-line{display:flex;align-items:center;gap:0.45rem;background:rgba(15,23,42,0.4);border-radius:0.75rem;padding:0.4rem 0.45rem;}
-      .nsf-editor-linebreak{background:rgba(59,130,246,0.18);border:1px dashed rgba(59,130,246,0.55);border-radius:0.75rem;padding:0.45rem 0.6rem;text-align:center;font-style:italic;opacity:0.85;}
+      .nsf-editor-linebreak{border:0;height:1px;background:linear-gradient(90deg,rgba(59,130,246,0),rgba(59,130,246,0.7),rgba(59,130,246,0));margin:1rem 0;opacity:0.85;}
+      .nsf-editor-field{display:flex;flex-direction:column;align-items:stretch;gap:0.35rem;}
+      .nsf-editor-field-label{font-weight:600;font-size:0.95rem;color:#1f2937;}
+      .nsf-editor-aspenfield-input{width:100%;padding:0.45rem 0.6rem;border-radius:0.5rem;border:1px solid rgba(15,23,42,0.2);font-size:0.95rem;background:#fff;}
+      .nsf-editor-aspenfield-input:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;border-color:rgba(59,130,246,0.65);}
       .nsf-editor-input{flex:1;border:none;border-radius:0.6rem;padding:0.45rem 0.55rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);resize:none;min-height:2.4rem;line-height:1.4;overflow:hidden;}
       .nsf-editor-input::placeholder{color:rgba(107,114,128,0.65);}
       .nsf-editor-block[data-editable='0'] .nsf-editor-input{background:rgba(15,23,42,0.25);color:#cbd5f5;cursor:default;resize:none;}
@@ -3723,11 +3809,40 @@
       });
     }
 
-    ensureRoutineEditorState(){
-      if(!this.routineEditorState||typeof this.routineEditorState!=='object'){
-        this.routineEditorState=loadRoutineEditorState();
+    ensureRoutineEditorState(tabKey){
+      let rawState=this.routineEditorState;
+      if(!rawState||typeof rawState!=='object'){
+        rawState=loadRoutineEditorState();
       }
-      this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
+      const normalized=normalizeRoutineEditorState(rawState);
+      this.routineEditorState=normalized;
+      if(typeof tabKey!=='string'){
+        return this.routineEditorState;
+      }
+      const key=getRoutineEditorTabKey(tabKey);
+      if(!this.routineEditorState.tabs||typeof this.routineEditorState.tabs!=='object'){
+        this.routineEditorState.tabs={};
+      }
+      let tabState=this.routineEditorState.tabs[key];
+      if(!tabState||typeof tabState!=='object'){
+        tabState=createDefaultRoutineEditorTabState(key);
+        this.routineEditorState.tabs[key]=tabState;
+      }
+      let rawTabState=null;
+      if(rawState&&typeof rawState==='object'){
+        if(rawState.tabs&&typeof rawState.tabs==='object'&&rawState.tabs[key]&&typeof rawState.tabs[key]==='object'){
+          rawTabState=rawState.tabs[key];
+        }else if(key==='routine'&&(!rawState.tabs||typeof rawState.tabs!=='object')){
+          rawTabState=rawState;
+        }
+      }
+      if(rawTabState&&Array.isArray(rawTabState.customBlocks)){
+        tabState.customBlocks=rawTabState.customBlocks.slice();
+      }else{
+        tabState.customBlocks=[];
+      }
+      this.routineEditorState.tabs[key]=tabState;
+      return tabState;
     }
 
     getActiveRoutineEditorTab(){
@@ -3735,10 +3850,13 @@
     }
 
     getRoutineEditorTabState(tabKey=this.getActiveRoutineEditorTab()){
-      this.ensureRoutineEditorState();
       const key=getRoutineEditorTabKey(tabKey);
+      const tabState=this.ensureRoutineEditorState(key);
+      if(tabState&&typeof tabState==='object'){
+        return tabState;
+      }
       if(!this.routineEditorState.tabs||typeof this.routineEditorState.tabs!=='object'){
-        this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
+        this.routineEditorState.tabs={};
       }
       if(!this.routineEditorState.tabs[key]){
         this.routineEditorState.tabs[key]=createDefaultRoutineEditorTabState(key);
@@ -3824,7 +3942,7 @@
 
     isRoutineEditorShopBlockAllowed(type){
       const normalized=typeof type==='string'?type:'';
-      if(normalized==='aspen'){
+      if(normalized==='aspen'||normalized==='aspenfield'){
         const config=this.getRoutineEditorTabConfig();
         return config&&config.allowAspen!==false;
       }
@@ -3840,6 +3958,9 @@
         if(result.type==='aspen'){
           const block=this.routineEditorList&&this.routineEditorList.querySelector(`.nsf-editor-block[data-type="${result.key}"]`);
           focusTarget=block?block.querySelector('.nsf-editor-aspen-input'):null;
+        }else if(result.type==='aspenfield'){
+          const block=this.routineEditorList&&this.routineEditorList.querySelector(`.nsf-editor-block[data-type="${result.key}"]`);
+          focusTarget=block?block.querySelector('.nsf-editor-aspenfield-input'):null;
         }else if(result.type==='text'){
           focusTarget=this.routineEditorList&&this.routineEditorList.querySelector(`.nsf-editor-block[data-type="${result.key}"] textarea`);
         }
@@ -3853,7 +3974,7 @@
       const allowAspen=config&&config.allowAspen!==false;
       this.routineEditorBlockShopItems.forEach((entry,type)=>{
         if(!entry||!entry.element) return;
-        const allowed=type==='aspen'?allowAspen:true;
+        const allowed=type==='aspen'||type==='aspenfield'?allowAspen:true;
         entry.element.classList.toggle('is-disabled',!allowed);
         entry.element.setAttribute('aria-disabled',!allowed?'true':'false');
       });
@@ -4393,6 +4514,7 @@
       const shopItems=[
         {type:'text',icon:'📝',label:'Textfeld'},
         {type:'linebreak',icon:'↵',label:'Zeilenumbruch'},
+        {type:'aspenfield',icon:'🧾',label:'Aspen-Feld (manuell)'},
         {type:'aspen',icon:'📊',label:'Aspen-Feld'}
       ];
       shopItems.forEach(itemDef=>{
@@ -4533,7 +4655,13 @@
         const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks:[];
         const entryIndex=customBlocks.findIndex(block=>block&&block.id===id);
         const entry=entryIndex>=0?customBlocks[entryIndex]:null;
-        const customType=entry&&entry.type==='aspen'?'aspen':entry&&entry.type==='linebreak'?'linebreak':'text';
+        const customType=entry&&entry.type==='aspen'
+          ?'aspen'
+          :entry&&entry.type==='linebreak'
+            ?'linebreak'
+            :entry&&entry.type==='aspenfield'
+              ?'aspenfield'
+              :'text';
         let labelIndex=null;
         if(customType==='text'){
           if(Array.isArray(order)&&Number.isInteger(position)){
@@ -4563,22 +4691,26 @@
         const option=entry?this.getAspenFieldOption(entry.aspenField):null;
         const defaultLabel=customType==='aspen'
           ?option?`Aspen: ${option.label}`:'Aspendaten'
-          :customType==='linebreak'
-            ?'Zeilenumbruch'
-            :labelIndex&&labelIndex>1?`Textfeld ${labelIndex}`:'Textfeld';
+          :customType==='aspenfield'
+            ?'Aspen-Feld'
+            :customType==='linebreak'
+              ?'Zeilenumbruch'
+              :labelIndex&&labelIndex>1?`Textfeld ${labelIndex}`:'Textfeld';
         const customLabel=entry&&entry.label?sanitizeRoutineEditorLabel(entry.label):'';
         return {
           key,
           label:customLabel||defaultLabel,
           defaultLabel,
-          editable:customType==='text',
+          editable:customType==='text'||customType==='aspenfield',
           persist:true,
           removable:true,
           customId:id,
           customType,
           aspenField:entry&&typeof entry.aspenField==='string'?entry.aspenField:'',
           optionLabel:option&&customType==='aspen'?option.label:'',
-          parameterKey:entry&&customType==='text'&&typeof entry.parameterKey==='string'?entry.parameterKey:''
+          parameterKey:entry&&customType==='text'&&typeof entry.parameterKey==='string'?entry.parameterKey:'',
+          content:entry&&customType==='text'&&typeof entry.content==='string'?entry.content:'',
+          value:entry&&customType==='aspenfield'&&typeof entry.value==='string'?entry.value:''
         };
       }
       return null;
@@ -4671,7 +4803,7 @@
       if(!this.routineEditorList) return;
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
-      const tabState=this.getRoutineEditorTabState(tabKey);
+      const tabState=this.ensureRoutineEditorState(tabKey);
       console.log('[renderRoutineEditorOverlayContent] tabState:',tabState);
       console.log('[renderRoutineEditorOverlayContent] tabState.customBlocks:',tabState?tabState.customBlocks:undefined);
       const order=this.getRoutineEditorOrder();
@@ -5254,6 +5386,11 @@
       block.dataset.type=def.key;
       block.dataset.editable=def.editable===false?'0':'1';
       block.dataset.label=def.label||def.defaultLabel||'';
+      if(def.customId){
+        block.dataset.blockId=def.customId;
+      }else{
+        block.dataset.blockId=def.key;
+      }
       if(def.customType){
         block.dataset.customType=def.customType;
       }else{
@@ -5380,11 +5517,18 @@
       info.aspenPicker=null;
       info.aspenSelect=null;
       info.aspenValue=null;
+      info.customTextInput=null;
+      info.aspenFieldInput=null;
       const editable=def&&def.editable!==false;
       const container=info.linesContainer;
       container.innerHTML='';
       if(info.element){
         info.element.dataset.label=def&&def.label?def.label:(def&&def.defaultLabel)||'';
+        if(def&&def.customId){
+          info.element.dataset.blockId=def.customId;
+        }else if(info.element.dataset){
+          info.element.dataset.blockId=def&&def.key?def.key:'';
+        }
         if(def&&def.customType){
           info.element.dataset.customType=def.customType;
         }else{
@@ -5649,10 +5793,77 @@
         return;
       }
       if(def&&def.customType==='linebreak'){
-        const indicator=document.createElement('div');
-        indicator.className='nsf-editor-linebreak';
-        indicator.textContent='(Leerzeile)';
-        container.appendChild(indicator);
+        const divider=document.createElement('hr');
+        divider.className='nsf-editor-linebreak';
+        divider.setAttribute('role','presentation');
+        container.appendChild(divider);
+        return;
+      }
+      if(def&&def.customType==='aspenfield'){
+        const baseId=(def.customId||def.key||'block').replace(/[^a-zA-Z0-9_-]/g,'-');
+        const fieldId=`nsf-aspenfield-${baseId}`;
+        const wrapper=document.createElement('div');
+        wrapper.className='nsf-editor-line nsf-editor-field';
+        const label=document.createElement('label');
+        label.className='nsf-editor-field-label';
+        label.setAttribute('for',fieldId);
+        label.textContent=def.label||def.defaultLabel||'Aspen-Feld';
+        const input=document.createElement('input');
+        input.type='text';
+        input.id=fieldId;
+        input.className='nsf-editor-aspenfield-input';
+        const initialValue=typeof def.value==='string'
+          ?def.value
+          :Array.isArray(def.lines)&&def.lines.length?def.lines[0]:'';
+        input.value=initialValue||'';
+        if(info.definition) info.definition.value=initialValue||'';
+        input.placeholder='Aspen-Wert…';
+        if(!editable){
+          input.readOnly=true;
+          input.tabIndex=-1;
+        }
+        input.addEventListener('input',()=>{
+          this.syncRoutineEditorStateFromDom();
+        });
+        wrapper.append(label,input);
+        container.appendChild(wrapper);
+        info.aspenFieldInput=input;
+        return;
+      }
+      if(def&&def.customType==='text'){
+        const baseId=(def.customId||def.key||'block').replace(/[^a-zA-Z0-9_-]/g,'-');
+        const fieldId=`nsf-text-${baseId}`;
+        const wrapper=document.createElement('div');
+        wrapper.className='nsf-editor-line nsf-editor-field';
+        const label=document.createElement('label');
+        label.className='nsf-editor-field-label';
+        label.setAttribute('for',fieldId);
+        label.textContent=def.label||def.defaultLabel||'Textfeld';
+        const textarea=document.createElement('textarea');
+        textarea.id=fieldId;
+        textarea.className='nsf-editor-input';
+        textarea.rows=1;
+        textarea.dataset.minHeight='40';
+        const initialValue=typeof def.content==='string'
+          ?def.content
+          :Array.isArray(def.lines)&&def.lines.length?def.lines.join('\n'):'';
+        textarea.value=initialValue||'';
+        if(info.definition) info.definition.content=initialValue||'';
+        if(editable){
+          textarea.placeholder='Text…';
+          textarea.addEventListener('input',()=>{
+            autoSizeTextarea(textarea);
+            this.syncRoutineEditorStateFromDom();
+          });
+        }else{
+          textarea.readOnly=true;
+          textarea.tabIndex=-1;
+          textarea.addEventListener('input',()=>autoSizeTextarea(textarea));
+        }
+        wrapper.append(label,textarea);
+        container.appendChild(wrapper);
+        info.customTextInput=textarea;
+        requestAnimationFrame(()=>autoSizeTextarea(textarea));
         return;
       }
       const lines=this.getRoutineEditorLinesForBlock(key,editable);
@@ -5856,7 +6067,9 @@
           ?'aspen'
           :element&&element.dataset&&element.dataset.customType==='linebreak'
             ?'linebreak'
-            :'text';
+            :element&&element.dataset&&element.dataset.customType==='aspenfield'
+              ?'aspenfield'
+              :'text';
         const datasetLabel=element&&element.dataset?sanitizeRoutineEditorLabel(element.dataset.label||''):'';
         const datasetField=element&&element.dataset&&element.dataset.aspenField?element.dataset.aspenField:'';
         const datasetParameter=element&&element.dataset&&element.dataset.parameterKey?element.dataset.parameterKey:'';
@@ -5871,6 +6084,17 @@
             aspenField:datasetField,
             lines:lines.length?lines:['']
           });
+        }else if(datasetType==='aspenfield'){
+          const input=info.aspenFieldInput||element.querySelector('input.nsf-editor-aspenfield-input');
+          const rawValue=input?String(input.value||''):'';
+          customEntries.push({
+            id,
+            type:'aspenfield',
+            label:datasetLabel,
+            aspenField:'',
+            value:rawValue,
+            lines:[rawValue]
+          });
         }else if(datasetType==='linebreak'){
           customEntries.push({
             id,
@@ -5883,13 +6107,15 @@
           const inputs=Array.from(info.linesContainer?info.linesContainer.querySelectorAll('textarea.nsf-editor-input'):[]);
           const lines=inputs.length?inputs.map(input=>String(input.value||'')):[''];
           const filtered=lines.filter((line,idx)=>line!==''||idx===0);
+          const content=inputs.length?String(inputs[0].value||''):filtered[0]||'';
           customEntries.push({
             id,
             type:'text',
             label:datasetLabel,
             aspenField:'',
             parameterKey:datasetParameter,
-            lines:filtered.length?filtered:['']
+            lines:filtered.length?filtered:[''],
+            content
           });
         }
       });
@@ -5989,6 +6215,34 @@
       const editable=def.editable!==false;
       const container=info.linesContainer;
       if(!container) return;
+      if(def.customType==='linebreak'){
+        return;
+      }
+      if(def.customType==='aspenfield'){
+        const input=info.aspenFieldInput||container.querySelector('input.nsf-editor-aspenfield-input');
+        const value=Array.isArray(lines)&&lines.length?lines[0]:'';
+        if(input){
+          input.value=typeof value==='string'?value:'';
+        }
+        if(info.definition){
+          info.definition.value=typeof value==='string'?value:'';
+          info.definition.lines=[typeof value==='string'?value:''];
+        }
+        return;
+      }
+      if(def.customType==='text'){
+        const textarea=info.customTextInput||container.querySelector('textarea.nsf-editor-input');
+        const value=Array.isArray(lines)?lines.join('\n'):'';
+        if(textarea){
+          textarea.value=typeof value==='string'?value:'';
+          autoSizeTextarea(textarea);
+        }
+        if(info.definition){
+          info.definition.content=typeof value==='string'?value:'';
+          info.definition.lines=Array.isArray(lines)?lines.slice():[typeof value==='string'?value:''];
+        }
+        return;
+      }
       container.innerHTML='';
       const values=Array.isArray(lines)?lines.slice():[];
       if(!values.length){
@@ -6020,6 +6274,11 @@
         const entry=customBlocks.find(block=>block&&block.id===id);
         if(entry&&entry.type==='linebreak'){
           return [ROUTINE_EDITOR_LINE_BREAK_TOKEN];
+        }
+        if(entry&&entry.type==='aspenfield'){
+          const value=typeof entry.value==='string'?entry.value:(Array.isArray(entry.lines)&&entry.lines.length?entry.lines[0]:'');
+          const trimmed=clean(value);
+          return trimmed?[trimmed]:[];
         }
         const lines=Array.isArray(entry&&entry.lines)?entry.lines:[];
         const values=[];
