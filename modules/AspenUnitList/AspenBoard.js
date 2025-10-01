@@ -98,7 +98,11 @@
     .db-row-header .db-rule-label{margin-bottom:0;}
     .db-sub-line+.db-sub-line{margin-top:.15rem;}
     .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
-    .aspenboard .db-modal{background:rgba(10,15,26,.75);}
+    .aspenboard .db-modal{
+      background:rgba(10,15,26,.82);
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+    }
     .aspenboard .db-panel,
     .aspenboard .db-menu{
       --bg-color:#0a0f1a;
@@ -108,14 +112,17 @@
       --muted-text:rgba(229,229,229,0.7);
       --border-color:rgba(255,255,255,0.14);
       --shadow-color:rgba(0,0,0,0.55);
+      background:rgba(10,15,26,.92);
+      backdrop-filter:blur(22px);
+      -webkit-backdrop-filter:blur(22px);
     }
-    .aspenboard .db-menu{padding:.5rem;background:var(--panel-bg);color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);}
+    .aspenboard .db-menu{padding:.5rem;color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);}
     .aspenboard .db-menu .mi{color:inherit;border-radius:.5rem;}
     .aspenboard .db-menu .mi:hover{background:rgba(63,169,245,.15);}
     .aspenboard .db-part-filter input{background:rgba(255,255,255,.05);color:var(--text-color);border:1px solid var(--border-color);border-radius:.5rem;}
     .aspenboard .db-part-filter input:focus{outline:none;border-color:var(--accent-color);box-shadow:0 0 0 3px rgba(63,169,245,.25);}
     .aspenboard .db-part-list{color:var(--text-color);}
-    .aspenboard .db-panel{background:var(--panel-bg);color:var(--text-color);border-radius:1rem;border:1px solid var(--border-color);box-shadow:0 18px 36px var(--shadow-color);}
+    .aspenboard .db-panel{color:var(--text-color);border-radius:1rem;border:1px solid var(--border-color);box-shadow:0 18px 36px var(--shadow-color);}
     .aspenboard .db-panel label{color:var(--muted-text);}
     .aspenboard .db-panel input[type=text],
     .aspenboard .db-panel select,
@@ -139,7 +146,7 @@
       box-shadow:0 0 0 3px rgba(63,169,245,.25);
     }
     .aspenboard .db-panel .db-part-select::after{color:var(--muted-text);}
-    .aspenboard .db-part-options{background:var(--panel-bg);color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);}
+    .aspenboard .db-part-options{background:rgba(10,15,26,.94);color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
     .aspenboard .db-part-option{border-radius:.35rem;}
     .aspenboard .db-part-option:hover,
     .aspenboard .db-part-option.is-active{background:rgba(63,169,245,.15);}
