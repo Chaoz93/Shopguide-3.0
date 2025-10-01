@@ -833,6 +833,10 @@ der-radius:.4rem;background:transparent;color:inherit;}
   }
 
   window.renderAspenBoard=async function(targetDiv,opts){
+    let lastModifiedCheck=null;
+    let pollInterval=null;
+    const POLL_INTERVAL_MS=60000;
+    let pollInProgress=false;
     injectStyles();
 
     const initialTitle=opts?.moduleJson?.settings?.title||'';
@@ -863,6 +867,51 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     applyColors(elements.root,state.config.colors);
     updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
+
+    function stopPolling(){
+      if(pollInterval){
+        clearInterval(pollInterval);
+        pollInterval=null;
+      }
+      pollInProgress=false;
+    }
+
+    async function pollFileChangesOnce(){
+      if(pollInProgress) return;
+      if(!fileHandle){
+        stopPolling();
+        return;
+      }
+      pollInProgress=true;
+      try{
+        const file=await fileHandle.getFile();
+        const modified=typeof file?.lastModified==='number'?file.lastModified:null;
+        if(modified===null){
+          return;
+        }
+        if(lastModifiedCheck===null){
+          lastModifiedCheck=modified;
+          return;
+        }
+        if(modified>lastModifiedCheck){
+          const reloaded=await loadAspenFromHandle(fileHandle,{silent:true});
+          if(reloaded){
+            lastModifiedCheck=modified;
+          }
+        }
+      }catch(err){
+        console.warn('[UnitBoard] Polling fehlgeschlagen',err);
+        stopPolling();
+      }finally{
+        pollInProgress=false;
+      }
+    }
+
+    function startPolling(){
+      stopPolling();
+      if(!fileHandle) return;
+      pollInterval=setInterval(()=>{void pollFileChangesOnce();},POLL_INTERVAL_MS);
+    }
 
     if(elements.refreshBtn){
       elements.refreshBtn.addEventListener('click',async()=>{
@@ -1573,6 +1622,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!document.body.contains(elements.root)){
         elements.menu.remove();
         SHARED.clearAspenItems(instanceId);
+        stopPolling();
         mo.disconnect();
       }
     });
@@ -1583,6 +1633,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       try{
         await ensureXLSX();
         const file=await handle.getFile();
+        lastModifiedCheck=typeof file?.lastModified==='number'?file.lastModified:Date.now();
         const buffer=await file.arrayBuffer();
         const workbook=XLSX.read(buffer,{type:'array'});
         const worksheet=workbook.Sheets[workbook.SheetNames[0]];
@@ -1659,10 +1710,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
         state.excluded=new Set(Array.from(state.excluded).filter(part=>availableParts.has(part)));
         populateFieldSelects();
         render();
+        startPolling();
         return true;
       }catch(error){
         if(!silent) console.error(error);
         fileHandle=null;
+        lastModifiedCheck=null;
+        stopPolling();
         updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:false});
         return false;
       }
