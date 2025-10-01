@@ -483,34 +483,32 @@
 
     if(blockType==='text'){
       const wrapper=document.createElement('div');
-      wrapper.className='nsf-editor-block';
+      wrapper.className='nsf-editor-block nsf-textblock';
       const label=document.createElement('label');
       label.textContent=currentBlock.label||'Textfeld';
       const textarea=document.createElement('textarea');
-      const textareaId=`nsf-custom-text-${currentBlock.id||Date.now()}`;
-      label.setAttribute('for',textareaId);
-      textarea.id=textareaId;
-      const initialValue=typeof currentBlock.value==='string'
-        ?currentBlock.value
-        :Array.isArray(currentBlock.lines)&&currentBlock.lines.length
-          ?currentBlock.lines[0]||''
-          :'';
-      textarea.value=initialValue;
-      wrapper.appendChild(label);
-      wrapper.appendChild(textarea);
+      textarea.value=typeof currentBlock.value==='string'?currentBlock.value:'';
+      textarea.placeholder='Text…';
       textarea.addEventListener('input',()=>{
         const nextValue=textarea.value;
         currentBlock.value=nextValue;
-        currentBlock.content=nextValue;
-        currentBlock.lines=[nextValue];
-        persistCustomBlock(target=>{
-          target.value=nextValue;
-          target.content=nextValue;
-          target.lines=[nextValue];
-        });
-        try{autoSizeTextarea(textarea);}catch(err){console.warn('NSF: Textarea konnte nicht automatisch skaliert werden',err);}
+        try{
+          const state=normalizeRoutineEditorState(loadRoutineEditorState());
+          const tabState=normalizeRoutineEditorTabState(state.tabs[resolvedTabKey],resolvedTabKey);
+          const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
+          const target=customBlocks.find(entry=>entry&&entry.id===currentBlock.id);
+          if(target){
+            target.value=nextValue;
+          }
+          tabState.customBlocks=customBlocks;
+          state.tabs[resolvedTabKey]=tabState;
+          storeRoutineEditorState(state);
+        }catch(err){
+          console.warn('NSF: Custom-Block konnte nicht gespeichert werden',err,currentBlock);
+        }
       });
-      try{autoSizeTextarea(textarea);}catch(err){console.warn('NSF: Textarea konnte nicht automatisch skaliert werden',err);}
+      wrapper.appendChild(label);
+      wrapper.appendChild(textarea);
       console.log('[renderRoutineEditorBlock] rendered text block:',currentBlock);
       return wrapper;
     }
