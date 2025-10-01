@@ -6,7 +6,7 @@
     .ops-root{ height:100%; }
     .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; }
     .ops-refresh-btn{
-      position:absolute; top:.55rem; right:.55rem; width:2.5rem; height:2.5rem;
+      position:absolute; top:.25rem; right:.25rem; width:2.5rem; height:2.5rem;
       display:inline-flex; align-items:center; justify-content:center;
       border:none; border-radius:999px; background:rgba(17,24,39,.92); color:#fff;
       font-size:1.25rem; line-height:1; cursor:pointer;
