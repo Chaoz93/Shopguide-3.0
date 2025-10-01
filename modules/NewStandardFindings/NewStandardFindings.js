@@ -270,6 +270,9 @@
       });
     });
     base.customBlocks=customBlocks;
+    if(!Array.isArray(base.customBlocks)){
+      base.customBlocks=[];
+    }
     const customKeys=new Set(customBlocks.map(block=>`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`));
     const normalizedOrder=[];
     rawOrder.forEach(key=>{
