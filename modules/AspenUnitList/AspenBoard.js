@@ -629,21 +629,84 @@ der-radius:.4rem;background:transparent;color:inherit;}
     return base;
   }
 
+  function parseColorToRgb(color){
+    if(!color) return null;
+    const raw=String(color).trim();
+    if(!raw) return null;
+    const hexMatch=raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if(hexMatch){
+      let hex=hexMatch[1];
+      if(hex.length===3){
+        hex=hex.split('').map(ch=>ch+ch).join('');
+      }
+      const r=parseInt(hex.slice(0,2),16);
+      const g=parseInt(hex.slice(2,4),16);
+      const b=parseInt(hex.slice(4,6),16);
+      return [r,g,b];
+    }
+    const rgbMatch=raw.match(/^rgba?\(([^)]+)\)$/i);
+    if(rgbMatch){
+      const parts=rgbMatch[1].split(',').map(part=>part.trim());
+      if(parts.length>=3){
+        const [r,g,b]=parts;
+        const toByte=value=>{
+          if(value.endsWith('%')){
+            const ratio=Number.parseFloat(value.slice(0,-1));
+            if(Number.isNaN(ratio)) return null;
+            return clamp(Math.round(ratio*2.55),0,255);
+          }
+          const num=Number.parseFloat(value);
+          if(Number.isNaN(num)) return null;
+          return clamp(Math.round(num),0,255);
+        };
+        const red=toByte(r);
+        const green=toByte(g);
+        const blue=toByte(b);
+        if([red,green,blue].every(channel=>typeof channel==='number')){
+          return [red,green,blue];
+        }
+      }
+    }
+    return null;
+  }
+
+  function relativeLuminance(color){
+    const rgb=parseColorToRgb(color);
+    if(!rgb) return null;
+    const [r,g,b]=rgb.map(channel=>{
+      const srgb=channel/255;
+      return srgb<=0.03928?srgb/12.92:Math.pow((srgb+0.055)/1.055,2.4);
+    });
+    return 0.2126*r+0.7152*g+0.0722*b;
+  }
+
+  function idealTextColor(background){
+    const lum=relativeLuminance(background);
+    if(lum==null) return '#111111';
+    return lum<=0.45?'#ffffff':'#111111';
+  }
+
   function applyColors(root,colors){
     root.style.setProperty('--dl-bg',colors.bg);
     root.style.setProperty('--dl-item-bg',colors.item);
     root.style.setProperty('--dl-title',colors.title);
     root.style.setProperty('--dl-sub',colors.sub);
     root.style.setProperty('--dl-active',colors.active);
+    const textColor=idealTextColor(colors.bg);
+    root.style.color=textColor;
+    root.style.setProperty('--text-color',textColor);
   }
 
   function formatLastModified(value){
     if(typeof value!=='number' || !Number.isFinite(value)) return '';
-    try{
-      return new Date(value).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'});
-    }catch(err){
-      return new Date(value).toLocaleString();
-    }
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime())) return '';
+    const pad=num=>String(num).padStart(2,'0');
+    const day=pad(date.getDate());
+    const month=pad(date.getMonth()+1);
+    const hours=pad(date.getHours());
+    const minutes=pad(date.getMinutes());
+    return `${day}.${month}  ${hours}:${minutes}`;
   }
 
   function updateTitleBar(root,title,options){
@@ -662,7 +725,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     const formattedMeta=formatLastModified(options?.lastModified);
     if(metaNode){
       if(formattedMeta){
-        metaNode.textContent=`Stand: ${formattedMeta}`;
+        metaNode.textContent=`Aspenalter: ${formattedMeta}`;
         metaNode.hidden=false;
         metaNode.removeAttribute('hidden');
         metaNode.style.removeProperty('display');
