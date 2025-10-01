@@ -5,9 +5,11 @@
   const STYLE_ID = 'db-styles';
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
-    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;}
+    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-titlebar[hidden]{display:none;}
+    .db-title-group{flex:1;min-width:0;display:flex;flex-direction:column;gap:.1rem;}
     .db-title-text{flex:1;min-width:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}
+    .db-title-meta{font-weight:400;font-size:.75rem;color:var(--dl-sub,#4b5563);opacity:.85;white-space:nowrap;}
     .db-refresh{flex:0 0 auto;padding:.3rem .55rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;background:rgba(255,255,255,.75);color:inherit;font-size:.85rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease;}
     .db-refresh:hover{background:rgba(37,99,235,.08);border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-refresh[hidden]{display:none;}
@@ -449,7 +451,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
-    root.innerHTML=`<div class="db-titlebar" hidden><span class="db-title-text"></span><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -635,17 +637,37 @@ der-radius:.4rem;background:transparent;color:inherit;}
     root.style.setProperty('--dl-active',colors.active);
   }
 
+  function formatLastModified(value){
+    if(typeof value!=='number' || !Number.isFinite(value)) return '';
+    try{
+      return new Date(value).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'});
+    }catch(err){
+      return new Date(value).toLocaleString();
+    }
+  }
+
   function updateTitleBar(root,title,options){
     const bar=root.querySelector('.db-titlebar');
     if(!bar) return;
     const textNode=bar.querySelector('.db-title-text');
     const refreshBtn=bar.querySelector('.db-refresh');
+    const metaNode=bar.querySelector('.db-title-meta');
     const fallback=(options?.filePath||'').trim();
     const text=(title||'').trim()||fallback;
     if(textNode){
       textNode.textContent=text;
     }else{
       bar.textContent=text;
+    }
+    const formattedMeta=formatLastModified(options?.lastModified);
+    if(metaNode){
+      if(formattedMeta){
+        metaNode.textContent=`Stand: ${formattedMeta}`;
+        metaNode.hidden=false;
+      }else{
+        metaNode.textContent='';
+        metaNode.hidden=true;
+      }
     }
     const canRefresh=!!options?.canRefresh;
     const showRefresh=canRefresh||!!fallback;
@@ -655,7 +677,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
       refreshBtn.title=label;
       refreshBtn.setAttribute('aria-label',label);
     }
-    bar.hidden=!text && !showRefresh;
+    const showMeta=!!metaNode && !metaNode.hidden && !!metaNode.textContent.trim();
+    bar.hidden=!text && !showRefresh && !showMeta;
   }
 
   function parseNumericValue(value){
@@ -866,7 +889,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     elements.titleInput.value=state.config.title||'';
 
     applyColors(elements.root,state.config.colors);
-    updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
+    updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle,lastModified:lastModifiedCheck});
 
     function stopPolling(){
       if(pollInterval){
@@ -1177,7 +1200,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!(state.activeMeldungen instanceof Set)){
         state.activeMeldungen=new Set(Array.isArray(state.activeMeldungen)?state.activeMeldungen:[]);
       }
-      updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
+      updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle,lastModified:lastModifiedCheck});
       if(elements.search){
         elements.search.value=state.searchQuery||'';
       }
@@ -1544,7 +1567,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         sub:elements.cSub.value,
         active:elements.cActive.value
       };
-      updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
+      updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle,lastModified:lastModifiedCheck});
       applyColors(elements.root,state.config.colors);
       if(partChanged){
         state.items.forEach(item=>{
@@ -1717,7 +1740,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         fileHandle=null;
         lastModifiedCheck=null;
         stopPolling();
-        updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:false});
+        updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:false,lastModified:lastModifiedCheck});
         return false;
       }
     }
