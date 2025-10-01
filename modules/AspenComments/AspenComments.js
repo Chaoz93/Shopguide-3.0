@@ -229,7 +229,7 @@
     elements?.menu?.remove();
   }
 
-  function findColumn(header,patterns,{preferred=[],exclude}={}){
+  function findColumn(header,patterns,{preferred=[],exclude,allowPatternFallback=true}={}){
     if(!Array.isArray(header)||!header.length) return -1;
     const normalizedHeader=header.map(normalizeKey);
     const normalizedPreferred=Array.isArray(preferred)?preferred.map(normalizeKey).filter(Boolean):[];
@@ -238,6 +238,7 @@
       const idx=normalizedHeader.indexOf(preferredName);
       if(idx!==-1&&!usedIndices.has(idx)) return idx;
     }
+    if(!allowPatternFallback) return -1;
     for(let i=0;i<header.length;i++){
       if(usedIndices.has(i)) continue;
       const cell=trim(header[i]);
@@ -309,7 +310,7 @@
     if(!rows.length) return new Map();
     const {header, index:headerRowIndex}=findHeaderRow(rows);
     const used=new Set();
-    const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used});
+    const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
     if(meldIdx>=0) used.add(meldIdx);
     const partIdx=findColumn(header,PART_PATTERNS,{preferred:PART_HEADER_PRIORITY,exclude:used});
     if(partIdx>=0) used.add(partIdx);
@@ -378,7 +379,7 @@
     if(!rows.length) return [];
     const {header, index:headerRowIndex}=findHeaderRow(rows);
     const used=new Set();
-    const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used});
+    const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
     if(meldIdx>=0) used.add(meldIdx);
     const partIdx=findColumn(header,PART_PATTERNS,{preferred:PART_HEADER_PRIORITY,exclude:used});
     if(partIdx>=0) used.add(partIdx);
