@@ -4649,7 +4649,9 @@
           return;
         }
         event.preventDefault();
+        console.log('[Drop] type:',type,'index:',index);
         const newBlock=this.addCustomBlock(this.getActiveRoutineEditorTab(),type,{insertIndex:index});
+        console.log('[Drop] newBlock returned:',newBlock);
         currentBlockShopDragType='';
         clearAllRoutineEditorDropIndicators();
         this.focusRoutineEditorCustomBlock(newBlock);
@@ -4661,6 +4663,7 @@
     }
 
     renderRoutineEditorOverlayContent(){
+      console.log('[renderRoutineEditorOverlayContent] triggered');
       if(!this.routineEditorList) return;
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
@@ -4684,6 +4687,7 @@
       });
       const finalInsert=this.createRoutineEditorInsertControl(order.length,order);
       if(finalInsert) this.routineEditorList.appendChild(finalInsert);
+      console.log('[renderRoutineEditorOverlayContent] blocks rendered:',Array.isArray(tabState.customBlocks)?tabState.customBlocks.length:0);
       this.refreshRoutineEditorPreview();
       this.updateRoutineEditorBlockShopAvailability();
     }
@@ -4702,6 +4706,7 @@
     }
 
     addCustomBlock(tabKey,type='text',options={}){
+      console.log('[addCustomBlock] called with tabKey:',tabKey,'type:',type,'options:',options);
       const targetTab=getRoutineEditorTabKey(tabKey);
       this.ensureRoutineEditorState();
       const state=this.routineEditorState;
@@ -4734,6 +4739,7 @@
         parameterKey:'',
         lines:['']
       };
+      console.log('[addCustomBlock] created entry:',entry);
       let label=sanitizeRoutineEditorLabel(options.label||'');
       if(blockType==='aspen'){
         if(!this.hasAspenDoc&&this.aspenFileInput){
@@ -4808,11 +4814,13 @@
       }
       entry.label=sanitizeRoutineEditorLabel(entry.label||'');
       tabState.customBlocks=orderedCustomBlocks;
+      console.log('[addCustomBlock] tabState.customBlocks length:',Array.isArray(tabState.customBlocks)?tabState.customBlocks.length:0);
       tabState.order=order;
       if(state&&state.tabs){
         state.tabs[targetTab]=tabState;
       }
       storeRoutineEditorState(state);
+      console.log('[addCustomBlock] state saved:',state);
       this.ensureRoutineEditorState();
       this.evaluateRoutineEditorPresetMatch();
       const activeTab=this.getActiveRoutineEditorTab();
@@ -4824,6 +4832,7 @@
         this.refreshRoutineEditorPreview();
       }
       this.focusRoutineEditorCustomBlock(result);
+      console.log('[addCustomBlock] returning:',result);
       return result;
     }
 
