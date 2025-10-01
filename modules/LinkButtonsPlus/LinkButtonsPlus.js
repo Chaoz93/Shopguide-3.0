@@ -6,14 +6,15 @@
     .ops-root{ height:100%; }
     .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; }
     .ops-refresh-btn{
-      position:absolute; top:.25rem; right:.25rem; width:2.5rem; height:2.5rem;
+      position:absolute; top:0; right:0; width:2.5rem; height:2.5rem;
       display:inline-flex; align-items:center; justify-content:center;
       border:none; border-radius:999px; background:rgba(17,24,39,.92); color:#fff;
       font-size:1.25rem; line-height:1; cursor:pointer;
       box-shadow:0 8px 18px rgba(0,0,0,.2); transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+      transform:translate(40%,-40%);
     }
-    .ops-refresh-btn:hover:not([disabled]){ transform:translateY(-1px); box-shadow:0 10px 22px rgba(0,0,0,.24); }
-    .ops-refresh-btn:active:not([disabled]){ transform:translateY(0); }
+    .ops-refresh-btn:hover:not([disabled]){ transform:translate(40%,-41%); box-shadow:0 10px 22px rgba(0,0,0,.24); }
+    .ops-refresh-btn:active:not([disabled]){ transform:translate(40%,-39%); }
     .ops-refresh-btn[disabled]{ opacity:.45; cursor:not-allowed; box-shadow:none; }
     .ops-grid{
       height:100%; box-sizing:border-box; display:grid;
