@@ -96,6 +96,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
     .db-rule-row .db-rule-remove{padding:.35rem .55rem;}
     .db-rule-empty{font-size:.85rem;opacity:.7;}
     .db-add-rule{align-self:flex-start;padding:.35rem .6rem;}
+    .db-row-header{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;}
+    .db-row-actions{display:inline-flex;align-items:center;gap:.35rem;}
+    .db-icon-btn{padding:.3rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.45rem;background:rgba(255,255,255,.75);color:inherit;cursor:pointer;font-size:.9rem;line-height:1;}
+    .db-icon-btn:hover{background:rgba(37,99,235,.08);}
+    .db-row-header label{margin-bottom:0;}
+    .db-row-header .db-rule-label{margin-bottom:0;}
     .db-sub-line+.db-sub-line{margin-top:.15rem;}
     .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
   `;
@@ -545,7 +551,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -577,8 +583,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
       titleInput:root.querySelector('.db-title-input'),
       ruleList:root.querySelector('.db-rule-list'),
       addRuleBtn:root.querySelector('.db-add-rule'),
+      ruleImportBtn:root.querySelector('.db-rule-import'),
+      ruleExportBtn:root.querySelector('.db-rule-export'),
       subList:root.querySelector('.db-sub-list'),
       addSubBtn:root.querySelector('.db-add-sub'),
+      subImportBtn:root.querySelector('.db-sub-import'),
+      subExportBtn:root.querySelector('.db-sub-export'),
       selPart:root.querySelector('.db-sel-part'),
       partSelectWrap:root.querySelector('.db-part-select'),
       partSelectInput:root.querySelector('.db-part-select-input'),
@@ -1084,6 +1094,61 @@ der-radius:.4rem;background:transparent;color:inherit;}
     let partSelectOpen=false;
     let highlightedPartIndex=-1;
     let partSelectOutsideHandler=null;
+
+    function showAlert(message){
+      if(typeof window!=='undefined' && typeof window.alert==='function'){
+        window.alert(message);
+      }else{
+        console.info(message);
+      }
+    }
+
+    function showPrompt(message,defaultValue=''){
+      if(typeof window!=='undefined' && typeof window.prompt==='function'){
+        return window.prompt(message,defaultValue);
+      }
+      return null;
+    }
+
+    async function tryCopyToClipboard(text){
+      if(typeof navigator!=='undefined' && navigator.clipboard && typeof navigator.clipboard.writeText==='function'){
+        try{
+          await navigator.clipboard.writeText(text);
+          return true;
+        }catch(error){
+          console.warn('[UnitBoard] Clipboard-Kopie fehlgeschlagen',error);
+        }
+      }
+      return false;
+    }
+
+    async function exportJsonData(label,data){
+      const payload=typeof data==='string'?data:JSON.stringify(data,null,2);
+      if(typeof payload!=='string') return;
+      const success=await tryCopyToClipboard(payload);
+      if(success){
+        showAlert(`${label} wurden in die Zwischenablage kopiert.`);
+        return;
+      }
+      showPrompt(`${label} kopieren (Strg+C, Enter zum Bestätigen)`,payload);
+    }
+
+    function requestJsonInput(label){
+      const raw=showPrompt(label,'');
+      if(raw===null) return null;
+      const trimmed=raw.trim();
+      if(!trimmed){
+        showAlert('Es wurden keine Daten eingegeben.');
+        return undefined;
+      }
+      try{
+        return JSON.parse(trimmed);
+      }catch(error){
+        console.warn('[UnitBoard] JSON-Import fehlgeschlagen',error);
+        showAlert('Die Daten konnten nicht gelesen werden. Bitte gültiges JSON einfügen.');
+        return undefined;
+      }
+    }
 
     const refreshTitleBar=(extraOptions={})=>{
       updateTitleBar(elements.root,state.config.title,{
@@ -1748,6 +1813,27 @@ der-radius:.4rem;background:transparent;color:inherit;}
       });
     }
 
+    if(elements.ruleExportBtn){
+      elements.ruleExportBtn.addEventListener('click',async ()=>{
+        const prepared=Array.isArray(tempTitleRules)?tempTitleRules.map(rule=>normalizeTitleRule(rule)):[];
+        await exportJsonData('Titel-Regeln',prepared);
+      });
+    }
+
+    if(elements.ruleImportBtn){
+      elements.ruleImportBtn.addEventListener('click',()=>{
+        const imported=requestJsonInput('Titel-Regeln importieren (JSON)');
+        if(imported===null || imported===undefined) return;
+        if(!Array.isArray(imported)){
+          showAlert('Regeln müssen als Array vorliegen.');
+          return;
+        }
+        tempTitleRules=imported.map(rule=>normalizeTitleRule(rule));
+        renderRuleControls();
+        showAlert('Regeln importiert.');
+      });
+    }
+
     elements.addSubBtn.addEventListener('click',()=>{
       if(!Array.isArray(tempSubFields) || !tempSubFields.length){
         const defaults=getAvailableFieldList(state);
@@ -1759,6 +1845,28 @@ der-radius:.4rem;background:transparent;color:inherit;}
       tempSubFields.push(next);
       renderSubFieldControls();
     });
+
+    if(elements.subExportBtn){
+      elements.subExportBtn.addEventListener('click',async ()=>{
+        const prepared=Array.isArray(tempSubFields)?tempSubFields.map(field=>String(field||'').trim()).filter(Boolean):[];
+        await exportJsonData('Untertitel-Felder',prepared);
+      });
+    }
+
+    if(elements.subImportBtn){
+      elements.subImportBtn.addEventListener('click',()=>{
+        const imported=requestJsonInput('Untertitel-Felder importieren (JSON)');
+        if(imported===null || imported===undefined) return;
+        if(!Array.isArray(imported)){
+          showAlert('Untertitel-Felder müssen als Array vorliegen.');
+          return;
+        }
+        const normalized=Array.from(new Set(imported.map(value=>String(value||'').trim()))).filter(Boolean);
+        tempSubFields=normalized;
+        renderSubFieldControls();
+        showAlert(normalized.length?'Untertitel importiert.':'Keine Untertitel-Felder importiert. Es wird der Standard verwendet.');
+      });
+    }
 
     elements.saveBtn.addEventListener('click',()=>{
       elements.subList.querySelectorAll('.db-sub-input').forEach(input=>{
