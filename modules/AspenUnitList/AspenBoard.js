@@ -98,29 +98,48 @@
     .db-row-header .db-rule-label{margin-bottom:0;}
     .db-sub-line+.db-sub-line{margin-top:.15rem;}
     .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
+    .db-config-layout{display:flex;flex-direction:column;gap:1.25rem;}
+    .db-config-main{flex:1;display:flex;flex-direction:column;gap:1rem;}
+    .db-config-main>.row{margin-bottom:0;}
+    .db-config-main>.row+.row{margin-top:.25rem;}
+    .db-config-colors{flex:0 0 auto;width:100%;display:flex;justify-content:flex-end;}
+    .db-color-card{flex:1;display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--border-color,#e5e7eb);background:rgba(255,255,255,.85);box-shadow:0 12px 28px rgba(15,23,42,.08);}
+    .db-color-card-title{font-weight:600;font-size:.9rem;color:var(--dl-sub,#4b5563);}
+    .db-color-card-body{display:flex;flex-direction:column;gap:.75rem;}
+    .db-color-field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:0;font-size:.85rem;}
+    .db-color-field span{font-weight:600;color:var(--dl-sub,#4b5563);}
+    @media(min-width:900px){
+      .db-config-layout{flex-direction:row;align-items:flex-start;}
+      .db-config-colors{max-width:280px;}
+    }
     .aspenboard .db-modal{
-      background:rgba(10,15,26,.82);
-      backdrop-filter:blur(18px);
-      -webkit-backdrop-filter:blur(18px);
+      background:rgba(10,15,26,.88);
+      backdrop-filter:blur(24px);
+      -webkit-backdrop-filter:blur(24px);
     }
     .aspenboard .db-panel,
     .aspenboard .db-menu{
       --bg-color:#0a0f1a;
       --panel-bg:rgba(255,255,255,0.05);
-      --accent-color:#3fa9f5;
+      --accent-color:#245581;
+      --accent-strong:#173752;
+      --accent-gradient:linear-gradient(135deg,var(--accent-strong),var(--accent-color));
+      --accent-border:rgba(36,85,129,0.55);
+      --accent-soft:rgba(36,85,129,0.22);
+      --accent-rgb:36,85,129;
       --text-color:#e5e5e5;
       --muted-text:rgba(229,229,229,0.7);
       --border-color:rgba(255,255,255,0.14);
       --shadow-color:rgba(0,0,0,0.55);
-      background:rgba(10,15,26,.92);
-      backdrop-filter:blur(22px);
-      -webkit-backdrop-filter:blur(22px);
+      background:rgba(10,15,26,.94);
+      backdrop-filter:blur(28px);
+      -webkit-backdrop-filter:blur(28px);
     }
     .aspenboard .db-menu{padding:.5rem;color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);}
     .aspenboard .db-menu .mi{color:inherit;border-radius:.5rem;}
-    .aspenboard .db-menu .mi:hover{background:rgba(63,169,245,.15);}
+    .aspenboard .db-menu .mi:hover{background:rgba(var(--accent-rgb,36,85,129),.18);}
     .aspenboard .db-part-filter input{background:rgba(255,255,255,.05);color:var(--text-color);border:1px solid var(--border-color);border-radius:.5rem;}
-    .aspenboard .db-part-filter input:focus{outline:none;border-color:var(--accent-color);box-shadow:0 0 0 3px rgba(63,169,245,.25);}
+    .aspenboard .db-part-filter input:focus{outline:none;border-color:var(--accent-color);box-shadow:0 0 0 3px rgba(var(--accent-rgb,36,85,129),.28);}
     .aspenboard .db-part-list{color:var(--text-color);}
     .aspenboard .db-panel{color:var(--text-color);border-radius:1rem;border:1px solid var(--border-color);box-shadow:0 18px 36px var(--shadow-color);}
     .aspenboard .db-panel label{color:var(--muted-text);}
@@ -143,43 +162,56 @@
     .aspenboard .db-rule-row input:focus{
       outline:none;
       border-color:var(--accent-color);
-      box-shadow:0 0 0 3px rgba(63,169,245,.25);
+      box-shadow:0 0 0 3px rgba(var(--accent-rgb,36,85,129),.28);
     }
     .aspenboard .db-panel .db-part-select::after{color:var(--muted-text);}
-    .aspenboard .db-part-options{background:rgba(10,15,26,.94);color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
+    .aspenboard .db-part-options{background:rgba(10,15,26,.94);color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);}
     .aspenboard .db-part-option{border-radius:.35rem;}
     .aspenboard .db-part-option:hover,
-    .aspenboard .db-part-option.is-active{background:rgba(63,169,245,.15);}
+    .aspenboard .db-part-option.is-active{background:rgba(var(--accent-rgb,36,85,129),.18);}
     .aspenboard .db-part-options .db-empty{color:var(--muted-text);}
     .aspenboard .db-color{border:1px solid var(--border-color);border-radius:.5rem;background:rgba(255,255,255,.04);}
     .aspenboard .db-sub-row button,
     .aspenboard .db-add-sub,
     .aspenboard .db-add-rule,
     .aspenboard .db-panel .actions button{
-      background:var(--accent-color);
-      border:none;
-      border-radius:.5rem;
-      padding:.4rem .8rem;
+      background:var(--accent-gradient,var(--accent-color));
+      border:1px solid var(--accent-border,transparent);
+      border-radius:.6rem;
+      padding:.45rem .85rem;
       color:#fff;
       cursor:pointer;
-      transition:opacity .2s ease;
+      box-shadow:0 16px 38px rgba(var(--accent-rgb,36,85,129),.35);
+      transition:transform .2s ease,box-shadow .2s ease,filter .2s ease;
     }
     .aspenboard .db-sub-row button:hover,
     .aspenboard .db-add-sub:hover,
     .aspenboard .db-add-rule:hover,
-    .aspenboard .db-panel .actions button:hover{opacity:.85;}
-    .aspenboard .db-panel .db-icon-btn{
-      background:rgba(63,169,245,.12);
-      color:var(--text-color);
-      border:1px solid transparent;
-      border-radius:.5rem;
-      padding:.35rem .55rem;
+    .aspenboard .db-panel .actions button:hover{
+      filter:brightness(1.05);
+      transform:translateY(-1px);
+      box-shadow:0 20px 48px rgba(var(--accent-rgb,36,85,129),.45);
     }
-    .aspenboard .db-panel .db-icon-btn:hover{background:rgba(63,169,245,.25);}
+    .aspenboard .db-panel .db-icon-btn{
+      background:var(--accent-soft,rgba(var(--accent-rgb,36,85,129),.22));
+      color:var(--text-color);
+      border:1px solid rgba(var(--accent-rgb,36,85,129),.35);
+      border-radius:.55rem;
+      padding:.35rem .6rem;
+      box-shadow:0 12px 26px rgba(5,12,23,.4);
+    }
+    .aspenboard .db-panel .db-icon-btn:hover{background:rgba(var(--accent-rgb,36,85,129),.32);}
     .aspenboard .db-rule-label{color:var(--text-color);}
     .aspenboard .db-row-header label{color:var(--muted-text);}
     .aspenboard .db-rule-empty{color:var(--muted-text);}
     .aspenboard .db-panel .actions{gap:.75rem;}
+    .aspenboard .db-color-card{
+      background:rgba(12,18,30,.9);
+      border:1px solid var(--border-color);
+      box-shadow:0 18px 42px var(--shadow-color);
+    }
+    .aspenboard .db-color-card-title{color:var(--text-color);}
+    .aspenboard .db-color-field span{color:var(--text-color);}
   `;
 
   const XLSX_URLS = [
@@ -641,7 +673,7 @@
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root aspenboard';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -687,6 +719,7 @@
       cItem:root.querySelector('.db-c-item'),
       cTitle:root.querySelector('.db-c-title'),
       cSub:root.querySelector('.db-c-sub'),
+      cAccent:root.querySelector('.db-c-accent'),
       cActive:root.querySelector('.db-c-active'),
       menu,
       partList:menu.querySelector('.db-part-list'),
@@ -701,7 +734,7 @@
         subFields:[DEFAULT_SUB_FIELD],
         partField:TITLE_FIELD,
         title:initialTitle,
-        colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'},
+        colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',accent:'#245581',active:'#10b981'},
         titleRules:[]
       },
       items:[],
@@ -954,6 +987,19 @@
     return lum<=0.45?'#ffffff':'#111111';
   }
 
+  function shadeColor(color,factor){
+    const rgb=parseColorToRgb(color);
+    if(!rgb) return color;
+    const clamp=value=>Math.max(0,Math.min(255,Math.round(value)));
+    const safeFactor=Math.max(-1,Math.min(1,Number.isFinite(factor)?factor:0));
+    const adjusted=rgb.map(channel=>{
+      return safeFactor<0?channel*(1+safeFactor):channel+(255-channel)*safeFactor;
+    }).map(clamp);
+    const [r,g,b]=adjusted;
+    const hex=(1<<24)+(r<<16)+(g<<8)+b;
+    return `#${hex.toString(16).slice(1)}`;
+  }
+
   function formatChipStyle(color){
     const sanitized=sanitizeHexColor(color);
     if(!sanitized) return '';
@@ -968,16 +1014,38 @@
   }
 
   function applyColors(root,colors){
-    root.style.setProperty('--dl-bg',colors.bg);
-    root.style.setProperty('--dl-item-bg',colors.item);
-    root.style.setProperty('--dl-title',colors.title);
-    root.style.setProperty('--dl-sub',colors.sub);
-    root.style.setProperty('--dl-active',colors.active);
+    if(!root) return;
+    const palette=colors&&typeof colors==='object'?colors:{};
+    const sanitized={
+      bg:sanitizeHexColor(palette.bg)||'#f5f7fb',
+      item:sanitizeHexColor(palette.item)||'#ffffff',
+      title:sanitizeHexColor(palette.title)||'#2563eb',
+      sub:sanitizeHexColor(palette.sub)||'#4b5563',
+      accent:sanitizeHexColor(palette.accent)||'#245581',
+      active:sanitizeHexColor(palette.active)||'#10b981'
+    };
+    root.style.setProperty('--dl-bg',sanitized.bg);
+    root.style.setProperty('--dl-item-bg',sanitized.item);
+    root.style.setProperty('--dl-title',sanitized.title);
+    root.style.setProperty('--dl-sub',sanitized.sub);
+    root.style.setProperty('--dl-active',sanitized.active);
     const docStyle=getComputedStyle(document.documentElement);
     const configuredTextColor=docStyle.getPropertyValue('--text-color')?.trim();
-    const textColor=configuredTextColor||idealTextColor(colors.bg);
+    const textColor=configuredTextColor||idealTextColor(sanitized.bg);
     root.style.color=textColor;
     root.style.setProperty('--text-color',textColor);
+    const accentRgb=parseColorToRgb(sanitized.accent);
+    if(accentRgb){
+      const [r,g,b]=accentRgb;
+      const accentLight=shadeColor(sanitized.accent,0.12);
+      const accentStrong=shadeColor(sanitized.accent,-0.28);
+      root.style.setProperty('--accent-rgb',`${r},${g},${b}`);
+      root.style.setProperty('--accent-color',accentLight);
+      root.style.setProperty('--accent-strong',accentStrong);
+      root.style.setProperty('--accent-border',`rgba(${r},${g},${b},0.55)`);
+      root.style.setProperty('--accent-soft',`rgba(${r},${g},${b},0.22)`);
+      root.style.setProperty('--accent-gradient',`linear-gradient(135deg,${accentStrong} 0%,${accentLight} 100%)`);
+    }
   }
 
   function formatLastModified(value){
@@ -1316,6 +1384,7 @@
           item:elements.cItem?.value||state.config.colors.item,
           title:elements.cTitle?.value||state.config.colors.title,
           sub:elements.cSub?.value||state.config.colors.sub,
+          accent:elements.cAccent?.value||state.config.colors.accent,
           active:elements.cActive?.value||state.config.colors.active
         };
         refreshTitleBar();
@@ -1447,6 +1516,7 @@
     elements.cItem.value=state.config.colors.item;
     elements.cTitle.value=state.config.colors.title;
     elements.cSub.value=state.config.colors.sub;
+    elements.cAccent.value=state.config.colors.accent;
     elements.cActive.value=state.config.colors.active;
     elements.titleInput.value=state.config.title||'';
 
@@ -2131,6 +2201,7 @@
       elements.cItem.value=state.config.colors.item;
       elements.cTitle.value=state.config.colors.title;
       elements.cSub.value=state.config.colors.sub;
+      elements.cAccent.value=state.config.colors.accent;
       elements.cActive.value=state.config.colors.active;
       elements.modal.classList.add('open');
       syncPartSelectInputValue();
@@ -2239,7 +2310,7 @@
       elements.titleInput.addEventListener('change',()=>{scheduleOptionPersist(true);});
     }
 
-    [elements.cBg,elements.cItem,elements.cTitle,elements.cSub,elements.cActive].forEach(input=>{
+    [elements.cBg,elements.cItem,elements.cTitle,elements.cSub,elements.cAccent,elements.cActive].forEach(input=>{
       if(!input) return;
       input.addEventListener('input',()=>{scheduleOptionPersist();});
       input.addEventListener('change',()=>{scheduleOptionPersist(true);});
