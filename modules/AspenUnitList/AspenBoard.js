@@ -534,8 +534,21 @@ der-radius:.4rem;background:transparent;color:inherit;}
   }
 
   const parseJson=s=>{try{return JSON.parse(s)||{};}catch{return{};}};
-  const loadDoc=()=>parseJson(localStorage.getItem(LS_DOC));
-  const saveDoc=doc=>localStorage.setItem(LS_DOC,JSON.stringify(doc));
+  function ensureDocStructure(doc){
+    const base=doc&&typeof doc==='object'?doc:{};
+    if(!base.__meta||typeof base.__meta!=='object') base.__meta={};
+    if(!base.general||typeof base.general!=='object') base.general={};
+    if(!base.instances||typeof base.instances!=='object') base.instances={};
+    return base;
+  }
+  const loadDoc=()=>ensureDocStructure(parseJson(localStorage.getItem(LS_DOC)));
+  const saveDoc=doc=>{
+    const prepared=ensureDocStructure(doc);
+    prepared.__meta={...prepared.__meta,v:1,updatedAt:new Date().toISOString()};
+    try{localStorage.setItem(LS_DOC,JSON.stringify(prepared));}
+    catch(e){/* ignore */}
+    return prepared;
+  };
   const getActiveMeldung=()=> (loadDoc().general?.Meldung||'').trim();
 
   function instanceIdOf(root){
@@ -551,7 +564,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -593,8 +606,6 @@ der-radius:.4rem;background:transparent;color:inherit;}
       partSelectWrap:root.querySelector('.db-part-select'),
       partSelectInput:root.querySelector('.db-part-select-input'),
       partSelectOptions:root.querySelector('.db-part-options'),
-      saveBtn:root.querySelector('.db-save'),
-      closeBtn:root.querySelector('.db-close'),
       cBg:root.querySelector('.db-c-bg'),
       cItem:root.querySelector('.db-c-item'),
       cTitle:root.querySelector('.db-c-title'),
@@ -673,12 +684,21 @@ der-radius:.4rem;background:transparent;color:inherit;}
     return config.subFields[0]||DEFAULT_SUB_FIELD;
   }
 
-  function restoreState(state){
+  function restoreState(state,instanceId){
+    let saved=null;
     const raw=localStorage.getItem(LS_STATE);
-    if(!raw) return;
+    if(raw){
+      try{saved=JSON.parse(raw);}catch(e){saved=null;}
+    }
+    if(!saved && instanceId){
+      const snapshot=loadDoc()?.instances?.[instanceId]?.aspenUnitList;
+      if(snapshot&&typeof snapshot==='object'){
+        saved=snapshot;
+      }
+    }
+    if(!saved||typeof saved!=='object') return;
     try{
-      const saved=JSON.parse(raw);
-      if(Array.isArray(saved.fields)) state.fields=saved.fields;
+      if(Array.isArray(saved.fields)) state.fields=saved.fields.slice();
       if(saved.config){
         const colors={...state.config.colors,...(saved.config.colors||{})};
         const savedRules=Array.isArray(saved.config.titleRules)?saved.config.titleRules.map(rule=>normalizeTitleRule(rule)):
@@ -707,18 +727,26 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }catch(e){/* ignore */}
   }
 
-  function persistState(state){
+  function persistModuleSnapshot(instanceId,payload){
+    if(!instanceId) return;
+    const doc=loadDoc();
+    doc.instances[instanceId] ||= {};
+    doc.instances[instanceId].aspenUnitList=payload;
+    saveDoc(doc);
+  }
+
+  function persistState(state,instanceId){
     state.items=dedupeByMeldung(state.items);
     const payload={
-      fields:state.fields,
+      fields:Array.isArray(state.fields)?state.fields.slice():[],
       config:{
-        subFields:state.config.subFields.slice(),
+        subFields:Array.isArray(state.config.subFields)?state.config.subFields.slice():[],
         partField:state.config.partField,
         title:state.config.title,
         colors:{...state.config.colors},
         titleRules:Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[]
       },
-      items:state.items,
+      items:Array.isArray(state.items)?state.items.slice():[],
       excluded:Array.from(state.excluded),
       filePath:state.filePath,
       searchQuery:state.searchQuery||'',
@@ -726,7 +754,48 @@ der-radius:.4rem;background:transparent;color:inherit;}
       activeMeldungen:Array.from(state.activeMeldungen||[]).map(val=>String(val||'').trim()).filter(Boolean),
       showActiveList:!!state.showActiveList
     };
-    try{localStorage.setItem(LS_STATE,JSON.stringify(payload));}catch(e){/* ignore */}
+    let serialized=null;
+    try{
+      serialized=JSON.stringify(payload);
+      localStorage.setItem(LS_STATE,serialized);
+    }catch(e){
+      serialized=null;
+    }
+    if(instanceId){
+      let snapshot=null;
+      if(serialized){
+        try{snapshot=JSON.parse(serialized);}catch(e){snapshot=null;}
+      }
+      if(!snapshot){
+        snapshot={
+          fields:payload.fields.slice(),
+          config:{
+            ...payload.config,
+            subFields:payload.config.subFields.slice(),
+            colors:{...payload.config.colors},
+            titleRules:payload.config.titleRules.map(rule=>({...rule}))
+          },
+          items:payload.items.map(item=>{
+            if(!item||typeof item!=='object') return item;
+            return {
+              ...item,
+              data:item.data&&typeof item.data==='object'?{...item.data}:item.data,
+              subs:Array.isArray(item.subs)?item.subs.slice():item.subs,
+              tags:Array.isArray(item.tags)?item.tags.slice():item.tags
+            };
+          }),
+          excluded:payload.excluded.slice(),
+          filePath:payload.filePath,
+          searchQuery:payload.searchQuery,
+          partFilter:payload.partFilter,
+          activeMeldungen:payload.activeMeldungen.slice(),
+          showActiveList:payload.showActiveList
+        };
+      }
+      snapshot.instanceId=instanceId;
+      snapshot.lastUpdated=Date.now();
+      persistModuleSnapshot(instanceId,snapshot);
+    }
   }
 
   function getAvailableFieldList(state,extra){
@@ -1094,6 +1163,104 @@ der-radius:.4rem;background:transparent;color:inherit;}
     let partSelectOpen=false;
     let highlightedPartIndex=-1;
     let partSelectOutsideHandler=null;
+    let optionPersistTimer=null;
+    let applyingOptionChanges=false;
+
+    function applyOptionChanges(){
+      if(applyingOptionChanges) return;
+      applyingOptionChanges=true;
+      try{
+        if(elements.subList){
+          elements.subList.querySelectorAll('.db-sub-input').forEach(input=>{
+            input.dispatchEvent(new Event('change'));
+          });
+        }
+        if(elements.ruleList){
+          elements.ruleList.querySelectorAll('.db-rule-field').forEach(input=>{
+            input.dispatchEvent(new Event('change'));
+          });
+        }
+        if(elements.titleInput){
+          state.config.title=elements.titleInput.value.trim();
+        }
+        const newPart=elements.selPart?.value||'';
+        const partChanged=newPart && state.config.partField!==newPart;
+        if(newPart){
+          state.config.partField=newPart;
+        }
+        const collected=(tempSubFields||[]).map(value=>String(value||'').trim()).filter(Boolean);
+        const availableSubFields=getAvailableFieldList(state);
+        state.config.subFields=collected.length?collected:[availableSubFields[0]||DEFAULT_SUB_FIELD];
+        const preparedRules=(tempTitleRules||[]).map(rule=>normalizeTitleRule(rule)).map(rule=>({
+          field:(rule.field||'').trim(),
+          operator:normalizeOperator(rule.operator),
+          value:typeof rule.value==='string'?rule.value.trim():(rule.value==null?'':String(rule.value).trim()),
+          text:(rule.text||'').trim()
+        })).filter(rule=>rule.field);
+        state.config.titleRules=preparedRules;
+        state.config.colors={
+          bg:elements.cBg?.value||state.config.colors.bg,
+          item:elements.cItem?.value||state.config.colors.item,
+          title:elements.cTitle?.value||state.config.colors.title,
+          sub:elements.cSub?.value||state.config.colors.sub,
+          active:elements.cActive?.value||state.config.colors.active
+        };
+        refreshTitleBar();
+        applyColors(elements.root,state.config.colors);
+        if(partChanged){
+          state.items.forEach(item=>{
+            const raw=String(item.data?.[newPart]||'').trim();
+            const part=(raw.split(':')[0]||'').trim();
+            item.part=part;
+            item.data={...item.data,[newPart]:part};
+          });
+          state.excluded.clear();
+        }
+        persistState(state,instanceId);
+        if(elements.root?.isConnected){
+          render();
+        }
+      }finally{
+        applyingOptionChanges=false;
+      }
+    }
+
+    function scheduleOptionPersist(immediate=false){
+      if(immediate){
+        if(optionPersistTimer){
+          clearTimeout(optionPersistTimer);
+          optionPersistTimer=null;
+        }
+        applyOptionChanges();
+        return;
+      }
+      if(applyingOptionChanges){
+        return;
+      }
+      if(optionPersistTimer){
+        clearTimeout(optionPersistTimer);
+      }
+      optionPersistTimer=setTimeout(()=>{
+        optionPersistTimer=null;
+        applyOptionChanges();
+      },200);
+    }
+
+    function flushOptionPersist(){
+      if(optionPersistTimer){
+        clearTimeout(optionPersistTimer);
+        optionPersistTimer=null;
+        applyOptionChanges();
+        return true;
+      }
+      return false;
+    }
+
+    const handleBeforeUnload=()=>{
+      flushOptionPersist();
+      persistState(state,instanceId);
+    };
+    window.addEventListener('beforeunload',handleBeforeUnload);
 
     function showAlert(message){
       if(typeof window!=='undefined' && typeof window.alert==='function'){
@@ -1161,7 +1328,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       });
     };
 
-    restoreState(state);
+    restoreState(state,instanceId);
 
     elements.cBg.value=state.config.colors.bg;
     elements.cItem.value=state.config.colors.item;
@@ -1509,7 +1676,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         elements.toggleActive.classList.toggle('is-active',!!state.showActiveList);
         elements.toggleActive.setAttribute('aria-pressed',state.showActiveList?'true':'false');
       }
-      persistState(state);
+      persistState(state,instanceId);
       SHARED.publishAspenItems(instanceId,state.items);
       refreshMenu(elements,state,render);
     }
@@ -1577,6 +1744,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
             tempSubFields[index]='';
             input.value='';
             renderOptions();
+            scheduleOptionPersist();
             return;
           }
           const exact=choices.find(opt=>opt.toLowerCase()===raw.toLowerCase());
@@ -1584,6 +1752,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
             tempSubFields[index]=exact;
             input.value=exact;
             renderOptions();
+            scheduleOptionPersist();
             return;
           }
           const partial=choices.find(opt=>opt.toLowerCase().includes(raw.toLowerCase()));
@@ -1591,10 +1760,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
             tempSubFields[index]=partial;
             input.value=partial;
             renderOptions();
+            scheduleOptionPersist();
             return;
           }
           input.value=tempSubFields[index]||'';
           renderOptions();
+          scheduleOptionPersist();
         };
         input.addEventListener('input',()=>{renderOptions(input.value);});
         input.addEventListener('focus',()=>{renderOptions();});
@@ -1638,6 +1809,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
             tempSubFields[0]='';
           }
           renderSubFieldControls();
+          scheduleOptionPersist();
         });
         row.appendChild(removeBtn);
 
@@ -1683,38 +1855,51 @@ der-radius:.4rem;background:transparent;color:inherit;}
         };
         const commitField=()=>{
           const raw=(fieldInput.value||'').trim();
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
           if(!raw){
-            tempTitleRules[index].field='';
+            target.field='';
             fieldInput.value='';
             renderFieldOptions();
+            scheduleOptionPersist();
             return;
           }
           const lower=raw.toLowerCase();
           const exact=fieldChoices.find(opt=>opt.toLowerCase()===lower);
           if(exact){
-            tempTitleRules[index].field=exact;
+            target.field=exact;
             fieldInput.value=exact;
             renderFieldOptions();
+            scheduleOptionPersist();
             return;
           }
           const partial=fieldChoices.find(opt=>opt.toLowerCase().includes(lower));
           if(partial){
-            tempTitleRules[index].field=partial;
+            target.field=partial;
             fieldInput.value=partial;
             renderFieldOptions();
+            scheduleOptionPersist();
             return;
           }
-          tempTitleRules[index].field=raw;
+          target.field=raw;
           fieldInput.value=raw;
           if(!fieldChoices.includes(raw)){
             fieldChoices.push(raw);
           }
           renderFieldOptions();
+          scheduleOptionPersist();
         };
         renderFieldOptions();
         fieldInput.addEventListener('input',()=>{
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
           renderFieldOptions(fieldInput.value);
-          tempTitleRules[index].field=fieldInput.value;
+          target.field=fieldInput.value;
+          scheduleOptionPersist();
         });
         fieldInput.addEventListener('focus',()=>{renderFieldOptions();});
         fieldInput.addEventListener('change',commitField);
@@ -1743,7 +1928,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
         operatorSelect.innerHTML=operators.map(op=>`<option value="${op.value}" ${op.value===currentOp?'selected':''}>${op.label}</option>`).join('');
         operatorSelect.value=currentOp;
         operatorSelect.addEventListener('change',()=>{
-          tempTitleRules[index].operator=operatorSelect.value;
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
+          target.operator=operatorSelect.value;
+          scheduleOptionPersist();
         });
         row.appendChild(operatorSelect);
 
@@ -1752,7 +1942,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
         valueInput.placeholder='Vergleichswert';
         valueInput.value=normalized.value||'';
         valueInput.addEventListener('input',()=>{
-          tempTitleRules[index].value=valueInput.value;
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
+          target.value=valueInput.value;
+          scheduleOptionPersist();
         });
         row.appendChild(valueInput);
 
@@ -1761,7 +1956,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
         textInput.placeholder='Titelergänzung';
         textInput.value=normalized.text||'';
         textInput.addEventListener('input',()=>{
-          tempTitleRules[index].text=textInput.value;
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
+          target.text=textInput.value;
+          scheduleOptionPersist();
         });
         row.appendChild(textInput);
 
@@ -1773,6 +1973,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         removeBtn.addEventListener('click',()=>{
           tempTitleRules.splice(index,1);
           renderRuleControls();
+          scheduleOptionPersist();
         });
         row.appendChild(removeBtn);
 
@@ -1798,11 +1999,34 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }
     function closeOptions(){
       elements.modal.classList.remove('open');
+      scheduleOptionPersist(true);
       tempSubFields=[];
       tempTitleRules=[];
       closePartSelectDropdown();
       syncPartSelectInputValue();
     }
+
+    if(elements.modal){
+      elements.modal.addEventListener('mousedown',event=>{
+        if(event.target===elements.modal){
+          closeOptions();
+        }
+      });
+    }
+
+    const handleGlobalKeydown=event=>{
+      if(event.key==='Escape'){
+        if(event.defaultPrevented) return;
+        if(elements.modal?.classList.contains('open')){
+          if(partSelectOpen){
+            return;
+          }
+          event.preventDefault();
+          closeOptions();
+        }
+      }
+    };
+    document.addEventListener('keydown',handleGlobalKeydown);
 
     if(elements.addRuleBtn){
       elements.addRuleBtn.addEventListener('click',()=>{
@@ -1810,6 +2034,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         const defaultField=defaults[0]||'';
         tempTitleRules.push(normalizeTitleRule({field:defaultField,operator:'=',value:'',text:''}));
         renderRuleControls();
+        scheduleOptionPersist();
       });
     }
 
@@ -1831,6 +2056,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         tempTitleRules=imported.map(rule=>normalizeTitleRule(rule));
         renderRuleControls();
         showAlert('Regeln importiert.');
+        scheduleOptionPersist(true);
       });
     }
 
@@ -1844,6 +2070,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       const next=candidates.find(field=>!used.has(field))||candidates[0]||DEFAULT_SUB_FIELD;
       tempSubFields.push(next);
       renderSubFieldControls();
+      scheduleOptionPersist();
     });
 
     if(elements.subExportBtn){
@@ -1865,53 +2092,20 @@ der-radius:.4rem;background:transparent;color:inherit;}
         tempSubFields=normalized;
         renderSubFieldControls();
         showAlert(normalized.length?'Untertitel importiert.':'Keine Untertitel-Felder importiert. Es wird der Standard verwendet.');
+        scheduleOptionPersist(true);
       });
     }
 
-    elements.saveBtn.addEventListener('click',()=>{
-      elements.subList.querySelectorAll('.db-sub-input').forEach(input=>{
-        input.dispatchEvent(new Event('change'));
-      });
-      elements.ruleList.querySelectorAll('.db-rule-field').forEach(input=>{
-        input.dispatchEvent(new Event('change'));
-      });
-      state.config.title=elements.titleInput.value.trim();
-      const newPart=elements.selPart.value;
-      const partChanged=state.config.partField!==newPart;
-      state.config.partField=newPart;
-      const collected=(tempSubFields||[]).map(v=>v||'').filter(Boolean);
-      state.config.subFields=collected.length?collected:[getAvailableFieldList(state)[0]||DEFAULT_SUB_FIELD];
-      const preparedRules=(tempTitleRules||[]).map(rule=>normalizeTitleRule(rule)).map(rule=>({
-        field:(rule.field||'').trim(),
-        operator:normalizeOperator(rule.operator),
-        value:typeof rule.value==='string'?rule.value.trim():(rule.value==null?'':String(rule.value).trim()),
-        text:(rule.text||'').trim()
-      })).filter(rule=>rule.field&&rule.text);
-      state.config.titleRules=preparedRules;
-      state.config.colors={
-        bg:elements.cBg.value,
-        item:elements.cItem.value,
-        title:elements.cTitle.value,
-        sub:elements.cSub.value,
-        active:elements.cActive.value
-      };
-      refreshTitleBar();
-      applyColors(elements.root,state.config.colors);
-      if(partChanged){
-        state.items.forEach(item=>{
-          const raw=String(item.data?.[newPart]||'').trim();
-          const part=(raw.split(':')[0]||'').trim();
-          item.part=part;
-          item.data={...item.data,[newPart]:part};
-        });
-        state.excluded.clear();
-      }
-      persistState(state);
-      render();
-      closeOptions();
-    });
+    if(elements.titleInput){
+      elements.titleInput.addEventListener('input',()=>{scheduleOptionPersist();});
+      elements.titleInput.addEventListener('change',()=>{scheduleOptionPersist(true);});
+    }
 
-    elements.closeBtn.addEventListener('click',closeOptions);
+    [elements.cBg,elements.cItem,elements.cTitle,elements.cSub,elements.cActive].forEach(input=>{
+      if(!input) return;
+      input.addEventListener('input',()=>{scheduleOptionPersist();});
+      input.addEventListener('change',()=>{scheduleOptionPersist(true);});
+    });
 
     elements.selPart.addEventListener('change',()=>{
       const newPart=elements.selPart.value;
@@ -1926,7 +2120,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       });
       state.excluded.clear();
       render();
-      persistState(state);
+      persistState(state,instanceId);
       syncPartSelectInputValue();
       if(partSelectOpen){
         renderPartSelectOptions(elements.partSelectInput?.value||'');
@@ -1971,9 +2165,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     const mo=new MutationObserver(()=>{
       if(!document.body.contains(elements.root)){
+        flushOptionPersist();
+        persistState(state,instanceId);
         elements.menu.remove();
         SHARED.clearAspenItems(instanceId);
         stopPolling();
+        window.removeEventListener('beforeunload',handleBeforeUnload);
+        document.removeEventListener('keydown',handleGlobalKeydown);
         mo.disconnect();
       }
     });
