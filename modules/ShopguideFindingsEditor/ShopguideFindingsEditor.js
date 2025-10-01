@@ -203,9 +203,12 @@
       .sfe-item-title{font-weight:600;font-size:0.9rem;}
       .sfe-item-subtitle{font-size:0.78rem;opacity:0.75;max-height:3em;overflow:hidden;}
       .sfe-item mark{background:rgba(252,211,77,0.65);color:inherit;padding:0 0.15rem;border-radius:0.25rem;}
-      .sfe-item-actions{display:flex;align-items:center;gap:0.25rem;}
+      .sfe-item-actions{display:flex;align-items:center;gap:0.25rem;opacity:0;pointer-events:none;transition:opacity 0.12s ease,transform 0.12s ease;transform:translateY(-2px);}
+      .sfe-item:hover .sfe-item-actions,.sfe-item:focus-within .sfe-item-actions{opacity:1;pointer-events:auto;transform:translateY(0);}
       .sfe-item-action{border:none;background:rgba(255,255,255,0.18);color:inherit;padding:0.3rem;border-radius:0.55rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-width:1.75rem;min-height:1.75rem;transition:background 0.12s ease,transform 0.12s ease;}
       .sfe-item-action:hover{background:rgba(255,255,255,0.28);transform:translateY(-1px);}
+      .sfe-item-action--delete{background:rgba(248,113,113,0.22);}
+      .sfe-item-action--delete:hover{background:rgba(248,113,113,0.32);}
       .sfe-item-action:focus-visible{outline:2px solid rgba(59,130,246,0.6);outline-offset:2px;}
       .sfe-editor{flex:2 1 360px;min-width:260px;background:rgba(255,255,255,0.08);border-radius:0.85rem;padding:0.75rem;display:flex;flex-direction:column;gap:0.65rem;min-height:0;}
       .sfe-editor-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;}
@@ -1434,6 +1437,18 @@
           this.duplicateEntry(entry.id);
         });
         actions.appendChild(duplicateBtn);
+        const deleteBtn=document.createElement('button');
+        deleteBtn.type='button';
+        deleteBtn.className='sfe-item-action sfe-item-action--delete';
+        deleteBtn.title='Eintrag löschen';
+        deleteBtn.setAttribute('aria-label',`Eintrag ${labelText} löschen`);
+        deleteBtn.innerHTML='<span aria-hidden="true">🗑</span>';
+        deleteBtn.addEventListener('click',(event)=>{
+          event.preventDefault();
+          event.stopPropagation();
+          this.deleteEntry(entry.id);
+        });
+        actions.appendChild(deleteBtn);
         item.appendChild(actions);
         const selectEntry=()=>{
           this.selectedId=entry.id;
@@ -1832,6 +1847,36 @@
       }
       this.updateSuggestions();
       this.status('Eintrag dupliziert');
+    }
+
+    deleteEntry(id){
+      const index=this.data.findIndex(item=>item.id===id);
+      if(index<0) return;
+      const entry=this.data[index];
+      const label=cleanString(entry.label)||'Ohne Label';
+      const confirmed=window.confirm(`Eintrag "${label}" wirklich löschen?`);
+      if(!confirmed) return;
+      this.pushHistory();
+      const [removed]=this.data.splice(index,1);
+      if(removed){
+        if(this.rawById) this.rawById.delete(removed.id);
+        if(this.partById) this.partById.delete(removed.id);
+      }
+      if(this.selectedId===id){
+        const fallback=this.data[index]||this.data[index-1]||null;
+        this.selectedId=fallback?fallback.id:null;
+      }
+      this.activeHistorySignature=null;
+      this.dirty=true;
+      if(this.searchInput){
+        this.applySearch();
+      }else{
+        this.filtered=[...this.data];
+        this.renderList('');
+        this.renderEditor('');
+      }
+      this.updateSuggestions();
+      this.status('Eintrag gelöscht');
     }
 
     pushHistory(){
