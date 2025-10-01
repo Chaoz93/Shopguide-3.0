@@ -5208,11 +5208,16 @@
           updateFiltered(input.value);
         };
         input.addEventListener('input',event=>{
+          const term=(input.value||'').trim();
           if(pickerState.open){
-            updateFiltered(input.value);
+            if(term){
+              updateFiltered(input.value);
+            }else{
+              closeDropdown();
+            }
             return;
           }
-          if(event.isTrusted&&document.activeElement===input){
+          if(term&&event.isTrusted&&document.activeElement===input){
             openDropdown();
           }
         });
