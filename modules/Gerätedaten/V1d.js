@@ -79,7 +79,7 @@
       'Notif','Notif No','Notif_No','Notif Number'
     ],
     auftrag:[
-      'AUFTRAG','Auftrag','Auftragsnummer','Auftragsnr','Auftrag No','Auftrag_No',
+      'AUFTRAG','Auftrag','Auftragsnummer','Auftragsnr','Auftrag No','Auftrag_No','AUFTRAGS_NO',
       'Order','Order No','Order_No','Order Number','Maintenance Order','Maintenance_Order',
       'Workorder','Work Order','Workorder No','Workorder_No','WO','WO No','WO_No'
     ],
