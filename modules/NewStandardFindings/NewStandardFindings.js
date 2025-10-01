@@ -577,7 +577,23 @@
     tabState.order=updatedOrder;
     state.tabs[targetTab]=tabState;
     storeRoutineEditorState(state);
-    renderRoutineEditor();
+    try{
+      renderRoutineEditor();
+    }catch(err){
+      console.warn('NSF: Routine-Editor konnte nach Custom-Block-Aktualisierung nicht gerendert werden',err);
+    }
+    instances.forEach(instance=>{
+      if(!instance) return;
+      try{
+        const overlay=instance.routineEditorOverlay;
+        if(!overlay||!overlay.classList||!overlay.classList.contains('open')) return;
+        if(typeof instance.renderRoutineEditorOverlayContent==='function'){
+          instance.renderRoutineEditorOverlayContent(targetTab);
+        }
+      }catch(err){
+        console.warn('NSF: Routine-Editor Overlay konnte nicht aktualisiert werden',err);
+      }
+    });
     return {id:blockId,key:customKey,type:blockType,tabKey:targetTab};
   }
 
