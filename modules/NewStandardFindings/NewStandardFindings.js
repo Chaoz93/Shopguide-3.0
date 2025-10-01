@@ -4663,11 +4663,14 @@
     }
 
     renderRoutineEditorOverlayContent(){
-      console.log('[renderRoutineEditorOverlayContent] triggered');
+      const tabKey=this.getActiveRoutineEditorTab();
+      console.log('[renderRoutineEditorOverlayContent] triggered for tabKey:',tabKey);
       if(!this.routineEditorList) return;
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
-      const tabState=this.getRoutineEditorTabState();
+      const tabState=this.getRoutineEditorTabState(tabKey);
+      console.log('[renderRoutineEditorOverlayContent] tabState:',tabState);
+      console.log('[renderRoutineEditorOverlayContent] tabState.customBlocks:',tabState?tabState.customBlocks:undefined);
       const order=this.getRoutineEditorOrder();
       tabState.order=order.slice();
       if(Array.isArray(tabState.hiddenBaseBlocks)){
