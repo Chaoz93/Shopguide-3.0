@@ -3793,11 +3793,40 @@
       });
     }
 
-    ensureRoutineEditorState(){
-      if(!this.routineEditorState||typeof this.routineEditorState!=='object'){
-        this.routineEditorState=loadRoutineEditorState();
+    ensureRoutineEditorState(tabKey){
+      let rawState=this.routineEditorState;
+      if(!rawState||typeof rawState!=='object'){
+        rawState=loadRoutineEditorState();
       }
-      this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
+      const normalized=normalizeRoutineEditorState(rawState);
+      this.routineEditorState=normalized;
+      if(typeof tabKey!=='string'){
+        return this.routineEditorState;
+      }
+      const key=getRoutineEditorTabKey(tabKey);
+      if(!this.routineEditorState.tabs||typeof this.routineEditorState.tabs!=='object'){
+        this.routineEditorState.tabs={};
+      }
+      let tabState=this.routineEditorState.tabs[key];
+      if(!tabState||typeof tabState!=='object'){
+        tabState=createDefaultRoutineEditorTabState(key);
+        this.routineEditorState.tabs[key]=tabState;
+      }
+      let rawTabState=null;
+      if(rawState&&typeof rawState==='object'){
+        if(rawState.tabs&&typeof rawState.tabs==='object'&&rawState.tabs[key]&&typeof rawState.tabs[key]==='object'){
+          rawTabState=rawState.tabs[key];
+        }else if(key==='routine'&&(!rawState.tabs||typeof rawState.tabs!=='object')){
+          rawTabState=rawState;
+        }
+      }
+      if(rawTabState&&Array.isArray(rawTabState.customBlocks)){
+        tabState.customBlocks=rawTabState.customBlocks.slice();
+      }else{
+        tabState.customBlocks=[];
+      }
+      this.routineEditorState.tabs[key]=tabState;
+      return tabState;
     }
 
     getActiveRoutineEditorTab(){
@@ -3805,10 +3834,13 @@
     }
 
     getRoutineEditorTabState(tabKey=this.getActiveRoutineEditorTab()){
-      this.ensureRoutineEditorState();
       const key=getRoutineEditorTabKey(tabKey);
+      const tabState=this.ensureRoutineEditorState(key);
+      if(tabState&&typeof tabState==='object'){
+        return tabState;
+      }
       if(!this.routineEditorState.tabs||typeof this.routineEditorState.tabs!=='object'){
-        this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
+        this.routineEditorState.tabs={};
       }
       if(!this.routineEditorState.tabs[key]){
         this.routineEditorState.tabs[key]=createDefaultRoutineEditorTabState(key);
@@ -4755,7 +4787,7 @@
       if(!this.routineEditorList) return;
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
-      const tabState=this.getRoutineEditorTabState(tabKey);
+      const tabState=this.ensureRoutineEditorState(tabKey);
       console.log('[renderRoutineEditorOverlayContent] tabState:',tabState);
       console.log('[renderRoutineEditorOverlayContent] tabState.customBlocks:',tabState?tabState.customBlocks:undefined);
       const order=this.getRoutineEditorOrder();
