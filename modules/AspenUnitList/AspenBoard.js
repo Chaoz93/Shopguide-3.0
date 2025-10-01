@@ -692,7 +692,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
     root.style.setProperty('--dl-title',colors.title);
     root.style.setProperty('--dl-sub',colors.sub);
     root.style.setProperty('--dl-active',colors.active);
-    const textColor=idealTextColor(colors.bg);
+    const docStyle=getComputedStyle(document.documentElement);
+    const configuredTextColor=docStyle.getPropertyValue('--text-color')?.trim();
+    const textColor=configuredTextColor||idealTextColor(colors.bg);
     root.style.color=textColor;
     root.style.setProperty('--text-color',textColor);
   }
