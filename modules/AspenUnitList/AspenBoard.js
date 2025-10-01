@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const STYLE_ID = 'db-styles';
+  const STYLE_ID = 'aspen-styles';
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
     .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
@@ -34,23 +34,19 @@
     .db-active-wrap[hidden]{display:none;}
     .db-root.db-has-active .db-active-wrap{display:flex;}
     .db-empty{opacity:.6;padding:.25rem .1rem;}
-    .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:
-0 2px 6px rgba(0,0,0,.06);display:flex;align-items:center;gap:.75rem;user-select:none;}
+    .db-card{background:var(--dl-item-bg,#fff);color:var(--dl-sub,#4b5563);border-radius:.8rem;padding:.65rem .75rem;box-shadow:0 2px 6px rgba(0,0,0,.06);display:flex;align-items:center;gap:.75rem;user-select:none;}
     .db-flex{flex:1;display:flex;flex-direction:column;}
     .db-card-header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-card-tags{margin-left:auto;display:flex;flex-wrap:wrap;gap:.35rem;justify-content:flex-end;}
     .db-card-tag{background:rgba(37,99,235,.12);color:var(--dl-title,#2563eb);padding:.1rem .4rem;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap;border:1px solid transparent;}
     .db-title{color:var(--dl-title,#2563eb);font-weight:600;line-height:1.1;}
     .db-sub{color:var(--dl-sub,#4b5563);font-size:.85rem;margin-top:.15rem;}
-    .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;bor
-der-radius:.45rem;background:rgba(0,0,0,.06);cursor:grab;color:inherit;}
+    .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:.45rem;background:rgba(0,0,0,.06);cursor:grab;color:inherit;}
     .db-handle:active{cursor:grabbing;}
     .db-card.active{box-shadow:0 0 0 2px var(--dl-active,#10b981) inset,0 8px 20px rgba(0,0,0,.12);transform:translateY(-1px);}
     .db-ghost{opacity:.4;}
     .db-chosen{transform:scale(1.01);}
-    .db-menu{position:fixed;z-index:2200;display:none;min-width:200px;padding:.25rem;background:var(--sidebar-module-card-bg,#ff
-f);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px
- 24px rgba(0,0,0,.18);}
+    .db-menu{position:fixed;z-index:2200;display:none;min-width:200px;padding:.25rem;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
     .db-menu.open{display:block;}
     .db-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
     .db-menu .mi:hover{background:rgba(0,0,0,.06);}
@@ -61,12 +57,10 @@ f);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-colo
     .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
     .db-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:2150;}
     .db-modal.open{display:flex;}
-    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radiu
-s:.75rem;min-width:260px;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relative;z-index:2210;}
+    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radius:.75rem;min-width:260px;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relative;z-index:2210;}
     .db-panel .row{margin-bottom:.75rem;}
     .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
-    .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);bor
-der-radius:.4rem;background:transparent;color:inherit;}
+    .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
     .db-panel .db-part-select{position:relative;}
     .db-panel .db-part-select::after{content:'▾';position:absolute;right:.6rem;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--dl-sub,#4b5563);font-size:.75rem;}
     .db-part-select-input{width:100%;padding:.35rem 2rem .35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
@@ -77,8 +71,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     .db-part-option:hover,.db-part-option.is-active{background:rgba(37,99,235,.08);}
     .db-part-options .db-empty{padding:.35rem .75rem;}
     .db-sel-part{display:none;}
-    .db-color{width:100%;height:2.25rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;
-}
+    .db-color{width:100%;height:2.25rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;}
     .db-panel .row.subs{display:flex;flex-direction:column;gap:.4rem;}
     .db-sub-list{display:flex;flex-direction:column;gap:.35rem;}
     .db-sub-row{display:flex;gap:.5rem;align-items:center;}
@@ -105,6 +98,88 @@ der-radius:.4rem;background:transparent;color:inherit;}
     .db-row-header .db-rule-label{margin-bottom:0;}
     .db-sub-line+.db-sub-line{margin-top:.15rem;}
     .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
+    .aspenboard .db-modal{
+      background:rgba(10,15,26,.82);
+      backdrop-filter:blur(18px);
+      -webkit-backdrop-filter:blur(18px);
+    }
+    .aspenboard .db-panel,
+    .aspenboard .db-menu{
+      --bg-color:#0a0f1a;
+      --panel-bg:rgba(255,255,255,0.05);
+      --accent-color:#3fa9f5;
+      --text-color:#e5e5e5;
+      --muted-text:rgba(229,229,229,0.7);
+      --border-color:rgba(255,255,255,0.14);
+      --shadow-color:rgba(0,0,0,0.55);
+      background:rgba(10,15,26,.92);
+      backdrop-filter:blur(22px);
+      -webkit-backdrop-filter:blur(22px);
+    }
+    .aspenboard .db-menu{padding:.5rem;color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);}
+    .aspenboard .db-menu .mi{color:inherit;border-radius:.5rem;}
+    .aspenboard .db-menu .mi:hover{background:rgba(63,169,245,.15);}
+    .aspenboard .db-part-filter input{background:rgba(255,255,255,.05);color:var(--text-color);border:1px solid var(--border-color);border-radius:.5rem;}
+    .aspenboard .db-part-filter input:focus{outline:none;border-color:var(--accent-color);box-shadow:0 0 0 3px rgba(63,169,245,.25);}
+    .aspenboard .db-part-list{color:var(--text-color);}
+    .aspenboard .db-panel{color:var(--text-color);border-radius:1rem;border:1px solid var(--border-color);box-shadow:0 18px 36px var(--shadow-color);}
+    .aspenboard .db-panel label{color:var(--muted-text);}
+    .aspenboard .db-panel input[type=text],
+    .aspenboard .db-panel select,
+    .aspenboard .db-part-select-input,
+    .aspenboard .db-sub-input,
+    .aspenboard .db-rule-row select,
+    .aspenboard .db-rule-row input{
+      background:rgba(255,255,255,.04);
+      color:var(--text-color);
+      border:1px solid var(--border-color);
+      border-radius:.5rem;
+    }
+    .aspenboard .db-panel input[type=text]:focus,
+    .aspenboard .db-panel select:focus,
+    .aspenboard .db-part-select-input:focus,
+    .aspenboard .db-sub-input:focus,
+    .aspenboard .db-rule-row select:focus,
+    .aspenboard .db-rule-row input:focus{
+      outline:none;
+      border-color:var(--accent-color);
+      box-shadow:0 0 0 3px rgba(63,169,245,.25);
+    }
+    .aspenboard .db-panel .db-part-select::after{color:var(--muted-text);}
+    .aspenboard .db-part-options{background:rgba(10,15,26,.94);color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
+    .aspenboard .db-part-option{border-radius:.35rem;}
+    .aspenboard .db-part-option:hover,
+    .aspenboard .db-part-option.is-active{background:rgba(63,169,245,.15);}
+    .aspenboard .db-part-options .db-empty{color:var(--muted-text);}
+    .aspenboard .db-color{border:1px solid var(--border-color);border-radius:.5rem;background:rgba(255,255,255,.04);}
+    .aspenboard .db-sub-row button,
+    .aspenboard .db-add-sub,
+    .aspenboard .db-add-rule,
+    .aspenboard .db-panel .actions button{
+      background:var(--accent-color);
+      border:none;
+      border-radius:.5rem;
+      padding:.4rem .8rem;
+      color:#fff;
+      cursor:pointer;
+      transition:opacity .2s ease;
+    }
+    .aspenboard .db-sub-row button:hover,
+    .aspenboard .db-add-sub:hover,
+    .aspenboard .db-add-rule:hover,
+    .aspenboard .db-panel .actions button:hover{opacity:.85;}
+    .aspenboard .db-panel .db-icon-btn{
+      background:rgba(63,169,245,.12);
+      color:var(--text-color);
+      border:1px solid transparent;
+      border-radius:.5rem;
+      padding:.35rem .55rem;
+    }
+    .aspenboard .db-panel .db-icon-btn:hover{background:rgba(63,169,245,.25);}
+    .aspenboard .db-rule-label{color:var(--text-color);}
+    .aspenboard .db-row-header label{color:var(--muted-text);}
+    .aspenboard .db-rule-empty{color:var(--muted-text);}
+    .aspenboard .db-panel .actions{gap:.75rem;}
   `;
 
   const XLSX_URLS = [
@@ -565,7 +640,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
   function createElements(initialTitle){
     const root=document.createElement('div');
-    root.className='db-root';
+    root.className='db-root aspenboard';
     root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
