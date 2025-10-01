@@ -4514,6 +4514,12 @@
       const allowAspen=config&&config.allowAspen!==false;
       const id=createCustomSectionId();
       if(!Array.isArray(tabState.customBlocks)) tabState.customBlocks=[];
+      const currentOrder=this.getRoutineEditorOrder();
+      const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,currentOrder.length);
+      const customInsertIndex=currentOrder
+        .slice(0,clampedIndex)
+        .filter(entry=>typeof entry==='string'&&entry.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX))
+        .length;
       const requestedType=typeof type==='string'?type:'';
       const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
       const entry={
@@ -4546,10 +4552,9 @@
           entry.lines=presetLines;
         }
       }
-      tabState.customBlocks.push(entry);
+      tabState.customBlocks.splice(customInsertIndex,0,entry);
       const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
-      const order=this.getRoutineEditorOrder().filter(entry=>entry!==customKey);
-      const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,order.length);
+      const order=currentOrder.filter(entry=>entry!==customKey);
       order.splice(clampedIndex,0,customKey);
       tabState.order=order;
       this.renderRoutineEditorOverlayContent();
