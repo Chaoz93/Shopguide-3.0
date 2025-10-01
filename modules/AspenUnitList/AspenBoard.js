@@ -3,6 +3,10 @@
   'use strict';
 
   const STYLE_ID = 'aspen-styles';
+  const MAX_EXTRA_COLUMNS=6;
+  const ACTIVE_COLUMN_ID='__active__';
+  const DEFAULT_ACTIVE_COLUMN_LABEL='Aktive Geräte';
+
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
     .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
@@ -19,15 +23,20 @@
     .db-refresh:hover{background:rgba(37,99,235,.08);border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-refresh[hidden]{display:none;}
     .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;}
-    .db-toolbar{display:flex;align-items:center;gap:.5rem;}
-    .db-toggle-active{flex:0 0 auto;padding:.45rem .75rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:var(--dl-title,#2563eb);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
-    .db-toggle-active:hover{background:rgba(37,99,235,.08);}
-    .db-toggle-active.is-active{background:var(--dl-title,#2563eb);color:#fff;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .db-toolbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+    .db-toggle-group{flex:0 0 auto;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
+    .db-toggle-group:empty{display:none;}
+    .db-toggle-btn{flex:0 0 auto;padding:.45rem .75rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:var(--dl-title,#2563eb);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
+    .db-toggle-btn:hover{background:rgba(37,99,235,.08);}
+    .db-toggle-btn.is-active{background:var(--dl-title,#2563eb);color:#fff;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-search{flex:1;padding:.45rem .65rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:#000;font-size:.9rem;transition:border-color .2s ease,box-shadow .2s ease;}
     .db-search:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-search::placeholder{color:#000;opacity:1;}
     .db-lists{flex:1;display:flex;gap:.75rem;min-height:1.5rem;overflow:hidden;}
     .db-list-wrap{flex:1;display:flex;flex-direction:column;gap:.35rem;min-width:0;}
+    .db-list-wrap.is-hidden{display:none;}
+    .db-extra-container{flex:1;display:flex;gap:.75rem;min-width:0;}
+    .db-extra-container:empty{display:none;}
     .db-list-title{font-weight:600;color:var(--dl-sub,#4b5563);padding:0 .1rem;}
     .db-list{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;overflow:auto;padding-right:.25rem;}
     .db-active-wrap{display:none;max-width:50%;}
@@ -82,6 +91,15 @@
     .db-sub-remove{padding:.35rem .55rem;}
     .db-add-sub{align-self:flex-start;padding:.35rem .6rem;}
     .db-panel .row.rules{display:flex;flex-direction:column;gap:.4rem;}
+    .db-panel .row.extras{display:flex;flex-direction:column;gap:.4rem;}
+    .db-extra-config{display:flex;flex-direction:column;gap:.6rem;}
+    .db-extra-count-label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
+    .db-extra-count{width:120px;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-extra-name-list{display:flex;flex-direction:column;gap:.35rem;}
+    .db-extra-name-row{display:flex;flex-direction:column;gap:.35rem;}
+    .db-extra-name-row label{font-size:.8rem;color:var(--dl-sub,#4b5563);display:flex;flex-direction:column;gap:.35rem;}
+    .db-extra-name-label{font-weight:600;}
+    .db-extra-name-row input{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
     .db-rule-label{font-size:.85rem;font-weight:600;}
     .db-rule-list{display:flex;flex-direction:column;gap:.35rem;}
     .db-rule-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,1fr) auto auto;gap:.4rem;align-items:center;}
@@ -144,6 +162,7 @@
     .aspenboard .db-panel{color:var(--text-color);border-radius:1rem;border:1px solid var(--border-color);box-shadow:0 18px 36px var(--shadow-color);}
     .aspenboard .db-panel label{color:var(--muted-text);}
     .aspenboard .db-panel input[type=text],
+    .aspenboard .db-panel input[type=number],
     .aspenboard .db-panel select,
     .aspenboard .db-part-select-input,
     .aspenboard .db-sub-input,
@@ -673,7 +692,7 @@
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root aspenboard';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row extras"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -692,7 +711,9 @@
       list:root.querySelector('.db-main-list'),
       activeWrap:root.querySelector('.db-active-wrap'),
       activeList:root.querySelector('.db-active-list'),
-      toggleActive:root.querySelector('.db-toggle-active'),
+      activeTitle:root.querySelector('.db-active-title'),
+      extraContainer:root.querySelector('.db-extra-container'),
+      toggleGroup:root.querySelector('.db-toggle-group'),
       search:root.querySelector('.db-search'),
       titleBar,
       titleText:root.querySelector('.db-title-text'),
@@ -721,6 +742,8 @@
       cSub:root.querySelector('.db-c-sub'),
       cAccent:root.querySelector('.db-c-accent'),
       cActive:root.querySelector('.db-c-active'),
+      extraCount:root.querySelector('.db-extra-count'),
+      extraNameList:root.querySelector('.db-extra-name-list'),
       menu,
       partList:menu.querySelector('.db-part-list'),
       partFilter:menu.querySelector('.db-part-filter-input')
@@ -735,7 +758,9 @@
         partField:TITLE_FIELD,
         title:initialTitle,
         colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',accent:'#245581',active:'#10b981'},
-        titleRules:[]
+        titleRules:[],
+        extraColumns:[],
+        activeColumn:sanitizeActiveColumn({})
       },
       items:[],
       excluded:new Set(),
@@ -743,7 +768,9 @@
       searchQuery:'',
       partFilter:'',
       activeMeldungen:new Set(),
-      showActiveList:false
+      showActiveList:false,
+      columnAssignments:new Map(),
+      hiddenExtraColumns:new Set()
     };
   }
 
@@ -753,6 +780,114 @@
       config.subFields=[fallback];
       if('subField' in config) delete config.subField;
     }
+  }
+
+  function generateExtraColumnId(){
+    return 'extra-'+Math.random().toString(36).slice(2,9);
+  }
+
+  function sanitizeExtraColumns(columns){
+    if(!Array.isArray(columns)) return [];
+    const sanitized=[];
+    const seen=new Set();
+    for(const entry of columns){
+      if(sanitized.length>=MAX_EXTRA_COLUMNS) break;
+      const source=entry&&typeof entry==='object'?entry:{};
+      let id=typeof source.id==='string'?source.id.trim():'';
+      const label=typeof source.label==='string'?source.label.trim():'';
+      while(!id || seen.has(id)){
+        id=generateExtraColumnId();
+      }
+      seen.add(id);
+      sanitized.push({id,label});
+    }
+    return sanitized;
+  }
+
+  function sanitizeActiveColumn(column){
+    const source=column&&typeof column==='object'?column:{};
+    const label=typeof source.label==='string'?source.label.trim():'';
+    return {id:ACTIVE_COLUMN_ID,label:label||DEFAULT_ACTIVE_COLUMN_LABEL};
+  }
+
+  function ensureExtraColumns(config){
+    if(!config||typeof config!=='object') return;
+    config.extraColumns=sanitizeExtraColumns(config.extraColumns||[]);
+  }
+
+  function ensureActiveColumn(config){
+    if(!config||typeof config!=='object') return;
+    const candidate=config.activeColumn||{label:config.activeColumnLabel};
+    config.activeColumn=sanitizeActiveColumn(candidate);
+    if(Object.prototype.hasOwnProperty.call(config,'activeColumnLabel')){
+      delete config.activeColumnLabel;
+    }
+  }
+
+  function normalizeColumnAssignments(raw){
+    if(raw instanceof Map){
+      return new Map(Array.from(raw.entries()).map(([meldung,column])=>{
+        const key=typeof meldung==='string'?meldung.trim():String(meldung||'').trim();
+        const value=typeof column==='string'?column.trim():String(column||'').trim();
+        return [key,value];
+      }).filter(([meldung,column])=>meldung && column));
+    }
+    const map=new Map();
+    if(raw && typeof raw==='object'){
+      Object.keys(raw).forEach(key=>{
+        const meldung=String(key||'').trim();
+        const column=String(raw[key]||'').trim();
+        if(!meldung || !column) return;
+        map.set(meldung,column);
+      });
+    }
+    return map;
+  }
+
+  function ensureColumnAssignments(state){
+    if(!state||typeof state!=='object') return;
+    const validIds=new Set((state.config?.extraColumns||[]).map(col=>col.id).filter(Boolean));
+    const normalized=normalizeColumnAssignments(state.columnAssignments);
+    if(!validIds.size){
+      state.columnAssignments=new Map();
+      return;
+    }
+    const filtered=new Map();
+    normalized.forEach((column,meldung)=>{
+      if(validIds.has(column)) filtered.set(meldung,column);
+    });
+    state.columnAssignments=filtered;
+  }
+
+  function ensureHiddenExtraColumns(state){
+    if(!state||typeof state!=='object') return;
+    const validIds=new Set((state.config?.extraColumns||[]).map(col=>col.id).filter(Boolean));
+    const current=state.hiddenExtraColumns;
+    const raw=Array.isArray(current)?current:current instanceof Set?Array.from(current):[];
+    const sanitized=new Set(raw.map(id=>String(id||'').trim()).filter(id=>id && validIds.has(id)));
+    state.hiddenExtraColumns=sanitized;
+  }
+
+  function columnAssignmentsToObject(assignments){
+    const output={};
+    if(assignments instanceof Map){
+      assignments.forEach((column,meldung)=>{
+        const key=String(meldung||'').trim();
+        const value=String(column||'').trim();
+        if(!key || !value) return;
+        output[key]=value;
+      });
+      return output;
+    }
+    if(assignments && typeof assignments==='object'){
+      Object.keys(assignments).forEach(key=>{
+        const meldung=String(key||'').trim();
+        const value=String(assignments[key]||'').trim();
+        if(!meldung || !value) return;
+        output[meldung]=value;
+      });
+    }
+    return output;
   }
 
   function normalizeOperator(value){
@@ -832,10 +967,14 @@
           partField:saved.config.partField||state.config.partField,
           title:typeof saved.config.title==='string'?saved.config.title:state.config.title,
           colors,
-          titleRules:savedRules
+          titleRules:savedRules,
+          extraColumns:sanitizeExtraColumns(saved.config.extraColumns||state.config.extraColumns||[]),
+          activeColumn:sanitizeActiveColumn(saved.config.activeColumn||{label:saved.config.activeColumnLabel||state.config.activeColumn?.label})
         };
       }
       ensureSubFields(state.config);
+      ensureExtraColumns(state.config);
+      ensureActiveColumn(state.config);
       if(Array.isArray(saved.items)) state.items=dedupeByMeldung(saved.items);
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
@@ -846,6 +985,12 @@
         state.activeMeldungen=new Set(normalized);
       }
       if(typeof saved.showActiveList==='boolean') state.showActiveList=!!saved.showActiveList;
+      if(Array.isArray(saved.hiddenExtraColumns)){
+        state.hiddenExtraColumns=new Set(saved.hiddenExtraColumns.map(id=>String(id||'').trim()).filter(Boolean));
+      }
+      state.columnAssignments=normalizeColumnAssignments(saved.columnAssignments);
+      ensureColumnAssignments(state);
+      ensureHiddenExtraColumns(state);
       const sortField=primarySubField(state.config);
       state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
     }catch(e){/* ignore */}
@@ -861,6 +1006,10 @@
 
   function persistState(state,instanceId){
     state.items=dedupeByMeldung(state.items);
+    ensureExtraColumns(state.config);
+    ensureActiveColumn(state.config);
+    ensureColumnAssignments(state);
+    ensureHiddenExtraColumns(state);
     const payload={
       fields:Array.isArray(state.fields)?state.fields.slice():[],
       config:{
@@ -868,7 +1017,9 @@
         partField:state.config.partField,
         title:state.config.title,
         colors:{...state.config.colors},
-        titleRules:Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[]
+        titleRules:Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[],
+        extraColumns:Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[],
+        activeColumn:{...sanitizeActiveColumn(state.config.activeColumn)}
       },
       items:Array.isArray(state.items)?state.items.slice():[],
       excluded:Array.from(state.excluded),
@@ -876,7 +1027,9 @@
       searchQuery:state.searchQuery||'',
       partFilter:state.partFilter||'',
       activeMeldungen:Array.from(state.activeMeldungen||[]).map(val=>String(val||'').trim()).filter(Boolean),
-      showActiveList:!!state.showActiveList
+      showActiveList:!!state.showActiveList,
+      columnAssignments:columnAssignmentsToObject(state.columnAssignments),
+      hiddenExtraColumns:Array.from(state.hiddenExtraColumns||[])
     };
     let serialized=null;
     try{
@@ -897,7 +1050,9 @@
             ...payload.config,
             subFields:payload.config.subFields.slice(),
             colors:{...payload.config.colors},
-            titleRules:payload.config.titleRules.map(rule=>({...rule}))
+            titleRules:payload.config.titleRules.map(rule=>({...rule})),
+            extraColumns:payload.config.extraColumns.map(col=>({...col})),
+            activeColumn:{...payload.config.activeColumn}
           },
           items:payload.items.map(item=>{
             if(!item||typeof item!=='object') return item;
@@ -913,7 +1068,9 @@
           searchQuery:payload.searchQuery,
           partFilter:payload.partFilter,
           activeMeldungen:payload.activeMeldungen.slice(),
-          showActiveList:payload.showActiveList
+          showActiveList:payload.showActiveList,
+          columnAssignments:{...payload.columnAssignments},
+          hiddenExtraColumns:payload.hiddenExtraColumns.slice()
         };
       }
       snapshot.instanceId=instanceId;
@@ -1328,6 +1485,7 @@
     const initialTitle=opts?.moduleJson?.settings?.title||'';
     const elements=createElements(initialTitle);
     targetDiv.appendChild(elements.root);
+    elements.extraWraps=[];
     elements.list.dataset.boardType='aspen-unit';
     if(elements.activeList) elements.activeList.dataset.boardType='aspen-active';
 
@@ -1338,6 +1496,8 @@
     let fileHandle=null;
     let tempSubFields=[];
     let tempTitleRules=[];
+    let tempExtraColumns=[];
+    let tempActiveColumnLabel='';
     let partOptions=[];
     let filteredPartOptions=[];
     let partSelectOpen=false;
@@ -1345,6 +1505,9 @@
     let partSelectOutsideHandler=null;
     let optionPersistTimer=null;
     let applyingOptionChanges=false;
+    const extraSortableInstances=new Map();
+    let baseSortableConfig=null;
+    let lastExtraSignature=null;
 
     function applyOptionChanges(){
       if(applyingOptionChanges) return;
@@ -1387,6 +1550,16 @@
           accent:elements.cAccent?.value||state.config.colors.accent,
           active:elements.cActive?.value||state.config.colors.active
         };
+        const activeLabel=String(tempActiveColumnLabel||'').trim();
+        state.config.activeColumn=sanitizeActiveColumn({label:activeLabel});
+        const sanitizedExtras=sanitizeExtraColumns(tempExtraColumns);
+        state.config.extraColumns=sanitizedExtras;
+        tempExtraColumns=sanitizedExtras.map(col=>({...col}));
+        ensureColumnAssignments(state);
+        ensureHiddenExtraColumns(state);
+        if(elements.modal?.classList.contains('open')){
+          renderExtraControls();
+        }
         refreshTitleBar();
         applyColors(elements.root,state.config.colors);
         if(partChanged){
@@ -1766,13 +1939,6 @@
       });
     }
 
-    if(elements.toggleActive){
-      elements.toggleActive.addEventListener('click',()=>{
-        state.showActiveList=!state.showActiveList;
-        render();
-      });
-    }
-
     function populateFieldSelects(){
       ensureSubFields(state.config);
       const options=getAvailableFieldList(state,[state.config.partField]);
@@ -1791,12 +1957,165 @@
       }
     }
 
+    function setupExtraSortables(){
+      if(!baseSortableConfig || typeof Sortable==='undefined'){
+        return;
+      }
+      const wraps=Array.isArray(elements.extraWraps)?elements.extraWraps:[];
+      if(!wraps.length){
+        extraSortableInstances.forEach(instance=>instance.destroy());
+        extraSortableInstances.clear();
+        return;
+      }
+      const desired=new Map(wraps.map(wrap=>[wrap.id,wrap]));
+      extraSortableInstances.forEach((instance,id)=>{
+        if(!desired.has(id)){
+          instance.destroy();
+          extraSortableInstances.delete(id);
+        }
+      });
+      desired.forEach((wrap,id)=>{
+        if(extraSortableInstances.has(id)) return;
+        const sortable=new Sortable(wrap.list,{
+          ...baseSortableConfig,
+          onSort:()=>{syncFromDOM();render();},
+          onAdd:()=>{syncFromDOM();render();},
+          onRemove:()=>{syncFromDOM();render();}
+        });
+        extraSortableInstances.set(id,sortable);
+      });
+    }
+
+    function ensureExtraListElements(){
+      ensureExtraColumns(state.config);
+      const columns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
+      const signature=columns.map(col=>`${col.id}:${col.label}`).join('|');
+      if(signature===lastExtraSignature && Array.isArray(elements.extraWraps)){
+        columns.forEach((column,index)=>{
+          const wrap=elements.extraWraps[index];
+          if(!wrap) return;
+          wrap.title.textContent=column.label||`Extraspalte ${index+1}`;
+          wrap.list.dataset.columnId=column.id;
+          wrap.wrap.dataset.columnId=column.id;
+        });
+        if(!columns.length){
+          if(elements.extraContainer){
+            elements.extraContainer.innerHTML='';
+          }
+          elements.extraWraps=[];
+          extraSortableInstances.forEach(instance=>instance.destroy());
+          extraSortableInstances.clear();
+        }
+        return;
+      }
+      lastExtraSignature=signature;
+      extraSortableInstances.forEach(instance=>instance.destroy());
+      extraSortableInstances.clear();
+      if(elements.extraContainer){
+        elements.extraContainer.innerHTML='';
+      }
+      const wraps=[];
+      columns.forEach((column,index)=>{
+        const wrap=document.createElement('div');
+        wrap.className='db-list-wrap db-extra-wrap';
+        wrap.dataset.columnId=column.id;
+        const title=document.createElement('div');
+        title.className='db-list-title';
+        title.textContent=column.label||`Extraspalte ${index+1}`;
+        const list=document.createElement('div');
+        list.className='db-list db-extra-list';
+        list.dataset.boardType='aspen-extra';
+        list.dataset.columnId=column.id;
+        wrap.appendChild(title);
+        wrap.appendChild(list);
+        elements.extraContainer?.appendChild(wrap);
+        wraps.push({id:column.id,wrap,list,title});
+      });
+      elements.extraWraps=wraps;
+      if(baseSortableConfig){
+        setupExtraSortables();
+      }
+    }
+
+    function handleToggleButtonClick(event){
+      event.preventDefault();
+      const button=event.currentTarget;
+      if(!button) return;
+      const columnId=button.dataset?.columnId||'';
+      const columnType=button.dataset?.columnType||'extra';
+      if(!columnId) return;
+      ensureHiddenExtraColumns(state);
+      if(columnType==='active'){
+        state.showActiveList=!state.showActiveList;
+      }else{
+        if(!(state.hiddenExtraColumns instanceof Set)){
+          state.hiddenExtraColumns=new Set();
+        }
+        if(state.hiddenExtraColumns.has(columnId)){
+          state.hiddenExtraColumns.delete(columnId);
+        }else{
+          state.hiddenExtraColumns.add(columnId);
+        }
+      }
+      render();
+    }
+
+    function ensureExtraToggleButtons(){
+      if(!elements.toggleGroup) return;
+      ensureActiveColumn(state.config);
+      const extras=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
+      const definitions=[
+        {
+          id:ACTIVE_COLUMN_ID,
+          kind:'active',
+          label:state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL
+        },
+        ...extras.map((column,index)=>({
+          id:column.id,
+          kind:'extra',
+          label:column.label||`Extraspalte ${index+1}`
+        }))
+      ];
+      const existing=new Map(Array.from(elements.toggleGroup.querySelectorAll('.db-toggle-btn')).map(btn=>[btn.dataset.columnId,btn]));
+      const seen=new Set();
+      const hiddenSet=state.hiddenExtraColumns instanceof Set?state.hiddenExtraColumns:new Set();
+      definitions.forEach(def=>{
+        seen.add(def.id);
+        let button=existing.get(def.id);
+        if(!button){
+          button=document.createElement('button');
+          button.type='button';
+          button.className='db-toggle-btn';
+          button.dataset.columnId=def.id;
+          button.dataset.columnType=def.kind;
+          button.addEventListener('click',handleToggleButtonClick);
+          elements.toggleGroup.appendChild(button);
+          existing.set(def.id,button);
+        }
+        button.dataset.columnType=def.kind;
+        button.textContent=def.label;
+        const isActive=def.kind==='active'?!!state.showActiveList:!hiddenSet.has(def.id);
+        button.classList.toggle('is-active',isActive);
+        button.setAttribute('aria-pressed',isActive?'true':'false');
+        elements.toggleGroup.appendChild(button);
+      });
+      existing.forEach((button,id)=>{
+        if(!seen.has(id)){
+          button.remove();
+        }
+      });
+      elements.toggleGroup.hidden=definitions.length===0;
+    }
+
     function syncFromDOM(){
       const existing=new Map(state.items.map(item=>[item.id,item]));
       const orderedMain=[];
       const orderedActive=[];
+      const orderedExtras=[];
       const seen=new Set();
-      const collect=(container,target)=>{
+      const newAssignments=new Map();
+      const activeMeldungen=new Set();
+      const collect=(container,target,columnId)=>{
         if(!container) return;
         container.querySelectorAll('.db-card').forEach(node=>{
           const id=node.dataset.id||('it-'+Math.random().toString(36).slice(2));
@@ -1820,14 +2139,29 @@
             item={id,part,meldung,data};
           }
           target.push(item);
+          if(meldung){
+            if(columnId===ACTIVE_COLUMN_ID){
+              activeMeldungen.add(meldung);
+            }else if(columnId){
+              newAssignments.set(meldung,columnId);
+            }
+          }
           seen.add(id);
         });
       };
       collect(elements.list,orderedMain);
-      collect(elements.activeList,orderedActive);
+      if(Array.isArray(elements.extraWraps)){
+        elements.extraWraps.forEach(wrap=>{
+          if(!wrap?.list || !wrap?.id) return;
+          collect(wrap.list,orderedExtras,wrap.id);
+        });
+      }
+      collect(elements.activeList,orderedActive,ACTIVE_COLUMN_ID);
       const remaining=state.items.filter(item=>!seen.has(item.id));
-      state.items=dedupeByMeldung([...orderedMain,...orderedActive,...remaining]);
-      state.activeMeldungen=new Set(orderedActive.map(item=>item.meldung).filter(Boolean));
+      state.items=dedupeByMeldung([...orderedMain,...orderedExtras,...orderedActive,...remaining]);
+      state.activeMeldungen=activeMeldungen;
+      state.columnAssignments=newAssignments;
+      ensureColumnAssignments(state);
     }
 
     function render(){
@@ -1835,18 +2169,57 @@
       if(!(state.activeMeldungen instanceof Set)){
         state.activeMeldungen=new Set(Array.isArray(state.activeMeldungen)?state.activeMeldungen:[]);
       }
+      ensureExtraColumns(state.config);
+      ensureActiveColumn(state.config);
+      ensureColumnAssignments(state);
+      ensureHiddenExtraColumns(state);
+      ensureExtraListElements();
+      ensureExtraToggleButtons();
       refreshTitleBar();
       if(elements.search){
         elements.search.value=state.searchQuery||'';
       }
       const activeSet=state.activeMeldungen;
-      const activeItems=state.items.filter(item=>activeSet.has(item.meldung));
-      const mainItems=state.items.filter(item=>{
-        if(state.showActiveList && activeSet.has(item.meldung)) return false;
-        return true;
+      const assignments=state.columnAssignments instanceof Map?state.columnAssignments:new Map();
+      const extraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
+      const hiddenExtras=state.hiddenExtraColumns instanceof Set?state.hiddenExtraColumns:new Set();
+      const extraBuckets=new Map(extraColumns.map(col=>[col.id,[]]));
+      const activeItems=[];
+      const mainItems=[];
+      state.items.forEach(item=>{
+        const meldung=item.meldung;
+        const assigned=meldung?assignments.get(meldung):undefined;
+        if(assigned && extraBuckets.has(assigned)){
+          extraBuckets.get(assigned).push(item);
+          return;
+        }
+        if(activeSet.has(meldung)){
+          activeItems.push(item);
+          if(state.showActiveList){
+            return;
+          }
+        }
+        mainItems.push(item);
       });
       renderListSection(elements.list,state,mainItems,{emptyMessage:'Keine Geräte'});
+      if(Array.isArray(elements.extraWraps)){
+        elements.extraWraps.forEach((wrap,index)=>{
+          const column=extraColumns[index];
+          if(!wrap || !column) return;
+          wrap.title.textContent=column.label||`Extraspalte ${index+1}`;
+          wrap.list.dataset.columnId=column.id;
+          if(wrap.wrap){
+            const isHidden=hiddenExtras.has(column.id);
+            wrap.wrap.hidden=isHidden;
+            wrap.wrap.classList.toggle('is-hidden',isHidden);
+          }
+          renderListSection(wrap.list,state,extraBuckets.get(column.id)||[],{emptyMessage:'Keine Geräte'});
+        });
+      }
       if(elements.activeWrap && elements.activeList){
+        if(elements.activeTitle){
+          elements.activeTitle.textContent=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
+        }
         elements.activeWrap.hidden=!state.showActiveList;
         renderListSection(elements.activeList,state,activeItems,{
           emptyMessage:'Keine aktiven Geräte',
@@ -1855,10 +2228,6 @@
         });
       }
       elements.root.classList.toggle('db-has-active',!!state.showActiveList);
-      if(elements.toggleActive){
-        elements.toggleActive.classList.toggle('is-active',!!state.showActiveList);
-        elements.toggleActive.setAttribute('aria-pressed',state.showActiveList?'true':'false');
-      }
       persistState(state,instanceId);
       SHARED.publishAspenItems(instanceId,state.items);
       refreshMenu(elements,state,render);
@@ -1998,6 +2367,172 @@
 
         elements.subList.appendChild(row);
       });
+    }
+
+    function updateTempColumnLabel(columnId,value){
+      if(!columnId) return;
+      if(columnId===ACTIVE_COLUMN_ID){
+        tempActiveColumnLabel=value;
+        return;
+      }
+      const index=tempExtraColumns.findIndex(col=>col.id===columnId);
+      if(index===-1) return;
+      tempExtraColumns[index]={...tempExtraColumns[index],label:value};
+    }
+
+    function getTempColumnDisplayInfo(columnId){
+      if(!columnId){
+        return null;
+      }
+      if(columnId===ACTIVE_COLUMN_ID){
+        const raw=typeof tempActiveColumnLabel==='string'?tempActiveColumnLabel:'';
+        const label=raw.trim()||DEFAULT_ACTIVE_COLUMN_LABEL;
+        return {kind:'active',label,index:-1};
+      }
+      const index=tempExtraColumns.findIndex(col=>col.id===columnId);
+      if(index===-1){
+        return null;
+      }
+      const column=tempExtraColumns[index]||{};
+      const rawLabel=typeof column.label==='string'?column.label:'';
+      const label=rawLabel.trim()||`Extraspalte ${index+1}`;
+      return {kind:'extra',label,index};
+    }
+
+    function updateTempColumnPreview(columnId){
+      const info=getTempColumnDisplayInfo(columnId);
+      if(!info){
+        return;
+      }
+      if(info.kind==='active'){
+        if(elements.activeTitle){
+          elements.activeTitle.textContent=info.label;
+        }
+      }else if(Array.isArray(elements.extraWraps)){
+        const wrap=elements.extraWraps[info.index];
+        if(wrap?.title){
+          wrap.title.textContent=info.label;
+        }
+      }
+      if(elements.toggleGroup){
+        elements.toggleGroup.querySelectorAll('.db-toggle-btn').forEach(btn=>{
+          if(btn.dataset?.columnId===columnId){
+            btn.textContent=info.label;
+          }
+        });
+      }
+    }
+
+    function handleExtraNameInput(event){
+      const input=event.target;
+      if(!input || typeof input.value!=='string') return;
+      const columnId=input.dataset?.columnId||'';
+      if(!columnId) return;
+      updateTempColumnLabel(columnId,input.value);
+      updateTempColumnPreview(columnId);
+    }
+
+    function handleExtraNameCommit(event){
+      const input=event.target;
+      if(!input || typeof input.value!=='string') return;
+      const columnId=input.dataset?.columnId||'';
+      if(!columnId) return;
+      updateTempColumnLabel(columnId,input.value);
+      updateTempColumnPreview(columnId);
+      scheduleOptionPersist(true);
+    }
+
+    function renderExtraControls(){
+      const sanitized=sanitizeExtraColumns(tempExtraColumns);
+      tempExtraColumns=sanitized.map(col=>({...col}));
+      if(elements.extraCount){
+        elements.extraCount.value=String(tempExtraColumns.length);
+      }
+      if(!elements.extraNameList){
+        return;
+      }
+      const fallbackActiveLabel=state.config?.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
+      if(typeof tempActiveColumnLabel!=='string'){
+        tempActiveColumnLabel=fallbackActiveLabel;
+      }
+      const desired=[
+        {
+          id:ACTIVE_COLUMN_ID,
+          kind:'active',
+          labelText:'Aktive Geräte',
+          value:tempActiveColumnLabel,
+          placeholder:'Name der aktiven Spalte'
+        },
+        ...tempExtraColumns.map((column,index)=>({
+          id:column.id,
+          kind:'extra',
+          labelText:`Spalte ${index+1}`,
+          value:column.label||'',
+          placeholder:'Name der Extraspalte'
+        }))
+      ];
+      const existingRows=new Map(Array.from(elements.extraNameList.children).map(row=>[row.dataset.columnId,row]));
+      const seenIds=new Set();
+      desired.forEach(def=>{
+        seenIds.add(def.id);
+        let row=existingRows.get(def.id);
+        if(!row){
+          row=document.createElement('div');
+          row.className='db-extra-name-row';
+          row.dataset.columnId=def.id;
+          const label=document.createElement('label');
+          const span=document.createElement('span');
+          span.className='db-extra-name-label';
+          label.appendChild(span);
+          const input=document.createElement('input');
+          input.type='text';
+          input.dataset.columnId=def.id;
+          input.dataset.columnType=def.kind;
+          input.addEventListener('input',handleExtraNameInput);
+          input.addEventListener('change',handleExtraNameCommit);
+          label.appendChild(input);
+          row.appendChild(label);
+          elements.extraNameList.appendChild(row);
+        }
+        row.dataset.columnId=def.id;
+        const labelSpan=row.querySelector('.db-extra-name-label');
+        if(labelSpan) labelSpan.textContent=def.labelText;
+        const input=row.querySelector('input');
+        if(input){
+          input.dataset.columnId=def.id;
+          input.dataset.columnType=def.kind;
+          input.placeholder=def.placeholder;
+          if(document.activeElement!==input){
+            input.value=def.value||'';
+          }
+        }
+        elements.extraNameList.appendChild(row);
+      });
+      Array.from(elements.extraNameList.children).forEach(row=>{
+        if(!seenIds.has(row.dataset.columnId)){
+          row.remove();
+        }
+      });
+    }
+
+    function setExtraColumnCount(nextCount,immediate=false){
+      const desired=Number.isFinite(nextCount)?nextCount:tempExtraColumns.length;
+      const clamped=clamp(Math.round(desired),0,MAX_EXTRA_COLUMNS);
+      if(clamped===tempExtraColumns.length){
+        if(elements.extraCount){
+          elements.extraCount.value=String(clamped);
+        }
+        return;
+      }
+      if(clamped>tempExtraColumns.length){
+        for(let i=tempExtraColumns.length;i<clamped;i+=1){
+          tempExtraColumns.push({id:generateExtraColumnId(),label:''});
+        }
+      }else{
+        tempExtraColumns=tempExtraColumns.slice(0,clamped);
+      }
+      renderExtraControls();
+      scheduleOptionPersist(immediate);
     }
 
     function renderRuleControls(){
@@ -2193,8 +2728,11 @@
       closePartSelectDropdown();
       tempSubFields=Array.isArray(state.config.subFields)?state.config.subFields.slice():[];
       tempTitleRules=Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[];
+      tempExtraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[];
+      tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       populateFieldSelects();
       renderSubFieldControls();
+      renderExtraControls();
       renderRuleControls();
       elements.titleInput.value=state.config.title||'';
       elements.cBg.value=state.config.colors.bg;
@@ -2211,6 +2749,8 @@
       scheduleOptionPersist(true);
       tempSubFields=[];
       tempTitleRules=[];
+      tempExtraColumns=[];
+      tempActiveColumnLabel='';
       closePartSelectDropdown();
       syncPartSelectInputValue();
     }
@@ -2305,6 +2845,23 @@
       });
     }
 
+    if(elements.extraCount){
+      elements.extraCount.value=String(tempExtraColumns.length||0);
+      elements.extraCount.addEventListener('input',()=>{
+        const value=parseInt(elements.extraCount.value,10);
+        if(Number.isNaN(value)) return;
+        setExtraColumnCount(value,false);
+      });
+      elements.extraCount.addEventListener('change',()=>{
+        const value=parseInt(elements.extraCount.value,10);
+        if(Number.isNaN(value)){
+          elements.extraCount.value=String(tempExtraColumns.length||0);
+          return;
+        }
+        setExtraColumnCount(value,true);
+      });
+    }
+
     if(elements.titleInput){
       elements.titleInput.addEventListener('input',()=>{scheduleOptionPersist();});
       elements.titleInput.addEventListener('change',()=>{scheduleOptionPersist(true);});
@@ -2354,6 +2911,9 @@
     elements.list.addEventListener('click',handleCardClick);
     if(elements.activeList){
       elements.activeList.addEventListener('click',handleCardClick);
+    }
+    if(elements.extraContainer){
+      elements.extraContainer.addEventListener('click',handleCardClick);
     }
 
     elements.menu.addEventListener('click',e=>e.stopPropagation());
@@ -2462,6 +3022,15 @@
         const availableMeldungen=new Set(deduped.map(item=>item.meldung).filter(Boolean));
         const prevActive=state.activeMeldungen instanceof Set?Array.from(state.activeMeldungen):Array.isArray(state.activeMeldungen)?state.activeMeldungen:[];
         state.activeMeldungen=new Set(prevActive.filter(meldung=>availableMeldungen.has(meldung)));
+        ensureExtraColumns(state.config);
+        ensureColumnAssignments(state);
+        const filteredAssignments=new Map();
+        state.columnAssignments.forEach((column,meldung)=>{
+          if(availableMeldungen.has(meldung)){
+            filteredAssignments.set(meldung,column);
+          }
+        });
+        state.columnAssignments=filteredAssignments;
         const availableParts=new Set(deduped.map(item=>item.part).filter(Boolean));
         if(!(state.excluded instanceof Set)){
           state.excluded=new Set(Array.isArray(state.excluded)?state.excluded:[]);
@@ -2496,7 +3065,7 @@
     }
 
     await ensureSortable();
-    const sortableConfig={
+    baseSortableConfig={
       group:{name:GROUP_NAME,pull:true,put:true},
       animation:150,
       handle:'.db-handle',
@@ -2505,7 +3074,7 @@
       chosenClass:'db-chosen'
     };
     new Sortable(elements.list,{
-      ...sortableConfig,
+      ...baseSortableConfig,
       onSort:()=>{syncFromDOM();render();},
       onAdd:evt=>{
         syncFromDOM();
@@ -2518,12 +3087,14 @@
     });
     if(elements.activeList){
       new Sortable(elements.activeList,{
-        ...sortableConfig,
+        ...baseSortableConfig,
         onSort:()=>{syncFromDOM();render();},
         onAdd:()=>{syncFromDOM();render();},
         onRemove:()=>{syncFromDOM();render();}
       });
     }
+
+    setupExtraSortables();
 
     if(!fileHandle){
       try{
