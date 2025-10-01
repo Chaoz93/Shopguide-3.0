@@ -4254,9 +4254,9 @@
       }
     }
 
-    getRoutineEditorOrder(){
-      const tabState=this.getRoutineEditorTabState();
-      const baseBlocks=this.getRoutineEditorBaseBlocks();
+    getRoutineEditorOrder(tabKey=this.getActiveRoutineEditorTab()){
+      const tabState=this.getRoutineEditorTabState(tabKey);
+      const baseBlocks=this.getRoutineEditorBaseBlocks(tabKey);
       const allowedKeys=new Set(baseBlocks.map(block=>block.key));
       const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
       const customKeys=new Set(customBlocks.map(block=>`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`));
@@ -4508,40 +4508,57 @@
       return Math.max(0,Number.isFinite(length)?length:0);
     }
 
-    addRoutineEditorCustomBlockAt(index,type='text',options={}){
-      const tabState=this.getRoutineEditorTabState();
-      const config=this.getRoutineEditorTabConfig();
+    addCustomBlock(tabKey,type='text',options={}){
+      const targetTab=getRoutineEditorTabKey(tabKey);
+      this.ensureRoutineEditorState();
+      const tabState=this.getRoutineEditorTabState(targetTab);
+      const config=this.getRoutineEditorTabConfig(targetTab);
       const allowAspen=config&&config.allowAspen!==false;
+      const requestedType=typeof type==='string'?type:'';
+      const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
       const id=createCustomSectionId();
-      const currentOrder=this.getRoutineEditorOrder();
-      const sanitizedOrder=currentOrder.filter(entry=>entry!==`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`);
-      const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,sanitizedOrder.length);
+      const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
+      const currentOrder=this.getRoutineEditorOrder(targetTab);
+      const sanitizedOrder=currentOrder.filter(entry=>entry!==customKey);
+      let desiredIndex=options.insertIndex;
+      if(typeof desiredIndex==='string'&&desiredIndex.trim()!==''){
+        const parsed=Number.parseInt(desiredIndex,10);
+        desiredIndex=Number.isNaN(parsed)?desiredIndex:parsed;
+      }
+      const insertIndex=Number.isFinite(desiredIndex)
+        ?this.normalizeRoutineEditorInsertIndex(desiredIndex,sanitizedOrder.length)
+        :sanitizedOrder.length;
       const existingCustomBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
       const existingMap=new Map(existingCustomBlocks
         .map(block=>block&&typeof block.id==='string'?[block.id,block]:null)
         .filter(Boolean));
-      const requestedType=typeof type==='string'?type:'';
-      const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
       const entry={
         id,
         type:blockType,
-        label:blockType==='text'?sanitizeRoutineEditorLabel(options.label||''):'',
+        label:'',
         aspenField:'',
-        parameterKey:blockType==='text'&&typeof options.parameterKey==='string'?options.parameterKey.trim():'',
+        parameterKey:'',
         lines:['']
       };
+      let label=sanitizeRoutineEditorLabel(options.label||'');
       if(blockType==='aspen'){
         if(!this.hasAspenDoc&&this.aspenFileInput){
           this.aspenFileInput.click();
         }
-        if(this.hasAspenDoc){
-          const defaultField=this.getDefaultAspenFieldKey();
-          if(defaultField){
-            entry.aspenField=defaultField;
-            entry.lines=[this.resolveAspenFieldValue(defaultField)];
-          }
+        const preferredField=typeof options.aspenField==='string'?options.aspenField.trim():'';
+        const defaultField=preferredField||this.getDefaultAspenFieldKey();
+        entry.aspenField=defaultField||'';
+        const value=this.resolveAspenFieldValue(entry.aspenField);
+        entry.lines=[value||''];
+        if(!label){
+          label='Aspendaten';
         }
-      }else if(blockType==='text'){
+      }else if(blockType==='linebreak'){
+        entry.lines=[''];
+        if(!label){
+          label='Zeilenumbruch';
+        }
+      }else{
         let presetLines=null;
         if(options&&Array.isArray(options.lines)){
           presetLines=options.lines.map(value=>typeof value==='string'?value:'');
@@ -4551,10 +4568,14 @@
         if(Array.isArray(presetLines)&&presetLines.length){
           entry.lines=presetLines;
         }
+        entry.parameterKey=typeof options.parameterKey==='string'?options.parameterKey.trim():'';
       }
-      const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
+      entry.label=label;
+      if(blockType!=='text'){
+        entry.parameterKey='';
+      }
       const order=sanitizedOrder.slice();
-      order.splice(clampedIndex,0,customKey);
+      order.splice(insertIndex,0,customKey);
       const orderedCustomBlocks=[];
       order.forEach(key=>{
         if(!key||typeof key!=='string'||!key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return;
@@ -4572,17 +4593,53 @@
       existingMap.forEach(block=>{
         if(block) orderedCustomBlocks.push(block);
       });
+      if(blockType==='text'){
+        if(!entry.lines.length) entry.lines=[''];
+        if(!entry.label){
+          let counter=0;
+          for(const block of orderedCustomBlocks){
+            if(!block||block.type!=='text') continue;
+            counter+=1;
+            if(block.id===id){
+              block.label=`Textfeld ${counter}`;
+              break;
+            }
+          }
+          if(!entry.label){
+            entry.label=`Textfeld ${Math.max(1,counter)}`;
+          }
+        }
+      }else if(!entry.label){
+        entry.label=blockType==='linebreak'?'Zeilenumbruch':'Aspendaten';
+      }
+      entry.label=sanitizeRoutineEditorLabel(entry.label||'');
       tabState.customBlocks=orderedCustomBlocks;
       tabState.order=order;
-      this.renderRoutineEditorOverlayContent();
-      this.syncRoutineEditorStateFromDom();
+      storeRoutineEditorState(this.routineEditorState);
+      this.ensureRoutineEditorState();
+      this.evaluateRoutineEditorPresetMatch();
+      const activeTab=this.getActiveRoutineEditorTab();
+      const overlayOpen=this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open');
+      if(overlayOpen&&activeTab===targetTab){
+        this.renderRoutineEditorOverlayContent();
+      }else{
+        this.refreshRoutineEditorPreview();
+      }
+      return {id,key:customKey,type:blockType,tabKey:targetTab};
+    }
+
+    addRoutineEditorCustomBlockAt(index,type='text',options={}){
+      const activeTab=this.getActiveRoutineEditorTab();
+      const result=this.addCustomBlock(activeTab,type,{...options,insertIndex:index});
+      if(!result) return;
+      if(!(this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open'))) return;
       requestAnimationFrame(()=>{
         let focusTarget=null;
-        if(blockType==='aspen'){
-          const block=this.routineEditorList&&this.routineEditorList.querySelector(`.nsf-editor-block[data-type="${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}"]`);
+        if(result.type==='aspen'){
+          const block=this.routineEditorList&&this.routineEditorList.querySelector(`.nsf-editor-block[data-type="${result.key}"]`);
           focusTarget=block?block.querySelector('.nsf-editor-aspen-input'):null;
-        }else if(blockType==='text'){
-          focusTarget=this.routineEditorList&&this.routineEditorList.querySelector(`.nsf-editor-block[data-type="${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}"] textarea`);
+        }else if(result.type==='text'){
+          focusTarget=this.routineEditorList&&this.routineEditorList.querySelector(`.nsf-editor-block[data-type="${result.key}"] textarea`);
         }
         if(focusTarget) focusTarget.focus();
       });
