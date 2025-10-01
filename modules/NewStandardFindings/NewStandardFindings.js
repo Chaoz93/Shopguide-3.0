@@ -402,6 +402,197 @@
     }
   }
 
+  let customAddDelegated=false;
+
+  function ensureCustomAddDelegation(){
+    if(customAddDelegated||typeof document==='undefined') return;
+    customAddDelegated=true;
+    document.addEventListener('click',event=>{
+      const target=event&&event.target instanceof Element
+        ?event.target.closest('.nsf-custom-add')
+        :null;
+      if(!target) return;
+      const tabKey=resolveCustomAddTabKey(target);
+      addCustomBlock(tabKey,'text',{trigger:target});
+    });
+  }
+
+  function resolveCustomAddTabKey(button){
+    const ensureKey=value=>{
+      if(typeof value!=='string') return '';
+      return getRoutineEditorTabKey(value);
+    };
+    if(!button||typeof button!=='object') return 'routine';
+    try{
+      const dataset=button.dataset||{};
+      if(typeof dataset.tabKey==='string'&&dataset.tabKey){
+        return ensureKey(dataset.tabKey);
+      }
+      if(typeof dataset.tab==='string'&&dataset.tab){
+        return ensureKey(dataset.tab);
+      }
+      const attrTabKey=button.getAttribute?button.getAttribute('data-tab-key'):null;
+      if(typeof attrTabKey==='string'&&attrTabKey){
+        return ensureKey(attrTabKey);
+      }
+      const attrTab=button.getAttribute?button.getAttribute('data-tab'):null;
+      if(typeof attrTab==='string'&&attrTab){
+        return ensureKey(attrTab);
+      }
+      if(typeof button.closest==='function'){
+        const parent=button.closest('[data-tab-key],[data-tab]');
+        if(parent){
+          const parentDataset=parent.dataset||{};
+          if(typeof parentDataset.tabKey==='string'&&parentDataset.tabKey){
+            return ensureKey(parentDataset.tabKey);
+          }
+          if(typeof parentDataset.tab==='string'&&parentDataset.tab){
+            return ensureKey(parentDataset.tab);
+          }
+          const parentAttrKey=parent.getAttribute?parent.getAttribute('data-tab-key'):null;
+          if(typeof parentAttrKey==='string'&&parentAttrKey){
+            return ensureKey(parentAttrKey);
+          }
+          const parentAttrTab=parent.getAttribute?parent.getAttribute('data-tab'):null;
+          if(typeof parentAttrTab==='string'&&parentAttrTab){
+            return ensureKey(parentAttrTab);
+          }
+        }
+      }
+      return loadRoutineEditorActiveTab();
+    }catch{
+      return 'routine';
+    }
+  }
+
+  function resolveCustomAddInstance(trigger){
+    if(typeof Element==='undefined'||!(trigger instanceof Element)) return null;
+    let match=null;
+    instances.forEach(instance=>{
+      if(match||!instance||typeof instance.addCustomBlock!=='function') return;
+      const overlay=instance.routineEditorOverlay;
+      if(overlay&&overlay.contains(trigger)){
+        match=instance;
+        return;
+      }
+      const root=instance.root;
+      if(root&&typeof root.contains==='function'&&root.contains(trigger)){
+        match=instance;
+      }
+    });
+    if(match) return match;
+    let fallback=null;
+    instances.forEach(instance=>{
+      if(fallback||!instance||typeof instance.addCustomBlock!=='function') return;
+      const overlay=instance.routineEditorOverlay;
+      if(overlay&&overlay.classList&&overlay.classList.contains('open')){
+        fallback=instance;
+      }
+    });
+    return fallback;
+  }
+
+  function bindCustomAddButtons(root=document){
+    if(typeof document==='undefined') return;
+    const scope=root&&typeof root.querySelectorAll==='function'?root:document;
+    const buttons=scope.querySelectorAll?scope.querySelectorAll('.nsf-custom-add'):[];
+    ensureCustomAddDelegation();
+    buttons.forEach(button=>{
+      if(!(button instanceof HTMLElement)) return;
+      if(button.dataset&&button.dataset.nsfCustomAddBound==='1') return;
+      button.addEventListener('click',event=>{
+        try{event.preventDefault();}
+        catch{}
+        try{event.stopPropagation();}
+        catch{}
+        const tabKey=resolveCustomAddTabKey(button);
+        addCustomBlock(tabKey,'text',{trigger:button});
+      });
+      if(button.dataset) button.dataset.nsfCustomAddBound='1';
+    });
+  }
+
+  function addCustomBlock(tabKey,type='text',options={}){
+    const opts=options&&typeof options==='object'?{...options}:{};
+    const trigger=typeof Element!=='undefined'&&opts.trigger instanceof Element?opts.trigger:null;
+    if(trigger){
+      delete opts.trigger;
+      const instance=resolveCustomAddInstance(trigger);
+      if(instance&&typeof instance.addCustomBlock==='function'){
+        try{return instance.addCustomBlock(tabKey,type,opts);}catch(err){console.warn('NSF: Custom-Block konnte nicht über Instanz hinzugefügt werden',err);}
+      }
+    }else if('trigger' in opts){
+      delete opts.trigger;
+    }else{
+      const doc=typeof document!=='undefined'?document:null;
+      const activeInstance=doc&&doc.body?resolveCustomAddInstance(doc.body):null;
+      if(activeInstance&&typeof activeInstance.addCustomBlock==='function'){
+        try{return activeInstance.addCustomBlock(tabKey,type,opts);}catch(err){console.warn('NSF: Custom-Block konnte nicht hinzugefügt werden',err);}
+      }
+    }
+    const targetTab=getRoutineEditorTabKey(tabKey);
+    let state;
+    try{
+      state=normalizeRoutineEditorState(loadRoutineEditorState());
+    }catch(err){
+      console.warn('NSF: Routine-Editor Zustand konnte nicht geladen werden',err);
+      state=createDefaultRoutineEditorState();
+    }
+    if(!state||typeof state!=='object'||!state.tabs){
+      state=createDefaultRoutineEditorState();
+    }
+    const tabState=normalizeRoutineEditorTabState(state.tabs[targetTab],targetTab);
+    const blockId=createCustomSectionId();
+    const blockType=type==='linebreak'?'linebreak':type==='aspen'?'aspen':'text';
+    const providedLabel=typeof opts.label==='string'&&opts.label?sanitizeRoutineEditorLabel(opts.label):'';
+    const block={
+      id:blockId,
+      type:blockType,
+      label:providedLabel||'Neues Element',
+      aspenField:'',
+      lines:['']
+    };
+    if(blockType==='text'){
+      block.parameterKey=typeof opts.parameterKey==='string'?opts.parameterKey:'';
+    }
+    if(Array.isArray(opts.lines)&&opts.lines.length){
+      block.lines=opts.lines.map(value=>typeof value==='string'?value:'');
+    }
+    const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
+    customBlocks.push(block);
+    const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${blockId}`;
+    const order=Array.isArray(tabState.order)?tabState.order.filter(entry=>entry!==customKey):[];
+    order.push(customKey);
+    tabState.customBlocks=customBlocks;
+    tabState.order=order;
+    state.tabs[targetTab]=tabState;
+    storeRoutineEditorState(state);
+    instances.forEach(instance=>{
+      if(!instance) return;
+      try{
+        if(typeof instance.ensureRoutineEditorState==='function'){
+          instance.ensureRoutineEditorState();
+        }
+        if(instance.routineEditorOverlay&&instance.routineEditorOverlay.classList.contains('open')){
+          if(typeof instance.renderRoutineEditorOverlayContent==='function'){
+            instance.renderRoutineEditorOverlayContent();
+          }
+        }else if(typeof instance.refreshRoutineEditorPreview==='function'){
+          instance.refreshRoutineEditorPreview();
+        }
+      }catch(err){console.warn('NSF: Routine-Editor Aktualisierung fehlgeschlagen',err);}
+    });
+    const doc=typeof document!=='undefined'?document:null;
+    if(doc){
+      if(typeof requestAnimationFrame==='function'){
+        requestAnimationFrame(()=>bindCustomAddButtons(doc));
+      }else{
+        bindCustomAddButtons(doc);
+      }
+    }
+    return block;
+  }
+
   function cloneRoutineEditorTabState(state,tabKey){
     const normalized=normalizeRoutineEditorTabState(state,tabKey);
     const clone={
@@ -6406,4 +6597,12 @@
     instance.scheduleRender();
     return instance;
   };
+
+  if(typeof document!=='undefined'){
+    if(document.readyState==='loading'){
+      document.addEventListener('DOMContentLoaded',()=>bindCustomAddButtons(document),{once:true});
+    }else{
+      bindCustomAddButtons(document);
+    }
+  }
 })();
