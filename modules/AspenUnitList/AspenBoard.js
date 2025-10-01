@@ -2380,13 +2380,56 @@
       tempExtraColumns[index]={...tempExtraColumns[index],label:value};
     }
 
+    function getTempColumnDisplayInfo(columnId){
+      if(!columnId){
+        return null;
+      }
+      if(columnId===ACTIVE_COLUMN_ID){
+        const raw=typeof tempActiveColumnLabel==='string'?tempActiveColumnLabel:'';
+        const label=raw.trim()||DEFAULT_ACTIVE_COLUMN_LABEL;
+        return {kind:'active',label,index:-1};
+      }
+      const index=tempExtraColumns.findIndex(col=>col.id===columnId);
+      if(index===-1){
+        return null;
+      }
+      const column=tempExtraColumns[index]||{};
+      const rawLabel=typeof column.label==='string'?column.label:'';
+      const label=rawLabel.trim()||`Extraspalte ${index+1}`;
+      return {kind:'extra',label,index};
+    }
+
+    function updateTempColumnPreview(columnId){
+      const info=getTempColumnDisplayInfo(columnId);
+      if(!info){
+        return;
+      }
+      if(info.kind==='active'){
+        if(elements.activeTitle){
+          elements.activeTitle.textContent=info.label;
+        }
+      }else if(Array.isArray(elements.extraWraps)){
+        const wrap=elements.extraWraps[info.index];
+        if(wrap?.title){
+          wrap.title.textContent=info.label;
+        }
+      }
+      if(elements.toggleGroup){
+        elements.toggleGroup.querySelectorAll('.db-toggle-btn').forEach(btn=>{
+          if(btn.dataset?.columnId===columnId){
+            btn.textContent=info.label;
+          }
+        });
+      }
+    }
+
     function handleExtraNameInput(event){
       const input=event.target;
       if(!input || typeof input.value!=='string') return;
       const columnId=input.dataset?.columnId||'';
       if(!columnId) return;
       updateTempColumnLabel(columnId,input.value);
-      scheduleOptionPersist();
+      updateTempColumnPreview(columnId);
     }
 
     function handleExtraNameCommit(event){
@@ -2395,6 +2438,7 @@
       const columnId=input.dataset?.columnId||'';
       if(!columnId) return;
       updateTempColumnLabel(columnId,input.value);
+      updateTempColumnPreview(columnId);
       scheduleOptionPersist(true);
     }
 
