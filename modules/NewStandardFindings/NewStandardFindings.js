@@ -4547,9 +4547,10 @@
         }
       }
       tabState.customBlocks.push(entry);
-      const order=this.getRoutineEditorOrder();
+      const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
+      const order=this.getRoutineEditorOrder().filter(entry=>entry!==customKey);
       const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,order.length);
-      order.splice(clampedIndex,0,`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`);
+      order.splice(clampedIndex,0,customKey);
       tabState.order=order;
       this.renderRoutineEditorOverlayContent();
       this.syncRoutineEditorStateFromDom();
