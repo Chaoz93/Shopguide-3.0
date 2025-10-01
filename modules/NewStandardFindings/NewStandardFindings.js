@@ -174,40 +174,67 @@
     const instanceList=Array.isArray(instances)
       ?instances
       :Array.from(instances||[]);
-    let match=null;
+    let inst=null;
     if(trigger instanceof Element){
-      instanceList.forEach(inst=>{
-        if(match||!inst) return;
-        const overlay=inst.routineEditorOverlay;
+      instanceList.forEach(candidate=>{
+        if(inst||!candidate) return;
+        const overlay=candidate.routineEditorOverlay;
         if(overlay&&overlay.contains(trigger)){
-          match=inst;
+          inst=candidate;
           return;
         }
-        const root=inst.root;
+        const root=candidate.root;
         if(root&&typeof root.contains==='function'&&root.contains(trigger)){
-          match=inst;
+          inst=candidate;
         }
       });
     }
-    if(!match){
-      instanceList.forEach(inst=>{
-        if(match||!inst) return;
-        const overlay=inst.routineEditorOverlay;
-        if(overlay&&overlay.classList?.contains('open')){
-          match=inst;
+    if(!inst){
+      instanceList.forEach(candidate=>{
+        if(inst||!candidate) return;
+        const overlay=candidate.routineEditorOverlay;
+        if(overlay){
+          const ariaHidden=overlay.getAttribute?.('aria-hidden');
+          const hasHiddenAttr=typeof overlay.hasAttribute==='function'&&overlay.hasAttribute('hidden');
+          const inlineDisplay=overlay.style&&overlay.style.display;
+          const isOpen=overlay.classList?.contains('open')
+            ||ariaHidden==='false'
+            ||(!hasHiddenAttr&&ariaHidden!=='true'&&(inlineDisplay?inlineDisplay!=='none':true));
+          if(isOpen){
+            inst=candidate;
+          }
         }
       });
     }
-    if(!match){
-      return {overlay:null,tabEl:null,container:null,instance:null};
+    if(!inst){
+      return {overlay:null,tabEl:null,container:null,instance:null,overlayOpen:false,tabFound:false};
     }
-    const overlay=match.routineEditorOverlay;
-    if(!overlay||!overlay.classList?.contains('open')){
-      return {overlay:null,tabEl:null,container:null,instance:match};
+    const overlay=inst.routineEditorOverlay||null;
+    const ariaHidden=overlay?.getAttribute?.('aria-hidden');
+    const hasHiddenAttr=overlay?typeof overlay.hasAttribute==='function'&&overlay.hasAttribute('hidden'):false;
+    const inlineDisplay=overlay?.style?.display;
+    const overlayOpen=!!(overlay&&(
+      overlay.classList?.contains('open')
+      ||ariaHidden==='false'
+      ||(!hasHiddenAttr&&ariaHidden!=='true'&&(inlineDisplay?inlineDisplay!=='none':true))
+    ));
+    const tabSelector=[
+      `.nsf-editor-tab[data-tab="${tabKeyValue}"]`,
+      `.nsf-editor-tab[data-tabkey="${tabKeyValue}"]`,
+      `[data-tab="${tabKeyValue}"] .nsf-editor-tab`,
+      `[data-tabkey="${tabKeyValue}"] .nsf-editor-tab`,
+      `[data-tab="${tabKeyValue}"]`,
+      `[data-tabkey="${tabKeyValue}"]`
+    ].join(', ');
+    let tabEl=null;
+    if(overlay){
+      tabEl=overlay.querySelector(tabSelector)
+        ||overlay.querySelector(`.nsf-editor-tab[data-tab="${tabKeyValue}"]`)
+        ||overlay.querySelector(`.nsf-editor-tab[data-tabkey="${tabKeyValue}"]`);
     }
-    const tabEl=overlay.querySelector(`.nsf-editor-tab[data-tab="${tabKeyValue}"]`);
+    const tabFound=!!tabEl;
     const container=tabEl?.querySelector('.nsf-custom-list, .nsf-blocks')||null;
-    return {overlay,tabEl,container,instance:match};
+    return {overlay,tabEl,container,instance:inst,overlayOpen,tabFound};
   }
   let watchersInitialized=false;
   let ensureDataPromise=null;
@@ -4931,6 +4958,7 @@
       const dropzone=document.createElement('div');
       dropzone.className='nsf-editor-dropzone';
       dropzone.textContent='Baustein hier ablegen';
+      dropzone.dataset.index=String(index);
       const prevLabel=index>0?this.getRoutineEditorBlockLabel(order[index-1]):'';
       const nextLabel=index<order.length?this.getRoutineEditorBlockLabel(order[index]):'';
       if(prevLabel&&nextLabel){
@@ -4976,7 +5004,12 @@
         if(container.contains(event.relatedTarget)) return;
         clearState();
       });
-      container.addEventListener('drop',event=>{
+      dropzone.addEventListener('dragover',event=>{
+        event.preventDefault();
+        if(event.dataTransfer) event.dataTransfer.dropEffect='copy';
+      });
+      dropzone.addEventListener('drop',event=>{
+        event.preventDefault();
         const transferType=event.dataTransfer?.getData('text/plain')||'';
         const type=transferType||currentBlockShopDragType||'';
         clearState();
@@ -4985,16 +5018,15 @@
           clearAllRoutineEditorDropIndicators();
           return;
         }
-        event.preventDefault();
-        console.log('[Drop] type:',type,'index:',index);
+        const indexValue=Number(dropzone.dataset.index||index||0);
+        console.log('[Drop] type:',type,'index:',indexValue);
         const tk=normalizeTabKeyStrict.call(this,tabKey);
-        const newBlock=this.addCustomBlock(tk,type,{insertIndex:index,trigger:event.currentTarget||container});
+        const newBlock=this.addCustomBlock(tk,type,{insertIndex:indexValue,trigger:event.currentTarget||dropzone});
         console.log('[Drop] newBlock returned:',newBlock);
         currentBlockShopDragType='';
         clearAllRoutineEditorDropIndicators();
         this.focusRoutineEditorCustomBlock(newBlock);
       });
-      dropzone.addEventListener('drop',event=>event.preventDefault());
       container.appendChild(dropzone);
       this.routineEditorInsertZones.push(container);
       return container;
@@ -5002,16 +5034,21 @@
 
     renderRoutineEditorOverlayContent(tabKey=this.getActiveRoutineEditorTab()){
       const tk=normalizeTabKeyStrict.call(this,tabKey);
+      const ensuredState=this.ensureRoutineEditorState(tk);
+      const state=(ensuredState&&ensuredState.tabs)
+        ?ensuredState
+        :this.routineEditorState||{tabs:{}};
+      if(!state.tabs) state.tabs={};
+      if(!state.tabs[tk]&&ensuredState&&(!ensuredState.tabs||ensuredState===state)){state.tabs[tk]=ensuredState;}
+      const tabState=state.tabs[tk]||{};
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
-      const tabState=this.ensureRoutineEditorState(tk);
       const normalBlockCount=tabState&&tabState.blocks&&typeof tabState.blocks==='object'
         ?Object.keys(tabState.blocks).length
         :0;
       const customBlockCount=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks.length:0;
-      const targetInfo=getOpenOverlayTarget(tk);
-      const {overlay,tabEl,container}=targetInfo;
-      console.log('[NSF render]',{tk,normal:normalBlockCount,custom:customBlockCount,overlayOpen:!!overlay,tabFound:!!tabEl});
+      const {overlay,tabEl,container,overlayOpen,tabFound}=getOpenOverlayTarget(tk);
+      console.log('[NSF render]',{tk,normal:normalBlockCount,custom:customBlockCount,overlayOpen,tabFound});
       if(!container){
         console.warn('[Overlay] no open overlay for',tk);
         return;
