@@ -450,6 +450,128 @@
     return element;
   }
 
+  function renderRoutineEditorBlock(block,tabKey){
+    const currentBlock=block&&typeof block==='object'?block:{};
+    const blockType=typeof currentBlock.type==='string'?currentBlock.type:'';
+    const resolvedTabKey=function(){
+      const normalized=typeof getRoutineEditorTabKey==='function'
+        ?getRoutineEditorTabKey(tabKey)
+        :tabKey;
+      if(typeof normalized==='string'&&normalized.trim()) return normalized;
+      return 'routine';
+    }();
+
+    const persistCustomBlock=updater=>{
+      if(typeof updater!=='function') return;
+      if(!currentBlock||typeof currentBlock.id!=='string'||!currentBlock.id) return;
+      try{
+        const state=normalizeRoutineEditorState(loadRoutineEditorState());
+        if(!state||!state.tabs) return;
+        const tabState=normalizeRoutineEditorTabState(state.tabs[resolvedTabKey],resolvedTabKey);
+        const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
+        const target=customBlocks.find(entry=>entry&&entry.id===currentBlock.id);
+        if(target){
+          updater(target);
+          tabState.customBlocks=customBlocks;
+          state.tabs[resolvedTabKey]=tabState;
+          storeRoutineEditorState(state);
+        }
+      }catch(err){
+        console.warn('NSF: Custom-Block konnte nicht aktualisiert werden',err,currentBlock);
+      }
+    };
+
+    if(blockType==='text'){
+      const wrapper=document.createElement('div');
+      wrapper.className='nsf-editor-block';
+      const label=document.createElement('label');
+      label.textContent=currentBlock.label||'Textfeld';
+      const textarea=document.createElement('textarea');
+      const textareaId=`nsf-custom-text-${currentBlock.id||Date.now()}`;
+      label.setAttribute('for',textareaId);
+      textarea.id=textareaId;
+      const initialValue=typeof currentBlock.value==='string'
+        ?currentBlock.value
+        :Array.isArray(currentBlock.lines)&&currentBlock.lines.length
+          ?currentBlock.lines[0]||''
+          :'';
+      textarea.value=initialValue;
+      wrapper.appendChild(label);
+      wrapper.appendChild(textarea);
+      textarea.addEventListener('input',()=>{
+        const nextValue=textarea.value;
+        currentBlock.value=nextValue;
+        currentBlock.content=nextValue;
+        currentBlock.lines=[nextValue];
+        persistCustomBlock(target=>{
+          target.value=nextValue;
+          target.content=nextValue;
+          target.lines=[nextValue];
+        });
+        try{autoSizeTextarea(textarea);}catch(err){console.warn('NSF: Textarea konnte nicht automatisch skaliert werden',err);}
+      });
+      try{autoSizeTextarea(textarea);}catch(err){console.warn('NSF: Textarea konnte nicht automatisch skaliert werden',err);}
+      console.log('[renderRoutineEditorBlock] rendered text block:',currentBlock);
+      return wrapper;
+    }
+
+    if(blockType==='linebreak'){
+      const wrapper=document.createElement('div');
+      wrapper.className='nsf-editor-block nsf-linebreak';
+      const hr=document.createElement('hr');
+      wrapper.appendChild(hr);
+      console.log('[renderRoutineEditorBlock] rendered linebreak:',currentBlock);
+      return wrapper;
+    }
+
+    if(blockType==='aspenfield'){
+      const wrapper=document.createElement('div');
+      wrapper.className='nsf-editor-block';
+      const label=document.createElement('label');
+      label.textContent=currentBlock.label||'Aspen-Feld';
+      const select=document.createElement('select');
+      const placeholder=document.createElement('option');
+      placeholder.value='';
+      placeholder.textContent='Bitte auswählen';
+      select.appendChild(placeholder);
+      if(Array.isArray(currentBlock.options)){
+        currentBlock.options.forEach(option=>{
+          if(!option||typeof option!=='object') return;
+          const value=typeof option.value==='string'?option.value:'';
+          const text=typeof option.label==='string'?option.label:value;
+          const opt=document.createElement('option');
+          opt.value=value;
+          opt.textContent=text||'Bitte auswählen';
+          select.appendChild(opt);
+        });
+      }else if(typeof currentBlock.value==='string'&&currentBlock.value){
+        const existing=document.createElement('option');
+        existing.value=currentBlock.value;
+        existing.textContent=currentBlock.value;
+        existing.selected=true;
+        select.appendChild(existing);
+      }
+      select.value=typeof currentBlock.value==='string'?currentBlock.value:'';
+      wrapper.appendChild(label);
+      wrapper.appendChild(select);
+      select.addEventListener('change',()=>{
+        const nextValue=select.value;
+        currentBlock.value=nextValue;
+        currentBlock.lines=[nextValue];
+        persistCustomBlock(target=>{
+          target.value=nextValue;
+          target.lines=[nextValue];
+        });
+      });
+      console.log('[renderRoutineEditorBlock] rendered aspenfield:',currentBlock);
+      return wrapper;
+    }
+
+    const fallback=document.createElement('div');
+    fallback.className='nsf-editor-block';
+    return fallback;
+  }
+
   function addCustomBlock(tabKey,type='text',options={}){
     const opts=options&&typeof options==='object'?{...options}:{};
     const trigger=typeof Element!=='undefined'&&opts.trigger instanceof Element?opts.trigger:null;
