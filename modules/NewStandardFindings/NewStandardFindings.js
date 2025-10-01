@@ -4830,14 +4830,17 @@
     renderRoutineEditorOverlayContent(tabKey=this.getActiveRoutineEditorTab()){
       const normalizedTabKey=getRoutineEditorTabKey?getRoutineEditorTabKey(tabKey):tabKey;
       const tabKeyValue=typeof normalizedTabKey==='string'&&normalizedTabKey.trim()?normalizedTabKey:this.getActiveRoutineEditorTab();
-      console.log('[renderRoutineEditorOverlayContent] triggered for tabKey:',tabKeyValue);
+      console.log('[renderRoutineEditorOverlayContent] called with tabKey:',tabKeyValue);
       if(!this.routineEditorList) return;
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
       const tabState=this.ensureRoutineEditorState(tabKeyValue);
       console.log('[renderRoutineEditorOverlayContent] tabState:',tabState);
-      console.log('[renderRoutineEditorOverlayContent] tabState.customBlocks:',tabState?tabState.customBlocks:undefined);
-      console.log('[OverlayContent] tabState for',tabKeyValue,JSON.stringify(tabState,null,2));
+      const normalBlockCount=tabState&&tabState.blocks&&typeof tabState.blocks==='object'
+        ?Object.keys(tabState.blocks).length
+        :0;
+      const customBlockCount=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks.length:0;
+      console.log('[renderRoutineEditorOverlayContent] normal blocks:',normalBlockCount,'custom blocks:',customBlockCount);
       const order=this.getRoutineEditorOrder(tabKeyValue);
       tabState.order=order.slice();
       if(Array.isArray(tabState.hiddenBaseBlocks)){
@@ -4847,44 +4850,61 @@
       this.routineEditorBlocks={};
       this.routineEditorList.innerHTML='';
       this.routineEditorInsertZones=[];
-      order.forEach((key,index)=>{
+      const renderer=typeof this.renderRoutineEditorBlock==='function'
+        ?this.renderRoutineEditorBlock.bind(this)
+        :typeof renderRoutineEditorBlock==='function'
+          ?renderRoutineEditorBlock
+          :null;
+      const container=this.routineEditorList instanceof Element?this.routineEditorList:null;
+      const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
+      const customMap=new Map(customBlocks.map(entry=>entry&&entry.id?[entry.id,entry]:null).filter(Boolean));
+      let totalBlocksRendered=0;
+      order.forEach((blockId,index)=>{
         const insert=this.createRoutineEditorInsertControl(index,order);
         if(insert) this.routineEditorList.appendChild(insert);
-        const def=this.getRoutineEditorBlockDefinition(key,index,order);
-        if(!def) return;
-        const block=this.createRoutineEditorBlock(def);
-        if(block) this.routineEditorList.appendChild(block);
-      });
-      const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks:[];
-      let renderedCustomBlocks=0;
-      console.log('[OverlayContent] preparing to render customBlocks, count:',tabState.customBlocks?.length);
-      if(customBlocks.length){
-        const container=this.routineEditorList instanceof Element?this.routineEditorList:null;
-        if(container){
-          const renderer=typeof this.renderRoutineEditorBlock==='function'
-            ?this.renderRoutineEditorBlock.bind(this)
-            :typeof renderRoutineEditorBlock==='function'
-              ?renderRoutineEditorBlock
-              :null;
-          customBlocks.forEach(block=>{
-            if(!block) return;
-            console.log('[OverlayContent] rendering customBlock:',block);
-            try{
-              const blockEl=debugRenderRoutineEditorBlockCall(renderer,block,tabKeyValue);
-              if(!blockEl) return;
-              container.appendChild(blockEl);
-              console.log('[OverlayContent] appended block to container:',block.id);
-              renderedCustomBlocks+=1;
-            }catch(blockErr){
-              console.warn('NSF: Custom-Block konnte nicht dargestellt werden',blockErr,block);
-            }
-          });
+        if(!container||typeof blockId!=='string') return;
+        const isCustom=blockId.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX);
+        const baseEntry=tabState&&tabState.blocks&&typeof tabState.blocks==='object'
+          ?tabState.blocks[blockId]
+          :null;
+        const blockData=isCustom
+          ?customMap.get(blockId.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length))||null
+          :baseEntry
+            ?{...baseEntry,id:blockId,key:blockId,type:blockId}
+            :{id:blockId,key:blockId,type:blockId};
+        if(isCustom){
+          console.log('[render] custom block id:',blockId,'block:',blockData);
+        }else{
+          console.log('[render] normal block id:',blockId,'block:',blockData);
         }
-      }
+        console.log('[renderRoutineEditorOverlayContent] rendering block via renderRoutineEditorBlock:',blockData);
+        if(renderer&&blockData){
+          try{
+            debugRenderRoutineEditorBlockCall(renderer,blockData,tabKeyValue);
+          }catch(err){
+            console.warn('NSF: Fehler beim Rendern über renderRoutineEditorBlock',err,blockData);
+          }
+        }else if(!renderer){
+          console.warn('NSF: Kein Renderer für renderRoutineEditorBlock verfügbar',blockData);
+        }
+        const def=this.getRoutineEditorBlockDefinition(blockId,index,order);
+        if(!def){
+          console.warn('NSF: Keine Definition für Routine-Editor-Block gefunden',blockId);
+          return;
+        }
+        const blockEl=this.createRoutineEditorBlock(def);
+        if(!blockEl){
+          console.warn('NSF: Routine-Editor-Block konnte nicht erstellt werden',blockId);
+          return;
+        }
+        console.log('[renderRoutineEditorOverlayContent] created DOM element for block id:',blockId,'el:',blockEl);
+        container.appendChild(blockEl);
+        console.log('[renderRoutineEditorOverlayContent] appended block id:',blockId,'to container');
+        totalBlocksRendered+=1;
+      });
       const finalInsert=this.createRoutineEditorInsertControl(order.length,order);
       if(finalInsert) this.routineEditorList.appendChild(finalInsert);
-      const totalBlocksRendered=order.length+renderedCustomBlocks;
-      console.log('[renderRoutineEditorOverlayContent] blocks rendered:',totalBlocksRendered);
+      console.log('[renderRoutineEditorOverlayContent] total blocks rendered:',totalBlocksRendered);
       this.refreshRoutineEditorPreview();
       this.updateRoutineEditorBlockShopAvailability();
     }
