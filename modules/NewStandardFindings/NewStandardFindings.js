@@ -4788,7 +4788,48 @@
     }
 
     addRoutineEditorBaseBlockAt(index,key){
+      console.debug('NSF: addRoutineEditorBaseBlockAt',index,key);
       if(!key||typeof key!=='string') return;
+      const container=this.routineEditorContainer;
+      if(container){
+        const block=document.createElement('div');
+        if(block.classList){
+          block.classList.add('nsf-block');
+          block.classList.add(`nsf-block-${key}`);
+        }else{
+          block.className=`nsf-block nsf-block-${key}`;
+        }
+        block.contentEditable='true';
+        if(block.dataset){
+          block.dataset.type=key;
+        }else{
+          block.setAttribute('data-type',key);
+        }
+        const placeholders={
+          action:'Neue Action',
+          actions:'Neue Action',
+          routine:'Neue Routine',
+          nonroutine:'Neue Nonroutine',
+          finding:'Neues Finding',
+          findings:'Neue Findings',
+          times:'Neue Arbeitszeiten',
+          parts:'Neue Teile',
+          mods:'Neue Modifikation'
+        };
+        block.textContent=placeholders[key]||`Neuer Block: ${key}`;
+        const children=container.children;
+        const numericIndex=Number.isFinite(index)?index:Number.parseInt(index,10);
+        const domInsertIndex=Number.isFinite(numericIndex)
+          ?Math.max(0,Math.min(numericIndex,children.length))
+          :children.length;
+        if(domInsertIndex>=children.length){
+          container.appendChild(block);
+        }else{
+          container.insertBefore(block,children[domInsertIndex]);
+        }
+      }else{
+        console.error('NSF: Routine-Editor-Container nicht gefunden');
+      }
       const baseBlocks=this.getRoutineEditorBaseBlocks();
       const def=baseBlocks.find(block=>block.key===key);
       if(!def||def.removable===false) return;
