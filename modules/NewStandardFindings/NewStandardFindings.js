@@ -4514,9 +4514,12 @@
       const allowAspen=config&&config.allowAspen!==false;
       const id=createCustomSectionId();
       const currentOrder=this.getRoutineEditorOrder();
-      const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,currentOrder.length);
+      const sanitizedOrder=currentOrder.filter(entry=>entry!==`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`);
+      const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,sanitizedOrder.length);
       const existingCustomBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
-      const customBlockMap=new Map(existingCustomBlocks.map(block=>[block&&block.id,block]).filter(([id])=>typeof id==='string'&&id));
+      const existingMap=new Map(existingCustomBlocks
+        .map(block=>block&&typeof block.id==='string'?[block.id,block]:null)
+        .filter(Boolean));
       const requestedType=typeof type==='string'?type:'';
       const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
       const entry={
@@ -4550,18 +4553,23 @@
         }
       }
       const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
-      customBlockMap.set(id,entry);
-      const order=currentOrder.filter(entry=>entry!==customKey);
+      const order=sanitizedOrder.slice();
       order.splice(clampedIndex,0,customKey);
       const orderedCustomBlocks=[];
       order.forEach(key=>{
         if(!key||typeof key!=='string'||!key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return;
         const customId=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
-        if(!customBlockMap.has(customId)) return;
-        orderedCustomBlocks.push(customBlockMap.get(customId));
-        customBlockMap.delete(customId);
+        if(customId===id){
+          orderedCustomBlocks.push(entry);
+          return;
+        }
+        const existing=existingMap.get(customId);
+        if(existing){
+          orderedCustomBlocks.push(existing);
+          existingMap.delete(customId);
+        }
       });
-      customBlockMap.forEach(block=>{
+      existingMap.forEach(block=>{
         if(block) orderedCustomBlocks.push(block);
       });
       tabState.customBlocks=orderedCustomBlocks;
