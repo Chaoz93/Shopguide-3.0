@@ -72,6 +72,34 @@
   const WATCH_INTERVAL=300;
   const GLOBAL_NAME_KEY='globalNameRules';
   const BASE_FIELD_KEYS=['meldung','auftrag','part','serial'];
+  const DEFAULT_FIELD_SOURCE_HINTS={
+    meldung:[
+      'MELDUNGS_NO','Meldung','Meldungsnummer','Meldungsnr','Meldungs-No',
+      'Notification','Notification No','Notification_No','Notification Number',
+      'Notif','Notif No','Notif_No','Notif Number'
+    ],
+    auftrag:[
+      'AUFTRAG','Auftrag','Auftragsnummer','Auftragsnr','Auftrag No','Auftrag_No','AUFTRAGS_NO',
+      'Order','Order No','Order_No','Order Number','Maintenance Order','Maintenance_Order',
+      'Workorder','Work Order','Workorder No','Workorder_No','WO','WO No','WO_No'
+    ],
+    part:[
+      'PART','Part','Part No','Part_No','Part Number','PartNumber',
+      'P/N','PN','P-N','Partnum','PartNum','Partnummer','Part_Nr',
+      'Material','Material No','Material_No','Material Number','Materialnummer',
+      'Artikel','Artikelnummer','Artikel Nr','Component','Component No','Component_No'
+    ],
+    serial:[
+      'SERIAL_NO','Serial No','Serial_No','Serial Number','SerialNumber',
+      'Serial','Seriennummer','Serien Nr','Serien-Nr','Seriennummern',
+      'SN','S/N','SNr','SNR','Gerätenummer','Geraetenummer','Gerätenr','Geraetenr'
+    ],
+    repairorder:[
+      'REPAIRORDER','Repairorder','Repair Order','Repair_Order',
+      'Repair Order No','Repair_Order_No','Repair Order Number','RepairOrderNumber',
+      'RO','RO No','RO_No','RO Number','Workorder','Work Order','Workorder No','Workorder_No'
+    ]
+  };
   const ASPEN_MELDUNGS_COLUMN='MELDUNGS_NO';
   const GROUP_LABELS={base:'Basisfeld',extra:'Zusatzfeld',aspen:'Aspen-Feld'};
   const MAX_HISTORY=50;
@@ -89,6 +117,7 @@
   function defaultLabelForKey(key){const base=String(key||'').trim();if(!base)return'Feld';return base.replace(/[_-]+/g,' ').replace(/\s+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
   function generateFieldId(key,label,used){const slug=slugify(key||label||'feld');const hash=labelHash(label||slug);let candidate=`${slug}#${hash}`;let i=1;while(used&&used.has(candidate)){candidate=`${slug}#${hash}-${i++}`;}return candidate;}
   function inferGroup(key,raw){if(raw?.group==='aspen'||raw?.source==='aspen'||raw?.aspen)return'aspen';const base=String(key||'').trim().toLowerCase();if(BASE_FIELD_KEYS.includes(base))return'base';return raw?.group||'extra';}
+  function candidateValuesForField(field,{includeOriginal=true}={}){const seen=new Set();const add=value=>{const trimmed=String(value||'').trim();if(!trimmed)return;const lower=trimmed.toLowerCase();if(seen.has(lower))return;seen.add(lower);candidates.push(trimmed);};const candidates=[];if(includeOriginal)add(field?.originalKey);add(field?.key);add(field?.id);add(field?.label);const hints=DEFAULT_FIELD_SOURCE_HINTS[String(field?.key||'').trim().toLowerCase()];if(Array.isArray(hints))hints.forEach(add);return candidates;}
   function normalizeFieldEntry(raw,used){if(!raw||typeof raw!=='object')return null;const original=String(raw.originalKey??raw.sourceKey??raw.key??'').trim();const key=String(raw.key??original).trim().toLowerCase();const label=String(raw.label??'').trim()||defaultLabelForKey(original||key||'Feld');let id=String(raw.id??'').trim().toLowerCase();if(!id){id=key||generateFieldId(original||key||label,label,used);}if(!id){id=generateFieldId('feld',label,used);}if(used.has(id)){id=generateFieldId(key||original||id||label,label,used);}const group=inferGroup(key||original,raw);const enabled=raw.enabled!==false;const originalKey=original||key||id;return{id,key:key||id,label,enabled,group,originalKey};}
   function normalizeFields(list){const used=new Set();const out=[];(Array.isArray(list)?list:[]).forEach(raw=>{const field=normalizeFieldEntry(raw,used);if(field){used.add(field.id);out.push(field);}});return out;}
   function fieldsEqual(a,b){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++){const x=a[i],y=b[i];if(!x||!y)return false;if(x.id!==y.id||x.key!==y.key||x.label!==y.label||x.enabled!==y.enabled||(x.group||'')!==(y.group||'')||(x.originalKey||'')!==(y.originalKey||''))return false;}return true;}
@@ -316,13 +345,13 @@
 
     function rebuildAspenHeaderMaps(){aspenHeaderKeyMap=new Map();aspenHeaderOriginalMap=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();const keyLower=(h.key||'').toLowerCase();if(originalLower&&!aspenHeaderOriginalMap.has(originalLower)){aspenHeaderOriginalMap.set(originalLower,h);}if(keyLower&&!aspenHeaderKeyMap.has(keyLower)){aspenHeaderKeyMap.set(keyLower,h);}});}
 
-    function resolveAspenColumn(field){if(!field)return'';const candidates=[field.originalKey,field.key,field.id,field.label];for(const candidate of candidates){const trimmed=String(candidate||'').trim();if(!trimmed)continue;const lower=trimmed.toLowerCase();const byOriginal=aspenHeaderOriginalMap.get(lower);if(byOriginal)return byOriginal.original;const byKey=aspenHeaderKeyMap.get(lower);if(byKey)return byKey.original;}return'';}
+    function resolveAspenColumn(field){if(!field)return'';const candidates=candidateValuesForField(field);for(const candidate of candidates){const lower=candidate.toLowerCase();const byOriginal=aspenHeaderOriginalMap.get(lower);if(byOriginal)return byOriginal.original;const byKey=aspenHeaderKeyMap.get(lower);if(byKey)return byKey.original;}return'';}
 
     function getAspenValue(row,field){if(!row||!field)return'';const column=resolveAspenColumn(field);if(!column)return'';if(Object.prototype.hasOwnProperty.call(row,column))return String(row[column]||'');const lower=column.toLowerCase();if(row.__lower&&Object.prototype.hasOwnProperty.call(row.__lower,lower))return String(row.__lower[lower]||'');return'';}
 
     function findAspenRow(meldung){const column=ASPEN_MELDUNGS_COLUMN;const target=String(meldung||'').trim().toLowerCase();if(!target)return null;const lowerKey=column.toLowerCase();return aspenData.find(row=>{const raw=row[column];if(typeof raw==='string'||typeof raw==='number'){if(String(raw||'').trim().toLowerCase()===target)return true;}const alt=row.__lower?.[lowerKey];return typeof alt==='string'||typeof alt==='number'?String(alt||'').trim().toLowerCase()===target:false;})||null;}
 
-    function alignFieldSources(){if(!aspenHeaders.length)return;const byOriginal=new Map();const byKey=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();if(originalLower&&!byOriginal.has(originalLower))byOriginal.set(originalLower,h);if(h.key&&!byKey.has(h.key))byKey.set(h.key,h);});let changed=false;cfg.fields.forEach(field=>{const existing=String(field.originalKey||'').trim();if(existing&&byOriginal.has(existing.toLowerCase()))return;const candidates=[field.key,field.label,field.id].map(v=>String(v||'').trim()).filter(Boolean);for(const cand of candidates){const lower=cand.toLowerCase();const match=byOriginal.get(lower)||byKey.get(lower);if(match){if(field.originalKey!==match.original){field.originalKey=match.original;changed=true;}break;}}});if(changed)saveCfg(cfg);}
+    function alignFieldSources(){if(!aspenHeaders.length)return;const byOriginal=new Map();const byKey=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();if(originalLower&&!byOriginal.has(originalLower))byOriginal.set(originalLower,h);if(h.key&&!byKey.has(h.key))byKey.set(h.key,h);});let changed=false;cfg.fields.forEach(field=>{const existing=String(field.originalKey||'').trim();if(existing&&byOriginal.has(existing.toLowerCase()))return;const candidates=candidateValuesForField(field,{includeOriginal:false});for(const cand of candidates){const lower=cand.toLowerCase();const match=byOriginal.get(lower)||byKey.get(lower);if(match){if(field.originalKey!==match.original){field.originalKey=match.original;changed=true;}break;}}});if(changed)saveCfg(cfg);}
 
     const isModalOpen=()=>els.modal.style.display==='grid';
     function snapshotFields(){return cfg.fields.map(f=>({...f}));}
