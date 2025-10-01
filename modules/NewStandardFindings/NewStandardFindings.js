@@ -4649,10 +4649,10 @@
           return;
         }
         event.preventDefault();
-        const result=createCustomBlock(this.getActiveRoutineEditorTab(),type,{insertIndex:index});
+        const newBlock=this.addCustomBlock(this.getActiveRoutineEditorTab(),type,{insertIndex:index});
         currentBlockShopDragType='';
         clearAllRoutineEditorDropIndicators();
-        this.focusRoutineEditorCustomBlock(result);
+        this.focusRoutineEditorCustomBlock(newBlock);
       });
       dropzone.addEventListener('drop',event=>event.preventDefault());
       container.appendChild(dropzone);
@@ -4704,6 +4704,7 @@
     addCustomBlock(tabKey,type='text',options={}){
       const targetTab=getRoutineEditorTabKey(tabKey);
       this.ensureRoutineEditorState();
+      const state=this.routineEditorState;
       const tabState=this.getRoutineEditorTabState(targetTab);
       const config=this.getRoutineEditorTabConfig(targetTab);
       const allowAspen=config&&config.allowAspen!==false;
@@ -4808,17 +4809,22 @@
       entry.label=sanitizeRoutineEditorLabel(entry.label||'');
       tabState.customBlocks=orderedCustomBlocks;
       tabState.order=order;
-      storeRoutineEditorState(this.routineEditorState);
+      if(state&&state.tabs){
+        state.tabs[targetTab]=tabState;
+      }
+      storeRoutineEditorState(state);
       this.ensureRoutineEditorState();
       this.evaluateRoutineEditorPresetMatch();
       const activeTab=this.getActiveRoutineEditorTab();
       const overlayOpen=this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open');
+      const result={id,key:customKey,type:blockType,tabKey:targetTab};
       if(overlayOpen&&activeTab===targetTab){
         this.renderRoutineEditorOverlayContent();
       }else{
         this.refreshRoutineEditorPreview();
       }
-      return {id,key:customKey,type:blockType,tabKey:targetTab};
+      this.focusRoutineEditorCustomBlock(result);
+      return result;
     }
 
     addRoutineEditorCustomBlockAt(index,type='text',options={}){
