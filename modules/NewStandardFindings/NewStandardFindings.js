@@ -4977,7 +4977,8 @@
         clearState();
       });
       container.addEventListener('drop',event=>{
-        const type=currentBlockShopDragType||event.dataTransfer&&event.dataTransfer.getData('text/plain')||'';
+        const transferType=event.dataTransfer?.getData('text/plain')||'';
+        const type=transferType||currentBlockShopDragType||'';
         clearState();
         if(!type||!this.isRoutineEditorShopBlockAllowed(type)){
           currentBlockShopDragType='';
@@ -4986,7 +4987,7 @@
         }
         event.preventDefault();
         console.log('[Drop] type:',type,'index:',index);
-        const tk=normalizeTabKeyStrict.call(this,tabKey||this.getActiveRoutineEditorTab());
+        const tk=normalizeTabKeyStrict.call(this,tabKey);
         const newBlock=this.addCustomBlock(tk,type,{insertIndex:index,trigger:event.currentTarget||container});
         console.log('[Drop] newBlock returned:',newBlock);
         currentBlockShopDragType='';
@@ -5008,8 +5009,9 @@
         ?Object.keys(tabState.blocks).length
         :0;
       const customBlockCount=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks.length:0;
-      console.log('[NSF render]',{tk,normal:normalBlockCount,custom:customBlockCount});
-      const {container}=getOpenOverlayTarget(tk);
+      const targetInfo=getOpenOverlayTarget(tk);
+      const {overlay,tabEl,container}=targetInfo;
+      console.log('[NSF render]',{tk,normal:normalBlockCount,custom:customBlockCount,overlayOpen:!!overlay,tabFound:!!tabEl});
       if(!container){
         console.warn('[Overlay] no open overlay for',tk);
         return;
@@ -5131,7 +5133,7 @@
           definition:def,
           labelElement
         };
-        console.log('[NSF append]',{tk,id:blockKey,outer:el?.outerHTML?.slice(0,120)});
+        console.log('[NSF append]',{tk,key:blockKey,outer:el?.outerHTML?.slice(0,120)});
         container.appendChild(el);
         console.log('[Overlay] appended:',blockKey,'now lastChild:',container.lastElementChild?.outerHTML);
         totalBlocksRendered+=1;
