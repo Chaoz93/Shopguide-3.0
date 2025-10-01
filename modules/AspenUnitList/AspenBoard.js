@@ -1164,57 +1164,64 @@ der-radius:.4rem;background:transparent;color:inherit;}
     let highlightedPartIndex=-1;
     let partSelectOutsideHandler=null;
     let optionPersistTimer=null;
+    let applyingOptionChanges=false;
 
     function applyOptionChanges(){
-      if(elements.subList){
-        elements.subList.querySelectorAll('.db-sub-input').forEach(input=>{
-          input.dispatchEvent(new Event('change'));
-        });
-      }
-      if(elements.ruleList){
-        elements.ruleList.querySelectorAll('.db-rule-field').forEach(input=>{
-          input.dispatchEvent(new Event('change'));
-        });
-      }
-      if(elements.titleInput){
-        state.config.title=elements.titleInput.value.trim();
-      }
-      const newPart=elements.selPart?.value||'';
-      const partChanged=newPart && state.config.partField!==newPart;
-      if(newPart){
-        state.config.partField=newPart;
-      }
-      const collected=(tempSubFields||[]).map(value=>String(value||'').trim()).filter(Boolean);
-      const availableSubFields=getAvailableFieldList(state);
-      state.config.subFields=collected.length?collected:[availableSubFields[0]||DEFAULT_SUB_FIELD];
-      const preparedRules=(tempTitleRules||[]).map(rule=>normalizeTitleRule(rule)).map(rule=>({
-        field:(rule.field||'').trim(),
-        operator:normalizeOperator(rule.operator),
-        value:typeof rule.value==='string'?rule.value.trim():(rule.value==null?'':String(rule.value).trim()),
-        text:(rule.text||'').trim()
-      })).filter(rule=>rule.field);
-      state.config.titleRules=preparedRules;
-      state.config.colors={
-        bg:elements.cBg?.value||state.config.colors.bg,
-        item:elements.cItem?.value||state.config.colors.item,
-        title:elements.cTitle?.value||state.config.colors.title,
-        sub:elements.cSub?.value||state.config.colors.sub,
-        active:elements.cActive?.value||state.config.colors.active
-      };
-      refreshTitleBar();
-      applyColors(elements.root,state.config.colors);
-      if(partChanged){
-        state.items.forEach(item=>{
-          const raw=String(item.data?.[newPart]||'').trim();
-          const part=(raw.split(':')[0]||'').trim();
-          item.part=part;
-          item.data={...item.data,[newPart]:part};
-        });
-        state.excluded.clear();
-      }
-      persistState(state,instanceId);
-      if(elements.root?.isConnected){
-        render();
+      if(applyingOptionChanges) return;
+      applyingOptionChanges=true;
+      try{
+        if(elements.subList){
+          elements.subList.querySelectorAll('.db-sub-input').forEach(input=>{
+            input.dispatchEvent(new Event('change'));
+          });
+        }
+        if(elements.ruleList){
+          elements.ruleList.querySelectorAll('.db-rule-field').forEach(input=>{
+            input.dispatchEvent(new Event('change'));
+          });
+        }
+        if(elements.titleInput){
+          state.config.title=elements.titleInput.value.trim();
+        }
+        const newPart=elements.selPart?.value||'';
+        const partChanged=newPart && state.config.partField!==newPart;
+        if(newPart){
+          state.config.partField=newPart;
+        }
+        const collected=(tempSubFields||[]).map(value=>String(value||'').trim()).filter(Boolean);
+        const availableSubFields=getAvailableFieldList(state);
+        state.config.subFields=collected.length?collected:[availableSubFields[0]||DEFAULT_SUB_FIELD];
+        const preparedRules=(tempTitleRules||[]).map(rule=>normalizeTitleRule(rule)).map(rule=>({
+          field:(rule.field||'').trim(),
+          operator:normalizeOperator(rule.operator),
+          value:typeof rule.value==='string'?rule.value.trim():(rule.value==null?'':String(rule.value).trim()),
+          text:(rule.text||'').trim()
+        })).filter(rule=>rule.field);
+        state.config.titleRules=preparedRules;
+        state.config.colors={
+          bg:elements.cBg?.value||state.config.colors.bg,
+          item:elements.cItem?.value||state.config.colors.item,
+          title:elements.cTitle?.value||state.config.colors.title,
+          sub:elements.cSub?.value||state.config.colors.sub,
+          active:elements.cActive?.value||state.config.colors.active
+        };
+        refreshTitleBar();
+        applyColors(elements.root,state.config.colors);
+        if(partChanged){
+          state.items.forEach(item=>{
+            const raw=String(item.data?.[newPart]||'').trim();
+            const part=(raw.split(':')[0]||'').trim();
+            item.part=part;
+            item.data={...item.data,[newPart]:part};
+          });
+          state.excluded.clear();
+        }
+        persistState(state,instanceId);
+        if(elements.root?.isConnected){
+          render();
+        }
+      }finally{
+        applyingOptionChanges=false;
       }
     }
 
@@ -1225,6 +1232,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
           optionPersistTimer=null;
         }
         applyOptionChanges();
+        return;
+      }
+      if(applyingOptionChanges){
         return;
       }
       if(optionPersistTimer){
@@ -1845,8 +1855,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
         };
         const commitField=()=>{
           const raw=(fieldInput.value||'').trim();
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
           if(!raw){
-            tempTitleRules[index].field='';
+            target.field='';
             fieldInput.value='';
             renderFieldOptions();
             scheduleOptionPersist();
@@ -1855,7 +1869,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
           const lower=raw.toLowerCase();
           const exact=fieldChoices.find(opt=>opt.toLowerCase()===lower);
           if(exact){
-            tempTitleRules[index].field=exact;
+            target.field=exact;
             fieldInput.value=exact;
             renderFieldOptions();
             scheduleOptionPersist();
@@ -1863,13 +1877,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
           }
           const partial=fieldChoices.find(opt=>opt.toLowerCase().includes(lower));
           if(partial){
-            tempTitleRules[index].field=partial;
+            target.field=partial;
             fieldInput.value=partial;
             renderFieldOptions();
             scheduleOptionPersist();
             return;
           }
-          tempTitleRules[index].field=raw;
+          target.field=raw;
           fieldInput.value=raw;
           if(!fieldChoices.includes(raw)){
             fieldChoices.push(raw);
@@ -1879,8 +1893,12 @@ der-radius:.4rem;background:transparent;color:inherit;}
         };
         renderFieldOptions();
         fieldInput.addEventListener('input',()=>{
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
           renderFieldOptions(fieldInput.value);
-          tempTitleRules[index].field=fieldInput.value;
+          target.field=fieldInput.value;
           scheduleOptionPersist();
         });
         fieldInput.addEventListener('focus',()=>{renderFieldOptions();});
@@ -1910,7 +1928,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
         operatorSelect.innerHTML=operators.map(op=>`<option value="${op.value}" ${op.value===currentOp?'selected':''}>${op.label}</option>`).join('');
         operatorSelect.value=currentOp;
         operatorSelect.addEventListener('change',()=>{
-          tempTitleRules[index].operator=operatorSelect.value;
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
+          target.operator=operatorSelect.value;
           scheduleOptionPersist();
         });
         row.appendChild(operatorSelect);
@@ -1920,7 +1942,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
         valueInput.placeholder='Vergleichswert';
         valueInput.value=normalized.value||'';
         valueInput.addEventListener('input',()=>{
-          tempTitleRules[index].value=valueInput.value;
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
+          target.value=valueInput.value;
           scheduleOptionPersist();
         });
         row.appendChild(valueInput);
@@ -1930,7 +1956,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
         textInput.placeholder='Titelergänzung';
         textInput.value=normalized.text||'';
         textInput.addEventListener('input',()=>{
-          tempTitleRules[index].text=textInput.value;
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
+          target.text=textInput.value;
           scheduleOptionPersist();
         });
         row.appendChild(textInput);
