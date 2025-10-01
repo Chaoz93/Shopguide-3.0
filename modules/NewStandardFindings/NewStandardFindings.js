@@ -270,6 +270,9 @@
       });
     });
     base.customBlocks=customBlocks;
+    if(!Array.isArray(base.customBlocks)){
+      base.customBlocks=[];
+    }
     const customKeys=new Set(customBlocks.map(block=>`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`));
     const normalizedOrder=[];
     rawOrder.forEach(key=>{
@@ -4649,10 +4652,12 @@
           return;
         }
         event.preventDefault();
-        const result=createCustomBlock(this.getActiveRoutineEditorTab(),type,{insertIndex:index});
+        console.log('[Drop] type:',type,'index:',index);
+        const newBlock=this.addCustomBlock(this.getActiveRoutineEditorTab(),type,{insertIndex:index});
+        console.log('[Drop] newBlock returned:',newBlock);
         currentBlockShopDragType='';
         clearAllRoutineEditorDropIndicators();
-        this.focusRoutineEditorCustomBlock(result);
+        this.focusRoutineEditorCustomBlock(newBlock);
       });
       dropzone.addEventListener('drop',event=>event.preventDefault());
       container.appendChild(dropzone);
@@ -4661,10 +4666,14 @@
     }
 
     renderRoutineEditorOverlayContent(){
+      const tabKey=this.getActiveRoutineEditorTab();
+      console.log('[renderRoutineEditorOverlayContent] triggered for tabKey:',tabKey);
       if(!this.routineEditorList) return;
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
-      const tabState=this.getRoutineEditorTabState();
+      const tabState=this.getRoutineEditorTabState(tabKey);
+      console.log('[renderRoutineEditorOverlayContent] tabState:',tabState);
+      console.log('[renderRoutineEditorOverlayContent] tabState.customBlocks:',tabState?tabState.customBlocks:undefined);
       const order=this.getRoutineEditorOrder();
       tabState.order=order.slice();
       if(Array.isArray(tabState.hiddenBaseBlocks)){
@@ -4684,6 +4693,7 @@
       });
       const finalInsert=this.createRoutineEditorInsertControl(order.length,order);
       if(finalInsert) this.routineEditorList.appendChild(finalInsert);
+      console.log('[renderRoutineEditorOverlayContent] blocks rendered:',Array.isArray(tabState.customBlocks)?tabState.customBlocks.length:0);
       this.refreshRoutineEditorPreview();
       this.updateRoutineEditorBlockShopAvailability();
     }
@@ -4702,8 +4712,10 @@
     }
 
     addCustomBlock(tabKey,type='text',options={}){
+      console.log('[addCustomBlock] called with tabKey:',tabKey,'type:',type,'options:',options);
       const targetTab=getRoutineEditorTabKey(tabKey);
       this.ensureRoutineEditorState();
+      const state=this.routineEditorState;
       const tabState=this.getRoutineEditorTabState(targetTab);
       const config=this.getRoutineEditorTabConfig(targetTab);
       const allowAspen=config&&config.allowAspen!==false;
@@ -4733,6 +4745,7 @@
         parameterKey:'',
         lines:['']
       };
+      console.log('[addCustomBlock] created entry:',entry);
       let label=sanitizeRoutineEditorLabel(options.label||'');
       if(blockType==='aspen'){
         if(!this.hasAspenDoc&&this.aspenFileInput){
@@ -4807,18 +4820,26 @@
       }
       entry.label=sanitizeRoutineEditorLabel(entry.label||'');
       tabState.customBlocks=orderedCustomBlocks;
+      console.log('[addCustomBlock] tabState.customBlocks length:',Array.isArray(tabState.customBlocks)?tabState.customBlocks.length:0);
       tabState.order=order;
-      storeRoutineEditorState(this.routineEditorState);
+      if(state&&state.tabs){
+        state.tabs[targetTab]=tabState;
+      }
+      storeRoutineEditorState(state);
+      console.log('[addCustomBlock] state saved:',state);
       this.ensureRoutineEditorState();
       this.evaluateRoutineEditorPresetMatch();
       const activeTab=this.getActiveRoutineEditorTab();
       const overlayOpen=this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open');
+      const result={id,key:customKey,type:blockType,tabKey:targetTab};
       if(overlayOpen&&activeTab===targetTab){
         this.renderRoutineEditorOverlayContent();
       }else{
         this.refreshRoutineEditorPreview();
       }
-      return {id,key:customKey,type:blockType,tabKey:targetTab};
+      this.focusRoutineEditorCustomBlock(result);
+      console.log('[addCustomBlock] returning:',result);
+      return result;
     }
 
     addRoutineEditorCustomBlockAt(index,type='text',options={}){
