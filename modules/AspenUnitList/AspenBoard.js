@@ -5,9 +5,16 @@
   const STYLE_ID = 'db-styles';
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
-    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;}
+    .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-titlebar[hidden]{display:none;}
-    .db-title-text{flex:1;min-width:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}
+    .db-title-group{flex:1;min-width:0;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
+    .db-title-text{flex:0 1 auto;min-width:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}
+    .db-title-meta{font-weight:500;font-size:.9rem;color:var(--text-color);white-space:nowrap;display:inline-flex;align-items:center;letter-spacing:.01em;}
+    .db-title-status{display:inline-flex;align-items:center;gap:.25rem;font-size:.8rem;padding:.15rem .5rem;border-radius:999px;background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.2);color:var(--text-color);}
+    .db-title-status[hidden]{display:none;}
+    .db-status-icon{line-height:1;font-size:.9rem;}
+    .db-title-hint{font-weight:500;font-size:.85rem;opacity:.75;color:var(--text-color);}
+    .db-title-hint[hidden]{display:none;}
     .db-refresh{flex:0 0 auto;padding:.3rem .55rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;background:rgba(255,255,255,.75);color:inherit;font-size:.85rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease;}
     .db-refresh:hover{background:rgba(37,99,235,.08);border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-refresh[hidden]{display:none;}
@@ -111,6 +118,95 @@ der-radius:.4rem;background:transparent;color:inherit;}
   const LS_DOC = 'module_data_v1';
   const LS_STATE = 'aspenUnitListState';
   const CUSTOM_BROADCAST = 'unitBoard:update';
+  const HANDLE_DB_NAME = 'AspenUnitListHandles';
+  const HANDLE_STORE_NAME = 'handles';
+
+  async function openHandleStore(){
+    if(typeof indexedDB==='undefined') return null;
+    try{
+      return await new Promise((resolve,reject)=>{
+        const request=indexedDB.open(HANDLE_DB_NAME,1);
+        request.onupgradeneeded=()=>{
+          const db=request.result;
+          if(db && !db.objectStoreNames.contains(HANDLE_STORE_NAME)){
+            db.createObjectStore(HANDLE_STORE_NAME);
+          }
+        };
+        request.onsuccess=()=>resolve(request.result);
+        request.onerror=()=>reject(request.error);
+      });
+    }catch(error){
+      console.warn('[UnitBoard] IndexedDB für Aspen-Dateien nicht verfügbar',error);
+      return null;
+    }
+  }
+
+  async function persistFileHandle(key,handle){
+    if(!key || !handle) return false;
+    let db=null;
+    try{
+      db=await openHandleStore();
+      if(!db) return false;
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(HANDLE_STORE_NAME).put(handle,key);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return true;
+    }catch(error){
+      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht gespeichert werden',error);
+      return false;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function restoreFileHandleFromStore(key){
+    if(!key) return null;
+    let db=null;
+    try{
+      db=await openHandleStore();
+      if(!db) return null;
+      const result=await new Promise((resolve,reject)=>{
+        const tx=db.transaction(HANDLE_STORE_NAME,'readonly');
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const store=tx.objectStore(HANDLE_STORE_NAME);
+        const request=store.get(key);
+        request.onsuccess=()=>resolve(request.result||null);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return result||null;
+    }catch(error){
+      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht gelesen werden',error);
+      return null;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function clearStoredFileHandle(key){
+    if(!key) return false;
+    let db=null;
+    try{
+      db=await openHandleStore();
+      if(!db) return false;
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(HANDLE_STORE_NAME).delete(key);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return true;
+    }catch(error){
+      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht entfernt werden',error);
+      return false;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
 
   function injectStyles(){
     if(document.getElementById(STYLE_ID)) return;
@@ -449,7 +545,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root';
-    root.innerHTML=`<div class="db-titlebar" hidden><span class="db-title-text"></span><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><label>Untertitel-Felder</label><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div><div class="actions"><button class="db-save">Speichern</button><button class="db-close">Schließen</button></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -473,6 +569,10 @@ der-radius:.4rem;background:transparent;color:inherit;}
       titleBar,
       titleText:root.querySelector('.db-title-text'),
       refreshBtn:root.querySelector('.db-refresh'),
+      statusWrap:root.querySelector('.db-title-status'),
+      statusIcon:root.querySelector('.db-status-icon'),
+      statusText:root.querySelector('.db-status-text'),
+      titleHint:root.querySelector('.db-title-hint'),
       modal:root.querySelector('.db-modal'),
       titleInput:root.querySelector('.db-title-input'),
       ruleList:root.querySelector('.db-rule-list'),
@@ -627,12 +727,86 @@ der-radius:.4rem;background:transparent;color:inherit;}
     return base;
   }
 
+  function parseColorToRgb(color){
+    if(!color) return null;
+    const raw=String(color).trim();
+    if(!raw) return null;
+    const hexMatch=raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if(hexMatch){
+      let hex=hexMatch[1];
+      if(hex.length===3){
+        hex=hex.split('').map(ch=>ch+ch).join('');
+      }
+      const r=parseInt(hex.slice(0,2),16);
+      const g=parseInt(hex.slice(2,4),16);
+      const b=parseInt(hex.slice(4,6),16);
+      return [r,g,b];
+    }
+    const rgbMatch=raw.match(/^rgba?\(([^)]+)\)$/i);
+    if(rgbMatch){
+      const parts=rgbMatch[1].split(',').map(part=>part.trim());
+      if(parts.length>=3){
+        const [r,g,b]=parts;
+        const toByte=value=>{
+          if(value.endsWith('%')){
+            const ratio=Number.parseFloat(value.slice(0,-1));
+            if(Number.isNaN(ratio)) return null;
+            return clamp(Math.round(ratio*2.55),0,255);
+          }
+          const num=Number.parseFloat(value);
+          if(Number.isNaN(num)) return null;
+          return clamp(Math.round(num),0,255);
+        };
+        const red=toByte(r);
+        const green=toByte(g);
+        const blue=toByte(b);
+        if([red,green,blue].every(channel=>typeof channel==='number')){
+          return [red,green,blue];
+        }
+      }
+    }
+    return null;
+  }
+
+  function relativeLuminance(color){
+    const rgb=parseColorToRgb(color);
+    if(!rgb) return null;
+    const [r,g,b]=rgb.map(channel=>{
+      const srgb=channel/255;
+      return srgb<=0.03928?srgb/12.92:Math.pow((srgb+0.055)/1.055,2.4);
+    });
+    return 0.2126*r+0.7152*g+0.0722*b;
+  }
+
+  function idealTextColor(background){
+    const lum=relativeLuminance(background);
+    if(lum==null) return '#111111';
+    return lum<=0.45?'#ffffff':'#111111';
+  }
+
   function applyColors(root,colors){
     root.style.setProperty('--dl-bg',colors.bg);
     root.style.setProperty('--dl-item-bg',colors.item);
     root.style.setProperty('--dl-title',colors.title);
     root.style.setProperty('--dl-sub',colors.sub);
     root.style.setProperty('--dl-active',colors.active);
+    const docStyle=getComputedStyle(document.documentElement);
+    const configuredTextColor=docStyle.getPropertyValue('--text-color')?.trim();
+    const textColor=configuredTextColor||idealTextColor(colors.bg);
+    root.style.color=textColor;
+    root.style.setProperty('--text-color',textColor);
+  }
+
+  function formatLastModified(value){
+    if(typeof value!=='number' || !Number.isFinite(value)) return '';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime())) return '';
+    const pad=num=>String(num).padStart(2,'0');
+    const day=pad(date.getDate());
+    const month=pad(date.getMonth()+1);
+    const hours=pad(date.getHours());
+    const minutes=pad(date.getMinutes());
+    return `${day}.${month}  ${hours}:${minutes}`;
   }
 
   function updateTitleBar(root,title,options){
@@ -640,6 +814,11 @@ der-radius:.4rem;background:transparent;color:inherit;}
     if(!bar) return;
     const textNode=bar.querySelector('.db-title-text');
     const refreshBtn=bar.querySelector('.db-refresh');
+    const metaNode=bar.querySelector('.db-title-meta');
+    const statusNode=bar.querySelector('.db-title-status');
+    const statusIcon=bar.querySelector('.db-status-icon');
+    const statusTextNode=bar.querySelector('.db-status-text');
+    const hintNode=bar.querySelector('.db-title-hint');
     const fallback=(options?.filePath||'').trim();
     const text=(title||'').trim()||fallback;
     if(textNode){
@@ -647,15 +826,63 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }else{
       bar.textContent=text;
     }
+    const formattedMeta=formatLastModified(options?.lastModified);
+    if(metaNode){
+      if(formattedMeta){
+        metaNode.textContent=`Aspenalter: ${formattedMeta}`;
+        metaNode.hidden=false;
+        metaNode.removeAttribute('hidden');
+        metaNode.style.removeProperty('display');
+      }else{
+        metaNode.textContent='';
+        metaNode.hidden=true;
+        metaNode.setAttribute('hidden','');
+        metaNode.style.display='none';
+      }
+    }
+    const hasFile=!!options?.hasFile;
+    if(hintNode){
+      if(!hasFile){
+        const hintText=options?.hintText||'Keine Aspen-Datei verbunden – bitte Aspen.xlsx wählen.';
+        hintNode.textContent=hintText;
+        hintNode.hidden=false;
+        hintNode.removeAttribute('hidden');
+        hintNode.style.removeProperty('display');
+      }else{
+        hintNode.textContent='';
+        hintNode.hidden=true;
+        hintNode.setAttribute('hidden','');
+        hintNode.style.display='none';
+      }
+    }
+    const pollingActive=!!options?.pollingActive && hasFile;
+    if(statusNode){
+      if(pollingActive){
+        if(statusIcon) statusIcon.textContent=options?.statusIcon||'🔄';
+        if(statusTextNode) statusTextNode.textContent=options?.statusText||'Automatisches Polling aktiv';
+        statusNode.hidden=false;
+        statusNode.removeAttribute('hidden');
+        statusNode.style.removeProperty('display');
+      }else{
+        if(statusIcon) statusIcon.textContent='';
+        if(statusTextNode) statusTextNode.textContent='';
+        statusNode.hidden=true;
+        statusNode.setAttribute('hidden','');
+        statusNode.style.display='none';
+      }
+    }
     const canRefresh=!!options?.canRefresh;
-    const showRefresh=canRefresh||!!fallback;
+    const showRefresh=canRefresh||!!fallback||!hasFile;
     if(refreshBtn){
       refreshBtn.hidden=!showRefresh;
       const label=canRefresh?'Aspen-Datei aktualisieren':'Aspen-Datei wählen';
       refreshBtn.title=label;
       refreshBtn.setAttribute('aria-label',label);
     }
-    bar.hidden=!text && !showRefresh;
+    const showMeta=!!metaNode && !metaNode.hidden && !!metaNode.textContent.trim();
+    const showStatus=!!statusNode && !statusNode.hidden && !!statusNode.textContent?.trim();
+    const showHint=!hasFile && !!hintNode && !hintNode.hidden && !!hintNode.textContent.trim();
+    bar.hidden=!text && !showRefresh && !showMeta && !showStatus && !showHint;
   }
 
   function parseNumericValue(value){
@@ -833,6 +1060,10 @@ der-radius:.4rem;background:transparent;color:inherit;}
   }
 
   window.renderAspenBoard=async function(targetDiv,opts){
+    let lastModifiedCheck=null;
+    let pollInterval=null;
+    const POLL_INTERVAL_MS=60000;
+    let pollInProgress=false;
     injectStyles();
 
     const initialTitle=opts?.moduleJson?.settings?.title||'';
@@ -843,6 +1074,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     const state=createInitialState(initialTitle);
     const instanceId=instanceIdOf(elements.root);
+    const persistenceSeed=opts?.moduleJson?.id||opts?.moduleJson?.moduleKey||'primary';
+    const handleStorageKey=`aspen-unit-handle::${persistenceSeed}`;
     let fileHandle=null;
     let tempSubFields=[];
     let tempTitleRules=[];
@@ -851,6 +1084,17 @@ der-radius:.4rem;background:transparent;color:inherit;}
     let partSelectOpen=false;
     let highlightedPartIndex=-1;
     let partSelectOutsideHandler=null;
+
+    const refreshTitleBar=(extraOptions={})=>{
+      updateTitleBar(elements.root,state.config.title,{
+        filePath:state.filePath,
+        canRefresh:!!fileHandle,
+        lastModified:lastModifiedCheck,
+        pollingActive:!!pollInterval && !!fileHandle,
+        hasFile:!!fileHandle,
+        ...extraOptions
+      });
+    };
 
     restoreState(state);
 
@@ -862,7 +1106,55 @@ der-radius:.4rem;background:transparent;color:inherit;}
     elements.titleInput.value=state.config.title||'';
 
     applyColors(elements.root,state.config.colors);
-    updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
+    refreshTitleBar();
+
+    function stopPolling(){
+      if(pollInterval){
+        clearInterval(pollInterval);
+        pollInterval=null;
+      }
+      pollInProgress=false;
+      refreshTitleBar();
+    }
+
+    async function pollFileChangesOnce(){
+      if(pollInProgress) return;
+      if(!fileHandle){
+        stopPolling();
+        return;
+      }
+      pollInProgress=true;
+      try{
+        const file=await fileHandle.getFile();
+        const modified=typeof file?.lastModified==='number'?file.lastModified:null;
+        if(modified===null){
+          return;
+        }
+        if(lastModifiedCheck===null){
+          lastModifiedCheck=modified;
+          refreshTitleBar();
+          return;
+        }
+        if(modified>lastModifiedCheck){
+          const reloaded=await loadAspenFromHandle(fileHandle,{silent:true});
+          if(reloaded){
+            lastModifiedCheck=modified;
+          }
+        }
+      }catch(err){
+        console.warn('[UnitBoard] Polling fehlgeschlagen',err);
+        stopPolling();
+      }finally{
+        pollInProgress=false;
+      }
+    }
+
+    function startPolling(){
+      stopPolling();
+      if(!fileHandle) return;
+      pollInterval=setInterval(()=>{void pollFileChangesOnce();},POLL_INTERVAL_MS);
+      refreshTitleBar();
+    }
 
     if(elements.refreshBtn){
       elements.refreshBtn.addEventListener('click',async()=>{
@@ -1128,7 +1420,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!(state.activeMeldungen instanceof Set)){
         state.activeMeldungen=new Set(Array.isArray(state.activeMeldungen)?state.activeMeldungen:[]);
       }
-      updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
+      refreshTitleBar();
       if(elements.search){
         elements.search.value=state.searchQuery||'';
       }
@@ -1495,7 +1787,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         sub:elements.cSub.value,
         active:elements.cActive.value
       };
-      updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:!!fileHandle});
+      refreshTitleBar();
       applyColors(elements.root,state.config.colors);
       if(partChanged){
         state.items.forEach(item=>{
@@ -1573,6 +1865,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       if(!document.body.contains(elements.root)){
         elements.menu.remove();
         SHARED.clearAspenItems(instanceId);
+        stopPolling();
         mo.disconnect();
       }
     });
@@ -1583,11 +1876,13 @@ der-radius:.4rem;background:transparent;color:inherit;}
       try{
         await ensureXLSX();
         const file=await handle.getFile();
+        lastModifiedCheck=typeof file?.lastModified==='number'?file.lastModified:Date.now();
         const buffer=await file.arrayBuffer();
         const workbook=XLSX.read(buffer,{type:'array'});
         const worksheet=workbook.Sheets[workbook.SheetNames[0]];
         fileHandle=handle;
         state.filePath=handle.name||state.filePath||'';
+        await persistFileHandle(handleStorageKey,handle);
         if(!worksheet){
           state.fields=[];
           state.items=[];
@@ -1659,11 +1954,16 @@ der-radius:.4rem;background:transparent;color:inherit;}
         state.excluded=new Set(Array.from(state.excluded).filter(part=>availableParts.has(part)));
         populateFieldSelects();
         render();
+        refreshTitleBar();
+        startPolling();
         return true;
       }catch(error){
         if(!silent) console.error(error);
         fileHandle=null;
-        updateTitleBar(elements.root,state.config.title,{filePath:state.filePath,canRefresh:false});
+        lastModifiedCheck=null;
+        await clearStoredFileHandle(handleStorageKey);
+        stopPolling();
+        refreshTitleBar({canRefresh:false});
         return false;
       }
     }
@@ -1708,6 +2008,22 @@ der-radius:.4rem;background:transparent;color:inherit;}
         onAdd:()=>{syncFromDOM();render();},
         onRemove:()=>{syncFromDOM();render();}
       });
+    }
+
+    if(!fileHandle){
+      try{
+        const storedHandle=await restoreFileHandleFromStore(handleStorageKey);
+        if(storedHandle){
+          const granted=typeof SHARED.requestRW==='function'?await SHARED.requestRW(storedHandle):true;
+          if(granted){
+            await loadAspenFromHandle(storedHandle,{silent:false});
+          }else{
+            await clearStoredFileHandle(handleStorageKey);
+          }
+        }
+      }catch(error){
+        console.warn('[UnitBoard] Persistierte Aspen-Datei konnte nicht wiederhergestellt werden',error);
+      }
     }
   };
 })();
