@@ -39,7 +39,7 @@
     .db-flex{flex:1;display:flex;flex-direction:column;}
     .db-card-header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-card-tags{margin-left:auto;display:flex;flex-wrap:wrap;gap:.35rem;justify-content:flex-end;}
-    .db-card-tag{background:rgba(37,99,235,.12);color:var(--dl-title,#2563eb);padding:.1rem .4rem;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap;}
+    .db-card-tag{background:rgba(37,99,235,.12);color:var(--dl-title,#2563eb);padding:.1rem .4rem;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap;border:1px solid transparent;}
     .db-title{color:var(--dl-title,#2563eb);font-weight:600;line-height:1.1;}
     .db-sub{color:var(--dl-sub,#4b5563);font-size:.85rem;margin-top:.15rem;}
     .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;bor
@@ -91,8 +91,9 @@ der-radius:.4rem;background:transparent;color:inherit;}
     .db-panel .row.rules{display:flex;flex-direction:column;gap:.4rem;}
     .db-rule-label{font-size:.85rem;font-weight:600;}
     .db-rule-list{display:flex;flex-direction:column;gap:.35rem;}
-    .db-rule-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,1fr) auto;gap:.4rem;align-items:center;}
+    .db-rule-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,1fr) auto auto;gap:.4rem;align-items:center;}
     .db-rule-row select,.db-rule-row input{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-rule-row .db-rule-color{padding:0;height:2.25rem;width:3rem;min-width:2.5rem;cursor:pointer;}
     .db-rule-row .db-rule-remove{padding:.35rem .55rem;}
     .db-rule-empty{font-size:.85rem;opacity:.7;}
     .db-add-rule{align-self:flex-start;padding:.35rem .6rem;}
@@ -121,6 +122,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
   const TITLE_FIELD = 'MELDUNGS_NO';
   const MELDUNG_FIELD = 'MELDUNGS_NO';
   const DEFAULT_SUB_FIELD = 'AUFTRAGS_NO';
+  const DEFAULT_TAG_COLOR = '#2563eb';
   const LS_DOC = 'module_data_v1';
   const LS_STATE = 'aspenUnitListState';
   const CUSTOM_BROADCAST = 'unitBoard:update';
@@ -669,6 +671,19 @@ der-radius:.4rem;background:transparent;color:inherit;}
     return map[key]||map[raw]||'=';
   }
 
+  function sanitizeHexColor(value){
+    if(typeof value!=='string') return '';
+    const raw=value.trim();
+    if(!raw) return '';
+    const match=raw.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if(!match) return '';
+    let hex=match[1];
+    if(hex.length===3){
+      hex=hex.split('').map(ch=>ch+ch).join('');
+    }
+    return `#${hex.toLowerCase()}`;
+  }
+
   function normalizeTitleRule(rule){
     const source=rule&&typeof rule==='object'?rule:{};
     const field=typeof source.field==='string'?source.field:'';
@@ -676,7 +691,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
     const valueRaw=source.value;
     const value=typeof valueRaw==='number'?String(valueRaw):typeof valueRaw==='string'?valueRaw:'';
     const text=typeof source.text==='string'?source.text:'';
-    return {field,operator,value,text};
+    const color=sanitizeHexColor(source.color||'');
+    return {field,operator,value,text,color};
   }
 
   function primarySubField(config){
@@ -863,6 +879,19 @@ der-radius:.4rem;background:transparent;color:inherit;}
     return lum<=0.45?'#ffffff':'#111111';
   }
 
+  function formatChipStyle(color){
+    const sanitized=sanitizeHexColor(color);
+    if(!sanitized) return '';
+    const rgb=parseColorToRgb(sanitized);
+    if(!rgb) return '';
+    const [r,g,b]=rgb;
+    const background=`rgba(${r},${g},${b},0.18)`;
+    const border=`rgba(${r},${g},${b},0.35)`;
+    const lum=relativeLuminance(sanitized);
+    const textColor=lum!=null && lum>0.75?'#111111':sanitized;
+    return `background:${background};border:1px solid ${border};color:${textColor};`;
+  }
+
   function applyColors(root,colors){
     root.style.setProperty('--dl-bg',colors.bg);
     root.style.setProperty('--dl-item-bg',colors.item);
@@ -1003,7 +1032,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
     }
   }
 
-  function collectRuleTextsForItem(item,state){
+  function collectRuleTagsForItem(item,state){
     if(!state?.config || !item) return [];
     const rules=Array.isArray(state.config.titleRules)?state.config.titleRules:[];
     if(!rules.length) return [];
@@ -1012,14 +1041,15 @@ der-radius:.4rem;background:transparent;color:inherit;}
       const normalized=normalizeTitleRule(rule);
       const field=(normalized.field||'').trim();
       const text=(normalized.text||'').trim();
-      if(!field || !text) return '';
+      if(!field || !text) return null;
       const operator=normalizeOperator(normalized.operator);
       const value=normalized.value;
-      return compareRuleValue(data[field],operator,value)?text:'';
+      if(!compareRuleValue(data[field],operator,value)) return null;
+      return {text,color:sanitizeHexColor(normalized.color||'')};
     }).filter(Boolean);
   }
 
-  function buildCardMarkup(item,config,ruleTexts){
+  function buildCardMarkup(item,config,ruleTags){
     const titleValue=item.data?.[TITLE_FIELD]||'';
     const meldung=item.meldung||'';
     const subs=(Array.isArray(config.subFields)?config.subFields:[])
@@ -1029,8 +1059,15 @@ der-radius:.4rem;background:transparent;color:inherit;}
       })
       .filter(Boolean)
       .join('');
-    const tags=Array.isArray(ruleTexts)?ruleTexts.map(val=>String(val||'').trim()).filter(Boolean):[];
-    const tagHtml=tags.length?`<div class="db-card-tags">${tags.map(val=>`<span class="db-card-tag">${escapeHtml(val)}</span>`).join('')}</div>`:'';
+    const tags=Array.isArray(ruleTags)?ruleTags.map(tag=>({
+      text:String(tag?.text||'').trim(),
+      color:sanitizeHexColor(tag?.color||'')
+    })).filter(tag=>!!tag.text):[];
+    const tagHtml=tags.length?`<div class="db-card-tags">${tags.map(tag=>{
+      const style=tag.color?formatChipStyle(tag.color):'';
+      const styleAttr=style?` style="${style}"`:'';
+      return `<span class="db-card-tag"${styleAttr}>${escapeHtml(tag.text)}</span>`;
+    }).join('')}</div>`:'';
     return `
       <div class="db-card" data-id="${item.id}" data-meldung="${meldung}" data-part="${item.part}">
         <div class="db-flex">
@@ -1064,7 +1101,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
       return;
     }
     listEl.innerHTML=visible
-      .map(item=>buildCardMarkup(item,state.config,collectRuleTextsForItem(item,state)))
+      .map(item=>buildCardMarkup(item,state.config,collectRuleTagsForItem(item,state)))
       .join('');
     const nodes=listEl.querySelectorAll('.db-card');
     visible.forEach((item,index)=>{
@@ -1195,7 +1232,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
           field:(rule.field||'').trim(),
           operator:normalizeOperator(rule.operator),
           value:typeof rule.value==='string'?rule.value.trim():(rule.value==null?'':String(rule.value).trim()),
-          text:(rule.text||'').trim()
+          text:(rule.text||'').trim(),
+          color:sanitizeHexColor(rule.color||'')
         })).filter(rule=>rule.field);
         state.config.titleRules=preparedRules;
         state.config.colors={
@@ -1964,6 +2002,31 @@ der-radius:.4rem;background:transparent;color:inherit;}
           scheduleOptionPersist();
         });
         row.appendChild(textInput);
+
+        const colorInput=document.createElement('input');
+        colorInput.type='color';
+        colorInput.className='db-rule-color';
+        colorInput.title='Chip-Farbe auswählen (Rechtsklick setzt zurück)';
+        colorInput.setAttribute('aria-label','Chip-Farbe auswählen');
+        const defaultChipColor=sanitizeHexColor(state.config?.colors?.title||'')||DEFAULT_TAG_COLOR;
+        colorInput.value=normalized.color||defaultChipColor;
+        const commitColor=value=>{
+          const target=tempTitleRules[index];
+          if(!target){
+            return;
+          }
+          const sanitized=sanitizeHexColor(value||'');
+          target.color=sanitized||'';
+          scheduleOptionPersist();
+        };
+        colorInput.addEventListener('input',()=>commitColor(colorInput.value));
+        colorInput.addEventListener('change',()=>commitColor(colorInput.value));
+        colorInput.addEventListener('contextmenu',event=>{
+          event.preventDefault();
+          colorInput.value=defaultChipColor;
+          commitColor('');
+        });
+        row.appendChild(colorInput);
 
         const removeBtn=document.createElement('button');
         removeBtn.type='button';
