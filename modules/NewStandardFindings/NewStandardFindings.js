@@ -5207,7 +5207,7 @@
           document.addEventListener('pointerdown',pickerState.outsideHandler,true);
           updateFiltered(input.value);
         };
-        input.addEventListener('input',event=>{
+        input.addEventListener('input',()=>{
           const term=(input.value||'').trim();
           if(pickerState.open){
             if(term){
@@ -5217,7 +5217,7 @@
             }
             return;
           }
-          if(term&&event.isTrusted&&document.activeElement===input){
+          if(term&&document.activeElement===input){
             openDropdown();
           }
         });
