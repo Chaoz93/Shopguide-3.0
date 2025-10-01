@@ -53,6 +53,8 @@
   const PART_PATTERNS=[/part/i,/p\/?n/i,/artikel/i,/material/i];
   const SERIAL_PATTERNS=[/serial/i,/sn/i,/serien/i];
   const COMMENT_PATTERNS=[/comment/i,/bemerk/i,/notiz/i,/note/i,/hinweis/i];
+  const HEADER_SCAN_LIMIT=25;
+  const HEADER_MAX_SCORE=14;
 
   function injectStyles(){
     if(document.getElementById(STYLE_ID)) return;
@@ -249,6 +251,57 @@
     return header.length?0:-1;
   }
 
+  function hasPreferredMatch(normalizedHeader,preferredNames){
+    if(!Array.isArray(normalizedHeader)||!normalizedHeader.length) return false;
+    if(!Array.isArray(preferredNames)||!preferredNames.length) return false;
+    return preferredNames.some(name=>normalizedHeader.includes(normalizeKey(name)));
+  }
+
+  function hasPatternMatch(header,patterns){
+    if(!Array.isArray(header)||!header.length) return false;
+    if(!Array.isArray(patterns)||!patterns.length) return false;
+    return header.some(cell=>patterns.some(rx=>rx.test(cell||'')));
+  }
+
+  function scoreHeaderRow(header){
+    if(!Array.isArray(header)||!header.length) return -1;
+    if(header.every(cell=>!trim(cell))) return -1;
+    const normalizedHeader=header.map(normalizeKey);
+    let score=0;
+    if(hasPreferredMatch(normalizedHeader,MELD_HEADER_PRIORITY)) score+=8;
+    else if(hasPatternMatch(header,MELD_PATTERNS)) score+=3;
+    if(hasPreferredMatch(normalizedHeader,PART_HEADER_PRIORITY)) score+=4;
+    else if(hasPatternMatch(header,PART_PATTERNS)) score+=1;
+    if(hasPreferredMatch(normalizedHeader,SERIAL_HEADER_PRIORITY)) score+=4;
+    else if(hasPatternMatch(header,SERIAL_PATTERNS)) score+=1;
+    return score;
+  }
+
+  function findHeaderRow(rows){
+    if(!Array.isArray(rows)||!rows.length){
+      return {header:[],index:0};
+    }
+    const limit=Math.min(rows.length,HEADER_SCAN_LIMIT);
+    let bestIndex=-1;
+    let bestHeader=[];
+    let bestScore=-1;
+    for(let i=0;i<limit;i++){
+      const candidate=(rows[i]||[]).map(cell=>trim(cell));
+      const score=scoreHeaderRow(candidate);
+      if(score>bestScore||(score===bestScore&&bestIndex===-1)){
+        bestScore=score;
+        bestIndex=i;
+        bestHeader=candidate;
+        if(score>=HEADER_MAX_SCORE) break;
+      }
+    }
+    if(bestIndex===-1){
+      const fallback=(rows[0]||[]).map(cell=>trim(cell));
+      return {header:fallback,index:0};
+    }
+    return {header:bestHeader,index:bestIndex};
+  }
+
   async function readComments(handle){
     await ensureXLSX();
     const file=await handle.getFile();
@@ -259,7 +312,7 @@
     if(!sheet) return new Map();
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
     if(!rows.length) return new Map();
-    const header=(rows[0]||[]).map(cell=>trim(cell));
+    const {header, index:headerRowIndex}=findHeaderRow(rows);
     const meldIdx=findColumn(header,MELD_PATTERNS,0,MELD_HEADER_PRIORITY);
     const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0,PART_HEADER_PRIORITY);
     const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1),SERIAL_HEADER_PRIORITY);
@@ -273,7 +326,7 @@
     const finalSerialIdx=(resolvedSerialIdx===finalMeldIdx||resolvedSerialIdx===finalPartIdx)?-1:resolvedSerialIdx;
     const finalCommentIdx=(resolvedCommentIdx===finalMeldIdx||resolvedCommentIdx===finalPartIdx||resolvedCommentIdx===finalSerialIdx)?-1:resolvedCommentIdx;
     const map=new Map();
-    for(let i=1;i<rows.length;i++){
+    for(let i=headerRowIndex+1;i<rows.length;i++){
       const row=rows[i]||[];
       const meldung=finalMeldIdx>=0?trim(row[finalMeldIdx]):'';
       const part=finalPartIdx>=0?trim(row[finalPartIdx]):'';
@@ -324,7 +377,7 @@
     if(!sheet) return [];
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
     if(!rows.length) return [];
-    const header=(rows[0]||[]).map(cell=>trim(cell));
+    const {header, index:headerRowIndex}=findHeaderRow(rows);
     const meldIdx=findColumn(header,MELD_PATTERNS,0,MELD_HEADER_PRIORITY);
     const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0,PART_HEADER_PRIORITY);
     const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1),SERIAL_HEADER_PRIORITY);
@@ -332,7 +385,7 @@
     const resolvedPartIdx=(partIdx>=0&&partIdx<header.length)?partIdx:-1;
     const resolvedSerialIdx=(serialIdx>=0&&serialIdx<header.length)?serialIdx:-1;
     const entries=[];
-    for(let i=1;i<rows.length;i++){
+    for(let i=headerRowIndex+1;i<rows.length;i++){
       const row=rows[i]||[];
       const meldung=resolvedMeldIdx>=0?trim(row[resolvedMeldIdx]):'';
       const partValue=resolvedPartIdx>=0?row[resolvedPartIdx]:'';
