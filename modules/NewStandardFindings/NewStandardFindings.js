@@ -578,6 +578,25 @@
     state.tabs[targetTab]=tabState;
     storeRoutineEditorState(state);
     try{
+      const overlay=document.querySelector('.nsf-editor-overlay.open');
+      const container=overlay?.querySelector('.nsf-editor-tab.active .nsf-custom-list')
+        ||overlay?.querySelector('.nsf-editor-tab.active .nsf-blocks');
+      const newBlock=Array.isArray(tabState.customBlocks)
+        ?tabState.customBlocks.find(entry=>entry&&entry.id===blockId)
+        :null;
+      if(overlay&&container&&newBlock&&typeof renderRoutineEditorBlock==='function'){
+        const blockEl=renderRoutineEditorBlock(newBlock,targetTab);
+        const isDomNode=typeof Node!=='undefined'
+          ?blockEl instanceof Node
+          :blockEl&&typeof blockEl.nodeType==='number';
+        if(blockEl&&isDomNode){
+          container.appendChild(blockEl);
+        }
+      }
+    }catch(err){
+      console.warn('NSF: Custom-Block konnte nicht direkt angezeigt werden',err);
+    }
+    try{
       renderRoutineEditor();
     }catch(err){
       console.warn('NSF: Routine-Editor konnte nach Custom-Block-Aktualisierung nicht gerendert werden',err);
