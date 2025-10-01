@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.1] – 2025-10-02
+### Fixed
+- Standardfeld-Erkennung nutzt nun eine erweiterte Kandidatenliste, sodass hinterlegte Basisfelder wieder korrekt mit Aspen-Spalten abgeglichen werden.
+- Die Auftragsspalte erkennt zusätzlich das Alias `AUFTRAGS_NO`, wodurch importierte Excel-Dateien mit diesem Header automatisch übernommen werden.
+
 ## [1.5.0] – 2025-10-02
 ### Added
 - Kopfzeile blendet automatisch den ermittelten Gerätenamen aus den Namensregeln ein und aktualisiert sich bei Änderungen am P/N-Feld.

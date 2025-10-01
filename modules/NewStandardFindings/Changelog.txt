@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.3.1] – 2025-10-02
+### Changed
+- Routine-Editor speichert Eingaben in Text- und Aspen-Blöcken sofort im lokalen Zustand und aktualisiert deren Darstellung auch nach dem Neuladen.
+- Custom-Block-Renderer kennzeichnet Aspen-Felder mit einer eigenen CSS-Klasse und liefert detailliertere Konsolenmeldungen pro Blocktyp.
+
 ## [1.3.0] – 2025-10-02
 ### Added
 - Routine-Editor mit Overlay, Tabs und Drag-and-Drop-Blöcken ermöglicht das Zusammenstellen von Findings-, Actions-, Routine- und Nonroutine-Textbausteinen inklusive Aspen-Vorschau und Mehrfachausgaben.
