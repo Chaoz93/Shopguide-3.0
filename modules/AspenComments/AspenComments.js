@@ -229,26 +229,21 @@
     elements?.menu?.remove();
   }
 
-  function findColumn(header,patterns,fallbackIndex,preferredNames){
-    if(!Array.isArray(header)||!header.length){
-      return typeof fallbackIndex==='number'?fallbackIndex:-1;
-    }
-    if(Array.isArray(preferredNames)&&preferredNames.length){
-      const normalizedPreferred=preferredNames.map(name=>normalizeKey(name)).filter(Boolean);
-      for(const preferred of normalizedPreferred){
-        for(let i=0;i<header.length;i++){
-          if(normalizeKey(header[i])===preferred) return i;
-        }
-      }
+  function findColumn(header,patterns,{preferred=[],exclude}={}){
+    if(!Array.isArray(header)||!header.length) return -1;
+    const normalizedHeader=header.map(normalizeKey);
+    const normalizedPreferred=Array.isArray(preferred)?preferred.map(normalizeKey).filter(Boolean):[];
+    const usedIndices=exclude instanceof Set?exclude:new Set();
+    for(const preferredName of normalizedPreferred){
+      const idx=normalizedHeader.indexOf(preferredName);
+      if(idx!==-1&&!usedIndices.has(idx)) return idx;
     }
     for(let i=0;i<header.length;i++){
+      if(usedIndices.has(i)) continue;
       const cell=trim(header[i]);
       if(patterns.some(rx=>rx.test(cell))) return i;
     }
-    if(typeof fallbackIndex==='number'&&fallbackIndex>=0&&fallbackIndex<header.length){
-      return fallbackIndex;
-    }
-    return header.length?0:-1;
+    return -1;
   }
 
   function hasPreferredMatch(normalizedHeader,preferredNames){
@@ -313,10 +308,14 @@
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
     if(!rows.length) return new Map();
     const {header, index:headerRowIndex}=findHeaderRow(rows);
-    const meldIdx=findColumn(header,MELD_PATTERNS,0,MELD_HEADER_PRIORITY);
-    const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0,PART_HEADER_PRIORITY);
-    const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1),SERIAL_HEADER_PRIORITY);
-    const commentIdx=findColumn(header,COMMENT_PATTERNS,serialIdx===0?1:(serialIdx===1?2:serialIdx+1));
+    const used=new Set();
+    const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used});
+    if(meldIdx>=0) used.add(meldIdx);
+    const partIdx=findColumn(header,PART_PATTERNS,{preferred:PART_HEADER_PRIORITY,exclude:used});
+    if(partIdx>=0) used.add(partIdx);
+    const serialIdx=findColumn(header,SERIAL_PATTERNS,{preferred:SERIAL_HEADER_PRIORITY,exclude:used});
+    if(serialIdx>=0) used.add(serialIdx);
+    const commentIdx=findColumn(header,COMMENT_PATTERNS,{exclude:used});
     const resolvedMeldIdx=(meldIdx>=0&&meldIdx<header.length)?meldIdx:-1;
     const resolvedPartIdx=(partIdx>=0&&partIdx<header.length)?partIdx:-1;
     const resolvedSerialIdx=(serialIdx>=0&&serialIdx<header.length)?serialIdx:-1;
@@ -378,9 +377,13 @@
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
     if(!rows.length) return [];
     const {header, index:headerRowIndex}=findHeaderRow(rows);
-    const meldIdx=findColumn(header,MELD_PATTERNS,0,MELD_HEADER_PRIORITY);
-    const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0,PART_HEADER_PRIORITY);
-    const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1),SERIAL_HEADER_PRIORITY);
+    const used=new Set();
+    const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used});
+    if(meldIdx>=0) used.add(meldIdx);
+    const partIdx=findColumn(header,PART_PATTERNS,{preferred:PART_HEADER_PRIORITY,exclude:used});
+    if(partIdx>=0) used.add(partIdx);
+    const serialIdx=findColumn(header,SERIAL_PATTERNS,{preferred:SERIAL_HEADER_PRIORITY,exclude:used});
+    if(serialIdx>=0) used.add(serialIdx);
     const resolvedMeldIdx=(meldIdx>=0&&meldIdx<header.length)?meldIdx:-1;
     const resolvedPartIdx=(partIdx>=0&&partIdx<header.length)?partIdx:-1;
     const resolvedSerialIdx=(serialIdx>=0&&serialIdx<header.length)?serialIdx:-1;
