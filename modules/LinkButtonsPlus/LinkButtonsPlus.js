@@ -4,14 +4,24 @@
   if (!document.getElementById('ops-panel-styles')) {
     const css = `
     .ops-root{ height:100%; }
-    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; }
+    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; display:flex; flex-direction:column; gap:.6rem; }
+    .ops-header{
+      display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+      padding:.55rem .95rem; border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);
+      background: linear-gradient(135deg, rgba(15,23,42,.95), rgba(30,41,59,.88));
+      color:#f8fafc; font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem); font-weight:700;
+      letter-spacing:.4px; text-transform:uppercase; box-shadow:0 8px 20px rgba(15,23,42,.28);
+    }
+    .ops-title{ display:flex; align-items:center; gap:.45rem; }
+    .ops-title::before{
+      content:'🔗'; font-size:1.05em; filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
+    }
     .ops-autorefresh{
-      position:absolute; top:0; right:0; transform:translate(40%,-40%);
       display:inline-flex; align-items:center; gap:.4rem;
-      padding:.45rem .85rem; border-radius:999px; color:#fff;
-      background:rgba(17,24,39,.92); box-shadow:0 8px 18px rgba(0,0,0,.2);
+      padding:.35rem .9rem; border-radius:999px; color:#fff;
+      background:rgba(37,99,235,.92); box-shadow:0 8px 18px rgba(15,23,42,.28);
       font-size:.78rem; font-weight:600; letter-spacing:.25px;
-      cursor:default; transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+      cursor:default; transition:opacity .15s ease, box-shadow .15s ease;
     }
     .ops-autorefresh[data-state="active"]{ opacity:1; }
     .ops-autorefresh[data-state="idle"],
@@ -21,7 +31,7 @@
     .ops-autorefresh .ops-autorefresh-label{ font-weight:700; }
     .ops-autorefresh .ops-autorefresh-time{ font-size:.72rem; font-weight:500; opacity:.85; }
     .ops-grid{
-      height:100%; box-sizing:border-box; display:grid;
+      flex:1; min-height:0; box-sizing:border-box; display:grid;
       grid-template-columns: 1fr 1fr; grid-template-rows: repeat(6, 1fr);
       gap:.6rem;
       grid-template-areas:
@@ -278,10 +288,13 @@
 
     root.innerHTML = `
       <div class="ops-outer">
-        <div class="ops-autorefresh" data-state="idle" hidden role="status" aria-live="polite">
-          <span class="ops-autorefresh-icon" aria-hidden="true">🔄</span>
-          <span class="ops-autorefresh-label">Auto-Update</span>
-          <span class="ops-autorefresh-time">Bereit</span>
+        <div class="ops-header">
+          <div class="ops-title">LinkButtons Plus</div>
+          <div class="ops-autorefresh" data-state="idle" hidden role="status" aria-live="polite">
+            <span class="ops-autorefresh-icon" aria-hidden="true">🔄</span>
+            <span class="ops-autorefresh-label">Auto-Update</span>
+            <span class="ops-autorefresh-time">Bereit</span>
+          </div>
         </div>
         <div class="ops-grid">
           <div class="ops-card leftTop" data-slot="left0">${leftTop}</div>
