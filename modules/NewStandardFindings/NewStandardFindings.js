@@ -461,26 +461,6 @@
       return 'routine';
     }();
 
-    const persistCustomBlock=updater=>{
-      if(typeof updater!=='function') return;
-      if(!currentBlock||typeof currentBlock.id!=='string'||!currentBlock.id) return;
-      try{
-        const state=normalizeRoutineEditorState(loadRoutineEditorState());
-        if(!state||!state.tabs) return;
-        const tabState=normalizeRoutineEditorTabState(state.tabs[resolvedTabKey],resolvedTabKey);
-        const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
-        const target=customBlocks.find(entry=>entry&&entry.id===currentBlock.id);
-        if(target){
-          updater(target);
-          tabState.customBlocks=customBlocks;
-          state.tabs[resolvedTabKey]=tabState;
-          storeRoutineEditorState(state);
-        }
-      }catch(err){
-        console.warn('NSF: Custom-Block konnte nicht aktualisiert werden',err,currentBlock);
-      }
-    };
-
     if(blockType==='text'){
       const wrapper=document.createElement('div');
       wrapper.className='nsf-editor-block nsf-textblock';
@@ -494,6 +474,7 @@
         currentBlock.value=nextValue;
         try{
           const state=normalizeRoutineEditorState(loadRoutineEditorState());
+          if(!state||!state.tabs) return;
           const tabState=normalizeRoutineEditorTabState(state.tabs[resolvedTabKey],resolvedTabKey);
           const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
           const target=customBlocks.find(entry=>entry&&entry.id===currentBlock.id);
@@ -509,7 +490,7 @@
       });
       wrapper.appendChild(label);
       wrapper.appendChild(textarea);
-      console.log('[renderRoutineEditorBlock] rendered text block:',currentBlock);
+      console.log('[renderRoutineEditorBlock] rendered '+blockType+' block:',currentBlock);
       return wrapper;
     }
 
@@ -518,50 +499,50 @@
       wrapper.className='nsf-editor-block nsf-linebreak';
       const hr=document.createElement('hr');
       wrapper.appendChild(hr);
-      console.log('[renderRoutineEditorBlock] rendered linebreak:',currentBlock);
+      console.log('[renderRoutineEditorBlock] rendered '+blockType+' block:',currentBlock);
       return wrapper;
     }
 
     if(blockType==='aspenfield'){
       const wrapper=document.createElement('div');
-      wrapper.className='nsf-editor-block';
+      wrapper.className='nsf-editor-block nsf-aspenfield';
       const label=document.createElement('label');
       label.textContent=currentBlock.label||'Aspen-Feld';
       const select=document.createElement('select');
-      const placeholder=document.createElement('option');
-      placeholder.value='';
-      placeholder.textContent='Bitte auswählen';
-      select.appendChild(placeholder);
-      if(Array.isArray(currentBlock.options)){
-        currentBlock.options.forEach(option=>{
-          if(!option||typeof option!=='object') return;
-          const value=typeof option.value==='string'?option.value:'';
-          const text=typeof option.label==='string'?option.label:value;
-          const opt=document.createElement('option');
-          opt.value=value;
-          opt.textContent=text||'Bitte auswählen';
-          select.appendChild(opt);
-        });
-      }else if(typeof currentBlock.value==='string'&&currentBlock.value){
-        const existing=document.createElement('option');
-        existing.value=currentBlock.value;
-        existing.textContent=currentBlock.value;
-        existing.selected=true;
-        select.appendChild(existing);
-      }
+      const optionsList=[
+        {value:'',label:'Bitte wählen'},
+        {value:'Option 1',label:'Option 1'},
+        {value:'Option 2',label:'Option 2'}
+      ];
+      optionsList.forEach(option=>{
+        const opt=document.createElement('option');
+        opt.value=option.value;
+        opt.textContent=option.label;
+        select.appendChild(opt);
+      });
       select.value=typeof currentBlock.value==='string'?currentBlock.value:'';
       wrapper.appendChild(label);
       wrapper.appendChild(select);
       select.addEventListener('change',()=>{
         const nextValue=select.value;
         currentBlock.value=nextValue;
-        currentBlock.lines=[nextValue];
-        persistCustomBlock(target=>{
-          target.value=nextValue;
-          target.lines=[nextValue];
-        });
+        try{
+          const state=normalizeRoutineEditorState(loadRoutineEditorState());
+          if(!state||!state.tabs) return;
+          const tabState=normalizeRoutineEditorTabState(state.tabs[resolvedTabKey],resolvedTabKey);
+          const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
+          const target=customBlocks.find(entry=>entry&&entry.id===currentBlock.id);
+          if(target){
+            target.value=nextValue;
+          }
+          tabState.customBlocks=customBlocks;
+          state.tabs[resolvedTabKey]=tabState;
+          storeRoutineEditorState(state);
+        }catch(err){
+          console.warn('NSF: Custom-Block konnte nicht gespeichert werden',err,currentBlock);
+        }
       });
-      console.log('[renderRoutineEditorBlock] rendered aspenfield:',currentBlock);
+      console.log('[renderRoutineEditorBlock] rendered '+blockType+' block:',currentBlock);
       return wrapper;
     }
 
