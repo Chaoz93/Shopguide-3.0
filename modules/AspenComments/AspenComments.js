@@ -279,7 +279,7 @@
 
   function findHeaderRow(rows){
     if(!Array.isArray(rows)||!rows.length){
-      return {header:[],index:0};
+      return {header:[],index:0,score:-1};
     }
     const limit=Math.min(rows.length,HEADER_SCAN_LIMIT);
     let bestIndex=-1;
@@ -297,9 +297,45 @@
     }
     if(bestIndex===-1){
       const fallback=(rows[0]||[]).map(cell=>trim(cell));
-      return {header:fallback,index:0};
+      return {header:fallback,index:0,score:scoreHeaderRow(fallback)};
     }
-    return {header:bestHeader,index:bestIndex};
+    return {header:bestHeader,index:bestIndex,score:bestScore};
+  }
+
+  function pickSheet(workbook,{preferredNames=[],requiredHeaderGroups=[]}={}){
+    if(!workbook||!Array.isArray(workbook.SheetNames)) return null;
+    const names=workbook.SheetNames;
+    const preferredSet=new Set(Array.isArray(preferredNames)?preferredNames.filter(Boolean):[]);
+    let best=null;
+    for(const name of names){
+      const sheet=workbook.Sheets?.[name];
+      if(!sheet) continue;
+      const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+      if(!rows.length) continue;
+      const headerInfo=findHeaderRow(rows);
+      const normalizedHeader=headerInfo.header.map(normalizeHeaderName);
+      let matches=0;
+      let missingRequired=false;
+      if(Array.isArray(requiredHeaderGroups)&&requiredHeaderGroups.length){
+        for(const group of requiredHeaderGroups){
+          const normalizedGroup=Array.isArray(group)?group.map(normalizeHeaderName):[];
+          const hasMatch=normalizedGroup.some(value=>normalizedHeader.includes(value));
+          if(hasMatch){
+            matches++;
+          }else{
+            missingRequired=true;
+          }
+        }
+      }
+      let weight=headerInfo.score;
+      if(matches) weight+=matches*50;
+      if(missingRequired) weight-=25;
+      if(preferredSet.has(name)) weight+=15;
+      if(!best||weight>best.weight){
+        best={name,rows,headerInfo,weight};
+      }
+    }
+    return best;
   }
 
   async function readComments(handle){
@@ -308,11 +344,11 @@
     if(file.size===0) return new Map();
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
-    const sheet=workbook.Sheets[workbook.SheetNames[0]];
-    if(!sheet) return new Map();
-    const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+    const selection=pickSheet(workbook,{preferredNames:[COMMENTS_SHEET]});
+    if(!selection) return new Map();
+    const rows=selection.rows;
     if(!rows.length) return new Map();
-    const {header, index:headerRowIndex}=findHeaderRow(rows);
+    const {header,index:headerRowIndex}=selection.headerInfo;
     const used=new Set();
     const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
     if(meldIdx>=0) used.add(meldIdx);
@@ -377,11 +413,11 @@
     if(file.size===0) return [];
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
-    const sheet=workbook.Sheets[workbook.SheetNames[0]];
-    if(!sheet) return [];
-    const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+    const selection=pickSheet(workbook,{requiredHeaderGroups:[MELD_HEADER_PRIORITY,PART_HEADER_PRIORITY,SERIAL_HEADER_PRIORITY]});
+    if(!selection) return [];
+    const rows=selection.rows;
     if(!rows.length) return [];
-    const {header, index:headerRowIndex}=findHeaderRow(rows);
+    const {header,index:headerRowIndex}=selection.headerInfo;
     const used=new Set();
     const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
     if(meldIdx>=0) used.add(meldIdx);
