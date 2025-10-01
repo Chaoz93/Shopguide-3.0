@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.1] – 2025-10-02
+### Changed
+- Ausgewählte Kommentar- und Aspen-Dateien behalten nun ihren vollständigen Namen inklusive Unterordnerpfad und werden nach dem Laden in Status und Tooltips angezeigt.
+- Gespeicherte Datei-Handles setzen automatisch Pfad und Label, sobald eine Sitzung erneut geöffnet oder eine Datei neu verbunden wird.
+
 ## [1.2.0] – 2025-10-02
 ### Added
 - Kontextmenü mit Aktionen zum Auswählen, Erstellen, Neuladen und Löschen der Kommentar-Datei direkt im Modul.
