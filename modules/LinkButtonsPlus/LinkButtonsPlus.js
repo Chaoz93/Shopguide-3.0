@@ -4,19 +4,34 @@
   if (!document.getElementById('ops-panel-styles')) {
     const css = `
     .ops-root{ height:100%; }
-    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; }
-    .ops-refresh-btn{
-      position:absolute; top:.55rem; right:.55rem; width:2.5rem; height:2.5rem;
-      display:inline-flex; align-items:center; justify-content:center;
-      border:none; border-radius:999px; background:rgba(17,24,39,.92); color:#fff;
-      font-size:1.25rem; line-height:1; cursor:pointer;
-      box-shadow:0 8px 18px rgba(0,0,0,.2); transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; display:flex; flex-direction:column; gap:.6rem; }
+    .ops-header{
+      display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+      padding:.55rem .95rem; border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);
+      background: linear-gradient(135deg, rgba(15,23,42,.95), rgba(30,41,59,.88));
+      color:#f8fafc; font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem); font-weight:700;
+      letter-spacing:.4px; text-transform:uppercase; box-shadow:0 8px 20px rgba(15,23,42,.28);
     }
-    .ops-refresh-btn:hover:not([disabled]){ transform:translateY(-1px); box-shadow:0 10px 22px rgba(0,0,0,.24); }
-    .ops-refresh-btn:active:not([disabled]){ transform:translateY(0); }
-    .ops-refresh-btn[disabled]{ opacity:.45; cursor:not-allowed; box-shadow:none; }
+    .ops-title{ display:flex; align-items:center; gap:.45rem; }
+    .ops-title::before{
+      content:'🔗'; font-size:1.05em; filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
+    }
+    .ops-autorefresh{
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.35rem .9rem; border-radius:999px; color:#fff;
+      background:rgba(37,99,235,.92); box-shadow:0 8px 18px rgba(15,23,42,.28);
+      font-size:.78rem; font-weight:600; letter-spacing:.25px;
+      cursor:default; transition:opacity .15s ease, box-shadow .15s ease;
+    }
+    .ops-autorefresh[data-state="active"]{ opacity:1; }
+    .ops-autorefresh[data-state="idle"],
+    .ops-autorefresh[data-state="paused"]{ opacity:.7; }
+    .ops-autorefresh[data-state="error"]{ background:rgba(185,28,28,.94); }
+    .ops-autorefresh .ops-autorefresh-icon{ font-size:1rem; line-height:1; }
+    .ops-autorefresh .ops-autorefresh-label{ font-weight:700; }
+    .ops-autorefresh .ops-autorefresh-time{ font-size:.72rem; font-weight:500; opacity:.85; }
     .ops-grid{
-      height:100%; box-sizing:border-box; display:grid;
+      flex:1; min-height:0; box-sizing:border-box; display:grid;
       grid-template-columns: 1fr 1fr; grid-template-rows: repeat(6, 1fr);
       gap:.6rem;
       grid-template-areas:
@@ -122,6 +137,27 @@
     return map;
   }
 
+  function formatTimestampShort(value){
+    if(typeof value !== 'number') return '';
+    const date = new Date(value);
+    if(Number.isNaN(date.getTime())) return '';
+    const pad = (num)=>String(num).padStart(2,'0');
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function formatTimestampLong(value){
+    if(typeof value !== 'number') return '';
+    const date = new Date(value);
+    if(Number.isNaN(date.getTime())) return '';
+    const pad = (num)=>String(num).padStart(2,'0');
+    const day = pad(date.getDate());
+    const month = pad(date.getMonth()+1);
+    const year = date.getFullYear();
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${day}.${month}.${year} · ${hours}:${minutes}`;
+  }
+
   function loadDoc(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || {general:{}}; } catch { return {general:{}}; } }
   function saveDoc(doc){ try{ localStorage.setItem(LS_KEY, JSON.stringify(doc)); }catch{} }
   function activeMeldung(){ return (loadDoc().general.Meldung || '').trim(); }
@@ -191,9 +227,11 @@
     return -1;
   }
 
-  async function readAll(handle){
+  async function readAll(source){
+    if(!source) return [];
     await ensureXLSX();
-    const f = await handle.getFile();
+    const f = (typeof source?.arrayBuffer === 'function') ? source : await source.getFile();
+    if(!f) return [];
     if(f.size===0) return [];
     const buf = await f.arrayBuffer();
     const wb = XLSX.read(buf,{type:'array'});
@@ -250,7 +288,14 @@
 
     root.innerHTML = `
       <div class="ops-outer">
-        <button type="button" class="ops-refresh-btn" title="Aspendaten aktualisieren" aria-label="Aspendaten aktualisieren">↻</button>
+        <div class="ops-header">
+          <div class="ops-title">LinkButtons Plus</div>
+          <div class="ops-autorefresh" data-state="idle" hidden role="status" aria-live="polite">
+            <span class="ops-autorefresh-icon" aria-hidden="true">🔄</span>
+            <span class="ops-autorefresh-label">Auto-Update</span>
+            <span class="ops-autorefresh-time">Bereit</span>
+          </div>
+        </div>
         <div class="ops-grid">
           <div class="ops-card leftTop" data-slot="left0">${leftTop}</div>
           <div class="ops-card leftBot" data-slot="left1">${leftBottom}</div>
@@ -281,6 +326,12 @@
     let fileHandle = null;
     let cache = [];
     let cacheMap = new Map();
+    const POLL_INTERVAL_MS = 60000;
+    let pollInterval = null;
+    let pollInProgress = false;
+    let lastModifiedTimestamp = null;
+    let autoUpdateState = 'idle';
+    let autoUpdateMessage = '';
 
     function updateCache(rows){
       cache = Array.isArray(rows) ? rows : [];
@@ -404,25 +455,145 @@
     });
     const fileLbl = menu.querySelector('.ops-file');
     const fileHint = menu.querySelector('.ops-file-hint');
-    const refreshControl = root.querySelector('.ops-refresh-btn');
+    const autoBadge = root.querySelector('.ops-autorefresh');
+    const autoBadgeTime = autoBadge?.querySelector('.ops-autorefresh-time');
+
+    function updateAutoRefreshUI(){
+      if(!autoBadge) return;
+      const hasFile = !!fileHandle;
+      if(!hasFile){
+        autoBadge.hidden = true;
+        autoBadge.setAttribute('aria-hidden','true');
+        autoBadge.dataset.state = 'idle';
+        return;
+      }
+      autoBadge.hidden = false;
+      autoBadge.removeAttribute('aria-hidden');
+      autoBadge.dataset.state = autoUpdateState;
+      const longTime = formatTimestampLong(lastModifiedTimestamp);
+      const shortTime = formatTimestampShort(lastModifiedTimestamp);
+      let baseLabel = 'Automatisches Update';
+      if(autoUpdateState === 'active') baseLabel += ' aktiv';
+      else if(autoUpdateState === 'paused') baseLabel += ' pausiert';
+      else if(autoUpdateState === 'error') baseLabel += ' gestoppt';
+      else baseLabel += ' bereit';
+      const detail = longTime ? ` – Stand ${longTime}` : '';
+      const message = autoUpdateMessage ? ` (${autoUpdateMessage})` : '';
+      const title = baseLabel + detail + message;
+      autoBadge.title = title;
+      autoBadge.setAttribute('aria-label', title);
+      if(autoBadgeTime){
+        let display = 'Bereit';
+        if(autoUpdateState === 'active') display = shortTime ? `Stand ${shortTime}` : 'Aktiv';
+        else if(autoUpdateState === 'paused') display = 'Pausiert';
+        else if(autoUpdateState === 'error') display = 'Fehler';
+        autoBadgeTime.textContent = display;
+      }
+    }
 
     function updateFileState(){
       const storedName = loadAspenFileName();
-      const resolvedName = storedName || fileHandle?.name || '';
-      if(fileHandle){
-        if(fileLbl) fileLbl.textContent = resolvedName ? `• ${resolvedName}` : 'Aspen-Datei geladen';
-        if(refreshControl){
-          refreshControl.disabled = false;
-          refreshControl.title = 'Aspendaten aktualisieren';
+      const resolvedName = fileHandle?.name || storedName || '';
+      if(fileLbl){
+        if(fileHandle){
+          fileLbl.textContent = resolvedName ? `• ${resolvedName}` : 'Aspen-Datei geladen';
+        } else {
+          fileLbl.textContent = storedName ? `• ${storedName}` : 'Keine Aspen-Datei';
         }
-        if(fileHint) fileHint.textContent = '';
-      } else {
-        if(fileLbl) fileLbl.textContent = storedName ? `• ${storedName}` : 'Keine Aspen-Datei';
-        if(refreshControl){
-          refreshControl.disabled = true;
-          refreshControl.title = 'Bitte zuerst eine Aspen-Datei wählen';
+      }
+      if(fileHint){
+        if(!fileHandle){
+          fileHint.textContent = 'Hinweis: Bisher keine Aspen-Datei gewählt.';
+        } else if(autoUpdateState === 'error'){
+          const suffix = autoUpdateMessage ? ` – ${autoUpdateMessage}` : '';
+          fileHint.textContent = `Automatisches Update gestoppt${suffix}`;
+        } else if(autoUpdateState === 'paused'){
+          fileHint.textContent = 'Automatisches Update pausiert.';
+        } else {
+          const longTime = formatTimestampLong(lastModifiedTimestamp);
+          fileHint.textContent = longTime
+            ? `Automatisches Update aktiv – Stand ${longTime}`
+            : 'Automatisches Update aktiv.';
         }
-        if(fileHint) fileHint.textContent = 'Hinweis: Bisher keine Aspen-Datei gewählt.';
+      }
+      updateAutoRefreshUI();
+    }
+
+    function clearAutoUpdateTimer(){
+      if(pollInterval){
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      pollInProgress = false;
+    }
+
+    function stopAutoUpdatePolling(state = 'paused', message = ''){
+      clearAutoUpdateTimer();
+      autoUpdateState = state;
+      autoUpdateMessage = message;
+      updateFileState();
+    }
+
+    async function pollFileChangesOnce(){
+      if(pollInProgress) return;
+      if(!fileHandle){
+        stopAutoUpdatePolling('idle');
+        return;
+      }
+      pollInProgress = true;
+      try{
+        const file = await fileHandle.getFile();
+        const modified = typeof file?.lastModified === 'number' ? file.lastModified : null;
+        if(modified != null){
+          if(lastModifiedTimestamp == null){
+            lastModifiedTimestamp = modified;
+            updateFileState();
+          } else if(modified > lastModifiedTimestamp){
+            const rows = await readAll(file);
+            updateCache(rows);
+            lastModifiedTimestamp = modified;
+            autoUpdateState = 'active';
+            autoUpdateMessage = '';
+            updateFileState();
+          }
+        }
+      }catch(err){
+        console.warn('[LinkButtonsPlus] Auto-Update fehlgeschlagen', err);
+        stopAutoUpdatePolling('error', 'Kein Zugriff auf Aspen-Datei.');
+      }finally{
+        pollInProgress = false;
+      }
+    }
+
+    function startAutoUpdatePolling(){
+      clearAutoUpdateTimer();
+      if(!fileHandle){
+        stopAutoUpdatePolling('idle');
+        return;
+      }
+      autoUpdateState = 'active';
+      autoUpdateMessage = '';
+      pollInterval = setInterval(()=>{ void pollFileChangesOnce(); }, POLL_INTERVAL_MS);
+      void pollFileChangesOnce();
+      updateFileState();
+    }
+
+    async function loadAspenFromHandle(handle, { silent = false } = {}){
+      if(!handle) return false;
+      try{
+        const file = await handle.getFile();
+        const rows = await readAll(file);
+        updateCache(rows);
+        lastModifiedTimestamp = typeof file?.lastModified === 'number' ? file.lastModified : null;
+        startAutoUpdatePolling();
+        return true;
+      }catch(err){
+        console.error('[LinkButtonsPlus] Aspen-Datei konnte nicht gelesen werden', err);
+        if(!silent){
+          alert('Aspen-Daten konnten nicht geladen werden.');
+        }
+        stopAutoUpdatePolling('error', 'Aspen-Daten konnten nicht geladen werden.');
+        return false;
       }
     }
 
@@ -531,7 +702,7 @@
           fileHandle = h;
           await idbSet(GLOBAL_ASPEN_KEY,h);
           saveAspenFileName(h.name || 'Aspen.xlsx');
-          updateCache(await readAll(h));
+          await loadAspenFromHandle(fileHandle);
         }
       }catch(e){/* ignore */}
       updateFileState();
@@ -543,34 +714,19 @@
       pickAspen();
     });
 
-    if(refreshControl){
-      refreshControl.addEventListener('click', async ()=>{
-        if(refreshControl.disabled) return;
-        if(!fileHandle){
-          alert('Bitte zuerst eine Aspen-Datei wählen.');
-          return;
-        }
-        try{
-          updateCache(await readAll(fileHandle));
-        }catch(err){
-          console.error(err);
-          alert('Aspen-Daten konnten nicht aktualisiert werden.');
-        }
-        updateFileState();
-      });
-    }
-
     (async()=>{
       try{
         const h = await idbGet(GLOBAL_ASPEN_KEY);
         if(h && await ensureRWPermission(h)){
           fileHandle = h;
-          updateCache(await readAll(h));
+          await loadAspenFromHandle(fileHandle, { silent:true });
         } else {
           fileHandle = null;
+          stopAutoUpdatePolling('idle');
         }
       }catch{
         fileHandle = null;
+        stopAutoUpdatePolling('idle');
       }
       updateFileState();
     })();
@@ -628,6 +784,7 @@
     const mo = new MutationObserver(() => {
       if (!document.body.contains(root)) {
         attrObserver.disconnect();
+        clearAutoUpdateTimer();
         mo.disconnect();
       }
     });
