@@ -1121,7 +1121,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         operator:normalizeOperator(rule.operator),
         value:typeof rule.value==='string'?rule.value.trim():(rule.value==null?'':String(rule.value).trim()),
         text:(rule.text||'').trim()
-      })).filter(rule=>rule.field&&rule.text);
+      })).filter(rule=>rule.field);
       state.config.titleRules=preparedRules;
       state.config.colors={
         bg:elements.cBg?.value||state.config.colors.bg,
