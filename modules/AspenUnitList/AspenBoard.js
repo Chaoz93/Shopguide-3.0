@@ -131,9 +131,9 @@
       .db-config-colors{max-width:280px;}
     }
     .aspenboard .db-modal{
-      background:rgba(10,15,26,.88);
-      backdrop-filter:blur(24px);
-      -webkit-backdrop-filter:blur(24px);
+      background:rgba(10,15,26,.78);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
     }
     .aspenboard .db-panel,
     .aspenboard .db-menu{
