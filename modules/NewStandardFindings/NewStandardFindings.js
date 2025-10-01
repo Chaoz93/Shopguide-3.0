@@ -4450,21 +4450,25 @@
       }else{
         select.title='Element hinzufügen';
       }
+      const baseBlockKeys=new Set(baseBlocks.map(block=>block.key));
       select.addEventListener('change',()=>{
         const type=select.value;
-        select.value='';
-        placeholder.selected=true;
         if(!type) return;
+        console.debug('NSF: Routine-Editor Block hinzufügen',type);
         if(type==='text'||type==='linebreak'||(type==='aspen'&&allowAspen)){
           this.addRoutineEditorCustomBlockAt(index,type);
         }else if(type.startsWith('base:')){
           const baseKey=type.slice(5);
-          this.addRoutineEditorBaseBlockAt(index,baseKey);
+          if(baseBlockKeys.has(baseKey)){
+            this.addRoutineEditorBaseBlockAt(index,baseKey);
+          }
         }else if(type.startsWith('param:')&&allowParameters){
           const paramId=type.slice(6);
           const option=this.getRoutineEditorParameterOption(paramId);
           this.addRoutineEditorParameterBlockAt(index,option);
         }
+        select.value='';
+        placeholder.selected=true;
       });
       container.appendChild(select);
       return container;
