@@ -46,10 +46,15 @@
   const COMMENTS_SHEET='Comments';
   const WATCH_INTERVAL=500;
 
+  const MELD_HEADER_PRIORITY=['MELDUNGS_NO','MELDUNGSNR','MELDUNG_NR'];
+  const PART_HEADER_PRIORITY=['PART_NO','PARTNR','PART_NUMBER','PARTNUMBER'];
+  const SERIAL_HEADER_PRIORITY=['SERIAL_NO','SERIALNR','SERIAL_NUMBER','SERIALNUMBER'];
   const MELD_PATTERNS=[/meldung/i,/meldung\s*nr/i,/meldungnummer/i,/message/i];
   const PART_PATTERNS=[/part/i,/p\/?n/i,/artikel/i,/material/i];
   const SERIAL_PATTERNS=[/serial/i,/sn/i,/serien/i];
   const COMMENT_PATTERNS=[/comment/i,/bemerk/i,/notiz/i,/note/i,/hinweis/i];
+  const HEADER_SCAN_LIMIT=25;
+  const HEADER_MAX_SCORE=14;
 
   function injectStyles(){
     if(document.getElementById(STYLE_ID)) return;
@@ -138,6 +143,10 @@
     return trim(value).toLowerCase();
   }
 
+  function normalizeHeaderName(value){
+    return trim(value).toLowerCase().replace(/[\s._-]+/g,'');
+  }
+
   function makeKey(part,serial){
     return normalizeKey(part)+'||'+normalizeKey(serial);
   }
@@ -224,18 +233,109 @@
     elements?.menu?.remove();
   }
 
-  function findColumn(header,patterns,fallbackIndex){
-    if(!Array.isArray(header)||!header.length){
-      return typeof fallbackIndex==='number'?fallbackIndex:-1;
+  function findColumn(header,patterns,{preferred=[],exclude,allowPatternFallback=true}={}){
+    if(!Array.isArray(header)||!header.length) return -1;
+    const normalizedHeader=header.map(normalizeHeaderName);
+    const normalizedPreferred=Array.isArray(preferred)?preferred.map(normalizeHeaderName).filter(Boolean):[];
+    const usedIndices=exclude instanceof Set?exclude:new Set();
+    for(const preferredName of normalizedPreferred){
+      const idx=normalizedHeader.indexOf(preferredName);
+      if(idx!==-1&&!usedIndices.has(idx)) return idx;
     }
+    if(!allowPatternFallback) return -1;
     for(let i=0;i<header.length;i++){
+      if(usedIndices.has(i)) continue;
       const cell=trim(header[i]);
       if(patterns.some(rx=>rx.test(cell))) return i;
     }
-    if(typeof fallbackIndex==='number'&&fallbackIndex>=0&&fallbackIndex<header.length){
-      return fallbackIndex;
+    return -1;
+  }
+
+  function hasPreferredMatch(normalizedHeader,preferredNames){
+    if(!Array.isArray(normalizedHeader)||!normalizedHeader.length) return false;
+    if(!Array.isArray(preferredNames)||!preferredNames.length) return false;
+    return preferredNames.some(name=>normalizedHeader.includes(normalizeHeaderName(name)));
+  }
+
+  function hasPatternMatch(header,patterns){
+    if(!Array.isArray(header)||!header.length) return false;
+    if(!Array.isArray(patterns)||!patterns.length) return false;
+    return header.some(cell=>patterns.some(rx=>rx.test(cell||'')));
+  }
+
+  function scoreHeaderRow(header){
+    if(!Array.isArray(header)||!header.length) return -1;
+    if(header.every(cell=>!trim(cell))) return -1;
+    const normalizedHeader=header.map(normalizeHeaderName);
+    let score=0;
+    if(hasPreferredMatch(normalizedHeader,MELD_HEADER_PRIORITY)) score+=8;
+    else if(hasPatternMatch(header,MELD_PATTERNS)) score+=3;
+    if(hasPreferredMatch(normalizedHeader,PART_HEADER_PRIORITY)) score+=4;
+    else if(hasPatternMatch(header,PART_PATTERNS)) score+=1;
+    if(hasPreferredMatch(normalizedHeader,SERIAL_HEADER_PRIORITY)) score+=4;
+    else if(hasPatternMatch(header,SERIAL_PATTERNS)) score+=1;
+    return score;
+  }
+
+  function findHeaderRow(rows){
+    if(!Array.isArray(rows)||!rows.length){
+      return {header:[],index:0,score:-1};
     }
-    return header.length?0:-1;
+    const limit=Math.min(rows.length,HEADER_SCAN_LIMIT);
+    let bestIndex=-1;
+    let bestHeader=[];
+    let bestScore=-1;
+    for(let i=0;i<limit;i++){
+      const candidate=(rows[i]||[]).map(cell=>trim(cell));
+      const score=scoreHeaderRow(candidate);
+      if(score>bestScore||(score===bestScore&&bestIndex===-1)){
+        bestScore=score;
+        bestIndex=i;
+        bestHeader=candidate;
+        if(score>=HEADER_MAX_SCORE) break;
+      }
+    }
+    if(bestIndex===-1){
+      const fallback=(rows[0]||[]).map(cell=>trim(cell));
+      return {header:fallback,index:0,score:scoreHeaderRow(fallback)};
+    }
+    return {header:bestHeader,index:bestIndex,score:bestScore};
+  }
+
+  function pickSheet(workbook,{preferredNames=[],requiredHeaderGroups=[]}={}){
+    if(!workbook||!Array.isArray(workbook.SheetNames)) return null;
+    const names=workbook.SheetNames;
+    const preferredSet=new Set(Array.isArray(preferredNames)?preferredNames.filter(Boolean):[]);
+    let best=null;
+    for(const name of names){
+      const sheet=workbook.Sheets?.[name];
+      if(!sheet) continue;
+      const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+      if(!rows.length) continue;
+      const headerInfo=findHeaderRow(rows);
+      const normalizedHeader=headerInfo.header.map(normalizeHeaderName);
+      let matches=0;
+      let missingRequired=false;
+      if(Array.isArray(requiredHeaderGroups)&&requiredHeaderGroups.length){
+        for(const group of requiredHeaderGroups){
+          const normalizedGroup=Array.isArray(group)?group.map(normalizeHeaderName):[];
+          const hasMatch=normalizedGroup.some(value=>normalizedHeader.includes(value));
+          if(hasMatch){
+            matches++;
+          }else{
+            missingRequired=true;
+          }
+        }
+      }
+      let weight=headerInfo.score;
+      if(matches) weight+=matches*50;
+      if(missingRequired) weight-=25;
+      if(preferredSet.has(name)) weight+=15;
+      if(!best||weight>best.weight){
+        best={name,rows,headerInfo,weight};
+      }
+    }
+    return best;
   }
 
   async function readComments(handle){
@@ -244,15 +344,19 @@
     if(file.size===0) return new Map();
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
-    const sheet=workbook.Sheets[workbook.SheetNames[0]];
-    if(!sheet) return new Map();
-    const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+    const selection=pickSheet(workbook,{preferredNames:[COMMENTS_SHEET]});
+    if(!selection) return new Map();
+    const rows=selection.rows;
     if(!rows.length) return new Map();
-    const header=(rows[0]||[]).map(cell=>trim(cell));
-    const meldIdx=findColumn(header,MELD_PATTERNS,0);
-    const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0);
-    const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1));
-    const commentIdx=findColumn(header,COMMENT_PATTERNS,serialIdx===0?1:(serialIdx===1?2:serialIdx+1));
+    const {header,index:headerRowIndex}=selection.headerInfo;
+    const used=new Set();
+    const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
+    if(meldIdx>=0) used.add(meldIdx);
+    const partIdx=findColumn(header,PART_PATTERNS,{preferred:PART_HEADER_PRIORITY,exclude:used});
+    if(partIdx>=0) used.add(partIdx);
+    const serialIdx=findColumn(header,SERIAL_PATTERNS,{preferred:SERIAL_HEADER_PRIORITY,exclude:used});
+    if(serialIdx>=0) used.add(serialIdx);
+    const commentIdx=findColumn(header,COMMENT_PATTERNS,{exclude:used});
     const resolvedMeldIdx=(meldIdx>=0&&meldIdx<header.length)?meldIdx:-1;
     const resolvedPartIdx=(partIdx>=0&&partIdx<header.length)?partIdx:-1;
     const resolvedSerialIdx=(serialIdx>=0&&serialIdx<header.length)?serialIdx:-1;
@@ -262,7 +366,7 @@
     const finalSerialIdx=(resolvedSerialIdx===finalMeldIdx||resolvedSerialIdx===finalPartIdx)?-1:resolvedSerialIdx;
     const finalCommentIdx=(resolvedCommentIdx===finalMeldIdx||resolvedCommentIdx===finalPartIdx||resolvedCommentIdx===finalSerialIdx)?-1:resolvedCommentIdx;
     const map=new Map();
-    for(let i=1;i<rows.length;i++){
+    for(let i=headerRowIndex+1;i<rows.length;i++){
       const row=rows[i]||[];
       const meldung=finalMeldIdx>=0?trim(row[finalMeldIdx]):'';
       const part=finalPartIdx>=0?trim(row[finalPartIdx]):'';
@@ -309,19 +413,23 @@
     if(file.size===0) return [];
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
-    const sheet=workbook.Sheets[workbook.SheetNames[0]];
-    if(!sheet) return [];
-    const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+    const selection=pickSheet(workbook,{requiredHeaderGroups:[MELD_HEADER_PRIORITY,PART_HEADER_PRIORITY,SERIAL_HEADER_PRIORITY]});
+    if(!selection) return [];
+    const rows=selection.rows;
     if(!rows.length) return [];
-    const header=(rows[0]||[]).map(cell=>trim(cell));
-    const meldIdx=findColumn(header,MELD_PATTERNS,0);
-    const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0);
-    const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1));
+    const {header,index:headerRowIndex}=selection.headerInfo;
+    const used=new Set();
+    const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
+    if(meldIdx>=0) used.add(meldIdx);
+    const partIdx=findColumn(header,PART_PATTERNS,{preferred:PART_HEADER_PRIORITY,exclude:used});
+    if(partIdx>=0) used.add(partIdx);
+    const serialIdx=findColumn(header,SERIAL_PATTERNS,{preferred:SERIAL_HEADER_PRIORITY,exclude:used});
+    if(serialIdx>=0) used.add(serialIdx);
     const resolvedMeldIdx=(meldIdx>=0&&meldIdx<header.length)?meldIdx:-1;
     const resolvedPartIdx=(partIdx>=0&&partIdx<header.length)?partIdx:-1;
     const resolvedSerialIdx=(serialIdx>=0&&serialIdx<header.length)?serialIdx:-1;
     const entries=[];
-    for(let i=1;i<rows.length;i++){
+    for(let i=headerRowIndex+1;i<rows.length;i++){
       const row=rows[i]||[];
       const meldung=resolvedMeldIdx>=0?trim(row[resolvedMeldIdx]):'';
       const partValue=resolvedPartIdx>=0?row[resolvedPartIdx]:'';
