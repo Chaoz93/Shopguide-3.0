@@ -98,6 +98,20 @@
     .db-row-header .db-rule-label{margin-bottom:0;}
     .db-sub-line+.db-sub-line{margin-top:.15rem;}
     .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
+    .db-config-layout{display:flex;flex-direction:column;gap:1.25rem;}
+    .db-config-main{flex:1;display:flex;flex-direction:column;gap:1rem;}
+    .db-config-main>.row{margin-bottom:0;}
+    .db-config-main>.row+.row{margin-top:.25rem;}
+    .db-config-colors{flex:0 0 auto;width:100%;display:flex;justify-content:flex-end;}
+    .db-color-card{flex:1;display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--border-color,#e5e7eb);background:rgba(255,255,255,.85);box-shadow:0 12px 28px rgba(15,23,42,.08);}
+    .db-color-card-title{font-weight:600;font-size:.9rem;color:var(--dl-sub,#4b5563);}
+    .db-color-card-body{display:flex;flex-direction:column;gap:.75rem;}
+    .db-color-field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:0;font-size:.85rem;}
+    .db-color-field span{font-weight:600;color:var(--dl-sub,#4b5563);}
+    @media(min-width:900px){
+      .db-config-layout{flex-direction:row;align-items:flex-start;}
+      .db-config-colors{max-width:280px;}
+    }
     .aspenboard .db-modal{
       background:rgba(10,15,26,.82);
       backdrop-filter:blur(18px);
@@ -107,7 +121,9 @@
     .aspenboard .db-menu{
       --bg-color:#0a0f1a;
       --panel-bg:rgba(255,255,255,0.05);
-      --accent-color:#3fa9f5;
+      --accent-color:#2f7cc0;
+      --accent-gradient:linear-gradient(135deg,#3fa9f5 0%,#1f5f99 100%);
+      --accent-border:rgba(63,169,245,0.45);
       --text-color:#e5e5e5;
       --muted-text:rgba(229,229,229,0.7);
       --border-color:rgba(255,255,255,0.14);
@@ -156,30 +172,43 @@
     .aspenboard .db-add-sub,
     .aspenboard .db-add-rule,
     .aspenboard .db-panel .actions button{
-      background:var(--accent-color);
-      border:none;
-      border-radius:.5rem;
-      padding:.4rem .8rem;
+      background:var(--accent-gradient,var(--accent-color));
+      border:1px solid var(--accent-border,transparent);
+      border-radius:.6rem;
+      padding:.45rem .85rem;
       color:#fff;
       cursor:pointer;
-      transition:opacity .2s ease;
+      box-shadow:0 14px 32px rgba(5,12,23,.45);
+      transition:transform .2s ease,box-shadow .2s ease,filter .2s ease;
     }
     .aspenboard .db-sub-row button:hover,
     .aspenboard .db-add-sub:hover,
     .aspenboard .db-add-rule:hover,
-    .aspenboard .db-panel .actions button:hover{opacity:.85;}
-    .aspenboard .db-panel .db-icon-btn{
-      background:rgba(63,169,245,.12);
-      color:var(--text-color);
-      border:1px solid transparent;
-      border-radius:.5rem;
-      padding:.35rem .55rem;
+    .aspenboard .db-panel .actions button:hover{
+      filter:brightness(1.08);
+      transform:translateY(-1px);
+      box-shadow:0 18px 42px rgba(5,12,23,.55);
     }
-    .aspenboard .db-panel .db-icon-btn:hover{background:rgba(63,169,245,.25);}
+    .aspenboard .db-panel .db-icon-btn{
+      background:rgba(63,169,245,.18);
+      color:var(--text-color);
+      border:1px solid rgba(63,169,245,.22);
+      border-radius:.55rem;
+      padding:.35rem .6rem;
+      box-shadow:0 12px 26px rgba(5,12,23,.4);
+    }
+    .aspenboard .db-panel .db-icon-btn:hover{background:rgba(63,169,245,.32);}
     .aspenboard .db-rule-label{color:var(--text-color);}
     .aspenboard .db-row-header label{color:var(--muted-text);}
     .aspenboard .db-rule-empty{color:var(--muted-text);}
     .aspenboard .db-panel .actions{gap:.75rem;}
+    .aspenboard .db-color-card{
+      background:rgba(12,18,30,.9);
+      border:1px solid var(--border-color);
+      box-shadow:0 18px 42px var(--shadow-color);
+    }
+    .aspenboard .db-color-card-title{color:var(--text-color);}
+    .aspenboard .db-color-field span{color:var(--text-color);}
   `;
 
   const XLSX_URLS = [
@@ -641,7 +670,7 @@
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root aspenboard';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div><div class="row"><label>Hintergrund<input type="color" class="db-color db-c-bg" value="#f5f7fb"></label></div><div class="row"><label>Item Hintergrund<input type="color" class="db-color db-c-item" value="#ffffff"></label></div><div class="row"><label>Titelfarbe<input type="color" class="db-color db-c-title" value="#2563eb"></label></div><div class="row"><label>Untertitel-Farbe<input type="color" class="db-color db-c-sub" value="#4b5563"></label></div><div class="row"><label>Aktiv-Highlight<input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><input type="search" class="db-search" placeholder="Geräte suchen…"><button type="button" class="db-toggle-active" aria-pressed="false" title="Aktive Geräteliste umschalten">Aktive Geräte</button></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
