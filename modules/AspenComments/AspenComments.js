@@ -46,12 +46,56 @@
   const COMMENTS_SHEET='Comments';
   const WATCH_INTERVAL=500;
 
-  const MELD_HEADER_PRIORITY=['MELDUNGS_NO','MELDUNGSNR','MELDUNG_NR'];
-  const PART_HEADER_PRIORITY=['PART_NO','PARTNR','PART_NUMBER','PARTNUMBER'];
-  const SERIAL_HEADER_PRIORITY=['SERIAL_NO','SERIALNR','SERIAL_NUMBER','SERIALNUMBER'];
-  const MELD_PATTERNS=[/meldung/i,/meldung\s*nr/i,/meldungnummer/i,/message/i];
-  const PART_PATTERNS=[/part/i,/p\/?n/i,/artikel/i,/material/i];
-  const SERIAL_PATTERNS=[/serial/i,/sn/i,/serien/i];
+  const MELD_HEADER_PRIORITY=[
+    'MELDUNGS_NO',
+    'MELDUNGSNR',
+    'MELDUNG_NR',
+    'MELDUNG',
+    'MELDUNGNR',
+    'MELDUNGNO',
+    'MELD_NR',
+    'MELD_NO',
+    'MELDNR',
+    'MELDNO',
+    'MELDE_NR'
+  ];
+  const PART_HEADER_PRIORITY=[
+    'PART_NO',
+    'PARTNR',
+    'PART_NUMBER',
+    'PARTNUMBER',
+    'MATNR',
+    'MATERIAL_NR',
+    'MATERIALNR',
+    'MATERIALNO',
+    'ARTNR',
+    'ARTIKELNR',
+    'ARTIKEL_NO'
+  ];
+  const SERIAL_HEADER_PRIORITY=[
+    'SERIAL_NO',
+    'SERIALNR',
+    'SERIAL_NUMBER',
+    'SERIALNUMBER',
+    'SNR',
+    'S_NR',
+    'SN',
+    'GERAETENR',
+    'GERÄTENR',
+    'GERAETE_NR',
+    'GERÄTE_NR'
+  ];
+  const MELD_PATTERNS=[
+    /\bmeldung\b/i,
+    /\bmeldung\s*nr\b/i,
+    /\bmeldung\s*no\b/i,
+    /\bmeld\s*nr\b/i,
+    /\bmeld\s*no\b/i,
+    /meldungnummer/i,
+    /\bmessage\b/i
+  ];
+  const PART_PATTERNS=[/part/i,/p\/?n/i,/artikel/i,/material/i,/matnr/i,/ger[aä]t/i];
+  const SERIAL_PATTERNS=[/serial/i,/sn/i,/serien/i,/s\.?nr/i,/geraetenr/i,/ger[aä]te?nr/i];
   const COMMENT_PATTERNS=[/comment/i,/bemerk/i,/notiz/i,/note/i,/hinweis/i];
   const HEADER_SCAN_LIMIT=25;
   const HEADER_MAX_SCORE=14;
@@ -149,6 +193,15 @@
 
   function makeKey(part,serial){
     return normalizeKey(part)+'||'+normalizeKey(serial);
+  }
+
+  function deriveFileMeta(handle,file){
+    const handleName=typeof handle?.name==='string'?handle.name:'';
+    const fileName=file?.name||'';
+    const relativePath=typeof file?.webkitRelativePath==='string'?file.webkitRelativePath:'';
+    const name=fileName||handleName||'';
+    const path=(relativePath&&relativePath.trim())||name;
+    return {name,path};
   }
 
   function readGeneralIdentifiers(){
@@ -341,13 +394,14 @@
   async function readComments(handle){
     await ensureXLSX();
     const file=await handle.getFile();
-    if(file.size===0) return new Map();
+    const meta=deriveFileMeta(handle,file);
+    if(file.size===0) return {map:new Map(),meta};
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
     const selection=pickSheet(workbook,{preferredNames:[COMMENTS_SHEET]});
-    if(!selection) return new Map();
+    if(!selection) return {map:new Map(),meta};
     const rows=selection.rows;
-    if(!rows.length) return new Map();
+    if(!rows.length) return {map:new Map(),meta};
     const {header,index:headerRowIndex}=selection.headerInfo;
     const used=new Set();
     const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
@@ -377,7 +431,7 @@
       const key=makeKey(part,serial);
       map.set(key,{meldung,part,serial,comment});
     }
-    return map;
+    return {map,meta};
   }
 
   async function writeComments(handle,entries){
@@ -407,17 +461,116 @@
     return `${normalizeKey(meldung)}||${normalizeKey(part)}||${normalizeKey(serial)}`;
   }
 
+  function normalizePartValue(value){
+    const text=trim(value);
+    if(!text) return '';
+    const [first]=text.split(':');
+    return trim(first);
+  }
+
+  function createAspenDebug(){
+    return {
+      sheetNames:[],
+      selectedSheet:'',
+      headerRowIndex:-1,
+      headerScore:-1,
+      headerSample:[],
+      meldIdx:-1,
+      partIdx:-1,
+      serialIdx:-1,
+      messages:[],
+      missing:[]
+    };
+  }
+
+  function buildAspenDebugNote(debug){
+    if(!debug) return null;
+    const missing=Array.isArray(debug.missing)?debug.missing.filter(Boolean):[];
+    const hasMissingColumns=missing.length>0;
+    const hasInvalidIndices=
+      !(typeof debug.meldIdx==='number'&&debug.meldIdx>=0)||
+      !(typeof debug.partIdx==='number'&&debug.partIdx>=0)||
+      !(typeof debug.serialIdx==='number'&&debug.serialIdx>=0);
+    const hasHeaderIssue=typeof debug.headerRowIndex!=='number'||debug.headerRowIndex<0;
+    const hasMessages=Array.isArray(debug.messages)&&debug.messages.length>0;
+    const hasIssue=hasMissingColumns||hasInvalidIndices||hasHeaderIssue||hasMessages;
+    if(!hasIssue) return null;
+    const parts=[];
+    let tone='';
+    if(debug.selectedSheet){
+      parts.push(`Tabelle ${debug.selectedSheet}`);
+    }
+    if(typeof debug.headerRowIndex==='number'&&debug.headerRowIndex>=0){
+      const score=typeof debug.headerScore==='number'&&debug.headerScore>=0?` (Score ${debug.headerScore})`:'';
+      parts.push(`Header Zeile ${debug.headerRowIndex+1}${score}`);
+    }
+    if(Array.isArray(debug.headerSample)&&debug.headerSample.length){
+      const headerPreview=debug.headerSample.map(value=>value||'∅').join(' | ');
+      parts.push(`Header: ${headerPreview}`);
+    }
+    if(Array.isArray(debug.sheetNames)&&debug.sheetNames.length){
+      const list=debug.sheetNames.slice(0,5).join(', ');
+      parts.push(`Tabellen: ${list}${debug.sheetNames.length>5?'…':''}`);
+    }
+    if(missing.length){
+      parts.push(`Fehlend: ${missing.join(', ')}`);
+      tone='error';
+    }else if(
+      typeof debug.meldIdx==='number'&&debug.meldIdx>=0&&
+      typeof debug.partIdx==='number'&&debug.partIdx>=0&&
+      typeof debug.serialIdx==='number'&&debug.serialIdx>=0
+    ){
+      parts.push(`Spalten OK (Meld ${debug.meldIdx+1}, Part ${debug.partIdx+1}, Serial ${debug.serialIdx+1})`);
+    }else{
+      const flags=[];
+      flags.push(`Meld ${debug.meldIdx>=0?'OK':'✖'}`);
+      flags.push(`Part ${debug.partIdx>=0?'OK':'✖'}`);
+      flags.push(`Serial ${debug.serialIdx>=0?'OK':'✖'}`);
+      parts.push(`Spaltenstatus: ${flags.join(', ')}`);
+      tone=tone||'warn';
+    }
+    if(Array.isArray(debug.messages)&&debug.messages.length){
+      debug.messages.forEach(msg=>{if(msg) parts.push(msg);});
+      if(!tone) tone='warn';
+    }
+    if(!parts.length) return null;
+    return {message:`Aspen-Debug: ${parts.join(' · ')}`,tone};
+  }
+
+  function logAspenDebug(debug){
+    try{console.debug('UnitComments: Aspen-Header-Debug',debug);}catch{}
+  }
+
   async function readAspen(handle){
     await ensureXLSX();
     const file=await handle.getFile();
-    if(file.size===0) return [];
+    const meta=deriveFileMeta(handle,file);
+    const debug=createAspenDebug();
+    if(file.size===0){
+      debug.messages.push('Datei ist leer');
+      logAspenDebug(debug);
+      return {entries:[],debug,meta};
+    }
     const buffer=await file.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
+    debug.sheetNames=Array.isArray(workbook?.SheetNames)?[...workbook.SheetNames]:[];
     const selection=pickSheet(workbook,{requiredHeaderGroups:[MELD_HEADER_PRIORITY,PART_HEADER_PRIORITY,SERIAL_HEADER_PRIORITY]});
-    if(!selection) return [];
+    if(!selection){
+      debug.messages.push('Keine passende Tabelle gefunden');
+      logAspenDebug(debug);
+      return {entries:[],debug,meta};
+    }
+    debug.selectedSheet=selection.name||'';
     const rows=selection.rows;
-    if(!rows.length) return [];
-    const {header,index:headerRowIndex}=selection.headerInfo;
+    if(!rows.length){
+      debug.messages.push('Ausgewählte Tabelle enthält keine Zeilen');
+      logAspenDebug(debug);
+      return {entries:[],debug,meta};
+    }
+    const {header,index:headerRowIndex,score:headerScore}=selection.headerInfo;
+    debug.headerRowIndex=typeof headerRowIndex==='number'?headerRowIndex:-1;
+    debug.headerScore=typeof headerScore==='number'?headerScore:-1;
+    debug.headerSample=Array.isArray(header)?header.slice(0,8).map(cell=>trim(cell)):[];
     const used=new Set();
     const meldIdx=findColumn(header,MELD_PATTERNS,{preferred:MELD_HEADER_PRIORITY,exclude:used,allowPatternFallback:false});
     if(meldIdx>=0) used.add(meldIdx);
@@ -425,6 +578,12 @@
     if(partIdx>=0) used.add(partIdx);
     const serialIdx=findColumn(header,SERIAL_PATTERNS,{preferred:SERIAL_HEADER_PRIORITY,exclude:used});
     if(serialIdx>=0) used.add(serialIdx);
+    debug.meldIdx=meldIdx;
+    debug.partIdx=partIdx;
+    debug.serialIdx=serialIdx;
+    if(meldIdx<0) debug.missing.push('Meldung');
+    if(partIdx<0) debug.missing.push('Part');
+    if(serialIdx<0) debug.missing.push('Serial');
     const resolvedMeldIdx=(meldIdx>=0&&meldIdx<header.length)?meldIdx:-1;
     const resolvedPartIdx=(partIdx>=0&&partIdx<header.length)?partIdx:-1;
     const resolvedSerialIdx=(serialIdx>=0&&serialIdx<header.length)?serialIdx:-1;
@@ -456,7 +615,8 @@
       if(serial!==0) return serial;
       return a.rowIndex-b.rowIndex;
     });
-    return entries;
+    logAspenDebug(debug);
+    return {entries,debug,meta};
   }
 
   function applyNote(elements,message,tone){
@@ -544,12 +704,15 @@
       comments:new Map(),
       commentHandle:null,
       commentName:'',
+      commentPath:'',
       aspenHandle:null,
       aspenName:'',
+      aspenPath:'',
       aspenEntries:[],
       aspenOptions:[],
       aspenByKey:new Map(),
       aspenByMeldung:new Map(),
+      aspenDebug:null,
       activeMeldung:'',
       activePart:'',
       activeSerial:'',
@@ -567,8 +730,14 @@
     const stored=loadLocalState(instanceId);
     if(stored){
       state.commentName=stored.commentFileName||'';
+      if(typeof stored.commentFilePath==='string'){
+        state.commentPath=stored.commentFilePath;
+      }
       if(typeof stored.aspenFileName==='string'){
         state.aspenName=stored.aspenFileName;
+      }
+      if(typeof stored.aspenFilePath==='string'){
+        state.aspenPath=stored.aspenFilePath;
       }
       if(typeof stored.manualAspenKey==='string'){
         state.manualAspenKey=stored.manualAspenKey;
@@ -588,13 +757,22 @@
       }
     }
 
+    if(!state.commentPath && state.commentName){
+      state.commentPath=state.commentName;
+    }
+    if(!state.aspenPath && state.aspenName){
+      state.aspenPath=state.aspenName;
+    }
+
     const elements=createUI(title);
     targetDiv.appendChild(elements.root);
 
     function persistState(){
       const payload={
         commentFileName:state.commentName,
+        commentFilePath:state.commentPath||'',
         aspenFileName:state.aspenName||'',
+        aspenFilePath:state.aspenPath||'',
         manualAspenKey:state.manualAspenKey||'',
         manualAspenStableKey:state.manualAspenStableKey||'',
         comments:Array.from(state.comments.values()).map(entry=>({
@@ -714,13 +892,34 @@
       state.aspenHandle=handle;
       const allowed=await ensurePermission(handle,'read');
       if(!allowed){
-        applyNote(elements,'Keine Berechtigung für Aspen-Datei','error');
+        state.aspenDebug=createAspenDebug();
+        state.aspenDebug.messages.push('Keine Berechtigung für Aspen-Datei');
+        refreshBaseNote();
+        flashNote('Keine Berechtigung für Aspen-Datei','error',3000);
         return false;
       }
       try{
-        const entries=await readAspen(handle);
-        if(updateName){
+        const {entries,debug,meta}=await readAspen(handle);
+        state.aspenDebug=debug;
+        if(meta){
+          if(updateName){
+            state.aspenName=meta.name||state.aspenName||'';
+          }else if(!state.aspenName){
+            state.aspenName=meta.name||state.aspenName||'';
+          }
+          if(meta.path){
+            state.aspenPath=meta.path;
+          }else if(!state.aspenPath){
+            state.aspenPath=state.aspenName||meta.name||'';
+          }
+        }else if(updateName){
           state.aspenName=handle.name||state.aspenName||'';
+          if(!state.aspenPath){
+            state.aspenPath=state.aspenName||handle.name||'';
+          }
+        }
+        if(!state.aspenPath && state.aspenName){
+          state.aspenPath=state.aspenName;
         }
         setAspenEntries(entries);
         persistState();
@@ -729,7 +928,10 @@
         return true;
       }catch(err){
         console.warn('UnitComments: Aspen-Datei konnte nicht gelesen werden',err);
-        applyNote(elements,'Aspen-Datei konnte nicht gelesen werden','error');
+        state.aspenDebug=createAspenDebug();
+        state.aspenDebug.messages.push(`Lesefehler: ${err?.message||err}`);
+        refreshBaseNote();
+        flashNote('Aspen-Datei konnte nicht gelesen werden','error',3000);
         return false;
       }
     }
@@ -746,6 +948,7 @@
         if(!handle) return;
         state.aspenHandle=handle;
         state.aspenName=handle.name||state.aspenName||'Aspen.xlsx';
+        state.aspenPath=handle.name||state.aspenName||state.aspenPath||'Aspen.xlsx';
         persistState();
         try{await idbSet(aspenHandleKey,handle);}catch(err){console.warn('UnitComments: store aspen handle failed',err);}
         const ok=await loadAspenHandle(handle,{updateName:false});
@@ -766,18 +969,12 @@
       if(ok) flashNote('Aspen neu geladen','success');
     }
 
-    function normalizePartValue(value){
-      const text=trim(value);
-      if(!text) return '';
-      const [first]=text.split(':');
-      return trim(first);
-    }
-
     function updateAspenStatus(entry,{manualSelection=false}={}){
       if(!elements.aspenLabel) return;
       let label='Keine Aspen-Datei';
-      if(state.aspenHandle||state.aspenName){
-        const prefix=state.aspenName?`• ${state.aspenName}`:'Datei geladen';
+      if(state.aspenHandle||state.aspenName||state.aspenPath){
+        const sourceName=state.aspenPath||state.aspenName;
+        const prefix=sourceName?`• ${sourceName}`:'Datei geladen';
         if(entry){
           label=manualSelection?`${prefix} · Manuell`:`${prefix} · Automatisch`;
         }else if(manualSelection && state.manualAspenKey){
@@ -794,7 +991,8 @@
     }
 
     function updateFileLabels(){
-      elements.commentsLabel.textContent=state.commentName?`• ${state.commentName}`:'Keine Datei';
+      const commentSource=state.commentPath||state.commentName;
+      elements.commentsLabel.textContent=commentSource?`• ${commentSource}`:'Keine Datei';
     }
 
     function getActiveCommentEntry(){
@@ -849,6 +1047,12 @@
           notes.push('Ausgewählter Aspen-Eintrag nicht verfügbar');
           tone='error';
         }
+      }
+      const debugNote=buildAspenDebugNote(state.aspenDebug);
+      if(debugNote){
+        notes.push(debugNote.message);
+        if(debugNote.tone==='error') tone='error';
+        else if(debugNote.tone==='warn'&&tone!=='error') tone=tone||'warn';
       }
       const visitNote=computeVisitNote();
       if(visitNote){
@@ -985,8 +1189,17 @@
         return;
       }
       try{
-        const map=await readComments(handle);
+        const {map,meta}=await readComments(handle);
         state.comments=map;
+        if(meta){
+          if(!state.commentName){
+            state.commentName=meta.name||state.commentName||'';
+          }
+          state.commentPath=meta.path||state.commentPath||state.commentName||'';
+        }else if(!state.commentPath){
+          state.commentPath=state.commentName||'';
+        }
+        updateFileLabels();
         persistState();
         updateTextareaState();
         refreshBaseNote();
@@ -1008,6 +1221,7 @@
         if(!handle) return;
         state.commentHandle=handle;
         state.commentName=handle.name||state.commentName||'unit-comments.xlsx';
+        state.commentPath=handle.name||state.commentName||state.commentPath||'unit-comments.xlsx';
         updateFileLabels();
         persistState();
         try{await idbSet(handleKey,handle);}catch(err){console.warn('UnitComments: store comment handle failed',err);}
@@ -1039,6 +1253,7 @@
         await writable.close();
         state.commentHandle=handle;
         state.commentName=handle.name||'unit-comments.xlsx';
+        state.commentPath=state.commentName||state.commentPath||'unit-comments.xlsx';
         updateFileLabels();
         persistState();
         try{await idbSet(handleKey,handle);}catch(err){console.warn('UnitComments: store comment handle failed',err);}
@@ -1184,6 +1399,7 @@
         if(handle){
           state.commentHandle=handle;
           if(!state.commentName) state.commentName=handle.name||state.commentName||'';
+          if(!state.commentPath) state.commentPath=state.commentName||handle.name||'';
           updateFileLabels();
           persistState();
           await loadCommentsHandle(handle);
@@ -1197,7 +1413,9 @@
       try{
         const handle=await idbGet(aspenHandleKey);
         if(handle){
+          state.aspenHandle=handle;
           if(!state.aspenName) state.aspenName=handle.name||state.aspenName||'';
+          if(!state.aspenPath) state.aspenPath=state.aspenName||handle.name||'';
           persistState();
           await loadAspenHandle(handle,{updateName:false});
         }else{
