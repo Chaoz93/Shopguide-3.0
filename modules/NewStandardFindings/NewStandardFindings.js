@@ -439,6 +439,17 @@
     }
   }
 
+  function debugRenderRoutineEditorBlockCall(renderer,block,tabKey){
+    if(typeof renderer!=='function'){
+      console.log('[renderRoutineEditorBlock] renderer unavailable for:',block&&block.id, 'tabKey:', tabKey);
+      return null;
+    }
+    console.log('[renderRoutineEditorBlock] called with:',block&&block.type,block&&block.id,'tabKey:',tabKey);
+    const element=renderer(block,tabKey);
+    console.log('[renderRoutineEditorBlock] created DOM element for:',block&&block.id,'type:',block&&block.type,'→',element);
+    return element;
+  }
+
   function addCustomBlock(tabKey,type='text',options={}){
     const opts=options&&typeof options==='object'?{...options}:{};
     const trigger=typeof Element!=='undefined'&&opts.trigger instanceof Element?opts.trigger:null;
@@ -585,7 +596,7 @@
         ?tabState.customBlocks.find(entry=>entry&&entry.id===blockId)
         :null;
       if(overlay&&container&&newBlock&&typeof renderRoutineEditorBlock==='function'){
-        const blockEl=renderRoutineEditorBlock(newBlock,targetTab);
+        const blockEl=debugRenderRoutineEditorBlockCall(renderRoutineEditorBlock,newBlock,targetTab);
         const isDomNode=typeof Node!=='undefined'
           ?blockEl instanceof Node
           :blockEl&&typeof blockEl.nodeType==='number';
@@ -4826,6 +4837,7 @@
       const tabState=this.ensureRoutineEditorState(tabKeyValue);
       console.log('[renderRoutineEditorOverlayContent] tabState:',tabState);
       console.log('[renderRoutineEditorOverlayContent] tabState.customBlocks:',tabState?tabState.customBlocks:undefined);
+      console.log('[OverlayContent] tabState for',tabKeyValue,JSON.stringify(tabState,null,2));
       const order=this.getRoutineEditorOrder(tabKeyValue);
       tabState.order=order.slice();
       if(Array.isArray(tabState.hiddenBaseBlocks)){
@@ -4845,16 +4857,23 @@
       });
       const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks:[];
       let renderedCustomBlocks=0;
+      console.log('[OverlayContent] preparing to render customBlocks, count:',tabState.customBlocks?.length);
       if(customBlocks.length){
         const container=this.routineEditorList instanceof Element?this.routineEditorList:null;
         if(container){
+          const renderer=typeof this.renderRoutineEditorBlock==='function'
+            ?this.renderRoutineEditorBlock.bind(this)
+            :typeof renderRoutineEditorBlock==='function'
+              ?renderRoutineEditorBlock
+              :null;
           customBlocks.forEach(block=>{
             if(!block) return;
+            console.log('[OverlayContent] rendering customBlock:',block);
             try{
-              if(typeof this.renderRoutineEditorBlock!=='function') return;
-              const blockEl=this.renderRoutineEditorBlock(block,tabKeyValue);
+              const blockEl=debugRenderRoutineEditorBlockCall(renderer,block,tabKeyValue);
               if(!blockEl) return;
               container.appendChild(blockEl);
+              console.log('[OverlayContent] appended block to container:',block.id);
               renderedCustomBlocks+=1;
             }catch(blockErr){
               console.warn('NSF: Custom-Block konnte nicht dargestellt werden',blockErr,block);
@@ -5004,12 +5023,12 @@
         const container=overlay?.querySelector('.nsf-editor-tab.active .nsf-blocks')||overlay?.querySelector('.nsf-editor-list');
         const newBlock=Array.isArray(tabState.customBlocks)?tabState.customBlocks.find(block=>block&&block.id===id):null;
         if(overlay&&container&&newBlock){
-          let blockEl=null;
-          if(typeof renderRoutineEditorBlock==='function'){
-            blockEl=renderRoutineEditorBlock(newBlock,targetTab);
-          }else if(typeof this.renderRoutineEditorBlock==='function'){
-            blockEl=this.renderRoutineEditorBlock(newBlock,targetTab);
-          }
+          const renderer=typeof renderRoutineEditorBlock==='function'
+            ?renderRoutineEditorBlock
+            :typeof this.renderRoutineEditorBlock==='function'
+              ?this.renderRoutineEditorBlock.bind(this)
+              :null;
+          const blockEl=debugRenderRoutineEditorBlockCall(renderer,newBlock,targetTab);
           if(blockEl instanceof Element){
             container.appendChild(blockEl);
           }
