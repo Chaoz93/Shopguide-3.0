@@ -4843,49 +4843,29 @@
         const block=this.createRoutineEditorBlock(def);
         if(block) this.routineEditorList.appendChild(block);
       });
+      const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks:[];
+      let renderedCustomBlocks=0;
+      if(customBlocks.length){
+        const container=this.routineEditorList instanceof Element?this.routineEditorList:null;
+        if(container){
+          customBlocks.forEach(block=>{
+            if(!block) return;
+            try{
+              if(typeof this.renderRoutineEditorBlock!=='function') return;
+              const blockEl=this.renderRoutineEditorBlock(block,tabKeyValue);
+              if(!blockEl) return;
+              container.appendChild(blockEl);
+              renderedCustomBlocks+=1;
+            }catch(blockErr){
+              console.warn('NSF: Custom-Block konnte nicht dargestellt werden',blockErr,block);
+            }
+          });
+        }
+      }
       const finalInsert=this.createRoutineEditorInsertControl(order.length,order);
       if(finalInsert) this.routineEditorList.appendChild(finalInsert);
-      try{
-        const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks:[];
-        if(customBlocks.length){
-          const overlay=this.routineEditorOverlay||document.querySelector('.nsf-editor-overlay.open');
-          const activeContainer=overlay?.querySelector('.nsf-editor-tab.active .nsf-blocks');
-          const container=activeContainer instanceof Element?activeContainer:null;
-          if(container){
-            container.querySelectorAll('[data-nsf-custom-render="1"]').forEach(node=>{
-              if(node&&node.parentNode===container) node.parentNode.removeChild(node);
-            });
-            customBlocks.forEach(block=>{
-              if(!block) return;
-              let blockEl=null;
-              if(typeof renderRoutineEditorBlock==='function'){
-                blockEl=renderRoutineEditorBlock(block,tabKeyValue);
-              }else if(typeof this.renderRoutineEditorBlock==='function'){
-                blockEl=this.renderRoutineEditorBlock(block,tabKeyValue);
-              }
-              if(!blockEl) return;
-              const isNode=typeof Node!=='undefined'
-                ?blockEl instanceof Node
-                :blockEl&&typeof blockEl==='object'&&typeof blockEl.nodeType==='number';
-              if(!isNode) return;
-              if(typeof Node!=='undefined'&&blockEl.nodeType===Node.DOCUMENT_FRAGMENT_NODE){
-                const fragmentChildren=Array.from(blockEl.childNodes||[]);
-                fragmentChildren.forEach(child=>{
-                  if(child instanceof Element){
-                    child.dataset.nsfCustomRender='1';
-                  }
-                });
-              }else if(blockEl instanceof Element){
-                blockEl.dataset.nsfCustomRender='1';
-              }
-              container.appendChild(blockEl);
-            });
-          }
-        }
-      }catch(err){
-        console.warn('NSF: Custom-Blocks konnten im Overlay nicht dargestellt werden',err);
-      }
-      console.log('[renderRoutineEditorOverlayContent] blocks rendered:',Array.isArray(tabState.customBlocks)?tabState.customBlocks.length:0);
+      const totalBlocksRendered=order.length+renderedCustomBlocks;
+      console.log('[renderRoutineEditorOverlayContent] blocks rendered:',totalBlocksRendered);
       this.refreshRoutineEditorPreview();
       this.updateRoutineEditorBlockShopAvailability();
     }
