@@ -131,9 +131,9 @@
       .db-config-colors{max-width:280px;}
     }
     .aspenboard .db-modal{
-      background:rgba(10,15,26,.88);
-      backdrop-filter:blur(24px);
-      -webkit-backdrop-filter:blur(24px);
+      background:rgba(10,15,26,.78);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
     }
     .aspenboard .db-panel,
     .aspenboard .db-menu{
@@ -150,8 +150,14 @@
       --border-color:rgba(255,255,255,0.14);
       --shadow-color:rgba(0,0,0,0.55);
       background:rgba(10,15,26,.94);
+    }
+    .aspenboard .db-panel{
       backdrop-filter:blur(28px);
       -webkit-backdrop-filter:blur(28px);
+    }
+    .aspenboard .db-menu{
+      backdrop-filter:blur(14px);
+      -webkit-backdrop-filter:blur(14px);
     }
     .aspenboard .db-menu{padding:.5rem;color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);}
     .aspenboard .db-menu .mi{color:inherit;border-radius:.5rem;}
