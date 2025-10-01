@@ -4513,13 +4513,10 @@
       const config=this.getRoutineEditorTabConfig();
       const allowAspen=config&&config.allowAspen!==false;
       const id=createCustomSectionId();
-      if(!Array.isArray(tabState.customBlocks)) tabState.customBlocks=[];
       const currentOrder=this.getRoutineEditorOrder();
       const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,currentOrder.length);
-      const customInsertIndex=currentOrder
-        .slice(0,clampedIndex)
-        .filter(entry=>typeof entry==='string'&&entry.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX))
-        .length;
+      const existingCustomBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
+      const customBlockMap=new Map(existingCustomBlocks.map(block=>[block&&block.id,block]).filter(([id])=>typeof id==='string'&&id));
       const requestedType=typeof type==='string'?type:'';
       const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
       const entry={
@@ -4552,10 +4549,22 @@
           entry.lines=presetLines;
         }
       }
-      tabState.customBlocks.splice(customInsertIndex,0,entry);
       const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
+      customBlockMap.set(id,entry);
       const order=currentOrder.filter(entry=>entry!==customKey);
       order.splice(clampedIndex,0,customKey);
+      const orderedCustomBlocks=[];
+      order.forEach(key=>{
+        if(!key||typeof key!=='string'||!key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return;
+        const customId=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
+        if(!customBlockMap.has(customId)) return;
+        orderedCustomBlocks.push(customBlockMap.get(customId));
+        customBlockMap.delete(customId);
+      });
+      customBlockMap.forEach(block=>{
+        if(block) orderedCustomBlocks.push(block);
+      });
+      tabState.customBlocks=orderedCustomBlocks;
       tabState.order=order;
       this.renderRoutineEditorOverlayContent();
       this.syncRoutineEditorStateFromDom();
