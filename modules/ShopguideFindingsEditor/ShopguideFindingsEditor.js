@@ -196,12 +196,20 @@
       .sfe-list{flex:1 1 280px;min-width:220px;max-width:420px;background:rgba(255,255,255,0.08);border-radius:0.85rem;padding:0.6rem;display:flex;flex-direction:column;gap:0.5rem;}
       .sfe-list-header{display:flex;flex-direction:column;gap:0.35rem;font-size:0.78rem;opacity:0.8;}
       .sfe-results{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:0.45rem;}
-      .sfe-item{background:rgba(15,23,42,0.22);border-radius:0.75rem;padding:0.5rem 0.65rem;display:flex;flex-direction:column;gap:0.25rem;cursor:pointer;transition:background 0.12s ease,transform 0.12s ease;}
+      .sfe-item{background:rgba(15,23,42,0.22);border-radius:0.75rem;padding:0.5rem 0.65rem;display:flex;align-items:flex-start;justify-content:space-between;gap:0.6rem;cursor:pointer;transition:background 0.12s ease,transform 0.12s ease;border:none;text-align:left;width:100%;}
       .sfe-item:hover{background:rgba(59,130,246,0.25);transform:translateY(-1px);}
       .sfe-item.active{background:rgba(59,130,246,0.35);box-shadow:0 8px 22px rgba(15,23,42,0.25);}
+      .sfe-item-content{display:flex;flex-direction:column;gap:0.25rem;flex:1;min-width:0;}
       .sfe-item-title{font-weight:600;font-size:0.9rem;}
       .sfe-item-subtitle{font-size:0.78rem;opacity:0.75;max-height:3em;overflow:hidden;}
       .sfe-item mark{background:rgba(252,211,77,0.65);color:inherit;padding:0 0.15rem;border-radius:0.25rem;}
+      .sfe-item-actions{display:flex;align-items:center;gap:0.25rem;opacity:0;pointer-events:none;transition:opacity 0.12s ease,transform 0.12s ease;transform:translateY(-2px);}
+      .sfe-item:hover .sfe-item-actions,.sfe-item:focus-within .sfe-item-actions{opacity:1;pointer-events:auto;transform:translateY(0);}
+      .sfe-item-action{border:none;background:rgba(255,255,255,0.18);color:inherit;padding:0.3rem;border-radius:0.55rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-width:1.75rem;min-height:1.75rem;transition:background 0.12s ease,transform 0.12s ease;}
+      .sfe-item-action:hover{background:rgba(255,255,255,0.28);transform:translateY(-1px);}
+      .sfe-item-action--delete{background:rgba(248,113,113,0.22);}
+      .sfe-item-action--delete:hover{background:rgba(248,113,113,0.32);}
+      .sfe-item-action:focus-visible{outline:2px solid rgba(59,130,246,0.6);outline-offset:2px;}
       .sfe-editor{flex:2 1 360px;min-width:260px;background:rgba(255,255,255,0.08);border-radius:0.85rem;padding:0.75rem;display:flex;flex-direction:column;gap:0.65rem;min-height:0;}
       .sfe-editor-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;}
       .sfe-editor-title{font-weight:600;font-size:1rem;}
@@ -1395,19 +1403,65 @@
         return;
       }
       for(const entry of this.filtered){
-        const item=document.createElement('button');
-        item.type='button';
+        const item=document.createElement('div');
+        item.className='sfe-item'+(entry.id===this.selectedId?' active':'');
+        item.setAttribute('role','button');
+        item.setAttribute('aria-pressed',entry.id===this.selectedId?'true':'false');
+        item.tabIndex=0;
         const partNumbers=getCleanPartNumbers(entry);
         const subtitle=partNumbers.length?partNumbers.join(', '):'Keine Partnummer';
         const subtitleClass=partNumbers.length?'sfe-item-subtitle':'sfe-item-subtitle sfe-empty';
-        item.className='sfe-item'+(entry.id===this.selectedId?' active':'');
-        item.innerHTML=`<div class="sfe-item-title">${highlight(entry.label||'Ohne Label',term)}</div>
-          <div class="${subtitleClass}">${term?highlight(subtitle,term):escapeHTML(subtitle)}</div>`;
-        item.addEventListener('click',()=>{
+        const content=document.createElement('div');
+        content.className='sfe-item-content';
+        const titleEl=document.createElement('div');
+        titleEl.className='sfe-item-title';
+        titleEl.innerHTML=highlight(entry.label||'Ohne Label',term);
+        content.appendChild(titleEl);
+        const subtitleEl=document.createElement('div');
+        subtitleEl.className=subtitleClass;
+        subtitleEl.innerHTML=term?highlight(subtitle,term):escapeHTML(subtitle);
+        content.appendChild(subtitleEl);
+        item.appendChild(content);
+        const actions=document.createElement('div');
+        actions.className='sfe-item-actions';
+        const duplicateBtn=document.createElement('button');
+        duplicateBtn.type='button';
+        duplicateBtn.className='sfe-item-action';
+        duplicateBtn.title='Eintrag duplizieren';
+        const labelText=cleanString(entry.label)||'Ohne Label';
+        duplicateBtn.setAttribute('aria-label',`Eintrag ${labelText} duplizieren`);
+        duplicateBtn.innerHTML='<span aria-hidden="true">⧉</span>';
+        duplicateBtn.addEventListener('click',(event)=>{
+          event.preventDefault();
+          event.stopPropagation();
+          this.duplicateEntry(entry.id);
+        });
+        actions.appendChild(duplicateBtn);
+        const deleteBtn=document.createElement('button');
+        deleteBtn.type='button';
+        deleteBtn.className='sfe-item-action sfe-item-action--delete';
+        deleteBtn.title='Eintrag löschen';
+        deleteBtn.setAttribute('aria-label',`Eintrag ${labelText} löschen`);
+        deleteBtn.innerHTML='<span aria-hidden="true">🗑</span>';
+        deleteBtn.addEventListener('click',(event)=>{
+          event.preventDefault();
+          event.stopPropagation();
+          this.deleteEntry(entry.id);
+        });
+        actions.appendChild(deleteBtn);
+        item.appendChild(actions);
+        const selectEntry=()=>{
           this.selectedId=entry.id;
           const activeTerm=this.shouldHighlightSearchTerm(term)?term:'';
           this.renderList(activeTerm);
           this.renderEditor(activeTerm);
+        };
+        item.addEventListener('click',selectEntry);
+        item.addEventListener('keydown',(event)=>{
+          if(event.key==='Enter'||event.key===' '||event.key==='Spacebar'){
+            event.preventDefault();
+            selectEntry();
+          }
         });
         this.listEl.appendChild(item);
       }
@@ -1761,6 +1815,68 @@
       if(this.searchInput) this.searchInput.value='';
       this.applySearch();
       this.updateSuggestions();
+    }
+
+    duplicateEntry(id){
+      const index=this.data.findIndex(item=>item.id===id);
+      if(index<0) return;
+      const source=this.data[index];
+      const duplicate=cloneData(source);
+      duplicate.id=ensureId();
+      duplicate.partNumbers=[...getCleanPartNumbers(source)];
+      duplicate.partsPairs=normalizePartsPairs(source);
+      this.pushHistory();
+      this.data.splice(index+1,0,duplicate);
+      const rawSource=this.rawById.get(source.id);
+      if(rawSource){
+        this.rawById.set(duplicate.id,cloneData(rawSource));
+      }
+      const partKey=this.partById.get(source.id);
+      if(partKey!=null){
+        this.partById.set(duplicate.id,partKey);
+      }
+      this.selectedId=duplicate.id;
+      this.activeHistorySignature=null;
+      this.dirty=true;
+      if(this.searchInput){
+        this.applySearch();
+      }else{
+        this.filtered=[...this.data];
+        this.renderList('');
+        this.renderEditor('');
+      }
+      this.updateSuggestions();
+      this.status('Eintrag dupliziert');
+    }
+
+    deleteEntry(id){
+      const index=this.data.findIndex(item=>item.id===id);
+      if(index<0) return;
+      const entry=this.data[index];
+      const label=cleanString(entry.label)||'Ohne Label';
+      const confirmed=window.confirm(`Eintrag "${label}" wirklich löschen?`);
+      if(!confirmed) return;
+      this.pushHistory();
+      const [removed]=this.data.splice(index,1);
+      if(removed){
+        if(this.rawById) this.rawById.delete(removed.id);
+        if(this.partById) this.partById.delete(removed.id);
+      }
+      if(this.selectedId===id){
+        const fallback=this.data[index]||this.data[index-1]||null;
+        this.selectedId=fallback?fallback.id:null;
+      }
+      this.activeHistorySignature=null;
+      this.dirty=true;
+      if(this.searchInput){
+        this.applySearch();
+      }else{
+        this.filtered=[...this.data];
+        this.renderList('');
+        this.renderEditor('');
+      }
+      this.updateSuggestions();
+      this.status('Eintrag gelöscht');
     }
 
     pushHistory(){
