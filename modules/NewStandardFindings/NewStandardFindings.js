@@ -813,9 +813,18 @@
       .nsf-part-row+.nsf-part-row{border-top:1px solid rgba(148,163,184,0.18);padding-top:0.45rem;margin-top:0.45rem;}
       .nsf-part-field{display:flex;flex-direction:column;gap:0.35rem;}
       .nsf-part-field-label{font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.7;}
-      .nsf-part-field-input{border:none;border-radius:0.65rem;padding:0.55rem 0.65rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
+      .nsf-part-field-input-wrapper{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-part-field-input{flex:1;min-width:0;border:none;border-radius:0.65rem;padding:0.55rem 0.65rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
       .nsf-part-field-input:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
       .nsf-part-field-input::placeholder{color:rgba(107,114,128,0.75);}
+      .nsf-part-copy-btn{flex:0 0 auto;background:rgba(255,255,255,0.16);border:none;border-radius:0.6rem;padding:0.35rem 0.5rem;color:inherit;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:0.25rem;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-part-copy-btn:hover{background:rgba(255,255,255,0.28);transform:translateY(-1px);}
+      .nsf-part-copy-btn:active{transform:translateY(0);}
+      .nsf-part-copy-btn:disabled{opacity:0.45;cursor:not-allowed;transform:none;background:rgba(255,255,255,0.12);}
+      .nsf-part-copy-btn.copied{background:rgba(16,185,129,0.35);}
+      .nsf-part-copy-icon{pointer-events:none;}
+      .nsf-part-copy-feedback{font-size:0.7rem;opacity:0;transition:opacity 0.15s ease;}
+      .nsf-part-copy-btn.copied .nsf-part-copy-feedback{opacity:1;}
     `;
     document.head.appendChild(tag);
   }
@@ -3538,7 +3547,31 @@
         input.readOnly=true;
         input.addEventListener('focus',()=>{input.select();});
         input.addEventListener('click',()=>{input.select();});
-        field.append(label,input);
+        const copyBtn=document.createElement('button');
+        copyBtn.type='button';
+        copyBtn.className='nsf-part-copy-btn';
+        copyBtn.title=`${labelText||'Feld'} kopieren`;
+        copyBtn.setAttribute('aria-label',copyBtn.title);
+        const icon=document.createElement('span');
+        icon.className='nsf-part-copy-icon';
+        icon.textContent='📋';
+        const feedback=document.createElement('span');
+        feedback.className='nsf-part-copy-feedback';
+        feedback.textContent='✅';
+        copyBtn.append(icon,feedback);
+        copyBtn.disabled=!displayValue;
+        copyBtn.addEventListener('click',()=>{
+          input.select();
+          copyText(input.value).then(success=>{
+            if(!success) return;
+            copyBtn.classList.add('copied');
+            setTimeout(()=>copyBtn.classList.remove('copied'),1200);
+          });
+        });
+        const wrapper=document.createElement('div');
+        wrapper.className='nsf-part-field-input-wrapper';
+        wrapper.append(input,copyBtn);
+        field.append(label,wrapper);
         return field;
       };
       items.forEach(group=>{
@@ -5902,7 +5935,10 @@
       });
       input.addEventListener('input',()=>{
         if(state.locked) return;
-        openSuggestions();
+        updateSuggestions();
+        if(state.isOpen){
+          updateHighlight();
+        }
       });
       input.addEventListener('keydown',e=>{
         if(state.locked) return;
