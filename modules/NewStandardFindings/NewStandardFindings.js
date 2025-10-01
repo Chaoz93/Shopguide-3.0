@@ -4450,21 +4450,25 @@
       }else{
         select.title='Element hinzufügen';
       }
+      const baseBlockKeys=new Set(baseBlocks.map(block=>block.key));
       select.addEventListener('change',()=>{
         const type=select.value;
-        select.value='';
-        placeholder.selected=true;
         if(!type) return;
+        console.debug('NSF: Routine-Editor Block hinzufügen',type);
         if(type==='text'||type==='linebreak'||(type==='aspen'&&allowAspen)){
           this.addRoutineEditorCustomBlockAt(index,type);
         }else if(type.startsWith('base:')){
           const baseKey=type.slice(5);
-          this.addRoutineEditorBaseBlockAt(index,baseKey);
+          if(baseBlockKeys.has(baseKey)){
+            this.addRoutineEditorBaseBlockAt(index,baseKey);
+          }
         }else if(type.startsWith('param:')&&allowParameters){
           const paramId=type.slice(6);
           const option=this.getRoutineEditorParameterOption(paramId);
           this.addRoutineEditorParameterBlockAt(index,option);
         }
+        select.value='';
+        placeholder.selected=true;
       });
       container.appendChild(select);
       return container;
@@ -4784,10 +4788,11 @@
     }
 
     addRoutineEditorBaseBlockAt(index,key){
+      console.debug('NSF: addRoutineEditorBaseBlockAt',index,key);
       if(!key||typeof key!=='string') return;
       const baseBlocks=this.getRoutineEditorBaseBlocks();
       const def=baseBlocks.find(block=>block.key===key);
-      if(!def||def.removable===false) return;
+      if(!def) return;
       const tabState=this.getRoutineEditorTabState();
       const order=this.getRoutineEditorOrder().filter(entry=>entry!==key);
       const clampedIndex=this.normalizeRoutineEditorInsertIndex(index,order.length);
@@ -4797,6 +4802,31 @@
         tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(entry=>entry!==key);
       }else{
         tabState.hiddenBaseBlocks=[];
+      }
+      if(def.editable!==false){
+        if(!tabState.blocks||typeof tabState.blocks!=='object') tabState.blocks={};
+        const entry=tabState.blocks[key]&&typeof tabState.blocks[key]==='object'
+          ?tabState.blocks[key]
+          :{lines:[]};
+        if(!Array.isArray(entry.lines)||entry.lines.every(line=>(line||'').trim()==='')){
+          const placeholders={
+            action:'Neue Action',
+            actions:'Neue Action',
+            routine:'Neue Routine',
+            nonroutine:'Neue Nonroutine',
+            finding:'Neues Finding',
+            findings:'Neue Findings',
+            times:'Neue Arbeitszeiten',
+            parts:'Neue Teile',
+            mods:'Neue Modifikation'
+          };
+          entry.lines=[placeholders[key]||`Neuer Block: ${key}`];
+        }
+        tabState.blocks[key]=entry;
+      }
+      const container=this.routineEditorContainer||this.routineEditorList;
+      if(!container){
+        console.error('NSF: Routine-Editor-Container nicht gefunden');
       }
       this.renderRoutineEditorOverlayContent();
       this.syncRoutineEditorStateFromDom();
