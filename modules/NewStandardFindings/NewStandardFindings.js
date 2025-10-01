@@ -172,6 +172,7 @@
   let watchersInitialized=false;
   let ensureDataPromise=null;
   const lastValues={};
+  let currentBlockShopDragType='';
 
   function getRoutineEditorTabKey(tabKey){
     return ROUTINE_EDITOR_PREVIEW_TAB_KEYS.includes(tabKey)?tabKey:'routine';
@@ -402,134 +403,62 @@
     }
   }
 
-  let customAddDelegated=false;
-
-  function ensureCustomAddDelegation(){
-    if(customAddDelegated||typeof document==='undefined') return;
-    customAddDelegated=true;
-    document.addEventListener('click',event=>{
-      const target=event&&event.target instanceof Element
-        ?event.target.closest('.nsf-custom-add')
-        :null;
-      if(!target) return;
-      const tabKey=resolveCustomAddTabKey(target);
-      addCustomBlock(tabKey,'text',{trigger:target});
-    });
-  }
-
-  function resolveCustomAddTabKey(button){
-    const ensureKey=value=>{
-      if(typeof value!=='string') return '';
-      return getRoutineEditorTabKey(value);
-    };
-    if(!button||typeof button!=='object') return 'routine';
-    try{
-      const dataset=button.dataset||{};
-      if(typeof dataset.tabKey==='string'&&dataset.tabKey){
-        return ensureKey(dataset.tabKey);
-      }
-      if(typeof dataset.tab==='string'&&dataset.tab){
-        return ensureKey(dataset.tab);
-      }
-      const attrTabKey=button.getAttribute?button.getAttribute('data-tab-key'):null;
-      if(typeof attrTabKey==='string'&&attrTabKey){
-        return ensureKey(attrTabKey);
-      }
-      const attrTab=button.getAttribute?button.getAttribute('data-tab'):null;
-      if(typeof attrTab==='string'&&attrTab){
-        return ensureKey(attrTab);
-      }
-      if(typeof button.closest==='function'){
-        const parent=button.closest('[data-tab-key],[data-tab]');
-        if(parent){
-          const parentDataset=parent.dataset||{};
-          if(typeof parentDataset.tabKey==='string'&&parentDataset.tabKey){
-            return ensureKey(parentDataset.tabKey);
-          }
-          if(typeof parentDataset.tab==='string'&&parentDataset.tab){
-            return ensureKey(parentDataset.tab);
-          }
-          const parentAttrKey=parent.getAttribute?parent.getAttribute('data-tab-key'):null;
-          if(typeof parentAttrKey==='string'&&parentAttrKey){
-            return ensureKey(parentAttrKey);
-          }
-          const parentAttrTab=parent.getAttribute?parent.getAttribute('data-tab'):null;
-          if(typeof parentAttrTab==='string'&&parentAttrTab){
-            return ensureKey(parentAttrTab);
-          }
-        }
-      }
-      return loadRoutineEditorActiveTab();
-    }catch{
-      return 'routine';
-    }
-  }
-
-  function resolveCustomAddInstance(trigger){
-    if(typeof Element==='undefined'||!(trigger instanceof Element)) return null;
-    let match=null;
-    instances.forEach(instance=>{
-      if(match||!instance||typeof instance.addCustomBlock!=='function') return;
-      const overlay=instance.routineEditorOverlay;
-      if(overlay&&overlay.contains(trigger)){
-        match=instance;
-        return;
-      }
-      const root=instance.root;
-      if(root&&typeof root.contains==='function'&&root.contains(trigger)){
-        match=instance;
-      }
-    });
-    if(match) return match;
-    let fallback=null;
-    instances.forEach(instance=>{
-      if(fallback||!instance||typeof instance.addCustomBlock!=='function') return;
-      const overlay=instance.routineEditorOverlay;
-      if(overlay&&overlay.classList&&overlay.classList.contains('open')){
-        fallback=instance;
-      }
-    });
-    return fallback;
-  }
-
-  function bindCustomAddButtons(root=document){
-    if(typeof document==='undefined') return;
-    const scope=root&&typeof root.querySelectorAll==='function'?root:document;
-    const buttons=scope.querySelectorAll?scope.querySelectorAll('.nsf-custom-add'):[];
-    ensureCustomAddDelegation();
-    buttons.forEach(button=>{
-      if(!(button instanceof HTMLElement)) return;
-      if(button.dataset&&button.dataset.nsfCustomAddBound==='1') return;
-      button.addEventListener('click',event=>{
-        try{event.preventDefault();}
-        catch{}
-        try{event.stopPropagation();}
-        catch{}
-        const tabKey=resolveCustomAddTabKey(button);
-        addCustomBlock(tabKey,'text',{trigger:button});
-      });
-      if(button.dataset) button.dataset.nsfCustomAddBound='1';
-    });
-  }
-
   function addCustomBlock(tabKey,type='text',options={}){
     const opts=options&&typeof options==='object'?{...options}:{};
     const trigger=typeof Element!=='undefined'&&opts.trigger instanceof Element?opts.trigger:null;
     if(trigger){
       delete opts.trigger;
-      const instance=resolveCustomAddInstance(trigger);
-      if(instance&&typeof instance.addCustomBlock==='function'){
-        try{return instance.addCustomBlock(tabKey,type,opts);}catch(err){console.warn('NSF: Custom-Block konnte nicht über Instanz hinzugefügt werden',err);}
+      let match=null;
+      instances.forEach(instance=>{
+        if(match||!instance||typeof instance.addCustomBlock!=='function') return;
+        const overlay=instance.routineEditorOverlay;
+        if(overlay&&overlay.contains(trigger)){
+          match=instance;
+          return;
+        }
+        const root=instance.root;
+        if(root&&typeof root.contains==='function'&&root.contains(trigger)){
+          match=instance;
+        }
+      });
+      if(match&&typeof match.addCustomBlock==='function'){
+        try{return match.addCustomBlock(tabKey,type,opts);}catch(err){console.warn('NSF: Custom-Block konnte nicht über Instanz hinzugefügt werden',err);}
       }
     }else if('trigger' in opts){
       delete opts.trigger;
-    }else{
-      const doc=typeof document!=='undefined'?document:null;
-      const activeInstance=doc&&doc.body?resolveCustomAddInstance(doc.body):null;
-      if(activeInstance&&typeof activeInstance.addCustomBlock==='function'){
-        try{return activeInstance.addCustomBlock(tabKey,type,opts);}catch(err){console.warn('NSF: Custom-Block konnte nicht hinzugefügt werden',err);}
-      }
     }
+    return createCustomBlock(tabKey,type,opts);
+  }
+
+  function renderRoutineEditor(){
+    instances.forEach(instance=>{
+      if(!instance) return;
+      try{
+        if(typeof instance.ensureRoutineEditorState==='function'){
+          instance.ensureRoutineEditorState();
+        }
+        const overlayOpen=instance.routineEditorOverlay&&instance.routineEditorOverlay.classList.contains('open');
+        if(overlayOpen&&typeof instance.renderRoutineEditorOverlayContent==='function'){
+          instance.renderRoutineEditorOverlayContent();
+        }else if(!overlayOpen&&typeof instance.refreshRoutineEditorPreview==='function'){
+          instance.refreshRoutineEditorPreview();
+        }
+        if(typeof instance.evaluateRoutineEditorPresetMatch==='function'){
+          instance.evaluateRoutineEditorPresetMatch();
+        }
+      }catch(err){console.warn('NSF: Routine-Editor Aktualisierung fehlgeschlagen',err);}
+    });
+  }
+
+  function clearAllRoutineEditorDropIndicators(){
+    instances.forEach(instance=>{
+      if(!instance||typeof instance.clearRoutineEditorDropIndicators!=='function') return;
+      try{instance.clearRoutineEditorDropIndicators();}catch{}
+    });
+  }
+
+  function createCustomBlock(tabKey,type='text',options={}){
+    const opts=options&&typeof options==='object'?{...options}:{};
     const targetTab=getRoutineEditorTabKey(tabKey);
     let state;
     try{
@@ -542,14 +471,35 @@
       state=createDefaultRoutineEditorState();
     }
     const tabState=normalizeRoutineEditorTabState(state.tabs[targetTab],targetTab);
+    const config=getRoutineEditorTabConfig(targetTab);
+    const allowAspen=config&&config.allowAspen!==false;
+    const requestedType=typeof type==='string'?type:'';
+    const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
     const blockId=createCustomSectionId();
-    const blockType=type==='linebreak'?'linebreak':type==='aspen'?'aspen':'text';
-    const providedLabel=typeof opts.label==='string'&&opts.label?sanitizeRoutineEditorLabel(opts.label):'';
+    const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${blockId}`;
+    const baseOrder=Array.isArray(tabState.order)?tabState.order.filter(entry=>entry!==customKey):[];
+    let desiredIndex=opts.insertIndex;
+    if(typeof desiredIndex==='string'&&desiredIndex.trim()!==''){
+      const parsed=Number.parseInt(desiredIndex,10);
+      if(!Number.isNaN(parsed)) desiredIndex=parsed;
+    }
+    const insertIndex=Number.isFinite(desiredIndex)
+      ?Math.max(0,Math.min(desiredIndex,baseOrder.length))
+      :baseOrder.length;
+    const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
+    const precedingCustomCount=baseOrder.slice(0,insertIndex).reduce((count,key)=>{
+      if(typeof key!=='string'||!key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return count;
+      const customId=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
+      const existingIndex=customBlocks.findIndex(entry=>entry&&entry.id===customId);
+      return existingIndex>=0?count+1:count;
+    },0);
+    const providedLabel=typeof opts.label==='string'?sanitizeRoutineEditorLabel(opts.label):'';
     const block={
       id:blockId,
       type:blockType,
-      label:providedLabel||'Neues Element',
+      label:providedLabel,
       aspenField:'',
+      parameterKey:'',
       lines:['']
     };
     if(blockType==='text'){
@@ -558,39 +508,16 @@
     if(Array.isArray(opts.lines)&&opts.lines.length){
       block.lines=opts.lines.map(value=>typeof value==='string'?value:'');
     }
-    const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
-    customBlocks.push(block);
-    const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${blockId}`;
-    const order=Array.isArray(tabState.order)?tabState.order.filter(entry=>entry!==customKey):[];
-    order.push(customKey);
-    tabState.customBlocks=customBlocks;
-    tabState.order=order;
+    const updatedOrder=baseOrder.slice();
+    updatedOrder.splice(insertIndex,0,customKey);
+    const updatedCustomBlocks=customBlocks.slice();
+    updatedCustomBlocks.splice(precedingCustomCount,0,block);
+    tabState.customBlocks=updatedCustomBlocks;
+    tabState.order=updatedOrder;
     state.tabs[targetTab]=tabState;
     storeRoutineEditorState(state);
-    instances.forEach(instance=>{
-      if(!instance) return;
-      try{
-        if(typeof instance.ensureRoutineEditorState==='function'){
-          instance.ensureRoutineEditorState();
-        }
-        if(instance.routineEditorOverlay&&instance.routineEditorOverlay.classList.contains('open')){
-          if(typeof instance.renderRoutineEditorOverlayContent==='function'){
-            instance.renderRoutineEditorOverlayContent();
-          }
-        }else if(typeof instance.refreshRoutineEditorPreview==='function'){
-          instance.refreshRoutineEditorPreview();
-        }
-      }catch(err){console.warn('NSF: Routine-Editor Aktualisierung fehlgeschlagen',err);}
-    });
-    const doc=typeof document!=='undefined'?document:null;
-    if(doc){
-      if(typeof requestAnimationFrame==='function'){
-        requestAnimationFrame(()=>bindCustomAddButtons(doc));
-      }else{
-        bindCustomAddButtons(doc);
-      }
-    }
-    return block;
+    renderRoutineEditor();
+    return {id:blockId,key:customKey,type:blockType,tabKey:targetTab};
   }
 
   function cloneRoutineEditorTabState(state,tabKey){
@@ -863,9 +790,6 @@
       .nsf-custom-slot-empty{display:none;}
       .nsf-custom-slot-dragging{display:flex;}
       .nsf-custom-slot-dragging .nsf-custom-list{min-height:1.35rem;border:1px dashed rgba(148,163,184,0.35);border-radius:0.65rem;padding:0.3rem;background:rgba(15,23,42,0.25);}
-      .nsf-custom-add{align-self:flex-start;background:rgba(59,130,246,0.22);border:1px solid rgba(59,130,246,0.45);border-radius:0.65rem;padding:0.35rem 0.75rem;font:inherit;color:rgba(191,219,254,0.95);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;display:inline-flex;align-items:center;gap:0.35rem;}
-      .nsf-custom-add::before{content:'+';font-size:1.1rem;line-height:1;}
-      .nsf-custom-add:hover{background:rgba(59,130,246,0.32);transform:translateY(-1px);}
       .nsf-custom-list{display:flex;flex-direction:column;gap:0.55rem;width:100%;}
       .nsf-custom-block{position:relative;background:rgba(15,23,42,0.22);border-radius:0.85rem;padding:0.65rem 0.75rem 0.75rem;display:flex;flex-direction:column;gap:0.55rem;cursor:default;}
       .nsf-custom-block.dragging{opacity:0.85;box-shadow:0 12px 28px rgba(15,23,42,0.45);}
@@ -900,6 +824,15 @@
       .nsf-editor-filter:hover{background:rgba(59,130,246,0.28);transform:translateY(-1px);}
       .nsf-editor-filter.is-active{background:rgba(37,99,235,0.35);}
       .nsf-editor-sidebar{flex:0 0 240px;display:flex;flex-direction:column;gap:0.75rem;background:rgba(15,23,42,0.55);border-radius:0.95rem;border:1px solid rgba(148,163,184,0.25);padding:0.85rem;max-height:100%;overflow:auto;}
+      .nsf-block-shop{display:flex;flex-direction:column;gap:0.55rem;border-top:1px solid rgba(148,163,184,0.25);padding-top:0.65rem;margin-top:0.4rem;}
+      .nsf-block-shop-title{font-weight:700;font-size:0.85rem;letter-spacing:0.04em;text-transform:uppercase;opacity:0.8;}
+      .nsf-block-shop-list{display:grid;gap:0.5rem;}
+      .nsf-block-shop-item{display:flex;align-items:center;gap:0.55rem;background:rgba(59,130,246,0.16);border:1px solid rgba(96,165,250,0.45);border-radius:0.75rem;padding:0.55rem 0.7rem;color:rgba(191,219,254,0.96);font:inherit;cursor:grab;user-select:none;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;}
+      .nsf-block-shop-item:hover{background:rgba(59,130,246,0.26);transform:translateY(-1px);box-shadow:0 10px 24px rgba(59,130,246,0.25);}
+      .nsf-block-shop-item:active{cursor:grabbing;}
+      .nsf-block-shop-item.is-disabled{opacity:0.45;cursor:not-allowed;transform:none;box-shadow:none;}
+      .nsf-block-shop-item.is-disabled:hover{background:rgba(59,130,246,0.16);transform:none;}
+      .nsf-block-shop-item-icon{font-size:1.05rem;line-height:1;}
       .nsf-editor-presets-header{font-weight:700;font-size:0.95rem;}
       .nsf-editor-presets-list{display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-editor-preset{display:flex;align-items:center;gap:0.35rem;background:rgba(148,163,184,0.16);border-radius:0.75rem;padding:0.4rem 0.5rem;transition:background 0.15s ease,transform 0.15s ease;}
@@ -930,10 +863,9 @@
       .nsf-editor-close:hover{background:rgba(248,113,113,0.32);transform:scale(1.05);}
       .nsf-editor-list{display:flex;flex-direction:column;gap:0.85rem;}
       .nsf-editor-insert{display:flex;justify-content:center;margin:0.15rem 0;}
-      .nsf-editor-insert-select{appearance:none;background:rgba(59,130,246,0.18);border:1px dashed rgba(96,165,250,0.6);border-radius:0.75rem;padding:0.45rem 0.9rem;font:inherit;color:rgba(191,219,254,0.95);cursor:pointer;min-width:220px;text-align:center;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;}
-      .nsf-editor-insert-select:hover{background:rgba(59,130,246,0.3);transform:translateY(-1px);box-shadow:0 12px 24px rgba(59,130,246,0.25);}
-      .nsf-editor-insert-select:focus{outline:2px solid rgba(96,165,250,0.45);outline-offset:2px;}
-      .nsf-editor-insert-select option{background:rgba(15,23,42,0.95);color:#e2e8f0;}
+      .nsf-editor-dropzone{width:100%;min-height:2.75rem;border:1px dashed rgba(96,165,250,0.6);border-radius:0.75rem;padding:0.55rem 0.75rem;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;color:rgba(191,219,254,0.85);font-size:0.85rem;text-align:center;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;}
+      .nsf-editor-insert.is-active .nsf-editor-dropzone{background:rgba(59,130,246,0.22);transform:translateY(-1px);box-shadow:0 12px 28px rgba(59,130,246,0.25);}
+      .nsf-editor-insert.is-disabled .nsf-editor-dropzone{opacity:0.4;}
       .nsf-editor-block{background:rgba(15,23,42,0.88);border-radius:0.95rem;border:1px solid rgba(148,163,184,0.25);box-shadow:0 18px 36px rgba(15,23,42,0.5);padding:0.9rem;display:flex;flex-direction:column;gap:0.65rem;cursor:grab;position:relative;transition:box-shadow 0.15s ease,transform 0.15s ease;}
       .nsf-editor-block.dragging{opacity:0.9;box-shadow:0 22px 44px rgba(59,130,246,0.45);}
       .nsf-editor-header{font-weight:700;font-size:0.96rem;display:flex;align-items:center;gap:0.45rem;user-select:none;touch-action:none;}
@@ -3878,6 +3810,52 @@
       });
     }
 
+    clearRoutineEditorDropIndicators(){
+      if(!Array.isArray(this.routineEditorInsertZones)) return;
+      this.routineEditorInsertZones.forEach(zone=>{
+        if(!zone||!zone.classList) return;
+        zone.classList.remove('is-active');
+        zone.classList.remove('is-disabled');
+      });
+    }
+
+    isRoutineEditorShopBlockAllowed(type){
+      const normalized=typeof type==='string'?type:'';
+      if(normalized==='aspen'){
+        const config=this.getRoutineEditorTabConfig();
+        return config&&config.allowAspen!==false;
+      }
+      if(normalized==='linebreak'||normalized==='text') return true;
+      return false;
+    }
+
+    focusRoutineEditorCustomBlock(result){
+      if(!result||!result.key) return;
+      if(!this.routineEditorOverlay||!this.routineEditorOverlay.classList.contains('open')) return;
+      requestAnimationFrame(()=>{
+        let focusTarget=null;
+        if(result.type==='aspen'){
+          const block=this.routineEditorList&&this.routineEditorList.querySelector(`.nsf-editor-block[data-type="${result.key}"]`);
+          focusTarget=block?block.querySelector('.nsf-editor-aspen-input'):null;
+        }else if(result.type==='text'){
+          focusTarget=this.routineEditorList&&this.routineEditorList.querySelector(`.nsf-editor-block[data-type="${result.key}"] textarea`);
+        }
+        if(focusTarget) focusTarget.focus();
+      });
+    }
+
+    updateRoutineEditorBlockShopAvailability(){
+      if(!(this.routineEditorBlockShopItems instanceof Map)) return;
+      const config=this.getRoutineEditorTabConfig();
+      const allowAspen=config&&config.allowAspen!==false;
+      this.routineEditorBlockShopItems.forEach((entry,type)=>{
+        if(!entry||!entry.element) return;
+        const allowed=type==='aspen'?allowAspen:true;
+        entry.element.classList.toggle('is-disabled',!allowed);
+        entry.element.setAttribute('aria-disabled',!allowed?'true':'false');
+      });
+    }
+
     teardownRoutineEditorInteraction(){
       this.closeRoutineEditorMenu();
       if(this.routineEditorContextHandlers instanceof Map){
@@ -4346,6 +4324,7 @@
       listWrapper.appendChild(list);
       this.routineEditorList=list;
       this.routineEditorBlocks={};
+      this.routineEditorInsertZones=[];
 
       this.renderRoutineEditorOverlayContent();
       const actions=document.createElement('div');
@@ -4397,6 +4376,63 @@
       this.routineEditorPresetSaveButton=presetSaveButton;
       presetSaveButton.disabled=true;
       saveForm.append(nameLabel,nameInput,presetSaveButton);
+
+      const blockShop=document.createElement('div');
+      blockShop.className='nsf-block-shop';
+      const shopTitle=document.createElement('div');
+      shopTitle.className='nsf-block-shop-title';
+      shopTitle.textContent='Bausteine';
+      blockShop.appendChild(shopTitle);
+      const shopList=document.createElement('div');
+      shopList.className='nsf-block-shop-list';
+      blockShop.appendChild(shopList);
+      this.routineEditorBlockShopItems=new Map();
+      const shopItems=[
+        {type:'text',icon:'📝',label:'Textfeld'},
+        {type:'linebreak',icon:'↵',label:'Zeilenumbruch'},
+        {type:'aspen',icon:'📊',label:'Aspen-Feld'}
+      ];
+      shopItems.forEach(itemDef=>{
+        const item=document.createElement('button');
+        item.type='button';
+        item.className='nsf-block-shop-item';
+        item.dataset.type=itemDef.type;
+        item.setAttribute('draggable','true');
+        const icon=document.createElement('span');
+        icon.className='nsf-block-shop-item-icon';
+        icon.textContent=itemDef.icon;
+        const label=document.createElement('span');
+        label.textContent=itemDef.label;
+        item.append(icon,label);
+        item.addEventListener('dragstart',event=>{
+          if(!this.isRoutineEditorShopBlockAllowed(itemDef.type)){
+            currentBlockShopDragType='';
+            if(event&&event.preventDefault) event.preventDefault();
+            return;
+          }
+          currentBlockShopDragType=itemDef.type;
+          if(event&&event.dataTransfer){
+            event.dataTransfer.effectAllowed='copy';
+            try{event.dataTransfer.setData('application/x-nsf-block-type',itemDef.type);}catch{}
+            try{event.dataTransfer.setData('text/plain',itemDef.type);}catch{}
+          }
+        });
+        item.addEventListener('dragend',()=>{
+          currentBlockShopDragType='';
+          clearAllRoutineEditorDropIndicators();
+        });
+        item.addEventListener('click',event=>{
+          event.preventDefault();
+          if(!this.isRoutineEditorShopBlockAllowed(itemDef.type)) return;
+          const result=createCustomBlock(this.getActiveRoutineEditorTab(),itemDef.type);
+          this.focusRoutineEditorCustomBlock(result);
+        });
+        shopList.appendChild(item);
+        this.routineEditorBlockShopItems.set(itemDef.type,{element:item});
+      });
+      this.updateRoutineEditorBlockShopAvailability();
+
+      sidebar.appendChild(blockShop);
       sidebar.appendChild(saveForm);
 
       document.body.appendChild(overlay);
@@ -4552,116 +4588,75 @@
 
     createRoutineEditorInsertControl(index,order){
       if(!this.routineEditorList) return null;
+      if(!Array.isArray(this.routineEditorInsertZones)) this.routineEditorInsertZones=[];
       const container=document.createElement('div');
       container.className='nsf-editor-insert';
       container.dataset.position=String(index);
-      const select=document.createElement('select');
-      select.className='nsf-editor-insert-select';
-      select.innerHTML='';
-      const placeholder=document.createElement('option');
-      placeholder.value='';
-      placeholder.textContent='Element hinzufügen…';
-      placeholder.disabled=true;
-      placeholder.selected=true;
-      select.appendChild(placeholder);
-      const textOption=document.createElement('option');
-      textOption.value='text';
-      textOption.textContent='Textfeld';
-      select.appendChild(textOption);
-      const linebreakOption=document.createElement('option');
-      linebreakOption.value='linebreak';
-      linebreakOption.textContent='Zeilenumbruch';
-      select.appendChild(linebreakOption);
-      const config=this.getRoutineEditorTabConfig();
-      const allowAspen=config&&config.allowAspen!==false;
-      if(allowAspen){
-        const aspenOption=document.createElement('option');
-        aspenOption.value='aspen';
-        aspenOption.textContent='Aspendaten';
-        select.appendChild(aspenOption);
-      }
-      const allowParameters=config&&config.allowParameters!==false;
-      if(allowParameters){
-        const parameterOptions=Array.isArray(this.routineEditorParameterOptions)?this.routineEditorParameterOptions:[];
-        const totalParameterCount=this.routineEditorParameterOptionMap instanceof Map?this.routineEditorParameterOptionMap.size:0;
-        if(parameterOptions.length){
-          const favoriteOptions=parameterOptions.filter(option=>option&&option.favorite);
-          const otherOptions=parameterOptions.filter(option=>option&&!option.favorite);
-          if(favoriteOptions.length){
-            const favGroup=document.createElement('optgroup');
-            favGroup.label='Favoriten';
-            favoriteOptions.forEach(option=>{
-              const opt=document.createElement('option');
-              opt.value=`param:${option.id}`;
-              opt.textContent=option.label;
-              favGroup.appendChild(opt);
-            });
-            select.appendChild(favGroup);
-          }
-          if(otherOptions.length){
-            const group=document.createElement('optgroup');
-            group.label='Shopguide-Parameter';
-            otherOptions.forEach(option=>{
-              const opt=document.createElement('option');
-              opt.value=`param:${option.id}`;
-              opt.textContent=option.label;
-              group.appendChild(opt);
-            });
-            select.appendChild(group);
-          }
-        }else if(this.routineEditorParameterFavoritesOnly&&totalParameterCount>0){
-          const group=document.createElement('optgroup');
-          group.label='Favoriten';
-          const opt=document.createElement('option');
-          opt.value='';
-          opt.disabled=true;
-          opt.textContent='Keine Favoriten verfügbar';
-          group.appendChild(opt);
-          select.appendChild(group);
-        }
-      }
-      const orderSet=new Set(Array.isArray(order)?order:[]);
-      const baseBlocks=this.getRoutineEditorBaseBlocks();
-      baseBlocks.forEach(block=>{
-        if(block.removable===false) return;
-        if(orderSet.has(block.key)) return;
-        const baseOption=document.createElement('option');
-        baseOption.value=`base:${block.key}`;
-        baseOption.textContent=block.label||block.defaultLabel||block.key;
-        select.appendChild(baseOption);
-      });
+      const dropzone=document.createElement('div');
+      dropzone.className='nsf-editor-dropzone';
+      dropzone.textContent='Baustein hier ablegen';
       const prevLabel=index>0?this.getRoutineEditorBlockLabel(order[index-1]):'';
       const nextLabel=index<order.length?this.getRoutineEditorBlockLabel(order[index]):'';
       if(prevLabel&&nextLabel){
-        select.title=`Element zwischen ${prevLabel} und ${nextLabel} einfügen`;
+        dropzone.title=`Baustein zwischen ${prevLabel} und ${nextLabel} ablegen`;
       }else if(nextLabel){
-        select.title=`Element vor ${nextLabel} einfügen`;
+        dropzone.title=`Baustein vor ${nextLabel} ablegen`;
       }else if(prevLabel){
-        select.title=`Element nach ${prevLabel} einfügen`;
+        dropzone.title=`Baustein nach ${prevLabel} ablegen`;
       }else{
-        select.title='Element hinzufügen';
+        dropzone.title='Baustein hier ablegen';
       }
-      const baseBlockKeys=new Set(baseBlocks.map(block=>block.key));
-      select.addEventListener('change',()=>{
-        const type=select.value;
+      const clearState=()=>{
+        container.classList.remove('is-active');
+        container.classList.remove('is-disabled');
+      };
+      container.addEventListener('dragenter',event=>{
+        const type=currentBlockShopDragType;
         if(!type) return;
-        console.debug('NSF: Routine-Editor Block hinzufügen',type);
-        if(type==='text'||type==='linebreak'||(type==='aspen'&&allowAspen)){
-          this.addRoutineEditorCustomBlockAt(index,type);
-        }else if(type.startsWith('base:')){
-          const baseKey=type.slice(5);
-          if(baseBlockKeys.has(baseKey)){
-            this.addRoutineEditorBaseBlockAt(index,baseKey);
-          }
-        }else if(type.startsWith('param:')&&allowParameters){
-          const paramId=type.slice(6);
-          const option=this.getRoutineEditorParameterOption(paramId);
-          this.addRoutineEditorParameterBlockAt(index,option);
+        if(!this.isRoutineEditorShopBlockAllowed(type)){
+          container.classList.add('is-disabled');
+          container.classList.remove('is-active');
+          return;
         }
-        select.value='';
-        placeholder.selected=true;
+        event.preventDefault();
+        container.classList.add('is-active');
+        container.classList.remove('is-disabled');
       });
-      container.appendChild(select);
+      container.addEventListener('dragover',event=>{
+        const type=currentBlockShopDragType;
+        if(!type) return;
+        if(!this.isRoutineEditorShopBlockAllowed(type)){
+          container.classList.add('is-disabled');
+          container.classList.remove('is-active');
+          if(event.dataTransfer) event.dataTransfer.dropEffect='none';
+          return;
+        }
+        event.preventDefault();
+        if(event.dataTransfer) event.dataTransfer.dropEffect='copy';
+        container.classList.add('is-active');
+        container.classList.remove('is-disabled');
+      });
+      container.addEventListener('dragleave',event=>{
+        if(container.contains(event.relatedTarget)) return;
+        clearState();
+      });
+      container.addEventListener('drop',event=>{
+        const type=currentBlockShopDragType||event.dataTransfer&&event.dataTransfer.getData('text/plain')||'';
+        clearState();
+        if(!type||!this.isRoutineEditorShopBlockAllowed(type)){
+          currentBlockShopDragType='';
+          clearAllRoutineEditorDropIndicators();
+          return;
+        }
+        event.preventDefault();
+        const result=createCustomBlock(this.getActiveRoutineEditorTab(),type,{insertIndex:index});
+        currentBlockShopDragType='';
+        clearAllRoutineEditorDropIndicators();
+        this.focusRoutineEditorCustomBlock(result);
+      });
+      dropzone.addEventListener('drop',event=>event.preventDefault());
+      container.appendChild(dropzone);
+      this.routineEditorInsertZones.push(container);
       return container;
     }
 
@@ -4675,8 +4670,10 @@
       if(Array.isArray(tabState.hiddenBaseBlocks)){
         tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(key=>!order.includes(key));
       }
+      this.clearRoutineEditorDropIndicators();
       this.routineEditorBlocks={};
       this.routineEditorList.innerHTML='';
+      this.routineEditorInsertZones=[];
       order.forEach((key,index)=>{
         const insert=this.createRoutineEditorInsertControl(index,order);
         if(insert) this.routineEditorList.appendChild(insert);
@@ -4688,6 +4685,7 @@
       const finalInsert=this.createRoutineEditorInsertControl(order.length,order);
       if(finalInsert) this.routineEditorList.appendChild(finalInsert);
       this.refreshRoutineEditorPreview();
+      this.updateRoutineEditorBlockShopAvailability();
     }
 
     normalizeRoutineEditorInsertIndex(index,length){
@@ -5945,6 +5943,7 @@
         this.renderRoutineEditorOverlayContent();
       }
       this.refreshRoutineEditorPreview();
+      this.updateRoutineEditorBlockShopAvailability();
     }
 
     updateRoutineEditorPreviewTabs(){
@@ -6598,11 +6597,5 @@
     return instance;
   };
 
-  if(typeof document!=='undefined'){
-    if(document.readyState==='loading'){
-      document.addEventListener('DOMContentLoaded',()=>bindCustomAddButtons(document),{once:true});
-    }else{
-      bindCustomAddButtons(document);
-    }
-  }
+  
 })();
