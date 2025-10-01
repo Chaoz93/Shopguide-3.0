@@ -4979,28 +4979,78 @@
           console.log('[render] normal block id:',blockId,'block:',blockData);
         }
         console.log('[renderRoutineEditorOverlayContent] rendering block via renderRoutineEditorBlock:',blockData);
+        let el=null;
         if(renderer&&blockData){
           try{
-            debugRenderRoutineEditorBlockCall(renderer,blockData,tabKeyValue);
+            el=debugRenderRoutineEditorBlockCall(renderer,blockData,tabKeyValue);
           }catch(err){
             console.warn('NSF: Fehler beim Rendern über renderRoutineEditorBlock',err,blockData);
           }
         }else if(!renderer){
           console.warn('NSF: Kein Renderer für renderRoutineEditorBlock verfügbar',blockData);
         }
+        if(!(el instanceof Element)){
+          if(el!=null){
+            console.warn('NSF: Renderer lieferte kein gültiges Element für Block',blockId,el);
+          }else{
+            console.warn('NSF: Renderer lieferte kein Element für Block',blockId);
+          }
+          const fallback=document.createElement('div');
+          fallback.className='nsf-editor-block nsf-editor-block-fallback';
+          fallback.textContent=`Block ${blockId} konnte nicht gerendert werden.`;
+          el=fallback;
+        }
         const def=this.getRoutineEditorBlockDefinition(blockId,index,order);
         if(!def){
           console.warn('NSF: Keine Definition für Routine-Editor-Block gefunden',blockId);
           return;
         }
-        const blockEl=this.createRoutineEditorBlock(def);
-        if(!blockEl){
-          console.warn('NSF: Routine-Editor-Block konnte nicht erstellt werden',blockId);
-          return;
+        el.classList.add('nsf-editor-block');
+        el.dataset.type=blockId;
+        const customId=isCustom
+          ?blockData&&blockData.id?blockData.id:blockId.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length)
+          :blockId;
+        el.dataset.blockId=customId||blockId;
+        if(blockData&&blockData.type){
+          el.dataset.customType=blockData.type;
+        }else if(def&&def.customType){
+          el.dataset.customType=def.customType;
+        }else if(el.dataset&&el.dataset.customType){
+          delete el.dataset.customType;
         }
-        console.log('[renderRoutineEditorOverlayContent] created DOM element for block id:',blockId,'el:',blockEl);
-        container.appendChild(blockEl);
-        console.log('[renderRoutineEditorOverlayContent] appended block id:',blockId,'to container');
+        el.dataset.editable=isCustom?'1':'0';
+        if(blockData&&blockData.label){
+          el.dataset.label=blockData.label;
+        }else if(def&&def.label){
+          el.dataset.label=def.label;
+        }else if(def&&def.defaultLabel){
+          el.dataset.label=def.defaultLabel;
+        }
+        if(def&&def.parameterKey){
+          el.dataset.parameterKey=def.parameterKey;
+        }else if(el.dataset&&el.dataset.parameterKey){
+          delete el.dataset.parameterKey;
+        }
+        if(def&&def.aspenField){
+          el.dataset.aspenField=def.aspenField;
+        }else if(el.dataset&&el.dataset.aspenField){
+          delete el.dataset.aspenField;
+        }
+        if(el instanceof HTMLElement){
+          const textareas=el.querySelectorAll('textarea');
+          textareas.forEach(area=>area.classList.add('nsf-editor-input'));
+        }
+        const linesContainer=el.querySelector('.nsf-editor-lines')||el;
+        const labelElement=el.querySelector('.nsf-editor-header-label')||null;
+        this.routineEditorBlocks[def.key]={
+          element:el,
+          linesContainer,
+          definition:def,
+          labelElement
+        };
+        console.log('[Overlay] will append:',blockId,el.outerHTML);
+        container.appendChild(el);
+        console.log('[Overlay] appended:',blockId,'now lastChild:',container.lastElementChild?.outerHTML);
         totalBlocksRendered+=1;
       });
       const finalInsert=this.createRoutineEditorInsertControl(order.length,order);
