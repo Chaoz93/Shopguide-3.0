@@ -46,6 +46,9 @@
   const COMMENTS_SHEET='Comments';
   const WATCH_INTERVAL=500;
 
+  const MELD_HEADER_PRIORITY=['MELDUNGS_NO','MELDUNGSNR','MELDUNG_NR'];
+  const PART_HEADER_PRIORITY=['PART_NO','PARTNR','PART_NUMBER','PARTNUMBER'];
+  const SERIAL_HEADER_PRIORITY=['SERIAL_NO','SERIALNR','SERIAL_NUMBER','SERIALNUMBER'];
   const MELD_PATTERNS=[/meldung/i,/meldung\s*nr/i,/meldungnummer/i,/message/i];
   const PART_PATTERNS=[/part/i,/p\/?n/i,/artikel/i,/material/i];
   const SERIAL_PATTERNS=[/serial/i,/sn/i,/serien/i];
@@ -224,9 +227,17 @@
     elements?.menu?.remove();
   }
 
-  function findColumn(header,patterns,fallbackIndex){
+  function findColumn(header,patterns,fallbackIndex,preferredNames){
     if(!Array.isArray(header)||!header.length){
       return typeof fallbackIndex==='number'?fallbackIndex:-1;
+    }
+    if(Array.isArray(preferredNames)&&preferredNames.length){
+      const normalizedPreferred=preferredNames.map(name=>normalizeKey(name)).filter(Boolean);
+      for(const preferred of normalizedPreferred){
+        for(let i=0;i<header.length;i++){
+          if(normalizeKey(header[i])===preferred) return i;
+        }
+      }
     }
     for(let i=0;i<header.length;i++){
       const cell=trim(header[i]);
@@ -249,9 +260,9 @@
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
     if(!rows.length) return new Map();
     const header=(rows[0]||[]).map(cell=>trim(cell));
-    const meldIdx=findColumn(header,MELD_PATTERNS,0);
-    const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0);
-    const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1));
+    const meldIdx=findColumn(header,MELD_PATTERNS,0,MELD_HEADER_PRIORITY);
+    const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0,PART_HEADER_PRIORITY);
+    const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1),SERIAL_HEADER_PRIORITY);
     const commentIdx=findColumn(header,COMMENT_PATTERNS,serialIdx===0?1:(serialIdx===1?2:serialIdx+1));
     const resolvedMeldIdx=(meldIdx>=0&&meldIdx<header.length)?meldIdx:-1;
     const resolvedPartIdx=(partIdx>=0&&partIdx<header.length)?partIdx:-1;
@@ -314,9 +325,9 @@
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
     if(!rows.length) return [];
     const header=(rows[0]||[]).map(cell=>trim(cell));
-    const meldIdx=findColumn(header,MELD_PATTERNS,0);
-    const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0);
-    const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1));
+    const meldIdx=findColumn(header,MELD_PATTERNS,0,MELD_HEADER_PRIORITY);
+    const partIdx=findColumn(header,PART_PATTERNS,meldIdx===0?1:0,PART_HEADER_PRIORITY);
+    const serialIdx=findColumn(header,SERIAL_PATTERNS,partIdx===0?1:(partIdx===1?2:partIdx+1),SERIAL_HEADER_PRIORITY);
     const resolvedMeldIdx=(meldIdx>=0&&meldIdx<header.length)?meldIdx:-1;
     const resolvedPartIdx=(partIdx>=0&&partIdx<header.length)?partIdx:-1;
     const resolvedSerialIdx=(serialIdx>=0&&serialIdx<header.length)?serialIdx:-1;
