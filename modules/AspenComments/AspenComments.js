@@ -451,6 +451,13 @@
     return `${normalizeKey(meldung)}||${normalizeKey(part)}||${normalizeKey(serial)}`;
   }
 
+  function normalizePartValue(value){
+    const text=trim(value);
+    if(!text) return '';
+    const [first]=text.split(':');
+    return trim(first);
+  }
+
   function createAspenDebug(){
     return {
       sheetNames:[],
@@ -914,13 +921,6 @@
       }
       const ok=await loadAspenHandle(state.aspenHandle,{updateName:false});
       if(ok) flashNote('Aspen neu geladen','success');
-    }
-
-    function normalizePartValue(value){
-      const text=trim(value);
-      if(!text) return '';
-      const [first]=text.split(':');
-      return trim(first);
     }
 
     function updateAspenStatus(entry,{manualSelection=false}={}){
