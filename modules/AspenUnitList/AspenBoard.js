@@ -118,6 +118,95 @@ der-radius:.4rem;background:transparent;color:inherit;}
   const LS_DOC = 'module_data_v1';
   const LS_STATE = 'aspenUnitListState';
   const CUSTOM_BROADCAST = 'unitBoard:update';
+  const HANDLE_DB_NAME = 'AspenUnitListHandles';
+  const HANDLE_STORE_NAME = 'handles';
+
+  async function openHandleStore(){
+    if(typeof indexedDB==='undefined') return null;
+    try{
+      return await new Promise((resolve,reject)=>{
+        const request=indexedDB.open(HANDLE_DB_NAME,1);
+        request.onupgradeneeded=()=>{
+          const db=request.result;
+          if(db && !db.objectStoreNames.contains(HANDLE_STORE_NAME)){
+            db.createObjectStore(HANDLE_STORE_NAME);
+          }
+        };
+        request.onsuccess=()=>resolve(request.result);
+        request.onerror=()=>reject(request.error);
+      });
+    }catch(error){
+      console.warn('[UnitBoard] IndexedDB für Aspen-Dateien nicht verfügbar',error);
+      return null;
+    }
+  }
+
+  async function persistFileHandle(key,handle){
+    if(!key || !handle) return false;
+    let db=null;
+    try{
+      db=await openHandleStore();
+      if(!db) return false;
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(HANDLE_STORE_NAME).put(handle,key);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return true;
+    }catch(error){
+      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht gespeichert werden',error);
+      return false;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function restoreFileHandleFromStore(key){
+    if(!key) return null;
+    let db=null;
+    try{
+      db=await openHandleStore();
+      if(!db) return null;
+      const result=await new Promise((resolve,reject)=>{
+        const tx=db.transaction(HANDLE_STORE_NAME,'readonly');
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const store=tx.objectStore(HANDLE_STORE_NAME);
+        const request=store.get(key);
+        request.onsuccess=()=>resolve(request.result||null);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return result||null;
+    }catch(error){
+      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht gelesen werden',error);
+      return null;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function clearStoredFileHandle(key){
+    if(!key) return false;
+    let db=null;
+    try{
+      db=await openHandleStore();
+      if(!db) return false;
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(HANDLE_STORE_NAME).delete(key);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return true;
+    }catch(error){
+      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht entfernt werden',error);
+      return false;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
 
   function injectStyles(){
     if(document.getElementById(STYLE_ID)) return;
@@ -985,6 +1074,8 @@ der-radius:.4rem;background:transparent;color:inherit;}
 
     const state=createInitialState(initialTitle);
     const instanceId=instanceIdOf(elements.root);
+    const persistenceSeed=opts?.moduleJson?.id||opts?.moduleJson?.moduleKey||'primary';
+    const handleStorageKey=`aspen-unit-handle::${persistenceSeed}`;
     let fileHandle=null;
     let tempSubFields=[];
     let tempTitleRules=[];
@@ -1791,6 +1882,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         const worksheet=workbook.Sheets[workbook.SheetNames[0]];
         fileHandle=handle;
         state.filePath=handle.name||state.filePath||'';
+        await persistFileHandle(handleStorageKey,handle);
         if(!worksheet){
           state.fields=[];
           state.items=[];
@@ -1869,6 +1961,7 @@ der-radius:.4rem;background:transparent;color:inherit;}
         if(!silent) console.error(error);
         fileHandle=null;
         lastModifiedCheck=null;
+        await clearStoredFileHandle(handleStorageKey);
         stopPolling();
         refreshTitleBar({canRefresh:false});
         return false;
@@ -1915,6 +2008,22 @@ der-radius:.4rem;background:transparent;color:inherit;}
         onAdd:()=>{syncFromDOM();render();},
         onRemove:()=>{syncFromDOM();render();}
       });
+    }
+
+    if(!fileHandle){
+      try{
+        const storedHandle=await restoreFileHandleFromStore(handleStorageKey);
+        if(storedHandle){
+          const granted=typeof SHARED.requestRW==='function'?await SHARED.requestRW(storedHandle):true;
+          if(granted){
+            await loadAspenFromHandle(storedHandle,{silent:false});
+          }else{
+            await clearStoredFileHandle(handleStorageKey);
+          }
+        }
+      }catch(error){
+        console.warn('[UnitBoard] Persistierte Aspen-Datei konnte nicht wiederhergestellt werden',error);
+      }
     }
   };
 })();
