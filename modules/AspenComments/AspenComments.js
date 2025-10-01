@@ -143,6 +143,10 @@
     return trim(value).toLowerCase();
   }
 
+  function normalizeHeaderName(value){
+    return trim(value).toLowerCase().replace(/[\s._-]+/g,'');
+  }
+
   function makeKey(part,serial){
     return normalizeKey(part)+'||'+normalizeKey(serial);
   }
@@ -231,8 +235,8 @@
 
   function findColumn(header,patterns,{preferred=[],exclude,allowPatternFallback=true}={}){
     if(!Array.isArray(header)||!header.length) return -1;
-    const normalizedHeader=header.map(normalizeKey);
-    const normalizedPreferred=Array.isArray(preferred)?preferred.map(normalizeKey).filter(Boolean):[];
+    const normalizedHeader=header.map(normalizeHeaderName);
+    const normalizedPreferred=Array.isArray(preferred)?preferred.map(normalizeHeaderName).filter(Boolean):[];
     const usedIndices=exclude instanceof Set?exclude:new Set();
     for(const preferredName of normalizedPreferred){
       const idx=normalizedHeader.indexOf(preferredName);
@@ -250,7 +254,7 @@
   function hasPreferredMatch(normalizedHeader,preferredNames){
     if(!Array.isArray(normalizedHeader)||!normalizedHeader.length) return false;
     if(!Array.isArray(preferredNames)||!preferredNames.length) return false;
-    return preferredNames.some(name=>normalizedHeader.includes(normalizeKey(name)));
+    return preferredNames.some(name=>normalizedHeader.includes(normalizeHeaderName(name)));
   }
 
   function hasPatternMatch(header,patterns){
@@ -262,7 +266,7 @@
   function scoreHeaderRow(header){
     if(!Array.isArray(header)||!header.length) return -1;
     if(header.every(cell=>!trim(cell))) return -1;
-    const normalizedHeader=header.map(normalizeKey);
+    const normalizedHeader=header.map(normalizeHeaderName);
     let score=0;
     if(hasPreferredMatch(normalizedHeader,MELD_HEADER_PRIORITY)) score+=8;
     else if(hasPatternMatch(header,MELD_PATTERNS)) score+=3;
