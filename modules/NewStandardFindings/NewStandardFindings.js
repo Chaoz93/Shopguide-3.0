@@ -5945,9 +5945,16 @@
       });
       input.addEventListener('input',()=>{
         if(state.locked) return;
-        updateSuggestions();
-        if(state.isOpen){
-          updateHighlight();
+        const hasQuery=input.value.trim().length>0;
+        if(hasQuery){
+          if(!state.isOpen){
+            openSuggestions();
+          }else{
+            updateSuggestions();
+            updateHighlight();
+          }
+        }else if(state.isOpen){
+          closeSuggestions();
         }
       });
       input.addEventListener('keydown',e=>{
@@ -5984,6 +5991,12 @@
             e.preventDefault();
             closeSuggestions();
           }
+        }
+      });
+      input.addEventListener('focus',()=>{
+        if(state.locked) return;
+        if(input.value.trim().length>0){
+          openSuggestions();
         }
       });
       input.addEventListener('blur',()=>{
