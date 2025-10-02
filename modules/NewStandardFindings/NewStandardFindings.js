@@ -1248,9 +1248,11 @@
       .nsf-editor-aspen-empty{opacity:0.7;font-style:italic;}
       .nsf-editor-actions{display:flex;justify-content:flex-end;gap:0.6rem;margin-top:auto;flex-wrap:wrap;}
       .nsf-freitext-container{display:flex;flex-direction:column;gap:0.6rem;}
+      .nsf-freitext-label{font-weight:600;font-size:0.9rem;opacity:0.85;}
       #freitext-editor{width:100%;min-height:200px;border-radius:0.75rem;border:1px solid rgba(148,163,184,0.35);padding:0.65rem;font:inherit;line-height:1.45;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);}
       #freitext-editor:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;border-color:rgba(59,130,246,0.65);}
       #freitext-preview{min-height:160px;border-radius:0.75rem;padding:0.75rem;background:rgba(15,23,42,0.22);border:1px solid rgba(148,163,184,0.28);white-space:pre-wrap;color:inherit;}
+      #freitext-preview.is-empty{opacity:0.7;font-style:italic;}
       .nsf-freitext-preview-title{font-weight:600;font-size:0.9rem;opacity:0.85;}
       .nsf-editor-save{background:linear-gradient(135deg,rgba(59,130,246,0.85),rgba(96,165,250,0.9));color:#fff;border:none;border-radius:0.8rem;padding:0.65rem 1.4rem;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 18px 32px rgba(59,130,246,0.35);transition:transform 0.15s ease,box-shadow 0.15s ease;}
       .nsf-editor-save:hover{transform:translateY(-1px);box-shadow:0 20px 38px rgba(59,130,246,0.45);}
@@ -2893,7 +2895,7 @@
       this.routineEditorParameterOptionMap=new Map();
       this.routineEditorParameterFavoritesOnly=false;
       this.routineEditorParameterFilterButton=null;
-      this.routineEditorPreviewTabButtons=new Map();
+      this.routineEditorPreviewTabButtons=null;
       this.routineEditorPreviewTitleElement=null;
       this.routineEditorPreviewTabBar=null;
       this.saveTimer=null;
@@ -4393,7 +4395,7 @@
       this.routineEditorBlocks={};
       this.routineEditorDragState=null;
       this.routineEditorParameterFilterButton=null;
-      this.routineEditorPreviewTabButtons=new Map();
+      this.routineEditorPreviewTabButtons=null;
       this.routineEditorPreviewTitleElement=null;
       this.routineEditorPreviewTabBar=null;
     }
@@ -4869,15 +4871,59 @@
       const main=document.createElement('div');
       main.className='nsf-editor-main';
       content.appendChild(main);
+
+      const toolbar=document.createElement('div');
+      toolbar.className='nsf-editor-toolbar';
+      const activeInfo=document.createElement('div');
+      activeInfo.className='nsf-editor-active-info';
+      toolbar.appendChild(activeInfo);
+      this.routineEditorActiveInfo=activeInfo;
+      const newButton=document.createElement('button');
+      newButton.type='button';
+      newButton.className='nsf-editor-new';
+      newButton.textContent='Neues Profil';
+      newButton.addEventListener('click',()=>this.handleRoutineEditorCreateNewPreset());
+      toolbar.appendChild(newButton);
+      this.routineEditorNewPresetButton=newButton;
+      const paramFilterButton=document.createElement('button');
+      paramFilterButton.type='button';
+      paramFilterButton.className='nsf-editor-filter';
+      paramFilterButton.textContent='Favoriten';
+      paramFilterButton.title='Nur Favoriten anzeigen';
+      paramFilterButton.addEventListener('click',()=>this.toggleRoutineEditorParameterFilter());
+      toolbar.appendChild(paramFilterButton);
+      this.routineEditorParameterFilterButton=paramFilterButton;
+      main.appendChild(toolbar);
+
+      const workspace=document.createElement('div');
+      workspace.className='nsf-editor-workspace';
+      main.appendChild(workspace);
+      this.routineEditorPreviewTabBar=null;
+      this.routineEditorPreviewTabButtons=null;
+
+      const previewPanel=document.createElement('div');
+      previewPanel.className='nsf-editor-preview-panel is-empty';
+      const previewHeader=document.createElement('div');
+      previewHeader.className='nsf-editor-preview-title';
+      previewHeader.textContent='Freitext-Vorschau';
+      this.routineEditorPreviewTitleElement=previewHeader;
+      const previewContent=document.createElement('pre');
+      previewContent.className='nsf-editor-preview-content';
+      previewContent.textContent='Keine Routine-Daten vorhanden.';
+      previewPanel.append(previewHeader,previewContent);
+      workspace.appendChild(previewPanel);
+      this.routineEditorPreviewPanel=previewPanel;
+      this.routineEditorPreviewContent=previewContent;
+
       const freitextTab=document.createElement('div');
       freitextTab.className='nsf-editor-tab is-active';
       freitextTab.dataset.tabKey='freitext';
-      main.appendChild(freitextTab);
+      workspace.appendChild(freitextTab);
       const container=document.createElement('div');
       container.className='nsf-freitext-container';
       freitextTab.appendChild(container);
       const textareaLabel=document.createElement('label');
-      textareaLabel.className='nsf-freitext-preview-title';
+      textareaLabel.className='nsf-freitext-label';
       textareaLabel.setAttribute('for','freitext-editor');
       textareaLabel.textContent='Freitext';
       container.appendChild(textareaLabel);
@@ -4891,16 +4937,25 @@
       });
       container.appendChild(textarea);
       this.freitextTextarea=textarea;
-      const preview=document.createElement('div');
-      preview.id='freitext-preview';
-      preview.setAttribute('aria-live','polite');
-      preview.className='nsf-freitext-preview';
-      preview.textContent='';
-      preview.classList.add('is-empty');
-      container.appendChild(preview);
-      this.freitextPreview=preview;
-      this.routineEditorPreviewContent=preview;
-      this.routineEditorPreviewPanel=preview;
+      const inlinePreviewTitle=document.createElement('div');
+      inlinePreviewTitle.className='nsf-freitext-preview-title';
+      inlinePreviewTitle.textContent='Live-Vorschau';
+      container.appendChild(inlinePreviewTitle);
+      const inlinePreview=document.createElement('div');
+      inlinePreview.id='freitext-preview';
+      inlinePreview.setAttribute('aria-live','polite');
+      inlinePreview.className='nsf-freitext-preview';
+      inlinePreview.textContent='';
+      inlinePreview.classList.add('is-empty');
+      container.appendChild(inlinePreview);
+      this.freitextPreview=inlinePreview;
+      this.routineEditorContainer=null;
+      this.routineEditorList=null;
+      this.routineEditorBlocks={};
+      this.routineEditorInsertZones=[];
+      this.routineEditorBlockShopItems=null;
+      this.renderRoutineEditorOverlayContent();
+
       const actions=document.createElement('div');
       actions.className='nsf-editor-actions';
       const saveButton=document.createElement('button');
@@ -4910,6 +4965,46 @@
       saveButton.addEventListener('click',()=>this.handleRoutineEditorSave());
       actions.appendChild(saveButton);
       main.appendChild(actions);
+
+      const sidebar=document.createElement('aside');
+      sidebar.className='nsf-editor-sidebar';
+      content.appendChild(sidebar);
+      const presetsHeader=document.createElement('div');
+      presetsHeader.className='nsf-editor-presets-header';
+      presetsHeader.textContent='Gespeicherte Profile';
+      sidebar.appendChild(presetsHeader);
+      const presetList=document.createElement('div');
+      presetList.className='nsf-editor-presets-list';
+      sidebar.appendChild(presetList);
+      this.routineEditorPresetList=presetList;
+      const saveForm=document.createElement('form');
+      saveForm.className='nsf-editor-presets-save';
+      saveForm.addEventListener('submit',event=>this.handleRoutineEditorPresetFormSubmit(event));
+      const nameId=`nsf-preset-${Date.now().toString(36)}`;
+      const nameLabel=document.createElement('label');
+      nameLabel.className='nsf-editor-presets-label';
+      nameLabel.setAttribute('for',nameId);
+      nameLabel.textContent='Profilname';
+      const nameInput=document.createElement('input');
+      nameInput.type='text';
+      nameInput.id=nameId;
+      nameInput.className='nsf-editor-presets-input';
+      nameInput.placeholder='Profilname';
+      nameInput.addEventListener('input',()=>{
+        this.routineEditorPresetNameTouched=true;
+        this.updateRoutineEditorPresetSaveState();
+        this.updateRoutineEditorPresetDirtyState();
+        this.updateRoutineEditorPresetControls();
+      });
+      this.routineEditorPresetNameInput=nameInput;
+      const presetSaveButton=document.createElement('button');
+      presetSaveButton.type='submit';
+      presetSaveButton.className='nsf-btn';
+      presetSaveButton.textContent='💾 Profil speichern';
+      this.routineEditorPresetSaveButton=presetSaveButton;
+      presetSaveButton.disabled=true;
+      saveForm.append(nameLabel,nameInput,presetSaveButton);
+      sidebar.appendChild(saveForm);
       document.body.appendChild(overlay);
       overlay.addEventListener('keydown',event=>{
         if(event.key==='Escape'){
@@ -4925,6 +5020,7 @@
         try{autoResizeTextarea(this.freitextTextarea);}catch{}
       }
       this.updateRoutineEditorPreviewTabs();
+      this.updateRoutineEditorParameterFilterState();
       this.evaluateRoutineEditorPresetMatch();
       return overlay;
     }
@@ -6549,12 +6645,17 @@
     }
 
     updateFreitextPreview(){
-      if(!this.freitextPreview) return;
       const rawText=typeof this.freitextDraft==='string'?this.freitextDraft:'';
       const expanded=this.expandPlaceholders(rawText);
-      this.freitextPreview.textContent=expanded;
+      const hasContent=expanded.trim().length>0;
+      if(this.freitextPreview){
+        this.freitextPreview.textContent=hasContent?expanded:'Keine Routine-Daten vorhanden.';
+        this.freitextPreview.classList.toggle('is-empty',!hasContent);
+      }
+      if(this.routineEditorPreviewContent){
+        this.routineEditorPreviewContent.textContent=hasContent?expanded:'Keine Routine-Daten vorhanden.';
+      }
       if(this.routineEditorPreviewPanel){
-        const hasContent=expanded.trim().length>0;
         this.routineEditorPreviewPanel.classList.toggle('is-empty',!hasContent);
       }
     }
@@ -6592,9 +6693,13 @@
         });
       }
       if(this.routineEditorPreviewTitleElement){
-        const def=OUTPUT_DEFS.find(item=>item.key===this.routineEditorActiveTab)||OUTPUT_DEFS.find(item=>item.key==='routine');
-        const label=def?def.label:'Routine';
-        this.routineEditorPreviewTitleElement.textContent=`${label}-Vorschau`;
+        if(this.routineEditorPreviewTabButtons instanceof Map&&this.routineEditorPreviewTabButtons.size){
+          const def=OUTPUT_DEFS.find(item=>item.key===this.routineEditorActiveTab)||OUTPUT_DEFS.find(item=>item.key==='routine');
+          const label=def?def.label:'Routine';
+          this.routineEditorPreviewTitleElement.textContent=`${label}-Vorschau`;
+        }else{
+          this.routineEditorPreviewTitleElement.textContent='Freitext-Vorschau';
+        }
       }
     }
 
