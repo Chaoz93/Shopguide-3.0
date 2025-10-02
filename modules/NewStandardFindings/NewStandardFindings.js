@@ -441,13 +441,10 @@
 
   function debugRenderRoutineEditorBlockCall(renderer,block,tabKey){
     if(typeof renderer!=='function'){
-      console.log('[renderRoutineEditorBlock] renderer unavailable for:',block&&block.id, 'tabKey:', tabKey);
+      console.warn('NSF: Renderer für Routine-Editor-Block nicht verfügbar',block,tabKey);
       return null;
     }
-    console.log('[renderRoutineEditorBlock] called with:',block&&block.type,block&&block.id,'tabKey:',tabKey);
-    const element=renderer(block,tabKey);
-    console.log('[renderRoutineEditorBlock] created DOM element for:',block&&block.id,'type:',block&&block.type,'→',element);
-    return element;
+    return renderer(block,tabKey);
   }
 
   function renderRoutineEditorBlock(block,tabKey){
@@ -2725,6 +2722,7 @@
       this.customSlots=[];
       this.customSlotSortables=[];
       this.customSectionMap=new Map();
+      this.dragShadowOrder=[];
       this.aspenDoc=null;
       this.aspenFieldOptions=[];
       this.aspenBoardRecord=null;
@@ -2743,6 +2741,7 @@
       this.routineEditorBlocks={};
       this.routineEditorOverlay=null;
       this.routineEditorList=null;
+      this.routineEditorContainer=null;
       this.routineEditorPresetList=null;
       this.routineEditorPresetNameInput=null;
       this.routineEditorPresetSaveButton=null;
@@ -3521,6 +3520,9 @@
       const block=document.createElement('div');
       block.className='nsf-custom-block';
       block.dataset.id=section.id;
+      if(block.dataset){
+        block.dataset.blockId=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${section.id}`;
+      }
       const handle=document.createElement('div');
       handle.className='nsf-custom-handle';
       handle.textContent='⠿';
@@ -3605,6 +3607,34 @@
           animation:150,
           handle:'.nsf-custom-handle',
           draggable:'.nsf-custom-block',
+          onAdd:evt=>{
+            const targetList=evt?.to instanceof HTMLElement?evt.to:null;
+            if(targetList){
+              const ids=Array.from(targetList.children||[])
+                .filter(node=>node instanceof HTMLElement)
+                .map(node=>node.dataset&&node.dataset.blockId?node.dataset.blockId:'')
+                .filter(Boolean);
+              this.dragShadowOrder=ids;
+              const targetSlot=Array.isArray(this.customSlots)
+                ?this.customSlots.find(entry=>entry&&entry.list===targetList)
+                :null;
+              if(targetSlot) this.updateCustomSlotState(targetSlot);
+            }
+          },
+          onRemove:evt=>{
+            const sourceList=evt?.from instanceof HTMLElement?evt.from:null;
+            if(sourceList){
+              const ids=Array.from(sourceList.children||[])
+                .filter(node=>node instanceof HTMLElement)
+                .map(node=>node.dataset&&node.dataset.blockId?node.dataset.blockId:'')
+                .filter(Boolean);
+              this.dragShadowOrder=ids;
+              const sourceSlot=Array.isArray(this.customSlots)
+                ?this.customSlots.find(entry=>entry&&entry.list===sourceList)
+                :null;
+              if(sourceSlot) this.updateCustomSlotState(sourceSlot);
+            }
+          },
           onStart:evt=>{
             if(evt?.item) evt.item.classList.add('dragging');
             this.setCustomSlotDragging(true);
@@ -3612,7 +3642,30 @@
           onEnd:evt=>{
             if(evt?.item) evt.item.classList.remove('dragging');
             this.setCustomSlotDragging(false);
-            this.syncCustomSectionsFromDom();
+            const fromList=evt?.from instanceof HTMLElement?evt.from:null;
+            const toList=evt?.to instanceof HTMLElement?evt.to:null;
+            const ids=toList
+              ?Array.from(toList.children||[])
+                .filter(node=>node instanceof HTMLElement)
+                .map(node=>node.dataset&&node.dataset.blockId?node.dataset.blockId:'')
+                .filter(Boolean)
+              :[];
+            this.dragShadowOrder=ids;
+            console.log('Neue dragShadowOrder:',this.dragShadowOrder);
+            const sourceSlot=Array.isArray(this.customSlots)
+              ?this.customSlots.find(entry=>entry&&entry.list===fromList)
+              :null;
+            const targetSlot=Array.isArray(this.customSlots)
+              ?this.customSlots.find(entry=>entry&&entry.list===toList)
+              :null;
+            if(sourceSlot) this.updateCustomSlotState(sourceSlot);
+            if(targetSlot&&targetSlot!==sourceSlot) this.updateCustomSlotState(targetSlot);
+            if(typeof this.renderRoutineEditorOverlayContent==='function'){
+              const activeTab=this.getActiveRoutineEditorTab
+                ?this.getActiveRoutineEditorTab()
+                :undefined;
+              this.renderRoutineEditorOverlayContent(activeTab);
+            }
           }
         });
         this.customSlotSortables.push(sortable);
@@ -4285,7 +4338,7 @@
       if(!preset) return;
       const state=cloneRoutineEditorState(preset.state);
       this.routineEditorState=state;
-      storeRoutineEditorState(state);
+      this.saveRoutineEditorState(state);
       this.updateAspenBlocksFromDoc();
       if(this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
         this.renderRoutineEditorOverlayContent();
@@ -4576,7 +4629,9 @@
 
       const list=document.createElement('div');
       list.className='nsf-editor-list';
+      list.id='nsf-editor-container';
       listWrapper.appendChild(list);
+      this.routineEditorContainer=list;
       this.routineEditorList=list;
       this.routineEditorBlocks={};
       this.routineEditorInsertZones=[];
@@ -4916,10 +4971,8 @@
           return;
         }
         event.preventDefault();
-        console.log('[Drop] type:',type,'index:',index);
         const tabForInsert=targetTab||this.getActiveRoutineEditorTab();
         const newBlock=this.addCustomBlock(tabForInsert,type,{insertIndex:index});
-        console.log('[Drop] newBlock returned:',newBlock);
         if(newBlock&&this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
           const tabToRender=tabForInsert||this.getActiveRoutineEditorTab();
           try{
@@ -4941,83 +4994,150 @@
     renderRoutineEditorOverlayContent(tabKey=this.getActiveRoutineEditorTab()){
       const normalizedTabKey=getRoutineEditorTabKey?getRoutineEditorTabKey(tabKey):tabKey;
       const tabKeyValue=typeof normalizedTabKey==='string'&&normalizedTabKey.trim()?normalizedTabKey:this.getActiveRoutineEditorTab();
-      console.log('[renderRoutineEditorOverlayContent] called with tabKey:',tabKeyValue);
       if(!this.routineEditorList) return;
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
       const tabState=this.ensureRoutineEditorState(tabKeyValue);
-      console.log('[renderRoutineEditorOverlayContent] tabState:',tabState);
-      const normalBlockCount=tabState&&tabState.blocks&&typeof tabState.blocks==='object'
-        ?Object.keys(tabState.blocks).length
-        :0;
-      const customBlockCount=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks.length:0;
-      console.log('[renderRoutineEditorOverlayContent] normal blocks:',normalBlockCount,'custom blocks:',customBlockCount);
-      const order=this.getRoutineEditorOrder(tabKeyValue);
-      tabState.order=order.slice();
+      const baseOrder=this.getRoutineEditorOrder(tabKeyValue);
+      const blockMap=new Map();
+      if(tabState&&tabState.blocks&&typeof tabState.blocks==='object'){
+        Object.entries(tabState.blocks).forEach(([key,value])=>{
+          if(typeof key!=='string') return;
+          const entry=value&&typeof value==='object'?{...value}:{};
+          const blockId=key;
+          const data={...entry,id:blockId,key:blockId,type:entry&&entry.type?entry.type:blockId};
+          blockMap.set(blockId,data);
+        });
+      }
+      const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks.slice():[];
+      customBlocks.forEach(block=>{
+        if(!block||typeof block.id!=='string') return;
+        const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`;
+        const data={...block,id:customKey,key:customKey};
+        if(!data.type) data.type=block.type||'text';
+        blockMap.set(customKey,data);
+      });
+      baseOrder.forEach(key=>{
+        if(blockMap.has(key)) return;
+        if(key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)){
+          const id=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
+          const fallback=customBlocks.find(block=>block&&block.id===id)||null;
+          if(fallback){
+            const data={...fallback,id:key,key};
+            if(!data.type) data.type=fallback.type||'text';
+            blockMap.set(key,data);
+          }else{
+            blockMap.set(key,{id:key,key,type:'text'});
+          }
+        }else{
+          blockMap.set(key,{id:key,key,type:key});
+        }
+      });
+      const usingGhostOrder=Array.isArray(this.dragShadowOrder)&&this.dragShadowOrder.length>0;
+      let orderToRender;
+      if(usingGhostOrder){
+        orderToRender=this.dragShadowOrder.slice();
+        baseOrder.forEach(key=>{
+          if(!orderToRender.includes(key)) orderToRender.push(key);
+        });
+      }else{
+        orderToRender=baseOrder.slice();
+        if(!orderToRender.length){
+          orderToRender=Array.from(blockMap.keys());
+        }
+      }
+      let blocks=orderToRender.map(id=>blockMap.get(id)).filter(Boolean);
+      if(!blocks.length&&blockMap.size){
+        blocks=Array.from(blockMap.values());
+      }
+      console.log('Rendering blocks in order:',blocks.map(b=>b.id));
+      const finalOrder=blocks.map(block=>block.id);
       if(Array.isArray(tabState.hiddenBaseBlocks)){
-        tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(key=>!order.includes(key));
+        tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(key=>!finalOrder.includes(key));
       }
       this.clearRoutineEditorDropIndicators();
+      const containerCandidate=this.routineEditorContainer instanceof Element
+        ?this.routineEditorContainer
+        :this.routineEditorList instanceof Element
+          ?this.routineEditorList
+          :document.getElementById('nsf-editor-container');
+      const container=containerCandidate instanceof Element?containerCandidate:null;
+      if(container){
+        container.innerHTML='';
+        this.routineEditorList=container;
+      }else{
+        console.warn('NSF: Routine-Editor-Container nicht gefunden');
+      }
       this.routineEditorBlocks={};
-      this.routineEditorList.innerHTML='';
       this.routineEditorInsertZones=[];
       const renderer=typeof this.renderRoutineEditorBlock==='function'
         ?this.renderRoutineEditorBlock.bind(this)
         :typeof renderRoutineEditorBlock==='function'
           ?renderRoutineEditorBlock
           :null;
-      const container=this.routineEditorList instanceof Element?this.routineEditorList:null;
-      const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
-      const customMap=new Map(customBlocks.map(entry=>entry&&entry.id?[entry.id,entry]:null).filter(Boolean));
-      let totalBlocksRendered=0;
-      order.forEach((blockId,index)=>{
-        const insert=this.createRoutineEditorInsertControl(index,order,tabKeyValue);
-        if(insert) this.routineEditorList.appendChild(insert);
-        if(!container||typeof blockId!=='string') return;
-        const isCustom=blockId.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX);
-        const baseEntry=tabState&&tabState.blocks&&typeof tabState.blocks==='object'
-          ?tabState.blocks[blockId]
-          :null;
-        const blockData=isCustom
-          ?customMap.get(blockId.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length))||null
-          :baseEntry
-            ?{...baseEntry,id:blockId,key:blockId,type:blockId}
-            :{id:blockId,key:blockId,type:blockId};
-        if(isCustom){
-          console.log('[render] custom block id:',blockId,'block:',blockData);
-        }else{
-          console.log('[render] normal block id:',blockId,'block:',blockData);
-        }
-        console.log('[renderRoutineEditorOverlayContent] rendering block via renderRoutineEditorBlock:',blockData);
-        if(renderer&&blockData){
+      const listElement=this.routineEditorList instanceof Element?this.routineEditorList:null;
+      if(!listElement){
+        console.warn('NSF: Routine-Editor-Liste fehlt');
+        return;
+      }
+      blocks.forEach((block,index)=>{
+        const insert=this.createRoutineEditorInsertControl(index,finalOrder,tabKeyValue);
+        if(insert) listElement.appendChild(insert);
+        if(!block||typeof block.id!=='string') return;
+        if(renderer){
           try{
-            debugRenderRoutineEditorBlockCall(renderer,blockData,tabKeyValue);
+            debugRenderRoutineEditorBlockCall(renderer,block,tabKeyValue);
           }catch(err){
-            console.warn('NSF: Fehler beim Rendern über renderRoutineEditorBlock',err,blockData);
+            console.warn('NSF: Fehler beim Rendern über renderRoutineEditorBlock',err,block);
           }
         }else if(!renderer){
-          console.warn('NSF: Kein Renderer für renderRoutineEditorBlock verfügbar',blockData);
+          console.warn('NSF: Kein Renderer für renderRoutineEditorBlock verfügbar',block);
         }
-        const def=this.getRoutineEditorBlockDefinition(blockId,index,order);
+        const def=this.getRoutineEditorBlockDefinition(block.id,index,finalOrder);
         if(!def){
-          console.warn('NSF: Keine Definition für Routine-Editor-Block gefunden',blockId);
+          console.warn('NSF: Keine Definition für Routine-Editor-Block gefunden',block.id);
           return;
         }
         const blockEl=this.createRoutineEditorBlock(def);
         if(!blockEl){
-          console.warn('NSF: Routine-Editor-Block konnte nicht erstellt werden',blockId);
+          console.warn('NSF: Routine-Editor-Block konnte nicht erstellt werden',block.id);
           return;
         }
-        console.log('[renderRoutineEditorOverlayContent] created DOM element for block id:',blockId,'el:',blockEl);
-        container.appendChild(blockEl);
-        console.log('[renderRoutineEditorOverlayContent] appended block id:',blockId,'to container');
-        totalBlocksRendered+=1;
+        listElement.appendChild(blockEl);
       });
-      const finalInsert=this.createRoutineEditorInsertControl(order.length,order,tabKeyValue);
-      if(finalInsert) this.routineEditorList.appendChild(finalInsert);
-      console.log('[renderRoutineEditorOverlayContent] total blocks rendered:',totalBlocksRendered);
-      this.refreshRoutineEditorPreview();
-      this.updateRoutineEditorBlockShopAvailability();
+      const finalInsert=this.createRoutineEditorInsertControl(finalOrder.length,finalOrder,tabKeyValue);
+      if(finalInsert&&listElement) listElement.appendChild(finalInsert);
+      if(!usingGhostOrder){
+        this.refreshRoutineEditorPreview();
+        this.updateRoutineEditorBlockShopAvailability();
+      }
+    }
+
+    saveRoutineEditorState(state=this.routineEditorState){
+      const targetState=state||this.routineEditorState;
+      if(!targetState) return;
+      if(Array.isArray(this.dragShadowOrder)&&this.dragShadowOrder.length){
+        const activeTab=this.getActiveRoutineEditorTab();
+        const resolvedTab=getRoutineEditorTabKey?getRoutineEditorTabKey(activeTab):activeTab;
+        const tabs=targetState&&targetState.tabs?targetState.tabs:null;
+        if(resolvedTab&&tabs&&tabs[resolvedTab]){
+          const tabState=tabs[resolvedTab];
+          const ghostOrder=this.dragShadowOrder
+            .map(id=>typeof id==='string'?id.trim():'')
+            .filter(Boolean);
+          if(ghostOrder.length){
+            const fallbackOrder=this.getRoutineEditorOrder(resolvedTab);
+            const mergedOrder=ghostOrder.slice();
+            fallbackOrder.forEach(key=>{
+              if(!mergedOrder.includes(key)) mergedOrder.push(key);
+            });
+            tabState.order=mergedOrder;
+            console.log('Speichere Routine-Editor-Reihenfolge:',mergedOrder);
+          }
+        }
+        this.dragShadowOrder=[];
+      }
+      storeRoutineEditorState(targetState);
     }
 
     normalizeRoutineEditorInsertIndex(index,length){
@@ -5034,7 +5154,6 @@
     }
 
     addCustomBlock(tabKey,type='text',options={}){
-      console.log('[addCustomBlock] called with tabKey:',tabKey,'type:',type,'options:',options);
       const targetTab=getRoutineEditorTabKey(tabKey);
       this.ensureRoutineEditorState();
       const state=this.routineEditorState;
@@ -5067,7 +5186,6 @@
         parameterKey:'',
         lines:['']
       };
-      console.log('[addCustomBlock] created entry:',entry);
       let label=sanitizeRoutineEditorLabel(options.label||'');
       if(blockType==='aspen'){
         if(!this.hasAspenDoc&&this.aspenFileInput){
@@ -5142,13 +5260,11 @@
       }
       entry.label=sanitizeRoutineEditorLabel(entry.label||'');
       tabState.customBlocks=orderedCustomBlocks;
-      console.log('[addCustomBlock] tabState.customBlocks length:',Array.isArray(tabState.customBlocks)?tabState.customBlocks.length:0);
       tabState.order=order;
       if(state&&state.tabs){
         state.tabs[targetTab]=tabState;
       }
-      storeRoutineEditorState(state);
-      console.log('[addCustomBlock] state saved:',state);
+      this.saveRoutineEditorState(state);
       try{
         const overlay=document.querySelector('.nsf-editor-overlay.open');
         const container=overlay?.querySelector('.nsf-editor-tab.active .nsf-blocks')||overlay?.querySelector('.nsf-editor-list');
@@ -5178,7 +5294,6 @@
         this.refreshRoutineEditorPreview();
       }
       this.focusRoutineEditorCustomBlock(result);
-      console.log('[addCustomBlock] returning:',result);
       return result;
     }
 
@@ -5560,7 +5675,7 @@
         }
       });
       if(changed){
-        storeRoutineEditorState(this.routineEditorState);
+        this.saveRoutineEditorState(this.routineEditorState);
         if(this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
           this.renderRoutineEditorOverlayContent();
         }
@@ -6335,7 +6450,7 @@
         this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
       }
       this.routineEditorState.tabs[activeTab]=state;
-      storeRoutineEditorState(this.routineEditorState);
+      this.saveRoutineEditorState(this.routineEditorState);
       this.refreshRoutineEditorPreview();
       this.evaluateRoutineEditorPresetMatch();
     }
