@@ -3,6 +3,16 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.5.0] – 2025-10-02
+### Added
+- Möglichkeit, mehrere Mod-Spalten über eine "+"-Schaltfläche hinzuzufügen und bei Bedarf wieder zu entfernen.
+- Persistenz, Normalisierung und Export der Mod-Listen inklusive Unterstützung für den Kopiertext.
+
+### Changed
+- Layout der Mods-Sektion angepasst, damit die dynamischen Spalten und gemeinsamen Vorschlagslisten strukturiert dargestellt werden.
+
+---
+
 ## [1.4.0] – 2025-10-01
 ### Added
 - Schneller Duplizieren-Button in der Findings-Liste, der komplette Einträge inklusive Partnummern, Teilepaaren und Rohdaten kopiert.
