@@ -5,6 +5,15 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.9] – 2025-10-03
+### Added
+- Umschalter in den Update-Einstellungen, um den Downgrade-Hinweis dauerhaft auszublenden und die Präferenz zu speichern.
+- "Ignorieren"-Aktion für einzelne Downgrade-Versionen mit lokal gespeicherter Merkliste.
+
+### Changed
+- Update-Status-Schaltfläche behält ihren sichtbaren Zustand zwischen Polling-Zyklen und ignoriert ausgeblendete Downgrades.
+- Automatische Update-Prüfungen laufen jetzt alle fünf Sekunden, um schneller auf neue Versionen reagieren zu können.
+
 ## [3.6.8] – 2025-10-02
 ### Fixed
 - Reihenfolge der Aspen-Geräte bleibt nach Neuladen des Boards sowie nach dem erneuten Einlesen der Excel-Datei erhalten.
