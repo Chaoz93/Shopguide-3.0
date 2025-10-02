@@ -117,6 +117,126 @@
 
   let ensureXlsxPromise=null;
 
+  const FINDINGS_HANDLE_DB_NAME='NewStandardFindingsHandles';
+  const FINDINGS_HANDLE_STORE_NAME='handles';
+  const FINDINGS_HANDLE_KEY='nsf-findings-handle';
+
+  async function openFindingsHandleStore(){
+    if(typeof indexedDB==='undefined') return null;
+    try{
+      return await new Promise((resolve,reject)=>{
+        const request=indexedDB.open(FINDINGS_HANDLE_DB_NAME,1);
+        request.onupgradeneeded=()=>{
+          const db=request.result;
+          if(db&&!db.objectStoreNames.contains(FINDINGS_HANDLE_STORE_NAME)){
+            db.createObjectStore(FINDINGS_HANDLE_STORE_NAME);
+          }
+        };
+        request.onsuccess=()=>resolve(request.result);
+        request.onerror=()=>reject(request.error);
+      });
+    }catch(err){
+      console.warn('[UnitBoard] IndexedDB für Findings-Dateien nicht verfügbar',err);
+      return null;
+    }
+  }
+
+  async function storeFindingsHandle(handle){
+    if(!handle) return false;
+    let db=null;
+    try{
+      db=await openFindingsHandleStore();
+      if(!db) return false;
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(FINDINGS_HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(FINDINGS_HANDLE_STORE_NAME).put(handle,FINDINGS_HANDLE_KEY);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return true;
+    }catch(err){
+      console.warn('[UnitBoard] Findings-Dateihandle konnte nicht gespeichert werden',err);
+      return false;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function loadStoredFindingsHandle(){
+    let db=null;
+    try{
+      db=await openFindingsHandleStore();
+      if(!db) return null;
+      const handle=await new Promise((resolve,reject)=>{
+        const tx=db.transaction(FINDINGS_HANDLE_STORE_NAME,'readonly');
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const store=tx.objectStore(FINDINGS_HANDLE_STORE_NAME);
+        const request=store.get(FINDINGS_HANDLE_KEY);
+        request.onsuccess=()=>resolve(request.result||null);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      if(handle) console.log('[UnitBoard] Handle geladen');
+      return handle||null;
+    }catch(err){
+      console.warn('[UnitBoard] Findings-Dateihandle konnte nicht gelesen werden',err);
+      return null;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function clearStoredFindingsHandle(){
+    let db=null;
+    try{
+      db=await openFindingsHandleStore();
+      if(!db) return false;
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(FINDINGS_HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(FINDINGS_HANDLE_STORE_NAME).delete(FINDINGS_HANDLE_KEY);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return true;
+    }catch(err){
+      console.warn('[UnitBoard] Findings-Dateihandle konnte nicht entfernt werden',err);
+      return false;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function queryHandlePermission(handle){
+    if(!handle?.queryPermission) return 'granted';
+    try{
+      return await handle.queryPermission({mode:'readwrite'});
+    }catch(err){
+      console.warn('[UnitBoard] Permission-Abfrage fehlgeschlagen',err);
+      return 'denied';
+    }
+  }
+
+  async function ensurePermission(handle){
+    if(!handle?.queryPermission) return 'granted';
+    let state='denied';
+    try{
+      state=await handle.queryPermission({mode:'readwrite'});
+    }catch(err){
+      console.warn('[UnitBoard] Permission-Abfrage fehlgeschlagen',err);
+      return 'denied';
+    }
+    if(state==='granted') return 'granted';
+    if(state==='denied') return 'denied';
+    try{
+      const requested=await handle.requestPermission({mode:'readwrite'});
+      return requested==='granted'?'granted':'denied';
+    }catch(err){
+      console.warn('[UnitBoard] Permission-Anfrage fehlgeschlagen',err);
+      return 'denied';
+    }
+  }
+
   function loadScriptOnce(url){
     return new Promise((resolve,reject)=>{
       if(typeof document==='undefined'){reject(new Error('Kein Dokument'));return;}
@@ -2791,6 +2911,13 @@
       this.menuCleanup=null;
       this.preservedAspenState=null;
       this.restoredAspenState=false;
+      this.findingsFileHandle=null;
+      this.findingsHandlePermission='prompt';
+      this.findingsHandleMessage='';
+      this.findingsFileName='';
+      this.findingsHandleInitPromise=null;
+      this.findingsHandleBusy=false;
+      this.legacyFindingsInput=null;
     }
 
     scheduleRender(){
@@ -2819,6 +2946,7 @@
       injectStyles();
       setupWatchers();
       await ensureData();
+      await this.ensureFindingsHandleInitialized();
       this.globalState=loadGlobalState();
       this.findingsPath=clean(localStorage.getItem(FINDINGS_PATH_KEY)||'');
       const data=parseData();
@@ -2935,6 +3063,158 @@
       }
     }
 
+    updateFindingsContext(updates){
+      if(!updates||typeof updates!=='object') return false;
+      let changed=false;
+      if(Object.prototype.hasOwnProperty.call(updates,'permission')&&this.findingsHandlePermission!==updates.permission){
+        this.findingsHandlePermission=updates.permission;
+        changed=true;
+      }
+      if(Object.prototype.hasOwnProperty.call(updates,'message')&&this.findingsHandleMessage!==updates.message){
+        this.findingsHandleMessage=updates.message;
+        changed=true;
+      }
+      if(Object.prototype.hasOwnProperty.call(updates,'fileName')&&this.findingsFileName!==updates.fileName){
+        this.findingsFileName=updates.fileName;
+        changed=true;
+      }
+      return changed;
+    }
+
+    async ensureFindingsHandleInitialized(){
+      if(this.findingsHandleInitPromise) return this.findingsHandleInitPromise;
+      this.findingsHandleInitPromise=(async()=>{
+        let handle=null;
+        try{
+          handle=await loadStoredFindingsHandle();
+        }catch(err){
+          console.warn('NSF: Persistiertes Findings-Handle konnte nicht geladen werden',err);
+          handle=null;
+        }
+        if(handle){
+          this.findingsFileHandle=handle;
+          await this.handleRestoredFindingsHandle(handle);
+        }else{
+          this.updateFindingsContext({permission:'prompt'});
+        }
+      })();
+      return this.findingsHandleInitPromise;
+    }
+
+    async handleRestoredFindingsHandle(handle){
+      if(!handle) return;
+      const perm=await queryHandlePermission(handle);
+      console.log('[UnitBoard] Permission:',perm);
+      const baseUpdates={permission:perm};
+      if(handle&&typeof handle.name==='string'&&handle.name){
+        baseUpdates.fileName=handle.name;
+      }
+      this.updateFindingsContext(baseUpdates);
+      if(perm==='granted'){
+        await this.loadFindingsFromHandle(handle);
+      }else if(perm==='prompt'||perm==='denied'){
+        this.updateFindingsContext({message:'Bitte Datei erneut auswählen.'});
+      }
+    }
+
+    async loadFindingsFromHandle(handle){
+      if(!handle) return;
+      try{
+        const file=await handle.getFile();
+        if(file&&typeof file.name==='string'){
+          console.log('[UnitBoard] Datei geöffnet:',file.name);
+        }
+        await this.handleFindingsFile(file);
+        if(this.updateFindingsContext({fileName:file&&file.name?file.name:'',message:'',permission:'granted'})){
+          this.scheduleRender();
+        }
+      }catch(err){
+        console.warn('NSF: Findings-Datei konnte nicht gelesen werden',err);
+        if(err&&typeof err==='object'&&(err.name==='NotFoundError'||err.name==='NotAllowedError')){
+          await clearStoredFindingsHandle();
+          this.findingsFileHandle=null;
+        }
+        if(this.updateFindingsContext({message:'Bitte Datei erneut auswählen.'})){
+          this.scheduleRender();
+        }
+      }
+    }
+
+    async bindFindingsHandle(handle){
+      if(!handle) return;
+      this.findingsFileHandle=handle;
+      await storeFindingsHandle(handle);
+      await this.loadFindingsFromHandle(handle);
+    }
+
+    async pickFindingsHandle(){
+      if(typeof window==='undefined'||typeof window.showOpenFilePicker!=='function'){
+        if(this.legacyFindingsInput){
+          this.legacyFindingsInput.click();
+        }
+        return;
+      }
+      try{
+        const [handle]=await window.showOpenFilePicker({
+          types:[{description:'JSON / Text',accept:{'application/json':['.json'],'text/plain':['.txt']}}],
+          multiple:false
+        });
+        if(!handle) return;
+        const status=await ensurePermission(handle);
+        console.log('[UnitBoard] Permission:',status);
+        if(status!=='granted'){
+          if(this.updateFindingsContext({permission:status,message:'Bitte Datei erneut auswählen.'})){
+            this.scheduleRender();
+          }
+          return;
+        }
+        await this.bindFindingsHandle(handle);
+      }catch(err){
+        if(err&&err.name==='AbortError') return;
+        console.warn('NSF: Findings-Datei konnte nicht ausgewählt werden',err);
+      }
+    }
+
+    async handleFindingsButton(){
+      if(this.findingsHandleBusy) return;
+      if(typeof window==='undefined'||typeof window.showOpenFilePicker!=='function'){
+        if(this.legacyFindingsInput){
+          this.legacyFindingsInput.click();
+        }
+        return;
+      }
+      this.findingsHandleBusy=true;
+      try{
+        if(this.findingsFileHandle){
+          const status=await ensurePermission(this.findingsFileHandle);
+          console.log('[UnitBoard] Permission:',status);
+          if(status==='granted'){
+            await this.loadFindingsFromHandle(this.findingsFileHandle);
+            return;
+          }
+          if(this.updateFindingsContext({permission:status,message:'Bitte Datei erneut auswählen.'})){
+            this.scheduleRender();
+          }
+        }
+        await this.pickFindingsHandle();
+      }catch(err){
+        if(err&&err.name==='AbortError') return;
+        console.warn('NSF: Findings-Datei konnte nicht geöffnet werden',err);
+      }finally{
+        this.findingsHandleBusy=false;
+      }
+    }
+
+    async handleLegacyFindingsFile(file){
+      if(!file) return;
+      this.findingsFileHandle=null;
+      await clearStoredFindingsHandle();
+      await this.handleFindingsFile(file);
+      if(this.updateFindingsContext({fileName:file.name||'',message:'',permission:'prompt'})){
+        this.scheduleRender();
+      }
+    }
+
     renderDom(){
       const root=this.root;
       this.destroyCustomSectionSortables();
@@ -2964,9 +3244,12 @@
       findingsInput.addEventListener('change',()=>{
         const file=findingsInput.files&&findingsInput.files[0];
         if(file){
-          this.handleFindingsFile(file).finally(()=>{findingsInput.value='';});
+          this.handleLegacyFindingsFile(file).finally(()=>{findingsInput.value='';});
+        }else{
+          findingsInput.value='';
         }
       });
+      this.legacyFindingsInput=findingsInput;
 
       const fileInput=document.createElement('input');
       fileInput.type='file';
@@ -3032,12 +3315,23 @@
         return btn;
       };
 
-      const findingsAction=makeHeaderAction('Findings',()=>findingsInput.click());
+      const findingsAction=makeHeaderAction('Findings',()=>this.handleFindingsButton());
       const aspenAction=makeHeaderAction('Aspen',()=>fileInput.click());
       headerActions.append(findingsAction,aspenAction);
       headerBar.appendChild(headerActions);
 
       contextSection.appendChild(headerBar);
+      if(this.findingsHandleMessage){
+        const hint=document.createElement('div');
+        hint.className='nsf-alert';
+        hint.textContent=this.findingsHandleMessage;
+        contextSection.appendChild(hint);
+      }else if(this.findingsFileName){
+        const info=document.createElement('div');
+        info.className='nsf-inline-info';
+        info.textContent=`Aktive Findings-Datei: ${this.findingsFileName}`;
+        contextSection.appendChild(info);
+      }
       contextSection.appendChild(findingsInput);
       contextSection.appendChild(fileInput);
 
