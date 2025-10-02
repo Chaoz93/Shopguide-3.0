@@ -1728,7 +1728,7 @@
   window.renderAspenBoard=async function(targetDiv,opts){
     let lastModifiedCheck=null;
     let pollInterval=null;
-    const POLL_INTERVAL_MS=60000;
+    const POLL_INTERVAL_MS=5000;
     let pollInProgress=false;
     injectStyles();
 
