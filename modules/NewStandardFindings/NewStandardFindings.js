@@ -10,6 +10,7 @@
   const BOARD_DOC_KEY='module_data_v1';
   const ASPEN_DOC_KEY='nsf-aspen-doc';
   const WATCH_INTERVAL=600;
+  const FINDINGS_POLL_INTERVAL=5000;
   const SAVE_DEBOUNCE=250;
   const HISTORY_LIMIT=10;
   const STYLE_ID='nsf-styles';
@@ -2975,6 +2976,9 @@
       this.findingsFileName='';
       this.findingsHandleInitPromise=null;
       this.findingsHandleBusy=false;
+      this.findingsPollInterval=null;
+      this.findingsPollInProgress=false;
+      this.findingsLastModified=null;
       this.legacyFindingsInput=null;
     }
 
@@ -3145,9 +3149,11 @@
     updateFindingsContext(updates){
       if(!updates||typeof updates!=='object') return false;
       let changed=false;
+      let permissionChanged=false;
       if(Object.prototype.hasOwnProperty.call(updates,'permission')&&this.findingsHandlePermission!==updates.permission){
         this.findingsHandlePermission=updates.permission;
         changed=true;
+        permissionChanged=true;
       }
       if(Object.prototype.hasOwnProperty.call(updates,'message')&&this.findingsHandleMessage!==updates.message){
         this.findingsHandleMessage=updates.message;
@@ -3157,7 +3163,67 @@
         this.findingsFileName=updates.fileName;
         changed=true;
       }
+      if(permissionChanged){
+        if(this.findingsHandlePermission!=='granted'){
+          this.stopFindingsPolling();
+        }
+      }
       return changed;
+    }
+
+    stopFindingsPolling(){
+      if(this.findingsPollInterval){
+        clearInterval(this.findingsPollInterval);
+        this.findingsPollInterval=null;
+      }
+      this.findingsPollInProgress=false;
+    }
+
+    startFindingsPolling(){
+      this.stopFindingsPolling();
+      if(!this.findingsFileHandle||this.findingsHandlePermission!=='granted') return;
+      this.findingsPollInterval=setInterval(()=>{void this.pollFindingsFileOnce();},FINDINGS_POLL_INTERVAL);
+      void this.pollFindingsFileOnce();
+    }
+
+    async pollFindingsFileOnce(){
+      if(this.findingsPollInProgress) return;
+      if(!this.findingsFileHandle||this.findingsHandlePermission!=='granted'){
+        this.stopFindingsPolling();
+        return;
+      }
+      this.findingsPollInProgress=true;
+      try{
+        const file=await this.findingsFileHandle.getFile();
+        const modified=typeof file?.lastModified==='number'?file.lastModified:null;
+        if(modified==null){
+          return;
+        }
+        if(this.findingsLastModified==null){
+          this.findingsLastModified=modified;
+          return;
+        }
+        if(modified>this.findingsLastModified){
+          this.findingsLastModified=modified;
+          await this.handleFindingsFile(file);
+          this.updateFindingsContext({fileName:file&&file.name?file.name:'',message:'',permission:'granted'});
+          this.scheduleRender();
+        }
+      }catch(err){
+        if(err&&(err.name==='NotAllowedError'||err.name==='SecurityError')){
+          console.info('[UnitBoard] Findings-Datei: Zugriff verloren',err);
+          this.stopFindingsPolling();
+          this.findingsLastModified=null;
+          this.findingsFileHandle=null;
+          try{await clearStoredFindingsHandle();}catch{/* ignore */}
+          this.updateFindingsContext({permission:'denied',message:'Bitte Datei erneut auswählen.'});
+          this.scheduleRender();
+        }else{
+          console.warn('NSF: Polling der Findings-Datei fehlgeschlagen',err);
+        }
+      }finally{
+        this.findingsPollInProgress=false;
+      }
     }
 
     async ensureFindingsHandleInitialized(){
@@ -3203,15 +3269,21 @@
         if(file&&typeof file.name==='string'){
           console.log('[UnitBoard] Datei geöffnet:',file.name);
         }
-        await this.handleFindingsFile(file);
-        if(this.updateFindingsContext({fileName:file&&file.name?file.name:'',message:'',permission:'granted'})){
-          this.scheduleRender();
+        const modified=typeof file?.lastModified==='number'?file.lastModified:null;
+        if(modified!=null){
+          this.findingsLastModified=modified;
         }
+        await this.handleFindingsFile(file);
+        this.updateFindingsContext({fileName:file&&file.name?file.name:'',message:'',permission:'granted'});
+        this.scheduleRender();
+        this.startFindingsPolling();
       }catch(err){
         console.warn('NSF: Findings-Datei konnte nicht gelesen werden',err);
         if(err&&typeof err==='object'&&(err.name==='NotFoundError'||err.name==='NotAllowedError')){
           await clearStoredFindingsHandle();
           this.findingsFileHandle=null;
+          this.stopFindingsPolling();
+          this.findingsLastModified=null;
         }
         if(this.updateFindingsContext({message:'Bitte Datei erneut auswählen.'})){
           this.scheduleRender();
@@ -3221,6 +3293,8 @@
 
     async bindFindingsHandle(handle){
       if(!handle) return;
+      this.stopFindingsPolling();
+      this.findingsLastModified=null;
       this.findingsFileHandle=handle;
       await storeFindingsHandle(handle);
       await this.loadFindingsFromHandle(handle);
@@ -3287,6 +3361,8 @@
     async handleLegacyFindingsFile(file){
       if(!file) return;
       this.findingsFileHandle=null;
+      this.stopFindingsPolling();
+      this.findingsLastModified=null;
       await clearStoredFindingsHandle();
       await this.handleFindingsFile(file);
       if(this.updateFindingsContext({fileName:file.name||'',message:'',permission:'prompt'})){
