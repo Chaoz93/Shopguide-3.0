@@ -2722,7 +2722,7 @@
       this.customSlots=[];
       this.customSlotSortables=[];
       this.customSectionMap=new Map();
-      this.dragShadowOrder=null;
+      this.dragShadowOrder=[];
       this.aspenDoc=null;
       this.aspenFieldOptions=[];
       this.aspenBoardRecord=null;
@@ -3609,19 +3609,29 @@
           onAdd:evt=>{
             const targetList=evt?.to instanceof HTMLElement?evt.to:null;
             if(targetList){
-              const ids=Array.from(targetList.querySelectorAll('.nsf-custom-block'))
+              const ids=Array.from(targetList.children||[])
+                .filter(node=>node instanceof HTMLElement)
                 .map(node=>node.dataset&&node.dataset.blockId?node.dataset.blockId:'')
                 .filter(Boolean);
-              this.dragShadowOrder=ids.length?ids:null;
+              this.dragShadowOrder=ids;
+              const targetSlot=Array.isArray(this.customSlots)
+                ?this.customSlots.find(entry=>entry&&entry.list===targetList)
+                :null;
+              if(targetSlot) this.updateCustomSlotState(targetSlot);
             }
           },
           onRemove:evt=>{
             const sourceList=evt?.from instanceof HTMLElement?evt.from:null;
             if(sourceList){
-              const ids=Array.from(sourceList.querySelectorAll('.nsf-custom-block'))
+              const ids=Array.from(sourceList.children||[])
+                .filter(node=>node instanceof HTMLElement)
                 .map(node=>node.dataset&&node.dataset.blockId?node.dataset.blockId:'')
                 .filter(Boolean);
-              this.dragShadowOrder=ids.length?ids:null;
+              this.dragShadowOrder=ids;
+              const sourceSlot=Array.isArray(this.customSlots)
+                ?this.customSlots.find(entry=>entry&&entry.list===sourceList)
+                :null;
+              if(sourceSlot) this.updateCustomSlotState(sourceSlot);
             }
           },
           onStart:evt=>{
@@ -3633,62 +3643,20 @@
             this.setCustomSlotDragging(false);
             const fromList=evt?.from instanceof HTMLElement?evt.from:null;
             const toList=evt?.to instanceof HTMLElement?evt.to:null;
-            if(toList){
-              const ids=Array.from(toList.querySelectorAll('.nsf-custom-block'))
+            const ids=toList
+              ?Array.from(toList.children||[])
+                .filter(node=>node instanceof HTMLElement)
                 .map(node=>node.dataset&&node.dataset.blockId?node.dataset.blockId:'')
-                .filter(Boolean);
-              this.dragShadowOrder=ids.length?ids:null;
-            }else{
-              this.dragShadowOrder=null;
-            }
+                .filter(Boolean)
+              :[];
+            this.dragShadowOrder=ids;
+            console.log('Neue dragShadowOrder:',this.dragShadowOrder);
             const sourceSlot=Array.isArray(this.customSlots)
               ?this.customSlots.find(entry=>entry&&entry.list===fromList)
               :null;
             const targetSlot=Array.isArray(this.customSlots)
               ?this.customSlots.find(entry=>entry&&entry.list===toList)
               :null;
-            if(Array.isArray(this.customSlots)){
-              const slotCount=this.customSlots.length||CUSTOM_SLOT_COUNT;
-              const sectionMap=new Map(Array.isArray(this.customSections)
-                ?this.customSections.map(section=>[section.id,section])
-                :[]);
-              const updatedSections=[];
-              const collectSections=(listEl,slotIndex)=>{
-                if(!listEl) return;
-                Array.from(listEl.children||[]).forEach(node=>{
-                  if(!(node instanceof HTMLElement)) return;
-                  const blockId=node.dataset?node.dataset.blockId||node.dataset.id:'';
-                  if(!blockId) return;
-                  const normalizedId=blockId.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)
-                    ?blockId.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length)
-                    :blockId;
-                  const existing=sectionMap.get(normalizedId);
-                  if(!existing) return;
-                  sectionMap.delete(normalizedId);
-                  updatedSections.push(Object.assign({},existing,{slot:slotIndex}));
-                });
-              };
-              this.customSlots.forEach(slotEntry=>{
-                if(!slotEntry||!slotEntry.list) return;
-                const slotIndex=Number.isFinite(slotEntry.index)
-                  ?Math.floor(slotEntry.index)
-                  :0;
-                collectSections(slotEntry.list,slotIndex);
-              });
-              if(sectionMap.size){
-                sectionMap.forEach(section=>{
-                  let slotIndex=Number.isFinite(section.slot)
-                    ?Math.floor(section.slot)
-                    :0;
-                  if(slotIndex<0) slotIndex=0;
-                  if(slotIndex>=slotCount) slotIndex=slotCount-1;
-                  updatedSections.push(Object.assign({},section,{slot:slotIndex}));
-                });
-              }
-              this.customSections=normalizeCustomSections(updatedSections,slotCount);
-              this.rebuildCustomSectionMap();
-              this.syncCustomSectionsToActiveState();
-            }
             if(sourceSlot) this.updateCustomSlotState(sourceSlot);
             if(targetSlot&&targetSlot!==sourceSlot) this.updateCustomSlotState(targetSlot);
             if(typeof this.renderRoutineEditorOverlayContent==='function'){
@@ -5027,22 +4995,45 @@
       this.prepareRoutineEditorParameterOptions();
       this.updateRoutineEditorParameterFilterState();
       const tabState=this.ensureRoutineEditorState(tabKeyValue);
-      const normalBlockCount=tabState&&tabState.blocks&&typeof tabState.blocks==='object'
-        ?Object.keys(tabState.blocks).length
-        :0;
-      const customBlockCount=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks.length:0;
       const baseOrder=this.getRoutineEditorOrder(tabKeyValue);
-      const dragOrderRaw=Array.isArray(this.dragShadowOrder)&&this.dragShadowOrder.length
+      const blockMap=new Map();
+      if(tabState&&tabState.blocks&&typeof tabState.blocks==='object'){
+        Object.entries(tabState.blocks).forEach(([key,value])=>{
+          if(typeof key!=='string') return;
+          const entry=value&&typeof value==='object'?{...value}:{};
+          const blockId=key;
+          const data={...entry,id:blockId,key:blockId,type:entry&&entry.type?entry.type:blockId};
+          blockMap.set(blockId,data);
+        });
+      }
+      const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks.slice():[];
+      customBlocks.forEach(block=>{
+        if(!block||typeof block.id!=='string') return;
+        const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`;
+        const data={...block,id:customKey,key:customKey};
+        if(!data.type) data.type=block.type||'text';
+        blockMap.set(customKey,data);
+      });
+      baseOrder.forEach(key=>{
+        if(blockMap.has(key)) return;
+        if(key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)){
+          const id=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
+          const fallback=customBlocks.find(block=>block&&block.id===id)||null;
+          if(fallback){
+            const data={...fallback,id:key,key};
+            if(!data.type) data.type=fallback.type||'text';
+            blockMap.set(key,data);
+          }else{
+            blockMap.set(key,{id:key,key,type:'text'});
+          }
+        }else{
+          blockMap.set(key,{id:key,key,type:key});
+        }
+      });
+      const dragOrder=Array.isArray(this.dragShadowOrder)&&this.dragShadowOrder.length
         ?this.dragShadowOrder.slice()
         :null;
-      const dragOrder=dragOrderRaw
-        ?dragOrderRaw.map(id=>{
-          if(typeof id!=='string') return '';
-          if(id.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return id;
-          return `${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
-        }).filter(Boolean)
-        :null;
-      const order=(()=>{
+      const resolvedOrder=(()=>{
         if(!dragOrder||!dragOrder.length) return baseOrder.slice();
         const queue=dragOrder.slice();
         const reordered=baseOrder.map(key=>{
@@ -5057,12 +5048,34 @@
         return reordered;
       })();
       if(!dragOrder||!dragOrder.length){
-        tabState.order=order.slice();
+        tabState.order=resolvedOrder.slice();
       }else{
         tabState.order=baseOrder.slice();
       }
+      let blocks;
+      if(dragOrder&&dragOrder.length){
+        const queue=dragOrder.slice();
+        blocks=resolvedOrder.map(id=>{
+          if(id.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)&&queue.length){
+            const nextId=queue.shift();
+            return blockMap.get(nextId)||blockMap.get(id);
+          }
+          return blockMap.get(id);
+        }).filter(Boolean);
+        queue.forEach(id=>{
+          const block=blockMap.get(id);
+          if(block) blocks.push(block);
+        });
+      }else{
+        blocks=resolvedOrder.map(id=>blockMap.get(id)).filter(Boolean);
+        if(!blocks.length){
+          blocks=Array.from(blockMap.values());
+        }
+      }
+      console.log('Rendering blocks in order:',blocks.map(b=>b.id));
+      const finalOrder=blocks.map(block=>block.id);
       if(Array.isArray(tabState.hiddenBaseBlocks)){
-        tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(key=>!order.includes(key));
+        tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(key=>!finalOrder.includes(key));
       }
       this.clearRoutineEditorDropIndicators();
       this.routineEditorBlocks={};
@@ -5074,44 +5087,16 @@
           ?renderRoutineEditorBlock
           :null;
       const container=this.routineEditorList instanceof Element?this.routineEditorList:null;
-      const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
-      const orderedCustomBlocks=(()=>{
-        if(!dragOrder||!dragOrder.length) return customBlocks;
-        const sequence=dragOrder.map(id=>id.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length));
-        const map=new Map(customBlocks.map(entry=>entry&&entry.id?[entry.id,entry]:null).filter(Boolean));
-        const result=[];
-        sequence.forEach(id=>{
-          const block=map.get(id);
-          if(block){
-            result.push(block);
-            map.delete(id);
-          }
-        });
-        map.forEach(block=>{if(block) result.push(block);});
-        return result;
-      })();
-      const customMap=new Map(orderedCustomBlocks.map(entry=>entry&&entry.id?[entry.id,entry]:null).filter(Boolean));
       const orderedBlocks={};
-      order.forEach((blockId,index)=>{
-        if(!container||typeof blockId!=='string') return;
-        const isCustom=blockId.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX);
-        const baseEntry=tabState&&tabState.blocks&&typeof tabState.blocks==='object'
-          ?tabState.blocks[blockId]
-          :null;
-        const blockData=isCustom
-          ?customMap.get(blockId.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length))||null
-          :baseEntry
-            ?{...baseEntry,id:blockId,key:blockId,type:blockId}
-            :{id:blockId,key:blockId,type:blockId};
-        if(blockData){
-          orderedBlocks[blockId]=blockData;
+      blocks.forEach(block=>{
+        if(block&&block.id){
+          orderedBlocks[block.id]=block;
         }
       });
-      order.forEach((blockId,index)=>{
-        const insert=this.createRoutineEditorInsertControl(index,order,tabKeyValue);
+      finalOrder.forEach((blockId,index)=>{
+        const insert=this.createRoutineEditorInsertControl(index,finalOrder,tabKeyValue);
         if(insert) this.routineEditorList.appendChild(insert);
         if(!container||typeof blockId!=='string') return;
-        const isCustom=blockId.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX);
         const blockData=orderedBlocks[blockId]||null;
         if(renderer&&blockData){
           try{
@@ -5122,7 +5107,7 @@
         }else if(!renderer){
           console.warn('NSF: Kein Renderer für renderRoutineEditorBlock verfügbar',blockData);
         }
-        const def=this.getRoutineEditorBlockDefinition(blockId,index,order);
+        const def=this.getRoutineEditorBlockDefinition(blockId,index,finalOrder);
         if(!def){
           console.warn('NSF: Keine Definition für Routine-Editor-Block gefunden',blockId);
           return;
@@ -5134,7 +5119,7 @@
         }
         container.appendChild(blockEl);
       });
-      const finalInsert=this.createRoutineEditorInsertControl(order.length,order,tabKeyValue);
+      const finalInsert=this.createRoutineEditorInsertControl(finalOrder.length,finalOrder,tabKeyValue);
       if(finalInsert) this.routineEditorList.appendChild(finalInsert);
       this.refreshRoutineEditorPreview();
       this.updateRoutineEditorBlockShopAvailability();
@@ -5195,7 +5180,7 @@
             tabState.order=reordered;
           }
         }
-        this.dragShadowOrder=null;
+        this.dragShadowOrder=[];
       }
       storeRoutineEditorState(targetState);
     }
