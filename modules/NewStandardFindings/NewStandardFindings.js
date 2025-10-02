@@ -85,6 +85,16 @@
   ];
 
   const ROUTINE_EDITOR_PREVIEW_TAB_KEYS=OUTPUT_DEFS.filter(def=>def.key!=='parts').map(def=>def.key);
+  const FREITEXT_PLACEHOLDERS=[
+    {key:'findings',label:'{findings}',description:'Ausgewählte Findings'},
+    {key:'nonroutine',label:'{nonroutine}',description:'Ausgewählte Nonroutine-Findings'},
+    {key:'actions',label:'{actions}',description:'Ausgewählte Actions'},
+    {key:'parts',label:'{parts}',description:'Ausgewählte Teilelisten'},
+    {key:'routine',label:'{routine}',description:'Routine-Text'},
+    {key:'times',label:'{times}',description:'Arbeitszeiten'},
+    {key:'mods',label:'{mods}',description:'Modifikationen'},
+    {key:'label',label:'{label}',description:'Aktuelles Profil-Label'}
+  ];
 
   function sanitizeRoutineEditorLabel(value){
     if(typeof value!=='string') return '';
@@ -1247,6 +1257,24 @@
       .nsf-editor-aspen-value{background:rgba(15,23,42,0.35);border-radius:0.75rem;padding:0.6rem 0.75rem;font:inherit;min-height:2.4rem;display:flex;align-items:flex-start;justify-content:flex-start;color:#e2e8f0;white-space:pre-wrap;width:100%;}
       .nsf-editor-aspen-empty{opacity:0.7;font-style:italic;}
       .nsf-editor-actions{display:flex;justify-content:flex-end;gap:0.6rem;margin-top:auto;flex-wrap:wrap;}
+      .nsf-freitext-container{display:flex;flex-direction:column;gap:0.75rem;}
+      .nsf-freitext-editor-wrapper{display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start;}
+      .nsf-freitext-input-column{flex:1 1 320px;display:flex;flex-direction:column;gap:0.6rem;min-width:0;}
+      .nsf-freitext-label{font-weight:600;font-size:0.9rem;opacity:0.85;}
+      #freitext-editor{width:100%;min-height:200px;border-radius:0.75rem;border:1px solid rgba(148,163,184,0.35);padding:0.65rem;font:inherit;line-height:1.45;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);}
+      #freitext-editor:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;border-color:rgba(59,130,246,0.65);}
+      #freitext-preview{min-height:160px;border-radius:0.75rem;padding:0.75rem;background:rgba(15,23,42,0.22);border:1px solid rgba(148,163,184,0.28);white-space:pre-wrap;color:inherit;}
+      #freitext-preview.is-empty{opacity:0.7;font-style:italic;}
+      .nsf-freitext-preview-title{font-weight:600;font-size:0.9rem;opacity:0.85;}
+      .nsf-freitext-keyword-sidebar{flex:0 0 220px;display:flex;flex-direction:column;gap:0.6rem;padding:0.75rem;border-radius:0.75rem;border:1px solid rgba(148,163,184,0.35);background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);box-shadow:0 10px 18px rgba(15,23,42,0.08);}
+      .nsf-freitext-keyword-title{font-weight:600;font-size:0.9rem;opacity:0.85;}
+      .nsf-freitext-keyword-hint{font-size:0.8rem;line-height:1.3;opacity:0.75;}
+      .nsf-freitext-keyword-list{display:flex;flex-direction:column;gap:0.5rem;}
+      .nsf-freitext-keyword-item{display:flex;flex-direction:column;gap:0.25rem;}
+      .nsf-freitext-keyword-button{display:flex;align-items:center;justify-content:center;padding:0.4rem 0.6rem;border-radius:0.65rem;border:1px solid rgba(148,163,184,0.5);background:rgba(241,245,249,0.85);color:inherit;font:inherit;font-size:0.85rem;font-weight:600;cursor:pointer;transition:background 0.2s ease,border-color 0.2s ease,transform 0.15s ease;}
+      .nsf-freitext-keyword-button:hover{background:rgba(226,232,240,0.95);border-color:rgba(148,163,184,0.9);transform:translateY(-1px);}
+      .nsf-freitext-keyword-button:active{transform:translateY(0);}
+      .nsf-freitext-keyword-description{font-size:0.78rem;line-height:1.2;opacity:0.65;}
       .nsf-editor-save{background:linear-gradient(135deg,rgba(59,130,246,0.85),rgba(96,165,250,0.9));color:#fff;border:none;border-radius:0.8rem;padding:0.65rem 1.4rem;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 18px 32px rgba(59,130,246,0.35);transition:transform 0.15s ease,box-shadow 0.15s ease;}
       .nsf-editor-save:hover{transform:translateY(-1px);box-shadow:0 20px 38px rgba(59,130,246,0.45);}
       .nsf-editor-save:active{transform:translateY(0);box-shadow:0 16px 28px rgba(59,130,246,0.4);}
@@ -2587,7 +2615,16 @@
           finding:typeof sel.finding==='string'?sel.finding:'',
           action:typeof sel.action==='string'?sel.action:'',
           label:typeof sel.label==='string'?sel.label:'',
-          part:typeof sel.part==='string'?normalizePart(sel.part):''
+          part:typeof sel.part==='string'?normalizePart(sel.part):'',
+          routine:typeof sel.routine==='string'?sel.routine:'',
+          routineFinding:typeof sel.routineFinding==='string'?sel.routineFinding:'',
+          routineAction:typeof sel.routineAction==='string'?sel.routineAction:'',
+          nonroutine:typeof sel.nonroutine==='string'?sel.nonroutine:'',
+          nonroutineFinding:typeof sel.nonroutineFinding==='string'?sel.nonroutineFinding:'',
+          nonroutineAction:typeof sel.nonroutineAction==='string'?sel.nonroutineAction:'',
+          parts:typeof sel.parts==='string'?sel.parts:'',
+          times:typeof sel.times==='string'?sel.times:'',
+          mods:typeof sel.mods==='string'?sel.mods:''
         }
       ));
   }
@@ -2600,7 +2637,16 @@
             finding:typeof sel.finding==='string'?sel.finding:'',
             action:typeof sel.action==='string'?sel.action:'',
             label:typeof sel.label==='string'?sel.label:'',
-            part:typeof sel.part==='string'?normalizePart(sel.part):''
+            part:typeof sel.part==='string'?normalizePart(sel.part):'',
+            routine:typeof sel.routine==='string'?sel.routine:'',
+            routineFinding:typeof sel.routineFinding==='string'?sel.routineFinding:'',
+            routineAction:typeof sel.routineAction==='string'?sel.routineAction:'',
+            nonroutine:typeof sel.nonroutine==='string'?sel.nonroutine:'',
+            nonroutineFinding:typeof sel.nonroutineFinding==='string'?sel.nonroutineFinding:'',
+            nonroutineAction:typeof sel.nonroutineAction==='string'?sel.nonroutineAction:'',
+            parts:typeof sel.parts==='string'?sel.parts:'',
+            times:typeof sel.times==='string'?sel.times:'',
+            mods:typeof sel.mods==='string'?sel.mods:''
           }
         ))
       :[];
@@ -2877,6 +2923,18 @@
       this.routineEditorMenuTabKey=null;
       this.routineEditorActiveTab=loadRoutineEditorActiveTab();
       this.routineEditorDerivedLines={findings:[],actions:[]};
+      this.rawFindings=[];
+      this.rawActions=[];
+      this.rawRoutine=[];
+      this.rawNonroutineFindings=[];
+      this.rawParts=[];
+      this.rawTimes=[];
+      this.rawMods=[];
+      this.currentLabel='';
+      this.freitextDraft='';
+      this.freitextTextarea=null;
+      this.freitextPreview=null;
+      this.freitextPlaceholderDefinitions=FREITEXT_PLACEHOLDERS;
       this.routineEditorDragState=null;
       this.parameterFavorites=loadRoutineEditorParameterFavorites();
       this.parameterFavoriteSet=new Set(Array.isArray(this.parameterFavorites)?this.parameterFavorites:[]);
@@ -2884,7 +2942,7 @@
       this.routineEditorParameterOptionMap=new Map();
       this.routineEditorParameterFavoritesOnly=false;
       this.routineEditorParameterFilterButton=null;
-      this.routineEditorPreviewTabButtons=new Map();
+      this.routineEditorPreviewTabButtons=null;
       this.routineEditorPreviewTitleElement=null;
       this.routineEditorPreviewTabBar=null;
       this.saveTimer=null;
@@ -3045,14 +3103,35 @@
         if(resolved){
           const storedPart=normalizePart(sel.part);
           const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
-          return {...resolved,part:matchedPart||resolved.part};
+          return {
+            ...resolved,
+            routine:resolved.routine||sel.routine||'',
+            routineFinding:resolved.routineFinding||resolved.routineFindings||sel.routineFinding||'',
+            routineAction:resolved.routineAction||resolved.routineActions||sel.routineAction||'',
+            nonroutine:resolved.nonroutine||sel.nonroutine||'',
+            nonroutineFinding:resolved.nonroutineFinding||resolved.nonroutineFindings||sel.nonroutineFinding||'',
+            nonroutineAction:resolved.nonroutineAction||resolved.nonroutineActions||sel.nonroutineAction||'',
+            parts:resolved.parts||sel.parts||'',
+            times:resolved.times||sel.times||'',
+            mods:resolved.mods||sel.mods||'',
+            part:matchedPart||resolved.part
+          };
         }
         return {
           key:sel.key,
           finding:sel.finding||'',
           action:sel.action||'',
           label:sel.label||'',
-          part:normalizePart(sel.part)||this.currentPart
+          part:normalizePart(sel.part)||this.currentPart,
+          routine:sel.routine||'',
+          routineFinding:sel.routineFinding||'',
+          routineAction:sel.routineAction||'',
+          nonroutine:sel.nonroutine||'',
+          nonroutineFinding:sel.nonroutineFinding||'',
+          nonroutineAction:sel.nonroutineAction||'',
+          parts:sel.parts||'',
+          times:sel.times||'',
+          mods:sel.mods||''
         };
       });
       this.selectionRows=[];
@@ -4071,6 +4150,14 @@
 
     buildOutputsFromSelections(){
       if(!this.meldung||!Array.isArray(this.selectedEntries)||!this.selectedEntries.length){
+        this.rawFindings=[];
+        this.rawActions=[];
+        this.rawRoutine=[];
+        this.rawNonroutineFindings=[];
+        this.rawParts=[];
+        this.rawTimes=[];
+        this.rawMods=[];
+        this.currentLabel='';
         return {findings:'',actions:'',routine:'',nonroutine:'',parts:''};
       }
       const lists={
@@ -4089,6 +4176,11 @@
       const bestellTitleKeys=new Set();
       const partPairKeys=new Set();
       const partGroups=[];
+      const timeEntries=[];
+      const timeKeys=new Set();
+      const modEntries=[];
+      const modKeys=new Set();
+      let primaryLabel='';
       const addBestellTitle=value=>pushUniqueLine(bestellTitles,bestellTitleKeys,value);
       const addPartGroup=group=>{
         if(!group||typeof group!=='object') return;
@@ -4129,12 +4221,54 @@
         seen[field].add(normalized);
         lists[field].push(value.trimEnd());
       };
+      const addTimeEntry=(label,value)=>{
+        const labelText=clean(label);
+        const valueText=clean(value);
+        if(!labelText&&!valueText) return;
+        const key=`${labelText.toLowerCase()}||${valueText.toLowerCase()}`;
+        if(timeKeys.has(key)) return;
+        timeKeys.add(key);
+        timeEntries.push({label:labelText,value:valueText});
+      };
+      const collectTimes=text=>{
+        const raw=clean(text);
+        if(!raw) return;
+        raw.split(/\r?\n/)
+          .map(line=>clean(line))
+          .filter(Boolean)
+          .forEach(line=>{
+            const idx=line.indexOf(':');
+            if(idx> -1){
+              const label=line.slice(0,idx);
+              const value=line.slice(idx+1);
+              addTimeEntry(label,value);
+            }else{
+              addTimeEntry('',line);
+            }
+          });
+      };
+      const collectMods=text=>{
+        const raw=clean(text);
+        if(!raw) return;
+        raw.split(/\r?\n/)
+          .map(line=>clean(line))
+          .filter(Boolean)
+          .forEach(line=>{
+            if(modKeys.has(line)) return;
+            modKeys.add(line);
+            modEntries.push(line);
+          });
+      };
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
         const findingText=resolved.finding||selection.finding||'';
         pushLines('findings',findingText);
         const actionText=resolved.action||selection.action||'';
         pushLines('actions',actionText);
+        if(!primaryLabel){
+          const labelCandidate=clean(resolved.label||selection.label||'');
+          if(labelCandidate) primaryLabel=labelCandidate;
+        }
         const fallbackParts=[];
         const primaryPart=normalizePart(selection.part||resolved.part||'');
         if(primaryPart) fallbackParts.push(primaryPart);
@@ -4160,8 +4294,32 @@
         });
         const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
+        collectTimes(resolved.times||'');
+        collectMods(resolved.mods||'');
       }
       const partsData=buildPartsData(bestellTitles,partGroups);
+      const rawPartsList=[];
+      const rawPartKeys=new Set();
+      partGroups.forEach(group=>{
+        const items=Array.isArray(group&&group.parts)?group.parts:[];
+        items.forEach(pair=>{
+          const name=clean(pair&&pair.part);
+          const qty=clean(pair&&pair.quantity);
+          if(!name&&!qty) return;
+          const key=`${qty.toLowerCase()}||${name.toLowerCase()}`;
+          if(rawPartKeys.has(key)) return;
+          rawPartKeys.add(key);
+          rawPartsList.push({qty,name});
+        });
+      });
+      this.rawFindings=lists.findings.slice();
+      this.rawActions=lists.actions.slice();
+      this.rawRoutine=lists.routine.slice();
+      this.rawNonroutineFindings=lists.nonroutine.slice();
+      this.rawParts=rawPartsList.slice();
+      this.rawTimes=timeEntries.slice();
+      this.rawMods=modEntries.slice();
+      this.currentLabel=primaryLabel;
       return {
         findings:lists.findings.join('\n'),
         actions:lists.actions.join('\n'),
@@ -4382,7 +4540,7 @@
       this.routineEditorBlocks={};
       this.routineEditorDragState=null;
       this.routineEditorParameterFilterButton=null;
-      this.routineEditorPreviewTabButtons=new Map();
+      this.routineEditorPreviewTabButtons=null;
       this.routineEditorPreviewTitleElement=null;
       this.routineEditorPreviewTabBar=null;
     }
@@ -4855,7 +5013,6 @@
       const content=document.createElement('div');
       content.className='nsf-editor-content';
       dialog.appendChild(content);
-
       const main=document.createElement('div');
       main.className='nsf-editor-main';
       content.appendChild(main);
@@ -4886,28 +5043,14 @@
       const workspace=document.createElement('div');
       workspace.className='nsf-editor-workspace';
       main.appendChild(workspace);
+      this.routineEditorPreviewTabBar=null;
+      this.routineEditorPreviewTabButtons=null;
 
       const previewPanel=document.createElement('div');
       previewPanel.className='nsf-editor-preview-panel is-empty';
-      const previewTabs=document.createElement('div');
-      previewTabs.className='nsf-editor-preview-tabs';
-      this.routineEditorPreviewTabBar=previewTabs;
-      this.routineEditorPreviewTabButtons=new Map();
-      OUTPUT_DEFS.forEach(def=>{
-        if(def.key==='parts') return;
-        const tabButton=document.createElement('button');
-        tabButton.type='button';
-        tabButton.className='nsf-editor-preview-tab';
-        tabButton.textContent=def.label;
-        tabButton.dataset.tabKey=def.key;
-        tabButton.addEventListener('click',()=>this.setRoutineEditorActiveTab(def.key));
-        previewTabs.appendChild(tabButton);
-        this.routineEditorPreviewTabButtons.set(def.key,tabButton);
-      });
-      previewPanel.appendChild(previewTabs);
       const previewHeader=document.createElement('div');
       previewHeader.className='nsf-editor-preview-title';
-      previewHeader.textContent='Routine-Vorschau';
+      previewHeader.textContent='Freitext-Vorschau';
       this.routineEditorPreviewTitleElement=previewHeader;
       const previewContent=document.createElement('pre');
       previewContent.className='nsf-editor-preview-content';
@@ -4917,27 +5060,97 @@
       this.routineEditorPreviewPanel=previewPanel;
       this.routineEditorPreviewContent=previewContent;
 
-      const listWrapper=document.createElement('div');
-      listWrapper.className='nsf-editor-structure';
-      workspace.appendChild(listWrapper);
-
-      const list=document.createElement('div');
-      list.className='nsf-editor-list';
-      list.id='nsf-editor-container';
-      listWrapper.appendChild(list);
-      this.routineEditorContainer=list;
-      this.routineEditorList=list;
+      const freitextTab=document.createElement('div');
+      freitextTab.className='nsf-editor-tab is-active';
+      freitextTab.dataset.tabKey='freitext';
+      workspace.appendChild(freitextTab);
+      const container=document.createElement('div');
+      container.className='nsf-freitext-container';
+      freitextTab.appendChild(container);
+      const textareaLabel=document.createElement('label');
+      textareaLabel.className='nsf-freitext-label';
+      textareaLabel.setAttribute('for','freitext-editor');
+      textareaLabel.textContent='Freitext';
+      container.appendChild(textareaLabel);
+      const editorWrapper=document.createElement('div');
+      editorWrapper.className='nsf-freitext-editor-wrapper';
+      container.appendChild(editorWrapper);
+      const inputColumn=document.createElement('div');
+      inputColumn.className='nsf-freitext-input-column';
+      editorWrapper.appendChild(inputColumn);
+      const textarea=document.createElement('textarea');
+      textarea.id='freitext-editor';
+      textarea.placeholder='Freitext eingeben…';
+      textarea.value='';
+      textarea.addEventListener('input',()=>{
+        this.freitextDraft=textarea.value;
+        this.refreshRoutineEditorPreview();
+        if(typeof autoResizeTextarea==='function'){
+          try{autoResizeTextarea(textarea);}catch{}
+        }
+      });
+      inputColumn.appendChild(textarea);
+      this.freitextTextarea=textarea;
+      const inlinePreviewTitle=document.createElement('div');
+      inlinePreviewTitle.className='nsf-freitext-preview-title';
+      inlinePreviewTitle.textContent='Live-Vorschau';
+      inputColumn.appendChild(inlinePreviewTitle);
+      const inlinePreview=document.createElement('div');
+      inlinePreview.id='freitext-preview';
+      inlinePreview.setAttribute('aria-live','polite');
+      inlinePreview.className='nsf-freitext-preview';
+      inlinePreview.textContent='';
+      inlinePreview.classList.add('is-empty');
+      inputColumn.appendChild(inlinePreview);
+      this.freitextPreview=inlinePreview;
+      const keywordSidebar=document.createElement('aside');
+      keywordSidebar.className='nsf-freitext-keyword-sidebar';
+      editorWrapper.appendChild(keywordSidebar);
+      const keywordTitle=document.createElement('div');
+      keywordTitle.className='nsf-freitext-keyword-title';
+      keywordTitle.textContent='Verfügbare Keywords';
+      keywordSidebar.appendChild(keywordTitle);
+      const keywordHint=document.createElement('div');
+      keywordHint.className='nsf-freitext-keyword-hint';
+      keywordHint.textContent='Klick ein Keyword, um es an der aktuellen Cursorposition einzufügen.';
+      keywordSidebar.appendChild(keywordHint);
+      const keywordList=document.createElement('div');
+      keywordList.className='nsf-freitext-keyword-list';
+      keywordSidebar.appendChild(keywordList);
+      (Array.isArray(this.freitextPlaceholderDefinitions)?this.freitextPlaceholderDefinitions:[]).forEach(def=>{
+        if(!def||typeof def!=='object'||!def.key) return;
+        const item=document.createElement('div');
+        item.className='nsf-freitext-keyword-item';
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='nsf-freitext-keyword-button';
+        const token=typeof def.label==='string'&&def.label.trim()?def.label.trim():`{${def.key}}`;
+        button.textContent=token;
+        button.setAttribute('data-placeholder',def.key);
+        button.setAttribute('aria-label',`Keyword ${token} einfügen`);
+        button.addEventListener('click',()=>this.insertFreitextPlaceholder(def.key));
+        item.appendChild(button);
+        if(def.description){
+          const description=document.createElement('div');
+          description.className='nsf-freitext-keyword-description';
+          description.textContent=def.description;
+          item.appendChild(description);
+        }
+        keywordList.appendChild(item);
+      });
+      this.routineEditorContainer=null;
+      this.routineEditorList=null;
       this.routineEditorBlocks={};
       this.routineEditorInsertZones=[];
-
+      this.routineEditorBlockShopItems=null;
       this.renderRoutineEditorOverlayContent();
+
       const actions=document.createElement('div');
       actions.className='nsf-editor-actions';
       const saveButton=document.createElement('button');
       saveButton.type='button';
       saveButton.className='nsf-editor-save';
-      saveButton.textContent='💾 Routine aktualisieren';
-      saveButton.title='Routine-Text aus den Blöcken übernehmen';
+      saveButton.textContent='💾 Freitext speichern';
       saveButton.addEventListener('click',()=>this.handleRoutineEditorSave());
       actions.appendChild(saveButton);
       main.appendChild(actions);
@@ -4980,66 +5193,7 @@
       this.routineEditorPresetSaveButton=presetSaveButton;
       presetSaveButton.disabled=true;
       saveForm.append(nameLabel,nameInput,presetSaveButton);
-
-      const blockShop=document.createElement('div');
-      blockShop.className='nsf-block-shop';
-      const shopTitle=document.createElement('div');
-      shopTitle.className='nsf-block-shop-title';
-      shopTitle.textContent='Bausteine';
-      blockShop.appendChild(shopTitle);
-      const shopList=document.createElement('div');
-      shopList.className='nsf-block-shop-list';
-      blockShop.appendChild(shopList);
-      this.routineEditorBlockShopItems=new Map();
-      const shopItems=[
-        {type:'text',icon:'📝',label:'Textfeld'},
-        {type:'linebreak',icon:'↵',label:'Zeilenumbruch'},
-        {type:'aspenfield',icon:'🧾',label:'Aspen-Feld (manuell)'},
-        {type:'aspen',icon:'📊',label:'Aspen-Feld'}
-      ];
-      shopItems.forEach(itemDef=>{
-        const item=document.createElement('button');
-        item.type='button';
-        item.className='nsf-block-shop-item';
-        item.dataset.type=itemDef.type;
-        item.setAttribute('draggable','true');
-        const icon=document.createElement('span');
-        icon.className='nsf-block-shop-item-icon';
-        icon.textContent=itemDef.icon;
-        const label=document.createElement('span');
-        label.textContent=itemDef.label;
-        item.append(icon,label);
-        item.addEventListener('dragstart',event=>{
-          if(!this.isRoutineEditorShopBlockAllowed(itemDef.type)){
-            currentBlockShopDragType='';
-            if(event&&event.preventDefault) event.preventDefault();
-            return;
-          }
-          currentBlockShopDragType=itemDef.type;
-          if(event&&event.dataTransfer){
-            event.dataTransfer.effectAllowed='copy';
-            try{event.dataTransfer.setData('application/x-nsf-block-type',itemDef.type);}catch{}
-            try{event.dataTransfer.setData('text/plain',itemDef.type);}catch{}
-          }
-        });
-        item.addEventListener('dragend',()=>{
-          currentBlockShopDragType='';
-          clearAllRoutineEditorDropIndicators();
-        });
-        item.addEventListener('click',event=>{
-          event.preventDefault();
-          if(!this.isRoutineEditorShopBlockAllowed(itemDef.type)) return;
-          const result=createCustomBlock(this.getActiveRoutineEditorTab(),itemDef.type);
-          this.focusRoutineEditorCustomBlock(result);
-        });
-        shopList.appendChild(item);
-        this.routineEditorBlockShopItems.set(itemDef.type,{element:item});
-      });
-      this.updateRoutineEditorBlockShopAvailability();
-
-      sidebar.appendChild(blockShop);
       sidebar.appendChild(saveForm);
-
       document.body.appendChild(overlay);
       overlay.addEventListener('keydown',event=>{
         if(event.key==='Escape'){
@@ -5048,8 +5202,14 @@
         }
       });
       this.routineEditorOverlay=overlay;
-      this.updateRoutineEditorPreviewTabs();
       this.refreshRoutineEditorDerivedLines();
+      const initialValue=typeof this.activeState?.routine==='string'?this.activeState.routine:'';
+      this.setFreitextEditorValue(initialValue);
+      if(typeof autoResizeTextarea==='function'&&this.freitextTextarea){
+        try{autoResizeTextarea(this.freitextTextarea);}catch{}
+      }
+      this.updateRoutineEditorPreviewTabs();
+      this.updateRoutineEditorParameterFilterState();
       this.evaluateRoutineEditorPresetMatch();
       return overlay;
     }
@@ -5058,10 +5218,13 @@
       const overlay=this.ensureRoutineEditorOverlay();
       if(!overlay) return;
       this.refreshRoutineEditorDerivedLines();
+      const initialValue=typeof this.activeState?.routine==='string'?this.activeState.routine:'';
+      this.setFreitextEditorValue(initialValue);
       overlay.classList.add('open');
-      const focusTarget=overlay.querySelector('.nsf-editor-block[data-editable="1"] textarea');
+      const focusTarget=this.freitextTextarea;
       if(focusTarget){
         focusTarget.focus();
+        try{focusTarget.setSelectionRange(focusTarget.value.length,focusTarget.value.length);}catch{}
       }else{
         const dialog=this.routineEditorOverlay.querySelector('.nsf-editor-dialog');
         if(dialog) dialog.focus();
@@ -5285,126 +5448,8 @@
       return container;
     }
 
-    renderRoutineEditorOverlayContent(tabKey=this.getActiveRoutineEditorTab()){
-      const normalizedTabKey=getRoutineEditorTabKey?getRoutineEditorTabKey(tabKey):tabKey;
-      const tabKeyValue=typeof normalizedTabKey==='string'&&normalizedTabKey.trim()?normalizedTabKey:this.getActiveRoutineEditorTab();
-      if(!this.routineEditorList) return;
-      this.prepareRoutineEditorParameterOptions();
-      this.updateRoutineEditorParameterFilterState();
-      const tabState=this.ensureRoutineEditorState(tabKeyValue);
-      const baseOrder=this.getRoutineEditorOrder(tabKeyValue);
-      const blockMap=new Map();
-      if(tabState&&tabState.blocks&&typeof tabState.blocks==='object'){
-        Object.entries(tabState.blocks).forEach(([key,value])=>{
-          if(typeof key!=='string') return;
-          const entry=value&&typeof value==='object'?{...value}:{};
-          const blockId=key;
-          const data={...entry,id:blockId,key:blockId,type:entry&&entry.type?entry.type:blockId};
-          blockMap.set(blockId,data);
-        });
-      }
-      const customBlocks=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks.slice():[];
-      customBlocks.forEach(block=>{
-        if(!block||typeof block.id!=='string') return;
-        const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`;
-        const data={...block,id:customKey,key:customKey};
-        if(!data.type) data.type=block.type||'text';
-        blockMap.set(customKey,data);
-      });
-      baseOrder.forEach(key=>{
-        if(blockMap.has(key)) return;
-        if(key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)){
-          const id=key.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length);
-          const fallback=customBlocks.find(block=>block&&block.id===id)||null;
-          if(fallback){
-            const data={...fallback,id:key,key};
-            if(!data.type) data.type=fallback.type||'text';
-            blockMap.set(key,data);
-          }else{
-            blockMap.set(key,{id:key,key,type:'text'});
-          }
-        }else{
-          blockMap.set(key,{id:key,key,type:key});
-        }
-      });
-      const usingGhostOrder=Array.isArray(this.dragShadowOrder)&&this.dragShadowOrder.length>0;
-      let orderToRender;
-      if(usingGhostOrder){
-        orderToRender=this.dragShadowOrder.slice();
-        baseOrder.forEach(key=>{
-          if(!orderToRender.includes(key)) orderToRender.push(key);
-        });
-      }else{
-        orderToRender=baseOrder.slice();
-        if(!orderToRender.length){
-          orderToRender=Array.from(blockMap.keys());
-        }
-      }
-      let blocks=orderToRender.map(id=>blockMap.get(id)).filter(Boolean);
-      if(!blocks.length&&blockMap.size){
-        blocks=Array.from(blockMap.values());
-      }
-      console.log('Rendering blocks in order:',blocks.map(b=>b.id));
-      const finalOrder=blocks.map(block=>block.id);
-      if(Array.isArray(tabState.hiddenBaseBlocks)){
-        tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(key=>!finalOrder.includes(key));
-      }
-      this.clearRoutineEditorDropIndicators();
-      const containerCandidate=this.routineEditorContainer instanceof Element
-        ?this.routineEditorContainer
-        :this.routineEditorList instanceof Element
-          ?this.routineEditorList
-          :document.getElementById('nsf-editor-container');
-      const container=containerCandidate instanceof Element?containerCandidate:null;
-      if(container){
-        container.innerHTML='';
-        this.routineEditorList=container;
-      }else{
-        console.warn('NSF: Routine-Editor-Container nicht gefunden');
-      }
-      this.routineEditorBlocks={};
-      this.routineEditorInsertZones=[];
-      const renderer=typeof this.renderRoutineEditorBlock==='function'
-        ?this.renderRoutineEditorBlock.bind(this)
-        :typeof renderRoutineEditorBlock==='function'
-          ?renderRoutineEditorBlock
-          :null;
-      const listElement=this.routineEditorList instanceof Element?this.routineEditorList:null;
-      if(!listElement){
-        console.warn('NSF: Routine-Editor-Liste fehlt');
-        return;
-      }
-      blocks.forEach((block,index)=>{
-        const insert=this.createRoutineEditorInsertControl(index,finalOrder,tabKeyValue);
-        if(insert) listElement.appendChild(insert);
-        if(!block||typeof block.id!=='string') return;
-        if(renderer){
-          try{
-            debugRenderRoutineEditorBlockCall(renderer,block,tabKeyValue);
-          }catch(err){
-            console.warn('NSF: Fehler beim Rendern über renderRoutineEditorBlock',err,block);
-          }
-        }else if(!renderer){
-          console.warn('NSF: Kein Renderer für renderRoutineEditorBlock verfügbar',block);
-        }
-        const def=this.getRoutineEditorBlockDefinition(block.id,index,finalOrder);
-        if(!def){
-          console.warn('NSF: Keine Definition für Routine-Editor-Block gefunden',block.id);
-          return;
-        }
-        const blockEl=this.createRoutineEditorBlock(def);
-        if(!blockEl){
-          console.warn('NSF: Routine-Editor-Block konnte nicht erstellt werden',block.id);
-          return;
-        }
-        listElement.appendChild(blockEl);
-      });
-      const finalInsert=this.createRoutineEditorInsertControl(finalOrder.length,finalOrder,tabKeyValue);
-      if(finalInsert&&listElement) listElement.appendChild(finalInsert);
-      if(!usingGhostOrder){
-        this.refreshRoutineEditorPreview();
-        this.updateRoutineEditorBlockShopAvailability();
-      }
+    renderRoutineEditorOverlayContent(){
+      this.refreshRoutineEditorPreview();
     }
 
     saveRoutineEditorState(state=this.routineEditorState){
@@ -6760,38 +6805,127 @@
         findings:splitLines(findingsText),
         actions:splitLines(actionsText)
       };
-      ['findings','actions'].forEach(key=>this.replaceRoutineEditorBlockLines(key,this.routineEditorDerivedLines[key]));
+      this.rawFindings=this.routineEditorDerivedLines.findings.slice();
       this.refreshRoutineEditorPreview();
     }
 
     refreshRoutineEditorPreview(){
-      if(!this.routineEditorPreviewContent) return;
       this.updateRoutineEditorPreviewTabs();
-      const activeTab=this.routineEditorActiveTab&&ROUTINE_EDITOR_PREVIEW_TAB_KEYS.includes(this.routineEditorActiveTab)
-        ?this.routineEditorActiveTab
-        :'routine';
-      const config=this.getRoutineEditorTabConfig(activeTab);
-      const emptyMessage=config&&config.previewEmpty?config.previewEmpty:'Keine Daten vorhanden.';
-      const order=this.getRoutineEditorOrder();
-      const combined=[];
-      order.forEach(key=>{
-        const lines=this.collectRoutineEditorBlockLines(key);
-        lines.forEach(line=>{
-          if(line===ROUTINE_EDITOR_LINE_BREAK_TOKEN){
-            combined.push('');
-            return;
-          }
-          const trimmed=clean(line);
-          if(trimmed) combined.push(trimmed);
-        });
+      this.updateFreitextPreview();
+    }
+
+    expandPlaceholders(text){
+      const raw=typeof text==='string'?text:'';
+      console.log('Raw freitext:', raw);
+      const toLineString=array=>Array.isArray(array)
+        ? array
+            .map(item=>typeof item==='string'?item:(item==null?'':String(item)))
+            .map(value=>clean(value))
+            .filter(Boolean)
+            .join('\n')
+        :'';
+      const partsText=Array.isArray(this.rawParts)
+        ? this.rawParts
+            .map(entry=>{
+              if(!entry||typeof entry!=='object') return '';
+              const qty=clean(entry.qty);
+              const name=clean(entry.name);
+              if(qty&&name) return `${qty}x ${name}`;
+              if(qty) return `${qty}x`;
+              return name;
+            })
+            .filter(Boolean)
+            .join('\n')
+        :'';
+      const timesText=Array.isArray(this.rawTimes)
+        ? this.rawTimes
+            .map(entry=>{
+              if(!entry||typeof entry!=='object') return '';
+              const label=clean(entry.label);
+              const value=clean(entry.value);
+              if(label&&value) return `${label}: ${value}`;
+              if(label) return `${label}:`;
+              return value;
+            })
+            .filter(Boolean)
+            .join('\n')
+        :'';
+      const modsText=toLineString(this.rawMods);
+      const replacements={
+        findings:toLineString(this.rawFindings),
+        nonroutine:toLineString(this.rawNonroutineFindings),
+        actions:toLineString(this.rawActions),
+        routine:toLineString(this.rawRoutine),
+        mods:modsText,
+        parts:partsText,
+        times:timesText,
+        label:typeof this.currentLabel==='string'?this.currentLabel:''
+      };
+      const expanded=raw.replace(/\{([a-z]+)\}/gi,(match,key)=>{
+        const normalized=key.toLowerCase();
+        if(Object.prototype.hasOwnProperty.call(replacements,normalized)){
+          return replacements[normalized];
+        }
+        return match;
       });
-      const hasLineBreak=combined.some(line=>line==='');
-      const previewText=combined.join('\n');
-      const displayText=previewText||(hasLineBreak?'\n':'');
-      this.routineEditorPreviewContent.textContent=displayText||emptyMessage;
-      if(this.routineEditorPreviewPanel){
-        this.routineEditorPreviewPanel.classList.toggle('is-empty',!previewText&&!hasLineBreak);
+      console.log('Expanded preview:', expanded);
+      return expanded;
+    }
+
+    updateFreitextPreview(){
+      const rawText=typeof this.freitextDraft==='string'?this.freitextDraft:'';
+      const expanded=this.expandPlaceholders(rawText);
+      const hasContent=expanded.trim().length>0;
+      if(this.freitextPreview){
+        this.freitextPreview.textContent=hasContent?expanded:'Keine Routine-Daten vorhanden.';
+        this.freitextPreview.classList.toggle('is-empty',!hasContent);
       }
+      if(this.routineEditorPreviewContent){
+        this.routineEditorPreviewContent.textContent=hasContent?expanded:'Keine Routine-Daten vorhanden.';
+      }
+      if(this.routineEditorPreviewPanel){
+        this.routineEditorPreviewPanel.classList.toggle('is-empty',!hasContent);
+      }
+    }
+
+    insertFreitextPlaceholder(key){
+      if(typeof key!=='string'||!key) return;
+      const textarea=this.freitextTextarea;
+      if(!textarea) return;
+      const token=`{${key}}`;
+      try{textarea.focus({preventScroll:true});}catch{textarea.focus();}
+      const value=typeof textarea.value==='string'?textarea.value:'';
+      let startPos;
+      let endPos;
+      try{
+        startPos=typeof textarea.selectionStart==='number'?textarea.selectionStart:value.length;
+        endPos=typeof textarea.selectionEnd==='number'?textarea.selectionEnd:value.length;
+      }catch{
+        startPos=value.length;
+        endPos=value.length;
+      }
+      const prefix=value.slice(0,startPos);
+      const suffix=value.slice(endPos);
+      const nextValue=`${prefix}${token}${suffix}`;
+      if(textarea.value!==nextValue){
+        textarea.value=nextValue;
+      }
+      const cursorPosition=prefix.length+token.length;
+      try{textarea.setSelectionRange(cursorPosition,cursorPosition);}catch{}
+      this.freitextDraft=nextValue;
+      this.refreshRoutineEditorPreview();
+      if(typeof autoResizeTextarea==='function'){
+        try{autoResizeTextarea(textarea);}catch{}
+      }
+    }
+
+    setFreitextEditorValue(value){
+      const text=typeof value==='string'?value:'';
+      this.freitextDraft=text;
+      if(this.freitextTextarea&&this.freitextTextarea.value!==text){
+        this.freitextTextarea.value=text;
+      }
+      this.updateFreitextPreview();
     }
 
     setRoutineEditorActiveTab(tabKey){
@@ -6818,9 +6952,13 @@
         });
       }
       if(this.routineEditorPreviewTitleElement){
-        const def=OUTPUT_DEFS.find(item=>item.key===this.routineEditorActiveTab)||OUTPUT_DEFS.find(item=>item.key==='routine');
-        const label=def?def.label:'Routine';
-        this.routineEditorPreviewTitleElement.textContent=`${label}-Vorschau`;
+        if(this.routineEditorPreviewTabButtons instanceof Map&&this.routineEditorPreviewTabButtons.size){
+          const def=OUTPUT_DEFS.find(item=>item.key===this.routineEditorActiveTab)||OUTPUT_DEFS.find(item=>item.key==='routine');
+          const label=def?def.label:'Routine';
+          this.routineEditorPreviewTitleElement.textContent=`${label}-Vorschau`;
+        }else{
+          this.routineEditorPreviewTitleElement.textContent='Freitext-Vorschau';
+        }
       }
     }
 
@@ -6924,30 +7062,20 @@
     }
 
     handleRoutineEditorSave(){
-      this.syncRoutineEditorStateFromDom();
-      const activeTab=this.getActiveRoutineEditorTab();
-      const order=this.getRoutineEditorOrder();
-      const combined=[];
-      order.forEach(key=>{
-        const lines=this.collectRoutineEditorBlockLines(key);
-        lines.forEach(line=>{
-          if(line===ROUTINE_EDITOR_LINE_BREAK_TOKEN){
-            combined.push('');
-          }else if(typeof line==='string'&&line){
-            combined.push(clean(line));
-          }
-        });
-      });
-      const finalText=combined.join('\n');
-      const textarea=this.textareas&&this.textareas[activeTab];
+      const rawText=typeof this.freitextDraft==='string'?this.freitextDraft:'';
+      const expanded=this.expandPlaceholders(rawText);
+      const textarea=this.textareas&&this.textareas.routine;
       if(textarea){
-        textarea.value=finalText;
+        textarea.value=rawText;
         autoResizeTextarea(textarea);
       }
       if(this.activeState&&typeof this.activeState==='object'){
-        this.activeState[activeTab]=finalText;
+        this.activeState.routine=rawText;
       }
+      console.log('Raw freitext:', rawText);
+      console.log('Expanded preview:', expanded);
       this.queueStateSave();
+      this.refreshRoutineEditorPreview();
       this.closeRoutineEditorOverlay();
     }
 
@@ -7310,14 +7438,30 @@
     }
 
     addSelection(entry){
-      if(!entry||!entry.key) return;
-      if(!this.selectedEntries.some(sel=>sel.key===entry.key)){
+      if(!entry) return;
+      const resolved=this.resolveEntry(entry)||entry;
+      const key=resolved&&resolved.key?resolved.key:entry.key;
+      if(!key) return;
+      if(!this.selectedEntries.some(sel=>sel.key===key)){
+        const routineFinding=resolved.routineFinding||resolved.routineFindings||'';
+        const routineAction=resolved.routineAction||resolved.routineActions||'';
+        const nonroutineFinding=resolved.nonroutineFinding||resolved.nonroutineFindings||'';
+        const nonroutineAction=resolved.nonroutineAction||resolved.nonroutineActions||'';
         this.selectedEntries.push({
-          key:entry.key,
-          finding:entry.finding||'',
-          action:entry.action||'',
-          label:entry.label||'',
-          part:resolveMatchedPart(entry,this.currentPart)
+          key,
+          finding:resolved.finding||entry.finding||'',
+          action:resolved.action||entry.action||'',
+          label:resolved.label||entry.label||'',
+          part:resolveMatchedPart(resolved,this.currentPart),
+          routine:resolved.routine||'',
+          routineFinding:routineFinding||'',
+          routineAction:routineAction||'',
+          nonroutine:resolved.nonroutine||'',
+          nonroutineFinding:nonroutineFinding||'',
+          nonroutineAction:nonroutineAction||'',
+          parts:resolved.parts||'',
+          times:resolved.times||'',
+          mods:resolved.mods||''
         });
       }
     }
