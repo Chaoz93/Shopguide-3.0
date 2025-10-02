@@ -2741,6 +2741,7 @@
       this.routineEditorBlocks={};
       this.routineEditorOverlay=null;
       this.routineEditorList=null;
+      this.routineEditorContainer=null;
       this.routineEditorPresetList=null;
       this.routineEditorPresetNameInput=null;
       this.routineEditorPresetSaveButton=null;
@@ -4628,7 +4629,9 @@
 
       const list=document.createElement('div');
       list.className='nsf-editor-list';
+      list.id='nsf-editor-container';
       listWrapper.appendChild(list);
+      this.routineEditorContainer=list;
       this.routineEditorList=list;
       this.routineEditorBlocks={};
       this.routineEditorInsertZones=[];
@@ -5053,19 +5056,34 @@
         tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(key=>!finalOrder.includes(key));
       }
       this.clearRoutineEditorDropIndicators();
+      const containerCandidate=this.routineEditorContainer instanceof Element
+        ?this.routineEditorContainer
+        :this.routineEditorList instanceof Element
+          ?this.routineEditorList
+          :document.getElementById('nsf-editor-container');
+      const container=containerCandidate instanceof Element?containerCandidate:null;
+      if(container){
+        container.innerHTML='';
+        this.routineEditorList=container;
+      }else{
+        console.warn('NSF: Routine-Editor-Container nicht gefunden');
+      }
       this.routineEditorBlocks={};
-      this.routineEditorList.innerHTML='';
       this.routineEditorInsertZones=[];
       const renderer=typeof this.renderRoutineEditorBlock==='function'
         ?this.renderRoutineEditorBlock.bind(this)
         :typeof renderRoutineEditorBlock==='function'
           ?renderRoutineEditorBlock
           :null;
-      const container=this.routineEditorList instanceof Element?this.routineEditorList:null;
+      const listElement=this.routineEditorList instanceof Element?this.routineEditorList:null;
+      if(!listElement){
+        console.warn('NSF: Routine-Editor-Liste fehlt');
+        return;
+      }
       blocks.forEach((block,index)=>{
         const insert=this.createRoutineEditorInsertControl(index,finalOrder,tabKeyValue);
-        if(insert) this.routineEditorList.appendChild(insert);
-        if(!container||!block||typeof block.id!=='string') return;
+        if(insert) listElement.appendChild(insert);
+        if(!block||typeof block.id!=='string') return;
         if(renderer){
           try{
             debugRenderRoutineEditorBlockCall(renderer,block,tabKeyValue);
@@ -5085,10 +5103,10 @@
           console.warn('NSF: Routine-Editor-Block konnte nicht erstellt werden',block.id);
           return;
         }
-        container.appendChild(blockEl);
+        listElement.appendChild(blockEl);
       });
       const finalInsert=this.createRoutineEditorInsertControl(finalOrder.length,finalOrder,tabKeyValue);
-      if(finalInsert) this.routineEditorList.appendChild(finalInsert);
+      if(finalInsert&&listElement) listElement.appendChild(finalInsert);
       if(!usingGhostOrder){
         this.refreshRoutineEditorPreview();
         this.updateRoutineEditorBlockShopAvailability();
@@ -5114,6 +5132,7 @@
               if(!mergedOrder.includes(key)) mergedOrder.push(key);
             });
             tabState.order=mergedOrder;
+            console.log('Speichere Routine-Editor-Reihenfolge:',mergedOrder);
           }
         }
         this.dragShadowOrder=[];
