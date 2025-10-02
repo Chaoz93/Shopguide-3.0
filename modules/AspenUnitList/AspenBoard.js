@@ -2581,6 +2581,19 @@
     function renderSearchFilterControls(){
       if(!elements.filterList) return;
       if(!Array.isArray(tempSearchFilters)) tempSearchFilters=[];
+      const active=document.activeElement;
+      let restoreFocus=null;
+      if(active && elements.filterList.contains(active)){
+        const filterId=active.dataset?.filterId||'';
+        if(filterId){
+          restoreFocus={
+            id:filterId,
+            field:active.dataset?.field||'',
+            selectionStart:typeof active.selectionStart==='number'?active.selectionStart:null,
+            selectionEnd:typeof active.selectionEnd==='number'?active.selectionEnd:null
+          };
+        }
+      }
       elements.filterList.innerHTML='';
       if(!tempSearchFilters.length){
         const empty=document.createElement('div');
@@ -2606,6 +2619,8 @@
         nameInput.type='text';
         nameInput.placeholder='Anzeige-Name';
         nameInput.value=current.label||'';
+        nameInput.dataset.filterId=current.id;
+        nameInput.dataset.field='label';
         nameInput.addEventListener('input',()=>{
           tempSearchFilters[index]={...tempSearchFilters[index],label:nameInput.value};
           scheduleOptionPersist();
@@ -2622,6 +2637,8 @@
         queryInput.type='text';
         queryInput.placeholder='Suchbegriff(e)';
         queryInput.value=current.query||'';
+        queryInput.dataset.filterId=current.id;
+        queryInput.dataset.field='query';
         queryInput.addEventListener('input',()=>{
           tempSearchFilters[index]={...tempSearchFilters[index],query:queryInput.value};
           scheduleOptionPersist();
@@ -2657,6 +2674,21 @@
 
         elements.filterList.appendChild(row);
       });
+      if(restoreFocus && restoreFocus.id){
+        const target=Array.from(elements.filterList.querySelectorAll('input')).find(input=>{
+          return input.dataset?.filterId===restoreFocus.id && (input.dataset?.field||'')===restoreFocus.field;
+        });
+        if(target){
+          target.focus();
+          if(typeof restoreFocus.selectionStart==='number' && typeof restoreFocus.selectionEnd==='number' && typeof target.setSelectionRange==='function'){
+            try{
+              target.setSelectionRange(restoreFocus.selectionStart,restoreFocus.selectionEnd);
+            }catch{
+              /* ignore selection errors */
+            }
+          }
+        }
+      }
     }
 
     function updateTempColumnLabel(columnId,value){
