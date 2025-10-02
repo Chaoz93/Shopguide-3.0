@@ -2885,6 +2885,13 @@
       this.routineEditorActiveTab=loadRoutineEditorActiveTab();
       this.routineEditorDerivedLines={findings:[],actions:[]};
       this.rawFindings=[];
+      this.rawActions=[];
+      this.rawRoutine=[];
+      this.rawNonroutineFindings=[];
+      this.rawParts=[];
+      this.rawTimes=[];
+      this.rawMods=[];
+      this.currentLabel='';
       this.freitextDraft='';
       this.freitextTextarea=null;
       this.freitextPreview=null;
@@ -4083,6 +4090,13 @@
     buildOutputsFromSelections(){
       if(!this.meldung||!Array.isArray(this.selectedEntries)||!this.selectedEntries.length){
         this.rawFindings=[];
+        this.rawActions=[];
+        this.rawRoutine=[];
+        this.rawNonroutineFindings=[];
+        this.rawParts=[];
+        this.rawTimes=[];
+        this.rawMods=[];
+        this.currentLabel='';
         return {findings:'',actions:'',routine:'',nonroutine:'',parts:''};
       }
       const lists={
@@ -4101,6 +4115,11 @@
       const bestellTitleKeys=new Set();
       const partPairKeys=new Set();
       const partGroups=[];
+      const timeEntries=[];
+      const timeKeys=new Set();
+      const modEntries=[];
+      const modKeys=new Set();
+      let primaryLabel='';
       const addBestellTitle=value=>pushUniqueLine(bestellTitles,bestellTitleKeys,value);
       const addPartGroup=group=>{
         if(!group||typeof group!=='object') return;
@@ -4141,12 +4160,54 @@
         seen[field].add(normalized);
         lists[field].push(value.trimEnd());
       };
+      const addTimeEntry=(label,value)=>{
+        const labelText=clean(label);
+        const valueText=clean(value);
+        if(!labelText&&!valueText) return;
+        const key=`${labelText.toLowerCase()}||${valueText.toLowerCase()}`;
+        if(timeKeys.has(key)) return;
+        timeKeys.add(key);
+        timeEntries.push({label:labelText,value:valueText});
+      };
+      const collectTimes=text=>{
+        const raw=clean(text);
+        if(!raw) return;
+        raw.split(/\r?\n/)
+          .map(line=>clean(line))
+          .filter(Boolean)
+          .forEach(line=>{
+            const idx=line.indexOf(':');
+            if(idx> -1){
+              const label=line.slice(0,idx);
+              const value=line.slice(idx+1);
+              addTimeEntry(label,value);
+            }else{
+              addTimeEntry('',line);
+            }
+          });
+      };
+      const collectMods=text=>{
+        const raw=clean(text);
+        if(!raw) return;
+        raw.split(/\r?\n/)
+          .map(line=>clean(line))
+          .filter(Boolean)
+          .forEach(line=>{
+            if(modKeys.has(line)) return;
+            modKeys.add(line);
+            modEntries.push(line);
+          });
+      };
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
         const findingText=resolved.finding||selection.finding||'';
         pushLines('findings',findingText);
         const actionText=resolved.action||selection.action||'';
         pushLines('actions',actionText);
+        if(!primaryLabel){
+          const labelCandidate=clean(resolved.label||selection.label||'');
+          if(labelCandidate) primaryLabel=labelCandidate;
+        }
         const fallbackParts=[];
         const primaryPart=normalizePart(selection.part||resolved.part||'');
         if(primaryPart) fallbackParts.push(primaryPart);
@@ -4172,9 +4233,32 @@
         });
         const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
+        collectTimes(resolved.times||'');
+        collectMods(resolved.mods||'');
       }
       const partsData=buildPartsData(bestellTitles,partGroups);
+      const rawPartsList=[];
+      const rawPartKeys=new Set();
+      partGroups.forEach(group=>{
+        const items=Array.isArray(group&&group.parts)?group.parts:[];
+        items.forEach(pair=>{
+          const name=clean(pair&&pair.part);
+          const qty=clean(pair&&pair.quantity);
+          if(!name&&!qty) return;
+          const key=`${qty.toLowerCase()}||${name.toLowerCase()}`;
+          if(rawPartKeys.has(key)) return;
+          rawPartKeys.add(key);
+          rawPartsList.push({qty,name});
+        });
+      });
       this.rawFindings=lists.findings.slice();
+      this.rawActions=lists.actions.slice();
+      this.rawRoutine=lists.routine.slice();
+      this.rawNonroutineFindings=lists.nonroutine.slice();
+      this.rawParts=rawPartsList.slice();
+      this.rawTimes=timeEntries.slice();
+      this.rawMods=modEntries.slice();
+      this.currentLabel=primaryLabel;
       return {
         findings:lists.findings.join('\n'),
         actions:lists.actions.join('\n'),
@@ -6627,21 +6711,60 @@
 
     expandPlaceholders(text){
       const raw=typeof text==='string'?text:'';
-      const findingsArray=Array.isArray(this.rawFindings)?this.rawFindings:[];
-      const actionsArray=Array.isArray(this.routineEditorDerivedLines?.actions)
-        ?this.routineEditorDerivedLines.actions
-        :[];
+      console.log('Raw freitext:', raw);
+      const toLineString=array=>Array.isArray(array)
+        ? array
+            .map(item=>typeof item==='string'?item:(item==null?'':String(item)))
+            .map(value=>clean(value))
+            .filter(Boolean)
+            .join('\n')
+        :'';
+      const partsText=Array.isArray(this.rawParts)
+        ? this.rawParts
+            .map(entry=>{
+              if(!entry||typeof entry!=='object') return '';
+              const qty=clean(entry.qty);
+              const name=clean(entry.name);
+              if(qty&&name) return `${qty}x ${name}`;
+              if(qty) return `${qty}x`;
+              return name;
+            })
+            .filter(Boolean)
+            .join('\n')
+        :'';
+      const timesText=Array.isArray(this.rawTimes)
+        ? this.rawTimes
+            .map(entry=>{
+              if(!entry||typeof entry!=='object') return '';
+              const label=clean(entry.label);
+              const value=clean(entry.value);
+              if(label&&value) return `${label}: ${value}`;
+              if(label) return `${label}:`;
+              return value;
+            })
+            .filter(Boolean)
+            .join('\n')
+        :'';
+      const modsText=toLineString(this.rawMods);
       const replacements={
-        findings:findingsArray.join('\n'),
-        actions:actionsArray.join('\n')
+        findings:toLineString(this.rawFindings),
+        nonroutine:toLineString(this.rawNonroutineFindings),
+        actions:toLineString(this.rawActions),
+        routine:toLineString(this.rawRoutine),
+        mods:modsText,
+        parts:partsText,
+        times:timesText,
+        label:typeof this.currentLabel==='string'?this.currentLabel:''
       };
-      return raw.replace(/\{([a-z]+)\}/gi,(match,key)=>{
+      const expanded=raw.replace(/\{([a-z]+)\}/gi,(match,key)=>{
         const normalized=key.toLowerCase();
         if(Object.prototype.hasOwnProperty.call(replacements,normalized)){
           return replacements[normalized];
         }
         return match;
       });
+      console.log('Expanded preview:', expanded);
+      return expanded;
     }
 
     updateFreitextPreview(){
