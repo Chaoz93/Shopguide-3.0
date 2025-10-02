@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.9] – 2025-10-03
+### Added
+- New Standard Findings auf Version 1.3.2 aktualisiert; geöffnete Findings-Dateien werden nun alle fünf Sekunden auf Änderungen geprüft und automatisch neu geladen.
+
 ## [3.6.8] – 2025-10-02
 ### Fixed
 - Reihenfolge der Aspen-Geräte bleibt nach Neuladen des Boards sowie nach dem erneuten Einlesen der Excel-Datei erhalten.
