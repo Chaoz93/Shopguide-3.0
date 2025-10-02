@@ -85,6 +85,16 @@
   ];
 
   const ROUTINE_EDITOR_PREVIEW_TAB_KEYS=OUTPUT_DEFS.filter(def=>def.key!=='parts').map(def=>def.key);
+  const FREITEXT_PLACEHOLDERS=[
+    {key:'findings',label:'{findings}',description:'Ausgewählte Findings'},
+    {key:'nonroutine',label:'{nonroutine}',description:'Ausgewählte Nonroutine-Findings'},
+    {key:'actions',label:'{actions}',description:'Ausgewählte Actions'},
+    {key:'parts',label:'{parts}',description:'Ausgewählte Teilelisten'},
+    {key:'routine',label:'{routine}',description:'Routine-Text'},
+    {key:'times',label:'{times}',description:'Arbeitszeiten'},
+    {key:'mods',label:'{mods}',description:'Modifikationen'},
+    {key:'label',label:'{label}',description:'Aktuelles Profil-Label'}
+  ];
 
   function sanitizeRoutineEditorLabel(value){
     if(typeof value!=='string') return '';
@@ -1247,13 +1257,24 @@
       .nsf-editor-aspen-value{background:rgba(15,23,42,0.35);border-radius:0.75rem;padding:0.6rem 0.75rem;font:inherit;min-height:2.4rem;display:flex;align-items:flex-start;justify-content:flex-start;color:#e2e8f0;white-space:pre-wrap;width:100%;}
       .nsf-editor-aspen-empty{opacity:0.7;font-style:italic;}
       .nsf-editor-actions{display:flex;justify-content:flex-end;gap:0.6rem;margin-top:auto;flex-wrap:wrap;}
-      .nsf-freitext-container{display:flex;flex-direction:column;gap:0.6rem;}
+      .nsf-freitext-container{display:flex;flex-direction:column;gap:0.75rem;}
+      .nsf-freitext-editor-wrapper{display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start;}
+      .nsf-freitext-input-column{flex:1 1 320px;display:flex;flex-direction:column;gap:0.6rem;min-width:0;}
       .nsf-freitext-label{font-weight:600;font-size:0.9rem;opacity:0.85;}
       #freitext-editor{width:100%;min-height:200px;border-radius:0.75rem;border:1px solid rgba(148,163,184,0.35);padding:0.65rem;font:inherit;line-height:1.45;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);}
       #freitext-editor:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;border-color:rgba(59,130,246,0.65);}
       #freitext-preview{min-height:160px;border-radius:0.75rem;padding:0.75rem;background:rgba(15,23,42,0.22);border:1px solid rgba(148,163,184,0.28);white-space:pre-wrap;color:inherit;}
       #freitext-preview.is-empty{opacity:0.7;font-style:italic;}
       .nsf-freitext-preview-title{font-weight:600;font-size:0.9rem;opacity:0.85;}
+      .nsf-freitext-keyword-sidebar{flex:0 0 220px;display:flex;flex-direction:column;gap:0.6rem;padding:0.75rem;border-radius:0.75rem;border:1px solid rgba(148,163,184,0.35);background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);box-shadow:0 10px 18px rgba(15,23,42,0.08);}
+      .nsf-freitext-keyword-title{font-weight:600;font-size:0.9rem;opacity:0.85;}
+      .nsf-freitext-keyword-hint{font-size:0.8rem;line-height:1.3;opacity:0.75;}
+      .nsf-freitext-keyword-list{display:flex;flex-direction:column;gap:0.5rem;}
+      .nsf-freitext-keyword-item{display:flex;flex-direction:column;gap:0.25rem;}
+      .nsf-freitext-keyword-button{display:flex;align-items:center;justify-content:center;padding:0.4rem 0.6rem;border-radius:0.65rem;border:1px solid rgba(148,163,184,0.5);background:rgba(241,245,249,0.85);color:inherit;font:inherit;font-size:0.85rem;font-weight:600;cursor:pointer;transition:background 0.2s ease,border-color 0.2s ease,transform 0.15s ease;}
+      .nsf-freitext-keyword-button:hover{background:rgba(226,232,240,0.95);border-color:rgba(148,163,184,0.9);transform:translateY(-1px);}
+      .nsf-freitext-keyword-button:active{transform:translateY(0);}
+      .nsf-freitext-keyword-description{font-size:0.78rem;line-height:1.2;opacity:0.65;}
       .nsf-editor-save{background:linear-gradient(135deg,rgba(59,130,246,0.85),rgba(96,165,250,0.9));color:#fff;border:none;border-radius:0.8rem;padding:0.65rem 1.4rem;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 18px 32px rgba(59,130,246,0.35);transition:transform 0.15s ease,box-shadow 0.15s ease;}
       .nsf-editor-save:hover{transform:translateY(-1px);box-shadow:0 20px 38px rgba(59,130,246,0.45);}
       .nsf-editor-save:active{transform:translateY(0);box-shadow:0 16px 28px rgba(59,130,246,0.4);}
@@ -2913,6 +2934,7 @@
       this.freitextDraft='';
       this.freitextTextarea=null;
       this.freitextPreview=null;
+      this.freitextPlaceholderDefinitions=FREITEXT_PLACEHOLDERS;
       this.routineEditorDragState=null;
       this.parameterFavorites=loadRoutineEditorParameterFavorites();
       this.parameterFavoriteSet=new Set(Array.isArray(this.parameterFavorites)?this.parameterFavorites:[]);
@@ -5050,6 +5072,12 @@
       textareaLabel.setAttribute('for','freitext-editor');
       textareaLabel.textContent='Freitext';
       container.appendChild(textareaLabel);
+      const editorWrapper=document.createElement('div');
+      editorWrapper.className='nsf-freitext-editor-wrapper';
+      container.appendChild(editorWrapper);
+      const inputColumn=document.createElement('div');
+      inputColumn.className='nsf-freitext-input-column';
+      editorWrapper.appendChild(inputColumn);
       const textarea=document.createElement('textarea');
       textarea.id='freitext-editor';
       textarea.placeholder='Freitext eingeben…';
@@ -5057,21 +5085,59 @@
       textarea.addEventListener('input',()=>{
         this.freitextDraft=textarea.value;
         this.refreshRoutineEditorPreview();
+        if(typeof autoResizeTextarea==='function'){
+          try{autoResizeTextarea(textarea);}catch{}
+        }
       });
-      container.appendChild(textarea);
+      inputColumn.appendChild(textarea);
       this.freitextTextarea=textarea;
       const inlinePreviewTitle=document.createElement('div');
       inlinePreviewTitle.className='nsf-freitext-preview-title';
       inlinePreviewTitle.textContent='Live-Vorschau';
-      container.appendChild(inlinePreviewTitle);
+      inputColumn.appendChild(inlinePreviewTitle);
       const inlinePreview=document.createElement('div');
       inlinePreview.id='freitext-preview';
       inlinePreview.setAttribute('aria-live','polite');
       inlinePreview.className='nsf-freitext-preview';
       inlinePreview.textContent='';
       inlinePreview.classList.add('is-empty');
-      container.appendChild(inlinePreview);
+      inputColumn.appendChild(inlinePreview);
       this.freitextPreview=inlinePreview;
+      const keywordSidebar=document.createElement('aside');
+      keywordSidebar.className='nsf-freitext-keyword-sidebar';
+      editorWrapper.appendChild(keywordSidebar);
+      const keywordTitle=document.createElement('div');
+      keywordTitle.className='nsf-freitext-keyword-title';
+      keywordTitle.textContent='Verfügbare Keywords';
+      keywordSidebar.appendChild(keywordTitle);
+      const keywordHint=document.createElement('div');
+      keywordHint.className='nsf-freitext-keyword-hint';
+      keywordHint.textContent='Klick ein Keyword, um es an der aktuellen Cursorposition einzufügen.';
+      keywordSidebar.appendChild(keywordHint);
+      const keywordList=document.createElement('div');
+      keywordList.className='nsf-freitext-keyword-list';
+      keywordSidebar.appendChild(keywordList);
+      (Array.isArray(this.freitextPlaceholderDefinitions)?this.freitextPlaceholderDefinitions:[]).forEach(def=>{
+        if(!def||typeof def!=='object'||!def.key) return;
+        const item=document.createElement('div');
+        item.className='nsf-freitext-keyword-item';
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='nsf-freitext-keyword-button';
+        const token=typeof def.label==='string'&&def.label.trim()?def.label.trim():`{${def.key}}`;
+        button.textContent=token;
+        button.setAttribute('data-placeholder',def.key);
+        button.setAttribute('aria-label',`Keyword ${token} einfügen`);
+        button.addEventListener('click',()=>this.insertFreitextPlaceholder(def.key));
+        item.appendChild(button);
+        if(def.description){
+          const description=document.createElement('div');
+          description.className='nsf-freitext-keyword-description';
+          description.textContent=def.description;
+          item.appendChild(description);
+        }
+        keywordList.appendChild(item);
+      });
       this.routineEditorContainer=null;
       this.routineEditorList=null;
       this.routineEditorBlocks={};
@@ -6819,6 +6885,37 @@
       }
       if(this.routineEditorPreviewPanel){
         this.routineEditorPreviewPanel.classList.toggle('is-empty',!hasContent);
+      }
+    }
+
+    insertFreitextPlaceholder(key){
+      if(typeof key!=='string'||!key) return;
+      const textarea=this.freitextTextarea;
+      if(!textarea) return;
+      const token=`{${key}}`;
+      try{textarea.focus({preventScroll:true});}catch{textarea.focus();}
+      const value=typeof textarea.value==='string'?textarea.value:'';
+      let startPos;
+      let endPos;
+      try{
+        startPos=typeof textarea.selectionStart==='number'?textarea.selectionStart:value.length;
+        endPos=typeof textarea.selectionEnd==='number'?textarea.selectionEnd:value.length;
+      }catch{
+        startPos=value.length;
+        endPos=value.length;
+      }
+      const prefix=value.slice(0,startPos);
+      const suffix=value.slice(endPos);
+      const nextValue=`${prefix}${token}${suffix}`;
+      if(textarea.value!==nextValue){
+        textarea.value=nextValue;
+      }
+      const cursorPosition=prefix.length+token.length;
+      try{textarea.setSelectionRange(cursorPosition,cursorPosition);}catch{}
+      this.freitextDraft=nextValue;
+      this.refreshRoutineEditorPreview();
+      if(typeof autoResizeTextarea==='function'){
+        try{autoResizeTextarea(textarea);}catch{}
       }
     }
 
