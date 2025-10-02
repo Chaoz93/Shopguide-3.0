@@ -2725,6 +2725,7 @@
       this.customSlots=[];
       this.customSlotSortables=[];
       this.customSectionMap=new Map();
+      this.dragShadowOrder=null;
       this.aspenDoc=null;
       this.aspenFieldOptions=[];
       this.aspenBoardRecord=null;
@@ -3521,6 +3522,9 @@
       const block=document.createElement('div');
       block.className='nsf-custom-block';
       block.dataset.id=section.id;
+      if(block.dataset){
+        block.dataset.blockId=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${section.id}`;
+      }
       const handle=document.createElement('div');
       handle.className='nsf-custom-handle';
       handle.textContent='⠿';
@@ -3605,6 +3609,24 @@
           animation:150,
           handle:'.nsf-custom-handle',
           draggable:'.nsf-custom-block',
+          onAdd:evt=>{
+            const targetList=evt?.to instanceof HTMLElement?evt.to:null;
+            if(targetList){
+              const ids=Array.from(targetList.querySelectorAll('.nsf-custom-block'))
+                .map(node=>node.dataset&&node.dataset.blockId?node.dataset.blockId:'')
+                .filter(Boolean);
+              this.dragShadowOrder=ids.length?ids:null;
+            }
+          },
+          onRemove:evt=>{
+            const sourceList=evt?.from instanceof HTMLElement?evt.from:null;
+            if(sourceList){
+              const ids=Array.from(sourceList.querySelectorAll('.nsf-custom-block'))
+                .map(node=>node.dataset&&node.dataset.blockId?node.dataset.blockId:'')
+                .filter(Boolean);
+              this.dragShadowOrder=ids.length?ids:null;
+            }
+          },
           onStart:evt=>{
             if(evt?.item) evt.item.classList.add('dragging');
             this.setCustomSlotDragging(true);
@@ -3614,6 +3636,14 @@
             this.setCustomSlotDragging(false);
             const fromList=evt?.from instanceof HTMLElement?evt.from:null;
             const toList=evt?.to instanceof HTMLElement?evt.to:null;
+            if(toList){
+              const ids=Array.from(toList.querySelectorAll('.nsf-custom-block'))
+                .map(node=>node.dataset&&node.dataset.blockId?node.dataset.blockId:'')
+                .filter(Boolean);
+              this.dragShadowOrder=ids.length?ids:null;
+            }else{
+              this.dragShadowOrder=null;
+            }
             const sourceSlot=Array.isArray(this.customSlots)
               ?this.customSlots.find(entry=>entry&&entry.list===fromList)
               :null;
@@ -3632,9 +3662,12 @@
                   if(!(node instanceof HTMLElement)) return;
                   const blockId=node.dataset?node.dataset.blockId||node.dataset.id:'';
                   if(!blockId) return;
-                  const existing=sectionMap.get(blockId);
+                  const normalizedId=blockId.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)
+                    ?blockId.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length)
+                    :blockId;
+                  const existing=sectionMap.get(normalizedId);
                   if(!existing) return;
-                  sectionMap.delete(blockId);
+                  sectionMap.delete(normalizedId);
                   updatedSections.push(Object.assign({},existing,{slot:slotIndex}));
                 });
               };
@@ -4339,7 +4372,7 @@
       if(!preset) return;
       const state=cloneRoutineEditorState(preset.state);
       this.routineEditorState=state;
-      storeRoutineEditorState(state);
+      this.saveRoutineEditorState(state);
       this.updateAspenBlocksFromDoc();
       if(this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
         this.renderRoutineEditorOverlayContent();
@@ -5006,8 +5039,36 @@
         :0;
       const customBlockCount=Array.isArray(tabState&&tabState.customBlocks)?tabState.customBlocks.length:0;
       console.log('[renderRoutineEditorOverlayContent] normal blocks:',normalBlockCount,'custom blocks:',customBlockCount);
-      const order=this.getRoutineEditorOrder(tabKeyValue);
-      tabState.order=order.slice();
+      const baseOrder=this.getRoutineEditorOrder(tabKeyValue);
+      const dragOrderRaw=Array.isArray(this.dragShadowOrder)&&this.dragShadowOrder.length
+        ?this.dragShadowOrder.slice()
+        :null;
+      const dragOrder=dragOrderRaw
+        ?dragOrderRaw.map(id=>{
+          if(typeof id!=='string') return '';
+          if(id.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return id;
+          return `${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
+        }).filter(Boolean)
+        :null;
+      const order=(()=>{
+        if(!dragOrder||!dragOrder.length) return baseOrder.slice();
+        const queue=dragOrder.slice();
+        const reordered=baseOrder.map(key=>{
+          if(key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)&&queue.length){
+            return queue.shift();
+          }
+          return key;
+        });
+        queue.forEach(key=>{
+          if(!reordered.includes(key)) reordered.push(key);
+        });
+        return reordered;
+      })();
+      if(!dragOrder||!dragOrder.length){
+        tabState.order=order.slice();
+      }else{
+        tabState.order=baseOrder.slice();
+      }
       if(Array.isArray(tabState.hiddenBaseBlocks)){
         tabState.hiddenBaseBlocks=tabState.hiddenBaseBlocks.filter(key=>!order.includes(key));
       }
@@ -5021,12 +5082,25 @@
           ?renderRoutineEditorBlock
           :null;
       const container=this.routineEditorList instanceof Element?this.routineEditorList:null;
-      const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
-      const customMap=new Map(customBlocks.map(entry=>entry&&entry.id?[entry.id,entry]:null).filter(Boolean));
-      let totalBlocksRendered=0;
+      const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks.slice():[];
+      const orderedCustomBlocks=(()=>{
+        if(!dragOrder||!dragOrder.length) return customBlocks;
+        const sequence=dragOrder.map(id=>id.slice(ROUTINE_EDITOR_CUSTOM_PREFIX.length));
+        const map=new Map(customBlocks.map(entry=>entry&&entry.id?[entry.id,entry]:null).filter(Boolean));
+        const result=[];
+        sequence.forEach(id=>{
+          const block=map.get(id);
+          if(block){
+            result.push(block);
+            map.delete(id);
+          }
+        });
+        map.forEach(block=>{if(block) result.push(block);});
+        return result;
+      })();
+      const customMap=new Map(orderedCustomBlocks.map(entry=>entry&&entry.id?[entry.id,entry]:null).filter(Boolean));
+      const orderedBlocks={};
       order.forEach((blockId,index)=>{
-        const insert=this.createRoutineEditorInsertControl(index,order,tabKeyValue);
-        if(insert) this.routineEditorList.appendChild(insert);
         if(!container||typeof blockId!=='string') return;
         const isCustom=blockId.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX);
         const baseEntry=tabState&&tabState.blocks&&typeof tabState.blocks==='object'
@@ -5037,6 +5111,17 @@
           :baseEntry
             ?{...baseEntry,id:blockId,key:blockId,type:blockId}
             :{id:blockId,key:blockId,type:blockId};
+        if(blockData){
+          orderedBlocks[blockId]=blockData;
+        }
+      });
+      let totalBlocksRendered=0;
+      order.forEach((blockId,index)=>{
+        const insert=this.createRoutineEditorInsertControl(index,order,tabKeyValue);
+        if(insert) this.routineEditorList.appendChild(insert);
+        if(!container||typeof blockId!=='string') return;
+        const isCustom=blockId.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX);
+        const blockData=orderedBlocks[blockId]||null;
         if(isCustom){
           console.log('[render] custom block id:',blockId,'block:',blockData);
         }else{
@@ -5072,6 +5157,66 @@
       console.log('[renderRoutineEditorOverlayContent] total blocks rendered:',totalBlocksRendered);
       this.refreshRoutineEditorPreview();
       this.updateRoutineEditorBlockShopAvailability();
+    }
+
+    saveRoutineEditorState(state=this.routineEditorState){
+      const targetState=state||this.routineEditorState;
+      if(!targetState) return;
+      if(Array.isArray(this.dragShadowOrder)&&this.dragShadowOrder.length){
+        const activeTab=this.getActiveRoutineEditorTab();
+        const resolvedTab=getRoutineEditorTabKey?getRoutineEditorTabKey(activeTab):activeTab;
+        const tabs=targetState&&targetState.tabs?targetState.tabs:null;
+        if(resolvedTab&&tabs&&tabs[resolvedTab]){
+          const tabState=tabs[resolvedTab];
+          const baseBlocks=this.getRoutineEditorBaseBlocks(resolvedTab);
+          const allowedKeys=new Set(baseBlocks.map(block=>block.key));
+          const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
+          const customKeys=new Set(customBlocks.map(block=>`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`));
+          const rawOrder=Array.isArray(tabState.order)?tabState.order.slice():[];
+          const hiddenBaseArray=Array.isArray(tabState.hiddenBaseBlocks)?tabState.hiddenBaseBlocks:[];
+          const hiddenBase=new Set(hiddenBaseArray.filter(key=>allowedKeys.has(key)));
+          const normalized=[];
+          rawOrder.forEach(key=>{
+            if(typeof key!=='string') return;
+            if(allowedKeys.has(key)){
+              if(hiddenBase.has(key)) return;
+              if(!normalized.includes(key)) normalized.push(key);
+              return;
+            }
+            if(customKeys.has(key)){
+              if(!normalized.includes(key)) normalized.push(key);
+            }
+          });
+          baseBlocks.forEach(block=>{
+            if(hiddenBase.has(block.key)) return;
+            if(!normalized.includes(block.key)) normalized.push(block.key);
+          });
+          customBlocks.forEach(block=>{
+            const key=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`;
+            if(!normalized.includes(key)) normalized.push(key);
+          });
+          const dragOrder=this.dragShadowOrder.map(id=>{
+            if(typeof id!=='string') return '';
+            if(id.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return id;
+            return `${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
+          }).filter(Boolean);
+          if(dragOrder.length){
+            const queue=dragOrder.slice();
+            const reordered=normalized.map(key=>{
+              if(key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)&&queue.length){
+                return queue.shift();
+              }
+              return key;
+            });
+            queue.forEach(key=>{
+              if(!reordered.includes(key)) reordered.push(key);
+            });
+            tabState.order=reordered;
+          }
+        }
+        this.dragShadowOrder=null;
+      }
+      storeRoutineEditorState(targetState);
     }
 
     normalizeRoutineEditorInsertIndex(index,length){
@@ -5201,7 +5346,7 @@
       if(state&&state.tabs){
         state.tabs[targetTab]=tabState;
       }
-      storeRoutineEditorState(state);
+      this.saveRoutineEditorState(state);
       console.log('[addCustomBlock] state saved:',state);
       try{
         const overlay=document.querySelector('.nsf-editor-overlay.open');
@@ -5614,7 +5759,7 @@
         }
       });
       if(changed){
-        storeRoutineEditorState(this.routineEditorState);
+        this.saveRoutineEditorState(this.routineEditorState);
         if(this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
           this.renderRoutineEditorOverlayContent();
         }
@@ -6389,7 +6534,7 @@
         this.routineEditorState=normalizeRoutineEditorState(this.routineEditorState);
       }
       this.routineEditorState.tabs[activeTab]=state;
-      storeRoutineEditorState(this.routineEditorState);
+      this.saveRoutineEditorState(this.routineEditorState);
       this.refreshRoutineEditorPreview();
       this.evaluateRoutineEditorPresetMatch();
     }
