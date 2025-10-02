@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.6] – 2025-10-01
+### Changed
+- Shopguide Findings Editor auf Version 1.4.0 aktualisiert; Einträge können jetzt direkt dupliziert werden und Listenaktionen blenden sich nur noch bei Bedarf ein.
+
 ## [3.6.5] – 2025-09-29
 ### Added
 - New Standard Findings auf Version 1.2.3 angehoben; Dateiauswahl-Button und Kontextinfo zeigen nun den gespeicherten Findings-Pfad.
