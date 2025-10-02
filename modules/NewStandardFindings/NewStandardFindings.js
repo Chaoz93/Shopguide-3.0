@@ -3612,7 +3612,61 @@
           onEnd:evt=>{
             if(evt?.item) evt.item.classList.remove('dragging');
             this.setCustomSlotDragging(false);
-            this.syncCustomSectionsFromDom();
+            const fromList=evt?.from instanceof HTMLElement?evt.from:null;
+            const toList=evt?.to instanceof HTMLElement?evt.to:null;
+            const sourceSlot=Array.isArray(this.customSlots)
+              ?this.customSlots.find(entry=>entry&&entry.list===fromList)
+              :null;
+            const targetSlot=Array.isArray(this.customSlots)
+              ?this.customSlots.find(entry=>entry&&entry.list===toList)
+              :null;
+            if(Array.isArray(this.customSlots)){
+              const slotCount=this.customSlots.length||CUSTOM_SLOT_COUNT;
+              const sectionMap=new Map(Array.isArray(this.customSections)
+                ?this.customSections.map(section=>[section.id,section])
+                :[]);
+              const updatedSections=[];
+              const collectSections=(listEl,slotIndex)=>{
+                if(!listEl) return;
+                Array.from(listEl.children||[]).forEach(node=>{
+                  if(!(node instanceof HTMLElement)) return;
+                  const blockId=node.dataset?node.dataset.blockId||node.dataset.id:'';
+                  if(!blockId) return;
+                  const existing=sectionMap.get(blockId);
+                  if(!existing) return;
+                  sectionMap.delete(blockId);
+                  updatedSections.push(Object.assign({},existing,{slot:slotIndex}));
+                });
+              };
+              this.customSlots.forEach(slotEntry=>{
+                if(!slotEntry||!slotEntry.list) return;
+                const slotIndex=Number.isFinite(slotEntry.index)
+                  ?Math.floor(slotEntry.index)
+                  :0;
+                collectSections(slotEntry.list,slotIndex);
+              });
+              if(sectionMap.size){
+                sectionMap.forEach(section=>{
+                  let slotIndex=Number.isFinite(section.slot)
+                    ?Math.floor(section.slot)
+                    :0;
+                  if(slotIndex<0) slotIndex=0;
+                  if(slotIndex>=slotCount) slotIndex=slotCount-1;
+                  updatedSections.push(Object.assign({},section,{slot:slotIndex}));
+                });
+              }
+              this.customSections=normalizeCustomSections(updatedSections,slotCount);
+              this.rebuildCustomSectionMap();
+              this.syncCustomSectionsToActiveState();
+            }
+            if(sourceSlot) this.updateCustomSlotState(sourceSlot);
+            if(targetSlot&&targetSlot!==sourceSlot) this.updateCustomSlotState(targetSlot);
+            if(typeof this.renderRoutineEditorOverlayContent==='function'){
+              const activeTab=this.getActiveRoutineEditorTab
+                ?this.getActiveRoutineEditorTab()
+                :undefined;
+              this.renderRoutineEditorOverlayContent(activeTab);
+            }
           }
         });
         this.customSlotSortables.push(sortable);
