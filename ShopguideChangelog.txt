@@ -5,6 +5,14 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.8] – 2025-10-02
+### Fixed
+- Reihenfolge der Aspen-Geräte bleibt nach Neuladen des Boards sowie nach dem erneuten Einlesen der Excel-Datei erhalten.
+
+## [3.6.7] – 2025-10-02
+### Fixed
+- Such-Vorfilter behalten beim Tippen im Konfigurationsdialog den Fokus, damit die Eingabe nicht mehr nach jedem Zeichen abbricht.
+
 ## [3.6.6] – 2025-10-01
 ### Changed
 - Shopguide Findings Editor auf Version 1.4.0 aktualisiert; Einträge können jetzt direkt dupliziert werden und Listenaktionen blenden sich nur noch bei Bedarf ein.

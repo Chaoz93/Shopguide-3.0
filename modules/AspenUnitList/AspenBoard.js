@@ -26,6 +26,11 @@
     .db-toolbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-toggle-group{flex:0 0 auto;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
     .db-toggle-group:empty{display:none;}
+    .db-search-filter-group{flex:0 0 auto;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
+    .db-search-filter-group:empty{display:none;}
+    .db-search-filter-btn{flex:0 0 auto;padding:.4rem .7rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.55rem;background:rgba(255,255,255,.65);color:var(--dl-title,#2563eb);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
+    .db-search-filter-btn:hover{background:rgba(37,99,235,.08);}
+    .db-search-filter-btn.is-active{background:var(--dl-title,#2563eb);color:#fff;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-toggle-btn{flex:0 0 auto;padding:.45rem .75rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.6rem;background:rgba(255,255,255,.75);color:var(--dl-title,#2563eb);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
     .db-toggle-btn:hover{background:rgba(37,99,235,.08);}
     .db-toggle-btn.is-active{background:var(--dl-title,#2563eb);color:#fff;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
@@ -91,6 +96,7 @@
     .db-sub-remove{padding:.35rem .55rem;}
     .db-add-sub{align-self:flex-start;padding:.35rem .6rem;}
     .db-panel .row.rules{display:flex;flex-direction:column;gap:.4rem;}
+    .db-panel .row.filters{display:flex;flex-direction:column;gap:.4rem;}
     .db-panel .row.extras{display:flex;flex-direction:column;gap:.4rem;}
     .db-extra-config{display:flex;flex-direction:column;gap:.6rem;}
     .db-extra-count-label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
@@ -108,6 +114,14 @@
     .db-rule-row .db-rule-remove{padding:.35rem .55rem;}
     .db-rule-empty{font-size:.85rem;opacity:.7;}
     .db-add-rule{align-self:flex-start;padding:.35rem .6rem;}
+    .db-filter-list{display:flex;flex-direction:column;gap:.35rem;}
+    .db-filter-row{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;}
+    .db-filter-row .db-filter-field{flex:1 1 160px;display:flex;flex-direction:column;gap:.25rem;min-width:120px;}
+    .db-filter-row .db-filter-field label{font-size:.75rem;font-weight:600;color:var(--dl-sub,#4b5563);}
+    .db-filter-row input[type=text]{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-filter-row .db-filter-default{display:flex;align-items:center;gap:.35rem;font-size:.85rem;}
+    .db-filter-row .db-filter-remove{padding:.35rem .55rem;}
+    .db-add-filter{align-self:flex-start;padding:.35rem .6rem;}
     .db-row-header{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;}
     .db-row-actions{display:inline-flex;align-items:center;gap:.35rem;}
     .db-icon-btn{padding:.3rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.45rem;background:rgba(255,255,255,.75);color:inherit;cursor:pointer;font-size:.9rem;line-height:1;}
@@ -165,6 +179,9 @@
     .aspenboard .db-part-filter input{background:rgba(255,255,255,.05);color:var(--text-color);border:1px solid var(--border-color);border-radius:.5rem;}
     .aspenboard .db-part-filter input:focus{outline:none;border-color:var(--accent-color);box-shadow:0 0 0 3px rgba(var(--accent-rgb,36,85,129),.28);}
     .aspenboard .db-part-list{color:var(--text-color);}
+    .aspenboard .db-search-filter-btn{background:rgba(255,255,255,.06);color:var(--text-color);border:1px solid var(--border-color);}
+    .aspenboard .db-search-filter-btn:hover{background:rgba(var(--accent-rgb,36,85,129),.18);}
+    .aspenboard .db-search-filter-btn.is-active{background:var(--accent-gradient,var(--accent-color));color:#fff;border-color:var(--accent-border,var(--accent-color));box-shadow:0 0 0 3px rgba(var(--accent-rgb,36,85,129),.28);}
     .aspenboard .db-panel{color:var(--text-color);border-radius:1rem;border:1px solid var(--border-color);box-shadow:0 18px 36px var(--shadow-color);}
     .aspenboard .db-panel label{color:var(--muted-text);}
     .aspenboard .db-panel input[type=text],
@@ -199,6 +216,7 @@
     .aspenboard .db-sub-row button,
     .aspenboard .db-add-sub,
     .aspenboard .db-add-rule,
+    .aspenboard .db-add-filter,
     .aspenboard .db-panel .actions button{
       background:var(--accent-gradient,var(--accent-color));
       border:1px solid var(--accent-border,transparent);
@@ -212,11 +230,19 @@
     .aspenboard .db-sub-row button:hover,
     .aspenboard .db-add-sub:hover,
     .aspenboard .db-add-rule:hover,
+    .aspenboard .db-add-filter:hover,
     .aspenboard .db-panel .actions button:hover{
       filter:brightness(1.05);
       transform:translateY(-1px);
       box-shadow:0 20px 48px rgba(var(--accent-rgb,36,85,129),.45);
     }
+    .aspenboard .db-filter-remove{
+      background:rgba(255,255,255,.08);
+      color:var(--text-color);
+      border:1px solid var(--border-color);
+      border-radius:.55rem;
+    }
+    .aspenboard .db-filter-remove:hover{background:rgba(var(--accent-rgb,36,85,129),.22);}
     .aspenboard .db-panel .db-icon-btn{
       background:var(--accent-soft,rgba(var(--accent-rgb,36,85,129),.22));
       color:var(--text-color);
@@ -698,7 +724,7 @@
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root aspenboard';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row extras"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><div class="db-search-filter-group" aria-label="Such-Vorfilter"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row filters"><div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div><div class="db-filter-list"></div><button type="button" class="db-add-filter">Filter hinzufügen</button></div><div class="row extras"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -720,6 +746,7 @@
       activeTitle:root.querySelector('.db-active-title'),
       extraContainer:root.querySelector('.db-extra-container'),
       toggleGroup:root.querySelector('.db-toggle-group'),
+      searchFilterGroup:root.querySelector('.db-search-filter-group'),
       search:root.querySelector('.db-search'),
       titleBar,
       titleText:root.querySelector('.db-title-text'),
@@ -738,6 +765,8 @@
       addSubBtn:root.querySelector('.db-add-sub'),
       subImportBtn:root.querySelector('.db-sub-import'),
       subExportBtn:root.querySelector('.db-sub-export'),
+      filterList:root.querySelector('.db-filter-list'),
+      addFilterBtn:root.querySelector('.db-add-filter'),
       selPart:root.querySelector('.db-sel-part'),
       partSelectWrap:root.querySelector('.db-part-select'),
       partSelectInput:root.querySelector('.db-part-select-input'),
@@ -766,7 +795,8 @@
         colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',accent:'#245581',active:'#10b981'},
         titleRules:[],
         extraColumns:[],
-        activeColumn:sanitizeActiveColumn({})
+        activeColumn:sanitizeActiveColumn({}),
+        searchFilters:[]
       },
       items:[],
       excluded:new Set(),
@@ -774,6 +804,7 @@
       searchQuery:'',
       partFilter:'',
       activeMeldungen:new Set(),
+      activeSearchFilters:new Set(),
       showActiveList:false,
       columnAssignments:new Map(),
       hiddenExtraColumns:new Set()
@@ -828,6 +859,34 @@
     if(Object.prototype.hasOwnProperty.call(config,'activeColumnLabel')){
       delete config.activeColumnLabel;
     }
+  }
+
+  function generateSearchFilterId(){
+    return 'filter-'+Math.random().toString(36).slice(2,9);
+  }
+
+  function sanitizeSearchFilters(filters){
+    if(!Array.isArray(filters)) return [];
+    const sanitized=[];
+    const seen=new Set();
+    for(const entry of filters){
+      const source=entry&&typeof entry==='object'?entry:{};
+      let id=typeof source.id==='string'?source.id.trim():'';
+      const label=typeof source.label==='string'?source.label.trim():'';
+      const query=typeof source.query==='string'?source.query.trim():'';
+      const defaultActive=!!source.defaultActive;
+      while(!id || seen.has(id)){
+        id=generateSearchFilterId();
+      }
+      seen.add(id);
+      sanitized.push({id,label,query,defaultActive});
+    }
+    return sanitized;
+  }
+
+  function ensureSearchFilters(config){
+    if(!config||typeof config!=='object') return;
+    config.searchFilters=sanitizeSearchFilters(config.searchFilters||[]);
   }
 
   function normalizeColumnAssignments(raw){
@@ -975,17 +1034,31 @@
           colors,
           titleRules:savedRules,
           extraColumns:sanitizeExtraColumns(saved.config.extraColumns||state.config.extraColumns||[]),
-          activeColumn:sanitizeActiveColumn(saved.config.activeColumn||{label:saved.config.activeColumnLabel||state.config.activeColumn?.label})
+          activeColumn:sanitizeActiveColumn(saved.config.activeColumn||{label:saved.config.activeColumnLabel||state.config.activeColumn?.label}),
+          searchFilters:sanitizeSearchFilters(saved.config.searchFilters||state.config.searchFilters||[])
         };
       }
       ensureSubFields(state.config);
       ensureExtraColumns(state.config);
       ensureActiveColumn(state.config);
-      if(Array.isArray(saved.items)) state.items=dedupeByMeldung(saved.items);
+      ensureSearchFilters(state.config);
+      let restoredOrder=false;
+      if(Array.isArray(saved.items) && saved.items.length){
+        state.items=dedupeByMeldung(saved.items);
+        restoredOrder=true;
+      }
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
       state.searchQuery=typeof saved.searchQuery==='string'?saved.searchQuery:'';
       state.partFilter=typeof saved.partFilter==='string'?saved.partFilter:'';
+      const availableFilterIds=new Set((state.config.searchFilters||[]).map(filter=>filter.id));
+      if(Array.isArray(saved.activeSearchFilters)){
+        const normalized=saved.activeSearchFilters.map(id=>String(id||'').trim()).filter(id=>id && availableFilterIds.has(id));
+        state.activeSearchFilters=new Set(normalized);
+      }else{
+        const defaults=(state.config.searchFilters||[]).filter(filter=>filter.defaultActive);
+        state.activeSearchFilters=new Set(defaults.map(filter=>filter.id));
+      }
       if(Array.isArray(saved.activeMeldungen)){
         const normalized=saved.activeMeldungen.map(val=>String(val||'').trim()).filter(Boolean);
         state.activeMeldungen=new Set(normalized);
@@ -997,8 +1070,13 @@
       state.columnAssignments=normalizeColumnAssignments(saved.columnAssignments);
       ensureColumnAssignments(state);
       ensureHiddenExtraColumns(state);
-      const sortField=primarySubField(state.config);
-      state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
+      if(!restoredOrder){
+        state.items=dedupeByMeldung(state.items);
+        if(Array.isArray(state.items) && state.items.length){
+          const sortField=primarySubField(state.config);
+          state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
+        }
+      }
     }catch(e){/* ignore */}
   }
 
@@ -1014,6 +1092,7 @@
     state.items=dedupeByMeldung(state.items);
     ensureExtraColumns(state.config);
     ensureActiveColumn(state.config);
+    ensureSearchFilters(state.config);
     ensureColumnAssignments(state);
     ensureHiddenExtraColumns(state);
     const payload={
@@ -1025,13 +1104,15 @@
         colors:{...state.config.colors},
         titleRules:Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[],
         extraColumns:Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[],
-        activeColumn:{...sanitizeActiveColumn(state.config.activeColumn)}
+        activeColumn:{...sanitizeActiveColumn(state.config.activeColumn)},
+        searchFilters:Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[]
       },
       items:Array.isArray(state.items)?state.items.slice():[],
       excluded:Array.from(state.excluded),
       filePath:state.filePath,
       searchQuery:state.searchQuery||'',
       partFilter:state.partFilter||'',
+      activeSearchFilters:Array.from(state.activeSearchFilters||[]),
       activeMeldungen:Array.from(state.activeMeldungen||[]).map(val=>String(val||'').trim()).filter(Boolean),
       showActiveList:!!state.showActiveList,
       columnAssignments:columnAssignmentsToObject(state.columnAssignments),
@@ -1058,7 +1139,8 @@
             colors:{...payload.config.colors},
             titleRules:payload.config.titleRules.map(rule=>({...rule})),
             extraColumns:payload.config.extraColumns.map(col=>({...col})),
-            activeColumn:{...payload.config.activeColumn}
+            activeColumn:{...payload.config.activeColumn},
+            searchFilters:payload.config.searchFilters.map(filter=>({...filter}))
           },
           items:payload.items.map(item=>{
             if(!item||typeof item!=='object') return item;
@@ -1073,6 +1155,7 @@
           filePath:payload.filePath,
           searchQuery:payload.searchQuery,
           partFilter:payload.partFilter,
+          activeSearchFilters:payload.activeSearchFilters.slice(),
           activeMeldungen:payload.activeMeldungen.slice(),
           showActiveList:payload.showActiveList,
           columnAssignments:{...payload.columnAssignments},
@@ -1388,10 +1471,62 @@
     `;
   }
 
+  function getFilterDisplayLabel(filter){
+    if(!filter||typeof filter!=='object') return '';
+    const label=typeof filter.label==='string'?filter.label.trim():'';
+    if(label) return label;
+    const query=typeof filter.query==='string'?filter.query.trim():'';
+    return query;
+  }
+
+  function getActiveSearchFilters(state){
+    if(!state||typeof state!=='object') return [];
+    const filters=Array.isArray(state.config?.searchFilters)?state.config.searchFilters:[];
+    const activeRaw=state.activeSearchFilters;
+    const activeSet=activeRaw instanceof Set?activeRaw:new Set(Array.isArray(activeRaw)?activeRaw:[]);
+    return filters.filter(filter=>filter?.id && activeSet.has(filter.id));
+  }
+
+  function getSearchContext(state){
+    const userQuery=typeof state?.searchQuery==='string'?state.searchQuery:'';
+    const queryTerms=(userQuery.match(/\S+/g)||[]).map(term=>term.toLowerCase());
+    const activeFilters=getActiveSearchFilters(state);
+    const filterTerms=[];
+    activeFilters.forEach(filter=>{
+      const raw=typeof filter?.query==='string'?filter.query:'';
+      if(!raw) return;
+      const terms=(raw.match(/\S+/g)||[]).map(term=>term.toLowerCase());
+      filterTerms.push(...terms);
+    });
+    return {
+      userQuery,
+      filters:activeFilters,
+      terms:[...filterTerms,...queryTerms]
+    };
+  }
+
+  function formatEmptySearchMessage(searchContext,fallback){
+    const context=searchContext||{userQuery:'',filters:[],terms:[]};
+    const userQuery=(context.userQuery||'').trim();
+    const filters=Array.isArray(context.filters)?context.filters:[];
+    const filterLabels=filters.map(filter=>getFilterDisplayLabel(filter)).filter(Boolean);
+    if(filterLabels.length){
+      const quoted=filterLabels.map(label=>`„${escapeHtml(label)}“`).join(', ');
+      if(userQuery){
+        return `Keine Treffer für „${escapeHtml(userQuery)}“ mit Filter ${quoted}`;
+      }
+      return `Keine Treffer für Filter ${quoted}`;
+    }
+    if(userQuery){
+      return `Keine Treffer für „${escapeHtml(userQuery)}“`;
+    }
+    return fallback;
+  }
+
   function renderListSection(listEl,state,items,options){
     if(!listEl) return;
-    const searchRaw=state.searchQuery||'';
-    const terms=(searchRaw.match(/\S+/g)||[]).map(term=>term.toLowerCase());
+    const searchContext=options?.searchContext||getSearchContext(state);
+    const terms=searchContext.terms||[];
     const respectExcluded=options?.respectExcluded!==false;
     const ignoreSearch=options?.ignoreSearch===true;
     const visible=items.filter(item=>{
@@ -1401,7 +1536,7 @@
     });
     if(!visible.length){
       const fallback=options?.emptyMessage||'Keine Geräte';
-      const message=!ignoreSearch && terms.length?`Keine Treffer für „${escapeHtml(searchRaw.trim())}“`:fallback;
+      const message=!ignoreSearch && terms.length?formatEmptySearchMessage(searchContext,fallback):fallback;
       listEl.innerHTML=`<div class="db-empty">${message}</div>`;
       updateHighlights(listEl);
       return;
@@ -1504,6 +1639,7 @@
     let tempTitleRules=[];
     let tempExtraColumns=[];
     let tempActiveColumnLabel='';
+    let tempSearchFilters=[];
     let partOptions=[];
     let filteredPartOptions=[];
     let partSelectOpen=false;
@@ -1558,13 +1694,28 @@
         };
         const activeLabel=String(tempActiveColumnLabel||'').trim();
         state.config.activeColumn=sanitizeActiveColumn({label:activeLabel});
+        const previousFilterIds=new Set(Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>filter.id):[]);
         const sanitizedExtras=sanitizeExtraColumns(tempExtraColumns);
         state.config.extraColumns=sanitizedExtras;
         tempExtraColumns=sanitizedExtras.map(col=>({...col}));
+        const sanitizedFilters=sanitizeSearchFilters(tempSearchFilters);
+        state.config.searchFilters=sanitizedFilters;
+        tempSearchFilters=sanitizedFilters.map(filter=>({...filter}));
+        if(!(state.activeSearchFilters instanceof Set)){
+          state.activeSearchFilters=new Set(Array.isArray(state.activeSearchFilters)?state.activeSearchFilters:[]);
+        }
+        const availableFilterIds=new Set(sanitizedFilters.map(filter=>filter.id));
+        state.activeSearchFilters=new Set(Array.from(state.activeSearchFilters).filter(id=>availableFilterIds.has(id)));
+        sanitizedFilters.forEach(filter=>{
+          if(filter.defaultActive && !previousFilterIds.has(filter.id) && !state.activeSearchFilters.has(filter.id)){
+            state.activeSearchFilters.add(filter.id);
+          }
+        });
         ensureColumnAssignments(state);
         ensureHiddenExtraColumns(state);
         if(elements.modal?.classList.contains('open')){
           renderExtraControls();
+          renderSearchFilterControls();
         }
         refreshTitleBar();
         applyColors(elements.root,state.config.colors);
@@ -2066,6 +2217,58 @@
       render();
     }
 
+    function handleSearchFilterToggle(event){
+      event.preventDefault();
+      const button=event.currentTarget;
+      const filterId=button?.dataset?.filterId||'';
+      if(!filterId) return;
+      if(!(state.activeSearchFilters instanceof Set)){
+        state.activeSearchFilters=new Set(Array.isArray(state.activeSearchFilters)?state.activeSearchFilters:[]);
+      }
+      if(state.activeSearchFilters.has(filterId)){
+        state.activeSearchFilters.delete(filterId);
+      }else{
+        state.activeSearchFilters.add(filterId);
+      }
+      render();
+    }
+
+    function ensureSearchFilterButtons(){
+      if(!elements.searchFilterGroup) return;
+      ensureSearchFilters(state.config);
+      const filters=Array.isArray(state.config.searchFilters)?state.config.searchFilters:[];
+      const activeSet=state.activeSearchFilters instanceof Set?state.activeSearchFilters:new Set();
+      const existing=new Map(Array.from(elements.searchFilterGroup.querySelectorAll('.db-search-filter-btn')).map(btn=>[btn.dataset.filterId,btn]));
+      const seen=new Set();
+      filters.forEach(filter=>{
+        if(!filter?.id) return;
+        seen.add(filter.id);
+        let button=existing.get(filter.id);
+        if(!button){
+          button=document.createElement('button');
+          button.type='button';
+          button.className='db-search-filter-btn';
+          button.dataset.filterId=filter.id;
+          button.addEventListener('click',handleSearchFilterToggle);
+          elements.searchFilterGroup.appendChild(button);
+          existing.set(filter.id,button);
+        }
+        const label=getFilterDisplayLabel(filter)||'Filter';
+        button.textContent=label;
+        button.title=filter.query?`Filter: ${filter.query}`:label;
+        const isActive=activeSet.has(filter.id);
+        button.classList.toggle('is-active',isActive);
+        button.setAttribute('aria-pressed',isActive?'true':'false');
+        elements.searchFilterGroup.appendChild(button);
+      });
+      existing.forEach((button,id)=>{
+        if(!seen.has(id)){
+          button.remove();
+        }
+      });
+      elements.searchFilterGroup.hidden=filters.length===0;
+    }
+
     function ensureExtraToggleButtons(){
       if(!elements.toggleGroup) return;
       ensureActiveColumn(state.config);
@@ -2177,14 +2380,22 @@
       }
       ensureExtraColumns(state.config);
       ensureActiveColumn(state.config);
+      ensureSearchFilters(state.config);
       ensureColumnAssignments(state);
       ensureHiddenExtraColumns(state);
+      if(!(state.activeSearchFilters instanceof Set)){
+        state.activeSearchFilters=new Set(Array.isArray(state.activeSearchFilters)?state.activeSearchFilters:[]);
+      }
+      const availableFilterIds=new Set((state.config.searchFilters||[]).map(filter=>filter.id));
+      state.activeSearchFilters=new Set(Array.from(state.activeSearchFilters).filter(id=>availableFilterIds.has(id)));
       ensureExtraListElements();
       ensureExtraToggleButtons();
+      ensureSearchFilterButtons();
       refreshTitleBar();
       if(elements.search){
         elements.search.value=state.searchQuery||'';
       }
+      const searchContext=getSearchContext(state);
       const activeSet=state.activeMeldungen;
       const assignments=state.columnAssignments instanceof Map?state.columnAssignments:new Map();
       const extraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
@@ -2207,7 +2418,7 @@
         }
         mainItems.push(item);
       });
-      renderListSection(elements.list,state,mainItems,{emptyMessage:'Keine Geräte'});
+      renderListSection(elements.list,state,mainItems,{emptyMessage:'Keine Geräte',searchContext});
       if(Array.isArray(elements.extraWraps)){
         elements.extraWraps.forEach((wrap,index)=>{
           const column=extraColumns[index];
@@ -2219,7 +2430,7 @@
             wrap.wrap.hidden=isHidden;
             wrap.wrap.classList.toggle('is-hidden',isHidden);
           }
-          renderListSection(wrap.list,state,extraBuckets.get(column.id)||[],{emptyMessage:'Keine Geräte'});
+          renderListSection(wrap.list,state,extraBuckets.get(column.id)||[],{emptyMessage:'Keine Geräte',searchContext});
         });
       }
       if(elements.activeWrap && elements.activeList){
@@ -2230,7 +2441,8 @@
         renderListSection(elements.activeList,state,activeItems,{
           emptyMessage:'Keine aktiven Geräte',
           respectExcluded:false,
-          ignoreSearch:true
+          ignoreSearch:true,
+          searchContext
         });
       }
       elements.root.classList.toggle('db-has-active',!!state.showActiveList);
@@ -2373,6 +2585,119 @@
 
         elements.subList.appendChild(row);
       });
+    }
+
+    function renderSearchFilterControls(){
+      if(!elements.filterList) return;
+      if(!Array.isArray(tempSearchFilters)) tempSearchFilters=[];
+      const active=document.activeElement;
+      let restoreFocus=null;
+      if(active && elements.filterList.contains(active)){
+        const filterId=active.dataset?.filterId||'';
+        if(filterId){
+          restoreFocus={
+            id:filterId,
+            field:active.dataset?.field||'',
+            selectionStart:typeof active.selectionStart==='number'?active.selectionStart:null,
+            selectionEnd:typeof active.selectionEnd==='number'?active.selectionEnd:null
+          };
+        }
+      }
+      elements.filterList.innerHTML='';
+      if(!tempSearchFilters.length){
+        const empty=document.createElement('div');
+        empty.className='db-rule-empty';
+        empty.textContent='Keine Vorfilter definiert.';
+        elements.filterList.appendChild(empty);
+        return;
+      }
+      tempSearchFilters.forEach((filter,index)=>{
+        const current=tempSearchFilters[index]||{};
+        if(typeof current.id!=='string' || !current.id){
+          current.id=generateSearchFilterId();
+          tempSearchFilters[index]=current;
+        }
+        const row=document.createElement('div');
+        row.className='db-filter-row';
+
+        const nameField=document.createElement('div');
+        nameField.className='db-filter-field';
+        const nameLabel=document.createElement('label');
+        nameLabel.textContent='Name';
+        const nameInput=document.createElement('input');
+        nameInput.type='text';
+        nameInput.placeholder='Anzeige-Name';
+        nameInput.value=current.label||'';
+        nameInput.dataset.filterId=current.id;
+        nameInput.dataset.field='label';
+        nameInput.addEventListener('input',()=>{
+          tempSearchFilters[index]={...tempSearchFilters[index],label:nameInput.value};
+          scheduleOptionPersist();
+        });
+        nameField.appendChild(nameLabel);
+        nameField.appendChild(nameInput);
+        row.appendChild(nameField);
+
+        const queryField=document.createElement('div');
+        queryField.className='db-filter-field';
+        const queryLabel=document.createElement('label');
+        queryLabel.textContent='Filterausdruck';
+        const queryInput=document.createElement('input');
+        queryInput.type='text';
+        queryInput.placeholder='Suchbegriff(e)';
+        queryInput.value=current.query||'';
+        queryInput.dataset.filterId=current.id;
+        queryInput.dataset.field='query';
+        queryInput.addEventListener('input',()=>{
+          tempSearchFilters[index]={...tempSearchFilters[index],query:queryInput.value};
+          scheduleOptionPersist();
+        });
+        queryField.appendChild(queryLabel);
+        queryField.appendChild(queryInput);
+        row.appendChild(queryField);
+
+        const defaultLabel=document.createElement('label');
+        defaultLabel.className='db-filter-default';
+        const defaultInput=document.createElement('input');
+        defaultInput.type='checkbox';
+        defaultInput.checked=!!current.defaultActive;
+        defaultInput.addEventListener('change',()=>{
+          tempSearchFilters[index]={...tempSearchFilters[index],defaultActive:defaultInput.checked};
+          scheduleOptionPersist();
+        });
+        defaultLabel.appendChild(defaultInput);
+        defaultLabel.append(' Standard aktiv');
+        row.appendChild(defaultLabel);
+
+        const removeBtn=document.createElement('button');
+        removeBtn.type='button';
+        removeBtn.className='db-filter-remove';
+        removeBtn.title='Filter entfernen';
+        removeBtn.textContent='✕';
+        removeBtn.addEventListener('click',()=>{
+          tempSearchFilters.splice(index,1);
+          renderSearchFilterControls();
+          scheduleOptionPersist();
+        });
+        row.appendChild(removeBtn);
+
+        elements.filterList.appendChild(row);
+      });
+      if(restoreFocus && restoreFocus.id){
+        const target=Array.from(elements.filterList.querySelectorAll('input')).find(input=>{
+          return input.dataset?.filterId===restoreFocus.id && (input.dataset?.field||'')===restoreFocus.field;
+        });
+        if(target){
+          target.focus();
+          if(typeof restoreFocus.selectionStart==='number' && typeof restoreFocus.selectionEnd==='number' && typeof target.setSelectionRange==='function'){
+            try{
+              target.setSelectionRange(restoreFocus.selectionStart,restoreFocus.selectionEnd);
+            }catch{
+              /* ignore selection errors */
+            }
+          }
+        }
+      }
     }
 
     function updateTempColumnLabel(columnId,value){
@@ -2736,8 +3061,10 @@
       tempTitleRules=Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[];
       tempExtraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[];
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
+      tempSearchFilters=Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[];
       populateFieldSelects();
       renderSubFieldControls();
+      renderSearchFilterControls();
       renderExtraControls();
       renderRuleControls();
       elements.titleInput.value=state.config.title||'';
@@ -2757,6 +3084,7 @@
       tempTitleRules=[];
       tempExtraColumns=[];
       tempActiveColumnLabel='';
+      tempSearchFilters=[];
       closePartSelectDropdown();
       syncPartSelectInputValue();
     }
@@ -2812,6 +3140,15 @@
         renderRuleControls();
         showAlert('Regeln importiert.');
         scheduleOptionPersist(true);
+      });
+    }
+
+    if(elements.addFilterBtn){
+      elements.addFilterBtn.addEventListener('click',()=>{
+        const id=generateSearchFilterId();
+        tempSearchFilters.push({id,label:'',query:'',defaultActive:false});
+        renderSearchFilterControls();
+        scheduleOptionPersist();
       });
     }
 
@@ -3011,6 +3348,7 @@
         }
         state.config.subFields=preservedSubs;
         ensureSubFields(state.config);
+        const previousOrder=new Map(Array.isArray(state.items)?state.items.map((item,index)=>[item.meldung,index]):[]);
         const newItems=rows.map(row=>{
           const safeRow=row&&typeof row==='object'?row:{};
           const titleVal=String(safeRow[TITLE_FIELD]||'').trim();
@@ -3023,7 +3361,17 @@
         }).filter(Boolean);
         const deduped=dedupeByMeldung(newItems);
         const sortField=primarySubField(state.config);
-        deduped.sort((a,b)=>String(a.data?.[sortField]||'').localeCompare(String(b.data?.[sortField]||'')));
+        const fallbackCompare=(a,b)=>String(a.data?.[sortField]||'').localeCompare(String(b.data?.[sortField]||''));
+        deduped.sort((a,b)=>{
+          const aIndex=previousOrder.has(a.meldung)?previousOrder.get(a.meldung):-1;
+          const bIndex=previousOrder.has(b.meldung)?previousOrder.get(b.meldung):-1;
+          if(aIndex!==bIndex){
+            if(aIndex<0) return bIndex<0?fallbackCompare(a,b):1;
+            if(bIndex<0) return -1;
+            return aIndex-bIndex;
+          }
+          return fallbackCompare(a,b);
+        });
         state.items=deduped;
         const availableMeldungen=new Set(deduped.map(item=>item.meldung).filter(Boolean));
         const prevActive=state.activeMeldungen instanceof Set?Array.from(state.activeMeldungen):Array.isArray(state.activeMeldungen)?state.activeMeldungen:[];
