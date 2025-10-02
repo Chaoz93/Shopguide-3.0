@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const MODULE_VERSION='1.3.0';
+  const MODULE_VERSION='1.4.0';
   const PATH_KEY='shopguide-findings-path';
   const GLOBAL_PATH_STORAGE_KEY='shopguide-findings-global-path';
   const DEFAULT_FILE='Shopguide_Findings.json';

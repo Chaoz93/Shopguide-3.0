@@ -3,6 +3,15 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.4.0] – 2025-10-01
+### Added
+- Schneller Duplizieren-Button in der Findings-Liste, der komplette Einträge inklusive Partnummern, Teilepaaren und Rohdaten kopiert.
+
+### Changed
+- Aktionsschaltflächen der Findings-Liste werden nun erst bei Hover oder Fokus eingeblendet, was die Oberfläche ruhiger und tastaturfreundlicher macht.
+
+---
+
 ## [1.3.0] – 2025-09-30
 ### Changed
 - Entferntes Speichern der Findings-Daten im Local Storage zugunsten eines konsequenten Schreibens in die ausgewählte JSON-Datei.
