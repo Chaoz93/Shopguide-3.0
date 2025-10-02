@@ -1014,12 +1014,24 @@
       .nsf-custom-remove:hover{background:rgba(248,113,113,0.38);transform:scale(1.05);}
       .nsf-editor-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.72);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;padding:3rem 1.5rem;z-index:400;}
       .nsf-editor-overlay.open{display:flex;}
-      .nsf-editor-overlay.nsf-hide-inserts .nsf-editor-insert{display:none;}
+      .nsf-editor-overlay.nsf-hide-inserts .nsf-editor-slot{display:none;}
       .nsf-editor-dialog{background:rgba(15,23,42,0.95);border-radius:1.1rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 24px 64px rgba(15,23,42,0.55);max-width:1560px;width:100%;max-height:calc(100vh - 6rem);overflow:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;color:#e2e8f0;}
       .nsf-editor-content{display:flex;flex-direction:row;gap:1.75rem;align-items:stretch;}
       .nsf-editor-main{flex:1;display:flex;flex-direction:column;gap:1.1rem;}
       .nsf-editor-workspace{display:flex;flex-direction:row;gap:1.35rem;align-items:flex-start;flex-wrap:wrap;}
       .nsf-editor-structure{flex:1 1 420px;display:flex;flex-direction:column;gap:0.95rem;min-width:280px;}
+      .nsf-editor-stage{display:flex;flex-direction:column;gap:0.85rem;background:rgba(15,23,42,0.55);border-radius:1.1rem;border:1px solid rgba(148,163,184,0.3);padding:1rem;box-shadow:0 24px 48px rgba(15,23,42,0.45);}
+      .nsf-editor-stage-header{background:rgba(15,23,42,0.78);border-radius:0.85rem;padding:0.75rem 1rem;display:flex;flex-direction:column;gap:0.75rem;box-shadow:0 12px 30px rgba(15,23,42,0.45);}
+      .nsf-editor-stage-topbar{display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;}
+      .nsf-editor-stage-title{font-size:0.95rem;font-weight:600;letter-spacing:0.02em;}
+      .nsf-editor-stage-tabs{display:flex;flex-wrap:wrap;gap:0.45rem;}
+      .nsf-editor-stage-tab{padding:0.3rem 0.85rem;border-radius:999px;background:rgba(148,163,184,0.22);color:rgba(226,232,240,0.9);font-weight:600;font-size:0.78rem;letter-spacing:0.02em;}
+      .nsf-editor-stage-tab.is-active{background:rgba(59,130,246,0.35);color:#fff;box-shadow:0 8px 20px rgba(59,130,246,0.35);}
+      .nsf-editor-stage-actions{margin-left:auto;display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;}
+      .nsf-editor-stage-action{padding:0.3rem 0.75rem;border-radius:0.65rem;background:rgba(148,163,184,0.18);font-size:0.75rem;color:rgba(226,232,240,0.85);}
+      .nsf-editor-stage-status{display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;opacity:0.65;}
+      .nsf-editor-stage-body{position:relative;border-radius:0.95rem;padding:1.2rem;background:linear-gradient(180deg,rgba(15,23,42,0.92),rgba(15,23,42,0.78));box-shadow:0 24px 54px rgba(15,23,42,0.55);}
+      .nsf-editor-stage-body::before{content:'';position:absolute;inset:0;border-radius:0.95rem;border:1px solid rgba(148,163,184,0.35);pointer-events:none;}
       .nsf-editor-preview-panel{flex:1 1 420px;min-width:320px;display:flex;flex-direction:column;gap:0.65rem;background:rgba(15,23,42,0.55);border-radius:0.9rem;border:1px solid rgba(148,163,184,0.25);padding:0.85rem;max-height:100%;overflow:auto;}
       .nsf-editor-preview-tabs{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.35rem;justify-content:center;}
       .nsf-editor-preview-tab{background:rgba(148,163,184,0.18);border:1px solid rgba(148,163,184,0.35);border-radius:0.6rem;padding:0.3rem 0.75rem;color:rgba(226,232,240,0.85);font:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
@@ -1036,18 +1048,32 @@
       .nsf-editor-filter{background:rgba(59,130,246,0.18);border:1px solid rgba(96,165,250,0.45);border-radius:0.65rem;padding:0.45rem 0.85rem;color:rgba(191,219,254,0.95);font:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;margin-left:auto;}
       .nsf-editor-filter:hover{background:rgba(59,130,246,0.28);transform:translateY(-1px);}
       .nsf-editor-filter.is-active{background:rgba(37,99,235,0.35);}
-      .nsf-editor-sidebar{flex:0 0 240px;display:flex;flex-direction:column;gap:0.75rem;background:rgba(15,23,42,0.55);border-radius:0.95rem;border:1px solid rgba(148,163,184,0.25);padding:0.85rem;max-height:100%;overflow:auto;}
-      .nsf-block-shop{display:flex;flex-direction:column;gap:0.55rem;border-top:1px solid rgba(148,163,184,0.25);padding-top:0.65rem;margin-top:0.4rem;}
-      .nsf-block-shop-title{font-weight:700;font-size:0.85rem;letter-spacing:0.04em;text-transform:uppercase;opacity:0.8;}
-      .nsf-block-shop-list{display:grid;gap:0.5rem;}
-      .nsf-block-shop-item{display:flex;align-items:center;gap:0.55rem;background:rgba(59,130,246,0.16);border:1px solid rgba(96,165,250,0.45);border-radius:0.75rem;padding:0.55rem 0.7rem;color:rgba(191,219,254,0.96);font:inherit;cursor:grab;user-select:none;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;}
-      .nsf-block-shop-item:hover{background:rgba(59,130,246,0.26);transform:translateY(-1px);box-shadow:0 10px 24px rgba(59,130,246,0.25);}
-      .nsf-block-shop-item:active{cursor:grabbing;}
-      .nsf-block-shop-item.is-disabled{opacity:0.45;cursor:not-allowed;transform:none;box-shadow:none;}
-      .nsf-block-shop-item.is-disabled:hover{background:rgba(59,130,246,0.16);transform:none;}
-      .nsf-block-shop-item-icon{font-size:1.05rem;line-height:1;}
+      .nsf-editor-sidebar{flex:0 0 260px;display:flex;flex-direction:column;gap:1rem;background:rgba(15,23,42,0.6);border-radius:1.05rem;border:1px solid rgba(148,163,184,0.35);padding:1rem;max-height:100%;overflow:auto;}
+      .nsf-sidebar-panel{display:flex;flex-direction:column;gap:0.75rem;background:rgba(15,23,42,0.78);border-radius:0.9rem;border:1px solid rgba(148,163,184,0.3);padding:0.85rem;box-shadow:0 18px 42px rgba(15,23,42,0.45);}
+      .nsf-sidebar-panel-header{display:flex;flex-direction:column;gap:0.3rem;}
+      .nsf-sidebar-panel-title{font-weight:700;font-size:0.85rem;letter-spacing:0.06em;text-transform:uppercase;opacity:0.85;}
+      .nsf-sidebar-panel-subtitle{font-size:0.75rem;opacity:0.65;line-height:1.3;}
+      .nsf-sidebar-search{position:relative;display:flex;align-items:center;}
+      .nsf-sidebar-search input{width:100%;border-radius:0.7rem;border:1px solid rgba(148,163,184,0.35);background:rgba(15,23,42,0.55);color:rgba(226,232,240,0.95);padding:0.5rem 2.2rem 0.5rem 0.75rem;font:inherit;}
+      .nsf-sidebar-search input::placeholder{color:rgba(148,163,184,0.7);}
+      .nsf-sidebar-search button{position:absolute;right:0.45rem;background:rgba(148,163,184,0.18);border:none;border-radius:999px;width:1.85rem;height:1.85rem;color:rgba(226,232,240,0.85);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;display:flex;align-items:center;justify-content:center;}
+      .nsf-sidebar-search button.hidden{opacity:0;pointer-events:none;transform:scale(0.8);}
+      .nsf-sidebar-search button:hover{background:rgba(148,163,184,0.28);transform:scale(1.05);}
+      .nsf-sidebar-module-list{display:flex;flex-direction:column;gap:0.65rem;}
+      .nsf-sidebar-card{display:flex;align-items:flex-start;gap:0.65rem;text-align:left;background:rgba(59,130,246,0.16);border:1px solid rgba(96,165,250,0.45);border-radius:0.9rem;padding:0.65rem 0.75rem;color:rgba(226,232,240,0.92);font:inherit;cursor:grab;user-select:none;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.2s ease;}
+      .nsf-sidebar-card:hover{background:rgba(59,130,246,0.26);transform:translateY(-1px);box-shadow:0 14px 32px rgba(59,130,246,0.32);}
+      .nsf-sidebar-card:active{cursor:grabbing;}
+      .nsf-sidebar-card.is-disabled{opacity:0.45;cursor:not-allowed;transform:none;box-shadow:none;background:rgba(59,130,246,0.12);}
+      .nsf-sidebar-card.is-disabled:hover{background:rgba(59,130,246,0.12);transform:none;}
+      .nsf-sidebar-card-icon{font-size:1.35rem;line-height:1;}
+      .nsf-sidebar-card-body{flex:1;display:flex;flex-direction:column;gap:0.25rem;}
+      .nsf-sidebar-card-title{font-weight:600;font-size:0.95rem;}
+      .nsf-sidebar-card-description{font-size:0.78rem;opacity:0.75;line-height:1.35;}
+      .nsf-sidebar-card.is-hidden{display:none;}
+      .nsf-sidebar-divider{height:1px;background:rgba(148,163,184,0.25);margin:0.35rem 0;}
+      .nsf-sidebar-empty{font-size:0.78rem;opacity:0.65;font-style:italic;}
       .nsf-editor-presets-header{font-weight:700;font-size:0.95rem;}
-      .nsf-editor-presets-list{display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-editor-presets-list{display:flex;flex-direction:column;gap:0.5rem;}
       .nsf-editor-preset{display:flex;align-items:center;gap:0.35rem;background:rgba(148,163,184,0.16);border-radius:0.75rem;padding:0.4rem 0.5rem;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-editor-preset.active{border:1px solid rgba(59,130,246,0.45);background:rgba(59,130,246,0.2);}
       .nsf-editor-preset.dirty{box-shadow:0 0 0 1px rgba(251,191,36,0.55) inset;}
@@ -1058,11 +1084,11 @@
       .nsf-editor-preset-remove{background:rgba(248,113,113,0.24);border:none;border-radius:999px;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(248,113,113,0.95);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-editor-preset-remove:hover{background:rgba(248,113,113,0.35);transform:scale(1.05);}
       .nsf-editor-presets-empty{opacity:0.7;font-size:0.85rem;font-style:italic;}
-      .nsf-editor-presets-save{display:flex;flex-direction:column;gap:0.5rem;margin-top:auto;}
-      .nsf-editor-presets-label{font-size:0.74rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;opacity:0.75;}
-      .nsf-editor-presets-input{background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.35);border-radius:0.65rem;padding:0.45rem 0.6rem;color:#e2e8f0;font:inherit;}
-      .nsf-editor-presets-input:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
       .nsf-editor-presets-save .nsf-btn{align-self:flex-start;}
+      .nsf-editor-presets-save{display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem;}
+      .nsf-editor-presets-label{font-size:0.72rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;opacity:0.75;}
+      .nsf-editor-presets-input{background:rgba(15,23,42,0.55);border:1px solid rgba(148,163,184,0.3);border-radius:0.7rem;padding:0.5rem 0.65rem;color:rgba(226,232,240,0.95);font:inherit;}
+      .nsf-editor-presets-input:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
       @media (max-width:860px){
         .nsf-editor-content{flex-direction:column;}
         .nsf-editor-workspace{flex-direction:column;flex-wrap:nowrap;}
@@ -1074,13 +1100,17 @@
       .nsf-editor-dialog-title{font-size:1.2rem;font-weight:700;margin:0;}
       .nsf-editor-close{background:rgba(248,113,113,0.2);border:none;border-radius:999px;width:2.2rem;height:2.2rem;color:rgba(248,113,113,0.95);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-editor-close:hover{background:rgba(248,113,113,0.32);transform:scale(1.05);}
-      .nsf-editor-list{display:flex;flex-direction:column;gap:0.85rem;}
-      .nsf-editor-insert{display:flex;justify-content:center;margin:0.15rem 0;}
-      .nsf-editor-dropzone{width:100%;min-height:2.75rem;border:1px dashed rgba(96,165,250,0.6);border-radius:0.75rem;padding:0.55rem 0.75rem;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;color:rgba(191,219,254,0.85);font-size:0.85rem;text-align:center;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;}
-      .nsf-editor-insert.is-active .nsf-editor-dropzone{background:rgba(59,130,246,0.22);transform:translateY(-1px);box-shadow:0 12px 28px rgba(59,130,246,0.25);}
-      .nsf-editor-insert.is-disabled .nsf-editor-dropzone{opacity:0.4;}
-      .nsf-editor-block{background:rgba(15,23,42,0.88);border-radius:0.95rem;border:1px solid rgba(148,163,184,0.25);box-shadow:0 18px 36px rgba(15,23,42,0.5);padding:0.9rem;display:flex;flex-direction:column;gap:0.65rem;cursor:grab;position:relative;transition:box-shadow 0.15s ease,transform 0.15s ease;}
-      .nsf-editor-block.dragging{opacity:0.9;box-shadow:0 22px 44px rgba(59,130,246,0.45);}
+      .nsf-editor-list{display:flex;flex-direction:column;gap:1rem;position:relative;z-index:1;}
+      .nsf-editor-canvas{position:relative;min-height:460px;padding:0.25rem;display:flex;flex-direction:column;gap:1rem;}
+      .nsf-editor-canvas.is-empty::after{content:'Bausteine in dieses Layout ziehen';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(191,219,254,0.75);font-size:0.92rem;letter-spacing:0.04em;text-align:center;pointer-events:none;}
+      .nsf-editor-slot{position:relative;height:1.5rem;transition:all 0.15s ease;}
+      .nsf-editor-slot::before{content:'';position:absolute;left:1.5rem;right:1.5rem;top:50%;height:0;border-top:2px dashed transparent;transform:translateY(-50%);transition:all 0.15s ease;}
+      .nsf-editor-slot.is-active::before{border-top-color:rgba(96,165,250,0.85);box-shadow:0 8px 22px rgba(59,130,246,0.32);}
+      .nsf-editor-slot.is-disabled::before{border-top-color:rgba(148,163,184,0.45);}
+      .nsf-editor-slot.is-empty-slot{height:auto;min-height:220px;margin:1.25rem 0;}
+      .nsf-editor-slot.is-empty-slot::before{left:1rem;right:1rem;top:0;bottom:0;border:2px dashed rgba(96,165,250,0.65);border-radius:1.1rem;background:rgba(59,130,246,0.18);transform:none;box-shadow:0 18px 36px rgba(59,130,246,0.28);}
+      .nsf-editor-block{background:rgba(15,23,42,0.9);border-radius:1rem;border:1px solid rgba(148,163,184,0.3);box-shadow:0 22px 45px rgba(15,23,42,0.55);padding:0.95rem;display:flex;flex-direction:column;gap:0.7rem;cursor:grab;position:relative;transition:box-shadow 0.15s ease,transform 0.15s ease;}
+      .nsf-editor-block.dragging{opacity:0.92;box-shadow:0 26px 54px rgba(59,130,246,0.45);}
       .nsf-editor-header{font-weight:700;font-size:0.96rem;display:flex;align-items:center;gap:0.45rem;user-select:none;touch-action:none;}
       .nsf-editor-header-title{flex:1;display:flex;align-items:center;gap:0.35rem;}
       .nsf-editor-header-label{flex:1;}
@@ -4161,6 +4191,10 @@
         const allowed=type==='aspen'||type==='aspenfield'?allowAspen:true;
         entry.element.classList.toggle('is-disabled',!allowed);
         entry.element.setAttribute('aria-disabled',!allowed?'true':'false');
+        if('draggable' in entry.element){
+          entry.element.draggable=allowed;
+        }
+        entry.element.setAttribute('draggable',allowed?'true':'false');
       });
     }
 
@@ -4623,14 +4657,67 @@
       this.routineEditorPreviewPanel=previewPanel;
       this.routineEditorPreviewContent=previewContent;
 
-      const listWrapper=document.createElement('div');
-      listWrapper.className='nsf-editor-structure';
-      workspace.appendChild(listWrapper);
+      const structure=document.createElement('div');
+      structure.className='nsf-editor-structure';
+      workspace.appendChild(structure);
+
+      const stage=document.createElement('div');
+      stage.className='nsf-editor-stage';
+      structure.appendChild(stage);
+
+      const stageHeader=document.createElement('div');
+      stageHeader.className='nsf-editor-stage-header';
+      stage.appendChild(stageHeader);
+
+      const stageTopbar=document.createElement('div');
+      stageTopbar.className='nsf-editor-stage-topbar';
+      stageHeader.appendChild(stageTopbar);
+
+      const stageTitle=document.createElement('div');
+      stageTitle.className='nsf-editor-stage-title';
+      stageTitle.textContent='Routine Layout';
+      stageTopbar.appendChild(stageTitle);
+
+      const stageTabs=document.createElement('div');
+      stageTabs.className='nsf-editor-stage-tabs';
+      const stageTabDefs=[
+        {label:'Übersicht',active:true},
+        {label:'Details',active:false},
+        {label:'Notizen',active:false}
+      ];
+      stageTabDefs.forEach(def=>{
+        const tab=document.createElement('span');
+        tab.className='nsf-editor-stage-tab';
+        if(def.active) tab.classList.add('is-active');
+        tab.textContent=def.label;
+        stageTabs.appendChild(tab);
+      });
+      stageTopbar.appendChild(stageTabs);
+
+      const stageActions=document.createElement('div');
+      stageActions.className='nsf-editor-stage-actions';
+      const actionTexts=['Raster aktiv','Drag & Drop'];
+      actionTexts.forEach(label=>{
+        const action=document.createElement('span');
+        action.className='nsf-editor-stage-action';
+        action.textContent=label;
+        stageActions.appendChild(action);
+      });
+      stageTopbar.appendChild(stageActions);
+
+      const stageStatus=document.createElement('div');
+      stageStatus.className='nsf-editor-stage-status';
+      stageStatus.textContent='Bausteine werden vertikal gestapelt.';
+      stageHeader.appendChild(stageStatus);
+
+      const stageBody=document.createElement('div');
+      stageBody.className='nsf-editor-stage-body';
+      stage.appendChild(stageBody);
 
       const list=document.createElement('div');
-      list.className='nsf-editor-list';
+      list.className='nsf-editor-list nsf-editor-canvas';
       list.id='nsf-editor-container';
-      listWrapper.appendChild(list);
+      stageBody.appendChild(list);
       this.routineEditorContainer=list;
       this.routineEditorList=list;
       this.routineEditorBlocks={};
@@ -4651,14 +4738,136 @@
       const sidebar=document.createElement('aside');
       sidebar.className='nsf-editor-sidebar';
       content.appendChild(sidebar);
+      const modulePanel=document.createElement('div');
+      modulePanel.className='nsf-sidebar-panel';
+      sidebar.appendChild(modulePanel);
+
+      const moduleHeader=document.createElement('div');
+      moduleHeader.className='nsf-sidebar-panel-header';
+      const moduleTitle=document.createElement('div');
+      moduleTitle.className='nsf-sidebar-panel-title';
+      moduleTitle.textContent='Module';
+      const moduleSubtitle=document.createElement('div');
+      moduleSubtitle.className='nsf-sidebar-panel-subtitle';
+      moduleSubtitle.textContent='Ziehe Bausteine per Drag & Drop in das Layout.';
+      moduleHeader.append(moduleTitle,moduleSubtitle);
+      modulePanel.appendChild(moduleHeader);
+
+      const searchWrapper=document.createElement('div');
+      searchWrapper.className='nsf-sidebar-search';
+      const searchInput=document.createElement('input');
+      searchInput.type='text';
+      searchInput.placeholder='Module suchen…';
+      searchWrapper.appendChild(searchInput);
+      const searchClear=document.createElement('button');
+      searchClear.type='button';
+      searchClear.className='hidden';
+      searchClear.title='Suche löschen';
+      searchClear.textContent='✕';
+      searchWrapper.appendChild(searchClear);
+      modulePanel.appendChild(searchWrapper);
+
+      const moduleList=document.createElement('div');
+      moduleList.className='nsf-sidebar-module-list';
+      modulePanel.appendChild(moduleList);
+
+      this.routineEditorBlockShopItems=new Map();
+      const moduleDefs=[
+        {type:'text',icon:'📝',label:'Textfeld',description:'Freier Textblock für individuelle Inhalte.'},
+        {type:'linebreak',icon:'↵',label:'Zeilenumbruch',description:'Optischer Trenner zwischen Abschnitten.'},
+        {type:'aspenfield',icon:'🧾',label:'Aspen-Feld (manuell)',description:'Manuell gepflegtes Aspen-Feld hinzufügen.'},
+        {type:'aspen',icon:'📊',label:'Aspen-Feld',description:'Dynamisches Feld aus Aspen-Daten verwenden.'}
+      ];
+      const moduleCards=[];
+      moduleDefs.forEach(def=>{
+        const card=document.createElement('button');
+        card.type='button';
+        card.className='nsf-sidebar-card';
+        card.dataset.type=def.type;
+        card.setAttribute('draggable','true');
+        const icon=document.createElement('span');
+        icon.className='nsf-sidebar-card-icon';
+        icon.textContent=def.icon;
+        const body=document.createElement('span');
+        body.className='nsf-sidebar-card-body';
+        const title=document.createElement('span');
+        title.className='nsf-sidebar-card-title';
+        title.textContent=def.label;
+        const description=document.createElement('span');
+        description.className='nsf-sidebar-card-description';
+        description.textContent=def.description;
+        body.append(title,description);
+        card.append(icon,body);
+        card.addEventListener('dragstart',event=>{
+          if(!this.isRoutineEditorShopBlockAllowed(def.type)){
+            currentBlockShopDragType='';
+            if(event&&event.preventDefault) event.preventDefault();
+            return;
+          }
+          currentBlockShopDragType=def.type;
+          if(event&&event.dataTransfer){
+            event.dataTransfer.effectAllowed='copy';
+            try{event.dataTransfer.setData('application/x-nsf-block-type',def.type);}catch{}
+            try{event.dataTransfer.setData('text/plain',def.type);}catch{}
+          }
+        });
+        card.addEventListener('dragend',()=>{
+          currentBlockShopDragType='';
+          clearAllRoutineEditorDropIndicators();
+        });
+        card.addEventListener('click',event=>{
+          event.preventDefault();
+          if(!this.isRoutineEditorShopBlockAllowed(def.type)) return;
+          const result=createCustomBlock(this.getActiveRoutineEditorTab(),def.type);
+          this.focusRoutineEditorCustomBlock(result);
+        });
+        moduleList.appendChild(card);
+        moduleCards.push({card,def});
+        this.routineEditorBlockShopItems.set(def.type,{element:card});
+      });
+
+      const applyModuleFilter=()=>{
+        const value=searchInput.value.trim().toLowerCase();
+        searchClear.classList.toggle('hidden',value.length===0);
+        moduleCards.forEach(({card,def})=>{
+          const haystack=`${def.label} ${def.description}`.toLowerCase();
+          const matches=!value||haystack.includes(value);
+          card.classList.toggle('is-hidden',!matches);
+        });
+      };
+      searchInput.addEventListener('input',applyModuleFilter);
+      searchClear.addEventListener('click',()=>{
+        searchInput.value='';
+        applyModuleFilter();
+        searchInput.focus();
+      });
+      applyModuleFilter();
+      this.updateRoutineEditorBlockShopAvailability();
+
+      const presetsPanel=document.createElement('div');
+      presetsPanel.className='nsf-sidebar-panel';
+      sidebar.appendChild(presetsPanel);
+
       const presetsHeader=document.createElement('div');
-      presetsHeader.className='nsf-editor-presets-header';
-      presetsHeader.textContent='Gespeicherte Profile';
-      sidebar.appendChild(presetsHeader);
+      presetsHeader.className='nsf-sidebar-panel-header';
+      const presetsTitle=document.createElement('div');
+      presetsTitle.className='nsf-sidebar-panel-title';
+      presetsTitle.textContent='Gespeicherte Profile';
+      const presetsSubtitle=document.createElement('div');
+      presetsSubtitle.className='nsf-sidebar-panel-subtitle';
+      presetsSubtitle.textContent='Verwalte Layout-Presets für dieses Modul.';
+      presetsHeader.append(presetsTitle,presetsSubtitle);
+      presetsPanel.appendChild(presetsHeader);
+
       const presetList=document.createElement('div');
       presetList.className='nsf-editor-presets-list';
-      sidebar.appendChild(presetList);
+      presetsPanel.appendChild(presetList);
       this.routineEditorPresetList=presetList;
+
+      const presetDivider=document.createElement('div');
+      presetDivider.className='nsf-sidebar-divider';
+      presetsPanel.appendChild(presetDivider);
+
       const saveForm=document.createElement('form');
       saveForm.className='nsf-editor-presets-save';
       saveForm.addEventListener('submit',event=>this.handleRoutineEditorPresetFormSubmit(event));
@@ -4686,65 +4895,7 @@
       this.routineEditorPresetSaveButton=presetSaveButton;
       presetSaveButton.disabled=true;
       saveForm.append(nameLabel,nameInput,presetSaveButton);
-
-      const blockShop=document.createElement('div');
-      blockShop.className='nsf-block-shop';
-      const shopTitle=document.createElement('div');
-      shopTitle.className='nsf-block-shop-title';
-      shopTitle.textContent='Bausteine';
-      blockShop.appendChild(shopTitle);
-      const shopList=document.createElement('div');
-      shopList.className='nsf-block-shop-list';
-      blockShop.appendChild(shopList);
-      this.routineEditorBlockShopItems=new Map();
-      const shopItems=[
-        {type:'text',icon:'📝',label:'Textfeld'},
-        {type:'linebreak',icon:'↵',label:'Zeilenumbruch'},
-        {type:'aspenfield',icon:'🧾',label:'Aspen-Feld (manuell)'},
-        {type:'aspen',icon:'📊',label:'Aspen-Feld'}
-      ];
-      shopItems.forEach(itemDef=>{
-        const item=document.createElement('button');
-        item.type='button';
-        item.className='nsf-block-shop-item';
-        item.dataset.type=itemDef.type;
-        item.setAttribute('draggable','true');
-        const icon=document.createElement('span');
-        icon.className='nsf-block-shop-item-icon';
-        icon.textContent=itemDef.icon;
-        const label=document.createElement('span');
-        label.textContent=itemDef.label;
-        item.append(icon,label);
-        item.addEventListener('dragstart',event=>{
-          if(!this.isRoutineEditorShopBlockAllowed(itemDef.type)){
-            currentBlockShopDragType='';
-            if(event&&event.preventDefault) event.preventDefault();
-            return;
-          }
-          currentBlockShopDragType=itemDef.type;
-          if(event&&event.dataTransfer){
-            event.dataTransfer.effectAllowed='copy';
-            try{event.dataTransfer.setData('application/x-nsf-block-type',itemDef.type);}catch{}
-            try{event.dataTransfer.setData('text/plain',itemDef.type);}catch{}
-          }
-        });
-        item.addEventListener('dragend',()=>{
-          currentBlockShopDragType='';
-          clearAllRoutineEditorDropIndicators();
-        });
-        item.addEventListener('click',event=>{
-          event.preventDefault();
-          if(!this.isRoutineEditorShopBlockAllowed(itemDef.type)) return;
-          const result=createCustomBlock(this.getActiveRoutineEditorTab(),itemDef.type);
-          this.focusRoutineEditorCustomBlock(result);
-        });
-        shopList.appendChild(item);
-        this.routineEditorBlockShopItems.set(itemDef.type,{element:item});
-      });
-      this.updateRoutineEditorBlockShopAvailability();
-
-      sidebar.appendChild(blockShop);
-      sidebar.appendChild(saveForm);
+      presetsPanel.appendChild(saveForm);
 
       document.body.appendChild(overlay);
       overlay.addEventListener('keydown',event=>{
@@ -4911,58 +5062,55 @@
       if(!this.routineEditorList) return null;
       if(!Array.isArray(this.routineEditorInsertZones)) this.routineEditorInsertZones=[];
       const targetTab=getRoutineEditorTabKey?getRoutineEditorTabKey(tabKey):tabKey;
-      const container=document.createElement('div');
-      container.className='nsf-editor-insert';
-      container.dataset.position=String(index);
-      const dropzone=document.createElement('div');
-      dropzone.className='nsf-editor-dropzone';
-      dropzone.textContent='Baustein hier ablegen';
+      const slot=document.createElement('div');
+      slot.className='nsf-editor-slot';
+      slot.dataset.position=String(index);
       const prevLabel=index>0?this.getRoutineEditorBlockLabel(order[index-1]):'';
       const nextLabel=index<order.length?this.getRoutineEditorBlockLabel(order[index]):'';
       if(prevLabel&&nextLabel){
-        dropzone.title=`Baustein zwischen ${prevLabel} und ${nextLabel} ablegen`;
+        slot.title=`Baustein zwischen ${prevLabel} und ${nextLabel} ablegen`;
       }else if(nextLabel){
-        dropzone.title=`Baustein vor ${nextLabel} ablegen`;
+        slot.title=`Baustein vor ${nextLabel} ablegen`;
       }else if(prevLabel){
-        dropzone.title=`Baustein nach ${prevLabel} ablegen`;
+        slot.title=`Baustein nach ${prevLabel} ablegen`;
       }else{
-        dropzone.title='Baustein hier ablegen';
+        slot.title='Baustein zum Layout hinzufügen';
       }
       const clearState=()=>{
-        container.classList.remove('is-active');
-        container.classList.remove('is-disabled');
+        slot.classList.remove('is-active');
+        slot.classList.remove('is-disabled');
       };
-      container.addEventListener('dragenter',event=>{
+      slot.addEventListener('dragenter',event=>{
         const type=currentBlockShopDragType;
         if(!type) return;
         if(!this.isRoutineEditorShopBlockAllowed(type)){
-          container.classList.add('is-disabled');
-          container.classList.remove('is-active');
+          slot.classList.add('is-disabled');
+          slot.classList.remove('is-active');
           return;
         }
         event.preventDefault();
-        container.classList.add('is-active');
-        container.classList.remove('is-disabled');
+        slot.classList.add('is-active');
+        slot.classList.remove('is-disabled');
       });
-      container.addEventListener('dragover',event=>{
-        const type=currentBlockShopDragType;
+      slot.addEventListener('dragover',event=>{
+        const type=currentBlockShopDragType||event.dataTransfer&&event.dataTransfer.getData('text/plain')||'';
         if(!type) return;
         if(!this.isRoutineEditorShopBlockAllowed(type)){
-          container.classList.add('is-disabled');
-          container.classList.remove('is-active');
+          slot.classList.add('is-disabled');
+          slot.classList.remove('is-active');
           if(event.dataTransfer) event.dataTransfer.dropEffect='none';
           return;
         }
         event.preventDefault();
         if(event.dataTransfer) event.dataTransfer.dropEffect='copy';
-        container.classList.add('is-active');
-        container.classList.remove('is-disabled');
+        slot.classList.add('is-active');
+        slot.classList.remove('is-disabled');
       });
-      container.addEventListener('dragleave',event=>{
-        if(container.contains(event.relatedTarget)) return;
+      slot.addEventListener('dragleave',event=>{
+        if(slot.contains(event.relatedTarget)) return;
         clearState();
       });
-      container.addEventListener('drop',event=>{
+      slot.addEventListener('drop',event=>{
         const type=currentBlockShopDragType||event.dataTransfer&&event.dataTransfer.getData('text/plain')||'';
         clearState();
         if(!type||!this.isRoutineEditorShopBlockAllowed(type)){
@@ -4985,10 +5133,8 @@
         clearAllRoutineEditorDropIndicators();
         this.focusRoutineEditorCustomBlock(newBlock);
       });
-      dropzone.addEventListener('drop',event=>event.preventDefault());
-      container.appendChild(dropzone);
-      this.routineEditorInsertZones.push(container);
-      return container;
+      this.routineEditorInsertZones.push(slot);
+      return slot;
     }
 
     renderRoutineEditorOverlayContent(tabKey=this.getActiveRoutineEditorTab()){
@@ -5106,7 +5252,15 @@
         listElement.appendChild(blockEl);
       });
       const finalInsert=this.createRoutineEditorInsertControl(finalOrder.length,finalOrder,tabKeyValue);
-      if(finalInsert&&listElement) listElement.appendChild(finalInsert);
+      if(finalInsert&&listElement){
+        if(!blocks.length) finalInsert.classList.add('is-empty-slot');
+        listElement.appendChild(finalInsert);
+      }
+      const hasBlocks=blocks.length>0;
+      listElement.classList.toggle('is-empty',!hasBlocks);
+      if(this.routineEditorContainer&&this.routineEditorContainer.classList){
+        this.routineEditorContainer.classList.toggle('is-empty',!hasBlocks);
+      }
       if(!usingGhostOrder){
         this.refreshRoutineEditorPreview();
         this.updateRoutineEditorBlockShopAvailability();
