@@ -12,7 +12,7 @@
       label:'Demo-Eintrag',
       findings:'Beispielbefund zur Demonstration des Editors.',
       actions:'Erforderliche Maßnahme dokumentieren.',
-      routine:'Routinebeschreibung eintragen.',
+      routineAction:'KV-Aktion eintragen.',
       nonroutine:'Besondere Hinweise für Nonroutine-Fälle ergänzen.',
       parts:'Artikelnummern oder Bestellhinweise hier aufführen.'
     }
@@ -27,7 +27,7 @@
   const IDB_STORE_NAME='handles';
   const IDB_HANDLE_KEY='primary';
 
-  const FIELD_KEYS=['label','findings','actions','routine','nonroutine','parts'];
+  const FIELD_KEYS=['label','findings','actions','routineAction','nonroutine','parts'];
   const TIMES_FIELD_DEFS=[
     {key:'arbeitszeit',label:'Arbeitszeit',placeholder:'Arbeitszeit eingeben',copyLabel:'Arbeitszeit'},
     {key:'modZeit',label:'Mod Zeit',placeholder:'Mod Zeit eingeben',copyLabel:'Mod Zeit'}
@@ -192,7 +192,7 @@
     label:'Label',
     findings:'Findings',
     actions:'Actions',
-    routine:'Routine',
+    routineAction:'KV-Actions',
     nonroutine:'Nonroutine',
     parts:'Bestelltext'
   };
@@ -785,7 +785,11 @@
   function normalizeEntry(entry){
     const normalized={id:entry&&entry.id?String(entry.id):ensureId()};
     for(const key of FIELD_KEYS){
-      normalized[key]=cleanString(entry?entry[key]:'' );
+      let value=entry?entry[key]:'';
+      if(key==='routineAction'){
+        value=resolveRoutineAction(entry,entry&&entry.Routine);
+      }
+      normalized[key]=cleanString(value);
     }
     const partNumbers=normalizePartNumbers(entry);
     const primaryPart=cleanString(pickFirstFilled(
@@ -810,14 +814,42 @@
     return cleanString(normalized);
   }
 
+  function resolveRoutineAction(entry,routineContainer){
+    const container=routineContainer&&typeof routineContainer==='object'?routineContainer:null;
+    const source=entry&&typeof entry==='object'?entry:null;
+    const values=[];
+    if(source){
+      values.push(source.routineAction,source.RoutineAction);
+    }
+    if(container){
+      values.push(
+        container.RoutineAction,
+        container.routineAction,
+        container.RoutineFinding,
+        container.routineFinding
+      );
+    }
+    if(source){
+      values.push(
+        source.RoutineFinding,
+        source.routineFinding,
+        source.Routine,
+        source.routine
+      );
+    }else if(entry!=null){
+      values.push(entry);
+    }
+    return pickFirstFilled(...values);
+  }
+
   function buildCopyText(entry){
     const parts=[];
     const findings=cleanString(entry.findings);
     if(findings) parts.push(`Findings: ${findings}`);
     const actions=cleanString(entry.actions);
     if(actions) parts.push(`Actions: ${actions}`);
-    const routine=cleanString(entry.routine);
-    if(routine) parts.push(`Routine: ${routine}`);
+    const routineAction=cleanString(entry.routineAction);
+    if(routineAction) parts.push(`KV-Actions: ${routineAction}`);
     const nonroutine=stripNonRoutineFindingPrefix(entry.nonroutine);
     if(nonroutine) parts.push(`Nonroutine: ${nonroutine}`);
 
@@ -1339,7 +1371,7 @@
                 label:labelValue,
                 findings:source.Findings!=null?source.Findings:source.findings,
                 actions:source.Actions!=null?source.Actions:source.actions,
-                routine:routineSource&&typeof routineSource==='object'? (routineSource.RoutineFinding!=null?routineSource.RoutineFinding:routineSource.routineFinding):'',
+                routineAction:resolveRoutineAction(source,routineSource),
                 nonroutine:nonRoutineSource&&typeof nonRoutineSource==='object'? (nonRoutineSource.NonRoutineFinding!=null?nonRoutineSource.NonRoutineFinding:nonRoutineSource.nonRoutineFinding):'',
                 parts:pnText,
                 partsPairs:partPairs,
@@ -1388,7 +1420,7 @@
               label:labelValue,
               findings:source.Findings!=null?source.Findings:source.findings,
               actions:source.Actions!=null?source.Actions:source.actions,
-              routine:source.Routine!=null?source.Routine:source.routine,
+              routineAction:resolveRoutineAction(source),
               nonroutine:source.Nonroutine!=null?source.Nonroutine:source.nonroutine,
               parts:pnText,
               partsPairs:partPairs,
@@ -1442,7 +1474,7 @@
             Label:'',
             Findings:'',
             Actions:'',
-            Routine:{RoutineFinding:''},
+            Routine:{RoutineAction:''},
             NonRoutine:{NonRoutineFinding:''},
             Parts:{PNText:''}
           };
@@ -1454,7 +1486,11 @@
           raw.Findings=entry.findings||'';
           raw.Actions=entry.actions||'';
           if(!raw.Routine||typeof raw.Routine!=='object') raw.Routine={};
-          raw.Routine.RoutineFinding=entry.routine||'';
+          const routineActionValue=entry.routineAction||'';
+          raw.Routine.RoutineAction=routineActionValue;
+          if(Object.prototype.hasOwnProperty.call(raw.Routine,'routineAction')) raw.Routine.routineAction=routineActionValue;
+          if(Object.prototype.hasOwnProperty.call(raw.Routine,'RoutineFinding')) delete raw.Routine.RoutineFinding;
+          if(Object.prototype.hasOwnProperty.call(raw.Routine,'routineFinding')) delete raw.Routine.routineFinding;
           if(!raw.NonRoutine||typeof raw.NonRoutine!=='object') raw.NonRoutine={};
           raw.NonRoutine.NonRoutineFinding=entry.nonroutine||'';
           if(raw.Nonroutine&&typeof raw.Nonroutine==='object'){
@@ -1493,7 +1529,11 @@
           raw.Label=entry.label||'';
           raw.Findings=entry.findings||'';
           raw.Actions=entry.actions||'';
-          raw.Routine=entry.routine||'';
+          const routineActionValue=entry.routineAction||'';
+          raw.RoutineAction=routineActionValue;
+          if(Object.prototype.hasOwnProperty.call(raw,'routineAction')) raw.routineAction=routineActionValue;
+          if(Object.prototype.hasOwnProperty.call(raw,'Routine')) delete raw.Routine;
+          if(Object.prototype.hasOwnProperty.call(raw,'routine')) delete raw.routine;
           raw.Nonroutine=entry.nonroutine||'';
           const pnTextValue=entry.parts||'';
           if(!raw.Parts||typeof raw.Parts!=='object') raw.Parts={PNText:pnTextValue};
@@ -2343,7 +2383,7 @@
     }
 
     createEntry(){
-      const entry=normalizeEntry({label:'',findings:'',actions:'',routine:'',nonroutine:'',parts:'',Times:createEmptyTimes(),Mods:createEmptyMods(),ModsList:createEmptyModsList()});
+      const entry=normalizeEntry({label:'',findings:'',actions:'',routineAction:'',nonroutine:'',parts:'',Times:createEmptyTimes(),Mods:createEmptyMods(),ModsList:createEmptyModsList()});
       this.ensurePartsPairs(entry);
       this.pushHistory();
       this.data.unshift(entry);
@@ -2355,7 +2395,7 @@
           Label:'',
           Findings:'',
           Actions:'',
-          Routine:{RoutineFinding:''},
+          Routine:{RoutineAction:''},
           NonRoutine:{NonRoutineFinding:''},
           Parts:partsContainer,
           Times:{Part:'',Label:'',Arbeitszeit:'',ModZeit:''},
@@ -2371,7 +2411,7 @@
           Label:'',
           Findings:'',
           Actions:'',
-          Routine:'',
+          RoutineAction:'',
           Nonroutine:'',
           Bestellliste:'',
           Parts:partsContainer,
