@@ -4920,6 +4920,14 @@
         const tabForInsert=targetTab||this.getActiveRoutineEditorTab();
         const newBlock=this.addCustomBlock(tabForInsert,type,{insertIndex:index});
         console.log('[Drop] newBlock returned:',newBlock);
+        if(newBlock&&this.routineEditorOverlay&&this.routineEditorOverlay.classList.contains('open')){
+          const tabToRender=tabForInsert||this.getActiveRoutineEditorTab();
+          try{
+            this.renderRoutineEditorOverlayContent(tabToRender);
+          }catch(err){
+            console.warn('NSF: Overlay konnte nach Drop nicht aktualisiert werden',err);
+          }
+        }
         currentBlockShopDragType='';
         clearAllRoutineEditorDropIndicators();
         this.focusRoutineEditorCustomBlock(newBlock);
