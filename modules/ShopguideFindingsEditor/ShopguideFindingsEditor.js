@@ -29,14 +29,10 @@
 
   const FIELD_KEYS=['label','findings','actions','routine','nonroutine','parts'];
   const TIMES_FIELD_DEFS=[
-    {key:'part',label:'Part',placeholder:'Part eingeben',copyLabel:'Part'},
-    {key:'label',label:'Label',placeholder:'Label eingeben',copyLabel:'Label'},
     {key:'arbeitszeit',label:'Arbeitszeit',placeholder:'Arbeitszeit eingeben',copyLabel:'Arbeitszeit'},
     {key:'modZeit',label:'Mod Zeit',placeholder:'Mod Zeit eingeben',copyLabel:'Mod Zeit'}
   ];
   const MODS_FIELD_DEFS=[
-    {key:'part',label:'Part',placeholder:'Part eingeben',copyLabel:'Part'},
-    {key:'label',label:'Label',placeholder:'Label eingeben',copyLabel:'Label'},
     {key:'modBezeichnung',label:'Mod Bezeichnung',placeholder:'Mod Bezeichnung eingeben',copyLabel:'Mod Bezeichnung'},
     {key:'modKommentar',label:'Mod Kommentar',placeholder:'Mod Kommentar eingeben',copyLabel:'Mod Kommentar'},
     {key:'standardAbSN',label:'Standard ab SN',placeholder:'Standard ab SN eingeben',copyLabel:'Standard ab SN'},
@@ -504,11 +500,11 @@
   }
 
   function createEmptyTimes(){
-    return {part:'',label:'',arbeitszeit:'',modZeit:''};
+    return {arbeitszeit:'',modZeit:''};
   }
 
   function createEmptyMods(){
-    return {part:'',label:'',modBezeichnung:'',modKommentar:'',standardAbSN:'',modLink:'',modzeit:''};
+    return {modBezeichnung:'',modKommentar:'',standardAbSN:'',modLink:'',modzeit:''};
   }
 
   function extractFieldValue(sources,variants){
@@ -531,10 +527,6 @@
       if(entry.times&&typeof entry.times==='object') sources.push(entry.times);
       if(entry.Times&&typeof entry.Times==='object') sources.push(entry.Times);
       const flatCandidates={};
-      if(entry.timesPart!=null) flatCandidates.Part=entry.timesPart;
-      if(entry.TimesPart!=null&&flatCandidates.Part==null) flatCandidates.Part=entry.TimesPart;
-      if(entry.timesLabel!=null) flatCandidates.Label=entry.timesLabel;
-      if(entry.TimesLabel!=null&&flatCandidates.Label==null) flatCandidates.Label=entry.TimesLabel;
       if(entry.timesArbeitszeit!=null) flatCandidates.Arbeitszeit=entry.timesArbeitszeit;
       if(entry.TimesArbeitszeit!=null&&flatCandidates.Arbeitszeit==null) flatCandidates.Arbeitszeit=entry.TimesArbeitszeit;
       if(entry.Arbeitszeit!=null&&flatCandidates.Arbeitszeit==null) flatCandidates.Arbeitszeit=entry.Arbeitszeit;
@@ -543,8 +535,6 @@
       if(modZeitCandidate) flatCandidates.ModZeit=modZeitCandidate;
       if(Object.keys(flatCandidates).length) sources.push(flatCandidates);
     }
-    result.part=extractFieldValue(sources,['Part','part','PartNumber','partNumber']);
-    result.label=extractFieldValue(sources,['Label','label']);
     result.arbeitszeit=extractFieldValue(sources,['Arbeitszeit','arbeitszeit']);
     result.modZeit=extractFieldValue(sources,['ModZeit','modZeit','Modzeit','modzeit']);
     return result;
@@ -557,10 +547,6 @@
       if(entry.mods&&typeof entry.mods==='object') sources.push(entry.mods);
       if(entry.Mods&&typeof entry.Mods==='object') sources.push(entry.Mods);
       const flatCandidates={};
-      if(entry.modsPart!=null) flatCandidates.Part=entry.modsPart;
-      if(entry.ModsPart!=null&&flatCandidates.Part==null) flatCandidates.Part=entry.ModsPart;
-      if(entry.modsLabel!=null) flatCandidates.Label=entry.modsLabel;
-      if(entry.ModsLabel!=null&&flatCandidates.Label==null) flatCandidates.Label=entry.ModsLabel;
       const modBezCandidate=pickFirstFilled(entry.modBezeichnung,entry.ModBezeichnung,entry.modsModBezeichnung,entry.ModsModBezeichnung);
       if(modBezCandidate) flatCandidates.ModBezeichnung=modBezCandidate;
       const modKommentarCandidate=pickFirstFilled(entry.modKommentar,entry.ModKommentar,entry.modsModKommentar,entry.ModsModKommentar);
@@ -573,8 +559,6 @@
       if(modzeitCandidate) flatCandidates.Modzeit=modzeitCandidate;
       if(Object.keys(flatCandidates).length) sources.push(flatCandidates);
     }
-    result.part=extractFieldValue(sources,['Part','part','PartNumber','partNumber']);
-    result.label=extractFieldValue(sources,['Label','label']);
     result.modBezeichnung=extractFieldValue(sources,['ModBezeichnung','modBezeichnung','Modbezeichnung','modbezeichnung']);
     result.modKommentar=extractFieldValue(sources,['ModKommentar','modKommentar','Modkommentar','modkommentar','Kommentar','comment']);
     result.standardAbSN=extractFieldValue(sources,['Standard_ab_SN','standard_ab_sn','StandardAbSN','standardAbSN','Standard_ab_sn','standardAbSn']);
@@ -587,20 +571,12 @@
     if(!target||typeof target!=='object') return;
     const data=times&&typeof times==='object'?times:createEmptyTimes();
     const container=ensureObject(target,'Times');
-    container.Part=data.part||'';
-    if(Object.prototype.hasOwnProperty.call(container,'part')) container.part=data.part||'';
-    container.Label=data.label||'';
-    if(Object.prototype.hasOwnProperty.call(container,'label')) container.label=data.label||'';
     container.Arbeitszeit=data.arbeitszeit||'';
     if(Object.prototype.hasOwnProperty.call(container,'arbeitszeit')) container.arbeitszeit=data.arbeitszeit||'';
     container.ModZeit=data.modZeit||'';
     if(Object.prototype.hasOwnProperty.call(container,'Modzeit')) container.Modzeit=data.modZeit||'';
     if(Object.prototype.hasOwnProperty.call(container,'modZeit')) container.modZeit=data.modZeit||'';
     if(Object.prototype.hasOwnProperty.call(container,'modzeit')) container.modzeit=data.modZeit||'';
-    if(Object.prototype.hasOwnProperty.call(target,'TimesPart')) target.TimesPart=data.part||'';
-    if(Object.prototype.hasOwnProperty.call(target,'timesPart')) target.timesPart=data.part||'';
-    if(Object.prototype.hasOwnProperty.call(target,'TimesLabel')) target.TimesLabel=data.label||'';
-    if(Object.prototype.hasOwnProperty.call(target,'timesLabel')) target.timesLabel=data.label||'';
     if(Object.prototype.hasOwnProperty.call(target,'Arbeitszeit')) target.Arbeitszeit=data.arbeitszeit||'';
     if(Object.prototype.hasOwnProperty.call(target,'arbeitszeit')) target.arbeitszeit=data.arbeitszeit||'';
     if(Object.prototype.hasOwnProperty.call(target,'ModZeit')) target.ModZeit=data.modZeit||'';
@@ -613,10 +589,6 @@
     if(!target||typeof target!=='object') return;
     const data=mods&&typeof mods==='object'?mods:createEmptyMods();
     const container=ensureObject(target,'Mods');
-    container.Part=data.part||'';
-    if(Object.prototype.hasOwnProperty.call(container,'part')) container.part=data.part||'';
-    container.Label=data.label||'';
-    if(Object.prototype.hasOwnProperty.call(container,'label')) container.label=data.label||'';
     container.ModBezeichnung=data.modBezeichnung||'';
     if(Object.prototype.hasOwnProperty.call(container,'modBezeichnung')) container.modBezeichnung=data.modBezeichnung||'';
     container.ModKommentar=data.modKommentar||'';
@@ -630,10 +602,6 @@
     if(Object.prototype.hasOwnProperty.call(container,'ModZeit')) container.ModZeit=data.modzeit||'';
     if(Object.prototype.hasOwnProperty.call(container,'modZeit')) container.modZeit=data.modzeit||'';
     if(Object.prototype.hasOwnProperty.call(container,'modzeit')) container.modzeit=data.modzeit||'';
-    if(Object.prototype.hasOwnProperty.call(target,'ModsPart')) target.ModsPart=data.part||'';
-    if(Object.prototype.hasOwnProperty.call(target,'modsPart')) target.modsPart=data.part||'';
-    if(Object.prototype.hasOwnProperty.call(target,'ModsLabel')) target.ModsLabel=data.label||'';
-    if(Object.prototype.hasOwnProperty.call(target,'modsLabel')) target.modsLabel=data.label||'';
     if(Object.prototype.hasOwnProperty.call(target,'ModBezeichnung')) target.ModBezeichnung=data.modBezeichnung||'';
     if(Object.prototype.hasOwnProperty.call(target,'modBezeichnung')) target.modBezeichnung=data.modBezeichnung||'';
     if(Object.prototype.hasOwnProperty.call(target,'ModKommentar')) target.ModKommentar=data.modKommentar||'';
