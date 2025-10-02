@@ -2594,7 +2594,16 @@
           finding:typeof sel.finding==='string'?sel.finding:'',
           action:typeof sel.action==='string'?sel.action:'',
           label:typeof sel.label==='string'?sel.label:'',
-          part:typeof sel.part==='string'?normalizePart(sel.part):''
+          part:typeof sel.part==='string'?normalizePart(sel.part):'',
+          routine:typeof sel.routine==='string'?sel.routine:'',
+          routineFinding:typeof sel.routineFinding==='string'?sel.routineFinding:'',
+          routineAction:typeof sel.routineAction==='string'?sel.routineAction:'',
+          nonroutine:typeof sel.nonroutine==='string'?sel.nonroutine:'',
+          nonroutineFinding:typeof sel.nonroutineFinding==='string'?sel.nonroutineFinding:'',
+          nonroutineAction:typeof sel.nonroutineAction==='string'?sel.nonroutineAction:'',
+          parts:typeof sel.parts==='string'?sel.parts:'',
+          times:typeof sel.times==='string'?sel.times:'',
+          mods:typeof sel.mods==='string'?sel.mods:''
         }
       ));
   }
@@ -2607,7 +2616,16 @@
             finding:typeof sel.finding==='string'?sel.finding:'',
             action:typeof sel.action==='string'?sel.action:'',
             label:typeof sel.label==='string'?sel.label:'',
-            part:typeof sel.part==='string'?normalizePart(sel.part):''
+            part:typeof sel.part==='string'?normalizePart(sel.part):'',
+            routine:typeof sel.routine==='string'?sel.routine:'',
+            routineFinding:typeof sel.routineFinding==='string'?sel.routineFinding:'',
+            routineAction:typeof sel.routineAction==='string'?sel.routineAction:'',
+            nonroutine:typeof sel.nonroutine==='string'?sel.nonroutine:'',
+            nonroutineFinding:typeof sel.nonroutineFinding==='string'?sel.nonroutineFinding:'',
+            nonroutineAction:typeof sel.nonroutineAction==='string'?sel.nonroutineAction:'',
+            parts:typeof sel.parts==='string'?sel.parts:'',
+            times:typeof sel.times==='string'?sel.times:'',
+            mods:typeof sel.mods==='string'?sel.mods:''
           }
         ))
       :[];
@@ -3063,14 +3081,35 @@
         if(resolved){
           const storedPart=normalizePart(sel.part);
           const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
-          return {...resolved,part:matchedPart||resolved.part};
+          return {
+            ...resolved,
+            routine:resolved.routine||sel.routine||'',
+            routineFinding:resolved.routineFinding||resolved.routineFindings||sel.routineFinding||'',
+            routineAction:resolved.routineAction||resolved.routineActions||sel.routineAction||'',
+            nonroutine:resolved.nonroutine||sel.nonroutine||'',
+            nonroutineFinding:resolved.nonroutineFinding||resolved.nonroutineFindings||sel.nonroutineFinding||'',
+            nonroutineAction:resolved.nonroutineAction||resolved.nonroutineActions||sel.nonroutineAction||'',
+            parts:resolved.parts||sel.parts||'',
+            times:resolved.times||sel.times||'',
+            mods:resolved.mods||sel.mods||'',
+            part:matchedPart||resolved.part
+          };
         }
         return {
           key:sel.key,
           finding:sel.finding||'',
           action:sel.action||'',
           label:sel.label||'',
-          part:normalizePart(sel.part)||this.currentPart
+          part:normalizePart(sel.part)||this.currentPart,
+          routine:sel.routine||'',
+          routineFinding:sel.routineFinding||'',
+          routineAction:sel.routineAction||'',
+          nonroutine:sel.nonroutine||'',
+          nonroutineFinding:sel.nonroutineFinding||'',
+          nonroutineAction:sel.nonroutineAction||'',
+          parts:sel.parts||'',
+          times:sel.times||'',
+          mods:sel.mods||''
         };
       });
       this.selectionRows=[];
@@ -7302,14 +7341,30 @@
     }
 
     addSelection(entry){
-      if(!entry||!entry.key) return;
-      if(!this.selectedEntries.some(sel=>sel.key===entry.key)){
+      if(!entry) return;
+      const resolved=this.resolveEntry(entry)||entry;
+      const key=resolved&&resolved.key?resolved.key:entry.key;
+      if(!key) return;
+      if(!this.selectedEntries.some(sel=>sel.key===key)){
+        const routineFinding=resolved.routineFinding||resolved.routineFindings||'';
+        const routineAction=resolved.routineAction||resolved.routineActions||'';
+        const nonroutineFinding=resolved.nonroutineFinding||resolved.nonroutineFindings||'';
+        const nonroutineAction=resolved.nonroutineAction||resolved.nonroutineActions||'';
         this.selectedEntries.push({
-          key:entry.key,
-          finding:entry.finding||'',
-          action:entry.action||'',
-          label:entry.label||'',
-          part:resolveMatchedPart(entry,this.currentPart)
+          key,
+          finding:resolved.finding||entry.finding||'',
+          action:resolved.action||entry.action||'',
+          label:resolved.label||entry.label||'',
+          part:resolveMatchedPart(resolved,this.currentPart),
+          routine:resolved.routine||'',
+          routineFinding:routineFinding||'',
+          routineAction:routineAction||'',
+          nonroutine:resolved.nonroutine||'',
+          nonroutineFinding:nonroutineFinding||'',
+          nonroutineAction:nonroutineAction||'',
+          parts:resolved.parts||'',
+          times:resolved.times||'',
+          mods:resolved.mods||''
         });
       }
     }
