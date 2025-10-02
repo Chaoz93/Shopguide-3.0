@@ -271,7 +271,18 @@
       .sfe-suggestions{position:absolute;left:0.65rem;right:0.65rem;top:calc(100% - 0.35rem);background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:0.65rem;box-shadow:0 12px 28px rgba(15,23,42,0.25);max-height:220px;overflow:auto;z-index:20;display:none;flex-direction:column;padding:0.35rem;}
       .sfe-field.show-suggestions .sfe-suggestions{display:flex;}
       .sfe-subsection{gap:0.5rem;}
-      .sfe-subsection-header{font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;opacity:0.8;}
+      .sfe-subsection-header{display:flex;align-items:center;justify-content:space-between;font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;opacity:0.8;gap:0.5rem;}
+      .sfe-subsection-actions{display:flex;align-items:center;gap:0.35rem;}
+      .sfe-subsection-add{border:none;background:rgba(59,130,246,0.2);color:inherit;width:1.9rem;height:1.9rem;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font:inherit;font-weight:700;cursor:pointer;transition:background 0.12s ease,transform 0.12s ease;}
+      .sfe-subsection-add:hover{background:rgba(59,130,246,0.3);transform:translateY(-1px);}
+      .sfe-subsection-add:focus-visible{outline:2px solid rgba(59,130,246,0.6);outline-offset:2px;}
+      .sfe-mods-grid{display:flex;flex-wrap:wrap;gap:0.75rem;}
+      .sfe-mod-column{flex:1 1 240px;min-width:220px;background:rgba(15,23,42,0.26);border-radius:0.65rem;padding:0.6rem;display:flex;flex-direction:column;gap:0.55rem;}
+      .sfe-mod-column-header{display:flex;align-items:center;justify-content:space-between;font-size:0.75rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;opacity:0.85;}
+      .sfe-mod-remove{border:none;background:rgba(248,113,113,0.22);color:inherit;width:1.7rem;height:1.7rem;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font:inherit;font-weight:700;cursor:pointer;transition:background 0.12s ease,transform 0.12s ease;margin-left:0.35rem;}
+      .sfe-mod-remove:hover{background:rgba(248,113,113,0.32);transform:translateY(-1px);}
+      .sfe-mod-remove:focus-visible{outline:2px solid rgba(248,113,113,0.6);outline-offset:2px;}
+      .sfe-mod-column-fields{display:flex;flex-direction:column;gap:0.45rem;}
       .sfe-subfield-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.5rem;}
       .sfe-subfield{display:flex;flex-direction:column;gap:0.35rem;position:relative;}
       .sfe-subfield .sfe-suggestions{left:0;right:0;}
@@ -507,6 +518,15 @@
     return {modBezeichnung:'',modKommentar:'',standardAbSN:'',modLink:'',modzeit:''};
   }
 
+  function createEmptyModsList(){
+    return [createEmptyMods()];
+  }
+
+  function modsHasContent(mod){
+    if(!mod||typeof mod!=='object') return false;
+    return MODS_FIELD_DEFS.some(field=>cleanString(mod[field.key]));
+  }
+
   function extractFieldValue(sources,variants){
     for(const source of sources){
       if(!source||typeof source!=='object') continue;
@@ -544,8 +564,8 @@
     const result=createEmptyMods();
     const sources=[];
     if(entry&&typeof entry==='object'){
-      if(entry.mods&&typeof entry.mods==='object') sources.push(entry.mods);
-      if(entry.Mods&&typeof entry.Mods==='object') sources.push(entry.Mods);
+      if(entry.Mods&&typeof entry.Mods==='object'&&!Array.isArray(entry.Mods)) sources.push(entry.Mods);
+      if(entry.mods&&typeof entry.mods==='object'&&!Array.isArray(entry.mods)) sources.push(entry.mods);
       const flatCandidates={};
       const modBezCandidate=pickFirstFilled(entry.modBezeichnung,entry.ModBezeichnung,entry.modsModBezeichnung,entry.ModsModBezeichnung);
       if(modBezCandidate) flatCandidates.ModBezeichnung=modBezCandidate;
@@ -567,6 +587,37 @@
     return result;
   }
 
+  function normalizeModsList(entry){
+    const list=[];
+    if(entry&&typeof entry==='object'){
+      const prioritizedSources=[
+        Array.isArray(entry.ModsList)?entry.ModsList:null,
+        Array.isArray(entry.modsList)?entry.modsList:null,
+        Array.isArray(entry.Mods)&&entry.Mods.every(item=>item&&typeof item==='object')?entry.Mods:null,
+        Array.isArray(entry.mods)&&entry.mods.every(item=>item&&typeof item==='object')?entry.mods:null
+      ];
+      for(const source of prioritizedSources){
+        if(!source||!source.length) continue;
+        for(const item of source){
+          if(!item||typeof item!=='object') continue;
+          const normalized=normalizeMods(item);
+          if(modsHasContent(normalized)||!list.length) list.push(normalized);
+        }
+        if(list.length) break;
+      }
+    }
+    const primary=normalizeMods(entry);
+    if(!list.length){
+      list.push(primary);
+    }else if(modsHasContent(primary)){
+      const primarySignature=JSON.stringify(primary);
+      const existingMatch=list.some(item=>JSON.stringify(item)===primarySignature);
+      if(!existingMatch) list.unshift(primary);
+    }
+    if(!list.length) list.push(createEmptyMods());
+    return list;
+  }
+
   function applyTimesSection(target,times){
     if(!target||typeof target!=='object') return;
     const data=times&&typeof times==='object'?times:createEmptyTimes();
@@ -585,37 +636,78 @@
     if(Object.prototype.hasOwnProperty.call(target,'modzeit')) target.modzeit=data.modZeit||'';
   }
 
+  function createModExportObject(data){
+    const normalized=data&&typeof data==='object'?data:createEmptyMods();
+    const exported={
+      ModBezeichnung:normalized.modBezeichnung||'',
+      ModKommentar:normalized.modKommentar||'',
+      Standard_ab_SN:normalized.standardAbSN||'',
+      ModLink:normalized.modLink||'',
+      Modzeit:normalized.modzeit||''
+    };
+    exported.modBezeichnung=exported.ModBezeichnung;
+    exported.modKommentar=exported.ModKommentar;
+    exported.standard_ab_sn=exported.Standard_ab_SN;
+    exported.StandardAbSN=exported.Standard_ab_SN;
+    exported.standardAbSN=exported.Standard_ab_SN;
+    exported.standardAbSn=exported.Standard_ab_SN;
+    exported.modLink=exported.ModLink;
+    exported.ModLink=exported.ModLink;
+    exported.modZeit=exported.Modzeit;
+    exported.ModZeit=exported.Modzeit;
+    exported.modzeit=exported.Modzeit;
+    return exported;
+  }
+
   function applyModsSection(target,mods){
     if(!target||typeof target!=='object') return;
-    const data=mods&&typeof mods==='object'?mods:createEmptyMods();
+    let list=[];
+    if(Array.isArray(mods)){
+      list=mods;
+    }else if(mods&&typeof mods==='object'){
+      if(Array.isArray(mods.modsList)) list=mods.modsList;
+      else if(Array.isArray(mods.ModsList)) list=mods.ModsList;
+      else list=[mods];
+    }
+    if(!list.length) list=createEmptyModsList();
+    const normalizedList=list.map(item=>normalizeMods(item));
+    const primary=normalizedList[0]||createEmptyMods();
     const container=ensureObject(target,'Mods');
-    container.ModBezeichnung=data.modBezeichnung||'';
-    if(Object.prototype.hasOwnProperty.call(container,'modBezeichnung')) container.modBezeichnung=data.modBezeichnung||'';
-    container.ModKommentar=data.modKommentar||'';
-    if(Object.prototype.hasOwnProperty.call(container,'modKommentar')) container.modKommentar=data.modKommentar||'';
-    container.Standard_ab_SN=data.standardAbSN||'';
-    if(Object.prototype.hasOwnProperty.call(container,'standard_ab_sn')) container.standard_ab_sn=data.standardAbSN||'';
-    if(Object.prototype.hasOwnProperty.call(container,'StandardAbSN')) container.StandardAbSN=data.standardAbSN||'';
-    container.ModLink=data.modLink||'';
-    if(Object.prototype.hasOwnProperty.call(container,'modLink')) container.modLink=data.modLink||'';
-    container.Modzeit=data.modzeit||'';
-    if(Object.prototype.hasOwnProperty.call(container,'ModZeit')) container.ModZeit=data.modzeit||'';
-    if(Object.prototype.hasOwnProperty.call(container,'modZeit')) container.modZeit=data.modzeit||'';
-    if(Object.prototype.hasOwnProperty.call(container,'modzeit')) container.modzeit=data.modzeit||'';
-    if(Object.prototype.hasOwnProperty.call(target,'ModBezeichnung')) target.ModBezeichnung=data.modBezeichnung||'';
-    if(Object.prototype.hasOwnProperty.call(target,'modBezeichnung')) target.modBezeichnung=data.modBezeichnung||'';
-    if(Object.prototype.hasOwnProperty.call(target,'ModKommentar')) target.ModKommentar=data.modKommentar||'';
-    if(Object.prototype.hasOwnProperty.call(target,'modKommentar')) target.modKommentar=data.modKommentar||'';
-    if(Object.prototype.hasOwnProperty.call(target,'Standard_ab_SN')) target.Standard_ab_SN=data.standardAbSN||'';
-    if(Object.prototype.hasOwnProperty.call(target,'standard_ab_sn')) target.standard_ab_sn=data.standardAbSN||'';
-    if(Object.prototype.hasOwnProperty.call(target,'StandardAbSN')) target.StandardAbSN=data.standardAbSN||'';
-    if(Object.prototype.hasOwnProperty.call(target,'standardAbSN')) target.standardAbSN=data.standardAbSN||'';
-    if(Object.prototype.hasOwnProperty.call(target,'ModLink')) target.ModLink=data.modLink||'';
-    if(Object.prototype.hasOwnProperty.call(target,'modLink')) target.modLink=data.modLink||'';
-    if(Object.prototype.hasOwnProperty.call(target,'Modzeit')) target.Modzeit=data.modzeit||'';
-    if(Object.prototype.hasOwnProperty.call(target,'modzeit')) target.modzeit=data.modzeit||'';
-    if(Object.prototype.hasOwnProperty.call(target,'ModZeit')) target.ModZeit=data.modzeit||'';
-    if(Object.prototype.hasOwnProperty.call(target,'modZeit')) target.modZeit=data.modzeit||'';
+    container.ModBezeichnung=primary.modBezeichnung||'';
+    if(Object.prototype.hasOwnProperty.call(container,'modBezeichnung')) container.modBezeichnung=primary.modBezeichnung||'';
+    container.ModKommentar=primary.modKommentar||'';
+    if(Object.prototype.hasOwnProperty.call(container,'modKommentar')) container.modKommentar=primary.modKommentar||'';
+    container.Standard_ab_SN=primary.standardAbSN||'';
+    if(Object.prototype.hasOwnProperty.call(container,'standard_ab_sn')) container.standard_ab_sn=primary.standardAbSN||'';
+    if(Object.prototype.hasOwnProperty.call(container,'StandardAbSN')) container.StandardAbSN=primary.standardAbSN||'';
+    container.ModLink=primary.modLink||'';
+    if(Object.prototype.hasOwnProperty.call(container,'modLink')) container.modLink=primary.modLink||'';
+    container.Modzeit=primary.modzeit||'';
+    if(Object.prototype.hasOwnProperty.call(container,'ModZeit')) container.ModZeit=primary.modzeit||'';
+    if(Object.prototype.hasOwnProperty.call(container,'modZeit')) container.modZeit=primary.modzeit||'';
+    if(Object.prototype.hasOwnProperty.call(container,'modzeit')) container.modzeit=primary.modzeit||'';
+    if(Object.prototype.hasOwnProperty.call(target,'ModBezeichnung')) target.ModBezeichnung=primary.modBezeichnung||'';
+    if(Object.prototype.hasOwnProperty.call(target,'modBezeichnung')) target.modBezeichnung=primary.modBezeichnung||'';
+    if(Object.prototype.hasOwnProperty.call(target,'ModKommentar')) target.ModKommentar=primary.modKommentar||'';
+    if(Object.prototype.hasOwnProperty.call(target,'modKommentar')) target.modKommentar=primary.modKommentar||'';
+    if(Object.prototype.hasOwnProperty.call(target,'Standard_ab_SN')) target.Standard_ab_SN=primary.standardAbSN||'';
+    if(Object.prototype.hasOwnProperty.call(target,'standard_ab_sn')) target.standard_ab_sn=primary.standardAbSN||'';
+    if(Object.prototype.hasOwnProperty.call(target,'StandardAbSN')) target.StandardAbSN=primary.standardAbSN||'';
+    if(Object.prototype.hasOwnProperty.call(target,'standardAbSN')) target.standardAbSN=primary.standardAbSN||'';
+    if(Object.prototype.hasOwnProperty.call(target,'ModLink')) target.ModLink=primary.modLink||'';
+    if(Object.prototype.hasOwnProperty.call(target,'modLink')) target.modLink=primary.modLink||'';
+    if(Object.prototype.hasOwnProperty.call(target,'Modzeit')) target.Modzeit=primary.modzeit||'';
+    if(Object.prototype.hasOwnProperty.call(target,'modzeit')) target.modzeit=primary.modzeit||'';
+    if(Object.prototype.hasOwnProperty.call(target,'ModZeit')) target.ModZeit=primary.modzeit||'';
+    if(Object.prototype.hasOwnProperty.call(target,'modZeit')) target.modZeit=primary.modzeit||'';
+    if(normalizedList.length>1||modsHasContent(primary)){
+      const exported=normalizedList.map(item=>createModExportObject(item));
+      target.ModsList=exported.map(item=>({...item}));
+      target.modsList=exported.map(item=>({...item}));
+    }else{
+      if(Object.prototype.hasOwnProperty.call(target,'ModsList')) delete target.ModsList;
+      if(Object.prototype.hasOwnProperty.call(target,'modsList')) delete target.modsList;
+    }
   }
 
   function normalizePartNumbers(entry){
@@ -706,7 +798,8 @@
     normalized.partNumbers=partNumbers;
     normalized.partsPairs=normalizePartsPairs(entry);
     normalized.times=normalizeTimes(entry);
-    normalized.mods=normalizeMods(entry);
+    normalized.modsList=normalizeModsList(entry);
+    normalized.mods=normalized.modsList[0]||createEmptyMods();
     return normalized;
   }
 
@@ -762,15 +855,18 @@
     if(timeLines.length){
       parts.push(['Times','',...timeLines].join('\n'));
     }
-    const modsData=normalizeMods(entry);
-    const modLines=[];
-    for(const field of MODS_FIELD_DEFS){
-      const value=cleanString(modsData[field.key]);
-      if(value) modLines.push(`${field.copyLabel||field.label}: ${value}`);
-    }
-    if(modLines.length){
-      parts.push(['Mods','',...modLines].join('\n'));
-    }
+    const modsList=normalizeModsList(entry);
+    modsList.forEach((modsData,index)=>{
+      const modLines=[];
+      for(const field of MODS_FIELD_DEFS){
+        const value=cleanString(modsData[field.key]);
+        if(value) modLines.push(`${field.copyLabel||field.label}: ${value}`);
+      }
+      if(modLines.length){
+        const heading=modsList.length>1?`Mods ${index+1}`:'Mods';
+        parts.push([heading,'',...modLines].join('\n'));
+      }
+    });
     return parts.join('\n\n');
   }
 
@@ -1380,9 +1476,10 @@
           const timesData=normalizeTimes(entry);
           entry.times=timesData;
           applyTimesSection(raw,timesData);
-          const modsData=normalizeMods(entry);
-          entry.mods=modsData;
-          applyModsSection(raw,modsData);
+          const modsList=normalizeModsList(entry);
+          entry.modsList=modsList;
+          entry.mods=modsList[0]||createEmptyMods();
+          applyModsSection(raw,modsList);
           this.rawById.set(entry.id,cloneData(raw));
           result.push(raw);
         }
@@ -1419,9 +1516,10 @@
           const timesData=normalizeTimes(entry);
           entry.times=timesData;
           applyTimesSection(raw,timesData);
-          const modsData=normalizeMods(entry);
-          entry.mods=modsData;
-          applyModsSection(raw,modsData);
+          const modsList=normalizeModsList(entry);
+          entry.modsList=modsList;
+          entry.mods=modsList[0]||createEmptyMods();
+          applyModsSection(raw,modsList);
           let key=getPrimaryPartNumber(entry);
           if(!key){
             key=this.partById.get(entry.id)||'';
@@ -1448,7 +1546,9 @@
         const cloned=cloneData(entry);
         cloned.partNumbers=getCleanPartNumbers(entry);
         cloned.times=normalizeTimes(entry);
-        cloned.mods=normalizeMods(entry);
+        const modsList=normalizeModsList(entry);
+        cloned.modsList=modsList;
+        cloned.mods=modsList[0]||createEmptyMods();
         return cloned;
       });
     }
@@ -1735,7 +1835,7 @@
           input.value=val;
           this.updateEntry(entry.id,key,cleanString(val));
         },input);
-        this.activeFieldControllers[key]=controller;
+        this.registerSuggestionController(key,controller);
         fields.appendChild(field);
       }
     }
@@ -1758,6 +1858,22 @@
       return entry.partNumbers;
     }
 
+    ensureModsList(entry){
+      if(!entry) return createEmptyModsList();
+      if(!Array.isArray(entry.modsList)){
+        entry.modsList=normalizeModsList(entry);
+      }else{
+        entry.modsList=entry.modsList.map(item=>{
+          if(!item||typeof item!=='object') return createEmptyMods();
+          const normalized=normalizeMods(item);
+          return {...normalized};
+        });
+      }
+      if(!entry.modsList.length) entry.modsList=createEmptyModsList();
+      entry.mods=entry.modsList[0]||createEmptyMods();
+      return entry.modsList;
+    }
+
     ensureNestedSection(entry,sectionKey){
       if(!entry) return {};
       if(sectionKey==='times'){
@@ -1765,8 +1881,7 @@
         return entry.times;
       }
       if(sectionKey==='mods'){
-        entry.mods=normalizeMods(entry);
-        return entry.mods;
+        return this.ensureModsList(entry);
       }
       if(!entry[sectionKey]||typeof entry[sectionKey]!=='object') entry[sectionKey]={};
       return entry[sectionKey];
@@ -1795,6 +1910,10 @@
 
     renderNestedSection(container,entry,section){
       if(!section||!section.fields||!section.fields.length) return;
+      if(section.key==='mods'){
+        this.renderModsSection(container,entry,section);
+        return;
+      }
       const data=this.ensureNestedSection(entry,section.key);
       const field=document.createElement('div');
       field.className='sfe-field sfe-subsection';
@@ -1830,9 +1949,87 @@
           input.value=val;
           this.updateNestedField(entry.id,section.key,subField.key,cleanString(val));
         },input);
-        this.activeFieldControllers[suggestionKey]=controller;
+        this.registerSuggestionController(suggestionKey,controller);
         grid.appendChild(wrapper);
       }
+      container.appendChild(field);
+    }
+
+    renderModsSection(container,entry,section){
+      const modsList=this.ensureModsList(entry);
+      const field=document.createElement('div');
+      field.className='sfe-field sfe-subsection sfe-mods-section';
+      const header=document.createElement('div');
+      header.className='sfe-subsection-header';
+      const title=document.createElement('span');
+      title.textContent=section.title;
+      header.appendChild(title);
+      const actions=document.createElement('div');
+      actions.className='sfe-subsection-actions';
+      const addBtn=document.createElement('button');
+      addBtn.type='button';
+      addBtn.className='sfe-subsection-add';
+      addBtn.setAttribute('aria-label','Weitere Mod-Spalte hinzufügen');
+      addBtn.textContent='+';
+      addBtn.addEventListener('click',()=>this.addModsEntry(entry.id));
+      actions.appendChild(addBtn);
+      header.appendChild(actions);
+      field.appendChild(header);
+      const grid=document.createElement('div');
+      grid.className='sfe-mods-grid';
+      field.appendChild(grid);
+      modsList.forEach((modData,index)=>{
+        const column=document.createElement('div');
+        column.className='sfe-mod-column';
+        const columnHeader=document.createElement('div');
+        columnHeader.className='sfe-mod-column-header';
+        const columnTitle=document.createElement('span');
+        columnTitle.textContent=`Mod ${index+1}`;
+        columnHeader.appendChild(columnTitle);
+        if(modsList.length>1){
+          const removeBtn=document.createElement('button');
+          removeBtn.type='button';
+          removeBtn.className='sfe-mod-remove';
+          removeBtn.setAttribute('aria-label',`Mod ${index+1} entfernen`);
+          removeBtn.innerHTML='<span aria-hidden="true">×</span>';
+          removeBtn.addEventListener('click',()=>this.removeModsEntry(entry.id,index));
+          columnHeader.appendChild(removeBtn);
+        }
+        column.appendChild(columnHeader);
+        const columnFields=document.createElement('div');
+        columnFields.className='sfe-mod-column-fields';
+        column.appendChild(columnFields);
+        for(const subField of section.fields){
+          const wrapper=document.createElement('div');
+          wrapper.className='sfe-subfield sfe-mod-field';
+          const label=document.createElement('label');
+          label.textContent=subField.label;
+          const inputId=`${entry.id}-${section.key}-${index}-${subField.key}`;
+          label.setAttribute('for',inputId);
+          wrapper.appendChild(label);
+          const input=document.createElement('input');
+          input.type='text';
+          input.className='sfe-input';
+          input.id=inputId;
+          input.value=modData[subField.key]||'';
+          input.placeholder=subField.placeholder||'';
+          disableAutocomplete(input);
+          input.addEventListener('input',()=>{
+            const value=cleanString(input.value);
+            this.updateModsField(entry.id,index,subField.key,value);
+          });
+          input.addEventListener('blur',()=>{this.activeHistorySignature=null;});
+          wrapper.appendChild(input);
+          const suggestionKey=`${section.key}.${subField.key}`;
+          const controller=new SuggestionsController(wrapper,this.getSuggestionsFor(suggestionKey),()=>input.value,(val)=>{
+            input.value=val;
+            this.updateModsField(entry.id,index,subField.key,cleanString(val));
+          },input);
+          this.registerSuggestionController(suggestionKey,controller);
+          columnFields.appendChild(wrapper);
+        }
+        grid.appendChild(column);
+      });
       container.appendChild(field);
     }
 
@@ -1871,7 +2068,7 @@
         textarea.value=val;
         this.updateEntry(entry.id,'parts',cleanString(val));
       },textarea);
-      this.activeFieldControllers.parts=controller;
+      this.registerSuggestionController('parts',controller);
       const grid=document.createElement('div');
       grid.className='sfe-parts-grid';
       gridField.appendChild(grid);
@@ -1942,8 +2139,20 @@
       for(const entry of this.data){
         if(section&&field){
           const container=entry&&entry[section];
-          const value=container&&container[field];
-          if(value) set.add(value);
+          if(Array.isArray(container)){
+            container.forEach(item=>{
+              if(item&&item[field]) set.add(item[field]);
+            });
+          }else if(container&&typeof container==='object'){
+            const value=container[field];
+            if(value) set.add(value);
+          }
+          const listContainer=entry&&entry[`${section}List`];
+          if(Array.isArray(listContainer)){
+            listContainer.forEach(item=>{
+              if(item&&item[field]) set.add(item[field]);
+            });
+          }
           continue;
         }
         const value=entry[key];
@@ -1954,8 +2163,28 @@
 
     updateSuggestions(){
       for(const key of SUGGESTION_FIELD_KEYS){
-        const controller=this.activeFieldControllers[key];
-        if(controller) controller.setValues(this.getSuggestionsFor(key));
+        const controllers=this.activeFieldControllers[key];
+        if(!controllers) continue;
+        const values=this.getSuggestionsFor(key);
+        if(Array.isArray(controllers)){
+          controllers.forEach(controller=>controller.setValues(values));
+        }else{
+          controllers.setValues(values);
+        }
+      }
+    }
+
+    registerSuggestionController(key,controller){
+      if(!key||!controller) return;
+      const existing=this.activeFieldControllers[key];
+      if(!existing){
+        this.activeFieldControllers[key]=controller;
+        return;
+      }
+      if(Array.isArray(existing)){
+        existing.push(controller);
+      }else{
+        this.activeFieldControllers[key]=[existing,controller];
       }
     }
 
@@ -2020,6 +2249,64 @@
       this.refreshViewAfterChange(entry,`${section}.${field}`);
     }
 
+    updateModsField(id,index,field,value){
+      const entry=this.data.find(item=>item.id===id);
+      if(!entry) return;
+      const list=this.ensureModsList(entry);
+      const targetIndex=Math.max(0,Math.min(index,list.length-1));
+      const mod=list[targetIndex]||createEmptyMods();
+      const cleaned=value==null?'':cleanString(value);
+      if(mod[field]===cleaned) return;
+      const signature=`${id}:modsList:${targetIndex}:${field}`;
+      if(this.activeHistorySignature!==signature){
+        this.pushHistory();
+        this.activeHistorySignature=signature;
+      }
+      mod[field]=cleaned;
+      list[targetIndex]=mod;
+      entry.mods=list[0]||createEmptyMods();
+      entry.modsList=list;
+      this.refreshViewAfterChange(entry,`mods.${field}`);
+    }
+
+    addModsEntry(id){
+      const entry=this.data.find(item=>item.id===id);
+      if(!entry) return;
+      const list=this.ensureModsList(entry);
+      this.pushHistory();
+      this.activeHistorySignature=`${id}:modsList:add`;
+      list.push(createEmptyMods());
+      entry.modsList=list;
+      entry.mods=list[0]||createEmptyMods();
+      this.refreshViewAfterChange(entry,'modsList');
+      const term=this.searchInput?this.searchInput.value.trim():'';
+      this.renderEditor(term);
+      this.updateSuggestions();
+      setTimeout(()=>{
+        const focusId=`${entry.id}-mods-${list.length-1}-${MODS_FIELD_DEFS[0].key}`;
+        const focusEl=this.root.querySelector(`#${focusId}`);
+        if(focusEl) focusEl.focus();
+      },0);
+    }
+
+    removeModsEntry(id,index){
+      const entry=this.data.find(item=>item.id===id);
+      if(!entry) return;
+      const list=this.ensureModsList(entry);
+      if(list.length<=1) return;
+      const targetIndex=Math.max(0,Math.min(index,list.length-1));
+      this.pushHistory();
+      this.activeHistorySignature=`${id}:modsList:remove:${targetIndex}`;
+      list.splice(targetIndex,1);
+      if(!list.length) list.push(createEmptyMods());
+      entry.modsList=list;
+      entry.mods=list[0]||createEmptyMods();
+      this.refreshViewAfterChange(entry,'modsList');
+      const term=this.searchInput?this.searchInput.value.trim():'';
+      this.renderEditor(term);
+      this.updateSuggestions();
+    }
+
     updatePartPair(id,index,type,value){
       const entry=this.data.find(item=>item.id===id);
       if(!entry) return;
@@ -2056,7 +2343,7 @@
     }
 
     createEntry(){
-      const entry=normalizeEntry({label:'',findings:'',actions:'',routine:'',nonroutine:'',parts:'',Times:createEmptyTimes(),Mods:createEmptyMods()});
+      const entry=normalizeEntry({label:'',findings:'',actions:'',routine:'',nonroutine:'',parts:'',Times:createEmptyTimes(),Mods:createEmptyMods(),ModsList:createEmptyModsList()});
       this.ensurePartsPairs(entry);
       this.pushHistory();
       this.data.unshift(entry);
@@ -2075,7 +2362,7 @@
           Mods:{Part:'',Label:'',ModBezeichnung:'',ModKommentar:'',Standard_ab_SN:'',ModLink:'',Modzeit:''}
         };
         applyTimesSection(raw,entry.times);
-        applyModsSection(raw,entry.mods);
+        applyModsSection(raw,entry.modsList);
         this.rawById.set(entry.id,raw);
       }else if(this.sourceFormat==='object-by-pn'){
         const partsContainer={PNText:''};
@@ -2093,7 +2380,7 @@
         };
         applyPartPairs(raw,entry.partsPairs);
         applyTimesSection(raw,entry.times);
-        applyModsSection(raw,entry.mods);
+        applyModsSection(raw,entry.modsList);
         this.rawById.set(entry.id,raw);
         this.partById.set(entry.id,'');
       }
