@@ -5019,7 +5019,13 @@
       const config=this.getRoutineEditorTabConfig(targetTab);
       const allowAspen=config&&config.allowAspen!==false;
       const requestedType=typeof type==='string'?type:'';
-      const blockType=requestedType==='linebreak'?'linebreak':requestedType==='aspen'&&allowAspen?'aspen':'text';
+      const blockType=requestedType==='linebreak'
+        ?'linebreak'
+        :requestedType==='aspen'&&allowAspen
+          ?'aspen'
+          :requestedType==='aspenfield'&&allowAspen
+            ?'aspenfield'
+            :'text';
       const id=createCustomSectionId();
       const customKey=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
       const currentOrder=this.getRoutineEditorOrder(targetTab);
@@ -5042,8 +5048,18 @@
         label:'',
         aspenField:'',
         parameterKey:'',
-        lines:['']
+        lines:[''],
+        value:'',
+        content:''
       };
+      const hasPresetLines=Array.isArray(options&&options.lines)&&options.lines.length;
+      if(hasPresetLines){
+        entry.lines=options.lines.map(value=>typeof value==='string'?value:'');
+      }
+      const hasValueOption=options&&typeof options.value==='string'&&options.value;
+      if(hasValueOption&&blockType!=='aspen'){
+        entry.lines=options.value.split(/\r?\n/);
+      }
       console.log('[addCustomBlock] created entry:',entry);
       let label=sanitizeRoutineEditorLabel(options.label||'');
       if(blockType==='aspen'){
@@ -5058,26 +5074,42 @@
         if(!label){
           label='Aspendaten';
         }
+      }else if(blockType==='aspenfield'){
+        const preferredValue=typeof options.value==='string'?options.value:'';
+        if(preferredValue){
+          entry.value=preferredValue;
+        }
+        if(!entry.value&&Array.isArray(entry.lines)&&entry.lines.length){
+          entry.value=String(entry.lines[0]||'');
+        }
+        if(!entry.value){
+          entry.value='';
+        }
+        if(!Array.isArray(entry.lines)||!entry.lines.length){
+          entry.lines=[entry.value||''];
+        }
+        if(!entry.lines.length) entry.lines=[''];
+        if(!label){
+          label='Aspen-Feld';
+        }
       }else if(blockType==='linebreak'){
         entry.lines=[''];
         if(!label){
           label='Zeilenumbruch';
         }
       }else{
-        let presetLines=null;
-        if(options&&Array.isArray(options.lines)){
-          presetLines=options.lines.map(value=>typeof value==='string'?value:'');
-        }else if(options&&typeof options.value==='string'){
-          presetLines=options.value.split(/\r?\n/);
-        }
-        if(Array.isArray(presetLines)&&presetLines.length){
-          entry.lines=presetLines;
-        }
         entry.parameterKey=typeof options.parameterKey==='string'?options.parameterKey.trim():'';
+        if(!Array.isArray(entry.lines)||!entry.lines.length){
+          entry.lines=[''];
+        }
+        entry.content=String(entry.lines[0]||'');
       }
       entry.label=label;
       if(blockType!=='text'){
         entry.parameterKey='';
+      }
+      if(blockType!=='aspenfield'){
+        entry.value='';
       }
       const order=sanitizedOrder.slice();
       order.splice(insertIndex,0,customKey);
@@ -5126,6 +5158,11 @@
       }
       storeRoutineEditorState(state);
       console.log('[addCustomBlock] state saved:',state);
+      try{
+        renderRoutineEditor();
+      }catch(err){
+        console.warn('NSF: Routine-Editor Aktualisierung nach Custom-Block fehlgeschlagen',err);
+      }
       try{
         const overlay=document.querySelector('.nsf-editor-overlay.open');
         const container=overlay?.querySelector('.nsf-editor-tab.active .nsf-blocks')||overlay?.querySelector('.nsf-editor-list');
