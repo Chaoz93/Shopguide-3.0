@@ -1,4 +1,4 @@
-<!-- Version: 3.6.8 -->
+<!-- Version: 3.6.9 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -154,14 +154,22 @@
     .update-settings-row {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
-      gap: 0.5rem 0.75rem;
+      align-items: flex-start;
+      gap: 0.75rem 1.25rem;
     }
     .update-settings-row .update-folder-info {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.5rem 0.75rem;
+      flex: 1 1 320px;
+    }
+    .update-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem 1.25rem;
+      flex: 1 1 320px;
     }
     .update-toggle {
       position: relative;
@@ -197,6 +205,33 @@
       background-color: white;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
       transition: transform 0.2s ease;
+    }
+    .update-toggle-stack {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 1.25rem;
+      flex: 1 1 auto;
+      min-width: 260px;
+    }
+    .update-toggle-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .update-toggle-label {
+      font-weight: 500;
+      color: #374151;
+    }
+    .update-all-container {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex: 0 0 auto;
+      margin-left: auto;
+    }
+    .update-all-container.hidden {
+      display: none;
     }
     .update-toggle input:checked + .update-toggle-track {
       background-color: #2563eb;
@@ -684,18 +719,43 @@
                   <button id="clear-update-folder" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded">Zurücksetzen</button>
                   <span id="update-check-status" class="text-gray-500"></span>
                 </div>
-                <label class="update-toggle" title="Update-Hinweis im Hauptfenster anzeigen">
-                  <span class="sr-only">Update-Hinweis im Hauptfenster anzeigen</span>
-                  <input type="checkbox" id="setting-show-update-button">
-                  <span class="update-toggle-track"></span>
-                  <span class="update-toggle-thumb"></span>
-                </label>
+                <div class="update-controls">
+                  <div class="update-toggle-stack">
+                    <div class="update-toggle-group">
+                      <span class="update-toggle-label text-sm text-gray-700 select-none">Update-Hinweis anzeigen</span>
+                      <label class="update-toggle" title="Update-Hinweis im Hauptfenster anzeigen">
+                        <span class="sr-only">Update-Hinweis im Hauptfenster anzeigen</span>
+                        <input type="checkbox" id="setting-show-update-button">
+                        <span class="update-toggle-track"></span>
+                        <span class="update-toggle-thumb"></span>
+                      </label>
+                    </div>
+                    <div class="update-toggle-group">
+                      <span class="update-toggle-label text-sm text-gray-700 select-none">Automatisch nach Updates suchen</span>
+                      <label class="update-toggle" title="Automatische Update-Prüfung alle 5 Sekunden durchführen">
+                        <span class="sr-only">Automatische Update-Prüfung aktivieren</span>
+                        <input type="checkbox" id="setting-update-auto-poll">
+                        <span class="update-toggle-track"></span>
+                        <span class="update-toggle-thumb"></span>
+                      </label>
+                    </div>
+                    <div class="update-toggle-group">
+                      <span class="update-toggle-label text-sm text-gray-700 select-none">Downgrade-Hinweis ausblenden</span>
+                      <label class="update-toggle" title="Downgrade-Benachrichtigung im Hauptfenster ausblenden">
+                        <span class="sr-only">Downgrade-Hinweis im Hauptfenster ausblenden</span>
+                        <input type="checkbox" id="setting-hide-downgrade-button">
+                        <span class="update-toggle-track"></span>
+                        <span class="update-toggle-thumb"></span>
+                      </label>
+                    </div>
+                  </div>
+                  <div id="update-all-container" class="update-all-container hidden">
+                    <button id="update-all" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">Alle aktualisieren</button>
+                  </div>
+                </div>
               </div>
             </div>
             <div id="updates-empty-state" class="text-sm text-gray-500">Keine Updates erforderlich.</div>
-            <div id="update-all-container" class="flex justify-end hidden">
-              <button id="update-all" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">Alle aktualisieren</button>
-            </div>
             <div class="updates-table-container overflow-x-auto">
               <table class="min-w-full text-sm border border-gray-200 rounded" id="updates-table">
                 <thead class="bg-gray-100">
@@ -787,7 +847,9 @@ let appSettings = {
   sidebarModuleCardBg: '#ffffff',
   sidebarModuleCardText: '#1f2937',
   sidebarModuleCardBorder: '#e5e7eb',
-  showUpdateStatusButton: true
+  showUpdateStatusButton: true,
+  autoUpdatePolling: false,
+  hideDowngradeStatusButton: false
 };
 
 
@@ -810,9 +872,12 @@ let pendingUpdates = [];
 let updateCheckInProgress = false;
 let currentUpgradeItems = [];
 let currentDowngradeItems = [];
+let updateStatusHasStableAppearance = false;
+let updateStatusShouldRemainHidden = false;
 let settingsSaveTimeoutId = null;
 let historyMenuOpen = false;
 let lastUpdateError = false;
+let updatePollingIntervalId = null;
 let versionOverview = {
   html: {
     type: 'html',
@@ -948,6 +1013,8 @@ const inputSidebarModuleBg = document.getElementById('setting-sidebar-module-bg'
 const inputSidebarModuleText = document.getElementById('setting-sidebar-module-text');
 const inputSidebarModuleBorder = document.getElementById('setting-sidebar-module-border');
 const inputShowUpdateButton = document.getElementById('setting-show-update-button');
+const inputUpdateAutoPoll = document.getElementById('setting-update-auto-poll');
+const inputHideDowngradeButton = document.getElementById('setting-hide-downgrade-button');
 
 // Navigation buttons for settings
 const settingsNavButtons = document.querySelectorAll('.settings-nav button');
@@ -959,9 +1026,14 @@ const UPDATE_HANDLE_KEY = 'updateDirHandle';
 const UPDATE_HANDLE_NAME_KEY = 'updateDirDisplayName';
 const DOWNGRADE_COLLAPSE_KEY = 'downgradeSectionCollapsed';
 const MAX_HISTORY_ENTRIES = 50;
+const UPDATE_POLL_INTERVAL_MS = 5 * 1000;
+const UPDATE_STATUS_BASE_CLASSES = 'text-sm px-3 py-1 rounded transition-colors duration-200 font-medium border border-transparent';
+const IGNORED_DOWNGRADES_STORAGE_KEY = 'ignoredDowngradeVersions';
+const MAX_IGNORED_DOWNGRADE_VERSIONS = 20;
 
 let pendingRootPermission = false;
 let pendingUpdatePermission = false;
+let ignoredDowngradeEntries = loadIgnoredDowngrades();
 
 const storedRootFolderName = (() => {
   try {
@@ -1179,6 +1251,93 @@ function compareVersions(a, b) {
   }
 
   return 0;
+}
+
+function loadIgnoredDowngrades() {
+  const map = new Map();
+  try {
+    const raw = localStorage.getItem(IGNORED_DOWNGRADES_STORAGE_KEY);
+    if (!raw) return map;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      Object.entries(parsed).forEach(([identity, value]) => {
+        if (!identity) return;
+        const versions = Array.isArray(value)
+          ? value
+          : (value && Array.isArray(value.versions) ? value.versions : []);
+        if (!versions.length) return;
+        const normalized = versions
+          .map(entry => {
+            if (typeof entry === 'string') return entry.trim() || '__null__';
+            if (entry === null || typeof entry === 'undefined') return '__null__';
+            return String(entry).trim() || '__null__';
+          })
+          .filter((entry, index, arr) => entry && arr.indexOf(entry) === index);
+        if (normalized.length) {
+          map.set(identity, normalized.slice(-MAX_IGNORED_DOWNGRADE_VERSIONS));
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('Konnte Liste ignorierter Downgrades nicht laden', e);
+  }
+  return map;
+}
+
+function persistIgnoredDowngrades() {
+  try {
+    const plain = {};
+    ignoredDowngradeEntries.forEach((versions, identity) => {
+      if (!Array.isArray(versions) || !versions.length) return;
+      plain[identity] = versions.slice(-MAX_IGNORED_DOWNGRADE_VERSIONS);
+    });
+    localStorage.setItem(IGNORED_DOWNGRADES_STORAGE_KEY, JSON.stringify(plain));
+  } catch (e) {
+    console.warn('Konnte ignorierte Downgrades nicht speichern', e);
+  }
+}
+
+function getDowngradeIdentity(item) {
+  if (!item || typeof item !== 'object') return null;
+  if (item.type === 'module') {
+    if (item.moduleId) return `module:${item.moduleId}`;
+    if (item.targetRelPath) return `module-target:${item.targetRelPath}`;
+    if (item.sourceRelPath) return `module-source:${item.sourceRelPath}`;
+  } else if (item.type === 'html') {
+    const target = item.targetPath || item.path || item.displayName || HTML_FILE_NAME;
+    return `html:${target}`;
+  }
+  if (item.path) return `path:${item.path}`;
+  if (item.targetPath) return `target:${item.targetPath}`;
+  if (item.displayName) return `name:${item.displayName}`;
+  return null;
+}
+
+function getDowngradeVersionKey(version) {
+  const normalized = normalizeVersionValue(version);
+  return normalized === null ? '__null__' : String(normalized);
+}
+
+function isDowngradeIgnored(item) {
+  const identity = getDowngradeIdentity(item);
+  if (!identity) return false;
+  const versions = ignoredDowngradeEntries.get(identity);
+  if (!Array.isArray(versions) || !versions.length) return false;
+  const versionKey = getDowngradeVersionKey(item?.newVersion);
+  return versions.includes(versionKey);
+}
+
+function markDowngradeIgnored(item) {
+  const identity = getDowngradeIdentity(item);
+  if (!identity) return;
+  const versionKey = getDowngradeVersionKey(item?.newVersion);
+  let versions = ignoredDowngradeEntries.get(identity) || [];
+  if (!Array.isArray(versions)) versions = [];
+  if (!versions.includes(versionKey)) {
+    versions = versions.concat(versionKey).slice(-MAX_IGNORED_DOWNGRADE_VERSIONS);
+    ignoredDowngradeEntries.set(identity, versions);
+    persistIgnoredDowngrades();
+  }
 }
 
 function beginSuppressLayoutRecording() {
@@ -1954,16 +2113,46 @@ if (changelogShowFullBtn) {
 
 function setUpdateStatusButton(state) {
   if (!updateStatusBtn) return;
-  updateStatusBtn.className = 'text-sm px-3 py-1 rounded transition-colors duration-200 font-medium border border-transparent';
+
+  if (state === 'checking') {
+    if (appSettings.showUpdateStatusButton === false || updateStatusShouldRemainHidden) {
+      return;
+    }
+    updateStatusBtn.classList.remove('hidden');
+    updateStatusBtn.removeAttribute('aria-hidden');
+    updateStatusBtn.disabled = true;
+    updateStatusBtn.classList.add('cursor-wait');
+    updateStatusBtn.setAttribute('aria-busy', 'true');
+    if (!updateStatusHasStableAppearance) {
+      updateStatusBtn.className = UPDATE_STATUS_BASE_CLASSES;
+      updateStatusBtn.textContent = 'Prüfe…';
+      updateStatusBtn.title = '';
+      updateStatusBtn.classList.add('bg-gray-300','text-gray-700');
+    }
+    return;
+  }
+
+  updateStatusBtn.removeAttribute('aria-busy');
+  updateStatusBtn.classList.remove('cursor-wait');
   updateStatusBtn.disabled = false;
   updateStatusBtn.title = '';
+  updateStatusBtn.className = UPDATE_STATUS_BASE_CLASSES;
+
+  updateStatusHasStableAppearance = true;
+  updateStatusShouldRemainHidden = false;
 
   if (appSettings.showUpdateStatusButton === false) {
+    updateStatusShouldRemainHidden = true;
+    updateStatusHasStableAppearance = false;
     updateStatusBtn.classList.add('hidden');
+    updateStatusBtn.setAttribute('aria-hidden', 'true');
+    updateStatusBtn.disabled = true;
+    updateStatusBtn.textContent = '';
     return;
   }
 
   updateStatusBtn.classList.remove('hidden');
+  updateStatusBtn.removeAttribute('aria-hidden');
 
   if (pendingRootPermission) {
     updateStatusBtn.textContent = 'Arbeitsordner entsperren';
@@ -1993,13 +2182,6 @@ function setUpdateStatusButton(state) {
     return;
   }
 
-  if (state === 'checking') {
-    updateStatusBtn.textContent = 'Prüfe…';
-    updateStatusBtn.disabled = true;
-    updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-wait');
-    return;
-  }
-
   if (lastUpdateError) {
     updateStatusBtn.textContent = 'Prüfung fehlgeschlagen';
     updateStatusBtn.classList.add('bg-yellow-500','hover:bg-yellow-600','text-white');
@@ -2013,7 +2195,7 @@ function setUpdateStatusButton(state) {
     pendingUpdates.forEach(item => {
       const comparison = compareVersions(item.currentVersion, item.newVersion);
       if (comparison === 1) {
-        downgradeCount += 1;
+        if (!isDowngradeIgnored(item)) downgradeCount += 1;
       } else {
         upgradeCount += 1;
       }
@@ -2028,14 +2210,28 @@ function setUpdateStatusButton(state) {
       updateStatusBtn.title = `${upgradeCount} Updates verfügbar.`;
     }
     updateStatusBtn.classList.add('bg-red-600','hover:bg-red-700','text-white');
-  } else if (downgradeCount) {
+    return;
+  }
+
+  if (downgradeCount) {
+    if (appSettings.hideDowngradeStatusButton) {
+      updateStatusShouldRemainHidden = true;
+      updateStatusHasStableAppearance = false;
+      updateStatusBtn.classList.add('hidden');
+      updateStatusBtn.setAttribute('aria-hidden', 'true');
+      updateStatusBtn.disabled = true;
+      updateStatusBtn.textContent = '';
+      updateStatusBtn.title = '';
+      return;
+    }
     updateStatusBtn.textContent = 'Nur Downgrades verfügbar';
     updateStatusBtn.title = downgradeCount === 1 ? 'Ein Downgrade verfügbar.' : `${downgradeCount} Downgrades verfügbar.`;
     updateStatusBtn.classList.add('bg-yellow-400','hover:bg-yellow-500','text-gray-900','border-yellow-500');
-  } else {
-    updateStatusBtn.textContent = 'Up to date!';
-    updateStatusBtn.classList.add('bg-green-600','hover:bg-green-700','text-white');
+    return;
   }
+
+  updateStatusBtn.textContent = 'Up to date!';
+  updateStatusBtn.classList.add('bg-green-600','hover:bg-green-700','text-white');
 }
 
 function renderUpdateList() {
@@ -2097,7 +2293,9 @@ function renderUpdateList() {
   pendingUpdates.forEach(item => {
     const comparison = compareVersions(item.currentVersion, item.newVersion);
     if (comparison === 1) {
-      downgrades.push(item);
+      if (!isDowngradeIgnored(item)) {
+        downgrades.push(item);
+      }
     } else {
       upgrades.push(item);
     }
@@ -2221,6 +2419,16 @@ function renderUpdateList() {
           actionWrapper.appendChild(changelogBtn);
         }
 
+        const ignoreBtn = document.createElement('button');
+        ignoreBtn.type = 'button';
+        ignoreBtn.className = 'bg-white border border-yellow-300 text-yellow-900 px-3 py-1 rounded hover:bg-yellow-200';
+        ignoreBtn.textContent = 'Ignorieren';
+        ignoreBtn.addEventListener('click', () => {
+          markDowngradeIgnored(item);
+          renderUpdateList();
+        });
+        actionWrapper.appendChild(ignoreBtn);
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'bg-yellow-500 hover:bg-yellow-600 text-yellow-900 px-3 py-1 rounded';
@@ -2251,6 +2459,7 @@ function renderUpdateList() {
       updateDowngradeCollapseUI();
     } else {
       downgradeSection.classList.add('hidden');
+      if (downgradeHeading) downgradeHeading.textContent = 'Downgrades (0)';
     }
   }
 
@@ -2902,6 +3111,48 @@ async function runUpdateCheck() {
   }
 }
 
+function stopAutomaticUpdatePolling() {
+  if (updatePollingIntervalId !== null) {
+    window.clearInterval(updatePollingIntervalId);
+    updatePollingIntervalId = null;
+  }
+}
+
+async function triggerAutomaticUpdateCheck() {
+  if (!appSettings.autoUpdatePolling) return;
+  if (typeof document !== 'undefined' && document.hidden) return;
+  try {
+    await runUpdateCheck();
+  } catch (err) {
+    console.error('Automatische Update-Prüfung fehlgeschlagen', err);
+  }
+}
+
+function startAutomaticUpdatePolling({ immediate = false } = {}) {
+  stopAutomaticUpdatePolling();
+  if (!appSettings.autoUpdatePolling) return;
+
+  if (immediate) {
+    void triggerAutomaticUpdateCheck();
+  }
+
+  updatePollingIntervalId = window.setInterval(() => {
+    if (!appSettings.autoUpdatePolling) {
+      stopAutomaticUpdatePolling();
+      return;
+    }
+    void triggerAutomaticUpdateCheck();
+  }, UPDATE_POLL_INTERVAL_MS);
+}
+
+function updateAutoPollingState(options = {}) {
+  if (appSettings.autoUpdatePolling) {
+    startAutomaticUpdatePolling(options);
+  } else {
+    stopAutomaticUpdatePolling();
+  }
+}
+
 function activateSettingsSection(section) {
   document.querySelectorAll('.settings-nav button').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.section === section);
@@ -2996,6 +3247,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!historyMenuOpen) return;
     if (historyMenu && historyMenu.contains(event.target)) return;
     closeHistoryMenu();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && appSettings.autoUpdatePolling) {
+      void triggerAutomaticUpdateCheck();
+    }
   });
   if (moduleSearchClearBtn) {
     moduleSearchClearBtn.classList.toggle('hidden', !(moduleSearchInput && moduleSearchInput.value));
@@ -3342,6 +3598,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       scheduleSettingsSave();
     });
   }
+  if (inputUpdateAutoPoll) {
+    inputUpdateAutoPoll.addEventListener('change', () => {
+      appSettings.autoUpdatePolling = inputUpdateAutoPoll.checked;
+      updateAutoPollingState({ immediate: inputUpdateAutoPoll.checked });
+      scheduleSettingsSave();
+    });
+  }
+  if (inputHideDowngradeButton) {
+    inputHideDowngradeButton.addEventListener('change', () => {
+      appSettings.hideDowngradeStatusButton = inputHideDowngradeButton.checked;
+      setUpdateStatusButton();
+      scheduleSettingsSave();
+    });
+  }
   if (inputAutoArrange) {
     inputAutoArrange.addEventListener('change', () => {
       readInputsIntoSettings();
@@ -3402,6 +3672,8 @@ function populateInputsFromSettings() {
   if (inputSidebarModuleText) inputSidebarModuleText.value = toColor(appSettings.sidebarModuleCardText, inputSidebarModuleText.value);
   if (inputSidebarModuleBorder) inputSidebarModuleBorder.value = toColor(appSettings.sidebarModuleCardBorder, inputSidebarModuleBorder.value);
   if (inputShowUpdateButton) inputShowUpdateButton.checked = appSettings.showUpdateStatusButton !== false;
+  if (inputUpdateAutoPoll) inputUpdateAutoPoll.checked = !!appSettings.autoUpdatePolling;
+  if (inputHideDowngradeButton) inputHideDowngradeButton.checked = !!appSettings.hideDowngradeStatusButton;
 }
 
 /** Read inputs into appSettings */
@@ -3433,6 +3705,8 @@ function readInputsIntoSettings() {
   appSettings.sidebarModuleCardText = inputSidebarModuleText.value;
   appSettings.sidebarModuleCardBorder = inputSidebarModuleBorder.value;
   if (inputShowUpdateButton) appSettings.showUpdateStatusButton = inputShowUpdateButton.checked;
+  if (inputUpdateAutoPoll) appSettings.autoUpdatePolling = inputUpdateAutoPoll.checked;
+  if (inputHideDowngradeButton) appSettings.hideDowngradeStatusButton = inputHideDowngradeButton.checked;
 }
 
 /** Convert rgba to hex for colour inputs */
@@ -3525,6 +3799,7 @@ async function loadAppSettings() {
     } catch (e) {}
   }
   applySettings();
+  updateAutoPollingState();
 }
 
 /** Update card draggability */
