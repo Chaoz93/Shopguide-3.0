@@ -256,6 +256,20 @@
     .aspenboard .db-row-header label{color:var(--muted-text);}
     .aspenboard .db-rule-empty{color:var(--muted-text);}
     .aspenboard .db-panel .actions{gap:.75rem;}
+    .ab-permission-backdrop{position:fixed;inset:0;z-index:2500;display:flex;align-items:center;justify-content:center;background:rgba(10,15,26,.68);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+    .ab-permission-dialog{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1.25rem 1.5rem;border-radius:.85rem;max-width:360px;box-shadow:0 18px 38px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:.9rem;}
+    .aspenboard .ab-permission-dialog{background:rgba(12,18,30,.92);color:var(--text-color);border:1px solid var(--border-color);box-shadow:0 18px 42px rgba(0,0,0,.55);}
+    .ab-permission-dialog h2{font-size:1.05rem;font-weight:600;margin:0;}
+    .ab-permission-dialog p{margin:0;font-size:.9rem;line-height:1.4;color:inherit;}
+    .ab-permission-actions{display:flex;gap:.5rem;justify-content:flex-end;flex-wrap:wrap;}
+    .ab-permission-actions button{padding:.45rem .85rem;border-radius:.65rem;border:1px solid var(--border-color,#e5e7eb);background:rgba(255,255,255,.9);color:inherit;cursor:pointer;font-size:.9rem;font-weight:600;}
+    .ab-permission-actions button:hover{background:rgba(37,99,235,.12);}
+    .ab-permission-actions .ab-permission-allow{background:var(--dl-title,#2563eb);color:#fff;border-color:var(--dl-title,#2563eb);}
+    .ab-permission-actions .ab-permission-allow:hover{background:rgba(37,99,235,.9);}
+    .aspenboard .ab-permission-actions button{border-color:var(--border-color);background:rgba(255,255,255,.12);color:var(--text-color);}
+    .aspenboard .ab-permission-actions button:hover{background:rgba(var(--accent-rgb,36,85,129),.22);}
+    .aspenboard .ab-permission-actions .ab-permission-allow{background:var(--accent-gradient,var(--accent-color));border-color:var(--accent-border,var(--accent-color));color:#fff;}
+    .aspenboard .ab-permission-actions .ab-permission-allow:hover{filter:brightness(1.05);}
     .aspenboard .db-color-card{
       background:rgba(12,18,30,.9);
       border:1px solid var(--border-color);
@@ -287,6 +301,98 @@
   const HANDLE_DB_NAME = 'AspenUnitListHandles';
   const HANDLE_STORE_NAME = 'handles';
 
+  let activePermissionDialog=null;
+
+  async function queryHandlePermission(handle,mode){
+    if(!handle || typeof handle.queryPermission!=='function') return 'granted';
+    let result='prompt';
+    try{
+      result=await handle.queryPermission({mode});
+    }catch(error){
+      console.warn('[AspenBoard] queryPermission fehlgeschlagen',error);
+      result='denied';
+    }
+    try{console.info('[AspenBoard] queryPermission result:',result);}catch{}
+    return result||'prompt';
+  }
+
+  async function requestHandlePermission(handle,mode){
+    if(!handle || typeof handle.requestPermission!=='function') return 'granted';
+    try{
+      const result=await handle.requestPermission({mode});
+      if(result==='granted'){
+        console.info('[AspenBoard] requestPermission durch User bestätigt');
+      }else{
+        console.warn('[AspenBoard] Zugriff verweigert, erneute Dateiauswahl nötig');
+      }
+      return result||'denied';
+    }catch(error){
+      console.warn('[AspenBoard] Zugriff verweigert, erneute Dateiauswahl nötig',error);
+      return 'denied';
+    }
+  }
+
+  function closeActivePermissionDialog(){
+    if(!activePermissionDialog) return;
+    try{activePermissionDialog.overlay?.remove();}catch{}
+    activePermissionDialog=null;
+  }
+
+  async function requestPermissionViaDialog(handle,mode,{message}={}){
+    if(!handle || typeof document==='undefined') return 'denied';
+    if(activePermissionDialog){
+      closeActivePermissionDialog();
+    }
+    const overlay=document.createElement('div');
+    overlay.className='ab-permission-backdrop';
+    const dialog=document.createElement('div');
+    dialog.className='ab-permission-dialog';
+    const title=document.createElement('h2');
+    title.textContent='Dateizugriff erforderlich';
+    const text=document.createElement('p');
+    text.textContent=message||'Zum Fortfahren muss der Zugriff auf die Datei erlaubt werden.';
+    const actions=document.createElement('div');
+    actions.className='ab-permission-actions';
+    const cancelBtn=document.createElement('button');
+    cancelBtn.type='button';
+    cancelBtn.textContent='Abbrechen';
+    const allowBtn=document.createElement('button');
+    allowBtn.type='button';
+    allowBtn.className='ab-permission-allow';
+    allowBtn.textContent='Zugriff erlauben';
+    actions.appendChild(cancelBtn);
+    actions.appendChild(allowBtn);
+    dialog.appendChild(title);
+    dialog.appendChild(text);
+    dialog.appendChild(actions);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    activePermissionDialog={overlay};
+
+    return new Promise(resolve=>{
+      let permissionRequested=false;
+      const cleanup=result=>{
+        if(result!=='granted' && permissionRequested){
+          // logging already handled in requestHandlePermission
+        }else if(result!=='granted'){
+          console.warn('[AspenBoard] Zugriff verweigert, erneute Dateiauswahl nötig');
+        }
+        closeActivePermissionDialog();
+        resolve(result||'denied');
+      };
+      cancelBtn.addEventListener('click',()=>cleanup('denied'));
+      overlay.addEventListener('click',event=>{if(event.target===overlay) cleanup('denied');});
+      allowBtn.addEventListener('click',async ()=>{
+        if(allowBtn.disabled) return;
+        allowBtn.disabled=true;
+        cancelBtn.disabled=true;
+        permissionRequested=true;
+        const outcome=await requestHandlePermission(handle,mode);
+        cleanup(outcome);
+      });
+    });
+  }
+
   async function openHandleStore(){
     if(typeof indexedDB==='undefined') return null;
     try{
@@ -302,7 +408,7 @@
         request.onerror=()=>reject(request.error);
       });
     }catch(error){
-      console.warn('[UnitBoard] IndexedDB für Aspen-Dateien nicht verfügbar',error);
+      console.warn('[AspenBoard] IndexedDB für Aspen-Dateien nicht verfügbar',error);
       return null;
     }
   }
@@ -320,9 +426,10 @@
         const request=tx.objectStore(HANDLE_STORE_NAME).put(handle,key);
         request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
       });
+      console.info('[AspenBoard] FileHandle gespeichert');
       return true;
     }catch(error){
-      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht gespeichert werden',error);
+      console.warn('[AspenBoard] Aspen-Dateihandle konnte nicht gespeichert werden',error);
       return false;
     }finally{
       try{db?.close();}catch{/* ignore */}
@@ -345,7 +452,7 @@
       });
       return result||null;
     }catch(error){
-      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht gelesen werden',error);
+      console.warn('[AspenBoard] Aspen-Dateihandle konnte nicht gelesen werden',error);
       return null;
     }finally{
       try{db?.close();}catch{/* ignore */}
@@ -367,7 +474,7 @@
       });
       return true;
     }catch(error){
-      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht entfernt werden',error);
+      console.warn('[AspenBoard] Aspen-Dateihandle konnte nicht entfernt werden',error);
       return false;
     }finally{
       try{db?.close();}catch{/* ignore */}
@@ -432,12 +539,14 @@
       shared.requestRW=async function(handle){
         if(!handle?.queryPermission) return true;
         try{
-          const state=await handle.queryPermission({mode:'readwrite'});
+          const state=await queryHandlePermission(handle,'readwrite');
           if(state==='granted') return true;
-          const next=await handle.requestPermission({mode:'readwrite'});
-          return next==='granted';
+          const outcome=await requestPermissionViaDialog(handle,'readwrite',{
+            message:'Zum Speichern wird Schreibzugriff auf die Datei benötigt.'
+          });
+          return outcome==='granted';
         }catch(err){
-          console.warn('[UnitBoard] Dateizugriff fehlgeschlagen',err);
+          console.warn('[AspenBoard] Dateizugriff fehlgeschlagen',err);
           return false;
         }
       };
@@ -1635,6 +1744,7 @@
     const persistenceSeed=opts?.moduleJson?.id||opts?.moduleJson?.moduleKey||'primary';
     const handleStorageKey=`aspen-unit-handle::${persistenceSeed}`;
     let fileHandle=null;
+    let hasReadPermission=false;
     let tempSubFields=[];
     let tempTitleRules=[];
     let tempExtraColumns=[];
@@ -1830,12 +1940,13 @@
     }
 
     const refreshTitleBar=(extraOptions={})=>{
+      const hasFileAccess=hasReadPermission && !!fileHandle;
       updateTitleBar(elements.root,state.config.title,{
         filePath:state.filePath,
-        canRefresh:!!fileHandle,
+        canRefresh:hasFileAccess,
         lastModified:lastModifiedCheck,
-        pollingActive:!!pollInterval && !!fileHandle,
-        hasFile:!!fileHandle,
+        pollingActive:!!pollInterval && hasFileAccess,
+        hasFile:hasFileAccess,
         ...extraOptions
       });
     };
@@ -1864,7 +1975,7 @@
 
     async function pollFileChangesOnce(){
       if(pollInProgress) return;
-      if(!fileHandle){
+      if(!fileHandle || !hasReadPermission){
         stopPolling();
         return;
       }
@@ -1881,13 +1992,19 @@
           return;
         }
         if(modified>lastModifiedCheck){
-          const reloaded=await loadAspenFromHandle(fileHandle,{silent:true});
+          const reloaded=await loadAspenFromHandle(fileHandle,{silent:true,skipPermissionCheck:true});
           if(reloaded){
             lastModifiedCheck=modified;
           }
         }
       }catch(err){
-        console.warn('[UnitBoard] Polling fehlgeschlagen',err);
+        if(err && (err.name==='SecurityError' || err.name==='NotAllowedError')){
+          hasReadPermission=false;
+          console.info('[AspenBoard] Kein Zugriff – Nutzer muss Datei neu auswählen');
+          refreshTitleBar({hasFile:false,hintText:'Zugriff verloren – bitte Aspen-Datei neu auswählen.'});
+        }else{
+          console.warn('[UnitBoard] Polling fehlgeschlagen',err);
+        }
         stopPolling();
       }finally{
         pollInProgress=false;
@@ -1896,7 +2013,7 @@
 
     function startPolling(){
       stopPolling();
-      if(!fileHandle) return;
+      if(!fileHandle || !hasReadPermission) return;
       pollInterval=setInterval(()=>{void pollFileChangesOnce();},POLL_INTERVAL_MS);
       refreshTitleBar();
     }
@@ -1906,7 +2023,7 @@
         if(elements.refreshBtn.disabled) return;
         elements.refreshBtn.disabled=true;
         try{
-          if(fileHandle){
+          if(fileHandle && hasReadPermission){
             await loadAspenFromHandle(fileHandle,{silent:false});
           }else{
             await pickFromExcel();
@@ -3289,18 +3406,32 @@
     });
     mo.observe(document.body,{childList:true,subtree:true});
 
-    async function loadAspenFromHandle(handle,{silent=false}={}){
+    async function loadAspenFromHandle(handle,{silent=false,skipPermissionCheck=false,persist=false}={}){
       if(!handle) return false;
+      if(!skipPermissionCheck){
+        const permission=await queryHandlePermission(handle,'read');
+        if(permission!=='granted'){
+          hasReadPermission=false;
+          fileHandle=handle;
+          state.filePath=handle?.name||state.filePath||'';
+          console.info('[AspenBoard] Kein Zugriff – Nutzer muss Datei neu auswählen');
+          refreshTitleBar({hasFile:false,hintText:'Keine Berechtigung – bitte Aspen-Datei neu auswählen.'});
+          return false;
+        }
+      }
       try{
         await ensureXLSX();
         const file=await handle.getFile();
+        hasReadPermission=true;
+        fileHandle=handle;
         lastModifiedCheck=typeof file?.lastModified==='number'?file.lastModified:Date.now();
+        state.filePath=handle.name||state.filePath||'';
+        if(persist){
+          await persistFileHandle(handleStorageKey,handle);
+        }
         const buffer=await file.arrayBuffer();
         const workbook=XLSX.read(buffer,{type:'array'});
         const worksheet=workbook.Sheets[workbook.SheetNames[0]];
-        fileHandle=handle;
-        state.filePath=handle.name||state.filePath||'';
-        await persistFileHandle(handleStorageKey,handle);
         if(!worksheet){
           state.fields=[];
           state.items=[];
@@ -3396,12 +3527,21 @@
         startPolling();
         return true;
       }catch(error){
-        if(!silent) console.error(error);
-        fileHandle=null;
-        lastModifiedCheck=null;
-        await clearStoredFileHandle(handleStorageKey);
-        stopPolling();
-        refreshTitleBar({canRefresh:false});
+        if(error && (error.name==='SecurityError' || error.name==='NotAllowedError')){
+          hasReadPermission=false;
+          fileHandle=handle;
+          console.info('[AspenBoard] Kein Zugriff – Nutzer muss Datei neu auswählen');
+          refreshTitleBar({hasFile:false,hintText:'Zugriff verloren – bitte Aspen-Datei neu auswählen.'});
+          stopPolling();
+        }else{
+          if(!silent) console.error('[AspenBoard] Aspen-Datei konnte nicht gelesen werden',error);
+          fileHandle=null;
+          hasReadPermission=false;
+          lastModifiedCheck=null;
+          await clearStoredFileHandle(handleStorageKey);
+          stopPolling();
+          refreshTitleBar({canRefresh:false,hasFile:false});
+        }
         return false;
       }
     }
@@ -3414,7 +3554,16 @@
           multiple:false
         });
         if(!handle) return;
-        await loadAspenFromHandle(handle,{silent:false});
+        await persistFileHandle(handleStorageKey,handle);
+        fileHandle=handle;
+        hasReadPermission=false;
+        const permission=await requestHandlePermission(handle,'read');
+        if(permission!=='granted'){
+          state.filePath=handle.name||state.filePath||'';
+          refreshTitleBar({hasFile:false,hintText:'Keine Berechtigung – bitte Aspen-Datei neu auswählen.'});
+          return;
+        }
+        await loadAspenFromHandle(handle,{silent:false,skipPermissionCheck:true});
       }catch(error){console.error(error);}
     }
 
@@ -3454,15 +3603,19 @@
       try{
         const storedHandle=await restoreFileHandleFromStore(handleStorageKey);
         if(storedHandle){
-          const granted=typeof SHARED.requestRW==='function'?await SHARED.requestRW(storedHandle):true;
-          if(granted){
-            await loadAspenFromHandle(storedHandle,{silent:false});
+          fileHandle=storedHandle;
+          const permission=await queryHandlePermission(storedHandle,'read');
+          if(permission==='granted'){
+            await loadAspenFromHandle(storedHandle,{silent:false,skipPermissionCheck:true});
           }else{
-            await clearStoredFileHandle(handleStorageKey);
+            hasReadPermission=false;
+            state.filePath=storedHandle.name||state.filePath||'';
+            console.info('[AspenBoard] Kein Zugriff – Nutzer muss Datei neu auswählen');
+            refreshTitleBar({hasFile:false,hintText:'Keine Berechtigung – bitte Aspen-Datei neu auswählen.'});
           }
         }
       }catch(error){
-        console.warn('[UnitBoard] Persistierte Aspen-Datei konnte nicht wiederhergestellt werden',error);
+        console.warn('[AspenBoard] Persistierte Aspen-Datei konnte nicht wiederhergestellt werden',error);
       }
     }
   };

@@ -4,6 +4,11 @@ Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [1.1.11] – 2025-10-03
+### Fixed
+- Datei-Handle-Abfragen nutzen jetzt die File System Access API korrekt: gespeicherte Handles werden beim Laden geprüft,
+  Berechtigungsanfragen laufen nur noch über echte Nutzeraktionen und fehlende Zugriffe lösen klare UI-Hinweise aus.
+
 ## [1.1.10] – 2025-09-30
 ### Changed
 - Zusatzspalten konfigurierbar
