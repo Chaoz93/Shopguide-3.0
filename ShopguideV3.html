@@ -684,12 +684,26 @@
                   <button id="clear-update-folder" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded">Zurücksetzen</button>
                   <span id="update-check-status" class="text-gray-500"></span>
                 </div>
-                <label class="update-toggle" title="Update-Hinweis im Hauptfenster anzeigen">
-                  <span class="sr-only">Update-Hinweis im Hauptfenster anzeigen</span>
-                  <input type="checkbox" id="setting-show-update-button">
-                  <span class="update-toggle-track"></span>
-                  <span class="update-toggle-thumb"></span>
-                </label>
+                <div class="flex flex-col items-start gap-2 sm:items-end">
+                  <div class="flex items-center gap-2">
+                    <label class="update-toggle" title="Update-Hinweis im Hauptfenster anzeigen">
+                      <span class="sr-only">Update-Hinweis im Hauptfenster anzeigen</span>
+                      <input type="checkbox" id="setting-show-update-button">
+                      <span class="update-toggle-track"></span>
+                      <span class="update-toggle-thumb"></span>
+                    </label>
+                    <span class="text-sm text-gray-700 select-none">Update-Hinweis anzeigen</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="update-toggle" title="Automatische Update-Prüfung jede Minute durchführen">
+                      <span class="sr-only">Automatische Update-Prüfung aktivieren</span>
+                      <input type="checkbox" id="setting-update-auto-poll">
+                      <span class="update-toggle-track"></span>
+                      <span class="update-toggle-thumb"></span>
+                    </label>
+                    <span class="text-sm text-gray-700 select-none">Automatisch nach Updates suchen</span>
+                  </div>
+                </div>
               </div>
             </div>
             <div id="updates-empty-state" class="text-sm text-gray-500">Keine Updates erforderlich.</div>
@@ -787,7 +801,8 @@ let appSettings = {
   sidebarModuleCardBg: '#ffffff',
   sidebarModuleCardText: '#1f2937',
   sidebarModuleCardBorder: '#e5e7eb',
-  showUpdateStatusButton: true
+  showUpdateStatusButton: true,
+  autoUpdatePolling: false
 };
 
 
@@ -813,6 +828,7 @@ let currentDowngradeItems = [];
 let settingsSaveTimeoutId = null;
 let historyMenuOpen = false;
 let lastUpdateError = false;
+let updatePollingIntervalId = null;
 let versionOverview = {
   html: {
     type: 'html',
@@ -948,6 +964,7 @@ const inputSidebarModuleBg = document.getElementById('setting-sidebar-module-bg'
 const inputSidebarModuleText = document.getElementById('setting-sidebar-module-text');
 const inputSidebarModuleBorder = document.getElementById('setting-sidebar-module-border');
 const inputShowUpdateButton = document.getElementById('setting-show-update-button');
+const inputUpdateAutoPoll = document.getElementById('setting-update-auto-poll');
 
 // Navigation buttons for settings
 const settingsNavButtons = document.querySelectorAll('.settings-nav button');
@@ -959,6 +976,7 @@ const UPDATE_HANDLE_KEY = 'updateDirHandle';
 const UPDATE_HANDLE_NAME_KEY = 'updateDirDisplayName';
 const DOWNGRADE_COLLAPSE_KEY = 'downgradeSectionCollapsed';
 const MAX_HISTORY_ENTRIES = 50;
+const UPDATE_POLL_INTERVAL_MS = 60 * 1000;
 
 let pendingRootPermission = false;
 let pendingUpdatePermission = false;
@@ -2902,6 +2920,48 @@ async function runUpdateCheck() {
   }
 }
 
+function stopAutomaticUpdatePolling() {
+  if (updatePollingIntervalId !== null) {
+    window.clearInterval(updatePollingIntervalId);
+    updatePollingIntervalId = null;
+  }
+}
+
+async function triggerAutomaticUpdateCheck() {
+  if (!appSettings.autoUpdatePolling) return;
+  if (typeof document !== 'undefined' && document.hidden) return;
+  try {
+    await runUpdateCheck();
+  } catch (err) {
+    console.error('Automatische Update-Prüfung fehlgeschlagen', err);
+  }
+}
+
+function startAutomaticUpdatePolling({ immediate = false } = {}) {
+  stopAutomaticUpdatePolling();
+  if (!appSettings.autoUpdatePolling) return;
+
+  if (immediate) {
+    void triggerAutomaticUpdateCheck();
+  }
+
+  updatePollingIntervalId = window.setInterval(() => {
+    if (!appSettings.autoUpdatePolling) {
+      stopAutomaticUpdatePolling();
+      return;
+    }
+    void triggerAutomaticUpdateCheck();
+  }, UPDATE_POLL_INTERVAL_MS);
+}
+
+function updateAutoPollingState(options = {}) {
+  if (appSettings.autoUpdatePolling) {
+    startAutomaticUpdatePolling(options);
+  } else {
+    stopAutomaticUpdatePolling();
+  }
+}
+
 function activateSettingsSection(section) {
   document.querySelectorAll('.settings-nav button').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.section === section);
@@ -2996,6 +3056,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!historyMenuOpen) return;
     if (historyMenu && historyMenu.contains(event.target)) return;
     closeHistoryMenu();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && appSettings.autoUpdatePolling) {
+      void triggerAutomaticUpdateCheck();
+    }
   });
   if (moduleSearchClearBtn) {
     moduleSearchClearBtn.classList.toggle('hidden', !(moduleSearchInput && moduleSearchInput.value));
@@ -3342,6 +3407,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       scheduleSettingsSave();
     });
   }
+  if (inputUpdateAutoPoll) {
+    inputUpdateAutoPoll.addEventListener('change', () => {
+      appSettings.autoUpdatePolling = inputUpdateAutoPoll.checked;
+      updateAutoPollingState({ immediate: inputUpdateAutoPoll.checked });
+      scheduleSettingsSave();
+    });
+  }
   if (inputAutoArrange) {
     inputAutoArrange.addEventListener('change', () => {
       readInputsIntoSettings();
@@ -3402,6 +3474,7 @@ function populateInputsFromSettings() {
   if (inputSidebarModuleText) inputSidebarModuleText.value = toColor(appSettings.sidebarModuleCardText, inputSidebarModuleText.value);
   if (inputSidebarModuleBorder) inputSidebarModuleBorder.value = toColor(appSettings.sidebarModuleCardBorder, inputSidebarModuleBorder.value);
   if (inputShowUpdateButton) inputShowUpdateButton.checked = appSettings.showUpdateStatusButton !== false;
+  if (inputUpdateAutoPoll) inputUpdateAutoPoll.checked = !!appSettings.autoUpdatePolling;
 }
 
 /** Read inputs into appSettings */
@@ -3433,6 +3506,7 @@ function readInputsIntoSettings() {
   appSettings.sidebarModuleCardText = inputSidebarModuleText.value;
   appSettings.sidebarModuleCardBorder = inputSidebarModuleBorder.value;
   if (inputShowUpdateButton) appSettings.showUpdateStatusButton = inputShowUpdateButton.checked;
+  if (inputUpdateAutoPoll) appSettings.autoUpdatePolling = inputUpdateAutoPoll.checked;
 }
 
 /** Convert rgba to hex for colour inputs */
@@ -3525,6 +3599,7 @@ async function loadAppSettings() {
     } catch (e) {}
   }
   applySettings();
+  updateAutoPollingState();
 }
 
 /** Update card draggability */
