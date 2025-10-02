@@ -1042,7 +1042,11 @@
       ensureExtraColumns(state.config);
       ensureActiveColumn(state.config);
       ensureSearchFilters(state.config);
-      if(Array.isArray(saved.items)) state.items=dedupeByMeldung(saved.items);
+      let restoredOrder=false;
+      if(Array.isArray(saved.items) && saved.items.length){
+        state.items=dedupeByMeldung(saved.items);
+        restoredOrder=true;
+      }
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
       state.searchQuery=typeof saved.searchQuery==='string'?saved.searchQuery:'';
@@ -1066,8 +1070,13 @@
       state.columnAssignments=normalizeColumnAssignments(saved.columnAssignments);
       ensureColumnAssignments(state);
       ensureHiddenExtraColumns(state);
-      const sortField=primarySubField(state.config);
-      state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
+      if(!restoredOrder){
+        state.items=dedupeByMeldung(state.items);
+        if(Array.isArray(state.items) && state.items.length){
+          const sortField=primarySubField(state.config);
+          state.items.sort((a,b)=>String(a?.data?.[sortField]||'').localeCompare(String(b?.data?.[sortField]||'')));
+        }
+      }
     }catch(e){/* ignore */}
   }
 
@@ -3339,6 +3348,7 @@
         }
         state.config.subFields=preservedSubs;
         ensureSubFields(state.config);
+        const previousOrder=new Map(Array.isArray(state.items)?state.items.map((item,index)=>[item.meldung,index]):[]);
         const newItems=rows.map(row=>{
           const safeRow=row&&typeof row==='object'?row:{};
           const titleVal=String(safeRow[TITLE_FIELD]||'').trim();
@@ -3351,7 +3361,17 @@
         }).filter(Boolean);
         const deduped=dedupeByMeldung(newItems);
         const sortField=primarySubField(state.config);
-        deduped.sort((a,b)=>String(a.data?.[sortField]||'').localeCompare(String(b.data?.[sortField]||'')));
+        const fallbackCompare=(a,b)=>String(a.data?.[sortField]||'').localeCompare(String(b.data?.[sortField]||''));
+        deduped.sort((a,b)=>{
+          const aIndex=previousOrder.has(a.meldung)?previousOrder.get(a.meldung):-1;
+          const bIndex=previousOrder.has(b.meldung)?previousOrder.get(b.meldung):-1;
+          if(aIndex!==bIndex){
+            if(aIndex<0) return bIndex<0?fallbackCompare(a,b):1;
+            if(bIndex<0) return -1;
+            return aIndex-bIndex;
+          }
+          return fallbackCompare(a,b);
+        });
         state.items=deduped;
         const availableMeldungen=new Set(deduped.map(item=>item.meldung).filter(Boolean));
         const prevActive=state.activeMeldungen instanceof Set?Array.from(state.activeMeldungen):Array.isArray(state.activeMeldungen)?state.activeMeldungen:[];

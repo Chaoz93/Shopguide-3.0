@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.8] – 2025-10-02
+### Fixed
+- Reihenfolge der Aspen-Geräte bleibt nach Neuladen des Boards sowie nach dem erneuten Einlesen der Excel-Datei erhalten.
+
 ## [3.6.7] – 2025-10-02
 ### Fixed
 - Such-Vorfilter behalten beim Tippen im Konfigurationsdialog den Fokus, damit die Eingabe nicht mehr nach jedem Zeichen abbricht.
