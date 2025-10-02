@@ -6931,7 +6931,17 @@
       if(prefillEntry){
         this.lockRow(state,prefillEntry,{persist:false,updateState:false,syncOutputs:false});
       }else if(focusNext){
-        setTimeout(()=>{if(!state.locked) input.focus();},60);
+        setTimeout(()=>{
+          if(state.locked) return;
+          const active=document.activeElement;
+          const root=this.root instanceof HTMLElement?this.root:null;
+          if(active&&active!==document.body){
+            const isActiveInRoot=root&&root.contains(active);
+            const isDisconnected=active instanceof Node&&!active.isConnected;
+            if(!isActiveInRoot&&!isDisconnected) return;
+          }
+          input.focus();
+        },60);
       }
     }
 
