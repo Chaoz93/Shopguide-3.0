@@ -20,6 +20,12 @@
   const ROUTINE_EDITOR_ACTIVE_PRESET_KEY='nsf-routine-editor-active';
   const ROUTINE_EDITOR_TEMPLATE_BLOCK_KEY='template';
   const ROUTINE_EDITOR_TEMPLATE_LABEL='Freitext';
+  const ROUTINE_EDITOR_DEFAULT_TEMPLATES={
+    routine:'{{Findings}}\n\n{{Actions}}',
+    findings:'{{Findings}}',
+    actions:'{{Actions}}',
+    nonroutine:'{{Nonroutine}}'
+  };
   const ROUTINE_EDITOR_BASE_BLOCKS_ROUTINE=[
     {
       key:ROUTINE_EDITOR_TEMPLATE_BLOCK_KEY,
@@ -253,18 +259,36 @@
     return Array.isArray(config.baseBlocks)?config.baseBlocks:ROUTINE_EDITOR_BASE_BLOCKS_ROUTINE;
   }
 
+  function getRoutineEditorDefaultTemplate(tabKey){
+    const key=getRoutineEditorTabKey(tabKey);
+    const value=ROUTINE_EDITOR_DEFAULT_TEMPLATES[key];
+    return typeof value==='string'?value:'';
+  }
+
   function createDefaultRoutineEditorTabState(tabKey){
     const baseBlocks=getRoutineEditorBaseBlocksForTab(tabKey);
     const templateBlock=baseBlocks.find(block=>block&&block.template);
     const templateKey=templateBlock?templateBlock.key:'';
+    const defaultTemplate=getRoutineEditorDefaultTemplate(tabKey);
     const order=baseBlocks.map(block=>block.key);
     const blocks={};
     baseBlocks.forEach(block=>{
+      if(block.editable===false){
+        blocks[block.key]={lines:[]};
+        return;
+      }
+      let lines;
+      if(block.template&&defaultTemplate){
+        lines=defaultTemplate.split(/\r?\n/);
+      }else{
+        lines=[''];
+      }
       blocks[block.key]={
-        lines:block.editable===false?[]:['']
+        lines:Array.isArray(lines)&&lines.length?lines:['']
       };
     });
-    return {order,blocks,customBlocks:[],blockMeta:{},hiddenBaseBlocks:[],template:''};
+    const templateText=templateKey?defaultTemplate:'';
+    return {order,blocks,customBlocks:[],blockMeta:{},hiddenBaseBlocks:[],template:templateText};
   }
 
   function createDefaultRoutineEditorState(){
@@ -386,18 +410,30 @@
       }
     });
     base.blockMeta=blockMeta;
+    const rawTemplateProp=raw&&typeof raw==='object'&&Object.prototype.hasOwnProperty.call(raw,'template');
     const rawTemplate=typeof raw.template==='string'?raw.template:'';
+    const defaultTemplate=getRoutineEditorDefaultTemplate(tabKey);
     if(templateKey){
       const linesEntry=base.blocks&&base.blocks[templateKey];
-      if(rawTemplate){
-        base.template=rawTemplate;
-        if(linesEntry&&Array.isArray(linesEntry.lines)){
-          linesEntry.lines=rawTemplate.split(/\r?\n/);
+      if(rawTemplateProp){
+        if(rawTemplate){
+          base.template=rawTemplate;
+          if(linesEntry&&Array.isArray(linesEntry.lines)){
+            linesEntry.lines=rawTemplate.split(/\r?\n/);
+          }
+        }else if(linesEntry&&Array.isArray(linesEntry.lines)&&linesEntry.lines.some(line=>line&&line.trim())){
+          base.template=linesEntry.lines.join('\n');
+        }else{
+          base.template='';
         }
-      }else if(linesEntry&&Array.isArray(linesEntry.lines)){
-        base.template=linesEntry.lines.join('\n');
-      }else{
-        base.template='';
+      }
+      if(!base.template&&defaultTemplate){
+        base.template=defaultTemplate;
+        if(linesEntry){
+          linesEntry.lines=defaultTemplate.split(/\r?\n/);
+        }
+      }else if(linesEntry&&(!Array.isArray(linesEntry.lines)||!linesEntry.lines.length)){
+        linesEntry.lines=base.template?base.template.split(/\r?\n/):[''];
       }
     }else{
       base.template='';
@@ -4148,14 +4184,37 @@
 
     getRoutineEditorTemplateString(tabKey=this.getActiveRoutineEditorTab()){
       const state=this.getRoutineEditorTabState(tabKey);
-      if(state&&typeof state.template==='string'){
-        return state.template;
+      let templateText=state&&typeof state.template==='string'?state.template:'';
+      if(templateText){
+        return templateText;
       }
       const templateBlock=this.getRoutineEditorTemplateBlock(tabKey);
-      if(!templateBlock) return '';
+      if(!templateBlock){
+        return templateText||'';
+      }
       const entry=state&&state.blocks?state.blocks[templateBlock.key]:null;
       const lines=Array.isArray(entry&&entry.lines)?entry.lines:[];
-      return lines.join('\n');
+      if(lines.some(line=>typeof line==='string'&&line.trim())){
+        templateText=lines.join('\n');
+      }
+      if(!templateText){
+        templateText=getRoutineEditorDefaultTemplate(tabKey);
+      }
+      if(state){
+        state.template=templateText||'';
+        if(!state.blocks) state.blocks={};
+        if(templateBlock.key){
+          const normalizedLines=templateText?templateText.split(/\r?\n/):[''];
+          const existingEntry=state.blocks[templateBlock.key]&&typeof state.blocks[templateBlock.key]==='object'
+            ?state.blocks[templateBlock.key]
+            :{};
+          state.blocks[templateBlock.key]={
+            ...existingEntry,
+            lines:normalizedLines
+          };
+        }
+      }
+      return templateText||'';
     }
 
     buildRoutineEditorTemplateContext(){
@@ -5992,8 +6051,7 @@
       }
       if(def&&def.template){
         const tabKey=this.getActiveRoutineEditorTab();
-        const tabState=this.getRoutineEditorTabState(tabKey);
-        const templateText=tabState&&typeof tabState.template==='string'?tabState.template:'';
+        const templateText=this.getRoutineEditorTemplateString(tabKey);
         const wrapper=document.createElement('div');
         wrapper.className='nsf-template-editor-field';
         const hint=document.createElement('p');
