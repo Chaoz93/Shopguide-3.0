@@ -3595,11 +3595,26 @@
     }
 
     setupCustomSectionSortables(){
+      /*
+        Sortable.js initialisation for the custom text block slots.
+        Each slot is turned into a Sortable list that allows blocks to be moved between slots.
+        When the drag operation finishes we need to ensure that both the source and target slots
+        update their visual state immediately so that the user sees the correct alignment without
+        having to reload the page.
+      */
       this.destroyCustomSectionSortables();
       this.customSlotSortables=[];
       if(!window.Sortable||!Array.isArray(this.customSlots)) return;
+
+      const findSlotByList=list=>{
+        if(!list) return null;
+        return this.customSlots.find(candidate=>candidate&&candidate.list===list)||null;
+      };
+
       this.customSlots.forEach(slot=>{
-        if(!slot||!slot.list) return;
+        if(!slot||!slot.list||!(slot.list instanceof HTMLElement)) return;
+        if(!slot.list.classList.contains('nsf-custom-list')) return;
+
         const sortable=window.Sortable.create(slot.list,{
           group:'nsf-custom-sections',
           animation:150,
@@ -3607,11 +3622,24 @@
           draggable:'.nsf-custom-block',
           onStart:evt=>{
             if(evt?.item) evt.item.classList.add('dragging');
-            this.setCustomSlotDragging(true);
+            const sourceSlot=findSlotByList(evt?.from);
+            if(sourceSlot&&sourceSlot.wrapper){
+              sourceSlot.wrapper.classList.add('nsf-custom-slot-dragging');
+            }
           },
           onEnd:evt=>{
             if(evt?.item) evt.item.classList.remove('dragging');
-            this.setCustomSlotDragging(false);
+            const sourceSlot=findSlotByList(evt?.from);
+            const targetSlot=findSlotByList(evt?.to);
+            const handled=new Set();
+            [sourceSlot,targetSlot].forEach(entry=>{
+              if(!entry||handled.has(entry)) return;
+              handled.add(entry);
+              if(entry.wrapper){
+                entry.wrapper.classList.remove('nsf-custom-slot-dragging');
+              }
+              this.updateCustomSlotState(entry);
+            });
             this.syncCustomSectionsFromDom();
           }
         });
