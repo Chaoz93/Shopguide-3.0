@@ -5030,47 +5030,22 @@
           blockMap.set(key,{id:key,key,type:key});
         }
       });
-      const dragOrder=Array.isArray(this.dragShadowOrder)&&this.dragShadowOrder.length
-        ?this.dragShadowOrder.slice()
-        :null;
-      const resolvedOrder=(()=>{
-        if(!dragOrder||!dragOrder.length) return baseOrder.slice();
-        const queue=dragOrder.slice();
-        const reordered=baseOrder.map(key=>{
-          if(key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)&&queue.length){
-            return queue.shift();
-          }
-          return key;
-        });
-        queue.forEach(key=>{
-          if(!reordered.includes(key)) reordered.push(key);
-        });
-        return reordered;
-      })();
-      if(!dragOrder||!dragOrder.length){
-        tabState.order=resolvedOrder.slice();
-      }else{
-        tabState.order=baseOrder.slice();
-      }
-      let blocks;
-      if(dragOrder&&dragOrder.length){
-        const queue=dragOrder.slice();
-        blocks=resolvedOrder.map(id=>{
-          if(id.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)&&queue.length){
-            const nextId=queue.shift();
-            return blockMap.get(nextId)||blockMap.get(id);
-          }
-          return blockMap.get(id);
-        }).filter(Boolean);
-        queue.forEach(id=>{
-          const block=blockMap.get(id);
-          if(block) blocks.push(block);
+      const usingGhostOrder=Array.isArray(this.dragShadowOrder)&&this.dragShadowOrder.length>0;
+      let orderToRender;
+      if(usingGhostOrder){
+        orderToRender=this.dragShadowOrder.slice();
+        baseOrder.forEach(key=>{
+          if(!orderToRender.includes(key)) orderToRender.push(key);
         });
       }else{
-        blocks=resolvedOrder.map(id=>blockMap.get(id)).filter(Boolean);
-        if(!blocks.length){
-          blocks=Array.from(blockMap.values());
+        orderToRender=baseOrder.slice();
+        if(!orderToRender.length){
+          orderToRender=Array.from(blockMap.keys());
         }
+      }
+      let blocks=orderToRender.map(id=>blockMap.get(id)).filter(Boolean);
+      if(!blocks.length&&blockMap.size){
+        blocks=Array.from(blockMap.values());
       }
       console.log('Rendering blocks in order:',blocks.map(b=>b.id));
       const finalOrder=blocks.map(block=>block.id);
@@ -5087,42 +5062,37 @@
           ?renderRoutineEditorBlock
           :null;
       const container=this.routineEditorList instanceof Element?this.routineEditorList:null;
-      const orderedBlocks={};
-      blocks.forEach(block=>{
-        if(block&&block.id){
-          orderedBlocks[block.id]=block;
-        }
-      });
-      finalOrder.forEach((blockId,index)=>{
+      blocks.forEach((block,index)=>{
         const insert=this.createRoutineEditorInsertControl(index,finalOrder,tabKeyValue);
         if(insert) this.routineEditorList.appendChild(insert);
-        if(!container||typeof blockId!=='string') return;
-        const blockData=orderedBlocks[blockId]||null;
-        if(renderer&&blockData){
+        if(!container||!block||typeof block.id!=='string') return;
+        if(renderer){
           try{
-            debugRenderRoutineEditorBlockCall(renderer,blockData,tabKeyValue);
+            debugRenderRoutineEditorBlockCall(renderer,block,tabKeyValue);
           }catch(err){
-            console.warn('NSF: Fehler beim Rendern über renderRoutineEditorBlock',err,blockData);
+            console.warn('NSF: Fehler beim Rendern über renderRoutineEditorBlock',err,block);
           }
         }else if(!renderer){
-          console.warn('NSF: Kein Renderer für renderRoutineEditorBlock verfügbar',blockData);
+          console.warn('NSF: Kein Renderer für renderRoutineEditorBlock verfügbar',block);
         }
-        const def=this.getRoutineEditorBlockDefinition(blockId,index,finalOrder);
+        const def=this.getRoutineEditorBlockDefinition(block.id,index,finalOrder);
         if(!def){
-          console.warn('NSF: Keine Definition für Routine-Editor-Block gefunden',blockId);
+          console.warn('NSF: Keine Definition für Routine-Editor-Block gefunden',block.id);
           return;
         }
         const blockEl=this.createRoutineEditorBlock(def);
         if(!blockEl){
-          console.warn('NSF: Routine-Editor-Block konnte nicht erstellt werden',blockId);
+          console.warn('NSF: Routine-Editor-Block konnte nicht erstellt werden',block.id);
           return;
         }
         container.appendChild(blockEl);
       });
       const finalInsert=this.createRoutineEditorInsertControl(finalOrder.length,finalOrder,tabKeyValue);
       if(finalInsert) this.routineEditorList.appendChild(finalInsert);
-      this.refreshRoutineEditorPreview();
-      this.updateRoutineEditorBlockShopAvailability();
+      if(!usingGhostOrder){
+        this.refreshRoutineEditorPreview();
+        this.updateRoutineEditorBlockShopAvailability();
+      }
     }
 
     saveRoutineEditorState(state=this.routineEditorState){
@@ -5134,50 +5104,16 @@
         const tabs=targetState&&targetState.tabs?targetState.tabs:null;
         if(resolvedTab&&tabs&&tabs[resolvedTab]){
           const tabState=tabs[resolvedTab];
-          const baseBlocks=this.getRoutineEditorBaseBlocks(resolvedTab);
-          const allowedKeys=new Set(baseBlocks.map(block=>block.key));
-          const customBlocks=Array.isArray(tabState.customBlocks)?tabState.customBlocks:[];
-          const customKeys=new Set(customBlocks.map(block=>`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`));
-          const rawOrder=Array.isArray(tabState.order)?tabState.order.slice():[];
-          const hiddenBaseArray=Array.isArray(tabState.hiddenBaseBlocks)?tabState.hiddenBaseBlocks:[];
-          const hiddenBase=new Set(hiddenBaseArray.filter(key=>allowedKeys.has(key)));
-          const normalized=[];
-          rawOrder.forEach(key=>{
-            if(typeof key!=='string') return;
-            if(allowedKeys.has(key)){
-              if(hiddenBase.has(key)) return;
-              if(!normalized.includes(key)) normalized.push(key);
-              return;
-            }
-            if(customKeys.has(key)){
-              if(!normalized.includes(key)) normalized.push(key);
-            }
-          });
-          baseBlocks.forEach(block=>{
-            if(hiddenBase.has(block.key)) return;
-            if(!normalized.includes(block.key)) normalized.push(block.key);
-          });
-          customBlocks.forEach(block=>{
-            const key=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`;
-            if(!normalized.includes(key)) normalized.push(key);
-          });
-          const dragOrder=this.dragShadowOrder.map(id=>{
-            if(typeof id!=='string') return '';
-            if(id.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)) return id;
-            return `${ROUTINE_EDITOR_CUSTOM_PREFIX}${id}`;
-          }).filter(Boolean);
-          if(dragOrder.length){
-            const queue=dragOrder.slice();
-            const reordered=normalized.map(key=>{
-              if(key.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX)&&queue.length){
-                return queue.shift();
-              }
-              return key;
+          const ghostOrder=this.dragShadowOrder
+            .map(id=>typeof id==='string'?id.trim():'')
+            .filter(Boolean);
+          if(ghostOrder.length){
+            const fallbackOrder=this.getRoutineEditorOrder(resolvedTab);
+            const mergedOrder=ghostOrder.slice();
+            fallbackOrder.forEach(key=>{
+              if(!mergedOrder.includes(key)) mergedOrder.push(key);
             });
-            queue.forEach(key=>{
-              if(!reordered.includes(key)) reordered.push(key);
-            });
-            tabState.order=reordered;
+            tabState.order=mergedOrder;
           }
         }
         this.dragShadowOrder=[];
