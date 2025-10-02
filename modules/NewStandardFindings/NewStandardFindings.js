@@ -4852,9 +4852,10 @@
       return def&&def.label?def.label:'';
     }
 
-    createRoutineEditorInsertControl(index,order){
+    createRoutineEditorInsertControl(index,order,tabKey){
       if(!this.routineEditorList) return null;
       if(!Array.isArray(this.routineEditorInsertZones)) this.routineEditorInsertZones=[];
+      const targetTab=getRoutineEditorTabKey?getRoutineEditorTabKey(tabKey):tabKey;
       const container=document.createElement('div');
       container.className='nsf-editor-insert';
       container.dataset.position=String(index);
@@ -4916,7 +4917,8 @@
         }
         event.preventDefault();
         console.log('[Drop] type:',type,'index:',index);
-        const newBlock=this.addCustomBlock(this.getActiveRoutineEditorTab(),type,{insertIndex:index});
+        const tabForInsert=targetTab||this.getActiveRoutineEditorTab();
+        const newBlock=this.addCustomBlock(tabForInsert,type,{insertIndex:index});
         console.log('[Drop] newBlock returned:',newBlock);
         currentBlockShopDragType='';
         clearAllRoutineEditorDropIndicators();
@@ -4961,7 +4963,7 @@
       const customMap=new Map(customBlocks.map(entry=>entry&&entry.id?[entry.id,entry]:null).filter(Boolean));
       let totalBlocksRendered=0;
       order.forEach((blockId,index)=>{
-        const insert=this.createRoutineEditorInsertControl(index,order);
+        const insert=this.createRoutineEditorInsertControl(index,order,tabKeyValue);
         if(insert) this.routineEditorList.appendChild(insert);
         if(!container||typeof blockId!=='string') return;
         const isCustom=blockId.startsWith(ROUTINE_EDITOR_CUSTOM_PREFIX);
@@ -5003,7 +5005,7 @@
         console.log('[renderRoutineEditorOverlayContent] appended block id:',blockId,'to container');
         totalBlocksRendered+=1;
       });
-      const finalInsert=this.createRoutineEditorInsertControl(order.length,order);
+      const finalInsert=this.createRoutineEditorInsertControl(order.length,order,tabKeyValue);
       if(finalInsert) this.routineEditorList.appendChild(finalInsert);
       console.log('[renderRoutineEditorOverlayContent] total blocks rendered:',totalBlocksRendered);
       this.refreshRoutineEditorPreview();
