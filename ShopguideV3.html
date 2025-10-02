@@ -154,7 +154,7 @@
     .update-settings-row {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
+      align-items: flex-start;
       gap: 0.5rem 0.75rem;
     }
     .update-settings-row .update-folder-info {
@@ -197,6 +197,22 @@
       background-color: white;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
       transition: transform 0.2s ease;
+    }
+    .update-toggle-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-width: 240px;
+      align-items: stretch;
+    }
+    .update-toggle-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .update-toggle-label {
+      flex: 1;
     }
     .update-toggle input:checked + .update-toggle-track {
       background-color: #2563eb;
@@ -684,24 +700,24 @@
                   <button id="clear-update-folder" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded">Zurücksetzen</button>
                   <span id="update-check-status" class="text-gray-500"></span>
                 </div>
-                <div class="flex flex-col items-start gap-2 sm:items-end">
-                  <div class="flex items-center gap-2">
+                <div class="update-toggle-stack">
+                  <div class="update-toggle-group">
+                    <span class="update-toggle-label text-sm text-gray-700 select-none">Update-Hinweis anzeigen</span>
                     <label class="update-toggle" title="Update-Hinweis im Hauptfenster anzeigen">
                       <span class="sr-only">Update-Hinweis im Hauptfenster anzeigen</span>
                       <input type="checkbox" id="setting-show-update-button">
                       <span class="update-toggle-track"></span>
                       <span class="update-toggle-thumb"></span>
                     </label>
-                    <span class="text-sm text-gray-700 select-none">Update-Hinweis anzeigen</span>
                   </div>
-                  <div class="flex items-center gap-2">
+                  <div class="update-toggle-group">
+                    <span class="update-toggle-label text-sm text-gray-700 select-none">Automatisch nach Updates suchen</span>
                     <label class="update-toggle" title="Automatische Update-Prüfung jede Minute durchführen">
                       <span class="sr-only">Automatische Update-Prüfung aktivieren</span>
                       <input type="checkbox" id="setting-update-auto-poll">
                       <span class="update-toggle-track"></span>
                       <span class="update-toggle-thumb"></span>
                     </label>
-                    <span class="text-sm text-gray-700 select-none">Automatisch nach Updates suchen</span>
                   </div>
                 </div>
               </div>
