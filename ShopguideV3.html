@@ -732,7 +732,7 @@
                     </div>
                     <div class="update-toggle-group">
                       <span class="update-toggle-label text-sm text-gray-700 select-none">Automatisch nach Updates suchen</span>
-                      <label class="update-toggle" title="Automatische Update-Prüfung jede Minute durchführen">
+                      <label class="update-toggle" title="Automatische Update-Prüfung alle 5 Sekunden durchführen">
                         <span class="sr-only">Automatische Update-Prüfung aktivieren</span>
                         <input type="checkbox" id="setting-update-auto-poll">
                         <span class="update-toggle-track"></span>
@@ -1013,7 +1013,7 @@ const UPDATE_HANDLE_KEY = 'updateDirHandle';
 const UPDATE_HANDLE_NAME_KEY = 'updateDirDisplayName';
 const DOWNGRADE_COLLAPSE_KEY = 'downgradeSectionCollapsed';
 const MAX_HISTORY_ENTRIES = 50;
-const UPDATE_POLL_INTERVAL_MS = 60 * 1000;
+const UPDATE_POLL_INTERVAL_MS = 5 * 1000;
 
 let pendingRootPermission = false;
 let pendingUpdatePermission = false;
