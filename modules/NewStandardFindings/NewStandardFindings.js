@@ -35,30 +35,6 @@
       allowParameters:true,
       derivedBlocks:{findings:'findings',actions:'actions'},
       previewEmpty:'Keine Routine-Daten vorhanden.'
-    },
-    findings:{
-      key:'findings',
-      baseBlocks:[{key:'findings',label:'Findings',defaultLabel:'Findings',editable:false,persist:false,removable:false}],
-      allowAspen:false,
-      allowParameters:true,
-      primaryTextarea:'findings',
-      previewEmpty:'Keine Findings-Daten vorhanden.'
-    },
-    actions:{
-      key:'actions',
-      baseBlocks:[{key:'actions',label:'Actions',defaultLabel:'Actions',editable:false,persist:false,removable:false}],
-      allowAspen:false,
-      allowParameters:true,
-      primaryTextarea:'actions',
-      previewEmpty:'Keine Actions-Daten vorhanden.'
-    },
-    nonroutine:{
-      key:'nonroutine',
-      baseBlocks:[{key:'nonroutine',label:'Nonroutine',defaultLabel:'Nonroutine',editable:false,persist:false,removable:false}],
-      allowAspen:false,
-      allowParameters:true,
-      primaryTextarea:'nonroutine',
-      previewEmpty:'Keine Nonroutine-Daten vorhanden.'
     }
   };
   const ROUTINE_EDITOR_PARAMETER_FIELDS=[
@@ -84,7 +60,7 @@
     {key:'parts',label:'Bestellliste'}
   ];
 
-  const ROUTINE_EDITOR_PREVIEW_TAB_KEYS=OUTPUT_DEFS.filter(def=>def.key!=='parts').map(def=>def.key);
+  const ROUTINE_EDITOR_PREVIEW_TAB_KEYS=['routine'];
 
   function sanitizeRoutineEditorLabel(value){
     if(typeof value!=='string') return '';
@@ -4548,6 +4524,7 @@
       this.routineEditorPreviewTabButtons=new Map();
       OUTPUT_DEFS.forEach(def=>{
         if(def.key==='parts') return;
+        if(!ROUTINE_EDITOR_PREVIEW_TAB_KEYS.includes(def.key)) return;
         const tabButton=document.createElement('button');
         tabButton.type='button';
         tabButton.className='nsf-editor-preview-tab';
