@@ -4202,12 +4202,19 @@ function createTab(name, layoutModules = []) {
           const instanceId = m.id || generateInstanceId();
           if (modObj && modObj.template) {
             const tmpl = modObj.template;
-            if (m.type === 'script' && tmpl.script) {
+            let handled = false;
+            if (tmpl.script) {
               const jsFileName = findScriptFileName(tmpl, modObj);
-              if (jsFileName) await loadAndRunModuleScript(jsFileName, tmpl, modObj, pos, gridInstance, tab, instanceId, { skipUndo: true, skipSave: true });
-            } else if (m.type === 'fields' && tmpl.fields) {
+              if (jsFileName) {
+                await loadAndRunModuleScript(jsFileName, tmpl, modObj, pos, gridInstance, tab, instanceId, { skipUndo: true, skipSave: true });
+                handled = true;
+              }
+            }
+            if (!handled && tmpl.fields) {
               createUniversalModule(tmpl, pos, modObj, gridInstance, tab, instanceId, { skipUndo: true, skipSave: true });
-            } else {
+              handled = true;
+            }
+            if (!handled) {
               createSimpleModule(tmpl.name || modObj.subdir, pos, gridInstance, tab, modObj.subdir, instanceId, { skipUndo: true, skipSave: true });
             }
           } else {
