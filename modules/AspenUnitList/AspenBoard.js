@@ -78,7 +78,7 @@
     .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
     .db-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:2150;}
     .db-modal.open{display:flex;}
-    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radius:.75rem;min-width:260px;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relative;z-index:2210;}
+    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radius:.75rem;min-width:320px;max-width:min(96vw,1380px);width:100%;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relative;z-index:2210;}
     .db-panel .row{margin-bottom:.75rem;}
     .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
     .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
@@ -107,7 +107,6 @@
     .db-add-sub{align-self:flex-start;padding:.35rem .6rem;}
     .db-panel .row.rules{display:flex;flex-direction:column;gap:.4rem;}
     .db-panel .row.filters{display:flex;flex-direction:column;gap:.4rem;}
-    .db-panel .row.extras{display:flex;flex-direction:column;gap:.4rem;}
     .db-extra-config{display:flex;flex-direction:column;gap:.6rem;}
     .db-extra-count-label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
     .db-extra-count{width:120px;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
@@ -142,8 +141,12 @@
     .db-row-header .db-rule-label{margin-bottom:0;}
     .db-sub-line+.db-sub-line{margin-top:.15rem;}
     .db-panel .actions{display:flex;gap:.5rem;justify-content:flex-end;}
-    .db-config-layout{display:flex;flex-direction:column;gap:1.25rem;}
-    .db-config-main{flex:1;display:flex;flex-direction:column;gap:1rem;}
+    .db-config-layout{display:flex;flex-direction:column;gap:1.25rem;align-items:stretch;}
+    .db-config-extras{flex:0 0 auto;width:100%;display:flex;justify-content:flex-start;}
+    .db-extra-card{flex:1;display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--border-color,#e5e7eb);background:rgba(255,255,255,.85);box-shadow:0 12px 28px rgba(15,23,42,.08);}
+    .db-extra-card-title{font-weight:600;font-size:.9rem;color:var(--dl-sub,#4b5563);}
+    .db-extra-card-body{display:flex;flex-direction:column;gap:.75rem;}
+    .db-config-main{flex:1;display:flex;flex-direction:column;gap:1rem;padding:1rem;border-radius:.85rem;border:1px solid var(--border-color,#e5e7eb);background:rgba(255,255,255,.85);box-shadow:0 12px 28px rgba(15,23,42,.08);}
     .db-config-main>.row{margin-bottom:0;}
     .db-config-main>.row+.row{margin-top:.25rem;}
     .db-config-colors{flex:0 0 auto;width:100%;display:flex;justify-content:flex-end;}
@@ -153,7 +156,10 @@
     .db-color-field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:0;font-size:.85rem;}
     .db-color-field span{font-weight:600;color:var(--dl-sub,#4b5563);}
     @media(min-width:900px){
-      .db-config-layout{flex-direction:row;align-items:flex-start;}
+      .db-config-layout{flex-direction:row;align-items:flex-start;gap:1.5rem;}
+      .db-config-extras{max-width:320px;}
+      .db-extra-card{height:100%;}
+      .db-config-main{flex:1;}
       .db-config-colors{max-width:280px;}
     }
     .aspenboard .db-modal{
@@ -165,17 +171,20 @@
     .aspenboard .db-menu{
       --bg-color:#0a0f1a;
       --panel-bg:rgba(255,255,255,0.05);
-      --accent-color:#245581;
-      --accent-strong:#173752;
-      --accent-gradient:linear-gradient(135deg,var(--accent-strong),var(--accent-color));
-      --accent-border:rgba(36,85,129,0.55);
-      --accent-soft:rgba(36,85,129,0.22);
+      --accent-gradient-from:#173752;
+      --accent-gradient-to:#245581;
+      --accent-strong:var(--accent-gradient-from);
+      --accent-color:var(--accent-gradient-to);
+      --accent-gradient:linear-gradient(135deg,var(--accent-gradient-from),var(--accent-gradient-to));
+      --modal-gradient:linear-gradient(160deg,rgba(23,55,82,0.88) 0%,rgba(10,15,26,0.96) 48%,rgba(36,85,129,0.92) 100%);
       --accent-rgb:36,85,129;
+      --accent-border:rgba(var(--accent-rgb),0.55);
+      --accent-soft:rgba(var(--accent-rgb),0.22);
       --text-color:#e5e5e5;
       --muted-text:rgba(229,229,229,0.7);
       --border-color:rgba(255,255,255,0.14);
       --shadow-color:rgba(0,0,0,0.55);
-      background:rgba(10,15,26,.94);
+      background:var(--modal-gradient,rgba(10,15,26,.94));
     }
     .aspenboard .db-panel{
       backdrop-filter:blur(28px);
@@ -201,6 +210,7 @@
     .aspenboard .db-search-filter-btn:hover{background:rgba(var(--accent-rgb,36,85,129),.18);}
     .aspenboard .db-search-filter-btn.is-active{background:var(--accent-gradient,var(--accent-color));color:#fff;border-color:var(--accent-border,var(--accent-color));box-shadow:0 0 0 3px rgba(var(--accent-rgb,36,85,129),.28);}
     .aspenboard .db-panel{color:var(--text-color);border-radius:1rem;border:1px solid var(--border-color);box-shadow:0 18px 36px var(--shadow-color);}
+    .aspenboard .db-config-layout{gap:1.75rem;}
     .aspenboard .db-panel label{color:var(--muted-text);}
     .aspenboard .db-panel input[type=text],
     .aspenboard .db-panel input[type=number],
@@ -291,11 +301,17 @@
     .aspenboard .ab-permission-actions button:hover{background:rgba(var(--accent-rgb,36,85,129),.22);}
     .aspenboard .ab-permission-actions .ab-permission-allow{background:var(--accent-gradient,var(--accent-color));border-color:var(--accent-border,var(--accent-color));color:#fff;}
     .aspenboard .ab-permission-actions .ab-permission-allow:hover{filter:brightness(1.05);}
+    .aspenboard .db-extra-card,
+    .aspenboard .db-config-main,
     .aspenboard .db-color-card{
-      background:rgba(12,18,30,.9);
-      border:1px solid var(--border-color);
-      box-shadow:0 18px 42px var(--shadow-color);
+      background:linear-gradient(145deg,var(--accent-gradient-from,#173752),var(--accent-gradient-to,#245581));
+      border:1px solid var(--accent-border,rgba(var(--accent-rgb,36,85,129),.55));
+      box-shadow:0 20px 48px rgba(5,12,23,.55);
     }
+    .aspenboard .db-config-main{color:var(--text-color);}
+    .aspenboard .db-extra-card-title{color:#fff;}
+    .aspenboard .db-extra-card .db-extra-count-label{color:var(--muted-text);}
+    .aspenboard .db-extra-card .db-extra-name-label{color:var(--text-color);}
     .aspenboard .db-color-card-title{color:var(--text-color);}
     .aspenboard .db-color-field span{color:var(--text-color);}
   `;
@@ -854,7 +870,7 @@
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root aspenboard';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><div class="db-search-filter-group" aria-label="Such-Vorfilter"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row filters"><div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div><div class="db-filter-list"></div><button type="button" class="db-add-filter">Filter hinzufügen</button></div><div class="row extras"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><div class="db-search-filter-group" aria-label="Such-Vorfilter"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><aside class="db-config-extras"><div class="db-extra-card"><div class="db-extra-card-title">Extraspalten</div><div class="db-extra-card-body"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div></div></aside><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row filters"><div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div><div class="db-filter-list"></div><button type="button" class="db-add-filter">Filter hinzufügen</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Verlauf Start</span><input type="color" class="db-color db-c-gradient-from" value="#173752"></label><label class="db-color-field"><span>Verlauf Ende</span><input type="color" class="db-color db-c-gradient-to" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -906,6 +922,8 @@
       cTitle:root.querySelector('.db-c-title'),
       cSub:root.querySelector('.db-c-sub'),
       cAccent:root.querySelector('.db-c-accent'),
+      cGradientFrom:root.querySelector('.db-c-gradient-from'),
+      cGradientTo:root.querySelector('.db-c-gradient-to'),
       cActive:root.querySelector('.db-c-active'),
       extraCount:root.querySelector('.db-extra-count'),
       extraNameList:root.querySelector('.db-extra-name-list'),
@@ -925,7 +943,7 @@
         subFields:[createSubFieldConfig(DEFAULT_SUB_FIELD)],
         partField:TITLE_FIELD,
         title:initialTitle,
-        colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',accent:'#245581',active:'#10b981'},
+        colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',accent:'#245581',gradientFrom:'#173752',gradientTo:'#245581',active:'#10b981'},
         titleRules:[],
         extraColumns:[],
         activeColumn:sanitizeActiveColumn({}),
@@ -1409,6 +1427,14 @@
     return null;
   }
 
+  function formatRgba(color,alpha){
+    const rgb=parseColorToRgb(color);
+    if(!rgb) return null;
+    const finiteAlpha=Number.isFinite(alpha)?alpha:1;
+    const normalized=Math.round(clamp(finiteAlpha,0,1)*1000)/1000;
+    return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${normalized})`;
+  }
+
   function relativeLuminance(color){
     const rgb=parseColorToRgb(color);
     if(!rgb) return null;
@@ -1454,12 +1480,21 @@
   function applyColors(root,colors){
     if(!root) return;
     const palette=colors&&typeof colors==='object'?colors:{};
+    const accentBase=sanitizeHexColor(palette.accent)||'#245581';
+    let gradientFrom=sanitizeHexColor(palette.gradientFrom);
+    let gradientTo=sanitizeHexColor(palette.gradientTo);
+    const fallbackStrong=shadeColor(accentBase,-0.28);
+    const fallbackLight=shadeColor(accentBase,0.12);
+    gradientFrom=gradientFrom||fallbackStrong;
+    gradientTo=gradientTo||fallbackLight;
     const sanitized={
       bg:sanitizeHexColor(palette.bg)||'#f5f7fb',
       item:sanitizeHexColor(palette.item)||'#ffffff',
       title:sanitizeHexColor(palette.title)||'#2563eb',
       sub:sanitizeHexColor(palette.sub)||'#4b5563',
-      accent:sanitizeHexColor(palette.accent)||'#245581',
+      accent:accentBase,
+      gradientFrom,
+      gradientTo,
       active:sanitizeHexColor(palette.active)||'#10b981'
     };
     root.style.setProperty('--dl-bg',sanitized.bg);
@@ -1472,17 +1507,25 @@
     const textColor=configuredTextColor||idealTextColor(sanitized.bg);
     root.style.color=textColor;
     root.style.setProperty('--text-color',textColor);
-    const accentRgb=parseColorToRgb(sanitized.accent);
-    if(accentRgb){
-      const [r,g,b]=accentRgb;
-      const accentLight=shadeColor(sanitized.accent,0.12);
-      const accentStrong=shadeColor(sanitized.accent,-0.28);
+    root.style.setProperty('--accent-gradient-from',sanitized.gradientFrom);
+    root.style.setProperty('--accent-gradient-to',sanitized.gradientTo);
+    root.style.setProperty('--accent-gradient',`linear-gradient(135deg,${sanitized.gradientFrom} 0%,${sanitized.gradientTo} 100%)`);
+    root.style.setProperty('--accent-color',sanitized.gradientTo);
+    root.style.setProperty('--accent-strong',sanitized.gradientFrom);
+    const gradientFromOverlay=formatRgba(sanitized.gradientFrom,0.88)||sanitized.gradientFrom;
+    const gradientToOverlay=formatRgba(sanitized.gradientTo,0.92)||sanitized.gradientTo;
+    const modalGradient=`linear-gradient(160deg,${gradientFromOverlay} 0%,rgba(10,15,26,0.96) 48%,${gradientToOverlay} 100%)`;
+    root.style.setProperty('--modal-gradient',modalGradient);
+    const gradientRgb=parseColorToRgb(sanitized.gradientTo)||parseColorToRgb(sanitized.accent);
+    if(gradientRgb){
+      const [r,g,b]=gradientRgb;
       root.style.setProperty('--accent-rgb',`${r},${g},${b}`);
-      root.style.setProperty('--accent-color',accentLight);
-      root.style.setProperty('--accent-strong',accentStrong);
       root.style.setProperty('--accent-border',`rgba(${r},${g},${b},0.55)`);
       root.style.setProperty('--accent-soft',`rgba(${r},${g},${b},0.22)`);
-      root.style.setProperty('--accent-gradient',`linear-gradient(135deg,${accentStrong} 0%,${accentLight} 100%)`);
+    }else{
+      root.style.setProperty('--accent-rgb','36,85,129');
+      root.style.setProperty('--accent-border','rgba(36,85,129,0.55)');
+      root.style.setProperty('--accent-soft','rgba(36,85,129,0.22)');
     }
   }
 
@@ -1922,6 +1965,8 @@
           title:elements.cTitle?.value||state.config.colors.title,
           sub:elements.cSub?.value||state.config.colors.sub,
           accent:elements.cAccent?.value||state.config.colors.accent,
+          gradientFrom:elements.cGradientFrom?.value||state.config.colors.gradientFrom,
+          gradientTo:elements.cGradientTo?.value||state.config.colors.gradientTo,
           active:elements.cActive?.value||state.config.colors.active
         };
         const activeLabelSource=optionsOpen
@@ -2101,6 +2146,8 @@
     elements.cTitle.value=state.config.colors.title;
     elements.cSub.value=state.config.colors.sub;
     elements.cAccent.value=state.config.colors.accent;
+    elements.cGradientFrom.value=state.config.colors.gradientFrom;
+    elements.cGradientTo.value=state.config.colors.gradientTo;
     elements.cActive.value=state.config.colors.active;
     elements.titleInput.value=state.config.title||'';
 
@@ -3419,6 +3466,8 @@
       elements.cTitle.value=state.config.colors.title;
       elements.cSub.value=state.config.colors.sub;
       elements.cAccent.value=state.config.colors.accent;
+      elements.cGradientFrom.value=state.config.colors.gradientFrom;
+      elements.cGradientTo.value=state.config.colors.gradientTo;
       elements.cActive.value=state.config.colors.active;
       elements.modal.classList.add('open');
       syncPartSelectInputValue();
@@ -3564,7 +3613,7 @@
       elements.titleInput.addEventListener('change',()=>{scheduleOptionPersist(true);});
     }
 
-    [elements.cBg,elements.cItem,elements.cTitle,elements.cSub,elements.cAccent,elements.cActive].forEach(input=>{
+    [elements.cBg,elements.cItem,elements.cTitle,elements.cSub,elements.cAccent,elements.cGradientFrom,elements.cGradientTo,elements.cActive].forEach(input=>{
       if(!input) return;
       input.addEventListener('input',()=>{scheduleOptionPersist();});
       input.addEventListener('change',()=>{scheduleOptionPersist(true);});
