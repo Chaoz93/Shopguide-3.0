@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "presets": [
+    { "id": "kv01", "title": "Import erfolgreich", "text": "Der Import wurde erfolgreich abgeschlossen." },
+    { "id": "kv02", "title": "Nacharbeit notwendig", "text": "Nacharbeiten erforderlich. Bitte Rückmeldung geben." },
+    { "id": "kv03", "title": "Meldung abgeschlossen", "text": "Die Meldung wurde am {datum} um {zeit} abgeschlossen." }
+  ]
+}

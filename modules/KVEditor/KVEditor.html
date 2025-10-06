@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KV-Editor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #121212;
+      color: #e0e0e0;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      background: #1a1a1a;
+    }
+
+    .kv-container {
+      display: flex;
+      width: 100%;
+      height: 100vh;
+    }
+
+    .kv-sidebar {
+      width: 250px;
+      background: #181818;
+      border-right: 1px solid #2a2a2a;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .kv-sidebar h2 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .profile-list {
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 8px;
+      background: #151515;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .profile-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #202020;
+      transition: background 0.2s;
+    }
+
+    .profile-item.active {
+      background: #2f4f90;
+      color: #ffffff;
+    }
+
+    .profile-item button {
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-left: 6px;
+    }
+
+    .profile-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .profile-controls input {
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #2a2a2a;
+      background: #101010;
+      color: #e0e0e0;
+    }
+
+    .profile-controls button,
+    .kv-main button {
+      padding: 10px 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      background: #2f4f90;
+      color: #ffffff;
+      font-weight: 600;
+      transition: background 0.2s ease;
+    }
+
+    .profile-controls button:hover,
+    .kv-main button:hover {
+      background: #3f63b3;
+    }
+
+    .kv-main {
+      flex: 1;
+      padding: 24px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .kv-main h1 {
+      margin: 0;
+      font-size: 1.6rem;
+    }
+
+    .kv-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    select, textarea, input[type="text"] {
+      background: #101010;
+      color: #e0e0e0;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .preview-box {
+      background: #1f1f1f;
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 150px;
+      border: 1px solid #2a2a2a;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .preview-placeholder {
+      color: #777;
+      font-style: italic;
+    }
+
+    .baustein {
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: move;
+      user-select: none;
+      max-width: 100%;
+    }
+
+    .baustein-text {
+      flex: 1;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .baustein-remove {
+      cursor: pointer;
+      color: #ff7777;
+      font-weight: bold;
+      border: none;
+      background: none;
+      font-size: 1rem;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .copy-feedback {
+      color: #7fd87f;
+      font-size: 0.9rem;
+      height: 1.2rem;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        flex-direction: column;
+      }
+
+      .kv-container {
+        flex-direction: column;
+        height: auto;
+      }
+
+      .kv-sidebar {
+        width: 100%;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="kv-container">
+    <aside class="kv-sidebar">
+      <h2>Profile</h2>
+      <div class="profile-list" id="profileList"></div>
+      <div class="profile-controls">
+        <input type="text" id="profileNameInput" placeholder="Profilname" />
+        <button id="saveProfileBtn">Profil speichern/aktualisieren</button>
+        <button id="newProfileBtn">Neues Profil anlegen</button>
+      </div>
+    </aside>
+    <main class="kv-main">
+      <h1>KV-Editor</h1>
+      <section>
+        <div class="kv-row">
+          <label for="presetSelect">Textbaustein Presets:</label>
+          <select id="presetSelect"></select>
+          <button id="addPresetBtn">Preset hinzufügen</button>
+        </div>
+      </section>
+      <section>
+        <label for="freitextInput">Freitext</label>
+        <textarea id="freitextInput" placeholder="Freitext eingeben..."></textarea>
+        <div class="actions">
+          <button id="addFreitextBtn">Freitext hinzufügen</button>
+        </div>
+      </section>
+      <section>
+        <h2>Freitext-Vorschau</h2>
+        <div class="preview-box" id="previewBox">
+          <span class="preview-placeholder">Noch keine Textbausteine hinzugefügt.</span>
+        </div>
+      </section>
+      <section>
+        <div class="actions">
+          <button id="copyAllBtn">Alles kopieren</button>
+        </div>
+        <div class="copy-feedback" id="copyFeedback"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    class KVEditor {
+      constructor() {
+        this.presets = [];
+        this.bausteine = [];
+        this.activeProfile = null;
+        this.profileStorageKey = 'kvEditorProfiles';
+        this.profiles = {};
+
+        this.previewBox = document.getElementById('previewBox');
+        this.presetSelect = document.getElementById('presetSelect');
+        this.freitextInput = document.getElementById('freitextInput');
+        this.profileList = document.getElementById('profileList');
+        this.profileNameInput = document.getElementById('profileNameInput');
+        this.copyFeedback = document.getElementById('copyFeedback');
+
+        document.getElementById('addPresetBtn').addEventListener('click', () => {
+          const selectedId = this.presetSelect.value;
+          const preset = this.presets.find(p => p.id === selectedId);
+          if (preset) {
+            this.addBaustein(preset.text);
+          }
+        });
+
+        document.getElementById('addFreitextBtn').addEventListener('click', () => {
+          const text = this.freitextInput.value.trim();
+          if (text) {
+            this.addBaustein(text);
+            this.freitextInput.value = '';
+          }
+        });
+
+        document.getElementById('copyAllBtn').addEventListener('click', () => this.copyAll());
+        this.previewBox.addEventListener('dragover', (event) => {
+          event.preventDefault();
+        });
+        this.previewBox.addEventListener('drop', (event) => {
+          event.preventDefault();
+          const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+          if (!Number.isNaN(fromIndex)) {
+            this.reorderBausteine(fromIndex, this.bausteine.length);
+          }
+        });
+        document.getElementById('saveProfileBtn').addEventListener('click', () => {
+          const name = this.profileNameInput.value.trim();
+          if (name) {
+            this.saveProfile(name);
+          }
+        });
+        document.getElementById('newProfileBtn').addEventListener('click', () => {
+          const name = prompt('Name für neues Profil:');
+          if (name) {
+            this.bausteine = [];
+            this.renderPreview();
+            this.saveProfile(name.trim(), true);
+            this.loadProfile(name.trim());
+          }
+        });
+
+        this.init();
+      }
+
+      async init() {
+        await this.loadPresets();
+        this.populatePresetSelect();
+        this.loadProfilesFromStorage();
+        if (!this.activeProfile) {
+          const names = Object.keys(this.profiles || {});
+          if (names.length === 0) {
+            this.saveProfile('Default', true);
+          }
+          const firstProfile = Object.keys(this.profiles)[0];
+          if (firstProfile) {
+            this.loadProfile(firstProfile);
+          } else {
+            this.renderPreview();
+            this.renderProfileList();
+          }
+        }
+      }
+
+      async loadPresets() {
+        try {
+          const response = await fetch('KV_Presets.json');
+          if (!response.ok) {
+            throw new Error('Konnte Preset-Datei nicht laden.');
+          }
+          const data = await response.json();
+          this.presets = data.presets || [];
+        } catch (error) {
+          console.error('Fehler beim Laden der Presets:', error);
+          this.presets = [];
+        }
+      }
+
+      populatePresetSelect() {
+        this.presetSelect.innerHTML = '';
+        this.presets.forEach(preset => {
+          const option = document.createElement('option');
+          option.value = preset.id;
+          option.textContent = preset.title;
+          this.presetSelect.appendChild(option);
+        });
+      }
+
+      addBaustein(text) {
+        this.bausteine.push({ text });
+        this.renderPreview();
+        if (this.activeProfile) {
+          this.saveProfile(this.activeProfile);
+        }
+      }
+
+      renderPreview() {
+        this.previewBox.innerHTML = '';
+        if (this.bausteine.length === 0) {
+          const placeholder = document.createElement('span');
+          placeholder.className = 'preview-placeholder';
+          placeholder.textContent = 'Noch keine Textbausteine hinzugefügt.';
+          this.previewBox.appendChild(placeholder);
+          return;
+        }
+
+        this.bausteine.forEach((baustein, index) => {
+          const processedText = this.replacePlaceholders(baustein.text);
+          const item = document.createElement('div');
+          item.className = 'baustein';
+          item.draggable = true;
+          item.dataset.index = index;
+
+          item.addEventListener('dragstart', (event) => {
+            event.dataTransfer.setData('text/plain', index.toString());
+            item.classList.add('dragging');
+          });
+
+          item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+          });
+
+          item.addEventListener('dragover', (event) => {
+            event.preventDefault();
+          });
+
+          item.addEventListener('drop', (event) => {
+            event.preventDefault();
+            const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+            const toIndex = Number(item.dataset.index);
+            if (!Number.isNaN(fromIndex) && !Number.isNaN(toIndex) && fromIndex !== toIndex) {
+              this.reorderBausteine(fromIndex, toIndex);
+            }
+          });
+
+          const textSpan = document.createElement('div');
+          textSpan.className = 'baustein-text';
+          textSpan.textContent = processedText;
+
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'baustein-remove';
+          removeBtn.textContent = '❌';
+          removeBtn.addEventListener('click', () => {
+            this.bausteine.splice(index, 1);
+            this.renderPreview();
+            if (this.activeProfile) {
+              this.saveProfile(this.activeProfile);
+            }
+          });
+
+          item.appendChild(textSpan);
+          item.appendChild(removeBtn);
+          this.previewBox.appendChild(item);
+        });
+      }
+
+      reorderBausteine(fromIndex, toIndex) {
+        const [moved] = this.bausteine.splice(fromIndex, 1);
+        const targetIndex = Math.min(Math.max(toIndex, 0), this.bausteine.length);
+        this.bausteine.splice(targetIndex, 0, moved);
+        this.renderPreview();
+        if (this.activeProfile) {
+          this.saveProfile(this.activeProfile);
+        }
+      }
+
+      replacePlaceholders(text) {
+        const now = new Date();
+        const datum = now.toLocaleDateString('de-DE');
+        const zeit = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        const findings = 'Display shows missing segments. Due to obsolescence of LCD Display NME055, the modification SBC 196PN01Y-22-003 (Amdt. C) is required. All lamps are slightly dimmed.';
+
+        return text
+          .replace(/\{datum\}/gi, datum)
+          .replace(/\{zeit\}/gi, zeit)
+          .replace(/\{findings\}/gi, findings);
+      }
+
+      getAllText() {
+        const parts = this.bausteine.map(b => this.replacePlaceholders(b.text));
+        return parts.join('\n\n');
+      }
+
+      async copyAll() {
+        const allText = this.getAllText();
+        if (!allText) {
+          this.showCopyFeedback('Keine Textbausteine zum Kopieren.', true);
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(allText);
+          this.showCopyFeedback('Text in Zwischenablage kopiert.');
+        } catch (error) {
+          console.error('Fehler beim Kopieren:', error);
+          this.showCopyFeedback('Kopieren nicht möglich. Bitte manuell kopieren.', true);
+        }
+      }
+
+      showCopyFeedback(message, isError = false) {
+        this.copyFeedback.textContent = message;
+        this.copyFeedback.style.color = isError ? '#ff7777' : '#7fd87f';
+        setTimeout(() => {
+          this.copyFeedback.textContent = '';
+        }, 3000);
+      }
+
+      saveProfile(name, skipActiveUpdate = false) {
+        this.loadProfilesFromStorage();
+        this.profiles[name] = this.bausteine.map(b => ({ text: b.text }));
+        localStorage.setItem(this.profileStorageKey, JSON.stringify(this.profiles));
+        if (!skipActiveUpdate) {
+          this.activeProfile = name;
+        }
+        this.renderProfileList();
+      }
+
+      loadProfile(name) {
+        this.loadProfilesFromStorage();
+        const profile = this.profiles[name];
+        if (profile) {
+          this.bausteine = profile.map(b => ({ text: b.text }));
+          this.activeProfile = name;
+          this.profileNameInput.value = name;
+          this.renderPreview();
+          this.renderProfileList();
+        }
+      }
+
+      deleteProfile(name) {
+        this.loadProfilesFromStorage();
+        if (this.profiles[name]) {
+          delete this.profiles[name];
+          localStorage.setItem(this.profileStorageKey, JSON.stringify(this.profiles));
+          if (this.activeProfile === name) {
+            const names = Object.keys(this.profiles);
+            if (names.length > 0) {
+              this.loadProfile(names[0]);
+            } else {
+              this.bausteine = [];
+              this.activeProfile = null;
+              this.renderPreview();
+              this.renderProfileList();
+            }
+          } else {
+            this.renderProfileList();
+          }
+        }
+      }
+
+      renameProfile(oldName, newName) {
+        if (!newName || oldName === newName) {
+          return;
+        }
+        this.loadProfilesFromStorage();
+        if (this.profiles[oldName]) {
+          this.profiles[newName] = this.profiles[oldName];
+          delete this.profiles[oldName];
+          localStorage.setItem(this.profileStorageKey, JSON.stringify(this.profiles));
+          if (this.activeProfile === oldName) {
+            this.activeProfile = newName;
+            this.profileNameInput.value = newName;
+          }
+          this.renderProfileList();
+        }
+      }
+
+      loadProfilesFromStorage() {
+        const raw = localStorage.getItem(this.profileStorageKey);
+        try {
+          this.profiles = raw ? JSON.parse(raw) : {};
+        } catch (error) {
+          console.error('Fehler beim Lesen aus dem localStorage:', error);
+          this.profiles = {};
+        }
+      }
+
+      renderProfileList() {
+        this.profileList.innerHTML = '';
+        const names = Object.keys(this.profiles || {});
+        if (names.length === 0) {
+          const hint = document.createElement('div');
+          hint.className = 'preview-placeholder';
+          hint.textContent = 'Keine Profile vorhanden.';
+          this.profileList.appendChild(hint);
+          return;
+        }
+        names.sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+        names.forEach(name => {
+          const item = document.createElement('div');
+          item.className = 'profile-item';
+          if (name === this.activeProfile) {
+            item.classList.add('active');
+          }
+
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = name;
+          nameSpan.style.cursor = 'pointer';
+          nameSpan.addEventListener('click', () => this.loadProfile(name));
+
+          const buttonGroup = document.createElement('div');
+
+          const renameBtn = document.createElement('button');
+          renameBtn.title = 'Umbenennen';
+          renameBtn.textContent = '✏️';
+          renameBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const newName = prompt('Neuer Profilname:', name);
+            if (newName) {
+              this.renameProfile(name, newName.trim());
+            }
+          });
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.title = 'Löschen';
+          deleteBtn.textContent = '🗑️';
+          deleteBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (confirm(`Profil "${name}" wirklich löschen?`)) {
+              this.deleteProfile(name);
+            }
+          });
+
+          buttonGroup.appendChild(renameBtn);
+          buttonGroup.appendChild(deleteBtn);
+
+          item.appendChild(nameSpan);
+          item.appendChild(buttonGroup);
+          this.profileList.appendChild(item);
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      new KVEditor();
+    });
+  </script>
+</body>
+</html>
