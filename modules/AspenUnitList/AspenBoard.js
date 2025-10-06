@@ -78,7 +78,7 @@
     .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
     .db-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:2150;}
     .db-modal.open{display:flex;}
-    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radius:.75rem;min-width:320px;max-width:min(92vw,980px);width:100%;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relative;z-index:2210;}
+    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radius:.75rem;min-width:320px;max-width:min(96vw,1240px);width:100%;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relative;z-index:2210;}
     .db-panel .row{margin-bottom:.75rem;}
     .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
     .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
@@ -157,7 +157,7 @@
     .db-color-field span{font-weight:600;color:var(--dl-sub,#4b5563);}
     @media(min-width:900px){
       .db-config-layout{flex-direction:row;align-items:flex-start;gap:1.5rem;}
-      .db-config-extras{max-width:260px;}
+      .db-config-extras{max-width:320px;}
       .db-extra-card{height:100%;}
       .db-config-main{flex:1;}
       .db-config-colors{max-width:280px;}
@@ -207,6 +207,7 @@
     .aspenboard .db-search-filter-btn:hover{background:rgba(var(--accent-rgb,36,85,129),.18);}
     .aspenboard .db-search-filter-btn.is-active{background:var(--accent-gradient,var(--accent-color));color:#fff;border-color:var(--accent-border,var(--accent-color));box-shadow:0 0 0 3px rgba(var(--accent-rgb,36,85,129),.28);}
     .aspenboard .db-panel{color:var(--text-color);border-radius:1rem;border:1px solid var(--border-color);box-shadow:0 18px 36px var(--shadow-color);}
+    .aspenboard .db-config-layout{gap:1.75rem;}
     .aspenboard .db-panel label{color:var(--muted-text);}
     .aspenboard .db-panel input[type=text],
     .aspenboard .db-panel input[type=number],
@@ -297,6 +298,14 @@
     .aspenboard .ab-permission-actions button:hover{background:rgba(var(--accent-rgb,36,85,129),.22);}
     .aspenboard .ab-permission-actions .ab-permission-allow{background:var(--accent-gradient,var(--accent-color));border-color:var(--accent-border,var(--accent-color));color:#fff;}
     .aspenboard .ab-permission-actions .ab-permission-allow:hover{filter:brightness(1.05);}
+    .aspenboard .db-extra-card{
+      background:linear-gradient(145deg,rgba(23,55,82,.9),rgba(36,85,129,.82));
+      border:1px solid var(--accent-border,rgba(36,85,129,.55));
+      box-shadow:0 20px 48px rgba(5,12,23,.55);
+    }
+    .aspenboard .db-extra-card-title{color:#fff;}
+    .aspenboard .db-extra-card .db-extra-count-label{color:var(--muted-text);}
+    .aspenboard .db-extra-card .db-extra-name-label{color:var(--text-color);}
     .aspenboard .db-color-card{
       background:rgba(12,18,30,.9);
       border:1px solid var(--border-color);
