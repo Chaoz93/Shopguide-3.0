@@ -1,0 +1,12 @@
+# Changelog – DragDrop Sync Test
+
+Alle Änderungen an diesem Testmodul werden hier dokumentiert. Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
+
+---
+
+## [0.1.0] – 2025-10-06
+### Added
+- Erstes Testmodul für GridStack-Layout-Synchronisierung mit File-System-Zugriff
+- Buttons zum Auswählen von Root- und SharedData-Verzeichnissen sowie zum Speichern der Sync-Datei
+- Live-Vorschau der `SyncModul.json` inklusive Polling alle 5 Sekunden
+- Drag-&-Drop-Chips pro Modul mit Layout-Erfassung (`x`, `y`, `w`, `h`)

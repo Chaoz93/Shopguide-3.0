@@ -1,0 +1,6 @@
+# Changelog – DragDrop Sync Test
+
+## v0.1.0 – 2025-10-06
+- Neues Testmodul `DragDropSyncTest` hinzugefügt (GridStack + Tailwind UI)
+- File-System-Zugriff zum Laden/Speichern von `SharedData/SyncModul.json`
+- Live-Vorschau mit Polling alle 5 Sekunden und Drag-&-Drop-Chips

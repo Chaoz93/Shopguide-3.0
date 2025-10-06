@@ -1,0 +1,18 @@
+{
+  "lastUpdate": "2025-10-06T17:30:00Z",
+  "modules": {
+    "WorkorderEditable": {
+      "layout": { "x": 0, "y": 0, "w": 4, "h": 3 },
+      "chips": [
+        { "id": "chip-1", "label": "Task A", "x": 0, "y": 0 },
+        { "id": "chip-2", "label": "Task B", "x": 1, "y": 0 }
+      ]
+    },
+    "NewStandardFindings": {
+      "layout": { "x": 5, "y": 0, "w": 4, "h": 3 },
+      "chips": [
+        { "id": "chip-10", "label": "APE5100", "x": 0, "y": 0 }
+      ]
+    }
+  }
+}
