@@ -80,6 +80,11 @@
     console.log(`${LOG_PREFIX} ${action}`, ...details);
   }
 
+  function toNumberOr(value, fallback){
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
+  }
+
   function createState(root){
     return {
       root,
@@ -365,10 +370,10 @@
       });
       modules[moduleKey] = {
         layout: {
-          x: node.x ?? Number(moduleEntry.item.dataset.gsX) || 0,
-          y: node.y ?? Number(moduleEntry.item.dataset.gsY) || 0,
-          w: node.w ?? Number(moduleEntry.item.dataset.gsW) || 4,
-          h: node.h ?? Number(moduleEntry.item.dataset.gsH) || 3
+          x: node.x ?? toNumberOr(moduleEntry.item.dataset.gsX, 0),
+          y: node.y ?? toNumberOr(moduleEntry.item.dataset.gsY, 0),
+          w: node.w ?? toNumberOr(moduleEntry.item.dataset.gsW, 4),
+          h: node.h ?? toNumberOr(moduleEntry.item.dataset.gsH, 3)
         },
         chips
       };
