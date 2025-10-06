@@ -898,6 +898,24 @@ let versionOverview = {
   },
   modules: []
 };
+
+if (typeof window !== 'undefined') {
+  window.rootDirHandle = null;
+  window.updateDirHandle = null;
+}
+
+function setGlobalHandle(type, handle) {
+  if (typeof window === 'undefined') return;
+  const prop = type === 'root' ? 'rootDirHandle' : 'updateDirHandle';
+  window[prop] = handle || null;
+  try {
+    window.dispatchEvent(new CustomEvent(`shopguide:${type}-handle-changed`, {
+      detail: { hasHandle: !!handle }
+    }));
+  } catch (err) {
+    console.warn(`Konnte ${type}-Handle-Ereignis nicht senden`, err);
+  }
+}
 let rerunUpdateCheckWhenUnlocked = false;
 let changelogRequestToken = 0;
 let lastChangelogTrigger = null;
@@ -1137,7 +1155,7 @@ async function tryRestoreRootHandle(){
     }
 
     rootDirHandle = h;
-    window.rootDirHandle = h;
+    setGlobalHandle('root', rootDirHandle);
     const displayName = storedRootFolderName || h.name;
     rootBtn.textContent = displayName;
     try { localStorage.setItem(ROOT_HANDLE_NAME_KEY, h.name); } catch (e) {
@@ -1186,6 +1204,7 @@ async function tryRestoreUpdateHandle(){
       }
     }
     updateDirHandle = h;
+    setGlobalHandle('update', updateDirHandle);
     if (updateFolderNameEl) updateFolderNameEl.textContent = h.name;
     try { localStorage.setItem(UPDATE_HANDLE_NAME_KEY, h.name); } catch (e) {
       console.warn('Konnte Update-Ordnernamen nicht speichern', e);
@@ -3355,7 +3374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.showDirectoryPicker) {
       try {
         rootDirHandle = await window.showDirectoryPicker();
-        window.rootDirHandle = rootDirHandle;                      // expose
+        setGlobalHandle('root', rootDirHandle);                    // expose
         rootBtn.textContent = rootDirHandle.name;
         await idbSet(FS_HANDLE_KEY, rootDirHandle);                // persist handle
         try { localStorage.setItem(ROOT_HANDLE_NAME_KEY, rootDirHandle.name); } catch (e) {
@@ -3386,7 +3405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       inp.onchange = async e => {
         const files = Array.from(e.target.files);
         if (!files.length) return;
-        window.rootDirHandle = null;                // not reusable
+        setGlobalHandle('root', null);              // not reusable
         await idbDel(FS_HANDLE_KEY);                // forget saved handle
         localStorage.removeItem('rememberRootMeta');
         const any = files[0];
@@ -3439,6 +3458,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
         updateDirHandle = handle;
+        setGlobalHandle('update', updateDirHandle);
         htmlUpdateChangelogHandle = null;
         htmlUpdateChangelogFileName = null;
         cachedHtmlChangelogSections = null;
@@ -3462,6 +3482,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (clearUpdateFolderBtn) {
     clearUpdateFolderBtn.addEventListener('click', async () => {
       updateDirHandle = null;
+      setGlobalHandle('update', updateDirHandle);
       if (updateFolderNameEl) updateFolderNameEl.textContent = 'Keiner gewählt';
       try { localStorage.removeItem(UPDATE_HANDLE_NAME_KEY); } catch (e) {
         console.warn('Konnte Update-Ordnernamen nicht entfernen', e);
