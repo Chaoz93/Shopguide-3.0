@@ -1,0 +1,11 @@
+{
+  "name": "KV-Editor",
+  "icon": "🛠️",
+  "script": "renderKVEditor",
+  "minW": 4,
+  "minH": 8,
+  "w": 6,
+  "h": 14,
+  "moduleId": "KVEditor",
+  "version": "2.0.0"
+}
