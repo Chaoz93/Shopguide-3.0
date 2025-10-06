@@ -1,0 +1,14 @@
+{
+  "name": "DragDrop Sync Test",
+  "icon": "🧪",
+  "script": "renderDragDropSyncTest",
+  "minW": 6,
+  "minH": 6,
+  "w": 8,
+  "h": 8,
+  "settings": {
+    "description": "Testprogramm zur Synchronisierung eines GridStack-Layouts mit Chip-Positionen"
+  },
+  "moduleId": "DragDropSyncTest",
+  "version": "0.1.0"
+}
