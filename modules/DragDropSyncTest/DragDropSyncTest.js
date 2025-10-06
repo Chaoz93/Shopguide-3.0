@@ -6,6 +6,12 @@
   const POLL_INTERVAL = 5000;
   const SYNC_DIR_NAME = 'SharedData';
   const SYNC_FILE_NAME = 'SyncModul.json';
+  const STORAGE_PREFIX = `${MODULE_KEY}.`;
+  const LS_LAYOUT_KEY = `${STORAGE_PREFIX}layout`;
+  const LS_ROOT_HANDLE_KEY = `${STORAGE_PREFIX}rootHandle`;
+  const LS_ROOT_HANDLE_NAME_KEY = `${STORAGE_PREFIX}rootHandleName`;
+  const LS_UPDATE_HANDLE_KEY = `${STORAGE_PREFIX}updateHandle`;
+  const LS_UPDATE_HANDLE_NAME_KEY = `${STORAGE_PREFIX}updateHandleName`;
   const clone = (value)=>{
     if(typeof structuredClone === 'function') return structuredClone(value);
     return JSON.parse(JSON.stringify(value));
@@ -55,6 +61,102 @@
     return result;
   };
 
+  function safeGetLocal(key){
+    if(typeof localStorage === 'undefined') return null;
+    try{
+      return localStorage.getItem(key);
+    }catch(err){
+      console.warn(`${LOG_PREFIX} localStorage.getItem fehlgeschlagen`, err);
+      return null;
+    }
+  }
+
+  function safeSetLocal(key, value){
+    if(typeof localStorage === 'undefined') return;
+    try{
+      localStorage.setItem(key, value);
+    }catch(err){
+      console.warn(`${LOG_PREFIX} localStorage.setItem fehlgeschlagen`, err);
+    }
+  }
+
+  function safeRemoveLocal(key){
+    if(typeof localStorage === 'undefined') return;
+    try{
+      localStorage.removeItem(key);
+    }catch(err){
+      console.warn(`${LOG_PREFIX} localStorage.removeItem fehlgeschlagen`, err);
+    }
+  }
+
+  function parseLocalJson(raw){
+    if(!raw) return null;
+    try{
+      return JSON.parse(raw);
+    }catch(err){
+      console.warn(`${LOG_PREFIX} Konnte localStorage JSON nicht parsen`, err);
+      return null;
+    }
+  }
+
+  function loadStoredLayout(){
+    const parsed = parseLocalJson(safeGetLocal(LS_LAYOUT_KEY));
+    if(parsed && typeof parsed === 'object' && parsed.modules){
+      return parsed;
+    }
+    return null;
+  }
+
+  function saveLocalLayout(data){
+    if(!data) return;
+    try{
+      safeSetLocal(LS_LAYOUT_KEY, JSON.stringify(data));
+    }catch(err){
+      console.warn(`${LOG_PREFIX} Layout konnte nicht im localStorage gespeichert werden`, err);
+    }
+  }
+
+  function loadStoredHandleName(type){
+    const key = type === 'root' ? LS_ROOT_HANDLE_NAME_KEY : LS_UPDATE_HANDLE_NAME_KEY;
+    return safeGetLocal(key) || '';
+  }
+
+  function rememberHandle(type, handle){
+    const key = type === 'root' ? LS_ROOT_HANDLE_KEY : LS_UPDATE_HANDLE_KEY;
+    const nameKey = type === 'root' ? LS_ROOT_HANDLE_NAME_KEY : LS_UPDATE_HANDLE_NAME_KEY;
+    if(handle){
+      if(handle.name) safeSetLocal(nameKey, handle.name);
+      if(typeof window !== 'undefined' && typeof window.serializeHandle === 'function'){
+        try{
+          safeSetLocal(key, window.serializeHandle(handle));
+        }catch(err){
+          console.warn(`${LOG_PREFIX} Handle konnte nicht serialisiert werden`, err);
+          safeRemoveLocal(key);
+        }
+      }else{
+        safeRemoveLocal(key);
+      }
+    }else{
+      safeRemoveLocal(key);
+      safeRemoveLocal(nameKey);
+    }
+  }
+
+  function updateStatusText(state){
+    if(!state?.statusEl) return;
+    const rootName = state.rootHandle?.name || state.rootHandleName || '';
+    const updateName = state.updateHandle?.name || state.updateHandleName || '';
+    if(rootName && updateName){
+      state.statusEl.textContent = `Root: ${rootName} · SharedData: ${updateName}`;
+    }else if(updateName){
+      state.statusEl.textContent = `SharedData: ${updateName}`;
+    }else if(rootName){
+      state.statusEl.textContent = `Root: ${rootName}`;
+    }else{
+      state.statusEl.textContent = 'Keine Ordner gewählt';
+    }
+  }
+
   const DEFAULT_SYNC_DATA = {
     lastUpdate: new Date().toISOString(),
     modules: {
@@ -93,6 +195,7 @@
   }
 
   function createState(root){
+    const storedLayout = loadStoredLayout();
     return {
       root,
       grid: null,
@@ -105,11 +208,13 @@
       statusEl: null,
       buttons: {},
       moduleItems: new Map(),
-      syncData: clone(DEFAULT_SYNC_DATA),
+      syncData: storedLayout ? storedLayout : clone(DEFAULT_SYNC_DATA),
       changeHandler: null,
       contextMenu: null,
       contextMenuContext: null,
-      contextMenuOutsideHandler: null
+      contextMenuOutsideHandler: null,
+      rootHandleName: loadStoredHandleName('root'),
+      updateHandleName: loadStoredHandleName('update')
     };
   }
 
@@ -246,6 +351,7 @@
     state.jsonPreviewEl = jsonPre;
     state.lastUpdateEl = lastUpdate;
     state.statusEl = status;
+    updateStatusText(state);
 
     return gridEl;
   }
@@ -524,6 +630,7 @@
     };
     log('Layout aufgenommen', payload);
     state.syncData = payload;
+    saveLocalLayout(payload);
     return payload;
   }
 
@@ -538,7 +645,11 @@
       state.rootHandle = handle;
       state.updateHandle = null;
       state.sharedHandle = null;
-      state.statusEl.textContent = `Root: ${handle.name}`;
+      state.rootHandleName = handle.name || '';
+      state.updateHandleName = '';
+      rememberHandle('root', handle);
+      rememberHandle('update', null);
+      updateStatusText(state);
       log('Root-Ordner gewählt', handle.name);
       return handle;
     }catch(err){
@@ -557,7 +668,9 @@
       const handle = await window.showDirectoryPicker({mode: 'readwrite'});
       state.updateHandle = handle;
       state.sharedHandle = null;
-      state.statusEl.textContent = `SharedData: ${handle.name}`;
+      state.updateHandleName = handle.name || '';
+      rememberHandle('update', handle);
+      updateStatusText(state);
       log('SharedData-Ordner gewählt', handle.name);
       return handle;
     }catch(err){
@@ -596,7 +709,13 @@
     const sharedHandle = await resolveSharedHandle(state, {create:false});
     if(!sharedHandle){
       log('SharedData-Ordner nicht verfügbar');
-      return clone(DEFAULT_SYNC_DATA);
+      const fallback = loadStoredLayout() || state.syncData || clone(DEFAULT_SYNC_DATA);
+      if(fallback){
+        state.syncData = fallback;
+        applyLayout(state, fallback);
+        updatePreview(state);
+      }
+      return fallback;
     }
     try{
       const fileHandle = await sharedHandle.getFileHandle(SYNC_FILE_NAME, {create:false});
@@ -631,6 +750,7 @@
     }
     const payload = data || captureLayout(state);
     payload.lastUpdate = new Date().toISOString();
+    saveLocalLayout(payload);
     try{
       const fileHandle = await sharedHandle.getFileHandle(SYNC_FILE_NAME, {create:true});
       const writable = await fileHandle.createWritable();
@@ -671,6 +791,7 @@
       attachDropZoneHandlers(state, moduleEntry.chipArea);
       updateChipCounter(moduleEntry);
     }
+    saveLocalLayout(state.syncData);
     updatePreview(state);
     log('Layout angewendet');
   }
@@ -705,6 +826,42 @@
     state.grid?.on('resizestop', state.changeHandler);
   }
 
+  async function restoreHandles(state){
+    updateStatusText(state);
+    const canDeserialize = typeof window !== 'undefined' && typeof window.deserializeHandle === 'function';
+    if(canDeserialize){
+      const rootRaw = safeGetLocal(LS_ROOT_HANDLE_KEY);
+      if(rootRaw){
+        try{
+          state.rootHandle = await window.deserializeHandle(rootRaw);
+          state.rootHandleName = state.rootHandle?.name || state.rootHandleName;
+        }catch(err){
+          console.warn(`${LOG_PREFIX} Root-Handle konnte nicht wiederhergestellt werden`, err);
+          safeRemoveLocal(LS_ROOT_HANDLE_KEY);
+        }
+      }
+      const updateRaw = safeGetLocal(LS_UPDATE_HANDLE_KEY);
+      if(updateRaw){
+        try{
+          state.updateHandle = await window.deserializeHandle(updateRaw);
+          state.updateHandleName = state.updateHandle?.name || state.updateHandleName;
+        }catch(err){
+          console.warn(`${LOG_PREFIX} SharedData-Handle konnte nicht wiederhergestellt werden`, err);
+          safeRemoveLocal(LS_UPDATE_HANDLE_KEY);
+        }
+      }
+    }
+    updateStatusText(state);
+    if(state.updateHandle || state.rootHandle){
+      try{
+        await loadSyncFile(state);
+        startPolling(state);
+      }catch(err){
+        console.error(LOG_PREFIX, 'Automatisches Laden der Sync-Daten fehlgeschlagen', err);
+      }
+    }
+  }
+
   window.renderDragDropSyncTest = function renderDragDropSyncTest(root){
     if(!root) throw new Error('Root-Element fehlt');
     cleanupState(root.__dragDropSyncState);
@@ -725,6 +882,7 @@
     }
     applyLayout(state, state.syncData);
     wireEvents(state);
+    restoreHandles(state).catch(err=>console.error(LOG_PREFIX, 'Persistierte Handles konnten nicht geladen werden', err));
   };
 
   window.DragDropSyncTest = {
