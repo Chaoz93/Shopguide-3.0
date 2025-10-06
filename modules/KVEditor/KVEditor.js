@@ -970,6 +970,14 @@ class KVEditor {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  new KVEditor();
-});
+const globalScope = typeof window !== 'undefined' ? window : globalThis;
+
+function renderKVEditor(mount) {
+  return new KVEditor({ mount });
+}
+
+globalScope.renderKVEditor = renderKVEditor;
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { renderKVEditor };
+}
