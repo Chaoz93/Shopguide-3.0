@@ -6,8 +6,12 @@
   const POLL_INTERVAL = 5000;
   const SYNC_DIR_NAME = 'SharedData';
   const SYNC_FILE_NAME = 'SyncModul.json';
-  const CHIP_COLUMNS = 4;
-
+  const STORAGE_PREFIX = `${MODULE_KEY}.`;
+  const LS_LAYOUT_KEY = `${STORAGE_PREFIX}layout`;
+  const LS_ROOT_HANDLE_KEY = `${STORAGE_PREFIX}rootHandle`;
+  const LS_ROOT_HANDLE_NAME_KEY = `${STORAGE_PREFIX}rootHandleName`;
+  const LS_UPDATE_HANDLE_KEY = `${STORAGE_PREFIX}updateHandle`;
+  const LS_UPDATE_HANDLE_NAME_KEY = `${STORAGE_PREFIX}updateHandleName`;
   const clone = (value)=>{
     if(typeof structuredClone === 'function') return structuredClone(value);
     return JSON.parse(JSON.stringify(value));
@@ -57,20 +61,125 @@
     return result;
   };
 
+  function safeGetLocal(key){
+    if(typeof localStorage === 'undefined') return null;
+    try{
+      return localStorage.getItem(key);
+    }catch(err){
+      console.warn(`${LOG_PREFIX} localStorage.getItem fehlgeschlagen`, err);
+      return null;
+    }
+  }
+
+  function safeSetLocal(key, value){
+    if(typeof localStorage === 'undefined') return;
+    try{
+      localStorage.setItem(key, value);
+    }catch(err){
+      console.warn(`${LOG_PREFIX} localStorage.setItem fehlgeschlagen`, err);
+    }
+  }
+
+  function safeRemoveLocal(key){
+    if(typeof localStorage === 'undefined') return;
+    try{
+      localStorage.removeItem(key);
+    }catch(err){
+      console.warn(`${LOG_PREFIX} localStorage.removeItem fehlgeschlagen`, err);
+    }
+  }
+
+  function parseLocalJson(raw){
+    if(!raw) return null;
+    try{
+      return JSON.parse(raw);
+    }catch(err){
+      console.warn(`${LOG_PREFIX} Konnte localStorage JSON nicht parsen`, err);
+      return null;
+    }
+  }
+
+  function loadStoredLayout(){
+    const parsed = parseLocalJson(safeGetLocal(LS_LAYOUT_KEY));
+    if(parsed && typeof parsed === 'object' && parsed.modules){
+      return parsed;
+    }
+    return null;
+  }
+
+  function saveLocalLayout(data){
+    if(!data) return;
+    try{
+      safeSetLocal(LS_LAYOUT_KEY, JSON.stringify(data));
+    }catch(err){
+      console.warn(`${LOG_PREFIX} Layout konnte nicht im localStorage gespeichert werden`, err);
+    }
+  }
+
+  function loadStoredHandleName(type){
+    const key = type === 'root' ? LS_ROOT_HANDLE_NAME_KEY : LS_UPDATE_HANDLE_NAME_KEY;
+    return safeGetLocal(key) || '';
+  }
+
+  function rememberHandle(type, handle){
+    const key = type === 'root' ? LS_ROOT_HANDLE_KEY : LS_UPDATE_HANDLE_KEY;
+    const nameKey = type === 'root' ? LS_ROOT_HANDLE_NAME_KEY : LS_UPDATE_HANDLE_NAME_KEY;
+    if(handle){
+      if(handle.name) safeSetLocal(nameKey, handle.name);
+      if(typeof window !== 'undefined' && typeof window.serializeHandle === 'function'){
+        try{
+          safeSetLocal(key, window.serializeHandle(handle));
+        }catch(err){
+          console.warn(`${LOG_PREFIX} Handle konnte nicht serialisiert werden`, err);
+          safeRemoveLocal(key);
+        }
+      }else{
+        safeRemoveLocal(key);
+      }
+    }else{
+      safeRemoveLocal(key);
+      safeRemoveLocal(nameKey);
+    }
+  }
+
+  function updateStatusText(state){
+    if(!state?.statusEl) return;
+    const rootName = state.rootHandle?.name || state.rootHandleName || '';
+    const updateName = state.updateHandle?.name || state.updateHandleName || '';
+    if(rootName && updateName){
+      state.statusEl.textContent = `Root: ${rootName} · SharedData: ${updateName}`;
+    }else if(updateName){
+      state.statusEl.textContent = `SharedData: ${updateName}`;
+    }else if(rootName){
+      state.statusEl.textContent = `Root: ${rootName}`;
+    }else{
+      state.statusEl.textContent = 'Keine Ordner gewählt';
+    }
+  }
+
   const DEFAULT_SYNC_DATA = {
     lastUpdate: new Date().toISOString(),
     modules: {
-      WorkorderEditable: {
-        layout: {x: 0, y: 0, w: 4, h: 3},
+      AspenColumnTodo: {
+        title: 'Backlog',
+        layout: {x: 0, y: 0, w: 4, h: 8},
         chips: [
-          {id: 'chip-1', label: 'Task A', x: 0, y: 0},
-          {id: 'chip-2', label: 'Task B', x: 1, y: 0}
+          {id: 'chip-1', label: 'Offene Aufgabe', x: 0, y: 0},
+          {id: 'chip-2', label: 'Anfrage prüfen', x: 0, y: 1}
         ]
       },
-      NewStandardFindings: {
-        layout: {x: 5, y: 0, w: 4, h: 3},
+      AspenColumnProgress: {
+        title: 'In Arbeit',
+        layout: {x: 4, y: 0, w: 4, h: 8},
         chips: [
-          {id: 'chip-10', label: 'APE5100', x: 0, y: 0}
+          {id: 'chip-3', label: 'Ticket 42', x: 0, y: 0}
+        ]
+      },
+      AspenColumnDone: {
+        title: 'Erledigt',
+        layout: {x: 8, y: 0, w: 4, h: 8},
+        chips: [
+          {id: 'chip-4', label: 'Review abgeschlossen', x: 0, y: 0}
         ]
       }
     }
@@ -86,6 +195,7 @@
   }
 
   function createState(root){
+    const storedLayout = loadStoredLayout();
     return {
       root,
       grid: null,
@@ -98,8 +208,13 @@
       statusEl: null,
       buttons: {},
       moduleItems: new Map(),
-      syncData: clone(DEFAULT_SYNC_DATA),
-      changeHandler: null
+      syncData: storedLayout ? storedLayout : clone(DEFAULT_SYNC_DATA),
+      changeHandler: null,
+      contextMenu: null,
+      contextMenuContext: null,
+      contextMenuOutsideHandler: null,
+      rootHandleName: loadStoredHandleName('root'),
+      updateHandleName: loadStoredHandleName('update')
     };
   }
 
@@ -111,7 +226,7 @@
       .sync-test-root{height:100%;}
       .sync-test-grid .grid-stack-item{min-height:10rem;}
       .sync-test-card{background:rgba(15,23,42,0.72);border-radius:1rem;color:#f8fafc;display:flex;flex-direction:column;gap:1rem;padding:1rem;box-shadow:0 12px 30px rgba(15,23,42,0.24);height:100%;}
-      .sync-test-chip-area{display:grid;grid-template-columns:repeat(${CHIP_COLUMNS},minmax(0,1fr));gap:0.5rem;}
+      .sync-test-chip-area{display:flex;flex-direction:column;gap:0.5rem;align-items:stretch;}
       .sync-test-chip{background:rgba(148,163,184,0.32);border-radius:9999px;color:#e2e8f0;padding:0.35rem 0.75rem;font-size:0.85rem;font-weight:600;text-align:center;cursor:grab;user-select:none;transition:transform 0.12s ease,box-shadow 0.12s ease;}
       .sync-test-chip:active{cursor:grabbing;}
       .sync-test-chip.dragging{opacity:0.65;transform:scale(1.05);box-shadow:0 12px 20px rgba(15,23,42,0.35);}
@@ -120,6 +235,10 @@
       .sync-test-btn{border-radius:9999px;padding:0.5rem 1.25rem;font-weight:600;transition:transform 0.12s ease,box-shadow 0.12s ease;}
       .sync-test-btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(15,23,42,0.2);}
       .sync-test-status{font-size:0.75rem;color:#94a3b8;}
+      .sync-test-context-menu{position:fixed;z-index:1000;min-width:180px;background:rgba(15,23,42,0.95);color:#e2e8f0;border:1px solid rgba(148,163,184,0.4);border-radius:0.75rem;padding:0.4rem;display:none;flex-direction:column;box-shadow:0 18px 40px rgba(15,23,42,0.45);backdrop-filter:blur(12px);}
+      .sync-test-context-menu.open{display:flex;}
+      .sync-test-context-btn{background:none;border:none;color:inherit;text-align:left;padding:0.5rem 0.65rem;border-radius:0.6rem;font:inherit;cursor:pointer;display:flex;align-items:center;gap:0.5rem;transition:background 0.12s ease;}
+      .sync-test-context-btn:hover{background:rgba(59,130,246,0.25);}
     `;
     document.head.appendChild(style);
   }
@@ -141,6 +260,16 @@
       catch(err){ log('Grid konnte nicht zerstört werden', err); }
       state.grid = null;
     }
+    if(state.contextMenuOutsideHandler){
+      window.removeEventListener('click', state.contextMenuOutsideHandler);
+      window.removeEventListener('contextmenu', state.contextMenuOutsideHandler);
+      state.contextMenuOutsideHandler = null;
+    }
+    if(state.contextMenu?.menu && state.contextMenu.menu.parentNode){
+      state.contextMenu.menu.parentNode.removeChild(state.contextMenu.menu);
+    }
+    state.contextMenu = null;
+    state.contextMenuContext = null;
     state.moduleItems.clear();
     state.root.innerHTML = '';
     if(window.DragDropSyncTestState === state){
@@ -222,6 +351,7 @@
     state.jsonPreviewEl = jsonPre;
     state.lastUpdateEl = lastUpdate;
     state.statusEl = status;
+    updateStatusText(state);
 
     return gridEl;
   }
@@ -257,7 +387,7 @@
 
     const title = document.createElement('h3');
     title.className = 'text-lg font-semibold tracking-wide';
-    title.textContent = moduleKey;
+    title.textContent = moduleData.title || moduleKey;
     header.appendChild(title);
 
     const chipCounter = document.createElement('span');
@@ -276,7 +406,13 @@
     item.appendChild(content);
 
     state.grid?.addWidget(item);
-    state.moduleItems.set(moduleKey, {item, chipArea, chipCounter});
+    content.addEventListener('contextmenu', event=>{
+      const chipTarget = event.target.closest('.sync-test-chip');
+      if(chipTarget) return;
+      openContextMenu(state, event, {type: 'module', moduleKey});
+    });
+
+    state.moduleItems.set(moduleKey, {item, chipArea, chipCounter, titleEl: title, title: moduleData.title || moduleKey});
 
     (moduleData.chips || []).forEach(chip=>addChip(state, moduleKey, chip));
   }
@@ -292,6 +428,9 @@
     chipEl.dataset.chipLabel = chip.label || '';
 
     attachChipDragHandlers(state, chipEl, moduleEntry.chipArea);
+    chipEl.addEventListener('contextmenu', event=>{
+      openContextMenu(state, event, {type: 'chip', moduleKey, chipEl});
+    });
 
     moduleEntry.chipArea.appendChild(chipEl);
     updateChipCounter(moduleEntry);
@@ -301,6 +440,104 @@
     if(!moduleEntry) return;
     const count = moduleEntry.chipArea.querySelectorAll('[data-chip-id]').length;
     moduleEntry.chipCounter.textContent = `${count} Chips`;
+  }
+
+  function hideContextMenu(state){
+    const menuData = state.contextMenu;
+    if(!menuData) return;
+    menuData.menu.classList.remove('open');
+    state.contextMenuContext = null;
+  }
+
+  function ensureContextMenu(state){
+    if(state.contextMenu) return state.contextMenu;
+    const menu = document.createElement('div');
+    menu.className = 'sync-test-context-menu';
+
+    const renameModuleBtn = document.createElement('button');
+    renameModuleBtn.type = 'button';
+    renameModuleBtn.className = 'sync-test-context-btn';
+    renameModuleBtn.textContent = 'Spalte umbenennen';
+
+    const renameChipBtn = document.createElement('button');
+    renameChipBtn.type = 'button';
+    renameChipBtn.className = 'sync-test-context-btn';
+    renameChipBtn.textContent = 'Kachel umbenennen';
+
+    menu.appendChild(renameModuleBtn);
+    menu.appendChild(renameChipBtn);
+    state.root.appendChild(menu);
+
+    renameModuleBtn.addEventListener('click', ()=>{
+      const context = state.contextMenuContext;
+      hideContextMenu(state);
+      if(context?.type === 'module'){
+        renameModule(state, context.moduleKey);
+      }
+    });
+
+    renameChipBtn.addEventListener('click', ()=>{
+      const context = state.contextMenuContext;
+      hideContextMenu(state);
+      if(context?.type === 'chip'){
+        renameChip(state, context.chipEl, context.moduleKey);
+      }
+    });
+
+    const outsideHandler = event=>{
+      if(!menu.contains(event.target)) hideContextMenu(state);
+    };
+    window.addEventListener('click', outsideHandler);
+    window.addEventListener('contextmenu', outsideHandler);
+    state.contextMenuOutsideHandler = outsideHandler;
+
+    state.contextMenu = {menu, renameModuleBtn, renameChipBtn};
+    return state.contextMenu;
+  }
+
+  function openContextMenu(state, event, context){
+    event.preventDefault();
+    event.stopPropagation();
+    const menuData = ensureContextMenu(state);
+    state.contextMenuContext = context;
+    menuData.renameModuleBtn.style.display = context.type === 'module' ? 'flex' : 'none';
+    menuData.renameChipBtn.style.display = context.type === 'chip' ? 'flex' : 'none';
+    const pad = 8;
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const rect = menuData.menu.getBoundingClientRect();
+    const w = rect.width || 200;
+    const h = rect.height || 100;
+    const x = Math.min(Math.max(event.clientX, pad), vw - w - pad);
+    const y = Math.min(Math.max(event.clientY, pad), vh - h - pad);
+    menuData.menu.style.left = `${x}px`;
+    menuData.menu.style.top = `${y}px`;
+    menuData.menu.classList.add('open');
+  }
+
+  function renameModule(state, moduleKey){
+    const moduleEntry = state.moduleItems.get(moduleKey);
+    if(!moduleEntry) return;
+    const current = moduleEntry.titleEl?.textContent?.trim() || moduleKey;
+    const next = prompt('Neuer Spaltenname', current);
+    if(next === null) return;
+    const trimmed = next.trim();
+    if(!trimmed) return;
+    moduleEntry.title = trimmed;
+    if(moduleEntry.titleEl) moduleEntry.titleEl.textContent = trimmed;
+    refreshFromUi(state);
+  }
+
+  function renameChip(state, chipEl, moduleKey){
+    if(!chipEl) return;
+    const current = chipEl.dataset.chipLabel || chipEl.textContent?.trim() || chipEl.dataset.chipId || '';
+    const next = prompt('Neuer Kacheltitel', current);
+    if(next === null) return;
+    const trimmed = next.trim();
+    chipEl.dataset.chipLabel = trimmed;
+    chipEl.textContent = trimmed || chipEl.dataset.chipId || 'Chip';
+    refreshFromUi(state);
+    updateChipCounter(state.moduleItems.get(moduleKey));
   }
 
   function attachChipDragHandlers(state, chipEl, container){
@@ -355,6 +592,12 @@
     const layout = captureLayout(state);
     applyLayout(state, layout, {skipGridUpdate:true});
     updatePreview(state);
+    syncLayoutWithSharedData(state, layout);
+  }
+
+  function syncLayoutWithSharedData(state, layout){
+    if(!layout) return;
+    saveSyncFile(state, layout, {silent:true}).catch(err=>console.error(LOG_PREFIX, 'Automatisches Sync fehlgeschlagen', err));
   }
 
   function captureLayout(state){
@@ -364,11 +607,14 @@
       const chips = Array.from(moduleEntry.chipArea.querySelectorAll('[data-chip-id]')).map((chipEl, index)=>{
         const id = chipEl.dataset.chipId || `chip-${index}`;
         const label = chipEl.dataset.chipLabel || chipEl.textContent?.trim() || id;
-        const x = index % CHIP_COLUMNS;
-        const y = Math.floor(index / CHIP_COLUMNS);
+        const x = 0;
+        const y = index;
         return {id, label, x, y};
       });
+      const title = moduleEntry.titleEl?.textContent?.trim() || moduleEntry.title || moduleKey;
+      moduleEntry.title = title;
       modules[moduleKey] = {
+        title,
         layout: {
           x: node.x ?? toNumberOr(moduleEntry.item.dataset.gsX, 0),
           y: node.y ?? toNumberOr(moduleEntry.item.dataset.gsY, 0),
@@ -384,6 +630,7 @@
     };
     log('Layout aufgenommen', payload);
     state.syncData = payload;
+    saveLocalLayout(payload);
     return payload;
   }
 
@@ -398,7 +645,11 @@
       state.rootHandle = handle;
       state.updateHandle = null;
       state.sharedHandle = null;
-      state.statusEl.textContent = `Root: ${handle.name}`;
+      state.rootHandleName = handle.name || '';
+      state.updateHandleName = '';
+      rememberHandle('root', handle);
+      rememberHandle('update', null);
+      updateStatusText(state);
       log('Root-Ordner gewählt', handle.name);
       return handle;
     }catch(err){
@@ -417,7 +668,9 @@
       const handle = await window.showDirectoryPicker({mode: 'readwrite'});
       state.updateHandle = handle;
       state.sharedHandle = null;
-      state.statusEl.textContent = `SharedData: ${handle.name}`;
+      state.updateHandleName = handle.name || '';
+      rememberHandle('update', handle);
+      updateStatusText(state);
       log('SharedData-Ordner gewählt', handle.name);
       return handle;
     }catch(err){
@@ -456,7 +709,13 @@
     const sharedHandle = await resolveSharedHandle(state, {create:false});
     if(!sharedHandle){
       log('SharedData-Ordner nicht verfügbar');
-      return clone(DEFAULT_SYNC_DATA);
+      const fallback = loadStoredLayout() || state.syncData || clone(DEFAULT_SYNC_DATA);
+      if(fallback){
+        state.syncData = fallback;
+        applyLayout(state, fallback);
+        updatePreview(state);
+      }
+      return fallback;
     }
     try{
       const fileHandle = await sharedHandle.getFileHandle(SYNC_FILE_NAME, {create:false});
@@ -481,14 +740,17 @@
     }
   }
 
-  async function saveSyncFile(state, data){
+  async function saveSyncFile(state, data, options = {}){
+    const {silent = false} = options;
     const sharedHandle = await resolveSharedHandle(state, {create:true});
     if(!sharedHandle){
-      alert('Kein SharedData-Ordner gewählt.');
+      if(!silent) alert('Kein SharedData-Ordner gewählt.');
+      else log('Automatisches Sync übersprungen (kein SharedData-Ordner).');
       return null;
     }
     const payload = data || captureLayout(state);
     payload.lastUpdate = new Date().toISOString();
+    saveLocalLayout(payload);
     try{
       const fileHandle = await sharedHandle.getFileHandle(SYNC_FILE_NAME, {create:true});
       const writable = await fileHandle.createWritable();
@@ -500,7 +762,7 @@
       return payload;
     }catch(err){
       console.error(LOG_PREFIX, 'SyncModul.json konnte nicht gespeichert werden', err);
-      alert('Speichern fehlgeschlagen. Details in der Konsole.');
+      if(!silent) alert('Speichern fehlgeschlagen. Details in der Konsole.');
       return null;
     }
   }
@@ -512,6 +774,9 @@
     for(const [moduleKey, moduleEntry] of state.moduleItems.entries()){
       const target = modules[moduleKey] || DEFAULT_SYNC_DATA.modules[moduleKey];
       if(!target) continue;
+      const title = target.title || moduleEntry.title || moduleKey;
+      moduleEntry.title = title;
+      if(moduleEntry.titleEl) moduleEntry.titleEl.textContent = title;
       if(!skipGridUpdate){
         state.grid?.update(moduleEntry.item, target.layout?.x ?? 0, target.layout?.y ?? 0, target.layout?.w ?? 4, target.layout?.h ?? 3);
       }
@@ -526,6 +791,7 @@
       attachDropZoneHandlers(state, moduleEntry.chipArea);
       updateChipCounter(moduleEntry);
     }
+    saveLocalLayout(state.syncData);
     updatePreview(state);
     log('Layout angewendet');
   }
@@ -560,6 +826,42 @@
     state.grid?.on('resizestop', state.changeHandler);
   }
 
+  async function restoreHandles(state){
+    updateStatusText(state);
+    const canDeserialize = typeof window !== 'undefined' && typeof window.deserializeHandle === 'function';
+    if(canDeserialize){
+      const rootRaw = safeGetLocal(LS_ROOT_HANDLE_KEY);
+      if(rootRaw){
+        try{
+          state.rootHandle = await window.deserializeHandle(rootRaw);
+          state.rootHandleName = state.rootHandle?.name || state.rootHandleName;
+        }catch(err){
+          console.warn(`${LOG_PREFIX} Root-Handle konnte nicht wiederhergestellt werden`, err);
+          safeRemoveLocal(LS_ROOT_HANDLE_KEY);
+        }
+      }
+      const updateRaw = safeGetLocal(LS_UPDATE_HANDLE_KEY);
+      if(updateRaw){
+        try{
+          state.updateHandle = await window.deserializeHandle(updateRaw);
+          state.updateHandleName = state.updateHandle?.name || state.updateHandleName;
+        }catch(err){
+          console.warn(`${LOG_PREFIX} SharedData-Handle konnte nicht wiederhergestellt werden`, err);
+          safeRemoveLocal(LS_UPDATE_HANDLE_KEY);
+        }
+      }
+    }
+    updateStatusText(state);
+    if(state.updateHandle || state.rootHandle){
+      try{
+        await loadSyncFile(state);
+        startPolling(state);
+      }catch(err){
+        console.error(LOG_PREFIX, 'Automatisches Laden der Sync-Daten fehlgeschlagen', err);
+      }
+    }
+  }
+
   window.renderDragDropSyncTest = function renderDragDropSyncTest(root){
     if(!root) throw new Error('Root-Element fehlt');
     cleanupState(root.__dragDropSyncState);
@@ -580,6 +882,7 @@
     }
     applyLayout(state, state.syncData);
     wireEvents(state);
+    restoreHandles(state).catch(err=>console.error(LOG_PREFIX, 'Persistierte Handles konnten nicht geladen werden', err));
   };
 
   window.DragDropSyncTest = {
