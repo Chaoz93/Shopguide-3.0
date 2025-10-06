@@ -274,6 +274,11 @@
     }
     state.contextMenu = null;
     state.contextMenuContext = null;
+    if(state.globalHandleListener && typeof window !== 'undefined'){
+      window.removeEventListener('shopguide:root-handle-changed', state.globalHandleListener);
+      window.removeEventListener('shopguide:update-handle-changed', state.globalHandleListener);
+      state.globalHandleListener = null;
+    }
     state.moduleItems.clear();
     state.root.innerHTML = '';
     if(window.DragDropSyncTestState === state){
@@ -869,15 +874,19 @@
     let changed = false;
     if(root !== state.rootHandle){
       state.rootHandle = root;
+      state.rootHandleName = root?.name || '';
+      rememberHandle('root', root);
       state.sharedHandle = null;
       changed = true;
     }
     if(update !== state.updateHandle){
       state.updateHandle = update;
+      state.updateHandleName = update?.name || '';
+      rememberHandle('update', update);
       state.sharedHandle = null;
       changed = true;
     }
-    updateStatus(state);
+    updateStatusText(state);
     if((forceLoad || changed) && (state.rootHandle || state.updateHandle)){
       scheduleAutoLoad(state).catch(err=>console.error(LOG_PREFIX, 'Automatisches Laden fehlgeschlagen', err));
     }
@@ -916,6 +925,9 @@
 
   async function restoreHandles(state){
     updateStatusText(state);
+    if(state.rootHandle || state.updateHandle){
+      return;
+    }
     const canDeserialize = typeof window !== 'undefined' && typeof window.deserializeHandle === 'function';
     if(canDeserialize){
       const rootRaw = safeGetLocal(LS_ROOT_HANDLE_KEY);
@@ -971,6 +983,7 @@
     applyLayout(state, state.syncData);
     wireEvents(state);
 
+    registerGlobalHandleSync(state);
     restoreHandles(state).catch(err=>console.error(LOG_PREFIX, 'Persistierte Handles konnten nicht geladen werden', err));
 
   };
