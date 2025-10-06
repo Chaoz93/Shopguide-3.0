@@ -22,11 +22,11 @@
     .kv-container {
       display: flex;
       width: 100%;
-      height: 100vh;
+      min-height: 100vh;
     }
 
     .kv-sidebar {
-      width: 250px;
+      width: 260px;
       background: #181818;
       border-right: 1px solid #2a2a2a;
       padding: 20px;
@@ -91,6 +91,12 @@
       color: #e0e0e0;
     }
 
+    .autosave-hint {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #aaaaaa;
+    }
+
     .profile-controls button,
     .kv-main button {
       padding: 10px 14px;
@@ -123,14 +129,88 @@
       font-size: 1.6rem;
     }
 
-    .kv-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
+    .builder {
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) 1fr;
+      gap: 20px;
+      align-items: start;
     }
 
-    select, textarea, input[type="text"] {
+    .builder-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .library-section {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .library-section h2 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .library-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    .library-item {
+      background: #202020;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: grab;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .library-item:active {
+      cursor: grabbing;
+    }
+
+    .library-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .library-item-title {
+      margin: 0;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .library-item-remove {
+      border: none;
+      background: none;
+      color: #ff7777;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    .library-item-text {
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #d0d0d0;
+    }
+
+    select,
+    textarea,
+    input[type="text"] {
       background: #101010;
       color: #e0e0e0;
       border: 1px solid #2a2a2a;
@@ -152,7 +232,7 @@
       min-height: 150px;
       border: 1px solid #2a2a2a;
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 10px;
     }
 
@@ -180,6 +260,11 @@
       word-break: break-word;
     }
 
+    .baustein-text[contenteditable="true"]:focus {
+      outline: 2px solid #3f63b3;
+      border-radius: 6px;
+    }
+
     .baustein-remove {
       cursor: pointer;
       color: #ff7777;
@@ -197,7 +282,29 @@
     .copy-feedback {
       color: #7fd87f;
       font-size: 0.9rem;
-      height: 1.2rem;
+      min-height: 1.2rem;
+    }
+
+    .live-preview-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .live-preview {
+      background: #101010;
+      border-radius: 12px;
+      border: 1px solid #2a2a2a;
+      padding: 16px;
+      min-height: 180px;
+      white-space: pre-wrap;
+      font-family: inherit;
+    }
+
+    @media (max-width: 1024px) {
+      .builder {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 768px) {
@@ -212,7 +319,6 @@
 
       .kv-sidebar {
         width: 100%;
-        flex-direction: column;
       }
     }
   </style>
@@ -224,41 +330,45 @@
       <div class="profile-list" id="profileList"></div>
       <div class="profile-controls">
         <input type="text" id="profileNameInput" placeholder="Profilname" />
-        <button id="saveProfileBtn">Profil speichern/aktualisieren</button>
+        <p class="autosave-hint">Profile werden automatisch gespeichert.</p>
         <button id="newProfileBtn">Neues Profil anlegen</button>
       </div>
     </aside>
     <main class="kv-main">
       <h1>KV-Editor</h1>
-      <section>
-        <div class="kv-row">
-          <label for="presetSelect">Textbaustein Presets:</label>
-          <select id="presetSelect"></select>
-          <button id="addPresetBtn">Preset hinzufügen</button>
+      <section class="builder">
+        <div class="builder-column library-column">
+          <section class="library-section">
+            <h2>Baukasten Presets</h2>
+            <div id="presetLibrary" class="library-list"></div>
+          </section>
+          <section class="library-section">
+            <h2>Freitext-Bausteine</h2>
+            <textarea id="freitextInput" placeholder="Freitext eingeben..."></textarea>
+            <div class="actions">
+              <button id="createFreitextBtn">Freitext-Baustein erstellen</button>
+            </div>
+            <div id="customLibrary" class="library-list"></div>
+          </section>
+        </div>
+        <div class="builder-column preview-column">
+          <h2>Zusammengestellte Bausteine</h2>
+          <div class="preview-box" id="previewBox">
+            <span class="preview-placeholder">Noch keine Textbausteine hinzugefügt.</span>
+          </div>
+          <div class="actions">
+            <button id="copyAllBtn">Alles kopieren</button>
+          </div>
+          <div class="copy-feedback" id="copyFeedback"></div>
         </div>
       </section>
-      <section>
-        <label for="freitextInput">Freitext</label>
-        <textarea id="freitextInput" placeholder="Freitext eingeben..."></textarea>
-        <div class="actions">
-          <button id="addFreitextBtn">Freitext hinzufügen</button>
-        </div>
-      </section>
-      <section>
-        <h2>Freitext-Vorschau</h2>
-        <div class="preview-box" id="previewBox">
-          <span class="preview-placeholder">Noch keine Textbausteine hinzugefügt.</span>
-        </div>
-      </section>
-      <section>
-        <div class="actions">
-          <button id="copyAllBtn">Alles kopieren</button>
-        </div>
-        <div class="copy-feedback" id="copyFeedback"></div>
+      <section class="live-preview-section">
+        <h2>Live Vorschau</h2>
+        <pre id="livePreviewOutput" class="live-preview">Noch keine Textbausteine hinzugefügt.</pre>
       </section>
     </main>
   </div>
 
-    <script src="KVEditor.js"></script>
+  <script src="KVEditor.js"></script>
 </body>
 </html>
