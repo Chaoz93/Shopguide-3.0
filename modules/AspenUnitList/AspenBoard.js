@@ -64,6 +64,13 @@
     .db-menu.open{display:block;}
     .db-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
     .db-menu .mi:hover{background:rgba(0,0,0,.06);}
+    .db-menu .db-menu-toggle-group{display:flex;align-items:center;gap:.35rem;padding:.35rem .5rem .25rem;}
+    .db-menu .db-menu-toggle{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:.45rem;padding:.45rem .75rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.65rem;background:rgba(255,255,255,.75);color:var(--dl-title,#2563eb);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease,transform .2s ease;}
+    .db-menu .db-menu-toggle:hover{background:rgba(37,99,235,.08);}
+    .db-menu .db-menu-toggle.is-active{background:var(--dl-title,#2563eb);color:#fff;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);transform:translateY(-1px);}
+    .db-menu .db-menu-toggle:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none;}
+    .db-menu .db-menu-toggle-icon{flex:0 0 auto;width:1.4rem;height:1.4rem;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:.9rem;background:rgba(37,99,235,.14);color:var(--dl-title,#2563eb);transition:background .2s ease,color .2s ease;}
+    .db-menu .db-menu-toggle.is-active .db-menu-toggle-icon{background:rgba(255,255,255,.25);color:#fff;}
     .db-part-filter{padding:.35rem .5rem .15rem;}
     .db-part-filter input{width:100%;padding:.35rem .55rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;background:transparent;color:inherit;font-size:.85rem;}
     .db-part-filter input:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
@@ -178,6 +185,12 @@
     .aspenboard .db-menu{padding:.5rem;color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);}
     .aspenboard .db-menu .mi{color:inherit;border-radius:.5rem;}
     .aspenboard .db-menu .mi:hover{background:rgba(var(--accent-rgb,36,85,129),.18);}
+    .aspenboard .db-menu .db-menu-toggle{background:rgba(255,255,255,.04);color:var(--text-color);border:1px solid var(--border-color);}
+    .aspenboard .db-menu .db-menu-toggle:hover{background:rgba(var(--accent-rgb,36,85,129),.18);}
+    .aspenboard .db-menu .db-menu-toggle.is-active{background:var(--accent-gradient,var(--accent-color));color:#fff;border-color:var(--accent-border,var(--accent-color));box-shadow:0 0 0 3px rgba(var(--accent-rgb,36,85,129),.28);}
+    .aspenboard .db-menu .db-menu-toggle-icon{background:rgba(var(--accent-rgb,36,85,129),.22);color:var(--text-color);}
+    .aspenboard .db-menu .db-menu-toggle.is-active .db-menu-toggle-icon{background:rgba(255,255,255,.25);color:#fff;}
+    .aspenboard .db-menu .db-menu-toggle:disabled{opacity:.4;}
     .aspenboard .db-part-filter input{background:rgba(255,255,255,.05);color:var(--text-color);border:1px solid var(--border-color);border-radius:.5rem;}
     .aspenboard .db-part-filter input:focus{outline:none;border-color:var(--accent-color);box-shadow:0 0 0 3px rgba(var(--accent-rgb,36,85,129),.28);}
     .aspenboard .db-part-list{color:var(--text-color);}
@@ -847,7 +860,7 @@
 
     const menu=document.createElement('div');
     menu.className='db-menu';
-    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Aspen.xlsx wählen</div><div class="mi mi-disable">Alle deaktivieren</div><div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div><div class="db-part-list"></div>';
+    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Aspen.xlsx wählen</div><div class="db-menu-toggle-group" role="group" aria-label="Partfilter Schnellaktionen"><button type="button" class="db-menu-toggle mi-enable" aria-pressed="false"><span class="db-menu-toggle-icon">✓</span><span class="db-menu-toggle-label">Alles aktivieren</span></button><button type="button" class="db-menu-toggle mi-disable" aria-pressed="false"><span class="db-menu-toggle-icon">✕</span><span class="db-menu-toggle-label">Alle deaktivieren</span></button></div><div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div><div class="db-part-list"></div>';
     document.body.appendChild(menu);
 
     return {
@@ -893,7 +906,10 @@
       extraNameList:root.querySelector('.db-extra-name-list'),
       menu,
       partList:menu.querySelector('.db-part-list'),
-      partFilter:menu.querySelector('.db-part-filter-input')
+      partFilter:menu.querySelector('.db-part-filter-input'),
+      enableAllBtn:menu.querySelector('.mi-enable'),
+      disableAllBtn:menu.querySelector('.mi-disable'),
+      menuToggleGroup:menu.querySelector('.db-menu-toggle-group')
     };
   }
 
@@ -1679,6 +1695,20 @@
     state.items=dedupeByMeldung(state.items);
     const filterRaw=(state.partFilter||'').trim().toLowerCase();
     const parts=Array.from(new Set(state.items.map(item=>item.part))).sort();
+    const totalParts=parts.length;
+    const excludedCount=parts.reduce((count,part)=>count+(state.excluded.has(part)?1:0),0);
+    const allEnabled=totalParts>0 && excludedCount===0;
+    const allDisabled=totalParts>0 && excludedCount===totalParts;
+    if(menuEl.enableAllBtn){
+      menuEl.enableAllBtn.disabled=!totalParts;
+      menuEl.enableAllBtn.classList.toggle('is-active',allEnabled);
+      menuEl.enableAllBtn.setAttribute('aria-pressed',String(!!allEnabled));
+    }
+    if(menuEl.disableAllBtn){
+      menuEl.disableAllBtn.disabled=!totalParts;
+      menuEl.disableAllBtn.classList.toggle('is-active',allDisabled);
+      menuEl.disableAllBtn.setAttribute('aria-pressed',String(!!allDisabled));
+    }
     const filtered=filterRaw?parts.filter(part=>part.toLowerCase().includes(filterRaw)):parts;
     if(menuEl.partFilter){
       menuEl.partFilter.value=state.partFilter||'';
@@ -2650,6 +2680,11 @@
     function closeMenu(){elements.menu.classList.remove('open');}
 
     elements.menu.querySelector('.mi-pick').addEventListener('click',pickFromExcel);
+    elements.menu.querySelector('.mi-enable').addEventListener('click',()=>{
+      state.items=dedupeByMeldung(state.items);
+      state.excluded.clear();
+      render();
+    });
     elements.menu.querySelector('.mi-disable').addEventListener('click',()=>{
       state.items=dedupeByMeldung(state.items);
       state.excluded=new Set(state.items.map(item=>item.part));
