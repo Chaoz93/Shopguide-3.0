@@ -95,10 +95,13 @@
     .db-color{width:100%;height:2.25rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;}
     .db-panel .row.subs{display:flex;flex-direction:column;gap:.4rem;}
     .db-sub-list{display:flex;flex-direction:column;gap:.35rem;}
-    .db-sub-row{display:flex;gap:.5rem;align-items:center;}
+    .db-sub-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
     .db-sub-picker{flex:1;position:relative;display:flex;}
     .db-sub-input{flex:1;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
     .db-sub-input:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .db-sub-meta{flex:1;display:flex;gap:.35rem;min-width:0;}
+    .db-sub-extra{flex:1;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;min-width:0;}
+    .db-sub-extra:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-sub-row button{padding:.35rem .6rem;}
     .db-sub-remove{padding:.35rem .55rem;}
     .db-add-sub{align-self:flex-start;padding:.35rem .6rem;}
@@ -204,6 +207,7 @@
     .aspenboard .db-panel select,
     .aspenboard .db-part-select-input,
     .aspenboard .db-sub-input,
+    .aspenboard .db-sub-extra,
     .aspenboard .db-rule-row select,
     .aspenboard .db-rule-row input{
       background:rgba(255,255,255,.04);
@@ -216,6 +220,7 @@
     .aspenboard .db-panel select:focus,
     .aspenboard .db-part-select-input:focus,
     .aspenboard .db-sub-input:focus,
+    .aspenboard .db-sub-extra:focus,
     .aspenboard .db-rule-row select:focus,
     .aspenboard .db-rule-row input:focus{
       outline:none;
@@ -917,7 +922,7 @@
     return {
       fields:[],
       config:{
-        subFields:[DEFAULT_SUB_FIELD],
+        subFields:[createSubFieldConfig(DEFAULT_SUB_FIELD)],
         partField:TITLE_FIELD,
         title:initialTitle,
         colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',accent:'#245581',active:'#10b981'},
@@ -940,11 +945,10 @@
   }
 
   function ensureSubFields(config){
-    if(!Array.isArray(config.subFields) || !config.subFields.length){
-      const fallback=config.subField||DEFAULT_SUB_FIELD;
-      config.subFields=[fallback];
-      if('subField' in config) delete config.subField;
-    }
+    if(!config||typeof config!=='object') return;
+    const fallback=config.subField||config.partField||DEFAULT_SUB_FIELD;
+    config.subFields=sanitizeSubFieldList(config.subFields,{fallbackField:fallback});
+    if('subField' in config) delete config.subField;
   }
 
   function generateExtraColumnId(){
@@ -1139,9 +1143,55 @@
     return {field,operator,value,text,color};
   }
 
+  function createSubFieldConfig(field='',nickname='',filter=''){
+    return {
+      field:typeof field==='string'?field.trim():'',
+      nickname:typeof nickname==='string'?nickname:'',
+      filter:typeof filter==='string'?filter:''
+    };
+  }
+
+  function normalizeSubField(entry,{allowEmptyField=false}={}){
+    if(typeof entry==='string'){
+      const field=entry.trim();
+      if(!field && !allowEmptyField) return null;
+      return createSubFieldConfig(field);
+    }
+    if(entry && typeof entry==='object'){
+      const field=typeof entry.field==='string'?entry.field.trim():'';
+      const nickname=typeof entry.nickname==='string'?entry.nickname:'';
+      const filter=typeof entry.filter==='string'?entry.filter:'';
+      if(!field && !allowEmptyField) return null;
+      return createSubFieldConfig(field,nickname,filter);
+    }
+    if(allowEmptyField){
+      return createSubFieldConfig('');
+    }
+    return null;
+  }
+
+  function sanitizeSubFieldList(source,{fallbackField=DEFAULT_SUB_FIELD}={}){
+    const normalized=[];
+    if(Array.isArray(source)){
+      source.forEach(entry=>{
+        const normalizedEntry=normalizeSubField(entry);
+        if(!normalizedEntry || !normalizedEntry.field) return;
+        normalized.push(normalizedEntry);
+      });
+    }
+    let fallback=fallbackField;
+    if(normalized.length){
+      return normalized;
+    }
+    if(typeof fallback!=='string' || !fallback.trim()){
+      fallback=DEFAULT_SUB_FIELD;
+    }
+    return [createSubFieldConfig(fallback)];
+  }
+
   function primarySubField(config){
     ensureSubFields(config);
-    return config.subFields[0]||DEFAULT_SUB_FIELD;
+    return config.subFields[0]?.field||DEFAULT_SUB_FIELD;
   }
 
   function restoreState(state,instanceId){
@@ -1163,8 +1213,10 @@
         const colors={...state.config.colors,...(saved.config.colors||{})};
         const savedRules=Array.isArray(saved.config.titleRules)?saved.config.titleRules.map(rule=>normalizeTitleRule(rule)):
           state.config.titleRules.slice();
+        const fallbackSubField=saved.config.partField||saved.config.subField||state.config.partField||DEFAULT_SUB_FIELD;
+        const savedSubFields=sanitizeSubFieldList(saved.config.subFields||state.config.subFields,{fallbackField:fallbackSubField});
         state.config={
-          subFields:Array.isArray(saved.config.subFields)&&saved.config.subFields.length?saved.config.subFields.slice():state.config.subFields.slice(),
+          subFields:savedSubFields,
           partField:saved.config.partField||state.config.partField,
           title:typeof saved.config.title==='string'?saved.config.title:state.config.title,
           colors,
@@ -1226,6 +1278,7 @@
 
   function persistState(state,instanceId){
     state.items=dedupeByMeldung(state.items);
+    ensureSubFields(state.config);
     ensureExtraColumns(state.config);
     ensureActiveColumn(state.config);
     ensureSearchFilters(state.config);
@@ -1234,7 +1287,7 @@
     const payload={
       fields:Array.isArray(state.fields)?state.fields.slice():[],
       config:{
-        subFields:Array.isArray(state.config.subFields)?state.config.subFields.slice():[],
+        subFields:Array.isArray(state.config.subFields)?state.config.subFields.map(sub=>({...sub})):[],
         partField:state.config.partField,
         title:state.config.title,
         colors:{...state.config.colors},
@@ -1271,7 +1324,7 @@
           fields:payload.fields.slice(),
           config:{
             ...payload.config,
-            subFields:payload.config.subFields.slice(),
+            subFields:payload.config.subFields.map(sub=>({...sub})),
             colors:{...payload.config.colors},
             titleRules:payload.config.titleRules.map(rule=>({...rule})),
             extraColumns:payload.config.extraColumns.map(col=>({...col})),
@@ -1306,8 +1359,11 @@
 
   function getAvailableFieldList(state,extra){
     const base=Array.isArray(state.fields)&&state.fields.length?state.fields.slice():[];
-    const extras=Array.isArray(extra)?extra.filter(Boolean):[extra].filter(Boolean);
-    extras.forEach(field=>{if(!base.includes(field)) base.push(field);});
+    const extras=Array.isArray(extra)?extra:[extra];
+    extras.filter(Boolean).forEach(value=>{
+      const field=typeof value==='string'?value:String(value?.field||'').trim();
+      if(field && !base.includes(field)) base.push(field);
+    });
     if(!base.length) base.push(DEFAULT_SUB_FIELD);
     return base;
   }
@@ -1578,9 +1634,19 @@
     const titleValue=item.data?.[TITLE_FIELD]||'';
     const meldung=item.meldung||'';
     const subs=(Array.isArray(config.subFields)?config.subFields:[])
-      .map(field=>{
-        const val=item.data?.[field]||'';
-        return val?`<div class="db-sub-line" data-field="${field}">${val}</div>`:'';
+      .map(entry=>normalizeSubField(entry))
+      .filter(Boolean)
+      .map(sub=>{
+        const field=sub.field;
+        if(!field) return '';
+        const rawValue=item.data?.[field];
+        const baseValue=rawValue==null?'':String(rawValue);
+        if(!baseValue) return '';
+        const filterString=typeof sub.filter==='string'?sub.filter:'';
+        const filteredValue=filterString?baseValue.split(filterString).join(''):baseValue;
+        if(!filteredValue) return '';
+        const display=`${sub.nickname||''}${filteredValue}`;
+        return display?`<div class="db-sub-line" data-field="${field}">${display}</div>`:'';
       })
       .filter(Boolean)
       .join('');
@@ -1808,7 +1874,7 @@
       applyingOptionChanges=true;
       try{
         if(elements.subList){
-          elements.subList.querySelectorAll('.db-sub-input').forEach(input=>{
+          elements.subList.querySelectorAll('.db-sub-input, .db-sub-nickname, .db-sub-filter').forEach(input=>{
             input.dispatchEvent(new Event('change'));
           });
         }
@@ -1829,11 +1895,12 @@
         const subFieldSource=optionsOpen && Array.isArray(tempSubFields)&&tempSubFields.length
           ? tempSubFields
           : Array.isArray(state.config.subFields)?state.config.subFields:[];
-        const collected=subFieldSource.map(value=>String(value||'').trim()).filter(Boolean);
         const availableSubFields=getAvailableFieldList(state);
-        state.config.subFields=collected.length?collected:[availableSubFields[0]||DEFAULT_SUB_FIELD];
+        const fallbackField=availableSubFields[0]||DEFAULT_SUB_FIELD;
+        const sanitizedSubs=sanitizeSubFieldList(subFieldSource,{fallbackField});
+        state.config.subFields=sanitizedSubs;
         if(optionsOpen){
-          tempSubFields=state.config.subFields.slice();
+          tempSubFields=sanitizedSubs.map(sub=>({...sub}));
         }
         const ruleSource=optionsOpen && Array.isArray(tempTitleRules)
           ? tempTitleRules
@@ -2693,16 +2760,21 @@
     elements.menu.querySelector('.mi-opt').addEventListener('click',()=>{closeMenu();openOptions();});
 
     function renderSubFieldControls(){
-      const pool=getAvailableFieldList(state,tempSubFields);
+      const existing=Array.isArray(tempSubFields)?tempSubFields:[];
+      tempSubFields=existing.map(entry=>normalizeSubField(entry,{allowEmptyField:true})||createSubFieldConfig(''));
+      const pool=getAvailableFieldList(state,tempSubFields.map(entry=>entry?.field||''));
       if(!tempSubFields.length){
-        tempSubFields=[pool[0]||DEFAULT_SUB_FIELD];
+        tempSubFields=[createSubFieldConfig(pool[0]||DEFAULT_SUB_FIELD)];
       }
       elements.subList.innerHTML='';
-      tempSubFields.forEach((field,index)=>{
+      tempSubFields.forEach((entry,index)=>{
+        const sub=entry&&typeof entry==='object'?entry:createSubFieldConfig('');
+        tempSubFields[index]=sub;
         const row=document.createElement('div');
         row.className='db-sub-row';
-        const choices=getAvailableFieldList(state,tempSubFields);
-        if(field && !choices.includes(field)) choices.push(field);
+        const usedFields=tempSubFields.map(item=>item?.field||'');
+        const choices=getAvailableFieldList(state,usedFields);
+        if(sub.field && !choices.includes(sub.field)) choices.push(sub.field);
 
         const picker=document.createElement('div');
         picker.className='db-sub-picker';
@@ -2711,10 +2783,10 @@
         input.className='db-sub-input';
         input.placeholder='Spalte wählen';
         input.autocomplete='off';
-        input.value=field||'';
-        if(!field && choices.length){
-          tempSubFields[index]=choices[0];
-          input.value=choices[0];
+        input.value=sub.field||'';
+        if(!sub.field && choices.length){
+          sub.field=choices[0];
+          input.value=sub.field;
         }
         const dataList=document.createElement('datalist');
         const listId=`db-sub-options-${Date.now()}-${index}-${Math.floor(Math.random()*1000)}`;
@@ -2727,9 +2799,11 @@
         };
         renderOptions();
         const commitInput=()=>{
+          const target=tempSubFields[index]||createSubFieldConfig('');
+          tempSubFields[index]=target;
           const raw=(input.value||'').trim();
           if(!raw){
-            tempSubFields[index]='';
+            target.field='';
             input.value='';
             renderOptions();
             scheduleOptionPersist();
@@ -2737,7 +2811,7 @@
           }
           const exact=choices.find(opt=>opt.toLowerCase()===raw.toLowerCase());
           if(exact){
-            tempSubFields[index]=exact;
+            target.field=exact;
             input.value=exact;
             renderOptions();
             scheduleOptionPersist();
@@ -2745,13 +2819,13 @@
           }
           const partial=choices.find(opt=>opt.toLowerCase().includes(raw.toLowerCase()));
           if(partial){
-            tempSubFields[index]=partial;
+            target.field=partial;
             input.value=partial;
             renderOptions();
             scheduleOptionPersist();
             return;
           }
-          input.value=tempSubFields[index]||'';
+          input.value=target.field||'';
           renderOptions();
           scheduleOptionPersist();
         };
@@ -2770,13 +2844,45 @@
         row.appendChild(picker);
         row.appendChild(dataList);
 
+        const meta=document.createElement('div');
+        meta.className='db-sub-meta';
+        const nicknameInput=document.createElement('input');
+        nicknameInput.type='text';
+        nicknameInput.className='db-sub-extra db-sub-nickname';
+        nicknameInput.placeholder='Nickname';
+        nicknameInput.value=sub.nickname||'';
+        const commitNickname=()=>{
+          const target=tempSubFields[index]||createSubFieldConfig('');
+          tempSubFields[index]=target;
+          target.nickname=nicknameInput.value||'';
+        };
+        nicknameInput.addEventListener('input',()=>{commitNickname();scheduleOptionPersist();});
+        nicknameInput.addEventListener('change',()=>{commitNickname();scheduleOptionPersist();});
+        meta.appendChild(nicknameInput);
+
+        const filterInput=document.createElement('input');
+        filterInput.type='text';
+        filterInput.className='db-sub-extra db-sub-filter';
+        filterInput.placeholder='Datenfilter';
+        filterInput.value=sub.filter||'';
+        const commitFilter=()=>{
+          const target=tempSubFields[index]||createSubFieldConfig('');
+          tempSubFields[index]=target;
+          target.filter=filterInput.value||'';
+        };
+        filterInput.addEventListener('input',()=>{commitFilter();scheduleOptionPersist();});
+        filterInput.addEventListener('change',()=>{commitFilter();scheduleOptionPersist();});
+        meta.appendChild(filterInput);
+
+        row.appendChild(meta);
+
         const sortBtn=document.createElement('button');
         sortBtn.type='button';
         sortBtn.className='db-sort';
         sortBtn.textContent='Sortieren';
         sortBtn.addEventListener('click',()=>{
           commitInput();
-          const fieldName=(tempSubFields[index]||'').trim()||input.value.trim();
+          const fieldName=(tempSubFields[index]?.field||'').trim()||input.value.trim();
           if(!fieldName) return;
           syncFromDOM();
           state.items.sort((a,b)=>String(a?.data?.[fieldName]||'').localeCompare(String(b?.data?.[fieldName]||'')));
@@ -2794,7 +2900,7 @@
           if(tempSubFields.length>1){
             tempSubFields.splice(index,1);
           }else{
-            tempSubFields[0]='';
+            tempSubFields[0]=createSubFieldConfig('');
           }
           renderSubFieldControls();
           scheduleOptionPersist();
@@ -3296,7 +3402,7 @@
 
     function openOptions(){
       closePartSelectDropdown();
-      tempSubFields=Array.isArray(state.config.subFields)?state.config.subFields.slice():[];
+      tempSubFields=Array.isArray(state.config.subFields)?state.config.subFields.map(sub=>({...sub})):[];
       tempTitleRules=Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[];
       tempExtraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[];
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
@@ -3396,19 +3502,21 @@
     elements.addSubBtn.addEventListener('click',()=>{
       if(!Array.isArray(tempSubFields) || !tempSubFields.length){
         const defaults=getAvailableFieldList(state);
-        tempSubFields=[defaults[0]||DEFAULT_SUB_FIELD];
+        tempSubFields=[createSubFieldConfig(defaults[0]||DEFAULT_SUB_FIELD)];
       }
-      const candidates=getAvailableFieldList(state,tempSubFields);
-      const used=new Set(tempSubFields.filter(Boolean));
+      const candidates=getAvailableFieldList(state,tempSubFields.map(entry=>entry?.field||''));
+      const used=new Set(tempSubFields.map(entry=>entry?.field).filter(Boolean));
       const next=candidates.find(field=>!used.has(field))||candidates[0]||DEFAULT_SUB_FIELD;
-      tempSubFields.push(next);
+      tempSubFields.push(createSubFieldConfig(next));
       renderSubFieldControls();
       scheduleOptionPersist();
     });
 
     if(elements.subExportBtn){
       elements.subExportBtn.addEventListener('click',async ()=>{
-        const prepared=Array.isArray(tempSubFields)?tempSubFields.map(field=>String(field||'').trim()).filter(Boolean):[];
+        const prepared=Array.isArray(tempSubFields)
+          ? tempSubFields.map(entry=>normalizeSubField(entry)).filter(Boolean).map(sub=>({...sub}))
+          : [];
         await exportJsonData('Untertitel-Felder',prepared);
       });
     }
@@ -3421,8 +3529,13 @@
           showAlert('Untertitel-Felder müssen als Array vorliegen.');
           return;
         }
-        const normalized=Array.from(new Set(imported.map(value=>String(value||'').trim()))).filter(Boolean);
-        tempSubFields=normalized;
+        const normalized=imported.map(entry=>normalizeSubField(entry)).filter(Boolean);
+        const firstNormalized=normalizeSubField(imported[0]);
+        const fallbackField=firstNormalized?.field;
+        const sanitized=fallbackField
+          ? sanitizeSubFieldList(normalized,{fallbackField})
+          : sanitizeSubFieldList(normalized);
+        tempSubFields=sanitized.map(sub=>({...sub}));
         renderSubFieldControls();
         showAlert(normalized.length?'Untertitel importiert.':'Keine Untertitel-Felder importiert. Es wird der Standard verwendet.');
         scheduleOptionPersist(true);
@@ -3583,25 +3696,25 @@
           || preferredPartFields.find(Boolean)
           || DEFAULT_SUB_FIELD;
         state.config.partField=resolvedPartField;
-        const previousSubs=Array.isArray(state.config.subFields)?state.config.subFields.slice():[];
+        const previousSubs=Array.isArray(state.config.subFields)?state.config.subFields.map(entry=>normalizeSubField(entry)).filter(Boolean):[];
         const preservedSubs=[];
-        previousSubs.forEach(field=>{
-          const trimmed=(field||'').trim();
-          if(trimmed && availableFields.includes(trimmed) && !preservedSubs.includes(trimmed)){
-            preservedSubs.push(trimmed);
+        previousSubs.forEach(sub=>{
+          const field=sub.field;
+          if(field && availableFields.includes(field) && !preservedSubs.some(existing=>existing.field===field)){
+            preservedSubs.push({...sub});
           }
         });
         if(!preservedSubs.length && resolvedPartField){
-          preservedSubs.push(resolvedPartField);
+          preservedSubs.push(createSubFieldConfig(resolvedPartField));
         }
         if(!preservedSubs.length && availableFields.includes(DEFAULT_SUB_FIELD)){
-          preservedSubs.push(DEFAULT_SUB_FIELD);
+          preservedSubs.push(createSubFieldConfig(DEFAULT_SUB_FIELD));
         }
         if(!preservedSubs.length && availableFields.length){
-          preservedSubs.push(availableFields[0]);
+          preservedSubs.push(createSubFieldConfig(availableFields[0]));
         }
         if(!preservedSubs.length){
-          preservedSubs.push(DEFAULT_SUB_FIELD);
+          preservedSubs.push(createSubFieldConfig(DEFAULT_SUB_FIELD));
         }
         state.config.subFields=preservedSubs;
         ensureSubFields(state.config);
