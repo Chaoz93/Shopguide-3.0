@@ -3394,6 +3394,7 @@
         saveDoc(doc);
         updateHighlights(elements.list);
         if(elements.activeList) updateHighlights(elements.activeList);
+        if(elements.extraContainer) updateHighlights(elements.extraContainer);
         window.dispatchEvent(new Event(CUSTOM_BROADCAST));
       }
     };
@@ -3417,6 +3418,7 @@
     const refreshHighlights=()=>{
       updateHighlights(elements.list);
       if(elements.activeList) updateHighlights(elements.activeList);
+      if(elements.extraContainer) updateHighlights(elements.extraContainer);
     };
     window.addEventListener('storage',event=>{if(event.key===LS_DOC) refreshHighlights();});
     window.addEventListener(CUSTOM_BROADCAST,refreshHighlights);
