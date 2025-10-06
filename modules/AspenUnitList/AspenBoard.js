@@ -176,6 +176,7 @@
       --accent-strong:var(--accent-gradient-from);
       --accent-color:var(--accent-gradient-to);
       --accent-gradient:linear-gradient(135deg,var(--accent-gradient-from),var(--accent-gradient-to));
+      --modal-gradient:linear-gradient(160deg,rgba(23,55,82,0.88) 0%,rgba(10,15,26,0.96) 48%,rgba(36,85,129,0.92) 100%);
       --accent-rgb:36,85,129;
       --accent-border:rgba(var(--accent-rgb),0.55);
       --accent-soft:rgba(var(--accent-rgb),0.22);
@@ -183,7 +184,7 @@
       --muted-text:rgba(229,229,229,0.7);
       --border-color:rgba(255,255,255,0.14);
       --shadow-color:rgba(0,0,0,0.55);
-      background:rgba(10,15,26,.94);
+      background:var(--modal-gradient,rgba(10,15,26,.94));
     }
     .aspenboard .db-panel{
       backdrop-filter:blur(28px);
@@ -1426,6 +1427,14 @@
     return null;
   }
 
+  function formatRgba(color,alpha){
+    const rgb=parseColorToRgb(color);
+    if(!rgb) return null;
+    const finiteAlpha=Number.isFinite(alpha)?alpha:1;
+    const normalized=Math.round(clamp(finiteAlpha,0,1)*1000)/1000;
+    return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${normalized})`;
+  }
+
   function relativeLuminance(color){
     const rgb=parseColorToRgb(color);
     if(!rgb) return null;
@@ -1503,6 +1512,10 @@
     root.style.setProperty('--accent-gradient',`linear-gradient(135deg,${sanitized.gradientFrom} 0%,${sanitized.gradientTo} 100%)`);
     root.style.setProperty('--accent-color',sanitized.gradientTo);
     root.style.setProperty('--accent-strong',sanitized.gradientFrom);
+    const gradientFromOverlay=formatRgba(sanitized.gradientFrom,0.88)||sanitized.gradientFrom;
+    const gradientToOverlay=formatRgba(sanitized.gradientTo,0.92)||sanitized.gradientTo;
+    const modalGradient=`linear-gradient(160deg,${gradientFromOverlay} 0%,rgba(10,15,26,0.96) 48%,${gradientToOverlay} 100%)`;
+    root.style.setProperty('--modal-gradient',modalGradient);
     const gradientRgb=parseColorToRgb(sanitized.gradientTo)||parseColorToRgb(sanitized.accent);
     if(gradientRgb){
       const [r,g,b]=gradientRgb;
