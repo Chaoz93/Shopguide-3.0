@@ -40,7 +40,7 @@
     .db-lists{flex:1;display:flex;gap:.75rem;min-height:1.5rem;overflow:hidden;}
     .db-list-wrap{flex:1;display:flex;flex-direction:column;gap:.35rem;min-width:0;}
     .db-list-wrap.is-hidden{display:none;}
-    .db-extra-container{flex:1;display:flex;gap:.75rem;min-width:0;}
+    .db-extra-container{flex:0 1 0%;display:flex;gap:.75rem;min-width:0;}
     .db-extra-container:empty{display:none;}
     .db-list-title{font-weight:600;color:var(--dl-sub,#4b5563);padding:0 .1rem;}
     .db-list{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;overflow:auto;padding-right:.25rem;}
@@ -2602,8 +2602,14 @@
         });
       }
       if(elements.extraContainer){
-        const hasVisibleExtra=Array.isArray(elements.extraWraps)?elements.extraWraps.some(wrap=>wrap?.wrap && !wrap.wrap.hidden):false;
+        const visibleExtraCount=Array.isArray(elements.extraWraps)
+          ? elements.extraWraps.reduce((count,wrap)=>count+(wrap?.wrap && !wrap.wrap.hidden?1:0),0)
+          : 0;
+        const hasVisibleExtra=visibleExtraCount>0;
         elements.extraContainer.hidden=!hasVisibleExtra;
+        elements.extraContainer.style.flex=hasVisibleExtra
+          ? `${visibleExtraCount} ${visibleExtraCount} 0%`
+          : '0 0 0%';
       }
       if(elements.activeWrap && elements.activeList){
         if(elements.activeTitle){
@@ -2971,96 +2977,77 @@
       }
       const fallbackActiveLabel=state.config?.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       const fallbackActiveEnabled=state.config?.activeColumn?.enabled!==false;
-      if(typeof tempActiveColumnLabel!=='string'){
-        tempActiveColumnLabel=fallbackActiveLabel;
-      }
+      const normalizedActiveLabel=String(
+        (typeof tempActiveColumnLabel==='string' && tempActiveColumnLabel.trim())
+          ? tempActiveColumnLabel
+          : fallbackActiveLabel
+      ).trim()||DEFAULT_ACTIVE_COLUMN_LABEL;
+      tempActiveColumnLabel=normalizedActiveLabel;
       if(typeof tempActiveColumnEnabled!=='boolean'){
         tempActiveColumnEnabled=fallbackActiveEnabled;
       }
-      const desired=[
-        {
-          id:ACTIVE_COLUMN_ID,
-          kind:'active',
-          labelText:'Aktive Geräte',
-          value:tempActiveColumnLabel,
-          placeholder:'Name der aktiven Spalte',
-          enabled:tempActiveColumnEnabled!==false
-        },
-        ...tempExtraColumns.map((column,index)=>({
-          id:column.id,
-          kind:'extra',
-          labelText:`Spalte ${index+1}`,
-          value:column.label||'',
-          placeholder:'Name der Extraspalte'
-        }))
-      ];
-      const existingRows=new Map(Array.from(elements.extraNameList.children).map(row=>[row.dataset.columnId,row]));
-      const seenIds=new Set();
-      desired.forEach(def=>{
-        seenIds.add(def.id);
-        let row=existingRows.get(def.id);
-        if(!row){
-          row=document.createElement('div');
-          row.className='db-extra-name-row';
-          row.dataset.columnId=def.id;
-          const label=document.createElement('label');
-          const span=document.createElement('span');
-          span.className='db-extra-name-label';
-          label.appendChild(span);
-          const input=document.createElement('input');
-          input.type='text';
-          input.dataset.columnId=def.id;
-          input.dataset.columnType=def.kind;
-          input.addEventListener('input',handleExtraNameInput);
-          input.addEventListener('change',handleExtraNameCommit);
-          label.appendChild(input);
-          row.appendChild(label);
-          elements.extraNameList.appendChild(row);
-        }
-        row.dataset.columnId=def.id;
-        const labelSpan=row.querySelector('.db-extra-name-label');
-        if(labelSpan) labelSpan.textContent=def.labelText;
-        const input=row.querySelector('input');
-        if(input){
-          input.dataset.columnId=def.id;
-          input.dataset.columnType=def.kind;
-          input.placeholder=def.placeholder;
-          if(document.activeElement!==input){
-            input.value=def.value||'';
-          }
-        }
-        if(def.kind==='active'){
-          let toggle=row.querySelector('.db-active-toggle');
-          if(!toggle){
-            toggle=document.createElement('label');
-            toggle.className='db-active-toggle';
-            const checkbox=document.createElement('input');
-            checkbox.type='checkbox';
-            checkbox.className='db-active-checkbox';
-            checkbox.addEventListener('change',handleActiveToggleChange);
-            toggle.appendChild(checkbox);
-            const text=document.createElement('span');
-            text.textContent='Spalte anzeigen';
-            toggle.appendChild(text);
-            row.insertBefore(toggle,row.firstChild);
-          }
-          const checkbox=row.querySelector('.db-active-checkbox');
-          if(checkbox){
-            checkbox.checked=!!def.enabled;
-          }
-        }else{
-          const toggle=row.querySelector('.db-active-toggle');
-          if(toggle){
-            toggle.remove();
-          }
-        }
-        elements.extraNameList.appendChild(row);
+      let restoreFocus=null;
+      const activeElement=document.activeElement;
+      if(activeElement && elements.extraNameList.contains(activeElement) && activeElement.tagName==='INPUT'){
+        restoreFocus={
+          columnId:activeElement.dataset?.columnId||'',
+          selectionStart:activeElement.selectionStart,
+          selectionEnd:activeElement.selectionEnd
+        };
+      }
+      const fragment=document.createDocumentFragment();
+      const activeRow=document.createElement('div');
+      activeRow.className='db-extra-name-row db-active-name-row';
+      activeRow.dataset.columnId=ACTIVE_COLUMN_ID;
+      const toggle=document.createElement('label');
+      toggle.className='db-active-toggle';
+      const checkbox=document.createElement('input');
+      checkbox.type='checkbox';
+      checkbox.className='db-active-checkbox';
+      checkbox.checked=!!tempActiveColumnEnabled;
+      checkbox.addEventListener('change',handleActiveToggleChange);
+      toggle.appendChild(checkbox);
+      const toggleText=document.createElement('span');
+      toggleText.textContent=`Spalte "${normalizedActiveLabel}" anzeigen`;
+      toggle.appendChild(toggleText);
+      activeRow.appendChild(toggle);
+      fragment.appendChild(activeRow);
+      tempExtraColumns.forEach((column,index)=>{
+        const row=document.createElement('div');
+        row.className='db-extra-name-row';
+        row.dataset.columnId=column.id;
+        const label=document.createElement('label');
+        const span=document.createElement('span');
+        span.className='db-extra-name-label';
+        span.textContent=`Spalte ${index+1}`;
+        label.appendChild(span);
+        const input=document.createElement('input');
+        input.type='text';
+        input.placeholder='Name der Extraspalte';
+        input.value=column.label||'';
+        input.dataset.columnId=column.id;
+        input.dataset.columnType='extra';
+        input.addEventListener('input',handleExtraNameInput);
+        input.addEventListener('change',handleExtraNameCommit);
+        label.appendChild(input);
+        row.appendChild(label);
+        fragment.appendChild(row);
       });
-      Array.from(elements.extraNameList.children).forEach(row=>{
-        if(!seenIds.has(row.dataset.columnId)){
-          row.remove();
+      elements.extraNameList.innerHTML='';
+      elements.extraNameList.appendChild(fragment);
+      if(restoreFocus && restoreFocus.columnId && restoreFocus.columnId!==ACTIVE_COLUMN_ID){
+        const target=elements.extraNameList.querySelector(`input[data-column-id="${restoreFocus.columnId}"]`);
+        if(target){
+          target.focus();
+          if(typeof restoreFocus.selectionStart==='number' && typeof restoreFocus.selectionEnd==='number' && typeof target.setSelectionRange==='function'){
+            try{
+              target.setSelectionRange(restoreFocus.selectionStart,restoreFocus.selectionEnd);
+            }catch{
+              /* ignore selection errors */
+            }
+          }
         }
-      });
+      }
     }
 
     function setExtraColumnCount(nextCount,immediate=false){
