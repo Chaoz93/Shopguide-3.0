@@ -99,7 +99,9 @@
       buttons: {},
       moduleItems: new Map(),
       syncData: clone(DEFAULT_SYNC_DATA),
-      changeHandler: null
+      changeHandler: null,
+      globalHandleListener: null,
+      loadingPromise: null
     };
   }
 
@@ -141,11 +143,34 @@
       catch(err){ log('Grid konnte nicht zerstört werden', err); }
       state.grid = null;
     }
+    if(state.globalHandleListener && typeof window !== 'undefined'){
+      window.removeEventListener('shopguide:root-handle-changed', state.globalHandleListener);
+      window.removeEventListener('shopguide:update-handle-changed', state.globalHandleListener);
+      state.globalHandleListener = null;
+    }
+    state.loadingPromise = null;
     state.moduleItems.clear();
     state.root.innerHTML = '';
     if(window.DragDropSyncTestState === state){
       window.DragDropSyncTestState = null;
     }
+  }
+
+  function updateStatus(state){
+    if(!state?.statusEl) return;
+    const parts = [];
+    if(state.rootHandle){
+      parts.push(`Root: ${state.rootHandle.name}`);
+    }
+    if(state.updateHandle){
+      parts.push(`Update: ${state.updateHandle.name}`);
+    }else if(state.rootHandle){
+      parts.push('Update: (nicht gesetzt)');
+    }
+    if(state.sharedHandle){
+      parts.push(`SharedData: ${state.sharedHandle.name}`);
+    }
+    state.statusEl.textContent = parts.length ? parts.join(' | ') : 'Keine Ordner gewählt';
   }
 
   function createLayout(state){
@@ -222,6 +247,7 @@
     state.jsonPreviewEl = jsonPre;
     state.lastUpdateEl = lastUpdate;
     state.statusEl = status;
+    updateStatus(state);
 
     return gridEl;
   }
@@ -398,7 +424,7 @@
       state.rootHandle = handle;
       state.updateHandle = null;
       state.sharedHandle = null;
-      state.statusEl.textContent = `Root: ${handle.name}`;
+      updateStatus(state);
       log('Root-Ordner gewählt', handle.name);
       return handle;
     }catch(err){
@@ -417,7 +443,7 @@
       const handle = await window.showDirectoryPicker({mode: 'readwrite'});
       state.updateHandle = handle;
       state.sharedHandle = null;
-      state.statusEl.textContent = `SharedData: ${handle.name}`;
+      updateStatus(state);
       log('SharedData-Ordner gewählt', handle.name);
       return handle;
     }catch(err){
@@ -431,23 +457,31 @@
     const base = state.updateHandle || state.rootHandle;
     if(!base){
       log('Kein Basis-Ordner vorhanden');
+      state.sharedHandle = null;
+      updateStatus(state);
       return null;
     }
     try{
       if(base.name === SYNC_DIR_NAME){
         state.sharedHandle = base;
+        updateStatus(state);
         return base;
       }
       if(typeof base.getDirectoryHandle !== 'function'){
         log('DirectoryHandle unterstützt getDirectoryHandle nicht');
+        state.sharedHandle = null;
+        updateStatus(state);
         return null;
       }
       const handle = await base.getDirectoryHandle(SYNC_DIR_NAME, {create});
       state.sharedHandle = handle;
       log('SharedData-Handle geladen', handle.name);
+      updateStatus(state);
       return handle;
     }catch(err){
       console.error(LOG_PREFIX, 'SharedData-Handle fehlgeschlagen', err);
+      state.sharedHandle = null;
+      updateStatus(state);
       return null;
     }
   }
@@ -538,11 +572,64 @@
   }
 
   function startPolling(state){
+    if(!state.updateHandle && !state.rootHandle){
+      if(state.pollTimer){
+        clearInterval(state.pollTimer);
+        state.pollTimer = null;
+        log('Polling gestoppt (keine Basis-Ordner)');
+      }
+      return;
+    }
     if(state.pollTimer) clearInterval(state.pollTimer);
     state.pollTimer = setInterval(()=>{
       loadSyncFile(state).catch(err=>console.error(LOG_PREFIX, 'Polling Fehler', err));
     }, POLL_INTERVAL);
     log('Polling gestartet');
+  }
+
+  function scheduleAutoLoad(state){
+    if(state.loadingPromise) return state.loadingPromise;
+    state.loadingPromise = loadSyncFile(state)
+      .then(()=>startPolling(state))
+      .finally(()=>{ state.loadingPromise = null; });
+    return state.loadingPromise;
+  }
+
+  function applyGlobalHandles(state, {forceLoad = false} = {forceLoad:false}){
+    if(typeof window === 'undefined') return;
+    const root = window.rootDirHandle || null;
+    const update = window.updateDirHandle || null;
+    let changed = false;
+    if(root !== state.rootHandle){
+      state.rootHandle = root;
+      state.sharedHandle = null;
+      changed = true;
+    }
+    if(update !== state.updateHandle){
+      state.updateHandle = update;
+      state.sharedHandle = null;
+      changed = true;
+    }
+    updateStatus(state);
+    if((forceLoad || changed) && (state.rootHandle || state.updateHandle)){
+      scheduleAutoLoad(state).catch(err=>console.error(LOG_PREFIX, 'Automatisches Laden fehlgeschlagen', err));
+    }
+    if(changed && !state.rootHandle && !state.updateHandle){
+      if(state.pollTimer){
+        clearInterval(state.pollTimer);
+        state.pollTimer = null;
+        log('Polling gestoppt (keine globalen Ordner)');
+      }
+    }
+  }
+
+  function registerGlobalHandleSync(state){
+    if(typeof window === 'undefined') return;
+    const listener = ()=>applyGlobalHandles(state);
+    state.globalHandleListener = listener;
+    window.addEventListener('shopguide:root-handle-changed', listener);
+    window.addEventListener('shopguide:update-handle-changed', listener);
+    applyGlobalHandles(state, {forceLoad:true});
   }
 
   function wireEvents(state){
@@ -580,6 +667,7 @@
     }
     applyLayout(state, state.syncData);
     wireEvents(state);
+    registerGlobalHandleSync(state);
   };
 
   window.DragDropSyncTest = {
