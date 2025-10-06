@@ -4,6 +4,18 @@ Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [1.1.12] – 2025-10-06
+### Changed
+- Die aktive Spalte lässt sich jetzt direkt im Optionsdialog ein- oder ausblenden; Layout und Flex-Berechnung passen sich an die
+  sichtbaren Listen an und verteilen den Platz ausgewogener.
+- Die Konfiguration der Zusatzspalten wurde überarbeitet: Eingabefelder behalten ihren Fokus, der Umschalter nutzt die aktuelle
+  Spaltenbezeichnung und der Container reagiert auf die tatsächlich sichtbare Spaltenanzahl.
+
+### Fixed
+- Offene Optionen synchronisieren ihre Zwischenstände zuverlässig mit der gespeicherten Konfiguration, damit Subfelder, Regeln,
+  Zusatzspalten und Filter nicht mehr verlorengehen.
+- Status-Hervorhebungen werden nun auch für Zusatzspalten aktualisiert.
+
 ## [1.1.11] – 2025-10-03
 ### Fixed
 - Datei-Handle-Abfragen nutzen jetzt die File System Access API korrekt: gespeicherte Handles werden beim Laden geprüft,
