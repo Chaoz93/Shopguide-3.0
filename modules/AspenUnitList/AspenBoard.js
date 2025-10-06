@@ -44,7 +44,7 @@
     .db-extra-container:empty{display:none;}
     .db-list-title{font-weight:600;color:var(--dl-sub,#4b5563);padding:0 .1rem;}
     .db-list{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;overflow:auto;padding-right:.25rem;}
-    .db-active-wrap{display:none;max-width:50%;}
+    .db-active-wrap{display:none;flex:1 1 0;min-width:0;}
     .db-active-wrap[hidden]{display:none;}
     .db-root.db-has-active .db-active-wrap{display:flex;}
     .db-empty{opacity:.6;padding:.25rem .1rem;}
@@ -103,6 +103,8 @@
     .db-extra-count{width:120px;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
     .db-extra-name-list{display:flex;flex-direction:column;gap:.35rem;}
     .db-extra-name-row{display:flex;flex-direction:column;gap:.35rem;}
+    .db-active-toggle{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--dl-sub,#4b5563);}
+    .db-active-toggle input{margin:0;}
     .db-extra-name-row label{font-size:.8rem;color:var(--dl-sub,#4b5563);display:flex;flex-direction:column;gap:.35rem;}
     .db-extra-name-label{font-weight:600;}
     .db-extra-name-row input{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
@@ -196,6 +198,7 @@
       border:1px solid var(--border-color);
       border-radius:.5rem;
     }
+    .aspenboard .db-active-toggle{color:var(--muted-text,rgba(229,229,229,0.7));}
     .aspenboard .db-panel input[type=text]:focus,
     .aspenboard .db-panel select:focus,
     .aspenboard .db-part-select-input:focus,
@@ -953,7 +956,15 @@
   function sanitizeActiveColumn(column){
     const source=column&&typeof column==='object'?column:{};
     const label=typeof source.label==='string'?source.label.trim():'';
-    return {id:ACTIVE_COLUMN_ID,label:label||DEFAULT_ACTIVE_COLUMN_LABEL};
+    let enabled=true;
+    if(Object.prototype.hasOwnProperty.call(source,'enabled')){
+      enabled=!!source.enabled;
+    }else if(Object.prototype.hasOwnProperty.call(source,'visible')){
+      enabled=!!source.visible;
+    }else if(Object.prototype.hasOwnProperty.call(source,'show')){
+      enabled=!!source.show;
+    }
+    return {id:ACTIVE_COLUMN_ID,label:label||DEFAULT_ACTIVE_COLUMN_LABEL,enabled};
   }
 
   function ensureExtraColumns(config){
@@ -1749,6 +1760,7 @@
     let tempTitleRules=[];
     let tempExtraColumns=[];
     let tempActiveColumnLabel='';
+    let tempActiveColumnEnabled=true;
     let tempSearchFilters=[];
     let partOptions=[];
     let filteredPartOptions=[];
@@ -1819,9 +1831,14 @@
           ? tempActiveColumnLabel
           : state.config.activeColumn?.label;
         const activeLabel=String(activeLabelSource||'').trim();
-        state.config.activeColumn=sanitizeActiveColumn({label:activeLabel});
+        const activeEnabledSource=optionsOpen?tempActiveColumnEnabled:state.config.activeColumn?.enabled;
+        state.config.activeColumn=sanitizeActiveColumn({label:activeLabel,enabled:activeEnabledSource});
+        if(state.config.activeColumn.enabled===false){
+          state.showActiveList=false;
+        }
         if(optionsOpen){
           tempActiveColumnLabel=state.config.activeColumn.label;
+          tempActiveColumnEnabled=state.config.activeColumn.enabled;
         }
         const previousFilterIds=new Set(Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>filter.id):[]);
         const extraSource=optionsOpen && Array.isArray(tempExtraColumns)
@@ -2419,12 +2436,13 @@
       if(!elements.toggleGroup) return;
       ensureActiveColumn(state.config);
       const extras=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
+      const showActiveColumn=state.config.activeColumn?.enabled!==false;
       const definitions=[
-        {
+        ...showActiveColumn?[{
           id:ACTIVE_COLUMN_ID,
           kind:'active',
           label:state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL
-        },
+        }]:[],
         ...extras.map((column,index)=>({
           id:column.id,
           kind:'extra',
@@ -2534,6 +2552,10 @@
       }
       const availableFilterIds=new Set((state.config.searchFilters||[]).map(filter=>filter.id));
       state.activeSearchFilters=new Set(Array.from(state.activeSearchFilters).filter(id=>availableFilterIds.has(id)));
+      const activeColumnEnabled=state.config.activeColumn?.enabled!==false;
+      if(!activeColumnEnabled){
+        state.showActiveList=false;
+      }
       ensureExtraListElements();
       ensureExtraToggleButtons();
       ensureSearchFilterButtons();
@@ -2579,19 +2601,28 @@
           renderListSection(wrap.list,state,extraBuckets.get(column.id)||[],{emptyMessage:'Keine Geräte',searchContext});
         });
       }
+      if(elements.extraContainer){
+        const hasVisibleExtra=Array.isArray(elements.extraWraps)?elements.extraWraps.some(wrap=>wrap?.wrap && !wrap.wrap.hidden):false;
+        elements.extraContainer.hidden=!hasVisibleExtra;
+      }
       if(elements.activeWrap && elements.activeList){
         if(elements.activeTitle){
           elements.activeTitle.textContent=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
         }
-        elements.activeWrap.hidden=!state.showActiveList;
-        renderListSection(elements.activeList,state,activeItems,{
-          emptyMessage:'Keine aktiven Geräte',
-          respectExcluded:false,
-          ignoreSearch:true,
-          searchContext
-        });
+        const shouldShowActive=activeColumnEnabled && state.showActiveList;
+        elements.activeWrap.hidden=!shouldShowActive;
+        if(shouldShowActive){
+          renderListSection(elements.activeList,state,activeItems,{
+            emptyMessage:'Keine aktiven Geräte',
+            respectExcluded:false,
+            ignoreSearch:true,
+            searchContext
+          });
+        }else{
+          elements.activeList.innerHTML='';
+        }
       }
-      elements.root.classList.toggle('db-has-active',!!state.showActiveList);
+      elements.root.classList.toggle('db-has-active',activeColumnEnabled&&!!state.showActiveList);
       persistState(state,instanceId);
       SHARED.publishAspenItems(instanceId,state.items);
       refreshMenu(elements,state,render);
@@ -2900,6 +2931,16 @@
       }
     }
 
+    function handleActiveToggleChange(event){
+      const checkbox=event.target;
+      if(!checkbox) return;
+      tempActiveColumnEnabled=!!checkbox.checked;
+      if(!tempActiveColumnEnabled){
+        state.showActiveList=false;
+      }
+      scheduleOptionPersist(true);
+    }
+
     function handleExtraNameInput(event){
       const input=event.target;
       if(!input || typeof input.value!=='string') return;
@@ -2929,8 +2970,12 @@
         return;
       }
       const fallbackActiveLabel=state.config?.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
+      const fallbackActiveEnabled=state.config?.activeColumn?.enabled!==false;
       if(typeof tempActiveColumnLabel!=='string'){
         tempActiveColumnLabel=fallbackActiveLabel;
+      }
+      if(typeof tempActiveColumnEnabled!=='boolean'){
+        tempActiveColumnEnabled=fallbackActiveEnabled;
       }
       const desired=[
         {
@@ -2938,7 +2983,8 @@
           kind:'active',
           labelText:'Aktive Geräte',
           value:tempActiveColumnLabel,
-          placeholder:'Name der aktiven Spalte'
+          placeholder:'Name der aktiven Spalte',
+          enabled:tempActiveColumnEnabled!==false
         },
         ...tempExtraColumns.map((column,index)=>({
           id:column.id,
@@ -2981,6 +3027,31 @@
           input.placeholder=def.placeholder;
           if(document.activeElement!==input){
             input.value=def.value||'';
+          }
+        }
+        if(def.kind==='active'){
+          let toggle=row.querySelector('.db-active-toggle');
+          if(!toggle){
+            toggle=document.createElement('label');
+            toggle.className='db-active-toggle';
+            const checkbox=document.createElement('input');
+            checkbox.type='checkbox';
+            checkbox.className='db-active-checkbox';
+            checkbox.addEventListener('change',handleActiveToggleChange);
+            toggle.appendChild(checkbox);
+            const text=document.createElement('span');
+            text.textContent='Spalte anzeigen';
+            toggle.appendChild(text);
+            row.insertBefore(toggle,row.firstChild);
+          }
+          const checkbox=row.querySelector('.db-active-checkbox');
+          if(checkbox){
+            checkbox.checked=!!def.enabled;
+          }
+        }else{
+          const toggle=row.querySelector('.db-active-toggle');
+          if(toggle){
+            toggle.remove();
           }
         }
         elements.extraNameList.appendChild(row);
@@ -3207,6 +3278,7 @@
       tempTitleRules=Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[];
       tempExtraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[];
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
+      tempActiveColumnEnabled=state.config.activeColumn?.enabled!==false;
       tempSearchFilters=Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[];
       populateFieldSelects();
       renderSubFieldControls();
@@ -3230,6 +3302,7 @@
       tempTitleRules=[];
       tempExtraColumns=[];
       tempActiveColumnLabel='';
+      tempActiveColumnEnabled=true;
       tempSearchFilters=[];
       closePartSelectDropdown();
       syncPartSelectInputValue();
