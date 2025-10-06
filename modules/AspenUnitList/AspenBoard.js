@@ -1783,10 +1783,20 @@
         if(newPart){
           state.config.partField=newPart;
         }
-        const collected=(tempSubFields||[]).map(value=>String(value||'').trim()).filter(Boolean);
+        const optionsOpen=!!elements.modal?.classList.contains('open');
+        const subFieldSource=optionsOpen && Array.isArray(tempSubFields)&&tempSubFields.length
+          ? tempSubFields
+          : Array.isArray(state.config.subFields)?state.config.subFields:[];
+        const collected=subFieldSource.map(value=>String(value||'').trim()).filter(Boolean);
         const availableSubFields=getAvailableFieldList(state);
         state.config.subFields=collected.length?collected:[availableSubFields[0]||DEFAULT_SUB_FIELD];
-        const preparedRules=(tempTitleRules||[]).map(rule=>normalizeTitleRule(rule)).map(rule=>({
+        if(optionsOpen){
+          tempSubFields=state.config.subFields.slice();
+        }
+        const ruleSource=optionsOpen && Array.isArray(tempTitleRules)
+          ? tempTitleRules
+          : Array.isArray(state.config.titleRules)?state.config.titleRules:[];
+        const preparedRules=ruleSource.map(rule=>normalizeTitleRule(rule)).map(rule=>({
           field:(rule.field||'').trim(),
           operator:normalizeOperator(rule.operator),
           value:typeof rule.value==='string'?rule.value.trim():(rule.value==null?'':String(rule.value).trim()),
@@ -1794,6 +1804,9 @@
           color:sanitizeHexColor(rule.color||'')
         })).filter(rule=>rule.field);
         state.config.titleRules=preparedRules;
+        if(optionsOpen){
+          tempTitleRules=preparedRules.map(rule=>({...rule}));
+        }
         state.config.colors={
           bg:elements.cBg?.value||state.config.colors.bg,
           item:elements.cItem?.value||state.config.colors.item,
@@ -1802,15 +1815,31 @@
           accent:elements.cAccent?.value||state.config.colors.accent,
           active:elements.cActive?.value||state.config.colors.active
         };
-        const activeLabel=String(tempActiveColumnLabel||'').trim();
+        const activeLabelSource=optionsOpen
+          ? tempActiveColumnLabel
+          : state.config.activeColumn?.label;
+        const activeLabel=String(activeLabelSource||'').trim();
         state.config.activeColumn=sanitizeActiveColumn({label:activeLabel});
+        if(optionsOpen){
+          tempActiveColumnLabel=state.config.activeColumn.label;
+        }
         const previousFilterIds=new Set(Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>filter.id):[]);
-        const sanitizedExtras=sanitizeExtraColumns(tempExtraColumns);
+        const extraSource=optionsOpen && Array.isArray(tempExtraColumns)
+          ? tempExtraColumns
+          : Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
+        const sanitizedExtras=sanitizeExtraColumns(extraSource);
         state.config.extraColumns=sanitizedExtras;
-        tempExtraColumns=sanitizedExtras.map(col=>({...col}));
-        const sanitizedFilters=sanitizeSearchFilters(tempSearchFilters);
+        if(optionsOpen){
+          tempExtraColumns=sanitizedExtras.map(col=>({...col}));
+        }
+        const filterSource=optionsOpen && Array.isArray(tempSearchFilters)
+          ? tempSearchFilters
+          : Array.isArray(state.config.searchFilters)?state.config.searchFilters:[];
+        const sanitizedFilters=sanitizeSearchFilters(filterSource);
         state.config.searchFilters=sanitizedFilters;
-        tempSearchFilters=sanitizedFilters.map(filter=>({...filter}));
+        if(optionsOpen){
+          tempSearchFilters=sanitizedFilters.map(filter=>({...filter}));
+        }
         if(!(state.activeSearchFilters instanceof Set)){
           state.activeSearchFilters=new Set(Array.isArray(state.activeSearchFilters)?state.activeSearchFilters:[]);
         }
@@ -1823,7 +1852,7 @@
         });
         ensureColumnAssignments(state);
         ensureHiddenExtraColumns(state);
-        if(elements.modal?.classList.contains('open')){
+        if(optionsOpen){
           renderExtraControls();
           renderSearchFilterControls();
         }
