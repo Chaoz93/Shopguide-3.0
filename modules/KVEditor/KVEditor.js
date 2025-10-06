@@ -282,7 +282,7 @@ class KVEditor {
 
       .library-item-header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         gap: 8px;
       }
@@ -293,12 +293,31 @@ class KVEditor {
         font-size: 1rem;
       }
 
-      .library-item-remove {
+      .library-item-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .library-item-actions button {
         border: none;
         background: none;
-        color: #ff7777;
+        color: inherit;
         font-size: 0.95rem;
         cursor: pointer;
+        padding: 2px;
+      }
+
+      .library-item-edit {
+        color: #7fb0ff;
+      }
+
+      .library-item-edit.save {
+        color: #9bd48d;
+      }
+
+      .library-item-remove {
+        color: #ff7777;
       }
 
       .library-item-text {
@@ -306,6 +325,13 @@ class KVEditor {
         white-space: pre-wrap;
         word-break: break-word;
         color: #d0d0d0;
+      }
+
+      .library-item-text.editing {
+        background: #1e1e1e;
+        outline: 2px solid #3f63b3;
+        border-radius: 6px;
+        padding: 6px;
       }
 
       select,
@@ -352,6 +378,26 @@ class KVEditor {
         cursor: move;
         user-select: none;
         max-width: 100%;
+        position: relative;
+      }
+
+      .baustein.drop-before::before,
+      .baustein.drop-after::after {
+        content: '';
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        height: 2px;
+        background: #4f7de3;
+        border-radius: 2px;
+      }
+
+      .baustein.drop-before::before {
+        top: 2px;
+      }
+
+      .baustein.drop-after::after {
+        bottom: 2px;
       }
 
       .baustein-text {
@@ -377,6 +423,11 @@ class KVEditor {
       .actions {
         display: flex;
         justify-content: flex-end;
+      }
+
+      .preview-box.drop-target {
+        border-color: #4f7de3;
+        box-shadow: 0 0 0 2px rgba(79, 125, 227, 0.2);
       }
 
       .copy-feedback {
@@ -459,22 +510,36 @@ class KVEditor {
     }
 
     if (this.previewBox) {
+      this.previewBox.addEventListener('dragenter', () => {
+        this.previewBox.classList.add('drop-target');
+      });
+
       this.previewBox.addEventListener('dragover', (event) => {
         event.preventDefault();
         const hasLibraryData = Boolean(event.dataTransfer.getData('application/json'));
         event.dataTransfer.dropEffect = hasLibraryData ? 'copy' : 'move';
+        this.previewBox.classList.add('drop-target');
+      });
+
+      this.previewBox.addEventListener('dragleave', (event) => {
+        if (!this.previewBox.contains(event.relatedTarget)) {
+          this.previewBox.classList.remove('drop-target');
+          this.clearDropIndicators();
+        }
       });
 
       this.previewBox.addEventListener('drop', (event) => {
         event.preventDefault();
+        this.previewBox.classList.remove('drop-target');
+        this.clearDropIndicators();
         const libraryPayload = this.parseLibraryPayload(event.dataTransfer.getData('application/json'));
         if (libraryPayload) {
           this.addBaustein(libraryPayload.text);
           return;
         }
-        const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+        const fromIndex = this.readDragIndex(event);
         if (!Number.isNaN(fromIndex)) {
-          this.reorderBausteine(fromIndex, this.bausteine.length, { insertBefore: false });
+          this.reorderBausteine(fromIndex, this.bausteine.length);
         }
       });
     }
@@ -586,12 +651,7 @@ class KVEditor {
       return;
     }
     this.customSnippets.forEach((snippet) => {
-      const item = this.createLibraryItem({
-        title: 'Freitext',
-        text: snippet.text,
-        removable: true,
-        onRemove: () => this.removeCustomSnippet(snippet.id),
-      });
+      const item = this.createCustomSnippetItem(snippet);
       this.customLibrary.appendChild(item);
     });
   }
@@ -632,6 +692,10 @@ class KVEditor {
     titleEl.textContent = title || 'Baustein';
     header.appendChild(titleEl);
 
+    const actions = document.createElement('div');
+    actions.className = 'library-item-actions';
+    header.appendChild(actions);
+
     if (removable) {
       const removeBtn = document.createElement('button');
       removeBtn.className = 'library-item-remove';
@@ -643,7 +707,7 @@ class KVEditor {
           onRemove();
         }
       });
-      header.appendChild(removeBtn);
+      actions.appendChild(removeBtn);
     }
 
     const textEl = document.createElement('div');
@@ -654,6 +718,227 @@ class KVEditor {
     item.appendChild(textEl);
 
     return item;
+  }
+
+  createCustomSnippetItem(snippet) {
+    const item = document.createElement('div');
+    item.className = 'library-item';
+    item.draggable = true;
+
+    const getLatestSnippet = () => this.customSnippets.find((entry) => entry.id === snippet.id) || snippet;
+    let isEditing = false;
+
+    item.addEventListener('dragstart', (event) => {
+      const latest = getLatestSnippet();
+      const textForTransfer = latest.text || '';
+      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.setData('application/json', JSON.stringify({ source: 'library', text: textForTransfer }));
+    });
+
+    item.addEventListener('dblclick', () => {
+      if (isEditing) {
+        return;
+      }
+      const latest = getLatestSnippet();
+      this.addBaustein(latest.text);
+    });
+
+    const header = document.createElement('div');
+    header.className = 'library-item-header';
+
+    const titleEl = document.createElement('p');
+    titleEl.className = 'library-item-title';
+    titleEl.textContent = 'Freitext';
+    header.appendChild(titleEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'library-item-actions';
+    header.appendChild(actions);
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'library-item-edit';
+    editBtn.title = 'Freitext bearbeiten';
+    editBtn.textContent = '✎';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'library-item-remove';
+    removeBtn.title = 'Freitext löschen';
+    removeBtn.textContent = '✖';
+    removeBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.removeCustomSnippet(snippet.id);
+    });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(removeBtn);
+
+    const textEl = document.createElement('div');
+    textEl.className = 'library-item-text';
+    textEl.textContent = snippet.text;
+    textEl.contentEditable = 'false';
+    textEl.spellcheck = false;
+    textEl.setAttribute('draggable', 'false');
+
+    const exitEditing = (revertToOriginal = false) => {
+      isEditing = false;
+      textEl.contentEditable = 'false';
+      textEl.classList.remove('editing');
+      editBtn.classList.remove('save');
+      editBtn.textContent = '✎';
+      editBtn.title = 'Freitext bearbeiten';
+      if (revertToOriginal) {
+        const latest = getLatestSnippet();
+        textEl.textContent = latest.text;
+      }
+    };
+
+    const commitEditing = () => {
+      const latest = getLatestSnippet();
+      const originalText = latest.text || '';
+      const updatedText = (textEl.textContent || '').trim();
+      if (!updatedText) {
+        exitEditing(true);
+        return;
+      }
+      exitEditing();
+      if (updatedText !== originalText) {
+        this.updateCustomSnippet(snippet.id, updatedText);
+      } else {
+        textEl.textContent = originalText;
+      }
+    };
+
+    const startEditing = () => {
+      if (isEditing) {
+        return;
+      }
+      isEditing = true;
+      textEl.contentEditable = 'true';
+      textEl.classList.add('editing');
+      editBtn.classList.add('save');
+      editBtn.textContent = '💾';
+      editBtn.title = 'Freitext speichern (Strg/Cmd+Enter)';
+      textEl.focus();
+      this.placeCaretAtEnd(textEl);
+    };
+
+    editBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (!isEditing) {
+        startEditing();
+        return;
+      }
+      commitEditing();
+    });
+
+    textEl.addEventListener('keydown', (event) => {
+      if (!isEditing) {
+        return;
+      }
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        commitEditing();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        exitEditing(true);
+      }
+    });
+
+    textEl.addEventListener('blur', () => {
+      if (isEditing) {
+        commitEditing();
+      }
+    });
+
+    item.appendChild(header);
+    item.appendChild(textEl);
+
+    return item;
+  }
+
+  updateCustomSnippet(id, newText) {
+    const trimmed = (newText || '').trim();
+    if (!trimmed) {
+      return;
+    }
+    const index = this.customSnippets.findIndex((snippet) => snippet.id === id);
+    if (index === -1) {
+      return;
+    }
+    if (this.customSnippets[index].text === trimmed) {
+      return;
+    }
+    this.customSnippets[index].text = trimmed;
+    this.saveCustomSnippets();
+    this.renderCustomSnippets();
+  }
+
+  placeCaretAtEnd(element) {
+    if (!element || typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+    const selection = window.getSelection();
+    if (!selection) {
+      return;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  readDragIndex(event) {
+    if (!event || !event.dataTransfer) {
+      return Number.NaN;
+    }
+    const raw = event.dataTransfer.getData('text/plain');
+    if (raw === undefined || raw === null || raw === '') {
+      return Number.NaN;
+    }
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? Number.NaN : parsed;
+  }
+
+  calculateDropPosition(event, element) {
+    if (!element || typeof element.getBoundingClientRect !== 'function') {
+      return { targetIndex: this.bausteine.length, dropAfter: true };
+    }
+    const rect = element.getBoundingClientRect();
+    const offsetY = event.clientY - rect.top;
+    const dropAfter = offsetY > rect.height / 2;
+    const baseIndex = Number(element.dataset.index);
+    const safeIndex = Number.isNaN(baseIndex) ? this.bausteine.length : baseIndex;
+    const targetIndex = dropAfter ? safeIndex + 1 : safeIndex;
+    return { targetIndex, dropAfter };
+  }
+
+  setDropIndicator(element, position) {
+    if (!element) {
+      return;
+    }
+    element.classList.remove('drop-before', 'drop-after');
+    if (position === 'before') {
+      element.classList.add('drop-before');
+    } else if (position === 'after') {
+      element.classList.add('drop-after');
+    }
+  }
+
+  clearDropIndicator(element) {
+    if (!element) {
+      return;
+    }
+    element.classList.remove('drop-before', 'drop-after');
+  }
+
+  clearDropIndicators() {
+    if (!this.previewBox) {
+      return;
+    }
+    this.previewBox.querySelectorAll('.baustein').forEach((node) => {
+      this.clearDropIndicator(node);
+    });
   }
 
   renderEmptyLibraryMessage(container, message) {
@@ -686,6 +971,11 @@ class KVEditor {
   }
 
   renderPreview() {
+    if (!this.previewBox) {
+      return;
+    }
+    this.clearDropIndicators();
+    this.previewBox.classList.remove('drop-target');
     this.previewBox.innerHTML = '';
     if (this.bausteine.length === 0) {
       const placeholder = document.createElement('span');
@@ -711,20 +1001,35 @@ class KVEditor {
         event.preventDefault();
         const hasLibraryData = Boolean(event.dataTransfer.getData('application/json'));
         event.dataTransfer.dropEffect = hasLibraryData ? 'copy' : 'move';
+        const { dropAfter } = this.calculateDropPosition(event, item);
+        this.setDropIndicator(item, dropAfter ? 'after' : 'before');
+      });
+
+      item.addEventListener('dragleave', (event) => {
+        if (!item.contains(event.relatedTarget)) {
+          this.clearDropIndicator(item);
+        }
       });
 
       item.addEventListener('drop', (event) => {
         event.preventDefault();
-        const toIndex = Number(item.dataset.index);
         const libraryPayload = this.parseLibraryPayload(event.dataTransfer.getData('application/json'));
+        const { targetIndex, dropAfter } = this.calculateDropPosition(event, item);
+        this.clearDropIndicator(item);
         if (libraryPayload) {
-          this.addBaustein(libraryPayload.text, toIndex);
+          this.addBaustein(libraryPayload.text, targetIndex);
           return;
         }
-        const fromIndex = Number(event.dataTransfer.getData('text/plain'));
-        if (!Number.isNaN(fromIndex) && !Number.isNaN(toIndex) && fromIndex !== toIndex) {
-          this.reorderBausteine(fromIndex, toIndex, { insertBefore: true });
+        const fromIndex = this.readDragIndex(event);
+        if (!Number.isNaN(fromIndex)) {
+          if (!(fromIndex === targetIndex || (fromIndex + 1 === targetIndex && dropAfter))) {
+            this.reorderBausteine(fromIndex, targetIndex);
+          }
         }
+      });
+
+      item.addEventListener('dragend', () => {
+        this.clearDropIndicator(item);
       });
 
       const textSpan = document.createElement('div');
@@ -756,19 +1061,20 @@ class KVEditor {
     this.updateLivePreview();
   }
 
-  reorderBausteine(fromIndex, toIndex, { insertBefore = false } = {}) {
+  reorderBausteine(fromIndex, toIndex) {
     if (Number.isNaN(fromIndex) || Number.isNaN(toIndex)) {
       return;
     }
     if (fromIndex < 0 || fromIndex >= this.bausteine.length) {
       return;
     }
+    let targetIndex = Math.max(0, Math.min(toIndex, this.bausteine.length));
+    if (fromIndex === targetIndex || fromIndex + 1 === targetIndex) {
+      return;
+    }
     const [moved] = this.bausteine.splice(fromIndex, 1);
-    let targetIndex;
-    if (insertBefore) {
-      targetIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
-    } else {
-      targetIndex = toIndex >= this.bausteine.length ? this.bausteine.length : toIndex;
+    if (fromIndex < targetIndex) {
+      targetIndex -= 1;
     }
     targetIndex = Math.max(0, Math.min(targetIndex, this.bausteine.length));
     this.bausteine.splice(targetIndex, 0, moved);
