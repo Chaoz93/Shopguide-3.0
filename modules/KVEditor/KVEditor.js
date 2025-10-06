@@ -1,5 +1,7 @@
 class KVEditor {
-  constructor() {
+  constructor(options = {}) {
+    const { mount } = options || {};
+
     this.presets = [];
     this.customSnippets = [];
     this.customSnippetsKey = 'kvEditorCustomSnippets';
@@ -8,6 +10,423 @@ class KVEditor {
     this.profileStorageKey = 'kvEditorProfiles';
     this.profiles = {};
 
+    this.root = this.setupLayout(mount);
+    this.cacheElements();
+    this.attachEventListeners();
+
+    this.init();
+  }
+
+  setupLayout(mount) {
+    if (typeof document === 'undefined') {
+      throw new Error('KVEditor benötigt eine Browser-Umgebung.');
+    }
+
+    this.injectStyles();
+
+    let mountTarget = mount;
+    if (typeof mountTarget === 'string') {
+      mountTarget = document.querySelector(mountTarget);
+    }
+    if (!(mountTarget instanceof HTMLElement)) {
+      mountTarget = document.body;
+    }
+
+    if (!mountTarget) {
+      throw new Error('Es konnte kein gültiges Ziel zum Einfügen des KV-Editors gefunden werden.');
+    }
+
+    if (mountTarget === document.body) {
+      document.body.classList.add('kv-editor-page');
+    }
+
+    const existingRoot = document.getElementById('kvEditorRoot');
+    if (existingRoot) {
+      existingRoot.remove();
+    }
+
+    const root = document.createElement('div');
+    root.id = 'kvEditorRoot';
+    root.className = 'kv-container';
+    root.innerHTML = `
+      <aside class="kv-sidebar">
+        <h2>Profile</h2>
+        <div class="profile-list" id="profileList"></div>
+        <div class="profile-controls">
+          <input type="text" id="profileNameInput" placeholder="Profilname" />
+          <p class="autosave-hint">Profile werden automatisch gespeichert.</p>
+          <button id="newProfileBtn">Neues Profil anlegen</button>
+        </div>
+      </aside>
+      <main class="kv-main">
+        <h1>KV-Editor</h1>
+        <section class="builder">
+          <div class="builder-column library-column">
+            <section class="library-section">
+              <h2>Baukasten Presets</h2>
+              <div id="presetLibrary" class="library-list"></div>
+            </section>
+            <section class="library-section">
+              <h2>Freitext-Bausteine</h2>
+              <textarea id="freitextInput" placeholder="Freitext eingeben..."></textarea>
+              <div class="actions">
+                <button id="createFreitextBtn">Freitext-Baustein erstellen</button>
+              </div>
+              <div id="customLibrary" class="library-list"></div>
+            </section>
+          </div>
+          <div class="builder-column preview-column">
+            <h2>Zusammengestellte Bausteine</h2>
+            <div class="preview-box" id="previewBox">
+              <span class="preview-placeholder">Noch keine Textbausteine hinzugefügt.</span>
+            </div>
+            <div class="actions">
+              <button id="copyAllBtn">Alles kopieren</button>
+            </div>
+            <div class="copy-feedback" id="copyFeedback"></div>
+          </div>
+        </section>
+        <section class="live-preview-section">
+          <h2>Live Vorschau</h2>
+          <pre id="livePreviewOutput" class="live-preview">Noch keine Textbausteine hinzugefügt.</pre>
+        </section>
+      </main>
+    `;
+
+    mountTarget.appendChild(root);
+    return root;
+  }
+
+  injectStyles() {
+    if (document.getElementById('kvEditorStyles')) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'kvEditorStyles';
+    style.textContent = `
+      :root {
+        color-scheme: dark;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #121212;
+        color: #e0e0e0;
+      }
+
+      .kv-editor-page {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        background: #1a1a1a;
+      }
+
+      .kv-container {
+        display: flex;
+        width: 100%;
+        min-height: 100vh;
+      }
+
+      .kv-sidebar {
+        width: 260px;
+        background: #181818;
+        border-right: 1px solid #2a2a2a;
+        padding: 20px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .kv-sidebar h2 {
+        margin: 0;
+        font-size: 1.2rem;
+      }
+
+      .profile-list {
+        flex: 1;
+        overflow-y: auto;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 8px;
+        background: #151515;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .profile-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: #202020;
+        transition: background 0.2s;
+      }
+
+      .profile-item.active {
+        background: #2f4f90;
+        color: #ffffff;
+      }
+
+      .profile-item button {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        font-size: 1rem;
+        margin-left: 6px;
+      }
+
+      .profile-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .profile-controls input {
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #2a2a2a;
+        background: #101010;
+        color: #e0e0e0;
+      }
+
+      .autosave-hint {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #aaaaaa;
+      }
+
+      .profile-controls button,
+      .kv-main button {
+        padding: 10px 14px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        background: #2f4f90;
+        color: #ffffff;
+        font-weight: 600;
+        transition: background 0.2s ease;
+      }
+
+      .profile-controls button:hover,
+      .kv-main button:hover {
+        background: #3f63b3;
+      }
+
+      .kv-main {
+        flex: 1;
+        padding: 24px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        overflow-y: auto;
+      }
+
+      .kv-main h1 {
+        margin: 0;
+        font-size: 1.6rem;
+      }
+
+      .builder {
+        display: grid;
+        grid-template-columns: minmax(260px, 320px) 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      .builder-column {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .library-section {
+        background: #161616;
+        border: 1px solid #2a2a2a;
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .library-section h2 {
+        margin: 0;
+        font-size: 1.2rem;
+      }
+
+      .library-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 320px;
+        overflow-y: auto;
+      }
+
+      .library-item {
+        background: #202020;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: grab;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .library-item:active {
+        cursor: grabbing;
+      }
+
+      .library-item-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .library-item-title {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1rem;
+      }
+
+      .library-item-remove {
+        border: none;
+        background: none;
+        color: #ff7777;
+        font-size: 0.95rem;
+        cursor: pointer;
+      }
+
+      .library-item-text {
+        font-size: 0.95rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: #d0d0d0;
+      }
+
+      select,
+      textarea,
+      input[type="text"] {
+        background: #101010;
+        color: #e0e0e0;
+        border: 1px solid #2a2a2a;
+        border-radius: 6px;
+        padding: 8px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 80px;
+        resize: vertical;
+      }
+
+      .preview-box {
+        background: #1f1f1f;
+        color: #ffffff;
+        border-radius: 12px;
+        padding: 16px;
+        min-height: 150px;
+        border: 1px solid #2a2a2a;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .preview-placeholder {
+        color: #777;
+        font-style: italic;
+      }
+
+      .baustein {
+        background: #2a2a2a;
+        border: 1px solid #3a3a3a;
+        border-radius: 8px;
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: move;
+        user-select: none;
+        max-width: 100%;
+      }
+
+      .baustein-text {
+        flex: 1;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .baustein-text[contenteditable="true"]:focus {
+        outline: 2px solid #3f63b3;
+        border-radius: 6px;
+      }
+
+      .baustein-remove {
+        cursor: pointer;
+        color: #ff7777;
+        font-weight: bold;
+        border: none;
+        background: none;
+        font-size: 1rem;
+      }
+
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .copy-feedback {
+        color: #7fd87f;
+        font-size: 0.9rem;
+        min-height: 1.2rem;
+      }
+
+      .live-preview-section {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .live-preview {
+        background: #101010;
+        border-radius: 12px;
+        border: 1px solid #2a2a2a;
+        padding: 16px;
+        min-height: 180px;
+        white-space: pre-wrap;
+        font-family: inherit;
+      }
+
+      @media (max-width: 1024px) {
+        .builder {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .kv-editor-page {
+          flex-direction: column;
+        }
+
+        .kv-container {
+          flex-direction: column;
+          height: auto;
+        }
+
+        .kv-sidebar {
+          width: 100%;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  cacheElements() {
     this.previewBox = document.getElementById('previewBox');
     this.livePreviewOutput = document.getElementById('livePreviewOutput');
     this.presetLibrary = document.getElementById('presetLibrary');
@@ -16,58 +435,75 @@ class KVEditor {
     this.profileList = document.getElementById('profileList');
     this.profileNameInput = document.getElementById('profileNameInput');
     this.copyFeedback = document.getElementById('copyFeedback');
+    this.copyAllBtn = document.getElementById('copyAllBtn');
+    this.createFreitextBtn = document.getElementById('createFreitextBtn');
+    this.newProfileBtn = document.getElementById('newProfileBtn');
+  }
 
-    document.getElementById('copyAllBtn').addEventListener('click', () => this.copyAll());
-    document.getElementById('createFreitextBtn').addEventListener('click', () => {
-      const text = this.freitextInput.value.trim();
-      if (text) {
-        this.createCustomSnippet(text);
-        this.freitextInput.value = '';
-      }
-    });
+  attachEventListeners() {
+    if (this.copyAllBtn) {
+      this.copyAllBtn.addEventListener('click', () => this.copyAll());
+    }
 
-    this.previewBox.addEventListener('dragover', (event) => {
-      event.preventDefault();
-      const hasLibraryData = Boolean(event.dataTransfer.getData('application/json'));
-      event.dataTransfer.dropEffect = hasLibraryData ? 'copy' : 'move';
-    });
+    if (this.createFreitextBtn) {
+      this.createFreitextBtn.addEventListener('click', () => {
+        const input = this.freitextInput;
+        const text = input ? input.value.trim() : '';
+        if (text) {
+          this.createCustomSnippet(text);
+          if (input) {
+            input.value = '';
+          }
+        }
+      });
+    }
 
-    this.previewBox.addEventListener('drop', (event) => {
-      event.preventDefault();
-      const libraryPayload = this.parseLibraryPayload(event.dataTransfer.getData('application/json'));
-      if (libraryPayload) {
-        this.addBaustein(libraryPayload.text);
-        return;
-      }
-      const fromIndex = Number(event.dataTransfer.getData('text/plain'));
-      if (!Number.isNaN(fromIndex)) {
-        this.reorderBausteine(fromIndex, this.bausteine.length, { insertBefore: false });
-      }
-    });
+    if (this.previewBox) {
+      this.previewBox.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        const hasLibraryData = Boolean(event.dataTransfer.getData('application/json'));
+        event.dataTransfer.dropEffect = hasLibraryData ? 'copy' : 'move';
+      });
 
-    this.profileNameInput.addEventListener('change', () => {
-      const newName = this.profileNameInput.value.trim();
-      if (newName && this.activeProfile) {
-        this.renameProfile(this.activeProfile, newName);
-      }
-    });
-
-    document.getElementById('newProfileBtn').addEventListener('click', () => {
-      const name = prompt('Name für neues Profil:');
-      if (name) {
-        const trimmed = name.trim();
-        if (!trimmed) {
+      this.previewBox.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const libraryPayload = this.parseLibraryPayload(event.dataTransfer.getData('application/json'));
+        if (libraryPayload) {
+          this.addBaustein(libraryPayload.text);
           return;
         }
-        this.persistActiveProfile();
-        this.bausteine = [];
-        this.renderPreview();
-        this.saveProfile(trimmed, { setActive: true });
-        this.loadProfile(trimmed);
-      }
-    });
+        const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+        if (!Number.isNaN(fromIndex)) {
+          this.reorderBausteine(fromIndex, this.bausteine.length, { insertBefore: false });
+        }
+      });
+    }
 
-    this.init();
+    if (this.profileNameInput) {
+      this.profileNameInput.addEventListener('change', () => {
+        const newName = this.profileNameInput.value.trim();
+        if (newName && this.activeProfile) {
+          this.renameProfile(this.activeProfile, newName);
+        }
+      });
+    }
+
+    if (this.newProfileBtn) {
+      this.newProfileBtn.addEventListener('click', () => {
+        const name = prompt('Name für neues Profil:');
+        if (name) {
+          const trimmed = name.trim();
+          if (!trimmed) {
+            return;
+          }
+          this.persistActiveProfile();
+          this.bausteine = [];
+          this.renderPreview();
+          this.saveProfile(trimmed, { setActive: true });
+          this.loadProfile(trimmed);
+        }
+      });
+    }
   }
 
   async init() {
