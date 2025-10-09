@@ -22,7 +22,7 @@
     .db-refresh{flex:0 0 auto;padding:.3rem .55rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;background:rgba(255,255,255,.75);color:inherit;font-size:.85rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease;}
     .db-refresh:hover{background:rgba(37,99,235,.08);border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
     .db-refresh[hidden]{display:none;}
-    .db-surface{flex:1;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;}
+    .db-surface{flex:1;background:var(--dl-bg,#10233a);border-radius:1rem;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;overflow:hidden;box-shadow:0 18px 36px rgba(15,23,42,.45);border:1px solid rgba(148,163,184,.22);}
     .db-toolbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-toggle-group{flex:0 0 auto;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
     .db-toggle-group:empty{display:none;}
@@ -199,6 +199,14 @@
     .aspenboard .db-menu .mi:hover{background:rgba(var(--accent-rgb,36,85,129),.18);}
     .aspenboard .db-menu .db-menu-toggle{background:rgba(255,255,255,.04);color:var(--text-color);border:1px solid var(--border-color);}
     .aspenboard .db-menu .db-menu-toggle:hover{background:rgba(var(--accent-rgb,36,85,129),.18);}
+    .aspenboard .db-surface{background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.24);box-shadow:0 20px 38px var(--shadow-color);}
+    .aspenboard .db-list-title{color:var(--muted-text);}
+    .aspenboard .db-card{background:rgba(15,23,42,.62);color:var(--text-color);border:1px solid rgba(148,163,184,.26);box-shadow:0 12px 28px var(--shadow-color);}
+    .aspenboard .db-card-tag{background:rgba(148,163,184,.18);color:var(--text-color);border-color:rgba(148,163,184,.32);}
+    .aspenboard .db-sub{color:rgba(226,232,240,.85);}
+    .aspenboard .db-config-main,
+    .aspenboard .db-extra-card,
+    .aspenboard .db-color-card{background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.24);box-shadow:0 18px 36px var(--shadow-color);color:var(--text-color);}
     .aspenboard .db-menu .db-menu-toggle.is-active{background:var(--accent-gradient,var(--accent-color));color:#fff;border-color:var(--accent-border,var(--accent-color));box-shadow:0 0 0 3px rgba(var(--accent-rgb,36,85,129),.28);}
     .aspenboard .db-menu .db-menu-toggle-icon{background:rgba(var(--accent-rgb,36,85,129),.22);color:var(--text-color);}
     .aspenboard .db-menu .db-menu-toggle.is-active .db-menu-toggle-icon{background:rgba(255,255,255,.25);color:#fff;}
@@ -943,7 +951,7 @@
         subFields:[createSubFieldConfig(DEFAULT_SUB_FIELD)],
         partField:TITLE_FIELD,
         title:initialTitle,
-        colors:{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',accent:'#245581',gradientFrom:'#173752',gradientTo:'#245581',active:'#10b981'},
+        colors:{bg:'#10233a',item:'#1a3552',title:'#e2e8f0',sub:'#cbd5f5',accent:'#3b82f6',gradientFrom:'#173752',gradientTo:'#245581',active:'#38bdf8'},
         titleRules:[],
         extraColumns:[],
         activeColumn:sanitizeActiveColumn({}),
