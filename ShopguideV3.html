@@ -390,8 +390,8 @@
       box-shadow: 0 1px 2px rgba(15,23,42,0.08);
     }
     .module-color-preview {
-      flex: 0 0 220px;
-      max-width: 260px;
+      flex: 0 0 240px;
+      max-width: 300px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -399,41 +399,85 @@
     .module-preview-card {
       width: 100%;
       border-radius: 1rem;
-      padding: 1.15rem;
+      padding: 1.1rem;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
       transition: background 0.2s ease, color 0.2s ease;
     }
     .module-layer-badge {
       align-self: flex-start;
-      padding: 0.25rem 0.75rem;
+      padding: 0.3rem 0.75rem;
       border-radius: 9999px;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 600;
+      letter-spacing: 0.04em;
       background: rgba(255,255,255,0.85);
       color: #1f2937;
     }
-    .module-preview-title {
-      align-self: flex-start;
-      padding: 0.4rem 0.9rem;
-      border-radius: 9999px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      letter-spacing: 0.02em;
+    .module-preview-topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
     }
-    .module-preview-body {
-      font-size: 0.8rem;
-      line-height: 1.35;
-      opacity: 0.85;
-    }
-    .module-preview-sub {
-      align-self: flex-start;
-      padding: 0.35rem 0.85rem;
+    .module-preview-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.35rem 0.8rem;
       border-radius: 9999px;
       font-size: 0.75rem;
-      font-weight: 500;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: rgba(255,255,255,0.15);
+      color: inherit;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .module-preview-cluster {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      padding: 0.75rem;
+      border-radius: 0.9rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .module-preview-cluster--dual {
+      gap: 0.65rem;
+    }
+    .module-preview-bubble {
+      align-self: flex-start;
+      padding: 0.4rem 0.85rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: 0.03em;
+      background: rgba(255,255,255,0.12);
+      color: inherit;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .module-preview-field {
+      border-radius: 0.75rem;
+      padding: 0.55rem 0.8rem;
+      font-size: 0.76rem;
+      line-height: 1.35;
+      background: rgba(255,255,255,0.1);
+      color: inherit;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .module-preview-field-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+    .module-preview-field--mini {
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
     }
     .module-layer-controls {
       flex: 1 1 260px;
@@ -1022,6 +1066,21 @@ const MAX_MODULE_COLOR_LAYERS = 8;
 
 function generateLayerId() {
   return 'layer-' + Math.random().toString(36).slice(2, 10);
+}
+
+function hexToRgba(color, alpha = 1) {
+  if (typeof color !== 'string') return '';
+  const hex = color.trim();
+  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex);
+  if (!match) return '';
+  const normalized = match[1].length === 3
+    ? match[1].split('').map(ch => ch + ch).join('')
+    : match[1];
+  const intVal = parseInt(normalized, 16);
+  const r = (intVal >> 16) & 255;
+  const g = (intVal >> 8) & 255;
+  const b = intVal & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function createColorLayer(name, moduleBg, moduleText, headerBg, headerText, subBg, subText) {
@@ -3458,9 +3517,30 @@ function createModuleColorLayerElement(layer, index) {
     <div class="module-color-preview">
       <div class="module-preview-card">
         <span class="module-layer-badge"></span>
-        <div class="module-preview-title">ÜBERSCHRIFT</div>
-        <div class="module-preview-body">Beispieltext für den Modulinhalt und optionale Beschreibungen.</div>
-        <div class="module-preview-sub">Unter-Bubble</div>
+        <div class="module-preview-topbar">
+          <span class="module-preview-pill module-preview-pill--title">Findings auswählen</span>
+          <span class="module-preview-pill module-preview-pill--meta">25 Einträge</span>
+          <span class="module-preview-pill module-preview-pill--meta">Live</span>
+        </div>
+        <div class="module-preview-cluster">
+          <span class="module-preview-bubble module-preview-bubble--primary">Findings</span>
+          <div class="module-preview-field">Text für Findings…</div>
+        </div>
+        <div class="module-preview-cluster">
+          <span class="module-preview-bubble module-preview-bubble--alt">Actions</span>
+          <div class="module-preview-field">Text für Actions…</div>
+        </div>
+        <div class="module-preview-cluster">
+          <span class="module-preview-bubble module-preview-bubble--alt">Routine</span>
+          <div class="module-preview-field">Text für Routine…</div>
+        </div>
+        <div class="module-preview-cluster module-preview-cluster--dual">
+          <span class="module-preview-bubble module-preview-bubble--alt">Bestellliste</span>
+          <div class="module-preview-field-row">
+            <div class="module-preview-field module-preview-field--mini">PN-Text</div>
+            <div class="module-preview-field module-preview-field--mini">Menge</div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="module-layer-controls">
@@ -3526,24 +3606,39 @@ function applyModuleColorLayerPreview(layerEl, layer) {
   if (card) {
     card.style.backgroundColor = layer.moduleBg;
     card.style.color = layer.moduleText;
+    const cardOutline = hexToRgba(layer.moduleText, 0.18) || 'rgba(255,255,255,0.16)';
+    card.style.boxShadow = `inset 0 0 0 1px ${cardOutline}`;
   }
-  const body = layerEl.querySelector('.module-preview-body');
-  if (body) body.style.color = layer.moduleText;
   const badge = layerEl.querySelector('.module-layer-badge');
   if (badge) {
     badge.style.backgroundColor = layer.moduleText;
     badge.style.color = layer.moduleBg;
   }
-  const title = layerEl.querySelector('.module-preview-title');
-  if (title) {
-    title.style.backgroundColor = layer.headerBg;
-    title.style.color = layer.headerText;
-  }
-  const sub = layerEl.querySelector('.module-preview-sub');
-  if (sub) {
-    sub.style.backgroundColor = layer.subBg;
-    sub.style.color = layer.subText;
-  }
+  const primaryElements = layerEl.querySelectorAll('.module-preview-bubble--primary, .module-preview-pill--title');
+  primaryElements.forEach(el => {
+    el.style.backgroundColor = layer.headerBg;
+    el.style.color = layer.headerText;
+  });
+  const secondaryElements = layerEl.querySelectorAll('.module-preview-bubble--alt, .module-preview-pill--meta');
+  secondaryElements.forEach(el => {
+    el.style.backgroundColor = layer.subBg;
+    el.style.color = layer.subText;
+  });
+  const clusters = layerEl.querySelectorAll('.module-preview-cluster');
+  const clusterBg = hexToRgba(layer.moduleText, 0.08) || 'rgba(255,255,255,0.08)';
+  const clusterBorder = hexToRgba(layer.moduleText, 0.18) || 'rgba(255,255,255,0.18)';
+  clusters.forEach(cluster => {
+    cluster.style.backgroundColor = clusterBg;
+    cluster.style.borderColor = clusterBorder;
+  });
+  const fields = layerEl.querySelectorAll('.module-preview-field');
+  const fieldBg = hexToRgba(layer.moduleText, 0.12) || 'rgba(255,255,255,0.12)';
+  const fieldBorder = hexToRgba(layer.moduleText, 0.22) || 'rgba(255,255,255,0.22)';
+  fields.forEach(field => {
+    field.style.backgroundColor = fieldBg;
+    field.style.borderColor = fieldBorder;
+    field.style.color = layer.moduleText;
+  });
 }
 
 function updateModuleColorLayerAddState() {
