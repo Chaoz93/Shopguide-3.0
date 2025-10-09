@@ -39,6 +39,12 @@
       --module-border-color: #e5e7eb;
       --danger-bg: #ef4444;
       --danger-text: #ffffff;
+      /* Scrollbar styling */
+      --scrollbar-thumb: rgba(15,23,42,0.35);
+      --scrollbar-thumb-hover: rgba(15,23,42,0.55);
+      --scrollbar-track: transparent;
+      --scrollbar-thumb-inverse: rgba(255,255,255,0.5);
+      --scrollbar-thumb-inverse-hover: rgba(255,255,255,0.7);
       /* Tabs colours */
       --tab-active-bg: #2563eb;
       --tab-active-text: #ffffff;
@@ -61,6 +67,27 @@
 
     html, body { height: 100%; }
     body { margin: 0; background: var(--app-bg); color: var(--body-text); }
+    /* Global modern scrollbar styling */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
+    *::-webkit-scrollbar {
+      width: 0.55rem;
+      height: 0.55rem;
+    }
+    *::-webkit-scrollbar-track {
+      background: var(--scrollbar-track);
+    }
+    *::-webkit-scrollbar-thumb {
+      background-color: var(--scrollbar-thumb);
+      border-radius: 9999px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+    *::-webkit-scrollbar-thumb:hover {
+      background-color: var(--scrollbar-thumb-hover);
+    }
     /* module contents */
     .grid-stack-item-content {
       background: var(--module-bg);
@@ -72,6 +99,14 @@
       min-height: 10px;
       /* apply border using module border colour */
       border: 1px solid var(--module-border-color);
+      overflow: auto;
+      scrollbar-color: var(--scrollbar-thumb-inverse) transparent;
+    }
+    .grid-stack-item-content::-webkit-scrollbar-thumb {
+      background-color: var(--scrollbar-thumb-inverse);
+    }
+    .grid-stack-item-content::-webkit-scrollbar-thumb:hover {
+      background-color: var(--scrollbar-thumb-inverse-hover);
     }
     .drag-handle {
       display:flex;
