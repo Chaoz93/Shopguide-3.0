@@ -5,14 +5,18 @@
   const CSS=`
     .dc-root{height:100%;display:flex;flex-direction:column;gap:.75rem;}
     .dc-title{font-weight:600;font-size:1.05rem;color:var(--text-color);padding:0 .2rem;}
-    .dc-status{display:flex;flex-direction:column;gap:.35rem;background:var(--dl-bg,#f5f7fb);border-radius:1rem;padding:.65rem .75rem;}
-    .dc-line{display:flex;align-items:center;gap:.5rem;font-size:.85rem;}
-    .dc-label{opacity:.7;min-width:105px;font-weight:500;}
-    .dc-value{flex:1;min-width:0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;font-weight:600;color:var(--dl-title,#2563eb);}
+    .dc-status{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem;}
+    .dc-status-item{background:linear-gradient(140deg,#0b3470,#0f3f82 48%,#135093);color:#f8fafc;border-radius:1rem;padding:.75rem .9rem;border:1px solid rgba(30,64,175,.4);box-shadow:0 16px 32px rgba(15,23,42,.24);display:flex;flex-direction:column;gap:.5rem;min-height:104px;}
+    .dc-status-header{display:flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(226,232,240,.9);}
+    .dc-status-icon{font-size:1.05rem;line-height:1;}
+    .dc-status-title{flex:1;min-width:0;}
+    .dc-status-value{display:flex;align-items:center;min-height:1.9rem;}
+    .dc-value-pill{display:inline-flex;align-items:center;gap:.45rem;max-width:100%;padding:.38rem .7rem;border-radius:.7rem;background:rgba(255,255,255,.18);color:#fff;font-weight:600;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .dc-value-pill.is-empty{background:rgba(15,23,42,.32);color:rgba(226,232,240,.85);}
     .dc-unit{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;}
-    .dc-field{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:.85rem;padding:.55rem .75rem;box-shadow:0 4px 12px rgba(15,23,42,.08);}
-    .dc-field-label{font-size:.78rem;opacity:.65;text-transform:uppercase;letter-spacing:.04em;}
-    .dc-field-value{font-weight:600;font-size:1.05rem;}
+    .dc-field{background:linear-gradient(140deg,#0b3470,#0f3f82 48%,#135093);color:#f8fafc;border-radius:.85rem;padding:.6rem .85rem;box-shadow:0 6px 20px rgba(15,23,42,.28);border:1px solid rgba(30,64,175,.44);}
+    .dc-field-label{font-size:.78rem;opacity:.95;text-transform:uppercase;letter-spacing:.04em;color:rgba(226,232,240,.85);}
+    .dc-field-value{font-weight:700;font-size:1.05rem;color:#fff;}
     .dc-editor{flex:1;display:flex;flex-direction:column;gap:.45rem;}
     .dc-editor-label{font-weight:600;font-size:.9rem;color:var(--text-color);}
     .dc-textarea{flex:1;min-height:180px;border-radius:.8rem;border:1px solid var(--border-color,#d1d5db);padding:.65rem .75rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);resize:vertical;}
@@ -224,8 +228,20 @@
     root.innerHTML=`
       ${hasTitle?`<div class="dc-title">${title}</div>`:''}
       <div class="dc-status">
-        <div class="dc-line"><span class="dc-label">Aspen</span><span class="dc-value" data-aspen>Keine Daten</span></div>
-        <div class="dc-line"><span class="dc-label">Kommentare</span><span class="dc-value" data-comments>Keine Datei</span></div>
+        <div class="dc-status-item">
+          <div class="dc-status-header">
+            <span class="dc-status-icon">📄</span>
+            <span class="dc-status-title">Aspen</span>
+          </div>
+          <div class="dc-status-value"><span class="dc-value-pill is-empty" data-aspen>Keine Daten</span></div>
+        </div>
+        <div class="dc-status-item">
+          <div class="dc-status-header">
+            <span class="dc-status-icon">📝</span>
+            <span class="dc-status-title">Kommentare</span>
+          </div>
+          <div class="dc-status-value"><span class="dc-value-pill is-empty" data-comments>Keine Datei</span></div>
+        </div>
       </div>
       <div class="dc-unit">
         <div class="dc-field">
@@ -971,28 +987,36 @@
 
     function updateAspenStatus(entry,{manualSelection=false}={}){
       if(!elements.aspenLabel) return;
-      let label='Keine Aspen-Datei';
-      if(state.aspenHandle||state.aspenName||state.aspenPath){
-        const sourceName=state.aspenPath||state.aspenName;
-        const prefix=sourceName?`• ${sourceName}`:'Datei geladen';
-        if(entry){
-          label=manualSelection?`${prefix} · Manuell`:`${prefix} · Automatisch`;
-        }else if(manualSelection && state.manualAspenKey){
-          label=`${prefix} · Auswahl nicht gefunden`;
-        }else if(state.activeMeldung){
-          label=`${prefix} · Kein Eintrag`;
-        }else if(state.aspenOptions.length){
-          label=`${prefix} · Bereit`;
-        }else{
-          label=`${prefix} · Keine Daten`;
-        }
+      const sourceName=state.aspenPath||state.aspenName||'';
+      const hasFile=!!(state.aspenHandle||sourceName);
+      let detail='';
+      if(entry){
+        detail=manualSelection?'Manuell verknüpft':'Automatisch';
+      }else if(manualSelection && state.manualAspenKey){
+        detail='Auswahl nicht gefunden';
+      }else if(state.activeMeldung){
+        detail='Kein Eintrag';
+      }else if(Array.isArray(state.aspenOptions)&&state.aspenOptions.length){
+        detail='Bereit';
+      }else if(hasFile){
+        detail='Keine Daten';
+      }
+      let label=hasFile?(sourceName||'Aspen-Datei geladen'):'Keine Aspen-Datei';
+      if(hasFile&&detail){
+        label=`${label} · ${detail}`;
       }
       elements.aspenLabel.textContent=label;
+      elements.aspenLabel.title=label;
+      elements.aspenLabel.classList.toggle('is-empty',!hasFile);
     }
 
     function updateFileLabels(){
-      const commentSource=state.commentPath||state.commentName;
-      elements.commentsLabel.textContent=commentSource?`• ${commentSource}`:'Keine Datei';
+      const label=state.commentPath||state.commentName||'';
+      const hasFile=!!(state.commentHandle||label);
+      const text=hasFile?(label||'Kommentar-Datei geladen'):'Keine Datei';
+      elements.commentsLabel.textContent=text;
+      elements.commentsLabel.title=text;
+      elements.commentsLabel.classList.toggle('is-empty',!hasFile);
     }
 
     function getActiveCommentEntry(){
