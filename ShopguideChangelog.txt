@@ -125,6 +125,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Fixed
 - Automatisches Anordnen passt sich wieder korrekt an das Float-Verhalten an.
 
+## [Unreleased]
+### Changed
+- [UI] Layer-Preview überarbeitet: breiter, verschachtelte Darstellung (Hauptmodul → Überschrift → Unter-Layer) mit klaren Labels.
+
 ## [3.1.1] – 2025-09-12
 ### Changed
 - README um Hinweise zu Pause, Regelarbeitszeit und Umziehzeit im Arbeitszeit-Modul erweitert.

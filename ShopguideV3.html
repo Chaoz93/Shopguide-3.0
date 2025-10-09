@@ -390,22 +390,34 @@
       box-shadow: 0 1px 2px rgba(15,23,42,0.08);
     }
     .module-color-preview {
-      flex: 0 0 320px;
-      max-width: 420px;
+      flex: 1 1 100%;
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: stretch;
     }
-    .module-preview-card {
+    .layer-preview {
       width: 100%;
-      border-radius: 1rem;
-      padding: 1.1rem;
+      max-width: 900px;
+      margin: 0 auto;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      border: 2px solid #d1d5db;
+      background: #f9fafb;
+      padding: 1.5rem;
+      display: flex;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .layer-main {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
-      border: 1px solid rgba(255,255,255,0.18);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
-      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      gap: 1rem;
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      border: 2px solid transparent;
+      background: #ffffff;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .module-layer-badge {
       align-self: flex-start;
@@ -419,144 +431,69 @@
       border: 1px solid transparent;
       transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
-    .module-preview-topbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-      align-items: center;
-    }
-    .module-preview-layout {
-      display: grid;
-      gap: 0.85rem;
-      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 1fr);
-      align-items: stretch;
-    }
-    .module-preview-stack {
+    .layer-header {
+      border-radius: 0.5rem;
+      border: 1px solid transparent;
+      padding: 0.75rem 1rem;
       display: flex;
       flex-direction: column;
-      gap: 0.6rem;
+      gap: 0.4rem;
+      background: rgba(148,163,184,0.2);
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
-    .module-preview-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.35rem 0.8rem;
+    .layer-header .layer-description {
+      margin: 0;
+      font-size: 0.85rem;
+      line-height: 1.45;
+      opacity: 0.9;
+    }
+    .layer-substack {
+      display: grid;
+      gap: 0.75rem;
+    }
+    .layer-sub {
+      border-radius: 0.5rem;
+      border: 1px solid transparent;
+      padding: 0.85rem 1rem;
+      background: rgba(148,163,184,0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .layer-sub p {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      opacity: 0.92;
+    }
+    .layer-label {
+      align-self: flex-start;
+      padding: 0.3rem 0.8rem;
       border-radius: 9999px;
       font-size: 0.75rem;
       font-weight: 600;
-      letter-spacing: 0.02em;
-      background: rgba(255,255,255,0.15);
-      color: inherit;
-      border: 1px solid transparent;
-      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    }
-    .module-preview-cluster {
-      display: flex;
-      flex-direction: column;
-      gap: 0.45rem;
-      padding: 0.75rem;
-      border-radius: 0.9rem;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.08);
-      transition: background 0.2s ease, border-color 0.2s ease;
-    }
-    .module-preview-cluster--dual {
-      gap: 0.65rem;
-    }
-    .module-preview-bubble {
-      align-self: flex-start;
-      padding: 0.4rem 0.85rem;
-      border-radius: 9999px;
-      font-weight: 600;
-      font-size: 0.78rem;
       letter-spacing: 0.03em;
-      background: rgba(255,255,255,0.12);
-      color: inherit;
+      text-transform: uppercase;
       border: 1px solid transparent;
-      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+      background: rgba(255,255,255,0.6);
+      color: #0f172a;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
-    .module-preview-field {
-      border-radius: 0.75rem;
-      padding: 0.55rem 0.8rem;
-      font-size: 0.76rem;
-      line-height: 1.35;
-      background: rgba(255,255,255,0.1);
-      color: inherit;
-      border: 1px solid rgba(255,255,255,0.12);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    }
-    .module-preview-surface {
-      border-radius: 0.9rem;
-      border: 1px solid rgba(255,255,255,0.14);
-      padding: 0.9rem;
-      background: rgba(255,255,255,0.08);
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      font-weight: 500;
-      transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-    }
-    .module-preview-surface > span {
-      display: block;
-    }
-    .module-preview-surface--main {
-      min-height: 132px;
-      font-size: 0.82rem;
-      line-height: 1.45;
-      justify-content: center;
-    }
-    .module-preview-surface--meta {
-      min-height: 132px;
-      font-size: 0.78rem;
-      line-height: 1.4;
-    }
-    .module-preview-surface-line {
-      font-size: 0.72rem;
-      font-weight: 500;
-      opacity: 0.9;
-    }
-    .module-preview-field-row {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.5rem;
-    }
-    .module-preview-field--mini {
-      text-align: center;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.03em;
-    }
-    @media (max-width: 1024px) {
-      .module-preview-layout {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        grid-auto-rows: 1fr;
+    @media (max-width: 900px) {
+      .layer-preview {
+        padding: 1.25rem;
       }
-      .module-preview-stack {
-        grid-column: 1 / span 2;
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 0.6rem;
-      }
-      .module-preview-stack .module-preview-cluster {
-        flex: 1 1 200px;
+      .layer-main {
+        padding: 1.1rem;
       }
     }
     @media (max-width: 720px) {
-      .module-preview-layout {
-        grid-template-columns: 1fr;
+      .layer-preview {
+        padding: 1rem;
       }
-      .module-preview-stack {
-        grid-column: auto;
-        flex-direction: column;
-      }
-      .module-preview-surface--main,
-      .module-preview-surface--meta {
-        min-height: auto;
-      }
-      .module-color-preview {
-        flex: 1 1 100%;
-        max-width: none;
+      .layer-main {
+        padding: 1rem;
       }
     }
     .module-layer-controls {
@@ -646,11 +583,6 @@
     @media (max-width: 768px) {
       .module-color-preview {
         flex: 1 1 100%;
-        max-width: none;
-      }
-      .module-preview-card {
-        max-width: 320px;
-        margin: 0 auto;
       }
     }
 
@@ -3656,38 +3588,23 @@ function createModuleColorLayerElement(layer, index) {
   wrapper.dataset.id = layer.id;
   wrapper.innerHTML = `
     <div class="module-color-preview">
-      <div class="module-preview-card" data-layer="module">
-        <span class="module-layer-badge"></span>
-        <div class="module-preview-topbar">
-          <span class="module-preview-pill module-preview-pill--title" data-layer="header" data-layer-part="accent">Modulübersicht</span>
-          <span class="module-preview-pill module-preview-pill--meta" data-layer="sub" data-layer-part="accent">Status aktiv</span>
-          <span class="module-preview-pill module-preview-pill--meta" data-layer="sub" data-layer-part="accent">08 Karten</span>
-        </div>
-        <div class="module-preview-layout">
-          <div class="module-preview-stack">
-            <div class="module-preview-cluster" data-layer="header" data-layer-part="cluster">
-              <span class="module-preview-bubble module-preview-bubble--primary" data-layer="header" data-layer-part="accent">Cluster A</span>
-              <div class="module-preview-field" data-layer="header" data-layer-part="panel">Beschreibung für Cluster A</div>
-            </div>
-            <div class="module-preview-cluster" data-layer="sub" data-layer-part="cluster">
-              <span class="module-preview-bubble module-preview-bubble--alt" data-layer="sub" data-layer-part="accent">Cluster B</span>
-              <div class="module-preview-field" data-layer="sub" data-layer-part="panel">Beschreibung für Cluster B</div>
-            </div>
-            <div class="module-preview-cluster module-preview-cluster--dual" data-layer="sub" data-layer-part="cluster">
-              <span class="module-preview-bubble module-preview-bubble--alt" data-layer="sub" data-layer-part="accent">Details</span>
-              <div class="module-preview-field-row">
-                <div class="module-preview-field module-preview-field--mini" data-layer="sub" data-layer-part="panel">Label</div>
-                <div class="module-preview-field module-preview-field--mini" data-layer="sub" data-layer-part="panel">Wert</div>
-              </div>
-            </div>
+      <div class="layer-preview" data-layer="module">
+        <div class="layer-main" data-layer="module">
+          <span class="module-layer-badge"></span>
+          <span class="layer-label layer-label--main">Hauptmodul</span>
+          <div class="layer-header" data-layer="header">
+            <span class="layer-label layer-label--header">Überschrift Layer</span>
+            <p class="layer-description">Titel, Aktionen oder Hinweise des Moduls</p>
           </div>
-          <div class="module-preview-surface module-preview-surface--main" data-layer="sub" data-layer-part="panel">
-            <span>Modulinhalte</span>
-            <span class="module-preview-surface-line">Platz für Tabellen, Listen &amp; Widgets</span>
-          </div>
-          <div class="module-preview-surface module-preview-surface--meta" data-layer="header" data-layer-part="panel">
-            <span>Kontextbereich</span>
-            <span class="module-preview-surface-line">Filter, Aktionen oder Hinweise</span>
+          <div class="layer-substack">
+            <div class="layer-sub" data-layer="sub">
+              <span class="layer-label layer-label--sub">Unter-Layer</span>
+              <p>Primärer Inhaltsbereich für Listen, Tabellen oder Widgets.</p>
+            </div>
+            <div class="layer-sub" data-layer="sub">
+              <span class="layer-label layer-label--sub">Unter-Layer</span>
+              <p>Weitere Inhalte, Detailansichten oder ergänzende Module.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -3795,14 +3712,21 @@ function applyModuleColorLayerPreview(layerEl, layer) {
   const subText = ensureColor(layer.subText, moduleText);
   const subBorder = ensureColor(layer.subBorder, subBg);
 
-  const card = layerEl.querySelector('.module-preview-card');
-  if (card) {
-    card.style.backgroundColor = moduleBg;
-    card.style.color = moduleText;
-    card.style.borderColor = moduleBorder;
-    const outerShadow = hexToRgba(moduleBorder, 0.28) || 'rgba(17,24,39,0.18)';
-    const innerOutline = hexToRgba(moduleText, 0.14) || 'rgba(255,255,255,0.12)';
-    card.style.boxShadow = `0 12px 24px ${outerShadow}, inset 0 0 0 1px ${innerOutline}`;
+  const preview = layerEl.querySelector('.layer-preview');
+  if (preview) {
+    const previewBorder = hexToRgba(moduleBorder, 0.6) || moduleBorder;
+    const previewGlow = hexToRgba(moduleText, 0.1) || 'rgba(255,255,255,0.65)';
+    const previewShadow = hexToRgba(moduleBorder, 0.18) || 'rgba(17,24,39,0.18)';
+    preview.style.borderColor = previewBorder;
+    preview.style.boxShadow = `0 18px 32px ${previewShadow}, inset 0 0 0 1px ${previewGlow}`;
+  }
+  const main = layerEl.querySelector('.layer-main');
+  if (main) {
+    main.style.backgroundColor = moduleBg;
+    main.style.color = moduleText;
+    main.style.borderColor = moduleBorder;
+    const innerOutline = hexToRgba(moduleText, 0.12) || 'rgba(255,255,255,0.12)';
+    main.style.boxShadow = `inset 0 0 0 1px ${innerOutline}`;
   }
   const badge = layerEl.querySelector('.module-layer-badge');
   if (badge) {
@@ -3810,35 +3734,49 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     badge.style.color = moduleBg;
     badge.style.borderColor = moduleBorder;
   }
+  const mainLabel = layerEl.querySelector('.layer-label--main');
+  if (mainLabel) {
+    mainLabel.style.backgroundColor = moduleText;
+    mainLabel.style.color = moduleBg;
+    mainLabel.style.borderColor = moduleBorder;
+  }
 
-  const applyToPart = (group, part, background, color, borderColor) => {
-    const nodes = layerEl.querySelectorAll(`[data-layer="${group}"][data-layer-part="${part}"]`);
-    nodes.forEach(node => {
-      if (background !== undefined) node.style.backgroundColor = background;
-      if (color !== undefined) node.style.color = color;
-      if (borderColor !== undefined) node.style.borderColor = borderColor;
-    });
-  };
+  const header = layerEl.querySelector('.layer-header');
+  if (header) {
+    const headerBackground = hexToRgba(headerBg, 0.22) || headerBg;
+    const headerBorderTint = hexToRgba(headerBorder, 0.6) || headerBorder;
+    const headerGlow = hexToRgba(headerText, 0.16) || 'rgba(255,255,255,0.12)';
+    header.style.backgroundColor = headerBackground;
+    header.style.color = headerText;
+    header.style.borderColor = headerBorderTint;
+    header.style.boxShadow = `inset 0 1px 0 ${headerGlow}`;
+  }
+  const headerLabel = layerEl.querySelector('.layer-label--header');
+  if (headerLabel) {
+    headerLabel.style.backgroundColor = headerText;
+    headerLabel.style.color = headerBg;
+    headerLabel.style.borderColor = headerBorder;
+  }
+  const headerDescription = layerEl.querySelector('.layer-header .layer-description');
+  if (headerDescription) {
+    headerDescription.style.color = headerText;
+  }
 
-  const headerClusterBg = hexToRgba(headerBg, 0.18) || headerBg;
-  const headerPanelBg = hexToRgba(headerBg, 0.26) || headerBg;
-  applyToPart('header', 'cluster', headerClusterBg, headerText, headerBorder);
-  applyToPart('header', 'panel', headerPanelBg, headerText, headerBorder);
-  applyToPart('header', 'accent', headerBg, headerText, headerBorder);
-
-  const subClusterBg = hexToRgba(subBg, 0.18) || subBg;
-  const subPanelBg = hexToRgba(subBg, 0.26) || subBg;
-  applyToPart('sub', 'cluster', subClusterBg, subText, subBorder);
-  applyToPart('sub', 'panel', subPanelBg, subText, subBorder);
-  applyToPart('sub', 'accent', subBg, subText, subBorder);
-
-  const neutralFields = layerEl.querySelectorAll('.module-preview-field:not([data-layer])');
-  const neutralBg = hexToRgba(moduleText, 0.12) || 'rgba(255,255,255,0.12)';
-  const neutralBorder = hexToRgba(moduleBorder, 0.22) || moduleBorder;
-  neutralFields.forEach(field => {
-    field.style.backgroundColor = neutralBg;
-    field.style.borderColor = neutralBorder;
-    field.style.color = moduleText;
+  const subLayers = layerEl.querySelectorAll('.layer-sub');
+  const subLabels = layerEl.querySelectorAll('.layer-label--sub');
+  const subBackground = hexToRgba(subBg, 0.18) || subBg;
+  const subBorderTint = hexToRgba(subBorder, 0.55) || subBorder;
+  const subGlow = hexToRgba(subText, 0.12) || 'rgba(255,255,255,0.12)';
+  subLayers.forEach(subLayer => {
+    subLayer.style.backgroundColor = subBackground;
+    subLayer.style.color = subText;
+    subLayer.style.borderColor = subBorderTint;
+    subLayer.style.boxShadow = `inset 0 1px 0 ${subGlow}`;
+  });
+  subLabels.forEach(label => {
+    label.style.backgroundColor = subText;
+    label.style.color = subBg;
+    label.style.borderColor = subBorder;
   });
 }
 
