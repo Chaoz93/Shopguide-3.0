@@ -165,17 +165,17 @@
       z-index: 50;
     }
     .modal {
-      background: white;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-radius: 0.75rem;
-      padding: 1rem;
+      padding: 1.5rem;
       width: 95%;
-      max-width: 860px;
+      max-width: 1200px;  /* vorher 860px */
       max-height: 90vh;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
       display: flex;
       flex-direction: column;
-
-      /* Ensure modal text colour does not inherit sidebar text colour */
       color: var(--body-text);
     }
     .settings-content {
