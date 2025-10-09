@@ -43,7 +43,11 @@
     .db-extra-container{flex:0 1 0%;display:flex;gap:.75rem;min-width:0;}
     .db-extra-container:empty{display:none;}
     .db-list-title{font-weight:600;color:var(--dl-sub,#4b5563);padding:0 .1rem;}
-    .db-list{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;overflow:auto;padding-right:.25rem;}
+    .db-list{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:1.5rem;overflow:auto;padding-right:.25rem;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.6) transparent;}
+    .db-list::-webkit-scrollbar{width:8px;height:8px;}
+    .db-list::-webkit-scrollbar-track{background:transparent;}
+    .db-list::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(148,163,184,.65),rgba(71,85,105,.8));border-radius:999px;border:2px solid transparent;background-clip:padding-box;}
+    .db-list::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(148,163,184,.8),rgba(71,85,105,.95));}
     .db-active-wrap{display:none;flex:1 1 0;min-width:0;}
     .db-active-wrap[hidden]{display:none;}
     .db-root.db-has-active .db-active-wrap{display:flex;}
@@ -74,7 +78,11 @@
     .db-part-filter{padding:.35rem .5rem .15rem;}
     .db-part-filter input{width:100%;padding:.35rem .55rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;background:transparent;color:inherit;font-size:.85rem;}
     .db-part-filter input:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
-    .db-part-list{max-height:240px;overflow:auto;padding:.25rem .5rem .5rem;display:flex;flex-direction:column;gap:.25rem;}
+    .db-part-list{max-height:240px;overflow:auto;padding:.25rem .5rem .5rem;display:flex;flex-direction:column;gap:.25rem;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.6) transparent;}
+    .db-part-list::-webkit-scrollbar{width:8px;height:8px;}
+    .db-part-list::-webkit-scrollbar-track{background:transparent;}
+    .db-part-list::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(148,163,184,.65),rgba(71,85,105,.8));border-radius:999px;border:2px solid transparent;background-clip:padding-box;}
+    .db-part-list::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(148,163,184,.8),rgba(71,85,105,.95));}
     .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
     .db-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:2150;}
     .db-modal.open{display:flex;}
@@ -86,7 +94,11 @@
     .db-panel .db-part-select::after{content:'▾';position:absolute;right:.6rem;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--dl-sub,#4b5563);font-size:.75rem;}
     .db-part-select-input{width:100%;padding:.35rem 2rem .35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
     .db-part-select-input:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
-    .db-part-options{position:absolute;top:calc(100% + .25rem);left:0;right:0;max-height:220px;overflow:auto;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);padding:.25rem 0;display:none;z-index:2220;}
+    .db-part-options{position:absolute;top:calc(100% + .25rem);left:0;right:0;max-height:220px;overflow:auto;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);padding:.25rem 0;display:none;z-index:2220;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.6) transparent;}
+    .db-part-options::-webkit-scrollbar{width:8px;height:8px;}
+    .db-part-options::-webkit-scrollbar-track{background:transparent;}
+    .db-part-options::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(148,163,184,.65),rgba(71,85,105,.8));border-radius:999px;border:2px solid transparent;background-clip:padding-box;}
+    .db-part-options::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(148,163,184,.8),rgba(71,85,105,.95));}
     .db-part-options.open{display:flex;flex-direction:column;}
     .db-part-option{display:block;width:100%;padding:.35rem .75rem;text-align:left;background:none;border:0;font:inherit;color:inherit;cursor:pointer;}
     .db-part-option:hover,.db-part-option.is-active{background:rgba(37,99,235,.08);}
