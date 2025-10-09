@@ -8,9 +8,10 @@
     .ops-header{
       display:flex; align-items:center; justify-content:space-between; gap:.75rem;
       padding:.55rem .95rem; border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);
-      background: linear-gradient(135deg, rgba(15,23,42,.95), rgba(30,41,59,.88));
+      background:rgba(30,41,59,.82);
       color:#f8fafc; font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem); font-weight:700;
-      letter-spacing:.4px; text-transform:uppercase; box-shadow:0 8px 20px rgba(15,23,42,.28);
+      letter-spacing:.4px; text-transform:uppercase; box-shadow:0 10px 24px rgba(15,23,42,.35);
+      border:1px solid rgba(148,163,184,.26);
     }
     .ops-title{ display:flex; align-items:center; gap:.45rem; }
     .ops-title::before{
@@ -51,7 +52,7 @@
     }
     .ops-card{
       width:100%; height:100%; box-sizing:border-box;
-      background: linear-gradient(150deg, rgba(15,23,42,.78), rgba(30,64,118,.7)), var(--module-bg);
+      background:rgba(30,41,59,.78);
       border: 1px solid rgba(148,163,184,.3);
       border-radius: var(--module-border-radius, 1.25rem);
       color: var(--module-header-text,#fff);
@@ -59,11 +60,11 @@
       padding:.5rem 1rem; font-weight:600; letter-spacing:.2px;
       font-size: clamp(.9rem, 1.1vw + .4vh, 1.25rem);
       user-select:none; text-align:center;
-      transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease;
+      transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease, border-color .12s ease;
       box-shadow: 0 14px 32px rgba(15,23,42,.35);
     }
-    .ops-card:hover{ transform: translateY(-1px); box-shadow: 0 20px 40px rgba(15,23,42,.4); }
-    .ops-card:active{ transform: translateY(0); filter:saturate(1.05); }
+    .ops-card:hover{ transform: translateY(-1px); box-shadow: 0 20px 40px rgba(15,23,42,.45); border-color:rgba(37,99,235,.45); }
+    .ops-card:active{ transform: translateY(0); filter:none; background:rgba(37,99,235,.32); }
     .leftTop{ grid-area:leftTop; } .leftBot{ grid-area:leftBot; }
     .r0{ grid-area:r0; } .r1{ grid-area:r1; } .r2{ grid-area:r2; } .r3{ grid-area:r3; } .r4{ grid-area:r4; } .r5{ grid-area:r5; }
     .ops-bounce{ animation: ops-bounce .25s ease; }
