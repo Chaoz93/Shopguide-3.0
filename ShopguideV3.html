@@ -99,7 +99,8 @@
       min-height: 10px;
       /* apply border using module border colour */
       border: 1px solid var(--module-border-color);
-      overflow: auto;
+      /* allow overlay menus to extend beyond the module bounds */
+      overflow: visible;
       scrollbar-color: var(--scrollbar-thumb-inverse) transparent;
     }
     .grid-stack-item-content::-webkit-scrollbar-thumb {
