@@ -8,10 +8,10 @@
     .ops-header{
       display:flex; align-items:center; justify-content:space-between; gap:.75rem;
       padding:.55rem .95rem; border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);
-      background:rgba(30,41,59,.82);
+      background:rgba(21,45,76,.86);
       color:#f8fafc; font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem); font-weight:700;
-      letter-spacing:.4px; text-transform:uppercase; box-shadow:0 10px 24px rgba(15,23,42,.35);
-      border:1px solid rgba(148,163,184,.26);
+      letter-spacing:.4px; text-transform:uppercase; box-shadow:0 12px 28px rgba(12,24,41,.45);
+      border:1px solid rgba(76,114,163,.32);
     }
     .ops-title{ display:flex; align-items:center; gap:.45rem; }
     .ops-title::before{
@@ -52,8 +52,8 @@
     }
     .ops-card{
       width:100%; height:100%; box-sizing:border-box;
-      background:rgba(30,41,59,.78);
-      border: 1px solid rgba(148,163,184,.3);
+      background:rgba(21,45,76,.82);
+      border: 1px solid rgba(76,114,163,.34);
       border-radius: var(--module-border-radius, 1.25rem);
       color: var(--module-header-text,#fff);
       display:flex; align-items:center; justify-content:center;
@@ -61,7 +61,7 @@
       font-size: clamp(.9rem, 1.1vw + .4vh, 1.25rem);
       user-select:none; text-align:center;
       transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease, border-color .12s ease;
-      box-shadow: 0 14px 32px rgba(15,23,42,.35);
+      box-shadow: 0 16px 34px rgba(12,24,41,.45);
     }
     .ops-card:hover{ transform: translateY(-1px); box-shadow: 0 20px 40px rgba(15,23,42,.45); border-color:rgba(37,99,235,.45); }
     .ops-card:active{ transform: translateY(0); filter:none; background:rgba(37,99,235,.32); }
