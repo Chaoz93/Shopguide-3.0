@@ -9,6 +9,11 @@
 
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
+    .aspenboard{overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.65) rgba(15,32,52,.35);scrollbar-gutter:stable both-edges;}
+    .aspenboard::-webkit-scrollbar{width:10px;height:10px;}
+    .aspenboard::-webkit-scrollbar-track{background:rgba(15,32,52,.35);border-radius:999px;}
+    .aspenboard::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(148,163,184,.72),rgba(71,85,105,.92));border-radius:999px;border:2px solid rgba(15,32,52,.35);}
+    .aspenboard::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(191,200,214,.9),rgba(82,99,122,.98));}
     .db-titlebar{font-weight:600;color:var(--text-color);padding:0 .15rem;user-select:none;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-titlebar[hidden]{display:none;}
     .db-title-group{flex:1;min-width:0;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
