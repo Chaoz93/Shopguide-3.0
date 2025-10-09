@@ -57,7 +57,7 @@
     .db-sub{color:var(--ab-muted,rgba(210,224,245,.78));font-size:.85rem;margin-top:.15rem;}
     .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:.45rem;background:rgba(255,255,255,.08);cursor:grab;color:inherit;border:1px solid var(--ab-border,rgba(76,114,163,.32));}
     .db-handle:active{cursor:grabbing;}
-    .db-card.active{box-shadow:0 0 0 2px var(--dl-active,#34d399) inset,0 14px 32px rgba(12,24,41,.45);transform:translateY(-1px);color:#fff;}
+    .db-card.active{border-color:var(--dl-active,#34d399);box-shadow:0 0 0 2px var(--dl-active,#34d399) inset,0 0 0 2px var(--dl-active,#34d399),0 14px 32px rgba(12,24,41,.45);transform:translateY(-1px);color:#fff;}
     .db-ghost{opacity:.4;}
     .db-chosen{transform:scale(1.01);}
     .db-menu{position:fixed;z-index:2200;display:none;min-width:200px;padding:.25rem;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
@@ -213,6 +213,7 @@
     .aspenboard .db-surface{background:rgba(17,40,68,.6);border:1px solid rgba(76,114,163,.28);box-shadow:0 22px 40px var(--shadow-color);}
     .aspenboard .db-list-title{color:var(--muted-text);}
     .aspenboard .db-card{background:rgba(17,40,68,.66);color:var(--text-color);border:1px solid rgba(76,114,163,.3);box-shadow:0 18px 34px var(--shadow-color);}
+    .aspenboard .db-card.active{border-color:var(--ab-active,#34d399);box-shadow:0 0 0 2px var(--ab-active,#34d399) inset,0 0 0 2px var(--ab-active,#34d399),0 20px 38px var(--shadow-color);}
     .aspenboard .db-card-tag{background:rgba(76,114,163,.22);color:var(--text-color);border-color:rgba(76,114,163,.36);}
     .aspenboard .db-sub{color:rgba(217,229,247,.82);}
     .aspenboard .db-config-main,
