@@ -185,8 +185,8 @@
     }
   };
 
-  function log(action, ...details){
-    console.log(`${LOG_PREFIX} ${action}`, ...details);
+  function log(){
+    // Debug-Ausgaben deaktiviert.
   }
 
   function toNumberOr(value, fallback){
