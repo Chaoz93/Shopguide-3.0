@@ -2760,7 +2760,9 @@
       const orderedActive=[];
       const orderedExtras=[];
       const seen=new Set();
+      const previousAssignments=normalizeColumnAssignments(state.columnAssignments);
       const newAssignments=new Map();
+      const removedAssignments=new Set();
       const activeMeldungen=new Set();
       const collect=(container,target,columnId)=>{
         if(!container) return;
@@ -2789,8 +2791,11 @@
           if(meldung){
             if(columnId===ACTIVE_COLUMN_ID){
               activeMeldungen.add(meldung);
+              removedAssignments.add(meldung);
             }else if(columnId){
               newAssignments.set(meldung,columnId);
+            }else{
+              removedAssignments.add(meldung);
             }
           }
           seen.add(id);
@@ -2807,7 +2812,12 @@
       const remaining=state.items.filter(item=>!seen.has(item.id));
       state.items=dedupeByMeldung([...orderedMain,...orderedExtras,...orderedActive,...remaining]);
       state.activeMeldungen=activeMeldungen;
-      state.columnAssignments=newAssignments;
+      const mergedAssignments=new Map(previousAssignments);
+      const validMeldungen=new Set(state.items.map(item=>item.meldung).filter(Boolean));
+      removedAssignments.forEach(meldung=>{mergedAssignments.delete(meldung);});
+      newAssignments.forEach((column,meldung)=>{mergedAssignments.set(meldung,column);});
+      mergedAssignments.forEach((_,meldung)=>{if(!validMeldungen.has(meldung)) mergedAssignments.delete(meldung);});
+      state.columnAssignments=mergedAssignments;
       ensureColumnAssignments(state);
     }
 
