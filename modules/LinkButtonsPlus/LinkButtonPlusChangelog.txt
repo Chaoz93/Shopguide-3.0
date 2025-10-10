@@ -5,6 +5,13 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.2] – 2025-10-14
+### Added
+- Globale Änderungen der Farb-Layer aus dem Hauptmenü werden per Ereignis an das Modul gemeldet und aktualisieren Dropdown & Vorschau automatisch.
+
+### Changed
+- Layer-Auswahl puffert die verfügbaren Layer und synchronisiert das Mapping beim Öffnen des Kontextmenüs und des Modals.
+
 ## [1.4.1] – 2025-10-13
 ### Changed
 - Layer-Auswahl liest die aktuellen Farben aus dem Shopguide-Hauptmenü und zeigt Farbwerte & Swatches in Dropdown, Vorschau und Zusammenfassung

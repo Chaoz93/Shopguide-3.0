@@ -169,6 +169,38 @@
     ])
   });
 
+  function cloneLayerDefinition(layer) {
+    if (!layer || typeof layer !== 'object') {
+      return {
+        ...FALLBACK_LAYER,
+        subLayers: FALLBACK_LAYER.subLayers.map(sub => ({ ...sub }))
+      };
+    }
+    return {
+      ...layer,
+      subLayers: Array.isArray(layer.subLayers)
+        ? layer.subLayers.map(subLayer => ({ ...subLayer }))
+        : []
+    };
+  }
+
+  function cloneLayerList(layers) {
+    if (!Array.isArray(layers) || !layers.length) {
+      return [cloneLayerDefinition(FALLBACK_LAYER)];
+    }
+    return layers.map(cloneLayerDefinition);
+  }
+
+  let cachedLayerDefinitions = null;
+
+  function cacheLayerDefinitions(layers) {
+    if (!Array.isArray(layers) || !layers.length) {
+      cachedLayerDefinitions = [cloneLayerDefinition(FALLBACK_LAYER)];
+      return;
+    }
+    cachedLayerDefinitions = layers.map(cloneLayerDefinition);
+  }
+
   const LAYER_PARTS = Object.freeze([
     { key: 'module', label: 'Hauptmodul', description: 'Rahmen & Hintergrund' },
     { key: 'header', label: 'Header', description: 'Titelzeile & Status' },
@@ -252,66 +284,76 @@
   }
 
   function getLayerDefinitions() {
+    if (Array.isArray(cachedLayerDefinitions) && cachedLayerDefinitions.length) {
+      return cachedLayerDefinitions.map(cloneLayerDefinition);
+    }
+    let collectedLayers = null;
     const appLayers = window?.appSettings?.moduleColorLayers;
     if (Array.isArray(appLayers) && appLayers.length) {
-      return appLayers.map(layer => ({ ...layer }));
-    }
-    const collectFromDom = typeof window?.collectModuleColorLayersFromDom === 'function'
-      ? window.collectModuleColorLayersFromDom
-      : null;
-    if (collectFromDom) {
-      const domLayers = collectFromDom();
-      if (Array.isArray(domLayers) && domLayers.length) {
-        return domLayers.map(layer => ({ ...layer }));
+      collectedLayers = appLayers;
+    } else {
+      const collectFromDom = typeof window?.collectModuleColorLayersFromDom === 'function'
+        ? window.collectModuleColorLayersFromDom
+        : null;
+      if (collectFromDom) {
+        const domLayers = collectFromDom();
+        if (Array.isArray(domLayers) && domLayers.length) {
+          collectedLayers = domLayers;
+        }
+      }
+      if (!collectedLayers) {
+        const container = document.getElementById('module-color-layers');
+        if (container) {
+          const domLayers = [];
+          container.querySelectorAll('.module-color-layer').forEach((layerEl, index) => {
+            const getColor = selector => {
+              const input = layerEl.querySelector(selector);
+              return input ? input.value : '';
+            };
+            const id = layerEl.dataset.id || `layer-${index + 1}`;
+            const nameInput = layerEl.querySelector('.module-layer-name');
+            const subLayers = [];
+            layerEl.querySelectorAll('.module-layer-subgroup').forEach(subEl => {
+              const getSubColor = key => {
+                const input = subEl.querySelector(`input[data-sub-field="${key}"]`);
+                return input ? input.value : '';
+              };
+              subLayers.push({
+                bg: getSubColor('bg'),
+                text: getSubColor('text'),
+                border: getSubColor('border')
+              });
+            });
+            const moduleBg = getColor('input[data-field="moduleBg"]');
+            const moduleText = getColor('input[data-field="moduleText"]');
+            const moduleBorder = getColor('input[data-field="moduleBorder"]') || moduleBg;
+            const headerBg = getColor('input[data-field="headerBg"]') || moduleBg;
+            const headerText = getColor('input[data-field="headerText"]') || moduleText;
+            const headerBorder = getColor('input[data-field="headerBorder"]') || headerBg;
+            const firstSub = subLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBg };
+            domLayers.push({
+              id,
+              name: nameInput && typeof nameInput.value === 'string' && nameInput.value.trim() ? nameInput.value : `Layer ${index + 1}`,
+              moduleBg,
+              moduleText,
+              moduleBorder,
+              headerBg,
+              headerText,
+              headerBorder,
+              subLayers,
+              subBg: firstSub.bg || moduleBg,
+              subText: firstSub.text || moduleText,
+              subBorder: firstSub.border || moduleBorder
+            });
+          });
+          if (domLayers.length) {
+            collectedLayers = domLayers;
+          }
+        }
       }
     }
-    const container = document.getElementById('module-color-layers');
-    if (container) {
-      const domLayers = [];
-      container.querySelectorAll('.module-color-layer').forEach((layerEl, index) => {
-        const getColor = selector => {
-          const input = layerEl.querySelector(selector);
-          return input ? input.value : '';
-        };
-        const id = layerEl.dataset.id || `layer-${index + 1}`;
-        const nameInput = layerEl.querySelector('.module-layer-name');
-        const subLayers = [];
-        layerEl.querySelectorAll('.module-layer-subgroup').forEach(subEl => {
-          const getSubColor = key => {
-            const input = subEl.querySelector(`input[data-sub-field="${key}"]`);
-            return input ? input.value : '';
-          };
-          subLayers.push({
-            bg: getSubColor('bg'),
-            text: getSubColor('text'),
-            border: getSubColor('border')
-          });
-        });
-        const moduleBg = getColor('input[data-field="moduleBg"]');
-        const moduleText = getColor('input[data-field="moduleText"]');
-        const moduleBorder = getColor('input[data-field="moduleBorder"]') || moduleBg;
-        const headerBg = getColor('input[data-field="headerBg"]') || moduleBg;
-        const headerText = getColor('input[data-field="headerText"]') || moduleText;
-        const headerBorder = getColor('input[data-field="headerBorder"]') || headerBg;
-        const firstSub = subLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBg };
-        domLayers.push({
-          id,
-          name: nameInput && typeof nameInput.value === 'string' && nameInput.value.trim() ? nameInput.value : `Layer ${index + 1}`,
-          moduleBg,
-          moduleText,
-          moduleBorder,
-          headerBg,
-          headerText,
-          headerBorder,
-          subLayers,
-          subBg: firstSub.bg || moduleBg,
-          subText: firstSub.text || moduleText,
-          subBorder: firstSub.border || moduleBorder
-        });
-      });
-      if (domLayers.length) return domLayers;
-    }
-    return [{ ...FALLBACK_LAYER }];
+    cacheLayerDefinitions(collectedLayers || [FALLBACK_LAYER]);
+    return cachedLayerDefinitions.map(cloneLayerDefinition);
   }
 
   function getLayerLabel(layer) {
@@ -810,7 +852,8 @@
     const openLayerModalBtn = menu.querySelector('.ops-layer-config-button');
     const layerSelections = loadLayerSelections();
     const layerStateKey = itemEl?.dataset.instanceId || '__default__';
-    let selectedLayerMapping = normalizeLayerMapping(layerSelections[layerStateKey]);
+    let availableLayers = getLayerDefinitions();
+    let selectedLayerMapping = normalizeLayerMapping(layerSelections[layerStateKey], availableLayers);
 
     function persistSelectedMapping() {
       const previous = layerSelections[layerStateKey];
@@ -822,7 +865,8 @@
       }
     }
 
-    selectedLayerMapping = applyLayerMapping(selectedLayerMapping, contentEl).mapping;
+    let appliedLayerDetails = applyLayerMapping(selectedLayerMapping, contentEl, availableLayers);
+    selectedLayerMapping = appliedLayerDetails.mapping;
     persistSelectedMapping();
 
     const modalSuffix = Math.random().toString(36).slice(2);
@@ -863,7 +907,7 @@
     });
     const layerModalCloseButtons = layerModalBackdrop.querySelectorAll('.ops-layer-modal-close, .ops-layer-modal-close-btn');
 
-    function renderLayerPreview(details) {
+    function renderLayerPreview(details = appliedLayerDetails) {
       if (!layerModalPreview) return;
       if (!details) {
         layerModalPreview.innerHTML = '<div class="ops-layer-preview-empty">Keine Layer verfügbar</div>';
@@ -894,12 +938,12 @@
       `;
     }
 
-    function updateLayerSummary() {
+    function updateLayerSummary(details = appliedLayerDetails, layers = availableLayers) {
       if (!layerSummary) return;
-      const layers = getLayerDefinitions();
-      const fallback = layers[0] || FALLBACK_LAYER;
+      const mapping = details?.mapping || selectedLayerMapping;
+      const fallback = layers.length ? layers[0] : cloneLayerDefinition(FALLBACK_LAYER);
       const summary = LAYER_PARTS.map(part => {
-        const id = selectedLayerMapping?.[part.key];
+        const id = mapping?.[part.key];
         let layer = layers.find(l => l?.id === id);
         if (!layer && id === FALLBACK_LAYER.id) {
           layer = FALLBACK_LAYER;
@@ -914,12 +958,13 @@
       layerSummary.innerHTML = `<strong>Farbschema</strong>${summary}`;
     }
 
-    function populateLayerSelects() {
-      const layers = getLayerDefinitions();
+    function populateLayerSelects(layers = availableLayers) {
+      const clonedLayers = cloneLayerList(layers);
+      availableLayers = clonedLayers;
       Object.entries(layerModalSelects).forEach(([part, select]) => {
         if (!select) return;
         select.innerHTML = '';
-        layers.forEach(layer => {
+        clonedLayers.forEach(layer => {
           const option = document.createElement('option');
           const id = layer?.id || '';
           const label = getLayerLabel(layer);
@@ -933,26 +978,31 @@
           option.dataset.layerButtonBg = layer?.subBg || '';
           select.appendChild(option);
         });
-        select.disabled = !layers.length;
-        if (!layers.length) {
+        select.disabled = !clonedLayers.length;
+        if (!clonedLayers.length) {
           select.title = 'Keine Layer definiert';
         } else {
           select.removeAttribute('title');
         }
       });
-      selectedLayerMapping = normalizeLayerMapping(selectedLayerMapping, layers);
-      const details = applyLayerMapping(selectedLayerMapping);
-      selectedLayerMapping = details.mapping;
+      selectedLayerMapping = normalizeLayerMapping(selectedLayerMapping, clonedLayers);
       Object.entries(layerModalSelects).forEach(([part, select]) => {
-        if (!select || !layers.length) return;
+        if (!select || !clonedLayers.length) return;
         const desired = selectedLayerMapping[part];
         if (Array.from(select.options).some(opt => opt.value === desired)) {
           select.value = desired;
+        } else if (select.options.length) {
+          select.selectedIndex = 0;
+          selectedLayerMapping = normalizeLayerMapping({ ...selectedLayerMapping, [part]: select.value }, clonedLayers);
         }
       });
+      appliedLayerDetails = applyLayerMapping(selectedLayerMapping, contentEl, clonedLayers);
+      selectedLayerMapping = appliedLayerDetails.mapping;
       persistSelectedMapping();
-      renderLayerPreview(details);
-      updateLayerSummary();
+      updateLayerSummary(appliedLayerDetails, clonedLayers);
+      if (layerModalBackdrop.classList.contains('open')) {
+        renderLayerPreview(appliedLayerDetails);
+      }
     }
 
     function closeLayerModal() {
@@ -961,8 +1011,9 @@
 
     function openLayerModal() {
       menu.classList.remove('open');
-      populateLayerSelects();
+      populateLayerSelects(availableLayers);
       layerModalBackdrop.classList.add('open');
+      renderLayerPreview(appliedLayerDetails);
       const focusTarget = layerModalBackdrop.querySelector('.ops-layer-select:not(:disabled)');
       if (focusTarget) focusTarget.focus();
     }
@@ -993,11 +1044,10 @@
     Object.entries(layerModalSelects).forEach(([part, select]) => {
       if (!select) return;
       select.addEventListener('change', () => {
-        selectedLayerMapping = normalizeLayerMapping({ ...selectedLayerMapping, [part]: select.value });
-        const details = applyLayerMapping(selectedLayerMapping, contentEl);
-        selectedLayerMapping = details.mapping;
+        selectedLayerMapping = normalizeLayerMapping({ ...selectedLayerMapping, [part]: select.value }, availableLayers);
+        appliedLayerDetails = applyLayerMapping(selectedLayerMapping, contentEl, availableLayers);
+        selectedLayerMapping = appliedLayerDetails.mapping;
         persistSelectedMapping();
-        renderLayerPreview(details);
         Object.entries(layerModalSelects).forEach(([otherPart, otherSelect]) => {
           if (!otherSelect) return;
           const desired = selectedLayerMapping[otherPart];
@@ -1005,11 +1055,20 @@
             otherSelect.value = desired;
           }
         });
-        updateLayerSummary();
+        renderLayerPreview(appliedLayerDetails);
+        updateLayerSummary(appliedLayerDetails, availableLayers);
       });
     });
 
-    updateLayerSummary();
+    const handleLayerChangeEvent = (event) => {
+      const detailLayers = Array.isArray(event?.detail?.layers) ? event.detail.layers : [];
+      cacheLayerDefinitions(detailLayers);
+      const nextLayers = getLayerDefinitions();
+      populateLayerSelects(nextLayers);
+    };
+    window.addEventListener('shopguide:module-color-layers-changed', handleLayerChangeEvent);
+
+    updateLayerSummary(appliedLayerDetails, availableLayers);
 
     const tabs = menu.querySelectorAll('.ops-tab');
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
@@ -1314,11 +1373,13 @@
       workforceFilters = loadWorkforceFilters();
       renderFilters();
       Object.assign(layerSelections, loadLayerSelections());
-      selectedLayerMapping = normalizeLayerMapping(layerSelections[layerStateKey]);
-      const details = applyLayerMapping(selectedLayerMapping, contentEl);
-      selectedLayerMapping = details.mapping;
+      const latestLayers = getLayerDefinitions();
+      availableLayers = cloneLayerList(latestLayers);
+      selectedLayerMapping = normalizeLayerMapping(layerSelections[layerStateKey], availableLayers);
+      appliedLayerDetails = applyLayerMapping(selectedLayerMapping, contentEl, availableLayers);
+      selectedLayerMapping = appliedLayerDetails.mapping;
       persistSelectedMapping();
-      updateLayerSummary();
+      updateLayerSummary(appliedLayerDetails, availableLayers);
       tabButtons.forEach(btn => {
         const isButtons = btn.dataset.tab === 'buttons';
         btn.classList.toggle('active', isButtons);

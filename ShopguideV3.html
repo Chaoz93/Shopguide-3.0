@@ -1202,6 +1202,8 @@
 const MAX_MODULE_COLOR_LAYERS = 8;
 const DEFAULT_SUB_LAYER_COUNT = 2;
 const MAX_MODULE_SUB_LAYERS = 8;
+const MODULE_COLOR_LAYER_EVENT = 'shopguide:module-color-layers-changed';
+let lastBroadcastedModuleLayerHash = '';
 
 function generateLayerId() {
   return 'layer-' + Math.random().toString(36).slice(2, 10);
@@ -1336,6 +1338,16 @@ function normalizeModuleColorLayers(layers, subLayerCount = DEFAULT_SUB_LAYER_CO
     });
 }
 
+function cloneLayerForBroadcast(layer) {
+  if (!layer || typeof layer !== 'object') return null;
+  return {
+    ...layer,
+    subLayers: Array.isArray(layer.subLayers)
+      ? layer.subLayers.map(subLayer => ({ ...subLayer }))
+      : []
+  };
+}
+
 /*
  * Global settings object; defaults correspond to CSS variables defined above.
  * New properties for border colour and sidebar text are included.
@@ -1371,6 +1383,17 @@ let appSettings = {
   moduleSubLayerCount: DEFAULT_SUB_LAYER_COUNT,
   moduleColorLayers: normalizeModuleColorLayers([], DEFAULT_SUB_LAYER_COUNT)
 };
+
+function broadcastModuleColorLayers(layers = appSettings.moduleColorLayers) {
+  if (typeof window === 'undefined') return;
+  const payload = Array.isArray(layers)
+    ? layers.map(cloneLayerForBroadcast).filter(Boolean)
+    : [];
+  const hash = JSON.stringify(payload);
+  if (hash === lastBroadcastedModuleLayerHash) return;
+  lastBroadcastedModuleLayerHash = hash;
+  window.dispatchEvent(new CustomEvent(MODULE_COLOR_LAYER_EVENT, { detail: { layers: payload } }));
+}
 
 
 const layoutFileName = 'layout.json';
@@ -3726,6 +3749,7 @@ function renderModuleColorLayers(layers = appSettings.moduleColorLayers) {
   });
   updateModuleColorLayerAddState();
   updateModuleColorLayerRemoveStates();
+  broadcastModuleColorLayers(appSettings.moduleColorLayers);
 }
 
 function createModuleColorLayerElement(layer, index) {
@@ -4181,6 +4205,7 @@ function handleModuleColorLayerInput(event) {
   const layerEl = event.target.closest('.module-color-layer');
   if (!layerEl) return;
   appSettings.moduleColorLayers = collectModuleColorLayersFromDom();
+  broadcastModuleColorLayers(appSettings.moduleColorLayers);
   const index = Number(layerEl.dataset.index || '0');
   const layer = appSettings.moduleColorLayers[index];
   applyModuleColorLayerPreview(layerEl, layer);
@@ -4794,6 +4819,7 @@ function readInputsIntoSettings() {
 
   if (moduleColorLayersContainer && moduleColorLayersContainer.children.length) {
     appSettings.moduleColorLayers = collectModuleColorLayersFromDom();
+    broadcastModuleColorLayers(appSettings.moduleColorLayers);
   }
 
   // New module border and sidebar module card settings
@@ -4889,6 +4915,7 @@ function applyLoadedSettings(loadedSettings) {
   })();
   appSettings.moduleSubLayerCount = desiredSubLayerCount;
   appSettings.moduleColorLayers = normalizeModuleColorLayers(appSettings.moduleColorLayers, desiredSubLayerCount);
+  broadcastModuleColorLayers(appSettings.moduleColorLayers);
   if (typeof autoArrangeModules === 'boolean') {
     appSettings.autoArrangeModules = autoArrangeModules;
   } else if (typeof gridFloat === 'boolean') {
