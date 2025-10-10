@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.11] – 2025-10-10
+### Changed
+- Aspen Board auf Version 1.1.13 aktualisiert; Scrollleisten, aktive Karten und Oberflächenfarben folgen dem neuen Dashboard-Look.
+
 ## [3.6.10] – 2025-10-04
 ### Changed
 - [UI] Einstellungsmenü verbreitert auf 1200px und mit Blur-Hintergrund versehen.
