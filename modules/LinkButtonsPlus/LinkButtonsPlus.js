@@ -106,8 +106,11 @@
     .ops-menu .ops-file-hint{display:block; font-size:.72rem; opacity:.65; padding:.15rem .6rem .2rem; min-height:1em;}
     .ops-layer-summary{padding:.4rem .5rem; margin:.35rem .35rem 0; border-radius:.5rem; background:rgba(37,99,235,.08); font-size:.76rem; line-height:1.45;}
     .ops-layer-summary strong{display:block; font-size:.82rem; margin-bottom:.2rem;}
-    .ops-layer-summary-line{display:flex; justify-content:space-between; gap:.5rem;}
-    .ops-layer-summary-line span:last-child{font-weight:600;}
+    .ops-layer-summary-line{display:flex; justify-content:space-between; gap:.5rem; align-items:center;}
+    .ops-layer-summary-value{display:inline-flex; align-items:center; gap:.35rem; font-weight:600; flex-wrap:wrap; justify-content:flex-end;}
+    .ops-layer-summary-label{display:inline-flex; align-items:center; gap:.35rem;}
+    .ops-layer-summary-detail{font-size:.72rem; font-weight:500; opacity:.7;}
+    .ops-layer-swatch{width:.85rem; height:.85rem; border-radius:999px; border:1px solid rgba(15,23,42,.18); background:var(--ops-layer-swatch-bg,#2563eb); box-shadow:0 0 0 1px rgba(255,255,255,.35) inset;}
     .ops-menu .ops-layer-config-button{margin:.35rem .35rem 0;}
     .ops-layer-select{width:100%; padding:.45rem .6rem; border:1px solid var(--border-color,#d1d5db); border-radius:.5rem; background:var(--sidebar-module-card-bg,#fff); color:inherit; font-size:.9rem; box-sizing:border-box;}
     .ops-layer-select:disabled{opacity:.55; cursor:not-allowed;}
@@ -132,9 +135,11 @@
     .ops-layer-preview-main{padding:.4rem .65rem; border-radius:.65rem;}
     .ops-layer-preview-button{align-self:flex-start; padding:.35rem .85rem; border-radius:999px; border:1px solid currentColor; font-weight:600; font-size:.85rem;}
     .ops-layer-preview-meta{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.2rem; font-size:.8rem;}
-    .ops-layer-preview-meta li{display:flex; justify-content:space-between; gap:.5rem;}
-    .ops-layer-preview-meta span{font-weight:600;}
+    .ops-layer-preview-meta li{display:flex; justify-content:space-between; gap:.5rem; align-items:flex-start;}
+    .ops-layer-meta-value{display:flex; flex-direction:column; align-items:flex-end; text-align:right; gap:.1rem;}
+    .ops-layer-meta-value span{font-weight:600;}
     .ops-layer-preview-meta em{font-style:normal; opacity:.75;}
+    .ops-layer-preview-meta-detail{font-size:.72rem; font-weight:500; opacity:.7;}
     .ops-layer-preview-empty{padding:.6rem; border-radius:.65rem; background:rgba(15,23,42,.05); font-size:.8rem; text-align:center; opacity:.8;}
     .ops-layer-modal-footer{padding:.85rem 1.25rem; border-top:1px solid var(--border-color,#e2e8f0); display:flex; justify-content:flex-end;}
     .ops-layer-modal-footer button{border:none; border-radius:.65rem; padding:.45rem 1.1rem; font-weight:600; cursor:pointer; background:var(--button-bg,#2563eb); color:var(--button-text,#fff); box-shadow:0 8px 18px rgba(37,99,235,.35);}
@@ -247,9 +252,86 @@
   }
 
   function getLayerDefinitions() {
-    const layers = window?.appSettings?.moduleColorLayers;
-    if (Array.isArray(layers) && layers.length) return layers;
-    return [FALLBACK_LAYER];
+    const appLayers = window?.appSettings?.moduleColorLayers;
+    if (Array.isArray(appLayers) && appLayers.length) {
+      return appLayers.map(layer => ({ ...layer }));
+    }
+    const collectFromDom = typeof window?.collectModuleColorLayersFromDom === 'function'
+      ? window.collectModuleColorLayersFromDom
+      : null;
+    if (collectFromDom) {
+      const domLayers = collectFromDom();
+      if (Array.isArray(domLayers) && domLayers.length) {
+        return domLayers.map(layer => ({ ...layer }));
+      }
+    }
+    const container = document.getElementById('module-color-layers');
+    if (container) {
+      const domLayers = [];
+      container.querySelectorAll('.module-color-layer').forEach((layerEl, index) => {
+        const getColor = selector => {
+          const input = layerEl.querySelector(selector);
+          return input ? input.value : '';
+        };
+        const id = layerEl.dataset.id || `layer-${index + 1}`;
+        const nameInput = layerEl.querySelector('.module-layer-name');
+        const subLayers = [];
+        layerEl.querySelectorAll('.module-layer-subgroup').forEach(subEl => {
+          const getSubColor = key => {
+            const input = subEl.querySelector(`input[data-sub-field="${key}"]`);
+            return input ? input.value : '';
+          };
+          subLayers.push({
+            bg: getSubColor('bg'),
+            text: getSubColor('text'),
+            border: getSubColor('border')
+          });
+        });
+        const moduleBg = getColor('input[data-field="moduleBg"]');
+        const moduleText = getColor('input[data-field="moduleText"]');
+        const moduleBorder = getColor('input[data-field="moduleBorder"]') || moduleBg;
+        const headerBg = getColor('input[data-field="headerBg"]') || moduleBg;
+        const headerText = getColor('input[data-field="headerText"]') || moduleText;
+        const headerBorder = getColor('input[data-field="headerBorder"]') || headerBg;
+        const firstSub = subLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBg };
+        domLayers.push({
+          id,
+          name: nameInput && typeof nameInput.value === 'string' && nameInput.value.trim() ? nameInput.value : `Layer ${index + 1}`,
+          moduleBg,
+          moduleText,
+          moduleBorder,
+          headerBg,
+          headerText,
+          headerBorder,
+          subLayers,
+          subBg: firstSub.bg || moduleBg,
+          subText: firstSub.text || moduleText,
+          subBorder: firstSub.border || moduleBorder
+        });
+      });
+      if (domLayers.length) return domLayers;
+    }
+    return [{ ...FALLBACK_LAYER }];
+  }
+
+  function getLayerLabel(layer) {
+    return layer?.name || layer?.id || 'Layer';
+  }
+
+  function getLayerSwatchColor(layer) {
+    return layer?.moduleBg || layer?.headerBg || layer?.subBg || FALLBACK_LAYER.moduleBg;
+  }
+
+  function getLayerColorSummary(layer) {
+    if (!layer || typeof layer !== 'object') return '';
+    const tokens = [layer.moduleBg, layer.headerBg, layer.subBg]
+      .filter(color => typeof color === 'string' && color.trim())
+      .map(color => color.trim());
+    const unique = [];
+    tokens.forEach(color => {
+      if (!unique.includes(color)) unique.push(color);
+    });
+    return unique.join(' · ');
   }
 
   function normalizeLayerMapping(mapping, layers = getLayerDefinitions()) {
@@ -788,9 +870,11 @@
         return;
       }
       const { moduleColors, headerColors, buttonColors, moduleLayer, headerLayer, buttonLayer } = details;
-      const moduleLabel = moduleLayer?.name || moduleLayer?.id || 'Layer';
-      const headerLabel = headerLayer?.name || headerLayer?.id || 'Layer';
-      const buttonLabel = buttonLayer?.name || buttonLayer?.id || 'Layer';
+      const parts = [
+        { label: 'Hauptmodul', layer: moduleLayer },
+        { label: 'Header', layer: headerLayer },
+        { label: 'Buttons', layer: buttonLayer }
+      ];
       const surface = mixColor(moduleColors.moduleBg, '#ffffff', 0.85);
       layerModalPreview.innerHTML = `
         <div class="ops-layer-preview-card" style="background:${moduleColors.moduleBg}; color:${moduleColors.moduleText}; border-color:${moduleColors.moduleBorder};">
@@ -799,9 +883,13 @@
           <div class="ops-layer-preview-button" style="background:${buttonColors.subBg}; color:${buttonColors.subText}; border-color:${buttonColors.subBorder}; box-shadow:${buildShadow(buttonColors.subBg, 0.18, '0 4px 12px')};">Button</div>
         </div>
         <ul class="ops-layer-preview-meta">
-          <li><em>Hauptmodul</em><span>${moduleLabel}</span></li>
-          <li><em>Header</em><span>${headerLabel}</span></li>
-          <li><em>Buttons</em><span>${buttonLabel}</span></li>
+          ${parts.map(({ label, layer }) => {
+            const name = getLayerLabel(layer);
+            const colors = getLayerColorSummary(layer);
+            const swatch = getLayerSwatchColor(layer);
+            const detail = colors ? `<span class=\"ops-layer-preview-meta-detail\">${colors}</span>` : '';
+            return `<li><em>${label}</em><span class=\"ops-layer-meta-value\"><span class=\"ops-layer-summary-label\"><span class=\"ops-layer-swatch\" style=\"--ops-layer-swatch-bg:${swatch}\"></span>${name}</span>${detail}</span></li>`;
+          }).join('')}
         </ul>
       `;
     }
@@ -817,8 +905,11 @@
           layer = FALLBACK_LAYER;
         }
         if (!layer) layer = fallback || FALLBACK_LAYER;
-        const name = layer?.name || layer?.id || 'Layer';
-        return `<div class="ops-layer-summary-line"><span>${part.label}</span><span>${name}</span></div>`;
+        const name = getLayerLabel(layer);
+        const swatchColor = getLayerSwatchColor(layer);
+        const colors = getLayerColorSummary(layer);
+        const detail = colors ? `<span class="ops-layer-summary-detail">${colors}</span>` : '';
+        return `<div class="ops-layer-summary-line"><span>${part.label}</span><span class="ops-layer-summary-value"><span class="ops-layer-summary-label"><span class="ops-layer-swatch" style="--ops-layer-swatch-bg:${swatchColor}"></span>${name}</span>${detail}</span></div>`;
       }).join('');
       layerSummary.innerHTML = `<strong>Farbschema</strong>${summary}`;
     }
@@ -830,11 +921,24 @@
         select.innerHTML = '';
         layers.forEach(layer => {
           const option = document.createElement('option');
-          option.value = layer?.id || '';
-          option.textContent = layer?.name || layer?.id || 'Layer';
+          const id = layer?.id || '';
+          const label = getLayerLabel(layer);
+          const colors = getLayerColorSummary(layer);
+          option.value = id;
+          option.textContent = colors ? `${label} (${colors})` : label;
+          option.dataset.layerId = id;
+          option.dataset.layerBg = layer?.moduleBg || '';
+          option.dataset.layerText = layer?.moduleText || '';
+          option.dataset.layerHeaderBg = layer?.headerBg || '';
+          option.dataset.layerButtonBg = layer?.subBg || '';
           select.appendChild(option);
         });
         select.disabled = !layers.length;
+        if (!layers.length) {
+          select.title = 'Keine Layer definiert';
+        } else {
+          select.removeAttribute('title');
+        }
       });
       selectedLayerMapping = normalizeLayerMapping(selectedLayerMapping, layers);
       const details = applyLayerMapping(selectedLayerMapping);

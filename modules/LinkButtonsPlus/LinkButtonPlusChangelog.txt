@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.1] – 2025-10-13
+### Changed
+- Layer-Auswahl liest die aktuellen Farben aus dem Shopguide-Hauptmenü und zeigt Farbwerte & Swatches in Dropdown, Vorschau und Zusammenfassung
+
 ## [1.4.0] – 2025-10-12
 ### Added
 - Eigenes Farbauswahl-Modal mit Live-Vorschau für die Layer-Zuordnung einzelner Modulbereiche
