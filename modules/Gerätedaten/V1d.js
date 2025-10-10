@@ -170,22 +170,25 @@
   const relativeLuminance=rgba=>{if(!rgba)return null;const r=srgbToLinear(rgba.r);const g=srgbToLinear(rgba.g);const b=srgbToLinear(rgba.b);return 0.2126*r+0.7152*g+0.0722*b;};
   const preferredTextColor=rgba=>{const lum=relativeLuminance(rgba);if(lum==null)return CONTRAST_LIGHT_TEXT;return lum>0.55?CONTRAST_DARK_TEXT:CONTRAST_LIGHT_TEXT;};
   const hexToRgba=(color,alphaOverride)=>{const parsed=parseCssColorMeta(color);if(!parsed)return null;const rgba={...parsed.rgba};if(Number.isFinite(alphaOverride)){rgba.a=clamp(alphaOverride,0,1);return rgbaToCss(rgba);}return rgba;};
-  function createLayerFromCssVariables(index,hRaw,sRaw,lRaw,aRaw){const h=parseHue(hRaw);const s=parsePercent(sRaw);const l=parsePercent(lRaw);const a=parseAlpha(aRaw??'1');const color=typeof hRaw==='string'||typeof sRaw==='string'||typeof lRaw==='string'||typeof aRaw==='string'?`hsla(${(hRaw||'').trim()|| (Number.isFinite(h)?`${h}`:'0')}, ${(sRaw||'').trim()|| (Number.isFinite(s)?`${s}%`:'0%')}, ${(lRaw||'').trim()|| (Number.isFinite(l)?`${l}%`:'0%')}, ${(aRaw||'').trim()|| (Number.isFinite(a)?`${a}`:'1')})`:formatHslaFromNumbers(h,s,l,a);const rgba=hslaToRgba(h??0,s??0,l??0,a??1);const textColor=preferredTextColor(rgba);const borderColor=mixHexColors(color,'hsla(0, 0%, 0%, 1)',0.18);const subLayer={bg:color,text:textColor,border:borderColor};const hex=rgbaToHex(rgba);return{ id:`layer${index}`, name:`Layer ${index}`, label:`Layer ${index}`, color, dropdownTextColor:textColor, moduleBg:color, moduleText:textColor, moduleBorder:borderColor, headerBg:color, headerText:textColor, headerBorder:borderColor, subLayers:[subLayer], subBg:subLayer.bg, subText:subLayer.text, subBorder:subLayer.border, hsla:{h,s,l,a}, hex, rgba};}
-  function normalizeLegacyLayer(layer,index){const id=typeof layer?.id==='string'&&layer.id.trim()?layer.id.trim():`layer-${index+1}`;const name=typeof layer?.name==='string'&&layer.name.trim()?layer.name.trim():`Layer ${index+1}`;const moduleBg=ensureColorValue(layer?.moduleBg||layer?.color,'#005983');const moduleText=ensureColorValue(layer?.moduleText,CONTRAST_LIGHT_TEXT);const moduleBorder=ensureColorValue(layer?.moduleBorder,moduleText);const headerBg=ensureColorValue(layer?.headerBg,moduleBg);const headerText=ensureColorValue(layer?.headerText,moduleText);const headerBorder=ensureColorValue(layer?.headerBorder,headerBg);const subLayers=Array.isArray(layer?.subLayers)&&layer.subLayers.length?layer.subLayers.map(sub=>({bg:ensureColorValue(sub?.bg,moduleBg),text:ensureColorValue(sub?.text,moduleText),border:ensureColorValue(sub?.border,moduleBorder)})):[{bg:moduleBg,text:moduleText,border:moduleBorder}];const primarySub=subLayers[0];const rgba=hexToRgba(moduleBg)||hexToRgba(primarySub.bg);const dropdownText=ensureColorValue(layer?.dropdownTextColor,rgba?preferredTextColor(rgba):moduleText);const hex=rgbaToHex(rgba)||(/^#/i.test(moduleBg)?moduleBg:null);return{...layer,id,name,label:name,color:ensureColorValue(layer?.color,moduleBg),moduleBg,moduleText,moduleBorder,headerBg,headerText,headerBorder,subLayers,subBg:ensureColorValue(layer?.subBg,primarySub.bg),subText:ensureColorValue(layer?.subText,primarySub.text),subBorder:ensureColorValue(layer?.subBorder,primarySub.border),dropdownTextColor:dropdownText,hex,rgba};}
+  function createLayerFromCssVariables(index,hRaw,sRaw,lRaw,aRaw){const h=parseHue(hRaw);const s=parsePercent(sRaw);const l=parsePercent(lRaw);const a=parseAlpha(aRaw??'1');const color=typeof hRaw==='string'||typeof sRaw==='string'||typeof lRaw==='string'||typeof aRaw==='string'?`hsla(${(hRaw||'').trim()|| (Number.isFinite(h)?`${h}`:'0')}, ${(sRaw||'').trim()|| (Number.isFinite(s)?`${s}%`:'0%')}, ${(lRaw||'').trim()|| (Number.isFinite(l)?`${l}%`:'0%')}, ${(aRaw||'').trim()|| (Number.isFinite(a)?`${a}`:'1')})`:formatHslaFromNumbers(h,s,l,a);const rgba=hslaToRgba(h??0,s??0,l??0,a??1);const textColor=preferredTextColor(rgba);const borderColor=mixHexColors(color,'hsla(0, 0%, 0%, 1)',0.18);const subLayer={bg:color,text:textColor,border:borderColor};const hex=rgbaToHex(rgba);return{ id:`layer${index}`, name:`Unter-Layer ${index}`, label:`Unter-Layer ${index}`, color, dropdownTextColor:textColor, moduleBg:color, moduleText:textColor, moduleBorder:borderColor, headerBg:color, headerText:textColor, headerBorder:borderColor, subLayers:[subLayer], subBg:subLayer.bg, subText:subLayer.text, subBorder:subLayer.border, hsla:{h,s,l,a}, hex, rgba};}
+  function normalizeLegacyLayer(layer,index){const id=typeof layer?.id==='string'&&layer.id.trim()?layer.id.trim():`layer-${index+1}`;const name=typeof layer?.name==='string'&&layer.name.trim()?layer.name.trim():`Unter-Layer ${index+1}`;const label=typeof layer?.label==='string'&&layer.label.trim()?layer.label.trim():`Unter-Layer ${index+1}`;const moduleBg=ensureColorValue(layer?.moduleBg||layer?.color,'#005983');const moduleText=ensureColorValue(layer?.moduleText,CONTRAST_LIGHT_TEXT);const moduleBorder=ensureColorValue(layer?.moduleBorder,moduleText);const headerBg=ensureColorValue(layer?.headerBg,moduleBg);const headerText=ensureColorValue(layer?.headerText,moduleText);const headerBorder=ensureColorValue(layer?.headerBorder,headerBg);const subLayers=Array.isArray(layer?.subLayers)&&layer.subLayers.length?layer.subLayers.map(sub=>({bg:ensureColorValue(sub?.bg,moduleBg),text:ensureColorValue(sub?.text,moduleText),border:ensureColorValue(sub?.border,moduleBorder)})):[{bg:moduleBg,text:moduleText,border:moduleBorder}];const primarySub=subLayers[0];const rgba=hexToRgba(moduleBg)||hexToRgba(primarySub.bg);const dropdownText=ensureColorValue(layer?.dropdownTextColor,rgba?preferredTextColor(rgba):moduleText);const hex=rgbaToHex(rgba)||(/^#/i.test(moduleBg)?moduleBg:null);return{...layer,id,name,label,color:ensureColorValue(layer?.color,moduleBg),moduleBg,moduleText,moduleBorder,headerBg,headerText,headerBorder,subLayers,subBg:ensureColorValue(layer?.subBg,primarySub.bg),subText:ensureColorValue(layer?.subText,primarySub.text),subBorder:ensureColorValue(layer?.subBorder,primarySub.border),dropdownTextColor:dropdownText,hex,rgba};}
   function deepClone(value){if(value==null)return value;if(typeof structuredClone==='function'){try{return structuredClone(value);}catch{}}try{return JSON.parse(JSON.stringify(value));}catch{return value;}}
   function readStoredAppSettings(){try{const raw=localStorage.getItem('appSettings');if(!raw)return null;return JSON.parse(raw);}catch{return null;}}
   function readLiveAppSettings(){try{if(typeof window==='object'&&window&&typeof window.appSettings==='object'&&window.appSettings){return deepClone(window.appSettings);} }catch{}return readStoredAppSettings();}
+  function mutateAppSettings(mutator){if(typeof mutator!=='function')return readLiveAppSettings()||{};const current=readLiveAppSettings()||{};const draft=deepClone(current)||{};mutator(draft);try{localStorage.setItem('appSettings',JSON.stringify(draft));}catch{}try{if(typeof window==='object'&&window){if(!window.appSettings||typeof window.appSettings!=='object'){window.appSettings={};}mutator(window.appSettings);}}catch{}return draft;}
+  function readModuleColorSettings(instanceId){if(!instanceId)return null;const settings=readLiveAppSettings();if(!settings||typeof settings!=='object')return null;const modules=settings.modules;if(!modules||typeof modules!=='object')return null;const entry=modules[instanceId];if(!entry||typeof entry!=='object')return null;const colors=entry.colors;if(!colors||typeof colors!=='object')return null;return {...colors};}
   function getDocumentModuleColorBaseline(){try{const styles=getComputedStyle(document.documentElement);const moduleBg=ensureColorValue(styles.getPropertyValue('--module-bg'),'#005983');const moduleText=ensureColorValue(styles.getPropertyValue('--text-color'),'#ffffff');const moduleBorder=ensureColorValue(styles.getPropertyValue('--module-border-color'),moduleText);const headerBg=ensureColorValue(styles.getPropertyValue('--module-header-bg'),moduleBg);const headerText=ensureColorValue(styles.getPropertyValue('--module-header-text'),moduleText);return{moduleBg,moduleText,moduleBorder,headerBg,headerText};}catch{return{moduleBg:'#005983',moduleText:'#ffffff',moduleBorder:'#0f6ab4',headerBg:'#0f6ab4',headerText:'#ffffff'};}}
   function normalizeColorLayers(rawLayers,subLayerCount){const normalizer=typeof window.normalizeModuleColorLayers==='function'?window.normalizeModuleColorLayers:null;if(normalizer){try{return normalizer(Array.isArray(rawLayers)?rawLayers:[],subLayerCount);}catch(e){}}return Array.isArray(rawLayers)?rawLayers:[];}
-  function enrichColorLayers(list){return(list||[]).map((layer,index)=>{const id=typeof layer?.id==='string'&&layer.id.trim()?layer.id.trim():`layer-${index+1}`;const name=typeof layer?.name==='string'&&layer.name.trim()?layer.name.trim():`Layer ${index+1}`;return{...layer,id,name};});}
+  function enrichColorLayers(list){return(list||[]).map((layer,index)=>{const id=typeof layer?.id==='string'&&layer.id.trim()?layer.id.trim():`layer-${index+1}`;const name=typeof layer?.name==='string'&&layer.name.trim()?layer.name.trim():`Unter-Layer ${index+1}`;return{...layer,id,name};});}
   function loadGlobalColorLayers(maxLayers=15){const settings=readLiveAppSettings()||{};const desired=clampNumber(settings?.moduleSubLayerCount??DEFAULT_COLOR_SUB_LAYERS,1,MAX_COLOR_SUB_LAYERS);const normalized=enrichColorLayers(normalizeColorLayers(settings?.moduleColorLayers,desired)).map((layer,index)=>normalizeLegacyLayer(layer,index));if(normalized.length)return normalized;const cssLayers=[];try{const root=document.documentElement;if(root){const styles=getComputedStyle(root);for(let i=1;i<=maxLayers;i+=1){const h=styles.getPropertyValue(`--layer${i}-h`).trim();const s=styles.getPropertyValue(`--layer${i}-s`).trim();const l=styles.getPropertyValue(`--layer${i}-l`).trim();const a=styles.getPropertyValue(`--layer${i}-a`).trim();if(h&&s&&l&&a){cssLayers.push(createLayerFromCssVariables(i,h,s,l,a));}}}}catch{}if(cssLayers.length)return cssLayers;const fallback=enrichColorLayers(normalizeColorLayers([],desired)).map((layer,index)=>normalizeLegacyLayer(layer,index));if(fallback.length)return fallback;try{if(typeof window.getDefaultModuleColorLayers==='function'){const defaults=window.getDefaultModuleColorLayers();const normalizedDefaults=enrichColorLayers(normalizeColorLayers(defaults,desired)).map((layer,index)=>normalizeLegacyLayer(layer,index));if(normalizedDefaults.length)return normalizedDefaults;}}catch{}const baseline=getDocumentModuleColorBaseline();return[normalizeLegacyLayer({id:'default',name:'Standard',moduleBg:baseline.moduleBg,moduleText:baseline.moduleText,moduleBorder:baseline.moduleBorder,headerBg:baseline.headerBg,headerText:baseline.headerText,headerBorder:baseline.headerBg,subLayers:[{bg:baseline.moduleBg,text:baseline.moduleText,border:baseline.moduleBorder}],subBg:baseline.moduleBg,subText:baseline.moduleText,subBorder:baseline.moduleBorder},0)];}
   function formatColorLayerLabel(layer){if(!layer)return'Standard';const name=layer.name||layer.label||'Layer';const color=ensureColorValue(layer.color||layer.moduleBg,'');return color?`${name} · ${color}`:name;}
-  function populateLayerDropdown(select,layers){if(!select)return;select.innerHTML='';layers.forEach(layer=>{const opt=document.createElement('option');opt.value=layer?.id||'';opt.textContent=layer?.label||layer?.name||layer?.id||'';const bg=layer?.color||layer?.moduleBg;const text=layer?.dropdownTextColor;if(bg)opt.style.background=bg;if(text)opt.style.color=text;else opt.style.color=CONTRAST_LIGHT_TEXT;opt.style.padding='4px 8px';opt.style.borderRadius='4px';select.appendChild(opt);});}
+  function populateLayerDropdown(select,layers){if(!select)return;select.innerHTML='';const list=Array.isArray(layers)?layers:[];list.forEach((layer,index)=>{const opt=document.createElement('option');const value=layer?.id||`layer${index+1}`;opt.value=value;const label=`Unter-Layer ${index+1}`;opt.textContent=label;const bg=layer?.color||layer?.moduleBg;const text=layer?.dropdownTextColor;if(bg)opt.style.background=bg;if(text)opt.style.color=text;else opt.style.color=CONTRAST_LIGHT_TEXT;opt.style.padding='4px 8px';opt.style.borderRadius='4px';select.appendChild(opt);});}
+  function getLayerColor(layerId,layers){const list=Array.isArray(layers)?layers:[];const match=list.find(layer=>layer&&String(layer.id)===String(layerId));return match?.color||match?.moduleBg||'';}
   function applyLayerSelectStyles(select,layer){if(!select)return;if(layer){const bg=layer?.color||layer?.moduleBg||'';const text=layer?.dropdownTextColor||'';select.style.background=bg;select.style.color=text||CONTRAST_LIGHT_TEXT;}else{select.style.background='';select.style.color='';}}
-  function computeAccentPalette(layer,headerColors,moduleColors,baseline){const sub=Array.isArray(layer?.subLayers)&&layer.subLayers.length?layer.subLayers[0]:null;const bg=ensureColorValue(sub?.bg||layer?.subBg||layer?.moduleBg,headerColors.bg||moduleColors.bg||baseline.moduleBg);const text=ensureColorValue(sub?.text||layer?.subText||layer?.moduleText,headerColors.text||moduleColors.text||baseline.moduleText);const border=ensureColorValue(sub?.border||layer?.subBorder||layer?.moduleBorder,headerColors.border||moduleColors.border||baseline.moduleBorder);const inlineBg=ensureColorValue(lightenHexColor(bg,.18),bg);const inlineBorder=ensureColorValue(mixHexColors(border,'hsla(0, 0%, 100%, 1)',.12),border);const secondaryBg=ensureColorValue(mixHexColors(bg,'hsla(0, 0%, 100%, 1)',.28),bg);return{name:layer?.name||headerColors.name||moduleColors.name,bg,text,border,inlineBg,inlineBorder,secondaryBg,secondaryText:text};}
-  function computeModulePalette(layers,selection,baseline){const list=Array.isArray(layers)?layers:[];const findById=id=>list.find(layer=>layer&&String(layer.id)===String(id));const fallback=list[0]||null;const moduleLayer=findById(selection?.module)||fallback;const headerLayer=findById(selection?.header)||moduleLayer||fallback;const accentLayer=findById(selection?.accent)||headerLayer||moduleLayer||fallback;const moduleColors={name:moduleLayer?.name||'Standard',bg:ensureColorValue(moduleLayer?.moduleBg,baseline.moduleBg),text:ensureColorValue(moduleLayer?.moduleText,baseline.moduleText),border:ensureColorValue(moduleLayer?.moduleBorder,moduleLayer?.moduleText||baseline.moduleBorder||baseline.moduleText)};const headerColors={name:headerLayer?.name||moduleColors.name,bg:ensureColorValue(headerLayer?.headerBg,moduleLayer?.moduleBg||baseline.headerBg||moduleColors.bg),text:ensureColorValue(headerLayer?.headerText,moduleLayer?.moduleText||baseline.headerText||moduleColors.text),border:ensureColorValue(headerLayer?.headerBorder,headerLayer?.headerBg||moduleColors.border)};const accent=computeAccentPalette(accentLayer,headerColors,moduleColors,baseline);return{module:moduleColors,header:headerColors,accent};}
+  function computeButtonPalette(layer,headerColors,moduleColors,baseline){const sub=Array.isArray(layer?.subLayers)&&layer.subLayers.length?layer.subLayers[0]:null;const bg=ensureColorValue(sub?.bg||layer?.subBg||layer?.moduleBg,headerColors.bg||moduleColors.bg||baseline.moduleBg);const text=ensureColorValue(sub?.text||layer?.subText||layer?.moduleText,headerColors.text||moduleColors.text||baseline.moduleText);const border=ensureColorValue(sub?.border||layer?.subBorder||layer?.moduleBorder,headerColors.border||moduleColors.border||baseline.moduleBorder);const inlineBg=ensureColorValue(lightenHexColor(bg,.18),bg);const inlineBorder=ensureColorValue(mixHexColors(border,'hsla(0, 0%, 100%, 1)',.12),border);const secondaryBg=ensureColorValue(mixHexColors(bg,'hsla(0, 0%, 100%, 1)',.28),bg);return{name:layer?.name||headerColors.name||moduleColors.name,bg,text,border,inlineBg,inlineBorder,secondaryBg,secondaryText:text};}
+  function computeModulePalette(layers,selection,baseline){const list=Array.isArray(layers)?layers:[];const findById=id=>list.find(layer=>layer&&String(layer.id)===String(id));const fallback=list[0]||null;const moduleLayer=findById(selection?.module)||fallback;const headerLayer=findById(selection?.header)||moduleLayer||fallback;const buttonsLayer=findById(selection?.buttons)||headerLayer||moduleLayer||fallback;const moduleColors={name:moduleLayer?.name||'Standard',bg:ensureColorValue(moduleLayer?.moduleBg,baseline.moduleBg),text:ensureColorValue(moduleLayer?.moduleText,baseline.moduleText),border:ensureColorValue(moduleLayer?.moduleBorder,moduleLayer?.moduleText||baseline.moduleBorder||baseline.moduleText)};const headerColors={name:headerLayer?.name||moduleColors.name,bg:ensureColorValue(headerLayer?.headerBg,moduleLayer?.moduleBg||baseline.headerBg||moduleColors.bg),text:ensureColorValue(headerLayer?.headerText,moduleLayer?.moduleText||baseline.headerText||moduleColors.text),border:ensureColorValue(headerLayer?.headerBorder,headerLayer?.headerBg||moduleColors.border)};const buttons=computeButtonPalette(buttonsLayer,headerColors,moduleColors,baseline);return{module:moduleColors,header:headerColors,buttons};}
   function setCssVar(element,name,value){if(!element||!element.style||typeof name!=='string')return;if(value)element.style.setProperty(name,value);else element.style.removeProperty(name);}
-  function applyPaletteToElement(element,palette){if(!element||!palette)return;const{module,header,accent}=palette;setCssVar(element,'--module-bg',module.bg);setCssVar(element,'--text-color',module.text);setCssVar(element,'--module-border-color',module.border);setCssVar(element,'--module-header-bg',header.bg);setCssVar(element,'--module-header-text',header.text);setCssVar(element,'--rs-header-border',header.border);setCssVar(element,'--rs-surface-bg',accent.bg);setCssVar(element,'--rs-surface-text',accent.text);setCssVar(element,'--rs-surface-border',accent.border);setCssVar(element,'--rs-inline-bg',accent.inlineBg||accent.bg);setCssVar(element,'--rs-inline-border',accent.inlineBorder||accent.border);setCssVar(element,'--rs-button-bg',accent.bg);setCssVar(element,'--rs-button-text',accent.text);setCssVar(element,'--rs-button-border',accent.border);setCssVar(element,'--rs-button-secondary-bg',accent.secondaryBg||accent.inlineBg||accent.bg);setCssVar(element,'--rs-button-secondary-text',accent.secondaryText||accent.text);}
+  function applyPaletteToElement(element,palette){if(!element||!palette)return;const{module,header,buttons}=palette;setCssVar(element,'--module-bg',module.bg);setCssVar(element,'--text-color',module.text);setCssVar(element,'--module-border-color',module.border);setCssVar(element,'--module-header-bg',header.bg);setCssVar(element,'--module-header-text',header.text);setCssVar(element,'--rs-header-border',header.border);setCssVar(element,'--rs-surface-bg',buttons.bg);setCssVar(element,'--rs-surface-text',buttons.text);setCssVar(element,'--rs-surface-border',buttons.border);setCssVar(element,'--rs-inline-bg',buttons.inlineBg||buttons.bg);setCssVar(element,'--rs-inline-border',buttons.inlineBorder||buttons.border);setCssVar(element,'--rs-button-bg',buttons.bg);setCssVar(element,'--rs-button-text',buttons.text);setCssVar(element,'--rs-button-border',buttons.border);setCssVar(element,'--rs-button-secondary-bg',buttons.secondaryBg||buttons.inlineBg||buttons.bg);setCssVar(element,'--rs-button-secondary-text',buttons.secondaryText||buttons.text);}
 
   function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(IDB_NAME,1);r.onupgradeneeded=()=>r.result.createObjectStore(IDB_STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
   async function idbSet(k,v){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
@@ -280,15 +283,15 @@
             <div class="rs-color-grid">
               <label class="rs-color-select">
                 <span>Hauptmodul</span>
-                <select class="rs-color-module module-layer-select"></select>
+                <select class="rs-color-module module-layer-select" data-target="module"></select>
               </label>
               <label class="rs-color-select">
                 <span>Header</span>
-                <select class="rs-color-header module-layer-select"></select>
+                <select class="rs-color-header module-layer-select" data-target="header"></select>
               </label>
               <label class="rs-color-select">
                 <span>Buttons</span>
-                <select class="rs-color-accent module-layer-select"></select>
+                <select class="rs-color-buttons module-layer-select" data-target="buttons"></select>
               </label>
             </div>
             <div class="rs-color-preview" data-rs-color-preview>
@@ -351,7 +354,7 @@
       mNewEmpty:root.querySelector('.rs-new-empty'),
       mColorModule:root.querySelector('.rs-color-module'),
       mColorHeader:root.querySelector('.rs-color-header'),
-      mColorAccent:root.querySelector('.rs-color-accent'),
+      mColorButtons:root.querySelector('.rs-color-buttons'),
       mColorPreview:root.querySelector('[data-rs-color-preview]'),
       mColorSummary:root.querySelector('.rs-color-summary'),
       mColorReload:root.querySelector('.rs-color-reload'),
@@ -388,33 +391,49 @@
       const fallback=fallbackColorLayerId||colorLayers[0]?.id||'default';
       const moduleId=typeof raw?.module==='string'&&findColorLayer(raw.module)?raw.module:fallback;
       const headerId=typeof raw?.header==='string'&&findColorLayer(raw.header)?raw.header:moduleId;
-      const accentId=typeof raw?.accent==='string'&&findColorLayer(raw.accent)?raw.accent:headerId;
-      return{module:moduleId,header:headerId,accent:accentId};
+      const buttonsId=typeof raw?.buttons==='string'&&findColorLayer(raw.buttons)?raw.buttons:headerId;
+      return{module:moduleId,header:headerId,buttons:buttonsId};
     };
+    const persistModuleColorSelection=(selection)=>{
+      if(!cfg)return;
+      const sanitized=sanitizeColorSelection(selection||cfg.colors||{});
+      mutateAppSettings(settings=>{
+        if(!settings.modules||typeof settings.modules!=='object')settings.modules={};
+        const entry=typeof settings.modules[instanceId]==='object'&&settings.modules[instanceId]?settings.modules[instanceId]:{};
+        entry.colors={...sanitized};
+        settings.modules[instanceId]=entry;
+      });
+      cfg.colors=sanitized;
+      return sanitized;
+    };
+    const layerSelects=[els.mColorModule,els.mColorHeader,els.mColorButtons].filter(Boolean);
     const renderColorSelectOptions=()=>{
-      const selects=[els.mColorModule,els.mColorHeader,els.mColorAccent].filter(Boolean);
-      selects.forEach(select=>{
+      layerSelects.forEach(select=>{
         const current=select.value;
         populateLayerDropdown(select,colorLayers);
-        if(current)select.value=current;
+        const target=select.dataset?.target;
+        if(target&&cfg?.colors?.[target]){select.value=cfg.colors[target];}
+        else if(current){select.value=current;}
         const layer=findColorLayer(select.value);
         applyLayerSelectStyles(select,layer);
       });
     };
     const updateColorSelectValues=()=>{
-      if(els.mColorModule){els.mColorModule.value=cfg?.colors?.module||'';applyLayerSelectStyles(els.mColorModule,findColorLayer(els.mColorModule.value));}
-      if(els.mColorHeader){els.mColorHeader.value=cfg?.colors?.header||'';applyLayerSelectStyles(els.mColorHeader,findColorLayer(els.mColorHeader.value));}
-      if(els.mColorAccent){els.mColorAccent.value=cfg?.colors?.accent||'';applyLayerSelectStyles(els.mColorAccent,findColorLayer(els.mColorAccent.value));}
+      layerSelects.forEach(select=>{
+        const target=select.dataset?.target;
+        if(target)select.value=cfg?.colors?.[target]||'';
+        applyLayerSelectStyles(select,findColorLayer(select.value));
+      });
     };
     const updateColorSummary=()=>{
       if(!els.mColorSummary)return;
       const moduleLayer=findColorLayer(cfg?.colors?.module);
       const headerLayer=findColorLayer(cfg?.colors?.header);
-      const accentLayer=findColorLayer(cfg?.colors?.accent);
+      const buttonsLayer=findColorLayer(cfg?.colors?.buttons);
       const moduleName=moduleLayer?.name||'Standard';
       const headerName=headerLayer?.name||moduleName;
-      const accentName=accentLayer?.name||headerName;
-      els.mColorSummary.textContent=`Hauptmodul: ${moduleName} · Header: ${headerName} · Buttons: ${accentName}`;
+      const buttonsName=buttonsLayer?.name||headerName;
+      els.mColorSummary.textContent=`Hauptmodul: ${moduleName} · Header: ${headerName} · Buttons: ${buttonsName}`;
     };
     const applyColorTheme=()=>{
       if(!cfg?.colors)return;
@@ -423,19 +442,26 @@
       if(els.mColorPreview)applyPaletteToElement(els.mColorPreview,palette);
       updateColorSummary();
     };
-    const refreshColorLayers=()=>{
+    const refreshColorLayers=({repopulate=true,applyTheme=true}={})=>{
+      const before=cfg?JSON.stringify(cfg.colors||{}):'';
       colorLayers=loadGlobalColorLayers(15);
       fallbackColorLayerId=colorLayers[0]?.id||fallbackColorLayerId||'default';
       if(cfg){
-        const before=JSON.stringify(cfg.colors||{});
-        cfg.colors=sanitizeColorSelection(cfg.colors);
-        if(JSON.stringify(cfg.colors||{})!==before){
+        const storedColors=readModuleColorSettings(instanceId);
+        if(storedColors){
+          cfg.colors=sanitizeColorSelection(storedColors);
+        }else{
+          cfg.colors=sanitizeColorSelection(cfg.colors);
+        }
+        const after=JSON.stringify(cfg.colors||{});
+        if(after!==before){
+          persistModuleColorSelection(cfg.colors);
           saveCfg(cfg);
         }
       }
-      renderColorSelectOptions();
+      if(repopulate)renderColorSelectOptions();
       updateColorSelectValues();
-      applyColorTheme();
+      if(applyTheme)applyColorTheme();
     };
     let debugInfo='';
     let deviceName='';
@@ -482,6 +508,18 @@
     const clearDebugInfo=()=>{debugInfo='';renderHead();};
 
     cfg=loadCfg();
+    const storedModuleColors=readModuleColorSettings(instanceId);
+    if(storedModuleColors){
+      const sanitizedStored=sanitizeColorSelection(storedModuleColors);
+      if(JSON.stringify(cfg.colors)!==JSON.stringify(sanitizedStored)){
+        cfg.colors=sanitizedStored;
+        saveCfg(cfg);
+      }else{
+        cfg.colors=sanitizedStored;
+      }
+    }else{
+      persistModuleColorSelection(cfg.colors);
+    }
     renderColorSelectOptions();
     updateColorSelectValues();
     applyColorTheme();
@@ -502,12 +540,13 @@
     [
       {el:els.mColorModule,key:'module'},
       {el:els.mColorHeader,key:'header'},
-      {el:els.mColorAccent,key:'accent'}
+      {el:els.mColorButtons,key:'buttons'}
     ].forEach(({el,key})=>{
       if(!el)return;
       el.addEventListener('change',()=>{
         const next={...cfg.colors,[key]:el.value};
         cfg.colors=sanitizeColorSelection(next);
+        persistModuleColorSelection(cfg.colors);
         updateColorSelectValues();
         applyColorTheme();
         saveCfg(cfg);
