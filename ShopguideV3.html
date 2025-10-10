@@ -369,10 +369,21 @@
       height: 2rem;
       border-radius: 0.9rem;
       flex-shrink: 0;
-      border: 1px solid rgba(15,23,42,0.12);
-      background:
-        repeating-conic-gradient(#e2e8f0 0% 25%, #f8fafc 0% 50%) 0 / 10px 10px;
+      border: 1px solid rgba(15,23,42,0.08);
+      background-color: #f8fafc;
       overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6), 0 1px 2px rgba(15,23,42,0.12);
+    }
+    .hsla-chip::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background-image:
+        linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%),
+        linear-gradient(45deg, transparent 25%, #e2e8f0 25%, #e2e8f0 75%, transparent 75%);
+      background-size: 12px 12px;
+      background-position: 0 0, 6px 6px;
     }
     .hsla-chip::after {
       content: '';
@@ -433,7 +444,7 @@
     }
     .hsla-slider-row {
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: auto 1fr minmax(0, 4.75rem);
       align-items: center;
       gap: 0.65rem;
     }
@@ -448,9 +459,23 @@
       font-size: 0.78rem;
       font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
       color: #0f172a;
-      min-width: 3.5ch;
+      min-width: 0;
+      width: 100%;
       text-align: right;
+      border: 1px solid rgba(15,23,42,0.12);
+      border-radius: 0.45rem;
+      padding: 0.3rem 0.45rem;
+      background: rgba(248,250,252,0.9);
+      box-shadow: inset 0 1px 1px rgba(15,23,42,0.04);
     }
+    .hsla-slider-value:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
+      border-color: rgba(37,99,235,0.6);
+    }
+    .hsla-slider-value::-webkit-outer-spin-button,
+    .hsla-slider-value::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .hsla-slider-value { -moz-appearance: textfield; }
     .hsla-slider-row input[type="range"] {
       -webkit-appearance: none;
       appearance: none;
@@ -505,12 +530,25 @@
       border: 2px solid #2563eb;
     }
     .hsla-slider-hue {
-      background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red);
+      background: linear-gradient(
+        to right,
+        hsl(0 100% 50%),
+        hsl(60 100% 50%),
+        hsl(120 100% 50%),
+        hsl(180 100% 50%),
+        hsl(240 100% 50%),
+        hsl(300 100% 50%),
+        hsl(360 100% 50%)
+      );
     }
     .hsla-slider-alpha {
-      background:
+      background-image:
         linear-gradient(to right, rgba(15,23,42,0), rgba(15,23,42,1)),
-        repeating-conic-gradient(#e2e8f0 0% 25%, #f8fafc 0% 50%) 0 / 10px 10px;
+        linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%),
+        linear-gradient(45deg, transparent 25%, #e2e8f0 25%, #e2e8f0 75%, transparent 75%);
+      background-size: 100% 100%, 12px 12px, 12px 12px;
+      background-position: center, 0 0, 6px 6px;
+      background-repeat: no-repeat, repeat, repeat;
     }
     .hsla-inline-actions {
       display: flex;
@@ -1731,14 +1769,29 @@ class HSLAColorPicker {
       slider.dataset.channel = config.key;
       if (config.className) slider.classList.add(config.className);
 
-      const value = document.createElement('span');
+      const value = document.createElement('input');
+      value.type = 'number';
       value.className = 'hsla-slider-value';
+      value.min = String(config.min);
+      value.max = String(config.max);
+      value.step = String(config.step);
+      value.dataset.channel = config.key;
+      value.inputMode = config.key === 'a' ? 'decimal' : 'numeric';
+      value.setAttribute('aria-label', `${config.label} Wert`);
+      value.title = `${config.label} (${config.min}${config.unit ?? ''} – ${config.max}${config.unit ?? ''})`;
 
       slider.addEventListener('input', () => {
         this.updateFromSliders('input');
       });
       slider.addEventListener('change', () => {
         this.updateFromSliders('change');
+      });
+
+      value.addEventListener('input', () => {
+        this.handleNumberInput(config.key, 'input');
+      });
+      value.addEventListener('change', () => {
+        this.handleNumberInput(config.key, 'change');
       });
 
       this.sliders[config.key] = slider;
@@ -1816,17 +1869,13 @@ class HSLAColorPicker {
         : channel === 'h'
           ? normalizeHue(parsed.h)
           : clamp(parsed[channel], 0, 100);
-      slider.value = channel === 'a' ? String(Math.round(numeric * 100) / 100) : String(Math.round(numeric));
+      const sliderValue = channel === 'a'
+        ? String(Math.round(numeric * 100) / 100)
+        : String(Math.round(numeric));
+      slider.value = sliderValue;
       const info = this.sliderValues[channel];
       if (info?.element) {
-        if (channel === 'a') {
-          const formatted = (Math.round(numeric * 100) / 100).toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
-          info.element.textContent = formatted;
-        } else if (channel === 'h') {
-          info.element.textContent = `${Math.round(normalizeHue(parsed.h))}${info.unit}`;
-        } else {
-          info.element.textContent = `${Math.round(clamp(parsed[channel], 0, 100))}${info.unit}`;
-        }
+        info.element.value = this.formatChannelValue(channel, numeric);
       }
     });
     this.updateSliderBackgrounds();
@@ -1834,6 +1883,37 @@ class HSLAColorPicker {
       const dispatch = options?.dispatch || 'input';
       const types = dispatch === 'both' ? ['input', 'change'] : [dispatch];
       types.filter(Boolean).forEach(type => this.dispatch(type));
+    }
+  }
+
+  formatChannelValue(channel, numeric) {
+    if (channel === 'a') {
+      const rounded = Math.round(clamp(numeric, 0, 1) * 100) / 100;
+      return rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+    }
+    if (channel === 'h') {
+      return String(Math.round(normalizeHue(numeric)));
+    }
+    return String(Math.round(clamp(numeric, 0, 100)));
+  }
+
+  handleNumberInput(channel, eventType) {
+    const info = this.sliderValues[channel];
+    if (!info?.element) return;
+    const displayRaw = info.element.value;
+    const normalized = displayRaw.trim().replace(',', '.');
+    if (!normalized) {
+      if (eventType === 'change') {
+        info.element.value = this.formatChannelValue(channel, this.value[channel]);
+      }
+      return;
+    }
+    const numeric = Number(normalized);
+    if (Number.isNaN(numeric)) return;
+    const next = { ...this.value, [channel]: numeric };
+    this.setValue(next, { dispatch: eventType === 'change' ? 'change' : 'input' });
+    if (eventType === 'input') {
+      info.element.value = displayRaw;
     }
   }
 
@@ -1846,7 +1926,12 @@ class HSLAColorPicker {
       this.sliders.l.style.background = `linear-gradient(to right, hsla(${h}, ${s}%, 0%, 1), hsla(${h}, ${s}%, 50%, 1), hsla(${h}, ${s}%, 100%, 1))`;
     }
     if (this.sliders.a) {
-      this.sliders.a.style.background = `linear-gradient(to right, hsla(${h}, ${s}%, ${l}%, 0), hsla(${h}, ${s}%, ${l}%, 1)), repeating-conic-gradient(#e2e8f0 0% 25%, #f8fafc 0% 50%) 0 / 10px 10px`;
+      this.sliders.a.style.backgroundImage = `linear-gradient(to right, hsla(${h}, ${s}%, ${l}%, 0), hsla(${h}, ${s}%, ${l}%, 1)), ` +
+        `linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%), ` +
+        `linear-gradient(45deg, transparent 25%, #e2e8f0 25%, #e2e8f0 75%, transparent 75%)`;
+      this.sliders.a.style.backgroundSize = '100% 100%, 12px 12px, 12px 12px';
+      this.sliders.a.style.backgroundPosition = 'center, 0 0, 6px 6px';
+      this.sliders.a.style.backgroundRepeat = 'no-repeat, repeat, repeat';
     }
   }
 
