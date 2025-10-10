@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>HSLA Color Picker Beispiel</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --radius: 14px;
+      --track-height: 10px;
+      --thumb-size: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 40px;
+      background: linear-gradient(135deg, #f5f7fa, #e4ecf7);
+      color: #1f2933;
+      min-height: 100vh;
+    }
+
+    h1 {
+      margin-bottom: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .picker-grid {
+      display: grid;
+      gap: 32px;
+    }
+
+    .picker-card {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(12px);
+      border-radius: var(--radius);
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+      padding: 28px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .picker-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      gap: 16px;
+    }
+
+    .picker-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .preview-wrapper {
+      width: 110px;
+      height: 110px;
+      border-radius: calc(var(--radius) - 4px);
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      position: relative;
+      overflow: hidden;
+      background:
+        conic-gradient(#d9dde8 25%, #f5f5f7 0 50%, #d9dde8 0 75%, #f5f5f7 0) 0 / 20px 20px;
+    }
+
+    .preview-color {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+    }
+
+    .sliders {
+      display: grid;
+      gap: 16px;
+    }
+
+    .slider-row {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #3b4a5a;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: var(--track-height);
+      border-radius: calc(var(--track-height) / 2);
+      background: #d1d8e5;
+      outline: none;
+      position: relative;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: var(--thumb-size);
+      height: var(--thumb-size);
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 4px 8px rgba(15, 23, 42, 0.2);
+      background: #0f172a;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: var(--thumb-size);
+      height: var(--thumb-size);
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 4px 8px rgba(15, 23, 42, 0.2);
+      background: #0f172a;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"]:active::-webkit-slider-thumb,
+    input[type="range"]:active::-moz-range-thumb {
+      transform: scale(1.1);
+    }
+
+    .value-output {
+      margin-top: 20px;
+      padding: 12px 14px;
+      border-radius: calc(var(--radius) - 6px);
+      background: rgba(15, 23, 42, 0.05);
+      font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular", monospace;
+      font-size: 0.95rem;
+      color: #1f2933;
+      overflow-wrap: anywhere;
+    }
+
+    .hue-track {
+      background: linear-gradient(to right,
+        hsl(0, 100%, 50%),
+        hsl(60, 100%, 50%),
+        hsl(120, 100%, 50%),
+        hsl(180, 100%, 50%),
+        hsl(240, 100%, 50%),
+        hsl(300, 100%, 50%),
+        hsl(360, 100%, 50%)
+      );
+    }
+
+    .alpha-track {
+      background:
+        linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1)),
+        linear-gradient(45deg, #d9dde8 25%, transparent 25% 50%, #d9dde8 50% 75%, transparent 75%) 0 / 16px 16px;
+    }
+
+    @media (min-width: 880px) {
+      .picker-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .picker-card {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .sliders {
+        margin-top: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>HSLA Color Picker mit Transparenz</h1>
+  <div class="picker-grid">
+    <section class="picker-card" data-target="text">
+      <div>
+        <div class="picker-header">
+          <h2>Textfarbe</h2>
+          <div class="preview-wrapper">
+            <div class="preview-color" id="preview-text"></div>
+          </div>
+        </div>
+        <div class="sliders">
+          <div class="slider-row">
+            <label for="text-h">Hue <span data-value="text-h">0</span></label>
+            <input id="text-h" class="hue-track" type="range" min="0" max="360" value="210" data-channel="h">
+          </div>
+          <div class="slider-row">
+            <label for="text-s">Saturation <span data-value="text-s">0%</span></label>
+            <input id="text-s" type="range" min="0" max="100" value="70" data-channel="s">
+          </div>
+          <div class="slider-row">
+            <label for="text-l">Lightness <span data-value="text-l">0%</span></label>
+            <input id="text-l" type="range" min="0" max="100" value="45" data-channel="l">
+          </div>
+          <div class="slider-row">
+            <label for="text-a">Alpha <span data-value="text-a">0</span></label>
+            <input id="text-a" class="alpha-track" type="range" min="0" max="1" step="0.01" value="1" data-channel="a">
+          </div>
+        </div>
+      </div>
+      <div class="value-output" id="output-text"></div>
+    </section>
+
+    <section class="picker-card" data-target="background">
+      <div>
+        <div class="picker-header">
+          <h2>Hintergrundfarbe</h2>
+          <div class="preview-wrapper">
+            <div class="preview-color" id="preview-background"></div>
+          </div>
+        </div>
+        <div class="sliders">
+          <div class="slider-row">
+            <label for="background-h">Hue <span data-value="background-h">0</span></label>
+            <input id="background-h" class="hue-track" type="range" min="0" max="360" value="20" data-channel="h">
+          </div>
+          <div class="slider-row">
+            <label for="background-s">Saturation <span data-value="background-s">0%</span></label>
+            <input id="background-s" type="range" min="0" max="100" value="85" data-channel="s">
+          </div>
+          <div class="slider-row">
+            <label for="background-l">Lightness <span data-value="background-l">0%</span></label>
+            <input id="background-l" type="range" min="0" max="100" value="60" data-channel="l">
+          </div>
+          <div class="slider-row">
+            <label for="background-a">Alpha <span data-value="background-a">0</span></label>
+            <input id="background-a" class="alpha-track" type="range" min="0" max="1" step="0.01" value="0.9" data-channel="a">
+          </div>
+        </div>
+      </div>
+      <div class="value-output" id="output-background"></div>
+    </section>
+
+    <section class="picker-card" data-target="border">
+      <div>
+        <div class="picker-header">
+          <h2>Borderfarbe</h2>
+          <div class="preview-wrapper">
+            <div class="preview-color" id="preview-border"></div>
+          </div>
+        </div>
+        <div class="sliders">
+          <div class="slider-row">
+            <label for="border-h">Hue <span data-value="border-h">0</span></label>
+            <input id="border-h" class="hue-track" type="range" min="0" max="360" value="280" data-channel="h">
+          </div>
+          <div class="slider-row">
+            <label for="border-s">Saturation <span data-value="border-s">0%</span></label>
+            <input id="border-s" type="range" min="0" max="100" value="65" data-channel="s">
+          </div>
+          <div class="slider-row">
+            <label for="border-l">Lightness <span data-value="border-l">0%</span></label>
+            <input id="border-l" type="range" min="0" max="100" value="40" data-channel="l">
+          </div>
+          <div class="slider-row">
+            <label for="border-a">Alpha <span data-value="border-a">0</span></label>
+            <input id="border-a" class="alpha-track" type="range" min="0" max="1" step="0.01" value="1" data-channel="a">
+          </div>
+        </div>
+      </div>
+      <div class="value-output" id="output-border"></div>
+    </section>
+  </div>
+
+  <script>
+    const pickers = document.querySelectorAll('.picker-card');
+
+    const formatter = new Intl.NumberFormat('de-DE', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+
+    const state = {
+      text:   { h: 210, s: 70, l: 45, a: 1 },
+      background: { h: 20, s: 85, l: 60, a: 0.9 },
+      border: { h: 280, s: 65, l: 40, a: 1 }
+    };
+
+    function hsla({ h, s, l, a }) {
+      return `hsla(${h}, ${s}%, ${l}%, ${a})`;
+    }
+
+    function updateSliderBackgrounds(scope, values) {
+      const { h, s, l, a } = values;
+      const saturationTrack = scope.querySelector('[data-channel="s"]');
+      const lightnessTrack = scope.querySelector('[data-channel="l"]');
+      const alphaTrack = scope.querySelector('[data-channel="a"]');
+
+      if (saturationTrack) {
+        saturationTrack.style.background = `linear-gradient(to right, hsl(${h}, 0%, ${l}%), hsl(${h}, 100%, ${l}%))`;
+      }
+      if (lightnessTrack) {
+        lightnessTrack.style.background = `linear-gradient(to right, hsl(${h}, ${s}%, 0%), hsl(${h}, ${s}%, 50%), hsl(${h}, ${s}%, 100%))`;
+      }
+      if (alphaTrack) {
+        alphaTrack.style.background = `linear-gradient(to right, hsla(${h}, ${s}%, ${l}%, 0), hsla(${h}, ${s}%, ${l}%, 1)),
+          linear-gradient(45deg, #d9dde8 25%, transparent 25% 50%, #d9dde8 50% 75%, transparent 75%) 0 / 16px 16px`;
+      }
+    }
+
+    function render(target) {
+      const values = state[target];
+      const preview = document.getElementById(`preview-${target}`);
+      const output = document.getElementById(`output-${target}`);
+
+      if (preview) {
+        preview.style.background = hsla(values);
+      }
+      if (output) {
+        output.textContent = hsla(values);
+      }
+
+      const card = document.querySelector(`.picker-card[data-target="${target}"]`);
+      if (card) {
+        card.querySelectorAll('input[type="range"]').forEach(input => {
+          const channel = input.dataset.channel;
+          const labelValue = card.querySelector(`[data-value="${target}-${channel}"]`);
+          if (!channel) return;
+          const val = values[channel];
+          const formatted = channel === 'a' ? formatter.format(val) : channel === 'h' ? val : `${val}%`;
+          if (labelValue) {
+            labelValue.textContent = formatted;
+          }
+          if (String(input.value) !== String(val)) {
+            input.value = val;
+          }
+        });
+        updateSliderBackgrounds(card, values);
+      }
+    }
+
+    function attachListeners(card) {
+      const target = card.dataset.target;
+      card.querySelectorAll('input[type="range"]').forEach(input => {
+        input.addEventListener('input', event => {
+          const channel = event.currentTarget.dataset.channel;
+          const value = channel === 'a' ? parseFloat(event.currentTarget.value) : parseInt(event.currentTarget.value, 10);
+          state[target][channel] = value;
+          render(target);
+        });
+      });
+      render(target);
+    }
+
+    pickers.forEach(attachListeners);
+  </script>
+</body>
+</html>
