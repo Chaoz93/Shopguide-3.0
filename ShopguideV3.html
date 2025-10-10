@@ -334,6 +334,203 @@
     @media (max-width: 640px){ .field-grid { grid-template-columns: 1fr; } }
     .form-field label { font-size:.875rem; font-weight:600; }
 
+    .hsla-native-input { display: none !important; }
+
+    .hsla-picker {
+      position: relative;
+      width: 100%;
+      --hsla-color: hsla(210, 20%, 50%, 1);
+    }
+    .hsla-picker-trigger {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.55rem 0.85rem;
+      border-radius: 0.85rem;
+      border: 1px solid rgba(15,23,42,0.08);
+      background: linear-gradient(135deg, rgba(248,250,252,0.9), rgba(241,245,249,0.9));
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+      cursor: pointer;
+    }
+    .hsla-picker-trigger:hover,
+    .hsla-picker.open .hsla-picker-trigger {
+      border-color: rgba(37,99,235,0.45);
+      box-shadow: 0 8px 24px rgba(15,23,42,0.12);
+    }
+    .hsla-picker-trigger:focus-visible {
+      outline: 2px solid rgba(37,99,235,0.8);
+      outline-offset: 2px;
+    }
+    .hsla-chip {
+      position: relative;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.9rem;
+      flex-shrink: 0;
+      border: 1px solid rgba(15,23,42,0.12);
+      background:
+        repeating-conic-gradient(#e2e8f0 0% 25%, #f8fafc 0% 50%) 0 / 10px 10px;
+      overflow: hidden;
+    }
+    .hsla-chip::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--hsla-color);
+    }
+    .hsla-summary {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.2rem;
+      text-align: left;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .hsla-summary-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .hsla-value {
+      font-size: 0.82rem;
+      font-family: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      color: #0f172a;
+    }
+    .hsla-caret {
+      display: inline-flex;
+      transform: rotate(0deg);
+      transition: transform 0.2s ease;
+      color: #64748b;
+    }
+    .hsla-picker.open .hsla-caret {
+      transform: rotate(180deg);
+      color: #2563eb;
+    }
+    .hsla-popover {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 0.65rem);
+      width: min(320px, 88vw);
+      background: rgba(255,255,255,0.98);
+      border: 1px solid rgba(15,23,42,0.1);
+      border-radius: 1rem;
+      box-shadow: 0 24px 45px rgba(15,23,42,0.18);
+      padding: 1rem;
+      display: none;
+      z-index: 90;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .hsla-picker.open .hsla-popover { display: block; }
+    .hsla-sliders {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .hsla-slider-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 0.65rem;
+    }
+    .hsla-slider-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #475569;
+      font-weight: 600;
+    }
+    .hsla-slider-value {
+      font-size: 0.78rem;
+      font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      color: #0f172a;
+      min-width: 3.5ch;
+      text-align: right;
+    }
+    .hsla-slider-row input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 0.65rem;
+      border-radius: 999px;
+      background: #e2e8f0;
+      border: 1px solid rgba(15,23,42,0.08);
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .hsla-slider-row input[type="range"]:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.22);
+    }
+    .hsla-slider-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2px solid #2563eb;
+      box-shadow: 0 2px 4px rgba(15,23,42,0.2);
+      transition: transform 0.2s ease;
+    }
+    .hsla-slider-row input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.05);
+    }
+    .hsla-slider-row input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2px solid #2563eb;
+      box-shadow: 0 2px 4px rgba(15,23,42,0.2);
+      transition: transform 0.2s ease;
+    }
+    .hsla-slider-row input[type="range"]::-moz-range-thumb:hover {
+      transform: scale(1.05);
+    }
+    .hsla-slider-row input[type="range"]::-moz-range-track {
+      height: 0.65rem;
+      border-radius: 999px;
+      background: transparent;
+    }
+    .hsla-slider-row input[type="range"]::-ms-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2px solid #2563eb;
+    }
+    .hsla-slider-hue {
+      background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red);
+    }
+    .hsla-slider-alpha {
+      background:
+        linear-gradient(to right, rgba(15,23,42,0), rgba(15,23,42,1)),
+        repeating-conic-gradient(#e2e8f0 0% 25%, #f8fafc 0% 50%) 0 / 10px 10px;
+    }
+    .hsla-inline-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.25rem;
+    }
+    .hsla-inline-actions button {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 0.55rem;
+      border: 1px solid rgba(15,23,42,0.08);
+      background: rgba(241,245,249,0.6);
+      color: #1f2937;
+      cursor: pointer;
+    }
+    .hsla-inline-actions button:hover {
+      background: rgba(226,232,240,0.9);
+    }
+
     .module-layer-manager {
       background: #f9fafb;
       border: 1px solid var(--border-color);
@@ -626,12 +823,11 @@
       border-left: 2px dashed rgba(148,163,184,0.35);
     }
     .module-layer-color input[type="color"] {
-      width: 100%;
-      height: 2.25rem;
-      padding: 0.15rem;
-      border-radius: 0.5rem;
-      border: 1px solid var(--border-color);
-      cursor: pointer;
+      display: none;
+    }
+    .module-layer-color .hsla-picker-trigger {
+      border-radius: 0.65rem;
+      padding: 0.45rem 0.75rem;
     }
     .module-layer-actions {
       display: flex;
@@ -1199,6 +1395,480 @@
     </div>
   </div>
   <script>
+const COLOR_PICKER_REGISTRY = new WeakMap();
+const COLOR_PICKER_INSTANCES = new Set();
+let colorPickerListenersAttached = false;
+
+function clamp(value, min, max) {
+  if (Number.isNaN(value)) return min;
+  return Math.min(Math.max(value, min), max);
+}
+
+function normalizeHue(value) {
+  if (!Number.isFinite(value)) return 0;
+  const normalized = value % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function parseRgbComponent(token) {
+  if (typeof token !== 'string') return 0;
+  const trimmed = token.trim();
+  if (!trimmed) return 0;
+  if (trimmed.endsWith('%')) {
+    const percent = parseFloat(trimmed.slice(0, -1));
+    if (Number.isNaN(percent)) return 0;
+    return clamp(percent, 0, 100) * 255 / 100;
+  }
+  const value = parseFloat(trimmed);
+  if (Number.isNaN(value)) return 0;
+  return clamp(value, 0, 255);
+}
+
+function parseAlphaComponent(token) {
+  if (typeof token !== 'string') {
+    const num = Number(token);
+    return clamp(Number.isNaN(num) ? 1 : num, 0, 1);
+  }
+  const trimmed = token.trim();
+  if (!trimmed) return 1;
+  if (trimmed.endsWith('%')) {
+    const percent = parseFloat(trimmed.slice(0, -1));
+    if (Number.isNaN(percent)) return 1;
+    return clamp(percent / 100, 0, 1);
+  }
+  const value = parseFloat(trimmed);
+  if (Number.isNaN(value)) return 1;
+  return clamp(value, 0, 1);
+}
+
+function rgbaToHsla(r, g, b, a = 1) {
+  const rn = clamp(r / 255, 0, 1);
+  const gn = clamp(g / 255, 0, 1);
+  const bn = clamp(b / 255, 0, 1);
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+  let h = 0;
+  if (delta !== 0) {
+    switch (max) {
+      case rn:
+        h = ((gn - bn) / delta) % 6;
+        break;
+      case gn:
+        h = (bn - rn) / delta + 2;
+        break;
+      default:
+        h = (rn - gn) / delta + 4;
+        break;
+    }
+    h *= 60;
+  }
+  if (h < 0) h += 360;
+  const l = (max + min) / 2;
+  let s = 0;
+  if (delta !== 0) {
+    s = delta / (1 - Math.abs(2 * l - 1));
+  }
+  return {
+    h: normalizeHue(h),
+    s: clamp(s * 100, 0, 100),
+    l: clamp(l * 100, 0, 100),
+    a: clamp(a, 0, 1)
+  };
+}
+
+function hslaToRgba({ h, s, l, a }) {
+  const hue = normalizeHue(Number(h) || 0);
+  const sat = clamp((Number(s) || 0) / 100, 0, 1);
+  const lig = clamp((Number(l) || 0) / 100, 0, 1);
+  const chroma = (1 - Math.abs(2 * lig - 1)) * sat;
+  const scaledHue = hue / 60;
+  const x = chroma * (1 - Math.abs((scaledHue % 2) - 1));
+  let r1 = 0, g1 = 0, b1 = 0;
+  if (scaledHue >= 0 && scaledHue < 1) {
+    r1 = chroma; g1 = x;
+  } else if (scaledHue >= 1 && scaledHue < 2) {
+    r1 = x; g1 = chroma;
+  } else if (scaledHue >= 2 && scaledHue < 3) {
+    g1 = chroma; b1 = x;
+  } else if (scaledHue >= 3 && scaledHue < 4) {
+    g1 = x; b1 = chroma;
+  } else if (scaledHue >= 4 && scaledHue < 5) {
+    r1 = x; b1 = chroma;
+  } else {
+    r1 = chroma;
+    b1 = x;
+  }
+  const m = lig - chroma / 2;
+  const r = clamp(Math.round((r1 + m) * 255), 0, 255);
+  const g = clamp(Math.round((g1 + m) * 255), 0, 255);
+  const b = clamp(Math.round((b1 + m) * 255), 0, 255);
+  return { r, g, b, a: clamp(a, 0, 1) };
+}
+
+function hexToHsla(hex) {
+  const match = /^#([0-9a-f]{3,8})$/i.exec(hex.trim());
+  if (!match) return null;
+  let value = match[1];
+  if (value.length === 3 || value.length === 4) {
+    value = value.split('').map(ch => ch + ch).join('');
+  }
+  if (value.length === 6) {
+    value += 'ff';
+  }
+  const intVal = parseInt(value, 16);
+  const r = (intVal >> 24) & 255;
+  const g = (intVal >> 16) & 255;
+  const b = (intVal >> 8) & 255;
+  const a = (intVal & 255) / 255;
+  return rgbaToHsla(r, g, b, a);
+}
+
+function parseColor(color) {
+  if (!color) return null;
+  if (typeof color === 'object' && color !== null && 'h' in color) {
+    return {
+      h: normalizeHue(Number(color.h) || 0),
+      s: clamp(Number(color.s) || 0, 0, 100),
+      l: clamp(Number(color.l) || 0, 0, 100),
+      a: clamp(Number(color.a ?? 1), 0, 1)
+    };
+  }
+  if (typeof color !== 'string') return null;
+  const value = color.trim();
+  if (!value) return null;
+  if (value.startsWith('#')) {
+    return hexToHsla(value);
+  }
+  const rgbaMatch = /^rgba?\(([^)]+)\)$/i.exec(value);
+  if (rgbaMatch) {
+    const parts = rgbaMatch[1].replace(/\//g, ',').split(',').map(part => part.trim()).filter(Boolean);
+    if (parts.length < 3) return null;
+    const r = parseRgbComponent(parts[0]);
+    const g = parseRgbComponent(parts[1]);
+    const b = parseRgbComponent(parts[2]);
+    const a = parts.length >= 4 ? parseAlphaComponent(parts[3]) : 1;
+    return rgbaToHsla(r, g, b, a);
+  }
+  const hslaMatch = /^hsla?\(([^)]+)\)$/i.exec(value);
+  if (hslaMatch) {
+    const parts = hslaMatch[1].replace(/\//g, ',').split(',').map(part => part.trim()).filter(Boolean);
+    if (parts.length < 3) return null;
+    const h = normalizeHue(parseFloat(parts[0]));
+    const s = clamp(parseFloat(parts[1]), 0, 100);
+    const l = clamp(parseFloat(parts[2]), 0, 100);
+    const a = parts.length >= 4 ? parseAlphaComponent(parts[3]) : 1;
+    return { h, s, l, a };
+  }
+  return null;
+}
+
+function hslaToString({ h, s, l, a }) {
+  const hue = Math.round(normalizeHue(h));
+  const sat = Math.round(clamp(s, 0, 100));
+  const lig = Math.round(clamp(l, 0, 100));
+  const alpha = clamp(a, 0, 1);
+  const alphaStr = (() => {
+    const fixed = Math.round(alpha * 100) / 100;
+    return fixed % 1 === 0 ? fixed.toFixed(0) : fixed.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  })();
+  return `hsla(${hue}, ${sat}%, ${lig}%, ${alphaStr})`;
+}
+
+function normalizeColorValue(value, fallback) {
+  const parsed = parseColor(value) || parseColor(fallback);
+  if (!parsed) {
+    return 'hsla(210, 14%, 95%, 1)';
+  }
+  return hslaToString(parsed);
+}
+
+function ensureColorPickerGlobals() {
+  if (colorPickerListenersAttached) return;
+  document.addEventListener('click', () => closeAllColorPickers());
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closeAllColorPickers();
+    }
+  });
+  colorPickerListenersAttached = true;
+}
+
+function closeAllColorPickers(except) {
+  COLOR_PICKER_INSTANCES.forEach(instance => {
+    if (instance !== except) {
+      instance.close();
+    }
+  });
+}
+
+function upgradeColorInput(input) {
+  if (!(input instanceof HTMLInputElement) || input.type !== 'color') return null;
+  if (input.dataset.hslaUpgraded === '1') {
+    return COLOR_PICKER_REGISTRY.get(input) || null;
+  }
+  ensureColorPickerGlobals();
+  const picker = new HSLAColorPicker(input);
+  COLOR_PICKER_REGISTRY.set(input, picker);
+  COLOR_PICKER_INSTANCES.add(picker);
+  input.dataset.hslaUpgraded = '1';
+  return picker;
+}
+
+function initializeColorPickersIn(root = document) {
+  root.querySelectorAll('input[type="color"]:not([data-hsla-upgraded="1"])').forEach(upgradeColorInput);
+}
+
+function getColorInputValue(input) {
+  if (!input) return '';
+  const picker = COLOR_PICKER_REGISTRY.get(input) || upgradeColorInput(input);
+  if (picker) {
+    return picker.getValue();
+  }
+  return normalizeColorValue(input.value);
+}
+
+function setColorInputValue(input, value, options = {}) {
+  if (!input) return;
+  const picker = COLOR_PICKER_REGISTRY.get(input) || upgradeColorInput(input);
+  if (picker) {
+    const provided = (typeof value === 'string' && value.trim()) || (typeof value === 'object' && value !== null)
+      ? value
+      : input.value;
+    const { setBaseline, ...pickerOptions } = options || {};
+    picker.setValue(provided, pickerOptions);
+    if (setBaseline) {
+      picker.initialValue = picker.getValue();
+    }
+  } else {
+    input.value = normalizeColorValue(value, input.value);
+    if (!options?.silent) {
+      const eventType = options?.dispatch === 'both' ? ['input', 'change'] : [options?.dispatch];
+      eventType.filter(Boolean).forEach(type => {
+        input.dispatchEvent(new Event(type, { bubbles: true }));
+      });
+    }
+  }
+}
+
+class HSLAColorPicker {
+  constructor(input) {
+    this.input = input;
+    this.input.classList.add('hsla-native-input');
+    this.input.style.display = 'none';
+    this.input.setAttribute('aria-hidden', 'true');
+    this.input.tabIndex = -1;
+    this.value = { h: 0, s: 0, l: 100, a: 1 };
+    this.cssValue = 'hsla(0, 0%, 100%, 1)';
+    this.sliderValues = {};
+    this.sliders = {};
+    this.build();
+    const initial = normalizeColorValue(this.input.value, this.cssValue);
+    this.setValue(initial, { silent: true });
+    this.initialValue = this.cssValue;
+  }
+
+  build() {
+    this.container = document.createElement('div');
+    this.container.className = 'hsla-picker';
+    this.input.insertAdjacentElement('afterend', this.container);
+
+    this.trigger = document.createElement('button');
+    this.trigger.type = 'button';
+    this.trigger.className = 'hsla-picker-trigger';
+    this.trigger.setAttribute('aria-haspopup', 'dialog');
+    this.trigger.setAttribute('aria-expanded', 'false');
+
+    this.chip = document.createElement('span');
+    this.chip.className = 'hsla-chip';
+
+    const summary = document.createElement('span');
+    summary.className = 'hsla-summary';
+    const summaryLabel = document.createElement('span');
+    summaryLabel.className = 'hsla-summary-label';
+    summaryLabel.textContent = 'HSLA';
+    this.valueEl = document.createElement('span');
+    this.valueEl.className = 'hsla-value';
+    summary.append(summaryLabel, this.valueEl);
+
+    this.caret = document.createElement('span');
+    this.caret.className = 'hsla-caret';
+    this.caret.innerHTML = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    this.trigger.append(this.chip, summary, this.caret);
+    this.container.append(this.trigger);
+
+    this.popover = document.createElement('div');
+    this.popover.className = 'hsla-popover';
+    this.popover.setAttribute('role', 'dialog');
+    this.popover.setAttribute('aria-label', 'Farbregler');
+    this.container.append(this.popover);
+
+    const sliderWrapper = document.createElement('div');
+    sliderWrapper.className = 'hsla-sliders';
+    this.popover.append(sliderWrapper);
+
+    const sliderConfigs = [
+      { key: 'h', label: 'Hue', min: 0, max: 360, step: 1, unit: '°', className: 'hsla-slider-hue' },
+      { key: 's', label: 'Saturation', min: 0, max: 100, step: 1, unit: '%'},
+      { key: 'l', label: 'Lightness', min: 0, max: 100, step: 1, unit: '%' },
+      { key: 'a', label: 'Alpha', min: 0, max: 1, step: 0.01, unit: '' , className: 'hsla-slider-alpha'}
+    ];
+
+    sliderConfigs.forEach(config => {
+      const row = document.createElement('div');
+      row.className = 'hsla-slider-row';
+
+      const label = document.createElement('span');
+      label.className = 'hsla-slider-label';
+      label.textContent = config.label;
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = String(config.min);
+      slider.max = String(config.max);
+      slider.step = String(config.step);
+      slider.dataset.channel = config.key;
+      if (config.className) slider.classList.add(config.className);
+
+      const value = document.createElement('span');
+      value.className = 'hsla-slider-value';
+
+      slider.addEventListener('input', () => {
+        this.updateFromSliders('input');
+      });
+      slider.addEventListener('change', () => {
+        this.updateFromSliders('change');
+      });
+
+      this.sliders[config.key] = slider;
+      this.sliderValues[config.key] = { element: value, unit: config.unit };
+
+      row.append(label, slider, value);
+      sliderWrapper.append(row);
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'hsla-inline-actions';
+    this.popover.append(actions);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.textContent = 'Zurücksetzen';
+    resetBtn.addEventListener('click', () => {
+      this.setValue(this.initialValue, { dispatch: 'both' });
+      this.close();
+    });
+
+    const doneBtn = document.createElement('button');
+    doneBtn.type = 'button';
+    doneBtn.textContent = 'Fertig';
+    doneBtn.addEventListener('click', () => this.close());
+
+    actions.append(resetBtn, doneBtn);
+
+    this.trigger.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (this.container.classList.contains('open')) {
+        this.close();
+      } else {
+        closeAllColorPickers(this);
+        this.open();
+      }
+    });
+
+    ['pointerdown', 'mousedown', 'click'].forEach(evt => {
+      this.popover.addEventListener(evt, event => event.stopPropagation());
+    });
+
+    this.popover.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        this.close();
+      }
+    });
+  }
+
+  open() {
+    this.container.classList.add('open');
+    this.trigger.setAttribute('aria-expanded', 'true');
+  }
+
+  close() {
+    this.container.classList.remove('open');
+    this.trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  setValue(value, options = {}) {
+    const parsed = parseColor(value);
+    if (!parsed) return;
+    this.value = parsed;
+    this.cssValue = hslaToString(parsed);
+    this.input.value = this.cssValue;
+    this.container.style.setProperty('--hsla-color', this.cssValue);
+    if (this.valueEl) {
+      this.valueEl.textContent = this.cssValue;
+    }
+    Object.entries(this.sliders).forEach(([channel, slider]) => {
+      const numeric = channel === 'a'
+        ? clamp(parsed.a, 0, 1)
+        : channel === 'h'
+          ? normalizeHue(parsed.h)
+          : clamp(parsed[channel], 0, 100);
+      slider.value = channel === 'a' ? String(Math.round(numeric * 100) / 100) : String(Math.round(numeric));
+      const info = this.sliderValues[channel];
+      if (info?.element) {
+        if (channel === 'a') {
+          const formatted = (Math.round(numeric * 100) / 100).toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+          info.element.textContent = formatted;
+        } else if (channel === 'h') {
+          info.element.textContent = `${Math.round(normalizeHue(parsed.h))}${info.unit}`;
+        } else {
+          info.element.textContent = `${Math.round(clamp(parsed[channel], 0, 100))}${info.unit}`;
+        }
+      }
+    });
+    this.updateSliderBackgrounds();
+    if (!options?.silent) {
+      const dispatch = options?.dispatch || 'input';
+      const types = dispatch === 'both' ? ['input', 'change'] : [dispatch];
+      types.filter(Boolean).forEach(type => this.dispatch(type));
+    }
+  }
+
+  updateSliderBackgrounds() {
+    const { h, s, l } = this.value;
+    if (this.sliders.s) {
+      this.sliders.s.style.background = `linear-gradient(to right, hsla(${h}, 0%, ${l}%, 1), hsla(${h}, 100%, ${l}%, 1))`;
+    }
+    if (this.sliders.l) {
+      this.sliders.l.style.background = `linear-gradient(to right, hsla(${h}, ${s}%, 0%, 1), hsla(${h}, ${s}%, 50%, 1), hsla(${h}, ${s}%, 100%, 1))`;
+    }
+    if (this.sliders.a) {
+      this.sliders.a.style.background = `linear-gradient(to right, hsla(${h}, ${s}%, ${l}%, 0), hsla(${h}, ${s}%, ${l}%, 1)), repeating-conic-gradient(#e2e8f0 0% 25%, #f8fafc 0% 50%) 0 / 10px 10px`;
+    }
+  }
+
+  updateFromSliders(eventType) {
+    const h = Number(this.sliders.h?.value ?? this.value.h);
+    const s = Number(this.sliders.s?.value ?? this.value.s);
+    const l = Number(this.sliders.l?.value ?? this.value.l);
+    const a = Number(this.sliders.a?.value ?? this.value.a);
+    const dispatchType = eventType === 'change' ? 'change' : 'input';
+    this.setValue({ h, s, l, a }, { dispatch: dispatchType });
+  }
+
+  dispatch(type) {
+    if (!type) return;
+    this.input.dispatchEvent(new Event(type, { bubbles: true }));
+  }
+
+  getValue() {
+    return this.cssValue;
+  }
+}
+
 const MAX_MODULE_COLOR_LAYERS = 8;
 const DEFAULT_SUB_LAYER_COUNT = 2;
 const MAX_MODULE_SUB_LAYERS = 8;
@@ -1207,19 +1877,12 @@ function generateLayerId() {
   return 'layer-' + Math.random().toString(36).slice(2, 10);
 }
 
-function hexToRgba(color, alpha = 1) {
-  if (typeof color !== 'string') return '';
-  const hex = color.trim();
-  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex);
-  if (!match) return '';
-  const normalized = match[1].length === 3
-    ? match[1].split('').map(ch => ch + ch).join('')
-    : match[1];
-  const intVal = parseInt(normalized, 16);
-  const r = (intVal >> 16) & 255;
-  const g = (intVal >> 8) & 255;
-  const b = intVal & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+function hexToRgba(color, alpha) {
+  const parsed = parseColor(color);
+  if (!parsed) return '';
+  const rgba = hslaToRgba(parsed);
+  const finalAlpha = typeof alpha === 'number' ? clamp(alpha, 0, 1) : rgba.a;
+  return `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${finalAlpha})`;
 }
 
 function normalizeSubLayerEntries(subLayers, targetCount, moduleBg, moduleText) {
@@ -3729,6 +4392,7 @@ function renderModuleColorLayers(layers = appSettings.moduleColorLayers) {
 }
 
 function createModuleColorLayerElement(layer, index) {
+  layer = layer || {};
   const wrapper = document.createElement('div');
   wrapper.className = 'module-color-layer';
   wrapper.dataset.index = String(index);
@@ -3797,14 +4461,35 @@ function createModuleColorLayerElement(layer, index) {
   const headerBgInput = wrapper.querySelector('input[data-field="headerBg"]');
   const headerTextInput = wrapper.querySelector('input[data-field="headerText"]');
   const headerBorderInput = wrapper.querySelector('input[data-field="headerBorder"]');
-  renderModuleColorLayerSubSections(wrapper, layer);
-  if (moduleBgInput) moduleBgInput.value = layer.moduleBg;
-  if (moduleTextInput) moduleTextInput.value = layer.moduleText;
-  if (moduleBorderInput) moduleBorderInput.value = layer.moduleBorder;
-  if (headerBgInput) headerBgInput.value = layer.headerBg;
-  if (headerTextInput) headerTextInput.value = layer.headerText;
-  if (headerBorderInput) headerBorderInput.value = layer.headerBorder;
-  applyModuleColorLayerPreview(wrapper, layer);
+
+  const resolvedLayer = { ...layer };
+  if (moduleBgInput) {
+    setColorInputValue(moduleBgInput, layer.moduleBg, { silent: true, setBaseline: true });
+    resolvedLayer.moduleBg = getColorInputValue(moduleBgInput);
+  }
+  if (moduleTextInput) {
+    setColorInputValue(moduleTextInput, layer.moduleText, { silent: true, setBaseline: true });
+    resolvedLayer.moduleText = getColorInputValue(moduleTextInput);
+  }
+  if (moduleBorderInput) {
+    setColorInputValue(moduleBorderInput, layer.moduleBorder, { silent: true, setBaseline: true });
+    resolvedLayer.moduleBorder = getColorInputValue(moduleBorderInput);
+  }
+  if (headerBgInput) {
+    setColorInputValue(headerBgInput, layer.headerBg, { silent: true, setBaseline: true });
+    resolvedLayer.headerBg = getColorInputValue(headerBgInput);
+  }
+  if (headerTextInput) {
+    setColorInputValue(headerTextInput, layer.headerText, { silent: true, setBaseline: true });
+    resolvedLayer.headerText = getColorInputValue(headerTextInput);
+  }
+  if (headerBorderInput) {
+    setColorInputValue(headerBorderInput, layer.headerBorder, { silent: true, setBaseline: true });
+    resolvedLayer.headerBorder = getColorInputValue(headerBorderInput);
+  }
+
+  renderModuleColorLayerSubSections(wrapper, resolvedLayer);
+  applyModuleColorLayerPreview(wrapper, resolvedLayer);
   return wrapper;
 }
 
@@ -3869,10 +4554,11 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
         const value = typeof subLayer?.[field.key] === 'string' && subLayer[field.key]
           ? subLayer[field.key]
           : (field.key === 'text' ? '#ffffff' : (layer?.moduleBg || '#1f2937'));
-        input.value = value;
         fieldLabel.appendChild(span);
         fieldLabel.appendChild(input);
         grid.appendChild(fieldLabel);
+        setColorInputValue(input, value, { silent: true, setBaseline: true });
+        subLayer[field.key] = getColorInputValue(input);
       });
       subgroup.appendChild(grid);
       const childrenContainer = document.createElement('div');
@@ -4139,7 +4825,7 @@ function collectModuleColorLayersFromDom() {
     const nameInput = layerEl.querySelector('.module-layer-name');
     const getColor = field => {
       const input = layerEl.querySelector(`input[data-field="${field}"]`);
-      return input ? input.value : '';
+      return input ? getColorInputValue(input) : '';
     };
     const subLayerCount = typeof appSettings.moduleSubLayerCount === 'number' && appSettings.moduleSubLayerCount > 0
       ? Math.min(appSettings.moduleSubLayerCount, MAX_MODULE_SUB_LAYERS)
@@ -4148,7 +4834,7 @@ function collectModuleColorLayersFromDom() {
     layerEl.querySelectorAll('.module-layer-subgroup').forEach((groupEl, subIndex) => {
       const getSubColor = key => {
         const input = groupEl.querySelector(`input[data-sub-field="${key}"]`);
-        return input ? input.value : '';
+        return input ? getColorInputValue(input) : '';
       };
       subLayers[subIndex] = {
         bg: getSubColor('bg'),
@@ -4293,6 +4979,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   sidebarEl.classList.add('collapsed');
   // Trigger fade-in animation on initial load
   document.body.classList.add('fade-in');
+
+  initializeColorPickersIn();
 
   setUpdateStatusButton();
   renderUpdateList();
@@ -4736,34 +5424,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 /** Populate inputs from appSettings */
 function populateInputsFromSettings() {
-  inputAppBg.value = toColor(appSettings.appBgColor, inputAppBg.value);
-  inputBorderColor.value = toColor(appSettings.borderColor, inputBorderColor.value);
-  inputButtonBg.value = toColor(appSettings.buttonBg, inputButtonBg.value);
-  inputButtonText.value = toColor(appSettings.buttonText, inputButtonText.value);
-  inputTopBarBg.value = toColor(appSettings.topBarBg, inputTopBarBg.value);
-  inputTabActiveBg.value = toColor(appSettings.tabActiveBg, inputTabActiveBg.value);
-  inputTabActiveText.value = toColor(appSettings.tabActiveText, inputTabActiveText.value);
-  inputTabInactiveBg.value = toColor(appSettings.tabInactiveBg, inputTabInactiveBg.value);
-  inputTabInactiveText.value = toColor(appSettings.tabInactiveText, inputTabInactiveText.value);
-  inputSidebarBg.value = toColor(appSettings.sidebarBg, inputSidebarBg.value);
-  inputSidebarText.value = toColor(appSettings.sidebarText, inputSidebarText.value);
-  inputGridHint.value = toColor(appSettings.gridHint, inputGridHint.value);
+  setColorInputValue(inputAppBg, appSettings.appBgColor, { silent: true, setBaseline: true });
+  setColorInputValue(inputBorderColor, appSettings.borderColor, { silent: true, setBaseline: true });
+  setColorInputValue(inputButtonBg, appSettings.buttonBg, { silent: true, setBaseline: true });
+  setColorInputValue(inputButtonText, appSettings.buttonText, { silent: true, setBaseline: true });
+  setColorInputValue(inputTopBarBg, appSettings.topBarBg, { silent: true, setBaseline: true });
+  setColorInputValue(inputTabActiveBg, appSettings.tabActiveBg, { silent: true, setBaseline: true });
+  setColorInputValue(inputTabActiveText, appSettings.tabActiveText, { silent: true, setBaseline: true });
+  setColorInputValue(inputTabInactiveBg, appSettings.tabInactiveBg, { silent: true, setBaseline: true });
+  setColorInputValue(inputTabInactiveText, appSettings.tabInactiveText, { silent: true, setBaseline: true });
+  setColorInputValue(inputSidebarBg, appSettings.sidebarBg, { silent: true, setBaseline: true });
+  setColorInputValue(inputSidebarText, appSettings.sidebarText, { silent: true, setBaseline: true });
+  setColorInputValue(inputGridHint, appSettings.gridHint, { silent: true, setBaseline: true });
   if (inputAutoArrange) inputAutoArrange.checked = !!appSettings.autoArrangeModules;
-  inputModuleBg.value = toColor(appSettings.moduleBgColor, inputModuleBg.value);
-  inputTextColor.value = toColor(appSettings.textColor, inputTextColor.value);
+  setColorInputValue(inputModuleBg, appSettings.moduleBgColor, { silent: true, setBaseline: true });
+  setColorInputValue(inputTextColor, appSettings.textColor, { silent: true, setBaseline: true });
   inputBorderRadius.value = Math.round(parseFloat(appSettings.moduleBorderRadius) * 16 || 0);
-  inputModuleHeaderBg.value = toColor(appSettings.moduleHeaderBg, inputModuleHeaderBg.value);
-  inputModuleHeaderText.value = toColor(appSettings.moduleHeaderText, inputModuleHeaderText.value);
-  inputDangerBg.value = toColor(appSettings.dangerBg, inputDangerBg.value);
-  inputDangerText.value = toColor(appSettings.dangerText, inputDangerText.value);
+  setColorInputValue(inputModuleHeaderBg, appSettings.moduleHeaderBg, { silent: true, setBaseline: true });
+  setColorInputValue(inputModuleHeaderText, appSettings.moduleHeaderText, { silent: true, setBaseline: true });
+  setColorInputValue(inputDangerBg, appSettings.dangerBg, { silent: true, setBaseline: true });
+  setColorInputValue(inputDangerText, appSettings.dangerText, { silent: true, setBaseline: true });
 
   renderModuleColorLayers(appSettings.moduleColorLayers);
 
   // New module border and sidebar module card settings
-  if (inputModuleBorderColor) inputModuleBorderColor.value = toColor(appSettings.moduleBorderColor, inputModuleBorderColor.value);
-  if (inputSidebarModuleBg) inputSidebarModuleBg.value = toColor(appSettings.sidebarModuleCardBg, inputSidebarModuleBg.value);
-  if (inputSidebarModuleText) inputSidebarModuleText.value = toColor(appSettings.sidebarModuleCardText, inputSidebarModuleText.value);
-  if (inputSidebarModuleBorder) inputSidebarModuleBorder.value = toColor(appSettings.sidebarModuleCardBorder, inputSidebarModuleBorder.value);
+  if (inputModuleBorderColor) setColorInputValue(inputModuleBorderColor, appSettings.moduleBorderColor, { silent: true, setBaseline: true });
+  if (inputSidebarModuleBg) setColorInputValue(inputSidebarModuleBg, appSettings.sidebarModuleCardBg, { silent: true, setBaseline: true });
+  if (inputSidebarModuleText) setColorInputValue(inputSidebarModuleText, appSettings.sidebarModuleCardText, { silent: true, setBaseline: true });
+  if (inputSidebarModuleBorder) setColorInputValue(inputSidebarModuleBorder, appSettings.sidebarModuleCardBorder, { silent: true, setBaseline: true });
   if (inputShowUpdateButton) inputShowUpdateButton.checked = appSettings.showUpdateStatusButton !== false;
   if (inputUpdateAutoPoll) inputUpdateAutoPoll.checked = !!appSettings.autoUpdatePolling;
   if (inputHideDowngradeButton) inputHideDowngradeButton.checked = !!appSettings.hideDowngradeStatusButton;
@@ -4771,53 +5459,39 @@ function populateInputsFromSettings() {
 
 /** Read inputs into appSettings */
 function readInputsIntoSettings() {
-  appSettings.appBgColor = inputAppBg.value;
-  appSettings.borderColor = inputBorderColor.value;
-  appSettings.buttonBg = inputButtonBg.value;
-  appSettings.buttonText = inputButtonText.value;
-  appSettings.topBarBg = inputTopBarBg.value;
-  appSettings.tabActiveBg = inputTabActiveBg.value;
-  appSettings.tabActiveText = inputTabActiveText.value;
-  appSettings.tabInactiveBg = inputTabInactiveBg.value;
-  appSettings.tabInactiveText = inputTabInactiveText.value;
-  appSettings.sidebarBg = inputSidebarBg.value;
-  appSettings.sidebarText = inputSidebarText.value;
-  appSettings.gridHint = inputGridHint.value;
+  appSettings.appBgColor = getColorInputValue(inputAppBg);
+  appSettings.borderColor = getColorInputValue(inputBorderColor);
+  appSettings.buttonBg = getColorInputValue(inputButtonBg);
+  appSettings.buttonText = getColorInputValue(inputButtonText);
+  appSettings.topBarBg = getColorInputValue(inputTopBarBg);
+  appSettings.tabActiveBg = getColorInputValue(inputTabActiveBg);
+  appSettings.tabActiveText = getColorInputValue(inputTabActiveText);
+  appSettings.tabInactiveBg = getColorInputValue(inputTabInactiveBg);
+  appSettings.tabInactiveText = getColorInputValue(inputTabInactiveText);
+  appSettings.sidebarBg = getColorInputValue(inputSidebarBg);
+  appSettings.sidebarText = getColorInputValue(inputSidebarText);
+  appSettings.gridHint = getColorInputValue(inputGridHint);
   if (inputAutoArrange) appSettings.autoArrangeModules = inputAutoArrange.checked;
-  appSettings.moduleBgColor = inputModuleBg.value;
-  appSettings.textColor = inputTextColor.value;
+  appSettings.moduleBgColor = getColorInputValue(inputModuleBg);
+  appSettings.textColor = getColorInputValue(inputTextColor);
   appSettings.moduleBorderRadius = ((parseFloat(inputBorderRadius.value)||0)/16) + 'rem';
-  appSettings.moduleHeaderBg = inputModuleHeaderBg.value;
-  appSettings.moduleHeaderText = inputModuleHeaderText.value;
-  appSettings.dangerBg = inputDangerBg.value;
-  appSettings.dangerText = inputDangerText.value;
+  appSettings.moduleHeaderBg = getColorInputValue(inputModuleHeaderBg);
+  appSettings.moduleHeaderText = getColorInputValue(inputModuleHeaderText);
+  appSettings.dangerBg = getColorInputValue(inputDangerBg);
+  appSettings.dangerText = getColorInputValue(inputDangerText);
 
   if (moduleColorLayersContainer && moduleColorLayersContainer.children.length) {
     appSettings.moduleColorLayers = collectModuleColorLayersFromDom();
   }
 
   // New module border and sidebar module card settings
-  appSettings.moduleBorderColor = inputModuleBorderColor.value;
-  appSettings.sidebarModuleCardBg = inputSidebarModuleBg.value;
-  appSettings.sidebarModuleCardText = inputSidebarModuleText.value;
-  appSettings.sidebarModuleCardBorder = inputSidebarModuleBorder.value;
+  appSettings.moduleBorderColor = getColorInputValue(inputModuleBorderColor);
+  appSettings.sidebarModuleCardBg = getColorInputValue(inputSidebarModuleBg);
+  appSettings.sidebarModuleCardText = getColorInputValue(inputSidebarModuleText);
+  appSettings.sidebarModuleCardBorder = getColorInputValue(inputSidebarModuleBorder);
   if (inputShowUpdateButton) appSettings.showUpdateStatusButton = inputShowUpdateButton.checked;
   if (inputUpdateAutoPoll) appSettings.autoUpdatePolling = inputUpdateAutoPoll.checked;
   if (inputHideDowngradeButton) appSettings.hideDowngradeStatusButton = inputHideDowngradeButton.checked;
-}
-
-/** Convert rgba to hex for colour inputs */
-function toColor(val, fallback) {
-  if (!val) return fallback;
-  if (/^#/.test(val)) return val;
-  const m = val.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-  if (m) {
-    const r = Number(m[1]).toString(16).padStart(2,'0');
-    const g = Number(m[2]).toString(16).padStart(2,'0');
-    const b = Number(m[3]).toString(16).padStart(2,'0');
-    return '#' + r + g + b;
-  }
-  return fallback;
 }
 
 /** Apply CSS variables from appSettings */
