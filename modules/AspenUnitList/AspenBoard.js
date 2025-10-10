@@ -1997,9 +1997,32 @@
 
     const state=createInitialState(initialTitle);
     const instanceId=instanceIdOf(elements.root);
-    const persistenceSeed=opts?.moduleJson?.id||opts?.moduleJson?.moduleKey||'primary';
-    const stateStorageKey=normalizeStateKey(persistenceSeed);
-    const handleStorageKey=`aspen-unit-handle::${persistenceSeed}`;
+    const seedCandidates=[
+      opts?.moduleJson?.settings?.stateSeed,
+      opts?.moduleJson?.settings?.seed,
+      opts?.moduleJson?.id,
+      opts?.moduleJson?.moduleKey
+    ];
+    let rawPersistenceSeed=seedCandidates.find(value=>typeof value==='string' && value.trim());
+    if(!rawPersistenceSeed){
+      rawPersistenceSeed=instanceId||'primary';
+    }
+    const stateStorageKey=normalizeStateKey(rawPersistenceSeed);
+    const handleStorageKey=`aspen-unit-handle::${stateStorageKey}`;
+    const legacyHandleKeys=Array.from(new Set([
+      ...seedCandidates
+        .filter(value=>typeof value==='string' && value.trim())
+        .flatMap(value=>{
+          const trimmed=value.trim();
+          const normalized=normalizeStateKey(trimmed);
+          const keys=[`aspen-unit-handle::${trimmed}`];
+          if(normalized && normalized!==trimmed){
+            keys.push(`aspen-unit-handle::${normalized}`);
+          }
+          return keys;
+        }),
+      'aspen-unit-handle::primary'
+    ])).filter(key=>key && key!==handleStorageKey);
     let fileHandle=null;
     let hasReadPermission=false;
     let tempSubFields=[];
@@ -3996,7 +4019,17 @@
 
     if(!fileHandle){
       try{
-        const storedHandle=await restoreFileHandleFromStore(handleStorageKey);
+        let storedHandle=await restoreFileHandleFromStore(handleStorageKey);
+        if(!storedHandle && Array.isArray(legacyHandleKeys) && legacyHandleKeys.length){
+          for(const legacyKey of legacyHandleKeys){
+            if(!legacyKey || legacyKey===handleStorageKey) continue;
+            storedHandle=await restoreFileHandleFromStore(legacyKey);
+            if(storedHandle){
+              try{await persistFileHandle(handleStorageKey,storedHandle);}catch{}
+              break;
+            }
+          }
+        }
         if(storedHandle){
           fileHandle=storedHandle;
           const permission=await queryHandlePermission(storedHandle,'read');
