@@ -1473,10 +1473,10 @@
             <div class="module-layer-manager">
               <div class="module-layer-header">
                 <div>
-                  <h3 class="module-layer-title">Farb-Layer für Module</h3>
+                  <h3 class="module-layer-title">Unter-Layer für Module</h3>
                   <p class="module-layer-subtitle">Definiere kombinierbare Farbsets für Modulflächen, Überschrift-Bubbles und Unterelemente.</p>
                 </div>
-                <button id="add-module-color-layer" type="button" class="module-layer-add">Layer hinzufügen</button>
+                <button id="add-module-color-layer" type="button" class="module-layer-add">Unter-Layer hinzufügen</button>
               </div>
               <div id="module-color-layers" class="module-color-layers space-y-3"></div>
               <p class="module-layer-hint">Bis zu 8 Unter-Layer möglich. Die Farbkombinationen kannst du später in Modulen über ein Dropdown auswählen.</p>
@@ -2212,10 +2212,10 @@ function createColorLayer(
 
 function getDefaultModuleColorLayers() {
   return [
-    createColorLayer('Layer 1', '#005983', '#ffffff', '#0f6ab4', '#0f6ab4', '#ffffff', '#0a487a', '#07365b', '#ffffff', '#052b47'),
-    createColorLayer('Layer 2', '#1d4ed8', '#ffffff', '#3b82f6', '#2563eb', '#ffffff', '#1d4ed8', '#1e3a8a', '#ffffff', '#172554'),
-    createColorLayer('Layer 3', '#047857', '#ffffff', '#10b981', '#059669', '#ffffff', '#047857', '#064e3b', '#ffffff', '#022c22'),
-    createColorLayer('Layer 4', '#7c3aed', '#ffffff', '#a855f7', '#8b5cf6', '#ffffff', '#6d28d9', '#5b21b6', '#ffffff', '#3c0d99')
+    createColorLayer('Unter-Layer 1', '#005983', '#ffffff', '#0f6ab4', '#0f6ab4', '#ffffff', '#0a487a', '#07365b', '#ffffff', '#052b47'),
+    createColorLayer('Unter-Layer 2', '#1d4ed8', '#ffffff', '#3b82f6', '#2563eb', '#ffffff', '#1d4ed8', '#1e3a8a', '#ffffff', '#172554'),
+    createColorLayer('Unter-Layer 3', '#047857', '#ffffff', '#10b981', '#059669', '#ffffff', '#047857', '#064e3b', '#ffffff', '#022c22'),
+    createColorLayer('Unter-Layer 4', '#7c3aed', '#ffffff', '#a855f7', '#8b5cf6', '#ffffff', '#6d28d9', '#5b21b6', '#ffffff', '#3c0d99')
   ];
 }
 
@@ -2244,7 +2244,7 @@ function normalizeModuleColorLayers(layers, subLayerCount = DEFAULT_SUB_LAYER_CO
       const firstSubLayer = subLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBg };
       return {
         id: typeof layer.id === 'string' && layer.id.trim() ? layer.id : generateLayerId(),
-        name: typeof layer.name === 'string' ? layer.name : `Layer ${index + 1}`,
+        name: typeof layer.name === 'string' ? layer.name : `Unter-Layer ${index + 1}`,
         moduleBg,
         moduleText,
         moduleBorder,
@@ -4863,7 +4863,7 @@ function createModuleColorLayerElement(layer, index) {
     <div class="layer-content">
       <div class="module-layer-controls">
         <div class="module-layer-name-field">
-          <label>Layer Name</label>
+          <label>Unter-Layer Name</label>
           <input type="text" class="module-layer-name border rounded px-2 py-1 text-sm w-full" maxlength="40">
         </div>
         <div class="module-layer-groups">
@@ -4890,7 +4890,7 @@ function createModuleColorLayerElement(layer, index) {
               <div class="module-layer-main-children-label">Enthaltene Bereiche</div>
               <div class="module-layer-main-children-stack">
                 <div class="module-layer-group module-layer-group--nested" data-group="header">
-                  <div class="module-layer-group-title">Überschrift Layer</div>
+                  <div class="module-layer-group-title">Überschrift Unter-Layer</div>
                   <div class="module-layer-group-grid">
                     <label class="module-layer-color">
                       <span>Hintergrund</span>
@@ -4922,7 +4922,7 @@ function createModuleColorLayerElement(layer, index) {
     </div>
   `;
   const badge = wrapper.querySelector('.module-layer-badge');
-  if (badge) badge.textContent = `Layer ${index + 1}`;
+  if (badge) badge.textContent = `Unter-Layer ${index + 1}`;
   const nameInput = wrapper.querySelector('.module-layer-name');
   if (nameInput) nameInput.value = layer.name || '';
   const moduleBgInput = wrapper.querySelector('input[data-field="moduleBg"]');
@@ -5334,7 +5334,7 @@ function collectModuleColorLayersFromDom() {
     const firstSub = normalizedSubLayers[0] || { bg: '', text: '', border: '' };
     layers.push({
       id,
-      name: nameInput ? nameInput.value : `Layer ${index + 1}`,
+      name: nameInput ? nameInput.value : `Unter-Layer ${index + 1}`,
       moduleBg: getColor('moduleBg'),
       moduleText: getColor('moduleText'),
       moduleBorder: getColor('moduleBorder'),
@@ -5397,7 +5397,7 @@ function handleModuleColorLayerClick(event) {
     const clone = {
       ...sourceLayer,
       id: generateLayerId(),
-      name: `${sourceLayer.name || `Layer ${index + 1}`}-Kopie`,
+      name: `${sourceLayer.name || `Unter-Layer ${index + 1}`}-Kopie`,
       subLayers: Array.isArray(sourceLayer.subLayers)
         ? sourceLayer.subLayers.map(subLayer => ({ ...subLayer }))
         : undefined
@@ -5480,7 +5480,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   initializeColorPickersIn();
 
   themeProfiles = loadThemeProfiles();
-  refreshProfileOptions(themeProfileSelect?.value || '');
+  const defaultProfileName = 'Default Profil';
+  if (!themeProfiles || !Object.keys(themeProfiles).length) {
+    themeProfiles = { [defaultProfileName]: collectCurrentCssProfile() };
+    saveThemeProfiles();
+    refreshProfileOptions(defaultProfileName);
+  } else {
+    refreshProfileOptions(themeProfileSelect?.value || '');
+  }
 
   if (themeProfileSelect) {
     themeProfileSelect.addEventListener('change', () => {
