@@ -997,6 +997,12 @@
       border: 1px solid rgba(148,163,184,0.35);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
     }
+    .module-layer-subgroup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
     .module-layer-subgroup-title {
       font-size: 0.75rem;
       font-weight: 600;
@@ -1011,6 +1017,21 @@
       line-height: 1.5;
       color: #4b5563;
       opacity: 0.9;
+    }
+    .module-sub-layer-delete {
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      font-size: 0.9rem;
+      line-height: 1;
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.375rem;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+    .module-sub-layer-delete:hover {
+      color: #ef4444;
+      background: rgba(255,255,255,0.08);
     }
     .module-layer-color {
       display: flex;
@@ -2130,7 +2151,7 @@ class HSLAColorPicker {
 }
 
 const MAX_MODULE_COLOR_LAYERS = 8;
-const DEFAULT_SUB_LAYER_COUNT = 2;
+const DEFAULT_SUB_LAYER_COUNT = 1;
 const MAX_MODULE_SUB_LAYERS = 8;
 
 function generateLayerId() {
@@ -2212,10 +2233,7 @@ function createColorLayer(
 
 function getDefaultModuleColorLayers() {
   return [
-    createColorLayer('Unter-Layer 1', '#005983', '#ffffff', '#0f6ab4', '#0f6ab4', '#ffffff', '#0a487a', '#07365b', '#ffffff', '#052b47'),
-    createColorLayer('Unter-Layer 2', '#1d4ed8', '#ffffff', '#3b82f6', '#2563eb', '#ffffff', '#1d4ed8', '#1e3a8a', '#ffffff', '#172554'),
-    createColorLayer('Unter-Layer 3', '#047857', '#ffffff', '#10b981', '#059669', '#ffffff', '#047857', '#064e3b', '#ffffff', '#022c22'),
-    createColorLayer('Unter-Layer 4', '#7c3aed', '#ffffff', '#a855f7', '#8b5cf6', '#ffffff', '#6d28d9', '#5b21b6', '#ffffff', '#3c0d99')
+    createColorLayer('Unter-Layer 1', '#005983', '#ffffff', '#0f6ab4', '#0f6ab4', '#ffffff', '#0a487a', '#07365b', '#ffffff', '#052b47')
   ];
 }
 
@@ -4851,6 +4869,7 @@ function renderModuleColorLayers(layers = appSettings.moduleColorLayers) {
   });
   updateModuleColorLayerAddState();
   updateModuleColorLayerRemoveStates();
+  syncModuleLayerCssVariables();
 }
 
 function createModuleColorLayerElement(layer, index) {
@@ -4995,10 +5014,20 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
       const subgroup = document.createElement('div');
       subgroup.className = 'module-layer-subgroup';
       subgroup.dataset.subIndex = String(subIndex);
+      const headerRow = document.createElement('div');
+      headerRow.className = 'module-layer-subgroup-header';
       const title = document.createElement('div');
       title.className = 'module-layer-subgroup-title';
       title.textContent = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
-      subgroup.appendChild(title);
+      headerRow.appendChild(title);
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'module-sub-layer-delete';
+      deleteBtn.textContent = '❌';
+      deleteBtn.title = 'Unter-Layer entfernen';
+      deleteBtn.setAttribute('aria-label', 'Unter-Layer entfernen');
+      headerRow.appendChild(deleteBtn);
+      subgroup.appendChild(headerRow);
       const description = document.createElement('p');
       const descText = descriptions[subIndex] || descriptions[descriptions.length - 1] || '';
       description.className = 'module-layer-subgroup-description';
@@ -5284,6 +5313,88 @@ function applyModuleColorLayerPreview(layerEl, layer) {
   });
 }
 
+function getActiveSubLayerOptions() {
+  const primaryLayer = getPrimaryModuleLayer();
+  if (!primaryLayer) return [];
+  const subLayers = Array.isArray(primaryLayer.subLayers) ? primaryLayer.subLayers : [];
+  return subLayers.map((subLayer, index) => {
+    const fallbackName = index === 0 ? 'Unter-Layer' : `Unter-Layer ${index + 1}`;
+    const resolvedName = typeof subLayer?.name === 'string' && subLayer.name.trim()
+      ? subLayer.name.trim()
+      : fallbackName;
+    return {
+      index,
+      value: String(index),
+      id: `${primaryLayer?.id || 'primary'}-sub-${index + 1}`,
+      label: resolvedName,
+      colors: {
+        bg: typeof subLayer?.bg === 'string' ? subLayer.bg : '',
+        text: typeof subLayer?.text === 'string' ? subLayer.text : '',
+        border: typeof subLayer?.border === 'string' ? subLayer.border : ''
+      }
+    };
+  });
+}
+
+getActiveSubLayerOptions.placeholder = 'Unter-Layer auswählen';
+
+function broadcastActiveSubLayerOptions() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent('shopguide:sub-layers-updated', {
+      detail: {
+        placeholder: getActiveSubLayerOptions.placeholder || 'Unter-Layer auswählen',
+        options: getActiveSubLayerOptions()
+      }
+    }));
+  } catch (err) {
+    console.warn('Konnte Unter-Layer-Optionen nicht senden', err);
+  }
+}
+
+function syncModuleLayerCssVariables() {
+  const assignments = {};
+  const layers = Array.isArray(appSettings.moduleColorLayers) ? appSettings.moduleColorLayers : [];
+  for (let layerIndex = 0; layerIndex < MAX_MODULE_COLOR_LAYERS; layerIndex += 1) {
+    const layer = layers[layerIndex];
+    const basePrefix = `--module-layer-${layerIndex + 1}`;
+    assignments[`${basePrefix}-bg`] = typeof layer?.moduleBg === 'string' ? layer.moduleBg : '';
+    assignments[`${basePrefix}-text`] = typeof layer?.moduleText === 'string' ? layer.moduleText : '';
+    assignments[`${basePrefix}-border`] = typeof layer?.moduleBorder === 'string' ? layer.moduleBorder : '';
+    assignments[`${basePrefix}-header-bg`] = typeof layer?.headerBg === 'string' ? layer.headerBg : '';
+    assignments[`${basePrefix}-header-text`] = typeof layer?.headerText === 'string' ? layer.headerText : '';
+    assignments[`${basePrefix}-header-border`] = typeof layer?.headerBorder === 'string' ? layer.headerBorder : '';
+    const subLayers = Array.isArray(layer?.subLayers) ? layer.subLayers : [];
+    for (let subIndex = 0; subIndex < MAX_MODULE_SUB_LAYERS; subIndex += 1) {
+      const subLayer = subLayers[subIndex];
+      const subPrefix = `${basePrefix}-sub-${subIndex + 1}`;
+      assignments[`${subPrefix}-bg`] = typeof subLayer?.bg === 'string' ? subLayer.bg : '';
+      assignments[`${subPrefix}-text`] = typeof subLayer?.text === 'string' ? subLayer.text : '';
+      assignments[`${subPrefix}-border`] = typeof subLayer?.border === 'string' ? subLayer.border : '';
+      if (layerIndex === 0) {
+        const globalPrefix = `--module-sub-layer-${subIndex + 1}`;
+        assignments[`${globalPrefix}-bg`] = typeof subLayer?.bg === 'string' ? subLayer.bg : '';
+        assignments[`${globalPrefix}-text`] = typeof subLayer?.text === 'string' ? subLayer.text : '';
+        assignments[`${globalPrefix}-border`] = typeof subLayer?.border === 'string' ? subLayer.border : '';
+      }
+    }
+    if (layerIndex === 0 && subLayers.length === 0) {
+      for (let subIndex = 0; subIndex < MAX_MODULE_SUB_LAYERS; subIndex += 1) {
+        const globalPrefix = `--module-sub-layer-${subIndex + 1}`;
+        assignments[`${globalPrefix}-bg`] = '';
+        assignments[`${globalPrefix}-text`] = '';
+        assignments[`${globalPrefix}-border`] = '';
+      }
+    }
+  }
+  updateCssVariables(assignments);
+  broadcastActiveSubLayerOptions();
+}
+
+if (typeof window !== 'undefined') {
+  window.getActiveSubLayerOptions = getActiveSubLayerOptions;
+}
+
 function updateModuleColorLayerAddState() {
   if (!addModuleColorLayerBtn) return;
   const currentCount = typeof appSettings.moduleSubLayerCount === 'number' && appSettings.moduleSubLayerCount > 0
@@ -5358,6 +5469,7 @@ function handleModuleColorLayerInput(event) {
   const index = Number(layerEl.dataset.index || '0');
   const layer = appSettings.moduleColorLayers[index];
   applyModuleColorLayerPreview(layerEl, layer);
+  syncModuleLayerCssVariables();
   if (index === 0) {
     applySettings();
   }
@@ -5365,8 +5477,39 @@ function handleModuleColorLayerInput(event) {
 }
 
 function handleModuleColorLayerClick(event) {
+  const subDeleteBtn = event.target.closest('.module-sub-layer-delete');
   const removeBtn = event.target.closest('.module-layer-remove');
   const duplicateBtn = event.target.closest('.module-layer-duplicate');
+  if (subDeleteBtn) {
+    const subgroup = subDeleteBtn.closest('.module-layer-subgroup');
+    if (!subgroup) return;
+    const currentCount = typeof appSettings.moduleSubLayerCount === 'number' && appSettings.moduleSubLayerCount > 0
+      ? appSettings.moduleSubLayerCount
+      : DEFAULT_SUB_LAYER_COUNT;
+    if (currentCount <= 1) {
+      alert('Mindestens ein Unter-Layer muss bestehen.');
+      return;
+    }
+    const targetIndex = Number(subgroup.dataset.subIndex || '0');
+    appSettings.moduleColorLayers = collectModuleColorLayersFromDom();
+    const updatedLayers = appSettings.moduleColorLayers.map(layer => {
+      const copy = {
+        ...layer,
+        subLayers: Array.isArray(layer.subLayers) ? layer.subLayers.slice() : []
+      };
+      if (copy.subLayers.length > targetIndex) {
+        copy.subLayers.splice(targetIndex, 1);
+      }
+      return copy;
+    });
+    const nextCount = Math.max(currentCount - 1, 1);
+    appSettings.moduleSubLayerCount = nextCount;
+    appSettings.moduleColorLayers = normalizeModuleColorLayers(updatedLayers, nextCount);
+    renderModuleColorLayers(appSettings.moduleColorLayers);
+    applySettings();
+    scheduleSettingsSave();
+    return;
+  }
   if (removeBtn) {
     const layerEl = removeBtn.closest('.module-color-layer');
     if (!layerEl) return;
@@ -6042,6 +6185,7 @@ function readInputsIntoSettings() {
 
   if (moduleColorLayersContainer && moduleColorLayersContainer.children.length) {
     appSettings.moduleColorLayers = collectModuleColorLayersFromDom();
+    syncModuleLayerCssVariables();
   }
 
   // Sidebar module card settings
@@ -6090,6 +6234,7 @@ function applySettings() {
   assignments['--module-header-text'] = headerText;
 
   updateCssVariables(assignments);
+  syncModuleLayerCssVariables();
 
   updateGridAutoArrange();
   setUpdateStatusButton();
