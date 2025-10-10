@@ -461,6 +461,15 @@
       gap: 0.35rem;
       transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
+    .layer-sub-children {
+      display: grid;
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+      padding-left: 1rem;
+    }
+    .layer-sub-children:empty {
+      display: none;
+    }
     .layer-sub p {
       margin: 0;
       font-size: 0.82rem;
@@ -3786,6 +3795,8 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
       'Primärer Inhaltsbereich für Listen, Tabellen oder Widgets.',
       'Weitere Inhalte, Detailansichten oder ergänzende Module.'
     ];
+    let parentContainer = subStack;
+    let lastSubElement = null;
     subLayers.forEach((subLayer, subIndex) => {
       const subEl = document.createElement('div');
       subEl.className = 'layer-sub';
@@ -3799,7 +3810,19 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
       description.textContent = descText;
       subEl.appendChild(label);
       subEl.appendChild(description);
-      subStack.appendChild(subEl);
+
+      const childrenContainer = document.createElement('div');
+      childrenContainer.className = 'layer-sub-children';
+      subEl.appendChild(childrenContainer);
+
+      if (subIndex === 0 || !lastSubElement) {
+        parentContainer = subStack;
+      } else {
+        parentContainer = lastSubElement.querySelector('.layer-sub-children') || lastSubElement;
+      }
+
+      parentContainer.appendChild(subEl);
+      lastSubElement = subEl;
     });
   }
   const controls = wrapper.querySelector('[data-sub-controls]');
