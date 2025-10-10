@@ -490,6 +490,43 @@
       color: #0f172a;
       transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
+    .layer-sample-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.6rem;
+    }
+    .layer-sample-grid--module {
+      margin-top: 0.35rem;
+    }
+    .layer-sample-grid--header {
+      margin-top: 0.45rem;
+    }
+    .layer-sample {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 0.55rem;
+      border: 1px solid rgba(255,255,255,0.28);
+      background: rgba(148,163,184,0.18);
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+    .layer-sample-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 600;
+      opacity: 0.92;
+    }
+    .layer-sample-chip {
+      width: 1.65rem;
+      height: 1.65rem;
+      border-radius: 0.45rem;
+      border: 2px solid rgba(15,23,42,0.2);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);
+      flex-shrink: 0;
+    }
     @media (max-width: 1400px) {
       .module-color-layer {
         padding: 1.1rem;
@@ -3730,8 +3767,36 @@ function createModuleColorLayerElement(layer, index) {
         <div class="layer-main" data-layer="module">
           <span class="module-layer-badge"></span>
           <span class="layer-label layer-label--main">Hauptmodul</span>
+          <div class="layer-sample-grid layer-sample-grid--module" data-sample-group="module">
+            <div class="layer-sample" data-sample-type="bg">
+              <span class="layer-sample-label">Hintergrund</span>
+              <span class="layer-sample-chip"></span>
+            </div>
+            <div class="layer-sample" data-sample-type="text">
+              <span class="layer-sample-label">Text</span>
+              <span class="layer-sample-chip"></span>
+            </div>
+            <div class="layer-sample" data-sample-type="border">
+              <span class="layer-sample-label">Rahmen</span>
+              <span class="layer-sample-chip"></span>
+            </div>
+          </div>
           <div class="layer-header" data-layer="header">
             <span class="layer-label layer-label--header">Überschrift Layer</span>
+            <div class="layer-sample-grid layer-sample-grid--header" data-sample-group="header">
+              <div class="layer-sample" data-sample-type="bg">
+                <span class="layer-sample-label">Hintergrund</span>
+                <span class="layer-sample-chip"></span>
+              </div>
+              <div class="layer-sample" data-sample-type="text">
+                <span class="layer-sample-label">Text</span>
+                <span class="layer-sample-chip"></span>
+              </div>
+              <div class="layer-sample" data-sample-type="border">
+                <span class="layer-sample-label">Rahmen</span>
+                <span class="layer-sample-chip"></span>
+              </div>
+            </div>
             <p class="layer-description">Titel, Aktionen oder Hinweise des Moduls</p>
           </div>
           <div class="layer-substack" data-sub-stack></div>
@@ -4004,6 +4069,37 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     moduleBg,
     moduleText
   );
+  const paintSampleGroup = (groupKey, colors, contextBg) => {
+    const groupEl = layerEl.querySelector(`[data-sample-group="${groupKey}"]`);
+    if (!groupEl) return;
+    const baseTint = hexToRgba(contextBg, 0.22) || hexToRgba(colors.text, 0.18) || 'rgba(148,163,184,0.18)';
+    const outlineTint = hexToRgba(colors.text, 0.35) || hexToRgba(contextBg, 0.3) || 'rgba(15,23,42,0.24)';
+    groupEl.querySelectorAll('.layer-sample').forEach(sample => {
+      sample.style.backgroundColor = baseTint;
+      sample.style.borderColor = outlineTint;
+      sample.style.color = colors.text;
+      const label = sample.querySelector('.layer-sample-label');
+      if (label) {
+        label.style.color = colors.text;
+      }
+    });
+    const setChip = (type, fillColor, strokeColor, backgroundOverride) => {
+      const sampleEl = groupEl.querySelector(`[data-sample-type="${type}"]`);
+      if (!sampleEl) return;
+      const chip = sampleEl.querySelector('.layer-sample-chip');
+      if (!chip) return;
+      const chipBg = backgroundOverride || fillColor;
+      const chipBorder = strokeColor || fillColor;
+      chip.style.backgroundColor = chipBg;
+      chip.style.borderColor = chipBorder;
+      const outline = hexToRgba(chipBorder, 0.38) || 'rgba(15,23,42,0.28)';
+      chip.style.boxShadow = `0 0 0 1px ${outline}, inset 0 0 0 1px rgba(255,255,255,0.35)`;
+    };
+    setChip('bg', colors.bg, colors.border);
+    setChip('text', colors.text, colors.text);
+    const borderFill = hexToRgba(colors.border, 0.28) || colors.border;
+    setChip('border', colors.border, colors.border, borderFill);
+  };
   const moduleGroupBorder = hexToRgba(moduleBorder, 0.35) || moduleBorder;
   const headerGroupBorder = hexToRgba(headerBorder, 0.35) || headerBorder;
   styleModuleLayerGroup(
@@ -4054,6 +4150,7 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     const innerOutline = hexToRgba(moduleText, 0.12) || 'rgba(255,255,255,0.12)';
     main.style.boxShadow = `inset 0 0 0 1px ${innerOutline}`;
   }
+  paintSampleGroup('module', { bg: moduleBg, text: moduleText, border: moduleBorder }, moduleBg);
   const badge = layerEl.querySelector('.module-layer-badge');
   if (badge) {
     badge.style.backgroundColor = moduleText;
@@ -4074,6 +4171,7 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     header.style.borderColor = headerBorder;
     header.style.boxShadow = 'none';
   }
+  paintSampleGroup('header', { bg: headerBg, text: headerText, border: headerBorder }, headerBg);
   const headerLabel = layerEl.querySelector('.layer-label--header');
   if (headerLabel) {
     headerLabel.style.backgroundColor = headerText;
