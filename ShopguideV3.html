@@ -1275,6 +1275,7 @@
       color: #111827;
     }
   </style>
+  <style id="dynamic-layers"></style>
   <style id="custom-styles"></style>
 </head>
 <body>
@@ -1617,6 +1618,47 @@
 const COLOR_PICKER_REGISTRY = new WeakMap();
 const COLOR_PICKER_INSTANCES = new Set();
 let colorPickerListenersAttached = false;
+
+// Hier werden Unter-Layer-Variablen automatisch initialisiert.
+// Standardwerte können später im Color-Manager überschrieben werden.
+function initGlobalLayers() {
+  const root = document.documentElement;
+  const styleEl = document.getElementById('dynamic-layers');
+  if (!root || !styleEl) return;
+
+  const computed = getComputedStyle(root);
+  const defaults = [];
+
+  for (let layerIndex = 1; layerIndex <= 15; layerIndex += 1) {
+    const base = `--layer${layerIndex}`;
+    const hueVar = `${base}-h`;
+    const satVar = `${base}-s`;
+    const lightVar = `${base}-l`;
+    const alphaVar = `${base}-a`;
+
+    if (!computed.getPropertyValue(hueVar).trim()) {
+      defaults.push(`  ${hueVar}: 0;`);
+    }
+    if (!computed.getPropertyValue(satVar).trim()) {
+      defaults.push(`  ${satVar}: 0%;`);
+    }
+    if (!computed.getPropertyValue(lightVar).trim()) {
+      defaults.push(`  ${lightVar}: 100%;`);
+    }
+    if (!computed.getPropertyValue(alphaVar).trim()) {
+      defaults.push(`  ${alphaVar}: 1;`);
+    }
+  }
+
+  if (!defaults.length) return;
+
+  const existingContent = styleEl.textContent || '';
+  const separator = existingContent.trim().length ? '\n' : '';
+  const newBlock = `:root {\n${defaults.join('\n')}\n}`;
+  styleEl.textContent = `${existingContent}${separator}${newBlock}\n`;
+}
+
+window.addEventListener('load', initGlobalLayers, { once: true });
 
 function clamp(value, min, max) {
   if (Number.isNaN(value)) return min;
@@ -5615,6 +5657,7 @@ function hideSettingsModal() {
 
 
 document.addEventListener('DOMContentLoaded', async () => {
+  initGlobalLayers();
   // Initialize sidebar collapsed state
   sidebarEl.classList.add('collapsed');
   // Trigger fade-in animation on initial load
