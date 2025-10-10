@@ -382,15 +382,17 @@
     .module-color-layer {
       display: flex;
       flex-wrap: wrap;
-      gap: 1rem 1.25rem;
-      padding: 1.1rem;
+      align-items: stretch;
+      gap: 1.25rem;
+      padding: 1.1rem 1.35rem;
       background: #ffffff;
       border: 1px solid var(--border-color);
       border-radius: 0.75rem;
       box-shadow: 0 1px 2px rgba(15,23,42,0.08);
     }
     .module-color-preview {
-      flex: 1 1 100%;
+      flex: 1 1 55%;
+      min-width: 360px;
       display: flex;
       justify-content: center;
       align-items: stretch;
@@ -489,6 +491,17 @@
       color: #0f172a;
       transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
+    @media (max-width: 1200px) {
+      .module-color-layer {
+        padding: 1.1rem;
+      }
+      .module-color-preview,
+      .module-layer-controls {
+        flex: 1 1 100%;
+        min-width: 0;
+        max-width: none;
+      }
+    }
     @media (max-width: 900px) {
       .layer-preview {
         padding: 1.25rem;
@@ -506,8 +519,9 @@
       }
     }
     .module-layer-controls {
-      flex: 1 1 260px;
-      min-width: 220px;
+      flex: 1 1 45%;
+      min-width: 360px;
+      max-width: 640px;
       display: flex;
       flex-direction: column;
       gap: 0.85rem;
@@ -545,8 +559,8 @@
     }
     .module-layer-group-grid {
       display: grid;
-      gap: 0.5rem;
-      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 0.65rem;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     }
     .module-layer-subgroups {
       display: grid;
@@ -3960,13 +3974,10 @@ function applyModuleColorLayerPreview(layerEl, layer) {
 
   const header = layerEl.querySelector('.layer-header');
   if (header) {
-    const headerBackground = hexToRgba(headerBg, 0.22) || headerBg;
-    const headerBorderTint = hexToRgba(headerBorder, 0.6) || headerBorder;
-    const headerGlow = hexToRgba(headerText, 0.16) || 'rgba(255,255,255,0.12)';
-    header.style.backgroundColor = headerBackground;
+    header.style.backgroundColor = headerBg;
     header.style.color = headerText;
-    header.style.borderColor = headerBorderTint;
-    header.style.boxShadow = `inset 0 1px 0 ${headerGlow}`;
+    header.style.borderColor = headerBorder;
+    header.style.boxShadow = 'none';
   }
   const headerLabel = layerEl.querySelector('.layer-label--header');
   if (headerLabel) {
@@ -3986,13 +3997,10 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     const subBg = ensureColor(data.bg, moduleBg);
     const subText = ensureColor(data.text, moduleText);
     const subBorder = ensureColor(data.border, subBg);
-    const subBackground = hexToRgba(subBg, 0.18) || subBg;
-    const subBorderTint = hexToRgba(subBorder, 0.55) || subBorder;
-    const subGlow = hexToRgba(subText, 0.12) || 'rgba(255,255,255,0.12)';
-    subEl.style.backgroundColor = subBackground;
+    subEl.style.backgroundColor = subBg;
     subEl.style.color = subText;
-    subEl.style.borderColor = subBorderTint;
-    subEl.style.boxShadow = `inset 0 1px 0 ${subGlow}`;
+    subEl.style.borderColor = subBorder;
+    subEl.style.boxShadow = 'none';
   });
   subLabels.forEach((label, index) => {
     const data = subLayersData[index] || subLayersData[subLayersData.length - 1] || { bg: moduleBg, text: moduleText, border: moduleBg };
