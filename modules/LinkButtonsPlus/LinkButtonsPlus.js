@@ -519,22 +519,36 @@
           const baseHeader = deriveHeaderColors(mainLayer);
           setCssVar(hostEl, '--module-header-bg', baseHeader?.bg || '');
           setCssVar(hostEl, '--module-header-text', baseHeader?.text || '');
+          hostEl.style.background = mainColors.bg || '';
+          hostEl.style.color = mainColors.text || '';
+          hostEl.style.borderColor = mainColors.border || '';
         } else {
           setCssVar(hostEl, '--module-bg', '');
           setCssVar(hostEl, '--text-color', '');
           setCssVar(hostEl, '--module-border-color', '');
           setCssVar(hostEl, '--module-header-bg', '');
           setCssVar(hostEl, '--module-header-text', '');
+          hostEl.style.background = '';
+          hostEl.style.color = '';
+          hostEl.style.borderColor = '';
         }
       }
 
       setCssVar(root, '--lbp-main-text', mainColors?.text || '');
       setCssVar(root, '--lbp-main-border', mainColors?.border || '');
+      root.style.color = mainColors?.text || '';
 
       setCssVar(root, '--lbp-header-bg', headerColors?.bg || '');
       setCssVar(root, '--lbp-header-text', headerColors?.text || '');
       setCssVar(root, '--lbp-header-border', headerColors?.border || '');
+      const headerEl = root.querySelector('.ops-header');
+      if(headerEl){
+        headerEl.style.background = headerColors?.bg || '';
+        headerEl.style.color = headerColors?.text || '';
+        headerEl.style.borderColor = headerColors?.border || '';
+      }
 
+      const cards = Array.from(root.querySelectorAll('.ops-card'));
       if(buttonColors){
         setCssVar(root, '--lbp-card-bg', buttonColors.bg || '');
         setCssVar(root, '--lbp-card-text', buttonColors.text || '');
@@ -545,8 +559,15 @@
         setCssVar(root, '--lbp-card-active-bg', activeBg);
         const shadow = buttonColors.border ? adjustColorAlpha(buttonColors.border, 0.26) : '';
         const hoverShadow = buttonColors.border ? adjustColorAlpha(buttonColors.border, 0.32) : '';
-        setCssVar(root, '--lbp-card-shadow', shadow ? `0 16px 34px ${shadow}` : '');
-        setCssVar(root, '--lbp-card-shadow-hover', hoverShadow ? `0 20px 40px ${hoverShadow}` : '');
+        const shadowValue = shadow ? `0 16px 34px ${shadow}` : '';
+        const hoverShadowValue = hoverShadow ? `0 20px 40px ${hoverShadow}` : '';
+        setCssVar(root, '--lbp-card-shadow', shadowValue);
+        setCssVar(root, '--lbp-card-shadow-hover', hoverShadowValue);
+        cards.forEach(card => {
+          card.style.background = buttonColors.bg || '';
+          card.style.color = buttonColors.text || '';
+          card.style.borderColor = buttonColors.border || '';
+        });
       } else {
         setCssVar(root, '--lbp-card-bg','');
         setCssVar(root, '--lbp-card-text','');
@@ -555,18 +576,32 @@
         setCssVar(root, '--lbp-card-active-bg','');
         setCssVar(root, '--lbp-card-shadow','');
         setCssVar(root, '--lbp-card-shadow-hover','');
+        cards.forEach(card => {
+          card.style.background = '';
+          card.style.color = '';
+          card.style.borderColor = '';
+        });
       }
 
       const accentSource = headerColors || mainColors || buttonColors || null;
+      const accentEl = root.querySelector('.ops-autorefresh');
       if(accentSource){
         const accentBg = adjustColorLightness(accentSource.border || accentSource.bg, 8)
           || adjustColorAlpha(accentSource.bg, 0.82)
           || accentSource.bg;
         setCssVar(root, '--lbp-accent-bg', accentBg || '');
         setCssVar(root, '--lbp-accent-text', accentSource.text || '');
+        if(accentEl){
+          accentEl.style.background = accentBg || '';
+          accentEl.style.color = accentSource.text || '';
+        }
       } else {
         setCssVar(root, '--lbp-accent-bg','');
         setCssVar(root, '--lbp-accent-text','');
+        if(accentEl){
+          accentEl.style.background = '';
+          accentEl.style.color = '';
+        }
       }
 
       if(colorModal && colorModal.isOpen()) colorModal.updatePreviews();

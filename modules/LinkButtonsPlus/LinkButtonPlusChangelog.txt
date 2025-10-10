@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.1] – 2025-10-01
+### Fixed
+- Dropdown-Auswahl der Modul-Farb-Layer setzt nun die gewählten Farben zuverlässig auf Rahmen, Header, Buttons und Status-Badge
+  (inkl. sofortiger Vorschau)
+
 ## [1.4.0] – 2025-09-30
 ### Added
 - Kontextmenü-Option „Farben anpassen“ mit Modal, das die globalen Modul-Farb-Layer aus der Shopguide-HTML per Dropdown auswählbar macht
