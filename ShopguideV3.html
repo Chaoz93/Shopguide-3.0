@@ -182,6 +182,83 @@
       overflow-y: auto;
       flex: 1;
     }
+    .profile-manager {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border-color);
+      background: rgba(255,255,255,0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .profile-manager-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--body-text);
+    }
+    .profile-manager-hint {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #4b5563;
+    }
+    .profile-manager-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .profile-manager-controls select,
+    .profile-manager-controls input[type="text"] {
+      flex: 1 1 180px;
+      min-width: 160px;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border-color);
+      background: var(--sidebar-module-card-bg);
+      color: var(--body-text);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .profile-manager-controls select:focus,
+    .profile-manager-controls input[type="text"]:focus {
+      outline: none;
+      border-color: var(--button-bg);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.25);
+    }
+    .profile-manager-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .profile-manager-buttons .profile-btn {
+      flex: 1 1 140px;
+      min-width: 140px;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      border: 1px solid transparent;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .profile-manager-buttons .profile-save {
+      background: var(--button-bg);
+      color: var(--button-text);
+    }
+    .profile-manager-buttons .profile-load {
+      background: var(--sidebar-module-card-bg);
+      color: var(--body-text);
+      border-color: var(--border-color);
+    }
+    .profile-manager-buttons .profile-delete {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+    }
+    .profile-manager-buttons .profile-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
     .updates-table-container {
       max-height: 50vh;
       overflow-y: auto;
@@ -1308,6 +1385,19 @@
           </div>
         </div>
       </div>
+        <div class="profile-manager">
+          <h3 class="profile-manager-title">Farbprofile</h3>
+          <p class="profile-manager-hint">Speichere unterschiedliche Farbschemata und lade sie bei Bedarf wieder.</p>
+          <div class="profile-manager-controls">
+            <select id="theme-profile-select"></select>
+            <input type="text" id="theme-profile-name" placeholder="Profilname eingeben">
+          </div>
+          <div class="profile-manager-buttons">
+            <button id="theme-profile-save" type="button" class="profile-btn profile-save">Profil speichern</button>
+            <button id="theme-profile-load" type="button" class="profile-btn profile-load">Profil laden</button>
+            <button id="theme-profile-delete" type="button" class="profile-btn profile-delete">Profil löschen</button>
+          </div>
+        </div>
         <!-- Topbar section -->
         <div id="section-topbar" class="settings-section">
           <div class="field-grid">
@@ -2200,6 +2290,212 @@ let appSettings = {
   moduleColorLayers: normalizeModuleColorLayers([], DEFAULT_SUB_LAYER_COUNT)
 };
 
+const CSS_PROFILE_VARIABLES = [
+  '--app-bg',
+  '--sidebar-bg',
+  '--sidebar-text',
+  '--top-bar-bg',
+  '--button-bg',
+  '--button-text',
+  '--border-color',
+  '--module-border-radius',
+  '--danger-bg',
+  '--danger-text',
+  '--tab-active-bg',
+  '--tab-active-text',
+  '--tab-inactive-bg',
+  '--tab-inactive-text',
+  '--grid-hint',
+  '--sidebar-module-card-bg',
+  '--sidebar-module-card-text',
+  '--sidebar-module-card-border',
+  '--module-bg',
+  '--text-color',
+  '--module-border-color',
+  '--module-header-bg',
+  '--module-header-text'
+];
+
+const CSS_VARIABLE_SETTERS = {
+  '--app-bg': value => { appSettings.appBgColor = value; },
+  '--sidebar-bg': value => { appSettings.sidebarBg = value; },
+  '--sidebar-text': value => { appSettings.sidebarText = value; },
+  '--top-bar-bg': value => { appSettings.topBarBg = value; },
+  '--button-bg': value => { appSettings.buttonBg = value; },
+  '--button-text': value => { appSettings.buttonText = value; },
+  '--border-color': value => { appSettings.borderColor = value; },
+  '--module-border-radius': value => { appSettings.moduleBorderRadius = value; },
+  '--danger-bg': value => { appSettings.dangerBg = value; },
+  '--danger-text': value => { appSettings.dangerText = value; },
+  '--tab-active-bg': value => { appSettings.tabActiveBg = value; },
+  '--tab-active-text': value => { appSettings.tabActiveText = value; },
+  '--tab-inactive-bg': value => { appSettings.tabInactiveBg = value; },
+  '--tab-inactive-text': value => { appSettings.tabInactiveText = value; },
+  '--grid-hint': value => { appSettings.gridHint = value; },
+  '--sidebar-module-card-bg': value => { appSettings.sidebarModuleCardBg = value; },
+  '--sidebar-module-card-text': value => { appSettings.sidebarModuleCardText = value; },
+  '--sidebar-module-card-border': value => { appSettings.sidebarModuleCardBorder = value; },
+  '--module-bg': value => { const layer = ensurePrimaryModuleLayer(); if (layer) layer.moduleBg = value; },
+  '--text-color': value => { const layer = ensurePrimaryModuleLayer(); if (layer) layer.moduleText = value; },
+  '--module-border-color': value => { const layer = ensurePrimaryModuleLayer(); if (layer) layer.moduleBorder = value; },
+  '--module-header-bg': value => { const layer = ensurePrimaryModuleLayer(); if (layer) layer.headerBg = value; },
+  '--module-header-text': value => { const layer = ensurePrimaryModuleLayer(); if (layer) layer.headerText = value; }
+};
+
+const THEME_PROFILE_STORAGE_KEY = 'appThemeProfiles';
+let themeProfiles = {};
+let cssVariableState = {};
+let customStylesWriteHandle = null;
+const requestCustomFrame = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+  ? window.requestAnimationFrame.bind(window)
+  : callback => setTimeout(callback, 16);
+const cancelCustomFrame = typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function'
+  ? window.cancelAnimationFrame.bind(window)
+  : handle => clearTimeout(handle);
+
+function getPrimaryModuleLayer(createIfMissing = false) {
+  if (!Array.isArray(appSettings.moduleColorLayers)) {
+    if (!createIfMissing) return null;
+    appSettings.moduleColorLayers = normalizeModuleColorLayers([], appSettings.moduleSubLayerCount || DEFAULT_SUB_LAYER_COUNT);
+  }
+  if (!appSettings.moduleColorLayers.length) {
+    if (!createIfMissing) return null;
+    appSettings.moduleColorLayers = normalizeModuleColorLayers([], appSettings.moduleSubLayerCount || DEFAULT_SUB_LAYER_COUNT);
+  }
+  return appSettings.moduleColorLayers[0] || null;
+}
+
+function ensurePrimaryModuleLayer() {
+  return getPrimaryModuleLayer(true);
+}
+
+function scheduleCustomStylesWrite() {
+  if (!customStylesEl) return;
+  if (customStylesWriteHandle !== null) {
+    cancelCustomFrame(customStylesWriteHandle);
+  }
+  customStylesWriteHandle = requestCustomFrame(() => {
+    customStylesWriteHandle = null;
+    const entries = Object.keys(cssVariableState).sort((a, b) => a.localeCompare(b));
+    const lines = entries.map(name => `  ${name}: ${cssVariableState[name]};`);
+    customStylesEl.textContent = lines.length ? `:root {\n${lines.join('\n')}\n}` : '';
+  });
+}
+
+function updateCssVariables(assignments = {}) {
+  let changed = false;
+  Object.entries(assignments).forEach(([name, value]) => {
+    if (typeof name !== 'string' || !name.startsWith('--')) return;
+    const normalized = typeof value === 'string' ? value.trim() : value;
+    if (!normalized) {
+      if (Object.prototype.hasOwnProperty.call(cssVariableState, name)) {
+        delete cssVariableState[name];
+        changed = true;
+      }
+      return;
+    }
+    if (cssVariableState[name] !== normalized) {
+      cssVariableState[name] = normalized;
+      changed = true;
+    }
+  });
+  if (changed) scheduleCustomStylesWrite();
+}
+
+function getCssVariableValue(name) {
+  if (Object.prototype.hasOwnProperty.call(cssVariableState, name)) {
+    return cssVariableState[name];
+  }
+  const computed = getComputedStyle(document.documentElement).getPropertyValue(name);
+  return (computed || '').trim();
+}
+
+function loadThemeProfiles() {
+  try {
+    const stored = localStorage.getItem(THEME_PROFILE_STORAGE_KEY);
+    if (!stored) return {};
+    const parsed = JSON.parse(stored);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch (err) {
+    console.warn('Konnte Profile nicht laden', err);
+  }
+  return {};
+}
+
+function saveThemeProfiles() {
+  try {
+    localStorage.setItem(THEME_PROFILE_STORAGE_KEY, JSON.stringify(themeProfiles));
+  } catch (err) {
+    console.warn('Konnte Profile nicht speichern', err);
+  }
+}
+
+function updateProfileActionState() {
+  const hasSelection = !!(themeProfileSelect && themeProfileSelect.value && themeProfiles?.[themeProfileSelect.value]);
+  if (themeProfileLoadBtn) themeProfileLoadBtn.disabled = !hasSelection;
+  if (themeProfileDeleteBtn) themeProfileDeleteBtn.disabled = !hasSelection;
+}
+
+function refreshProfileOptions(selectedName) {
+  if (!themeProfileSelect) return;
+  const options = Object.keys(themeProfiles || {}).sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+  themeProfileSelect.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Profil wählen…';
+  themeProfileSelect.appendChild(placeholder);
+  options.forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    if (selectedName && selectedName === name) option.selected = true;
+    themeProfileSelect.appendChild(option);
+  });
+  if (selectedName && !options.includes(selectedName)) {
+    themeProfileSelect.value = '';
+  }
+  if (themeProfileNameInput) {
+    themeProfileNameInput.value = selectedName && options.includes(selectedName) ? selectedName : '';
+  }
+  updateProfileActionState();
+}
+
+function collectCurrentCssProfile() {
+  const profile = {};
+  CSS_PROFILE_VARIABLES.forEach(varName => {
+    const value = getCssVariableValue(varName);
+    if (value) profile[varName] = value;
+  });
+  return profile;
+}
+
+function applyProfileVariables(profile) {
+  if (!profile || typeof profile !== 'object') return;
+  const extras = {};
+  const knownKeys = new Set(CSS_PROFILE_VARIABLES);
+  Object.entries(profile).forEach(([varName, value]) => {
+    const setter = CSS_VARIABLE_SETTERS[varName];
+    if (setter) {
+      setter(value);
+    } else {
+      extras[varName] = value;
+    }
+  });
+  Object.keys(cssVariableState).forEach(varName => {
+    if (!knownKeys.has(varName) && !Object.prototype.hasOwnProperty.call(profile, varName)) {
+      extras[varName] = '';
+    }
+  });
+  if (Object.keys(extras).length) {
+    updateCssVariables(extras);
+  }
+  populateInputsFromSettings();
+  applySettings();
+  renderTabs();
+  scheduleSettingsSave();
+}
 
 const layoutFileName = 'layout.json';
 const settingsFileName = 'settings.json';
@@ -2323,6 +2619,7 @@ const updateStatusBtn = document.getElementById('update-status');
 const rootBtn = document.getElementById('select-root');
 const settingsBtn = document.getElementById('open-settings');
 const settingsModal = document.getElementById('settings-modal');
+const customStylesEl = document.getElementById('custom-styles');
 const closeSettingsBtn = document.getElementById('close-settings');
 const updateFolderNameEl = document.getElementById('update-folder-name');
 const selectUpdateFolderBtn = document.getElementById('select-update-folder');
@@ -2378,6 +2675,11 @@ const addModuleColorLayerBtn = document.getElementById('add-module-color-layer')
 const inputShowUpdateButton = document.getElementById('setting-show-update-button');
 const inputUpdateAutoPoll = document.getElementById('setting-update-auto-poll');
 const inputHideDowngradeButton = document.getElementById('setting-hide-downgrade-button');
+const themeProfileSelect = document.getElementById('theme-profile-select');
+const themeProfileNameInput = document.getElementById('theme-profile-name');
+const themeProfileSaveBtn = document.getElementById('theme-profile-save');
+const themeProfileLoadBtn = document.getElementById('theme-profile-load');
+const themeProfileDeleteBtn = document.getElementById('theme-profile-delete');
 
 // Navigation buttons for settings
 const settingsNavButtons = document.querySelectorAll('.settings-nav button');
@@ -5056,6 +5358,9 @@ function handleModuleColorLayerInput(event) {
   const index = Number(layerEl.dataset.index || '0');
   const layer = appSettings.moduleColorLayers[index];
   applyModuleColorLayerPreview(layerEl, layer);
+  if (index === 0) {
+    applySettings();
+  }
   scheduleSettingsSave();
 }
 
@@ -5071,6 +5376,9 @@ function handleModuleColorLayerClick(event) {
     const index = Number(layerEl.dataset.index || '0');
     appSettings.moduleColorLayers.splice(index, 1);
     renderModuleColorLayers(appSettings.moduleColorLayers);
+    if (index === 0) {
+      applySettings();
+    }
     scheduleSettingsSave();
     return;
   }
@@ -5102,6 +5410,9 @@ function handleModuleColorLayerClick(event) {
     }
     appSettings.moduleColorLayers.splice(index + 1, 0, clone);
     renderModuleColorLayers(appSettings.moduleColorLayers);
+    if (index === 0) {
+      applySettings();
+    }
     scheduleSettingsSave();
   }
 }
@@ -5167,6 +5478,53 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.body.classList.add('fade-in');
 
   initializeColorPickersIn();
+
+  themeProfiles = loadThemeProfiles();
+  refreshProfileOptions(themeProfileSelect?.value || '');
+
+  if (themeProfileSelect) {
+    themeProfileSelect.addEventListener('change', () => {
+      updateProfileActionState();
+      if (themeProfileNameInput) {
+        themeProfileNameInput.value = themeProfileSelect.value || '';
+      }
+    });
+  }
+
+  if (themeProfileSaveBtn) {
+    themeProfileSaveBtn.addEventListener('click', () => {
+      const proposedName = (themeProfileNameInput?.value || themeProfileSelect?.value || '').trim();
+      if (!proposedName) {
+        alert('Bitte gib einen Profilnamen ein.');
+        return;
+      }
+      themeProfiles[proposedName] = collectCurrentCssProfile();
+      saveThemeProfiles();
+      refreshProfileOptions(proposedName);
+    });
+  }
+
+  if (themeProfileLoadBtn) {
+    themeProfileLoadBtn.addEventListener('click', () => {
+      const selected = themeProfileSelect?.value;
+      if (!selected || !themeProfiles[selected]) return;
+      applyProfileVariables(themeProfiles[selected]);
+      refreshProfileOptions(selected);
+    });
+  }
+
+  if (themeProfileDeleteBtn) {
+    themeProfileDeleteBtn.addEventListener('click', () => {
+      const selected = themeProfileSelect?.value;
+      if (!selected || !themeProfiles[selected]) return;
+      if (!confirm(`Profil "${selected}" löschen?`)) return;
+      delete themeProfiles[selected];
+      saveThemeProfiles();
+      refreshProfileOptions('');
+    });
+  }
+
+  updateProfileActionState();
 
   setUpdateStatusButton();
   renderUpdateList();
@@ -5690,26 +6048,41 @@ function readInputsIntoSettings() {
 
 /** Apply CSS variables from appSettings */
 function applySettings() {
-  document.documentElement.style.setProperty('--app-bg', appSettings.appBgColor);
-  document.documentElement.style.setProperty('--sidebar-bg', appSettings.sidebarBg);
-  document.documentElement.style.setProperty('--sidebar-text', appSettings.sidebarText);
-  document.documentElement.style.setProperty('--top-bar-bg', appSettings.topBarBg);
-  document.documentElement.style.setProperty('--button-bg', appSettings.buttonBg);
-  document.documentElement.style.setProperty('--button-text', appSettings.buttonText);
-  document.documentElement.style.setProperty('--border-color', appSettings.borderColor);
-  document.documentElement.style.setProperty('--module-border-radius', appSettings.moduleBorderRadius);
-  document.documentElement.style.setProperty('--danger-bg', appSettings.dangerBg);
-  document.documentElement.style.setProperty('--danger-text', appSettings.dangerText);
-  document.documentElement.style.setProperty('--tab-active-bg', appSettings.tabActiveBg);
-  document.documentElement.style.setProperty('--tab-active-text', appSettings.tabActiveText);
-  document.documentElement.style.setProperty('--tab-inactive-bg', appSettings.tabInactiveBg);
-  document.documentElement.style.setProperty('--tab-inactive-text', appSettings.tabInactiveText);
-  document.documentElement.style.setProperty('--grid-hint', appSettings.gridHint);
+  const assignments = {
+    '--app-bg': appSettings.appBgColor,
+    '--sidebar-bg': appSettings.sidebarBg,
+    '--sidebar-text': appSettings.sidebarText,
+    '--top-bar-bg': appSettings.topBarBg,
+    '--button-bg': appSettings.buttonBg,
+    '--button-text': appSettings.buttonText,
+    '--border-color': appSettings.borderColor,
+    '--module-border-radius': appSettings.moduleBorderRadius,
+    '--danger-bg': appSettings.dangerBg,
+    '--danger-text': appSettings.dangerText,
+    '--tab-active-bg': appSettings.tabActiveBg,
+    '--tab-active-text': appSettings.tabActiveText,
+    '--tab-inactive-bg': appSettings.tabInactiveBg,
+    '--tab-inactive-text': appSettings.tabInactiveText,
+    '--grid-hint': appSettings.gridHint,
+    '--sidebar-module-card-bg': appSettings.sidebarModuleCardBg,
+    '--sidebar-module-card-text': appSettings.sidebarModuleCardText,
+    '--sidebar-module-card-border': appSettings.sidebarModuleCardBorder
+  };
 
-  // Apply sidebar module card colours
-  document.documentElement.style.setProperty('--sidebar-module-card-bg', appSettings.sidebarModuleCardBg);
-  document.documentElement.style.setProperty('--sidebar-module-card-text', appSettings.sidebarModuleCardText);
-  document.documentElement.style.setProperty('--sidebar-module-card-border', appSettings.sidebarModuleCardBorder);
+  const primaryLayer = getPrimaryModuleLayer();
+  const moduleBg = primaryLayer?.moduleBg || '#005983';
+  const moduleText = primaryLayer?.moduleText || '#ffffff';
+  const moduleBorder = primaryLayer?.moduleBorder || moduleText;
+  const headerBg = primaryLayer?.headerBg || moduleBg;
+  const headerText = primaryLayer?.headerText || moduleText;
+
+  assignments['--module-bg'] = moduleBg;
+  assignments['--text-color'] = moduleText;
+  assignments['--module-border-color'] = moduleBorder;
+  assignments['--module-header-bg'] = headerBg;
+  assignments['--module-header-text'] = headerText;
+
+  updateCssVariables(assignments);
 
   updateGridAutoArrange();
   setUpdateStatusButton();
@@ -6566,16 +6939,6 @@ async function loadAndRunModuleScript(jsFileName, moduleJson, modObj, gridPos, g
 }
 
 /** Create universal (fields) module */
-function getDefaultModuleBackground() {
-  if (Array.isArray(appSettings.moduleColorLayers) && appSettings.moduleColorLayers.length) {
-    const firstLayerBg = appSettings.moduleColorLayers[0]?.moduleBg;
-    if (typeof firstLayerBg === 'string' && firstLayerBg.trim()) {
-      return firstLayerBg;
-    }
-  }
-  return '#005983';
-}
-
 function createUniversalModule(mod, pos, modObj, gridInstance, tabRef, instanceIdArg, options = {}) {
   const el = document.createElement('div');
   el.classList.add('grid-stack-item');
@@ -6584,8 +6947,7 @@ function createUniversalModule(mod, pos, modObj, gridInstance, tabRef, instanceI
   const finalPos = { ...pos };
   if (!pos || typeof pos.w === 'undefined') finalPos.w = defaultW;
   if (!pos || typeof pos.h === 'undefined') finalPos.h = defaultH;
-  const bg = mod.color || getDefaultModuleBackground();
-  let html = `<div class="grid-stack-item-content" style="background:${bg}">`;
+  let html = `<div class="grid-stack-item-content">`;
   html += `<div class="drag-handle"><span class="font-semibold">${mod.name || modObj.subdir}</span><button class="remove px-2 py-1 text-xs rounded">🗑</button></div>`;
   html += `<form class="unimod-form grid grid-cols-2 gap-3">`;
   (mod.fields || []).forEach(field => {
