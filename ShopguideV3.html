@@ -369,10 +369,9 @@
       height: 2rem;
       border-radius: 0.9rem;
       flex-shrink: 0;
-      border: 1px solid rgba(15,23,42,0.78);
       background-color: #f8fafc;
       overflow: hidden;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4), 0 1px 3px rgba(15,23,42,0.24);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.45), 0 4px 12px rgba(15,23,42,0.22);
     }
     .hsla-chip::before {
       content: '';
@@ -382,8 +381,8 @@
       background-image:
         linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%),
         linear-gradient(45deg, transparent 25%, #e2e8f0 25%, #e2e8f0 75%, transparent 75%);
-      background-size: 8px 8px;
-      background-position: 0 0, 4px 4px;
+      background-size: 6px 6px;
+      background-position: 0 0, 3px 3px;
     }
     .hsla-chip::after {
       content: '';
@@ -487,6 +486,12 @@
       overflow: hidden;
       cursor: pointer;
     }
+    .hsla-slider-row input[type="range"]::-webkit-slider-runnable-track {
+      height: 100%;
+      border-radius: inherit;
+      background: inherit;
+      border: none;
+    }
     .hsla-slider-row input[type="range"]:focus-visible {
       outline: none;
       box-shadow: 0 0 0 3px rgba(37,99,235,0.22);
@@ -520,7 +525,21 @@
     .hsla-slider-row input[type="range"]::-moz-range-track {
       height: 0.65rem;
       border-radius: 999px;
+      background: inherit;
+      border: none;
+    }
+    .hsla-slider-row input[type="range"]::-ms-track {
+      height: 0.65rem;
+      border-radius: 999px;
       background: transparent;
+      border-color: transparent;
+      color: transparent;
+    }
+    .hsla-slider-row input[type="range"]::-ms-fill-lower,
+    .hsla-slider-row input[type="range"]::-ms-fill-upper {
+      border-radius: inherit;
+      background: inherit;
+      border: none;
     }
     .hsla-slider-row input[type="range"]::-ms-thumb {
       width: 16px;
@@ -531,13 +550,15 @@
     }
     .hsla-slider-hue {
       background: linear-gradient(
-        to right,
+        90deg,
         hsl(0, 100%, 50%),
-        hsl(60, 100%, 50%),
-        hsl(120, 100%, 50%),
+        hsl(45, 100%, 50%),
+        hsl(90, 100%, 50%),
+        hsl(135, 100%, 50%),
         hsl(180, 100%, 50%),
-        hsl(240, 100%, 50%),
-        hsl(300, 100%, 50%),
+        hsl(225, 100%, 50%),
+        hsl(270, 100%, 50%),
+        hsl(315, 100%, 50%),
         hsl(360, 100%, 50%)
       );
     }
@@ -1919,6 +1940,21 @@ class HSLAColorPicker {
 
   updateSliderBackgrounds() {
     const { h, s, l } = this.value;
+    if (this.sliders.h) {
+      this.sliders.h.style.background = 'linear-gradient(90deg,' +
+        ' hsl(0, 100%, 50%),' +
+        ' hsl(45, 100%, 50%),' +
+        ' hsl(90, 100%, 50%),' +
+        ' hsl(135, 100%, 50%),' +
+        ' hsl(180, 100%, 50%),' +
+        ' hsl(225, 100%, 50%),' +
+        ' hsl(270, 100%, 50%),' +
+        ' hsl(315, 100%, 50%),' +
+        ' hsl(360, 100%, 50%)' +
+      ')';
+      this.sliders.h.style.backgroundSize = '100% 100%';
+      this.sliders.h.style.backgroundRepeat = 'no-repeat';
+    }
     if (this.sliders.s) {
       this.sliders.s.style.background = `linear-gradient(to right, hsla(${h}, 0%, ${l}%, 1), hsla(${h}, 100%, ${l}%, 1))`;
     }
