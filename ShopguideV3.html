@@ -1299,24 +1299,8 @@
           <div class="space-y-6">
             <div class="field-grid">
               <div class="form-field">
-                <label>Modul Hintergrundfarbe</label>
-                <input type="color" id="setting-module-bg" value="#005983" class="w-full border rounded p-1">
-              </div>
-              <div class="form-field">
-                <label>Modul Textfarbe</label>
-                <input type="color" id="setting-text-color" value="#ffffff" class="w-full border rounded p-1">
-              </div>
-              <div class="form-field">
                 <label>Modul Rundung (px)</label>
                 <input type="number" id="setting-border-radius" value="20" class="w-full border rounded p-1" min="0">
-              </div>
-              <div class="form-field">
-                <label>Modul Kopfzeile Hintergrund</label>
-                <input type="color" id="setting-module-header-bg" value="#0a0a0a" class="w-full border rounded p-1">
-              </div>
-              <div class="form-field">
-                <label>Modul Kopfzeile Textfarbe</label>
-                <input type="color" id="setting-module-header-text" value="#ffffff" class="w-full border rounded p-1">
               </div>
               <div class="form-field">
                 <label>Löschen-Button Hintergrundfarbe</label>
@@ -1325,10 +1309,6 @@
               <div class="form-field">
                 <label>Löschen-Button Textfarbe</label>
                 <input type="color" id="setting-danger-text" value="#ffffff" class="w-full border rounded p-1">
-              </div>
-              <div class="form-field">
-                <label>Modul Rahmenfarbe</label>
-                <input type="color" id="setting-module-border-color" value="#e5e7eb" class="w-full border rounded p-1">
               </div>
             </div>
             <div class="module-layer-manager">
@@ -2133,11 +2113,7 @@ let appSettings = {
   buttonText: '#ffffff',
   borderColor: '#e5e7eb',
   autoArrangeModules: true,
-  moduleBgColor: '#005983',
-  textColor: '#ffffff',
   moduleBorderRadius: '1.25rem',
-  moduleHeaderBg: 'rgba(255,255,255,0.08)',
-  moduleHeaderText: '#ffffff',
   dangerBg: '#ef4444',
   dangerText: '#ffffff',
   tabActiveBg: '#2563eb',
@@ -2145,7 +2121,6 @@ let appSettings = {
   tabInactiveBg: '#e5e7eb',
   tabInactiveText: '#1f2937',
   gridHint: '#60a5fa',
-  moduleBorderColor: '#e5e7eb',
   sidebarModuleCardBg: '#ffffff',
   sidebarModuleCardText: '#1f2937',
   sidebarModuleCardBorder: '#e5e7eb',
@@ -2321,16 +2296,11 @@ const inputSidebarBg = document.getElementById('setting-sidebar-bg');
 const inputSidebarText = document.getElementById('setting-sidebar-text');
 const inputGridHint = document.getElementById('setting-grid-hint');
 const inputAutoArrange = document.getElementById('setting-grid-auto-arrange');
-const inputModuleBg = document.getElementById('setting-module-bg');
-const inputTextColor = document.getElementById('setting-text-color');
 const inputBorderRadius = document.getElementById('setting-border-radius');
-const inputModuleHeaderBg = document.getElementById('setting-module-header-bg');
-const inputModuleHeaderText = document.getElementById('setting-module-header-text');
 const inputDangerBg = document.getElementById('setting-danger-bg');
 const inputDangerText = document.getElementById('setting-danger-text');
 
-// New module border and sidebar module card inputs
-const inputModuleBorderColor = document.getElementById('setting-module-border-color');
+// Sidebar module card inputs
 const inputSidebarModuleBg = document.getElementById('setting-sidebar-module-bg');
 const inputSidebarModuleText = document.getElementById('setting-sidebar-module-text');
 const inputSidebarModuleBorder = document.getElementById('setting-sidebar-module-border');
@@ -5458,7 +5428,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
   // Live preview for colours
-  [inputAppBg,inputBorderColor,inputButtonBg,inputButtonText,inputTopBarBg,inputTabActiveBg,inputTabActiveText,inputTabInactiveBg,inputTabInactiveText,inputSidebarBg,inputSidebarText,inputGridHint,inputModuleBg,inputTextColor,inputModuleHeaderBg,inputModuleHeaderText,inputDangerBg,inputDangerText,inputModuleBorderColor,inputSidebarModuleBg,inputSidebarModuleText,inputSidebarModuleBorder].forEach(inp => {
+  [
+    inputAppBg,
+    inputBorderColor,
+    inputButtonBg,
+    inputButtonText,
+    inputTopBarBg,
+    inputTabActiveBg,
+    inputTabActiveText,
+    inputTabInactiveBg,
+    inputTabInactiveText,
+    inputSidebarBg,
+    inputSidebarText,
+    inputGridHint,
+    inputDangerBg,
+    inputDangerText,
+    inputSidebarModuleBg,
+    inputSidebarModuleText,
+    inputSidebarModuleBorder
+  ].filter(Boolean).forEach(inp => {
     inp.addEventListener('input', () => {
       readInputsIntoSettings();
       applySettings();
@@ -5558,18 +5546,13 @@ function populateInputsFromSettings() {
   setColorInputValue(inputSidebarText, appSettings.sidebarText, { silent: true, setBaseline: true });
   setColorInputValue(inputGridHint, appSettings.gridHint, { silent: true, setBaseline: true });
   if (inputAutoArrange) inputAutoArrange.checked = !!appSettings.autoArrangeModules;
-  setColorInputValue(inputModuleBg, appSettings.moduleBgColor, { silent: true, setBaseline: true });
-  setColorInputValue(inputTextColor, appSettings.textColor, { silent: true, setBaseline: true });
   inputBorderRadius.value = Math.round(parseFloat(appSettings.moduleBorderRadius) * 16 || 0);
-  setColorInputValue(inputModuleHeaderBg, appSettings.moduleHeaderBg, { silent: true, setBaseline: true });
-  setColorInputValue(inputModuleHeaderText, appSettings.moduleHeaderText, { silent: true, setBaseline: true });
   setColorInputValue(inputDangerBg, appSettings.dangerBg, { silent: true, setBaseline: true });
   setColorInputValue(inputDangerText, appSettings.dangerText, { silent: true, setBaseline: true });
 
   renderModuleColorLayers(appSettings.moduleColorLayers);
 
-  // New module border and sidebar module card settings
-  if (inputModuleBorderColor) setColorInputValue(inputModuleBorderColor, appSettings.moduleBorderColor, { silent: true, setBaseline: true });
+  // Sidebar module card settings
   if (inputSidebarModuleBg) setColorInputValue(inputSidebarModuleBg, appSettings.sidebarModuleCardBg, { silent: true, setBaseline: true });
   if (inputSidebarModuleText) setColorInputValue(inputSidebarModuleText, appSettings.sidebarModuleCardText, { silent: true, setBaseline: true });
   if (inputSidebarModuleBorder) setColorInputValue(inputSidebarModuleBorder, appSettings.sidebarModuleCardBorder, { silent: true, setBaseline: true });
@@ -5593,11 +5576,7 @@ function readInputsIntoSettings() {
   appSettings.sidebarText = getColorInputValue(inputSidebarText);
   appSettings.gridHint = getColorInputValue(inputGridHint);
   if (inputAutoArrange) appSettings.autoArrangeModules = inputAutoArrange.checked;
-  appSettings.moduleBgColor = getColorInputValue(inputModuleBg);
-  appSettings.textColor = getColorInputValue(inputTextColor);
   appSettings.moduleBorderRadius = ((parseFloat(inputBorderRadius.value)||0)/16) + 'rem';
-  appSettings.moduleHeaderBg = getColorInputValue(inputModuleHeaderBg);
-  appSettings.moduleHeaderText = getColorInputValue(inputModuleHeaderText);
   appSettings.dangerBg = getColorInputValue(inputDangerBg);
   appSettings.dangerText = getColorInputValue(inputDangerText);
 
@@ -5605,8 +5584,7 @@ function readInputsIntoSettings() {
     appSettings.moduleColorLayers = collectModuleColorLayersFromDom();
   }
 
-  // New module border and sidebar module card settings
-  appSettings.moduleBorderColor = getColorInputValue(inputModuleBorderColor);
+  // Sidebar module card settings
   appSettings.sidebarModuleCardBg = getColorInputValue(inputSidebarModuleBg);
   appSettings.sidebarModuleCardText = getColorInputValue(inputSidebarModuleText);
   appSettings.sidebarModuleCardBorder = getColorInputValue(inputSidebarModuleBorder);
@@ -5624,11 +5602,7 @@ function applySettings() {
   document.documentElement.style.setProperty('--button-bg', appSettings.buttonBg);
   document.documentElement.style.setProperty('--button-text', appSettings.buttonText);
   document.documentElement.style.setProperty('--border-color', appSettings.borderColor);
-  document.documentElement.style.setProperty('--module-bg', appSettings.moduleBgColor);
-  document.documentElement.style.setProperty('--text-color', appSettings.textColor);
   document.documentElement.style.setProperty('--module-border-radius', appSettings.moduleBorderRadius);
-  document.documentElement.style.setProperty('--module-header-bg', appSettings.moduleHeaderBg);
-  document.documentElement.style.setProperty('--module-header-text', appSettings.moduleHeaderText);
   document.documentElement.style.setProperty('--danger-bg', appSettings.dangerBg);
   document.documentElement.style.setProperty('--danger-text', appSettings.dangerText);
   document.documentElement.style.setProperty('--tab-active-bg', appSettings.tabActiveBg);
@@ -5637,8 +5611,7 @@ function applySettings() {
   document.documentElement.style.setProperty('--tab-inactive-text', appSettings.tabInactiveText);
   document.documentElement.style.setProperty('--grid-hint', appSettings.gridHint);
 
-  // Apply module border and sidebar module card colours
-  document.documentElement.style.setProperty('--module-border-color', appSettings.moduleBorderColor);
+  // Apply sidebar module card colours
   document.documentElement.style.setProperty('--sidebar-module-card-bg', appSettings.sidebarModuleCardBg);
   document.documentElement.style.setProperty('--sidebar-module-card-text', appSettings.sidebarModuleCardText);
   document.documentElement.style.setProperty('--sidebar-module-card-border', appSettings.sidebarModuleCardBorder);
@@ -5665,7 +5638,17 @@ async function saveAppSettings() {
 
 function applyLoadedSettings(loadedSettings) {
   if (!loadedSettings || typeof loadedSettings !== 'object') return;
-  const { gridFloat, autoArrangeModules, ...rest } = loadedSettings;
+  const {
+    gridFloat,
+    autoArrangeModules,
+    moduleBgColor: _moduleBgColor,
+    textColor: _textColor,
+    moduleHeaderBg: _moduleHeaderBg,
+    moduleHeaderText: _moduleHeaderText,
+    moduleBorderColor: _moduleBorderColor,
+    ...rest
+  } = loadedSettings;
+  // Legacy module colour values (moduleBgColor, textColor, moduleHeader*, moduleBorderColor) are ignored.
   appSettings = { ...appSettings, ...rest };
   const desiredSubLayerCount = (() => {
     if (typeof rest.moduleSubLayerCount === 'number') {
@@ -6488,6 +6471,16 @@ async function loadAndRunModuleScript(jsFileName, moduleJson, modObj, gridPos, g
 }
 
 /** Create universal (fields) module */
+function getDefaultModuleBackground() {
+  if (Array.isArray(appSettings.moduleColorLayers) && appSettings.moduleColorLayers.length) {
+    const firstLayerBg = appSettings.moduleColorLayers[0]?.moduleBg;
+    if (typeof firstLayerBg === 'string' && firstLayerBg.trim()) {
+      return firstLayerBg;
+    }
+  }
+  return '#005983';
+}
+
 function createUniversalModule(mod, pos, modObj, gridInstance, tabRef, instanceIdArg, options = {}) {
   const el = document.createElement('div');
   el.classList.add('grid-stack-item');
@@ -6496,7 +6489,7 @@ function createUniversalModule(mod, pos, modObj, gridInstance, tabRef, instanceI
   const finalPos = { ...pos };
   if (!pos || typeof pos.w === 'undefined') finalPos.w = defaultW;
   if (!pos || typeof pos.h === 'undefined') finalPos.h = defaultH;
-  const bg = mod.color || appSettings.moduleBgColor;
+  const bg = mod.color || getDefaultModuleBackground();
   let html = `<div class="grid-stack-item-content" style="background:${bg}">`;
   html += `<div class="drag-handle"><span class="font-semibold">${mod.name || modObj.subdir}</span><button class="remove px-2 py-1 text-xs rounded">🗑</button></div>`;
   html += `<form class="unimod-form grid grid-cols-2 gap-3">`;
