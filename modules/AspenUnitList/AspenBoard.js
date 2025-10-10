@@ -371,11 +371,89 @@
   const DEFAULT_TAG_COLOR = '#2563eb';
   const LS_DOC = 'module_data_v1';
   const LS_STATE = 'aspenUnitListState';
+  const LS_STATE_VERSION = 2;
   const CUSTOM_BROADCAST = 'unitBoard:update';
   const HANDLE_DB_NAME = 'AspenUnitListHandles';
   const HANDLE_STORE_NAME = 'handles';
 
   let activePermissionDialog=null;
+
+  function normalizeStateKey(seed){
+    const raw=typeof seed==='string'?seed.trim():'';
+    if(!raw) return 'primary';
+    return raw.toLowerCase().replace(/\s+/g,'_');
+  }
+
+  function parseStateBundle(raw){
+    if(!raw) return null;
+    try{
+      const parsed=JSON.parse(raw);
+      if(!parsed||typeof parsed!=='object') return null;
+      if(Array.isArray(parsed.items)||typeof parsed.config==='object'){
+        return {meta:{v:1,lastActiveSeed:'primary'},instances:{primary:parsed}};
+      }
+      const meta=parsed.__meta&&typeof parsed.__meta==='object'?parsed.__meta:{};
+      const instances=parsed.instances&&typeof parsed.instances==='object'?parsed.instances:{};
+      return {meta,instances};
+    }catch{
+      return null;
+    }
+  }
+
+  function loadStateBundle(){
+    let raw='';
+    try{raw=localStorage.getItem(LS_STATE)||'';}
+    catch{return null;}
+    if(!raw) return null;
+    return parseStateBundle(raw);
+  }
+
+  function selectStateFromBundle(bundle,seed){
+    if(!bundle||!bundle.instances||typeof bundle.instances!=='object') return null;
+    const normalized=normalizeStateKey(seed);
+    const direct=bundle.instances[normalized];
+    if(direct&&typeof direct==='object') return direct;
+    const meta=bundle.meta&&typeof bundle.meta==='object'?bundle.meta:{};
+    const lastRaw=typeof meta.lastActiveSeed==='string'?meta.lastActiveSeed.trim():'';
+    if(lastRaw){
+      const lastKey=normalizeStateKey(lastRaw);
+      const last=bundle.instances[lastKey];
+      if(last&&typeof last==='object') return last;
+    }
+    if(normalized!=='primary'){
+      const primary=bundle.instances.primary;
+      if(primary&&typeof primary==='object') return primary;
+    }
+    const firstKey=Object.keys(bundle.instances).find(key=>{
+      const value=bundle.instances[key];
+      return value&&typeof value==='object';
+    });
+    return firstKey?bundle.instances[firstKey]:null;
+  }
+
+  function loadStoredState(seed){
+    const bundle=loadStateBundle();
+    if(!bundle) return null;
+    return selectStateFromBundle(bundle,seed);
+  }
+
+  function persistStateBundle(seed,payload){
+    const normalized=normalizeStateKey(seed);
+    const bundle=loadStateBundle()||{meta:{},instances:{}};
+    const meta=bundle.meta&&typeof bundle.meta==='object'?{...bundle.meta}:{};
+    const instances=bundle.instances&&typeof bundle.instances==='object'?{...bundle.instances}:{};
+    instances[normalized]=payload;
+    meta.v=LS_STATE_VERSION;
+    meta.updatedAt=new Date().toISOString();
+    meta.lastActiveSeed=normalized;
+    const serialized=JSON.stringify({__meta:meta,instances});
+    try{
+      localStorage.setItem(LS_STATE,serialized);
+      return true;
+    }catch{
+      return false;
+    }
+  }
 
   async function queryHandlePermission(handle,mode){
     if(!handle || typeof handle.queryPermission!=='function') return 'granted';
@@ -1249,16 +1327,17 @@
     return config.subFields[0]?.field||DEFAULT_SUB_FIELD;
   }
 
-  function restoreState(state,instanceId){
+  function restoreState(state,instanceId,storageKey){
+    const key=normalizeStateKey(storageKey);
     let saved=null;
-    const raw=localStorage.getItem(LS_STATE);
-    if(raw){
-      try{saved=JSON.parse(raw);}catch(e){saved=null;}
-    }
+    try{saved=loadStoredState(key);}catch(e){saved=null;}
     if(!saved && instanceId){
       const snapshot=loadDoc()?.instances?.[instanceId]?.aspenUnitList;
       if(snapshot&&typeof snapshot==='object'){
-        saved=snapshot;
+        const snapshotKey=normalizeStateKey(snapshot.storageKey||'');
+        if(!snapshot.storageKey||snapshotKey===key){
+          saved=snapshot;
+        }
       }
     }
     if(!saved||typeof saved!=='object') return;
@@ -1331,7 +1410,7 @@
     saveDoc(doc);
   }
 
-  function persistState(state,instanceId){
+  function persistState(state,instanceId,storageKey){
     state.items=dedupeByMeldung(state.items);
     ensureSubFields(state.config);
     ensureExtraColumns(state.config);
@@ -1362,52 +1441,42 @@
       columnAssignments:columnAssignmentsToObject(state.columnAssignments),
       hiddenExtraColumns:Array.from(state.hiddenExtraColumns||[])
     };
-    let serialized=null;
-    try{
-      serialized=JSON.stringify(payload);
-      localStorage.setItem(LS_STATE,serialized);
-    }catch(e){
-      serialized=null;
-    }
+    const key=normalizeStateKey(storageKey);
+    try{persistStateBundle(key,payload);}catch{}
     if(instanceId){
-      let snapshot=null;
-      if(serialized){
-        try{snapshot=JSON.parse(serialized);}catch(e){snapshot=null;}
-      }
-      if(!snapshot){
-        snapshot={
-          fields:payload.fields.slice(),
-          config:{
-            ...payload.config,
-            subFields:payload.config.subFields.map(sub=>({...sub})),
-            colors:{...payload.config.colors},
-            titleRules:payload.config.titleRules.map(rule=>({...rule})),
-            extraColumns:payload.config.extraColumns.map(col=>({...col})),
-            activeColumn:{...payload.config.activeColumn},
-            searchFilters:payload.config.searchFilters.map(filter=>({...filter}))
-          },
-          items:payload.items.map(item=>{
-            if(!item||typeof item!=='object') return item;
-            return {
-              ...item,
-              data:item.data&&typeof item.data==='object'?{...item.data}:item.data,
-              subs:Array.isArray(item.subs)?item.subs.slice():item.subs,
-              tags:Array.isArray(item.tags)?item.tags.slice():item.tags
-            };
-          }),
-          excluded:payload.excluded.slice(),
-          filePath:payload.filePath,
-          searchQuery:payload.searchQuery,
-          partFilter:payload.partFilter,
-          activeSearchFilters:payload.activeSearchFilters.slice(),
-          activeMeldungen:payload.activeMeldungen.slice(),
-          showActiveList:payload.showActiveList,
-          columnAssignments:{...payload.columnAssignments},
-          hiddenExtraColumns:payload.hiddenExtraColumns.slice()
-        };
-      }
+      const snapshot={
+        fields:payload.fields.slice(),
+        config:{
+          ...payload.config,
+          subFields:payload.config.subFields.map(sub=>({...sub})),
+          colors:{...payload.config.colors},
+          titleRules:payload.config.titleRules.map(rule=>({...rule})),
+          extraColumns:payload.config.extraColumns.map(col=>({...col})),
+          activeColumn:{...payload.config.activeColumn},
+          searchFilters:payload.config.searchFilters.map(filter=>({...filter}))
+        },
+        items:payload.items.map(item=>{
+          if(!item||typeof item!=='object') return item;
+          return {
+            ...item,
+            data:item.data&&typeof item.data==='object'?{...item.data}:item.data,
+            subs:Array.isArray(item.subs)?item.subs.slice():item.subs,
+            tags:Array.isArray(item.tags)?item.tags.slice():item.tags
+          };
+        }),
+        excluded:payload.excluded.slice(),
+        filePath:payload.filePath,
+        searchQuery:payload.searchQuery,
+        partFilter:payload.partFilter,
+        activeSearchFilters:payload.activeSearchFilters.slice(),
+        activeMeldungen:payload.activeMeldungen.slice(),
+        showActiveList:payload.showActiveList,
+        columnAssignments:{...payload.columnAssignments},
+        hiddenExtraColumns:payload.hiddenExtraColumns.slice()
+      };
       snapshot.instanceId=instanceId;
       snapshot.lastUpdated=Date.now();
+      snapshot.storageKey=key;
       persistModuleSnapshot(instanceId,snapshot);
     }
   }
@@ -1928,8 +1997,32 @@
 
     const state=createInitialState(initialTitle);
     const instanceId=instanceIdOf(elements.root);
-    const persistenceSeed=opts?.moduleJson?.id||opts?.moduleJson?.moduleKey||'primary';
-    const handleStorageKey=`aspen-unit-handle::${persistenceSeed}`;
+    const seedCandidates=[
+      opts?.moduleJson?.settings?.stateSeed,
+      opts?.moduleJson?.settings?.seed,
+      opts?.moduleJson?.id,
+      opts?.moduleJson?.moduleKey
+    ];
+    let rawPersistenceSeed=seedCandidates.find(value=>typeof value==='string' && value.trim());
+    if(!rawPersistenceSeed){
+      rawPersistenceSeed=instanceId||'primary';
+    }
+    const stateStorageKey=normalizeStateKey(rawPersistenceSeed);
+    const handleStorageKey=`aspen-unit-handle::${stateStorageKey}`;
+    const legacyHandleKeys=Array.from(new Set([
+      ...seedCandidates
+        .filter(value=>typeof value==='string' && value.trim())
+        .flatMap(value=>{
+          const trimmed=value.trim();
+          const normalized=normalizeStateKey(trimmed);
+          const keys=[`aspen-unit-handle::${trimmed}`];
+          if(normalized && normalized!==trimmed){
+            keys.push(`aspen-unit-handle::${normalized}`);
+          }
+          return keys;
+        }),
+      'aspen-unit-handle::primary'
+    ])).filter(key=>key && key!==handleStorageKey);
     let fileHandle=null;
     let hasReadPermission=false;
     let tempSubFields=[];
@@ -2063,7 +2156,7 @@
           });
           state.excluded.clear();
         }
-        persistState(state,instanceId);
+        persistState(state,instanceId,stateStorageKey);
         if(elements.root?.isConnected){
           render();
         }
@@ -2105,7 +2198,7 @@
 
     const handleBeforeUnload=()=>{
       flushOptionPersist();
-      persistState(state,instanceId);
+      persistState(state,instanceId,stateStorageKey);
     };
     window.addEventListener('beforeunload',handleBeforeUnload);
 
@@ -2176,7 +2269,7 @@
       });
     };
 
-    restoreState(state,instanceId);
+    restoreState(state,instanceId,stateStorageKey);
 
     elements.cBg.value=state.config.colors.bg;
     elements.cItem.value=state.config.colors.item;
@@ -2810,7 +2903,7 @@
         }
       }
       elements.root.classList.toggle('db-has-active',activeColumnEnabled&&!!state.showActiveList);
-      persistState(state,instanceId);
+      persistState(state,instanceId,stateStorageKey);
       SHARED.publishAspenItems(instanceId,state.items);
       refreshMenu(elements,state,render);
     }
@@ -3669,7 +3762,7 @@
       });
       state.excluded.clear();
       render();
-      persistState(state,instanceId);
+      persistState(state,instanceId,stateStorageKey);
       syncPartSelectInputValue();
       if(partSelectOpen){
         renderPartSelectOptions(elements.partSelectInput?.value||'');
@@ -3720,7 +3813,7 @@
     const mo=new MutationObserver(()=>{
       if(!document.body.contains(elements.root)){
         flushOptionPersist();
-        persistState(state,instanceId);
+        persistState(state,instanceId,stateStorageKey);
         elements.menu.remove();
         SHARED.clearAspenItems(instanceId);
         stopPolling();
@@ -3926,7 +4019,17 @@
 
     if(!fileHandle){
       try{
-        const storedHandle=await restoreFileHandleFromStore(handleStorageKey);
+        let storedHandle=await restoreFileHandleFromStore(handleStorageKey);
+        if(!storedHandle && Array.isArray(legacyHandleKeys) && legacyHandleKeys.length){
+          for(const legacyKey of legacyHandleKeys){
+            if(!legacyKey || legacyKey===handleStorageKey) continue;
+            storedHandle=await restoreFileHandleFromStore(legacyKey);
+            if(storedHandle){
+              try{await persistFileHandle(handleStorageKey,storedHandle);}catch{}
+              break;
+            }
+          }
+        }
         if(storedHandle){
           fileHandle=storedHandle;
           const permission=await queryHandlePermission(storedHandle,'read');

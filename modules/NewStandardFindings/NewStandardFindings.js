@@ -2286,6 +2286,27 @@
     return {docRaw,doc,hasDoc,general,part};
   }
 
+  function selectAspenBoardStateBundle(parsed){
+    if(!parsed||typeof parsed!=='object') return null;
+    if(Array.isArray(parsed.items)||typeof parsed.config==='object') return parsed;
+    const instances=parsed.instances&&typeof parsed.instances==='object'?parsed.instances:null;
+    if(!instances) return null;
+    const meta=parsed.__meta&&typeof parsed.__meta==='object'?parsed.__meta:{};
+    const lastRaw=typeof meta.lastActiveSeed==='string'?meta.lastActiveSeed.trim():'';
+    if(lastRaw){
+      const normalized=lastRaw.toLowerCase().replace(/\s+/g,'_');
+      const candidate=instances[normalized]||instances[lastRaw];
+      if(candidate&&typeof candidate==='object') return candidate;
+    }
+    const primary=instances.primary;
+    if(primary&&typeof primary==='object') return primary;
+    const firstKey=Object.keys(instances).find(key=>{
+      const value=instances[key];
+      return value&&typeof value==='object';
+    });
+    return firstKey?instances[firstKey]:null;
+  }
+
   function loadAspenBoardState(){
     let raw='';
     try{raw=localStorage.getItem(ASPEN_BOARD_STATE_KEY)||'';}
@@ -2293,7 +2314,8 @@
     if(!raw) return null;
     try{
       const parsed=JSON.parse(raw);
-      return parsed&&typeof parsed==='object'?parsed:null;
+      const state=selectAspenBoardStateBundle(parsed);
+      return state&&typeof state==='object'?state:null;
     }catch(err){
       console.warn('NSF: aspenUnitListState konnte nicht geparst werden',err);
       return null;
