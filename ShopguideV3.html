@@ -5118,6 +5118,90 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   }
 }
 
+// Verbindet die Farbeditor-Steuerelemente der Unter-Layer mit den globalen CSS-Variablen.
+function bindLayerColorSync() {
+  const manager = document.querySelector('.module-layer-manager');
+  const layersContainer = document.getElementById('module-color-layers');
+  const docEl = document.documentElement;
+  if (!manager || !layersContainer || !docEl) return;
+
+  const style = docEl.style;
+  const lastValues = new Map();
+
+  const getSubgroups = () => Array.from(manager.querySelectorAll('.module-layer-subgroup'));
+
+  const applyLayerVariables = (layerId, colorValue) => {
+    const parsed = parseColor(colorValue);
+    if (!parsed) {
+      if (lastValues.has(layerId)) {
+        style.removeProperty(`--${layerId}-h`);
+        style.removeProperty(`--${layerId}-s`);
+        style.removeProperty(`--${layerId}-l`);
+        style.removeProperty(`--${layerId}-a`);
+        lastValues.delete(layerId);
+      }
+      return;
+    }
+
+    const h = Math.round(normalizeHue(parsed.h));
+    const s = Math.round(clamp(parsed.s, 0, 100));
+    const l = Math.round(clamp(parsed.l, 0, 100));
+    const a = Math.round(clamp(parsed.a, 0, 1) * 100) / 100;
+    const summary = hslaToString({ h, s, l, a });
+
+    if (lastValues.get(layerId) === summary) {
+      return;
+    }
+
+    style.setProperty(`--${layerId}-h`, String(h));
+    style.setProperty(`--${layerId}-s`, `${s}%`);
+    style.setProperty(`--${layerId}-l`, `${l}%`);
+    style.setProperty(`--${layerId}-a`, String(a));
+
+    lastValues.set(layerId, summary);
+    console.log(`[LayerSync] ${layerId} → ${summary}`);
+  };
+
+  const syncAllSubgroups = () => {
+    const subgroups = getSubgroups();
+    const activeIds = new Set();
+
+    subgroups.forEach((subgroup, index) => {
+      const colorInput = subgroup.querySelector('input[data-sub-field="bg"]');
+      if (!colorInput) return;
+      const value = getColorInputValue(colorInput);
+      if (!value) return;
+      const layerId = `layer${index + 1}`;
+      activeIds.add(layerId);
+      applyLayerVariables(layerId, value);
+    });
+
+    Array.from(lastValues.keys()).forEach(layerId => {
+      if (!activeIds.has(layerId)) {
+        style.removeProperty(`--${layerId}-h`);
+        style.removeProperty(`--${layerId}-s`);
+        style.removeProperty(`--${layerId}-l`);
+        style.removeProperty(`--${layerId}-a`);
+        lastValues.delete(layerId);
+      }
+    });
+  };
+
+  manager.addEventListener('input', event => {
+    if (!(event.target instanceof HTMLInputElement)) return;
+    if (!event.target.closest('.module-layer-subgroup')) return;
+    syncAllSubgroups();
+  });
+
+  const observer = new MutationObserver(mutations => {
+    if (!mutations.some(mutation => mutation.type === 'childList')) return;
+    window.requestAnimationFrame(syncAllSubgroups);
+  });
+  observer.observe(layersContainer, { childList: true, subtree: true });
+
+  syncAllSubgroups();
+}
+
 function styleModuleLayerGroup(groupEl, bg, text, border) {
   if (!groupEl) return;
   groupEl.style.backgroundColor = bg;
@@ -5664,6 +5748,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.body.classList.add('fade-in');
 
   initializeColorPickersIn();
+  bindLayerColorSync();
 
   themeProfiles = loadThemeProfiles();
   const defaultProfileName = 'Default Profil';
