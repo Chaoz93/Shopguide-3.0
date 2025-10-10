@@ -7,7 +7,7 @@
 (function(){
   // ----- styles -----
   const CSS = `
-  .rs-root{height:100%;display:flex;flex-direction:column;gap:.6rem}
+  .rs-root{height:100%;display:flex;flex-direction:column;gap:.6rem;--rs-surface-bg:rgba(21,45,76,.82);--rs-surface-text:var(--text-color);--rs-surface-border:rgba(76,114,163,.32);--rs-inline-bg:rgba(21,45,76,.72);--rs-inline-border:var(--module-border-color);--rs-button-bg:#2563eb;--rs-button-text:#fff;--rs-button-border:#1d4ed8;--rs-button-secondary-bg:#6b7280;--rs-button-secondary-text:#fff}
   .rs-head{font-weight:700;font-size:1.35rem;text-align:center;margin:.2rem 0 .2rem;user-select:none;color:var(--text-color)}
   .rs-form{flex:1;overflow:auto;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none}
   .rs-form::-webkit-scrollbar{width:0;height:0;display:none}
@@ -16,7 +16,7 @@
   .rs-aspen-status{display:none;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;line-height:1;margin-left:.35rem;transition:background .2s,color .2s}
   .rs-aspen-status.ok{display:inline-flex;background:rgba(16,185,129,.18);color:#10b981}
   .rs-aspen-status.warn{display:inline-flex;background:rgba(234,179,8,.18);color:#ca8a04}
-  .rs-aspen-refresh{margin-left:auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--module-border-color);background:rgba(255,255,255,.08);color:var(--text-color);cursor:pointer}
+  .rs-aspen-refresh{margin-left:auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text);cursor:pointer}
   .rs-aspen-refresh:hover{background:rgba(255,255,255,.12)}
   .rs-aspen-refresh:active{transform:scale(.96)}
   .rs-aspen-refresh:disabled{opacity:.45;cursor:default;transform:none}
@@ -26,38 +26,53 @@
   .rs-labelwrap{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;color:var(--text-color)}
   .rs-label{font-weight:600;opacity:.95;color:inherit;cursor:default}
   .rs-label-info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.18);color:inherit;opacity:.85;cursor:help}
-  .rs-inline-input{min-width:140px;padding:.25rem .45rem;border-radius:.35rem;border:1px solid var(--module-border-color);background:rgba(21,45,76,.72);color:var(--text-color)}
+  .rs-inline-input{min-width:140px;padding:.25rem .45rem;border-radius:.35rem;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text)}
   .rs-inline-input.invalid,.rs-item-label.invalid{border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.35)}
   .rs-inputwrap{display:grid;grid-template-columns:auto 38px;align-items:center}
-  .rs-input{width:100%;background:rgba(21,45,76,.72);border:1px solid var(--module-border-color);color:var(--text-color);padding:.45rem .55rem;border-radius:.4rem}
-  .rs-copy{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid var(--module-border-color);border-radius:.35rem;background:rgba(21,45,76,.72);cursor:pointer;color:var(--text-color)}
+  .rs-input{width:100%;background:var(--rs-inline-bg);border:1px solid var(--rs-inline-border);color:var(--rs-surface-text);padding:.45rem .55rem;border-radius:.4rem}
+  .rs-copy{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid var(--rs-inline-border);border-radius:.35rem;background:var(--rs-inline-bg);cursor:pointer;color:var(--rs-surface-text)}
   .rs-copy:active{transform:scale(.98)}
   .rs-note{font-size:.85rem;opacity:.75;margin-top:.15rem;color:var(--text-color)}
-  .rs-item{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:.45rem;padding:.35rem .5rem;margin-bottom:.3rem;border:1px solid rgba(76,114,163,.32);border-radius:.55rem;cursor:grab;background:rgba(21,45,76,.82);color:var(--text-color);box-shadow:0 14px 30px rgba(12,24,41,.48)}
-  .rs-item.off{opacity:.6;background:rgba(21,45,76,.58)}
+  .rs-item{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:.45rem;padding:.35rem .5rem;margin-bottom:.3rem;border:1px solid var(--rs-surface-border);border-radius:.55rem;cursor:grab;background:var(--rs-surface-bg);color:var(--rs-surface-text);box-shadow:0 14px 30px rgba(12,24,41,.48)}
+  .rs-item.off{opacity:.6;background:var(--rs-surface-bg)}
   .rs-item-handle{font-size:1.05rem;cursor:grab;user-select:none}
   .rs-item-info{display:flex;flex-direction:column;gap:.15rem;min-width:120px}
   .rs-item-info span{line-height:1}
   .rs-item-original{font-size:.72rem;opacity:.65}
-  .rs-item-label{width:100%;padding:.3rem .45rem;border-radius:.45rem;border:1px solid rgba(76,114,163,.34);background:rgba(21,45,76,.72);color:var(--text-color)}
+  .rs-item-label{width:100%;padding:.3rem .45rem;border-radius:.45rem;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text)}
   .rs-item-actions{display:flex;align-items:center;gap:.45rem;font-size:.8rem}
   .rs-item-actions label{display:flex;align-items:center;gap:.2rem;cursor:pointer}
   .rs-item-remove{border:none;background:transparent;color:#dc2626;font-weight:600;cursor:pointer}
-  .rs-new-section{margin-top:1rem;padding:.65rem .6rem;border:1px solid rgba(76,114,163,.32);border-radius:.6rem;background:rgba(21,45,76,.82);color:var(--text-color);box-shadow:0 14px 30px rgba(12,24,41,.46)}
+  .rs-new-section{margin-top:1rem;padding:.65rem .6rem;border:1px solid var(--rs-surface-border);border-radius:.6rem;background:var(--rs-surface-bg);color:var(--rs-surface-text);box-shadow:0 14px 30px rgba(12,24,41,.46)}
   .rs-new-title{font-size:.85rem;font-weight:600;margin-bottom:.35rem}
   .rs-new-search{width:100%;padding:.3rem .4rem;border-radius:.35rem;border:1px solid #d1d5db;margin-bottom:.45rem}
   .rs-new-list{list-style:none;margin:0;padding:0;max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:.35rem}
-  .rs-new-item{display:flex;align-items:center;justify-content:space-between;gap:.45rem;padding:.35rem .45rem;border:1px solid rgba(76,114,163,.32);border-radius:.5rem;background:rgba(21,45,76,.82);color:var(--text-color);box-shadow:0 14px 28px rgba(12,24,41,.44)}
+  .rs-new-item{display:flex;align-items:center;justify-content:space-between;gap:.45rem;padding:.35rem .45rem;border:1px solid var(--rs-surface-border);border-radius:.5rem;background:var(--rs-surface-bg);color:var(--rs-surface-text);box-shadow:0 14px 28px rgba(12,24,41,.44)}
   .rs-new-info{display:flex;flex-direction:column;gap:.15rem}
   .rs-new-key{font-weight:600}
   .rs-new-original{font-size:.72rem;opacity:.65}
-  .rs-new-add{border:none;border-radius:.35rem;padding:.3rem .55rem;background:#2563eb;color:#fff;cursor:pointer}
-  .rs-new-add.secondary{background:#6b7280}
+  .rs-new-add{border:1px solid var(--rs-button-border);border-radius:.35rem;padding:.3rem .55rem;background:var(--rs-button-bg);color:var(--rs-button-text);cursor:pointer}
+  .rs-new-add.secondary{background:var(--rs-button-secondary-bg);color:var(--rs-button-secondary-text);border:1px solid var(--rs-button-secondary-bg)}
   .rs-new-inline{display:flex;align-items:center;gap:.35rem;margin-top:.35rem}
-  .rs-new-inline input{flex:1;padding:.25rem .4rem;border-radius:.35rem;border:1px solid rgba(76,114,163,.32);background:rgba(21,45,76,.72);color:var(--text-color)}
-  .rs-new-inline button{border:none;border-radius:.35rem;padding:.25rem .55rem;cursor:pointer}
+  .rs-new-inline input{flex:1;padding:.25rem .4rem;border-radius:.35rem;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text)}
+  .rs-new-inline button{border:1px solid var(--rs-button-border);border-radius:.35rem;padding:.25rem .55rem;cursor:pointer;background:var(--rs-button-bg);color:var(--rs-button-text)}
   .rs-new-empty{font-size:.8rem;opacity:.65}
   .rs-history-actions .db-btn{font-size:.8rem}
+  .rs-color-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;margin-top:.35rem}
+  .rs-color-select{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;color:var(--text-color)}
+  .rs-color-select span{font-weight:600}
+  .rs-color-select select{appearance:none;background:var(--module-bg);color:var(--text-color);border:1px solid var(--module-border-color);border-radius:.55rem;padding:.45rem .6rem;font-weight:600;cursor:pointer;box-shadow:0 6px 16px rgba(12,24,41,.2)}
+  .rs-color-select select:focus{outline:2px solid var(--module-border-color);outline-offset:2px}
+  .rs-color-preview{margin-top:.75rem;padding:.75rem;border-radius:.9rem;border:1px solid var(--module-border-color);background:var(--module-bg);color:var(--text-color);box-shadow:0 12px 26px rgba(12,24,41,.18);display:flex;flex-direction:column;gap:.6rem}
+  .rs-color-preview-header{align-self:flex-start;padding:.35rem .7rem;border-radius:.65rem;background:var(--module-header-bg);color:var(--module-header-text);font-weight:600}
+  .rs-color-preview-body{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap}
+  .rs-color-preview-tag{padding:.4rem .7rem;border-radius:.55rem;background:var(--rs-surface-bg);color:var(--rs-surface-text);border:1px solid var(--rs-surface-border);font-weight:600;box-shadow:0 8px 20px rgba(12,24,41,.2)}
+  .rs-color-preview-button{padding:.45rem .9rem;border-radius:.6rem;border:1px solid var(--rs-button-border);background:var(--rs-button-bg);color:var(--rs-button-text);font-weight:600;box-shadow:0 10px 24px rgba(15,23,42,.28);cursor:default;opacity:.98}
+  .rs-color-preview-button:disabled{opacity:.98}
+  .rs-color-summary{margin-top:.5rem;font-size:.8rem;font-weight:600;color:var(--text-color)}
+  .rs-color-foot{margin-top:.45rem;font-size:.78rem;opacity:.75;color:var(--text-color)}
+  .rs-color-reload{margin-top:.5rem;background:transparent;border:1px solid var(--module-border-color);color:var(--text-color);border-radius:.6rem;padding:.3rem .65rem;cursor:pointer;font-size:.78rem;font-weight:600;display:inline-flex;align-items:center;gap:.3rem}
+  .rs-color-reload:hover{background:var(--module-header-bg);color:var(--module-header-text)}
   `;
   (function inject(){
     let tag=document.getElementById('record-sheet-styles');
@@ -125,6 +140,52 @@
   function tooltipForField(field){const lbl=field?.label||defaultLabelForKey(field?.originalKey||field?.key||'');const orig=field?.originalKey||field?.key||field?.id||'';const group=GROUP_LABELS[field?.group]||'Feld';return`${lbl} – ${orig} – (${group})`;}
 
   function ensureBaseFields(list){const seen=new Set(list.map(f=>f.key));BASE_FIELD_KEYS.forEach(key=>{if(!seen.has(key)){list.push({id:key,key,label:defaultLabelForKey(key),enabled:true,group:'base',originalKey:key});}});return list;}
+
+  const DEFAULT_COLOR_SUB_LAYERS=2;
+  const MAX_COLOR_SUB_LAYERS=8;
+  const clampNumber=(value,min,max)=>{const num=Number(value);if(!Number.isFinite(num))return min;return Math.min(Math.max(num,min),max);};
+  function ensureColorValue(value,fallback){const str=typeof value==='string'?value.trim():'';return str||fallback||'';}
+  function parseHexColor(value){const str=ensureColorValue(value,'');if(!/^#?[0-9a-f]{3}([0-9a-f]{3})?$/i.test(str))return null;const hex=str.startsWith('#')?str.slice(1):str;const normalized=hex.length===3?hex.split('').map(ch=>ch+ch).join(''):hex;const int=parseInt(normalized,16);if(Number.isNaN(int))return null;return{r:(int>>16)&255,g:(int>>8)&255,b:int&255};}
+  const toHexChannel=value=>{const v=Math.max(0,Math.min(255,Math.round(value)));return v.toString(16).padStart(2,'0');};
+  const parseRgbComponent=token=>{if(typeof token!=='string')return 0;const trimmed=token.trim();if(!trimmed)return 0;if(trimmed.endsWith('%')){const percent=parseFloat(trimmed.slice(0,-1));if(Number.isNaN(percent))return 0;return clamp(percent,0,100)*255/100;}const value=parseFloat(trimmed);if(Number.isNaN(value))return 0;return clamp(value,0,255);};
+  const parseAlphaComponent=token=>{if(typeof token!=='string'){const num=Number(token);return clamp(Number.isNaN(num)?1:num,0,1);}const trimmed=token.trim();if(!trimmed)return 1;if(trimmed.endsWith('%')){const percent=parseFloat(trimmed.slice(0,-1));if(Number.isNaN(percent))return 1;return clamp(percent/100,0,1);}const value=parseFloat(trimmed);if(Number.isNaN(value))return 1;return clamp(value,0,1);};
+  const parseRgbaString=value=>{const str=ensureColorValue(value,'');if(!str)return null;const match=/^rgba?\(([^)]+)\)$/i.exec(str);if(!match)return null;const parts=match[1].replace(/\//g,',').split(',').map(part=>part.trim()).filter(Boolean);if(parts.length<3)return null;const r=parseRgbComponent(parts[0]);const g=parseRgbComponent(parts[1]);const b=parseRgbComponent(parts[2]);const a=parts.length>=4?parseAlphaComponent(parts[3]):1;return{r:Math.round(clamp(r,0,255)),g:Math.round(clamp(g,0,255)),b:Math.round(clamp(b,0,255)),a:clamp(a,0,1)};};
+  const parseHslaString=value=>{const str=ensureColorValue(value,'');if(!str)return null;const match=/^hsla?\(([^)]+)\)$/i.exec(str);if(!match)return null;const parts=match[1].replace(/\//g,',').split(',').map(part=>part.trim()).filter(Boolean);if(parts.length<3)return null;const h=parseHue(parts[0]);const s=parsePercent(parts[1]);const l=parsePercent(parts[2]);const a=parts.length>=4?parseAlpha(parts[3]):1;if(h==null||s==null||l==null)return null;return{h,s,l,a:Number.isFinite(a)?clamp(a,0,1):1};};
+  const rgbaToHsla=(r,g,b,a=1)=>{if(!Number.isFinite(r)||!Number.isFinite(g)||!Number.isFinite(b))return{h:0,s:0,l:0,a:Number.isFinite(a)?clamp(a,0,1):1};const rn=clamp(r/255,0,1);const gn=clamp(g/255,0,1);const bn=clamp(b/255,0,1);const max=Math.max(rn,gn,bn);const min=Math.min(rn,gn,bn);const delta=max-min;let h=0;if(delta!==0){if(max===rn){h=((gn-bn)/delta)%6;}else if(max===gn){h=(bn-rn)/delta+2;}else{h=(rn-gn)/delta+4;}h*=60;}if(h<0)h+=360;const l=(max+min)/2;const s=delta===0?0:delta/(1-Math.abs(2*l-1));return{h:((h%360)+360)%360,s:clamp(s*100,0,100),l:clamp(l*100,0,100),a:Number.isFinite(a)?clamp(a,0,1):1};};
+  const rgbaToCss=rgba=>{if(!rgba)return'';const r=Math.round(clamp(rgba.r,0,255));const g=Math.round(clamp(rgba.g,0,255));const b=Math.round(clamp(rgba.b,0,255));const alpha=Number.isFinite(rgba.a)?clamp(rgba.a,0,1):1;const normalized=Math.round(alpha*100)/100;const alphaStr=normalized%1===0?normalized.toFixed(0):normalized.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');return`rgba(${r}, ${g}, ${b}, ${alphaStr})`;};
+  const parseCssColorMeta=value=>{const hex=parseHexColor(value);if(hex){return{format:'hex',rgba:{r:hex.r,g:hex.g,b:hex.b,a:1}};}const hsla=parseHslaString(value);if(hsla){const rgba=hslaToRgba(hsla.h,hsla.s,hsla.l,hsla.a);return{format:'hsla',rgba,hsla};}const rgba=parseRgbaString(value);if(rgba){return{format:'rgba',rgba};}return null;};
+  function mixHexColors(colorA,colorB,ratio){const amount=Math.min(Math.max(Number(ratio)||0,0),1);const parsedA=parseCssColorMeta(colorA);const parsedB=parseCssColorMeta(colorB);if(!parsedA||!parsedB)return ensureColorValue(colorA,colorB);const mixChannel=(c1,c2)=>c1+(c2-c1)*amount;const mixed={r:mixChannel(parsedA.rgba.r,parsedB.rgba.r),g:mixChannel(parsedA.rgba.g,parsedB.rgba.g),b:mixChannel(parsedA.rgba.b,parsedB.rgba.b),a:mixChannel(parsedA.rgba.a??1,parsedB.rgba.a??1)};const formatHint=parsedA.format||parsedB.format||'rgba';if(formatHint==='hsla'){const hsla=rgbaToHsla(mixed.r,mixed.g,mixed.b,mixed.a);return formatHslaFromNumbers(hsla.h,hsla.s,hsla.l,hsla.a);}if(formatHint==='hex'){return rgbaToHex(mixed);}return rgbaToCss(mixed);}
+  const lightenHexColor=(color,amount)=>{if(!color)return'';return mixHexColors(color,'hsla(0, 0%, 100%, 1)',amount);};
+  const CONTRAST_LIGHT_TEXT='hsla(0, 0%, 100%, 1)';
+  const CONTRAST_DARK_TEXT='hsla(222, 47%, 11%, 1)';
+  const clamp=(value,min,max)=>Math.min(Math.max(value,min),max);
+  const extractNumeric=value=>{const str=typeof value==='string'?value.trim():'';if(!str)return null;const match=str.match(/-?\d+(?:\.\d+)?/);if(!match)return null;const num=Number(match[0]);return Number.isFinite(num)?num:null;};
+  const parsePercent=value=>{const num=extractNumeric(value);if(num==null)return null;return clamp(num,0,100);};
+  const parseHue=value=>{const num=extractNumeric(value);if(num==null)return null;const normalized=((num%360)+360)%360;return normalized;};
+  const parseAlpha=value=>{const num=extractNumeric(value);if(num==null)return null;const str=typeof value==='string'?value.trim():'';const normalized=str.includes('%')?num/100:num;return clamp(normalized,0,1);};
+  const formatHslaFromNumbers=(h,s,l,a)=>{const hue=Number.isFinite(h)?h:0;const sat=Number.isFinite(s)?clamp(s,0,100):0;const lig=Number.isFinite(l)?clamp(l,0,100):0;const alpha=Number.isFinite(a)?clamp(a,0,1):1;return`hsla(${hue}, ${sat}%, ${lig}%, ${alpha})`;};
+  function hslaToRgba(h,s,l,a){if(!Number.isFinite(h)||!Number.isFinite(s)||!Number.isFinite(l))return null;const sat=clamp(s/100,0,1);const lig=clamp(l/100,0,1);const hue=((h%360)+360)%360/360;let r;let g;let b;if(sat===0){r=g=b=lig;}else{const q=lig<0.5?lig*(1+sat):lig+sat-lig*sat;const p=2*lig-q;const hue2rgb=(pVal,qVal,t)=>{let tt=t;if(tt<0)tt+=1;if(tt>1)tt-=1;if(tt<1/6)return pVal+(qVal-pVal)*6*tt;if(tt<1/2)return qVal;if(tt<2/3)return pVal+(qVal-pVal)*(2/3-tt)*6;return pVal;};r=hue2rgb(p,q,hue+1/3);g=hue2rgb(p,q,hue);b=hue2rgb(p,q,hue-1/3);}return{r:Math.round(clamp(r,0,1)*255),g:Math.round(clamp(g,0,1)*255),b:Math.round(clamp(b,0,1)*255),a:Number.isFinite(a)?clamp(a,0,1):1};}
+  const rgbaToHex=rgba=>{if(!rgba)return null;return`#${toHexChannel(rgba.r)}${toHexChannel(rgba.g)}${toHexChannel(rgba.b)}`;};
+  const srgbToLinear=value=>{const channel=value/255;return channel<=0.04045?channel/12.92:Math.pow((channel+0.055)/1.055,2.4);};
+  const relativeLuminance=rgba=>{if(!rgba)return null;const r=srgbToLinear(rgba.r);const g=srgbToLinear(rgba.g);const b=srgbToLinear(rgba.b);return 0.2126*r+0.7152*g+0.0722*b;};
+  const preferredTextColor=rgba=>{const lum=relativeLuminance(rgba);if(lum==null)return CONTRAST_LIGHT_TEXT;return lum>0.55?CONTRAST_DARK_TEXT:CONTRAST_LIGHT_TEXT;};
+  const hexToRgba=(color,alphaOverride)=>{const parsed=parseCssColorMeta(color);if(!parsed)return null;const rgba={...parsed.rgba};if(Number.isFinite(alphaOverride)){rgba.a=clamp(alphaOverride,0,1);return rgbaToCss(rgba);}return rgba;};
+  function createLayerFromCssVariables(index,hRaw,sRaw,lRaw,aRaw){const h=parseHue(hRaw);const s=parsePercent(sRaw);const l=parsePercent(lRaw);const a=parseAlpha(aRaw??'1');const color=typeof hRaw==='string'||typeof sRaw==='string'||typeof lRaw==='string'||typeof aRaw==='string'?`hsla(${(hRaw||'').trim()|| (Number.isFinite(h)?`${h}`:'0')}, ${(sRaw||'').trim()|| (Number.isFinite(s)?`${s}%`:'0%')}, ${(lRaw||'').trim()|| (Number.isFinite(l)?`${l}%`:'0%')}, ${(aRaw||'').trim()|| (Number.isFinite(a)?`${a}`:'1')})`:formatHslaFromNumbers(h,s,l,a);const rgba=hslaToRgba(h??0,s??0,l??0,a??1);const textColor=preferredTextColor(rgba);const borderColor=mixHexColors(color,'hsla(0, 0%, 0%, 1)',0.18);const subLayer={bg:color,text:textColor,border:borderColor};const hex=rgbaToHex(rgba);return{ id:`layer${index}`, name:`Layer ${index}`, label:`Layer ${index}`, color, dropdownTextColor:textColor, moduleBg:color, moduleText:textColor, moduleBorder:borderColor, headerBg:color, headerText:textColor, headerBorder:borderColor, subLayers:[subLayer], subBg:subLayer.bg, subText:subLayer.text, subBorder:subLayer.border, hsla:{h,s,l,a}, hex, rgba};}
+  function normalizeLegacyLayer(layer,index){const id=typeof layer?.id==='string'&&layer.id.trim()?layer.id.trim():`layer-${index+1}`;const name=typeof layer?.name==='string'&&layer.name.trim()?layer.name.trim():`Layer ${index+1}`;const moduleBg=ensureColorValue(layer?.moduleBg||layer?.color,'#005983');const moduleText=ensureColorValue(layer?.moduleText,CONTRAST_LIGHT_TEXT);const moduleBorder=ensureColorValue(layer?.moduleBorder,moduleText);const headerBg=ensureColorValue(layer?.headerBg,moduleBg);const headerText=ensureColorValue(layer?.headerText,moduleText);const headerBorder=ensureColorValue(layer?.headerBorder,headerBg);const subLayers=Array.isArray(layer?.subLayers)&&layer.subLayers.length?layer.subLayers.map(sub=>({bg:ensureColorValue(sub?.bg,moduleBg),text:ensureColorValue(sub?.text,moduleText),border:ensureColorValue(sub?.border,moduleBorder)})):[{bg:moduleBg,text:moduleText,border:moduleBorder}];const primarySub=subLayers[0];const rgba=hexToRgba(moduleBg)||hexToRgba(primarySub.bg);const dropdownText=ensureColorValue(layer?.dropdownTextColor,rgba?preferredTextColor(rgba):moduleText);const hex=rgbaToHex(rgba)||(/^#/i.test(moduleBg)?moduleBg:null);return{...layer,id,name,label:name,color:ensureColorValue(layer?.color,moduleBg),moduleBg,moduleText,moduleBorder,headerBg,headerText,headerBorder,subLayers,subBg:ensureColorValue(layer?.subBg,primarySub.bg),subText:ensureColorValue(layer?.subText,primarySub.text),subBorder:ensureColorValue(layer?.subBorder,primarySub.border),dropdownTextColor:dropdownText,hex,rgba};}
+  function deepClone(value){if(value==null)return value;if(typeof structuredClone==='function'){try{return structuredClone(value);}catch{}}try{return JSON.parse(JSON.stringify(value));}catch{return value;}}
+  function readStoredAppSettings(){try{const raw=localStorage.getItem('appSettings');if(!raw)return null;return JSON.parse(raw);}catch{return null;}}
+  function readLiveAppSettings(){try{if(typeof window==='object'&&window&&typeof window.appSettings==='object'&&window.appSettings){return deepClone(window.appSettings);} }catch{}return readStoredAppSettings();}
+  function getDocumentModuleColorBaseline(){try{const styles=getComputedStyle(document.documentElement);const moduleBg=ensureColorValue(styles.getPropertyValue('--module-bg'),'#005983');const moduleText=ensureColorValue(styles.getPropertyValue('--text-color'),'#ffffff');const moduleBorder=ensureColorValue(styles.getPropertyValue('--module-border-color'),moduleText);const headerBg=ensureColorValue(styles.getPropertyValue('--module-header-bg'),moduleBg);const headerText=ensureColorValue(styles.getPropertyValue('--module-header-text'),moduleText);return{moduleBg,moduleText,moduleBorder,headerBg,headerText};}catch{return{moduleBg:'#005983',moduleText:'#ffffff',moduleBorder:'#0f6ab4',headerBg:'#0f6ab4',headerText:'#ffffff'};}}
+  function normalizeColorLayers(rawLayers,subLayerCount){const normalizer=typeof window.normalizeModuleColorLayers==='function'?window.normalizeModuleColorLayers:null;if(normalizer){try{return normalizer(Array.isArray(rawLayers)?rawLayers:[],subLayerCount);}catch(e){}}return Array.isArray(rawLayers)?rawLayers:[];}
+  function enrichColorLayers(list){return(list||[]).map((layer,index)=>{const id=typeof layer?.id==='string'&&layer.id.trim()?layer.id.trim():`layer-${index+1}`;const name=typeof layer?.name==='string'&&layer.name.trim()?layer.name.trim():`Layer ${index+1}`;return{...layer,id,name};});}
+  function loadGlobalColorLayers(maxLayers=15){const settings=readLiveAppSettings()||{};const desired=clampNumber(settings?.moduleSubLayerCount??DEFAULT_COLOR_SUB_LAYERS,1,MAX_COLOR_SUB_LAYERS);const normalized=enrichColorLayers(normalizeColorLayers(settings?.moduleColorLayers,desired)).map((layer,index)=>normalizeLegacyLayer(layer,index));if(normalized.length)return normalized;const cssLayers=[];try{const root=document.documentElement;if(root){const styles=getComputedStyle(root);for(let i=1;i<=maxLayers;i+=1){const h=styles.getPropertyValue(`--layer${i}-h`).trim();const s=styles.getPropertyValue(`--layer${i}-s`).trim();const l=styles.getPropertyValue(`--layer${i}-l`).trim();const a=styles.getPropertyValue(`--layer${i}-a`).trim();if(h&&s&&l&&a){cssLayers.push(createLayerFromCssVariables(i,h,s,l,a));}}}}catch{}if(cssLayers.length)return cssLayers;const fallback=enrichColorLayers(normalizeColorLayers([],desired)).map((layer,index)=>normalizeLegacyLayer(layer,index));if(fallback.length)return fallback;try{if(typeof window.getDefaultModuleColorLayers==='function'){const defaults=window.getDefaultModuleColorLayers();const normalizedDefaults=enrichColorLayers(normalizeColorLayers(defaults,desired)).map((layer,index)=>normalizeLegacyLayer(layer,index));if(normalizedDefaults.length)return normalizedDefaults;}}catch{}const baseline=getDocumentModuleColorBaseline();return[normalizeLegacyLayer({id:'default',name:'Standard',moduleBg:baseline.moduleBg,moduleText:baseline.moduleText,moduleBorder:baseline.moduleBorder,headerBg:baseline.headerBg,headerText:baseline.headerText,headerBorder:baseline.headerBg,subLayers:[{bg:baseline.moduleBg,text:baseline.moduleText,border:baseline.moduleBorder}],subBg:baseline.moduleBg,subText:baseline.moduleText,subBorder:baseline.moduleBorder},0)];}
+  function formatColorLayerLabel(layer){if(!layer)return'Standard';const name=layer.name||layer.label||'Layer';const color=ensureColorValue(layer.color||layer.moduleBg,'');return color?`${name} · ${color}`:name;}
+  function populateLayerDropdown(select,layers){if(!select)return;select.innerHTML='';layers.forEach(layer=>{const opt=document.createElement('option');opt.value=layer?.id||'';opt.textContent=layer?.label||layer?.name||layer?.id||'';const bg=layer?.color||layer?.moduleBg;const text=layer?.dropdownTextColor;if(bg)opt.style.background=bg;if(text)opt.style.color=text;else opt.style.color=CONTRAST_LIGHT_TEXT;opt.style.padding='4px 8px';opt.style.borderRadius='4px';select.appendChild(opt);});}
+  function applyLayerSelectStyles(select,layer){if(!select)return;if(layer){const bg=layer?.color||layer?.moduleBg||'';const text=layer?.dropdownTextColor||'';select.style.background=bg;select.style.color=text||CONTRAST_LIGHT_TEXT;}else{select.style.background='';select.style.color='';}}
+  function computeAccentPalette(layer,headerColors,moduleColors,baseline){const sub=Array.isArray(layer?.subLayers)&&layer.subLayers.length?layer.subLayers[0]:null;const bg=ensureColorValue(sub?.bg||layer?.subBg||layer?.moduleBg,headerColors.bg||moduleColors.bg||baseline.moduleBg);const text=ensureColorValue(sub?.text||layer?.subText||layer?.moduleText,headerColors.text||moduleColors.text||baseline.moduleText);const border=ensureColorValue(sub?.border||layer?.subBorder||layer?.moduleBorder,headerColors.border||moduleColors.border||baseline.moduleBorder);const inlineBg=ensureColorValue(lightenHexColor(bg,.18),bg);const inlineBorder=ensureColorValue(mixHexColors(border,'hsla(0, 0%, 100%, 1)',.12),border);const secondaryBg=ensureColorValue(mixHexColors(bg,'hsla(0, 0%, 100%, 1)',.28),bg);return{name:layer?.name||headerColors.name||moduleColors.name,bg,text,border,inlineBg,inlineBorder,secondaryBg,secondaryText:text};}
+  function computeModulePalette(layers,selection,baseline){const list=Array.isArray(layers)?layers:[];const findById=id=>list.find(layer=>layer&&String(layer.id)===String(id));const fallback=list[0]||null;const moduleLayer=findById(selection?.module)||fallback;const headerLayer=findById(selection?.header)||moduleLayer||fallback;const accentLayer=findById(selection?.accent)||headerLayer||moduleLayer||fallback;const moduleColors={name:moduleLayer?.name||'Standard',bg:ensureColorValue(moduleLayer?.moduleBg,baseline.moduleBg),text:ensureColorValue(moduleLayer?.moduleText,baseline.moduleText),border:ensureColorValue(moduleLayer?.moduleBorder,moduleLayer?.moduleText||baseline.moduleBorder||baseline.moduleText)};const headerColors={name:headerLayer?.name||moduleColors.name,bg:ensureColorValue(headerLayer?.headerBg,moduleLayer?.moduleBg||baseline.headerBg||moduleColors.bg),text:ensureColorValue(headerLayer?.headerText,moduleLayer?.moduleText||baseline.headerText||moduleColors.text),border:ensureColorValue(headerLayer?.headerBorder,headerLayer?.headerBg||moduleColors.border)};const accent=computeAccentPalette(accentLayer,headerColors,moduleColors,baseline);return{module:moduleColors,header:headerColors,accent};}
+  function setCssVar(element,name,value){if(!element||!element.style||typeof name!=='string')return;if(value)element.style.setProperty(name,value);else element.style.removeProperty(name);}
+  function applyPaletteToElement(element,palette){if(!element||!palette)return;const{module,header,accent}=palette;setCssVar(element,'--module-bg',module.bg);setCssVar(element,'--text-color',module.text);setCssVar(element,'--module-border-color',module.border);setCssVar(element,'--module-header-bg',header.bg);setCssVar(element,'--module-header-text',header.text);setCssVar(element,'--rs-header-border',header.border);setCssVar(element,'--rs-surface-bg',accent.bg);setCssVar(element,'--rs-surface-text',accent.text);setCssVar(element,'--rs-surface-border',accent.border);setCssVar(element,'--rs-inline-bg',accent.inlineBg||accent.bg);setCssVar(element,'--rs-inline-border',accent.inlineBorder||accent.border);setCssVar(element,'--rs-button-bg',accent.bg);setCssVar(element,'--rs-button-text',accent.text);setCssVar(element,'--rs-button-border',accent.border);setCssVar(element,'--rs-button-secondary-bg',accent.secondaryBg||accent.inlineBg||accent.bg);setCssVar(element,'--rs-button-secondary-text',accent.secondaryText||accent.text);}
 
   function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(IDB_NAME,1);r.onupgradeneeded=()=>r.result.createObjectStore(IDB_STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
   async function idbSet(k,v){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
@@ -215,6 +276,33 @@
             </div>
           </div>
           <div class="db-field" style="margin-top:1rem;">
+            <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Modulfarben</label>
+            <div class="rs-color-grid">
+              <label class="rs-color-select">
+                <span>Hauptmodul</span>
+                <select class="rs-color-module module-layer-select"></select>
+              </label>
+              <label class="rs-color-select">
+                <span>Header</span>
+                <select class="rs-color-header module-layer-select"></select>
+              </label>
+              <label class="rs-color-select">
+                <span>Buttons</span>
+                <select class="rs-color-accent module-layer-select"></select>
+              </label>
+            </div>
+            <div class="rs-color-preview" data-rs-color-preview>
+              <div class="rs-color-preview-header">Header</div>
+              <div class="rs-color-preview-body">
+                <div class="rs-color-preview-tag">Modulfläche</div>
+                <button type="button" class="rs-color-preview-button" disabled>Button</button>
+              </div>
+              <div class="rs-color-summary"></div>
+              <div class="rs-color-foot">Farben basieren auf den globalen Einstellungen.</div>
+              <button type="button" class="rs-color-reload">🔄 Aktualisieren</button>
+            </div>
+          </div>
+          <div class="db-field" style="margin-top:1rem;">
             <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Felder</label>
             <div class="rs-history-actions" style="display:flex;gap:.4rem;margin-bottom:.4rem;">
               <button class="db-btn rs-undo" style="background:rgba(0,0,0,.08);border-radius:.5rem;padding:.32rem .55rem">↺ Rückgängig</button>
@@ -261,6 +349,12 @@
       mNewSearch:root.querySelector('.rs-new-search'),
       mNewList:root.querySelector('.rs-new-list'),
       mNewEmpty:root.querySelector('.rs-new-empty'),
+      mColorModule:root.querySelector('.rs-color-module'),
+      mColorHeader:root.querySelector('.rs-color-header'),
+      mColorAccent:root.querySelector('.rs-color-accent'),
+      mColorPreview:root.querySelector('[data-rs-color-preview]'),
+      mColorSummary:root.querySelector('.rs-color-summary'),
+      mColorReload:root.querySelector('.rs-color-reload'),
       menu
     };
   }
@@ -284,6 +378,65 @@
     const defaultColumns=defaults.columns||2;
 
     const els=buildUI(root);
+    const moduleHost=root.closest('.grid-stack-item-content');
+    let colorLayers=loadGlobalColorLayers(15);
+    const baselineColors=getDocumentModuleColorBaseline();
+    let fallbackColorLayerId=colorLayers[0]?.id||'default';
+    let cfg;
+    const findColorLayer=id=>colorLayers.find(layer=>layer&&String(layer.id)===String(id))||null;
+    const sanitizeColorSelection=(raw)=>{
+      const fallback=fallbackColorLayerId||colorLayers[0]?.id||'default';
+      const moduleId=typeof raw?.module==='string'&&findColorLayer(raw.module)?raw.module:fallback;
+      const headerId=typeof raw?.header==='string'&&findColorLayer(raw.header)?raw.header:moduleId;
+      const accentId=typeof raw?.accent==='string'&&findColorLayer(raw.accent)?raw.accent:headerId;
+      return{module:moduleId,header:headerId,accent:accentId};
+    };
+    const renderColorSelectOptions=()=>{
+      const selects=[els.mColorModule,els.mColorHeader,els.mColorAccent].filter(Boolean);
+      selects.forEach(select=>{
+        const current=select.value;
+        populateLayerDropdown(select,colorLayers);
+        if(current)select.value=current;
+        const layer=findColorLayer(select.value);
+        applyLayerSelectStyles(select,layer);
+      });
+    };
+    const updateColorSelectValues=()=>{
+      if(els.mColorModule){els.mColorModule.value=cfg?.colors?.module||'';applyLayerSelectStyles(els.mColorModule,findColorLayer(els.mColorModule.value));}
+      if(els.mColorHeader){els.mColorHeader.value=cfg?.colors?.header||'';applyLayerSelectStyles(els.mColorHeader,findColorLayer(els.mColorHeader.value));}
+      if(els.mColorAccent){els.mColorAccent.value=cfg?.colors?.accent||'';applyLayerSelectStyles(els.mColorAccent,findColorLayer(els.mColorAccent.value));}
+    };
+    const updateColorSummary=()=>{
+      if(!els.mColorSummary)return;
+      const moduleLayer=findColorLayer(cfg?.colors?.module);
+      const headerLayer=findColorLayer(cfg?.colors?.header);
+      const accentLayer=findColorLayer(cfg?.colors?.accent);
+      const moduleName=moduleLayer?.name||'Standard';
+      const headerName=headerLayer?.name||moduleName;
+      const accentName=accentLayer?.name||headerName;
+      els.mColorSummary.textContent=`Hauptmodul: ${moduleName} · Header: ${headerName} · Buttons: ${accentName}`;
+    };
+    const applyColorTheme=()=>{
+      if(!cfg?.colors)return;
+      const palette=computeModulePalette(colorLayers,cfg.colors,baselineColors);
+      applyPaletteToElement(moduleHost,palette);
+      if(els.mColorPreview)applyPaletteToElement(els.mColorPreview,palette);
+      updateColorSummary();
+    };
+    const refreshColorLayers=()=>{
+      colorLayers=loadGlobalColorLayers(15);
+      fallbackColorLayerId=colorLayers[0]?.id||fallbackColorLayerId||'default';
+      if(cfg){
+        const before=JSON.stringify(cfg.colors||{});
+        cfg.colors=sanitizeColorSelection(cfg.colors);
+        if(JSON.stringify(cfg.colors||{})!==before){
+          saveCfg(cfg);
+        }
+      }
+      renderColorSelectOptions();
+      updateColorSelectValues();
+      applyColorTheme();
+    };
     let debugInfo='';
     let deviceName='';
     const instanceId=instanceIdOf(root);
@@ -302,11 +455,12 @@
         aspenIdbKey:raw.aspenIdbKey||aspenIdbKey,
         aspenFileName:raw.aspenFileName||'',
         fields,
-        columns:raw.columns||defaultColumns
+        columns:raw.columns||defaultColumns,
+        colors:sanitizeColorSelection(raw.colors)
       };
     }
     function serializeFields(fields){return fields.map(f=>({id:f.id,key:f.key,label:f.label,enabled:!!f.enabled,group:f.group||'extra',originalKey:f.originalKey||f.key||f.id}));}
-    function saveCfg(current){const doc=loadDoc();doc.instances=doc.instances||{};doc.instances[instanceId]=doc.instances[instanceId]||{};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),columns:current.columns};saveDoc(doc);}
+    function saveCfg(current){const doc=loadDoc();doc.instances=doc.instances||{};doc.instances[instanceId]=doc.instances[instanceId]||{};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),columns:current.columns,colors:sanitizeColorSelection(current.colors)};saveDoc(doc);}
     function removeCfg(){const doc=loadDoc();if(doc?.instances?.[instanceId]){delete doc.instances[instanceId].recordSheet;if(!Object.keys(doc.instances[instanceId]).length)delete doc.instances[instanceId];saveDoc(doc);}}
 
     const setNote=s=>els.note.textContent=s||'';
@@ -327,7 +481,10 @@
     const setDebugInfo=message=>{debugInfo=String(message||'').trim();renderHead();};
     const clearDebugInfo=()=>{debugInfo='';renderHead();};
 
-    let cfg=loadCfg();
+    cfg=loadCfg();
+    renderColorSelectOptions();
+    updateColorSelectValues();
+    applyColorTheme();
     let aspenHandle=null;
     els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
     updateAspenDisplays();
@@ -342,6 +499,25 @@
     let rules=[];
     let activeNewFieldEditor=null;
     let listSortable=null;
+    [
+      {el:els.mColorModule,key:'module'},
+      {el:els.mColorHeader,key:'header'},
+      {el:els.mColorAccent,key:'accent'}
+    ].forEach(({el,key})=>{
+      if(!el)return;
+      el.addEventListener('change',()=>{
+        const next={...cfg.colors,[key]:el.value};
+        cfg.colors=sanitizeColorSelection(next);
+        updateColorSelectValues();
+        applyColorTheme();
+        saveCfg(cfg);
+      });
+    });
+    if(els.mColorReload){
+      els.mColorReload.addEventListener('click',()=>{
+        refreshColorLayers();
+      });
+    }
 
     function rebuildAspenHeaderMaps(){aspenHeaderKeyMap=new Map();aspenHeaderOriginalMap=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();const keyLower=(h.key||'').toLowerCase();if(originalLower&&!aspenHeaderOriginalMap.has(originalLower)){aspenHeaderOriginalMap.set(originalLower,h);}if(keyLower&&!aspenHeaderKeyMap.has(keyLower)){aspenHeaderKeyMap.set(keyLower,h);}});}
 
@@ -589,7 +765,7 @@
     function startAspenFieldEditor(info,li){if(activeNewFieldEditor&&activeNewFieldEditor!==li){activeNewFieldEditor.querySelector('.rs-new-inline')?.remove();}if(li.querySelector('.rs-new-inline'))return;activeNewFieldEditor=li;const inline=document.createElement('div');inline.className='rs-new-inline';const input=document.createElement('input');input.type='text';input.value=defaultLabelForKey(info.original||info.key);const confirm=document.createElement('button');confirm.type='button';confirm.textContent='Hinzufügen';const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Abbrechen';inline.append(input,confirm,cancel);li.appendChild(inline);input.focus();input.select();input.addEventListener('input',()=>input.classList.remove('invalid'));const close=()=>{inline.remove();if(activeNewFieldEditor===li)activeNewFieldEditor=null;};const submit=()=>{const ok=addAspenField(info,input.value);if(ok)close();else input.classList.add('invalid');};confirm.addEventListener('click',submit);cancel.addEventListener('click',()=>{close();setNote('');});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit();}else if(e.key==='Escape'){e.preventDefault();close();setNote('');}});}
     function addAspenField(info,label){const trimmed=String(label||'').trim();const error=validateLabel(trimmed);if(error){setNote(error);return false;}const used=new Set(cfg.fields.map(f=>f.id));const id=generateFieldId(info.key,trimmed,used);const changed=mutateFields(fields=>{fields.push({id,key:info.key,label:trimmed,enabled:true,group:'aspen',originalKey:info.original||info.key});return fields;});if(changed){setNote('Feld hinzugefügt.');return true;}setNote('');return false;}
 
-    function openModal(){renderFieldList();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';}
+    function openModal(){refreshColorLayers();renderFieldList();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';}
     function closeModal(){els.modal.style.display='none';saveCfg(cfg);renderFields();}
     els.mClose.onclick=closeModal;
     els.mCols.addEventListener('change',()=>{cfg.columns=Math.max(1,parseInt(els.mCols.value)||1);applyColumns();saveCfg(cfg);});
@@ -608,7 +784,7 @@
     function activeMeldung(){return(loadDoc()?.general?.Meldung||'').trim();}
     function refreshFromAspen(){const m=activeMeldung();const row=m?findAspenRow(m):null;cfg.fields.forEach(f=>{const el=fieldEls[f.id];if(!el)return;if(f.key==='meldung'){el.input.value=m;}else{el.input.value=row?getAspenValue(row,f):'';}const tip=tooltipForField(f);if(el.labelEl){el.labelEl.textContent=f.label;el.labelEl.title=tip;}if(el.infoEl)el.infoEl.title=tip;});updateName();}
 
-    addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromAspen();});
+    addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromAspen();if(e.key==='appSettings')refreshColorLayers();});
     addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromAspen();});
     let lastDocString=getDocString();
     const watcher=setInterval(()=>{const now=getDocString();if(now!==lastDocString){lastDocString=now;refreshFromAspen();}},WATCH_INTERVAL);
