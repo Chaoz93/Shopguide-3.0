@@ -170,8 +170,8 @@
       -webkit-backdrop-filter: blur(16px);
       border-radius: 0.75rem;
       padding: 1.5rem;
-      width: 95%;
-      max-width: 1200px;  /* vorher 860px */
+      width: min(98vw, 1500px);
+      max-width: none;
       max-height: 90vh;
       box-shadow: 0 8px 24px rgba(0,0,0,0.2);
       display: flex;
@@ -380,10 +380,10 @@
       cursor: not-allowed;
     }
     .module-color-layer {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: stretch;
-      gap: 1.25rem;
+      display: grid;
+      grid-template-columns: minmax(440px, 1.25fr) minmax(420px, 1fr);
+      align-items: start;
+      gap: 1.5rem;
       padding: 1.1rem 1.35rem;
       background: #ffffff;
       border: 1px solid var(--border-color);
@@ -391,16 +391,15 @@
       box-shadow: 0 1px 2px rgba(15,23,42,0.08);
     }
     .module-color-preview {
-      flex: 1 1 55%;
-      min-width: 360px;
+      min-width: 0;
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
       align-items: stretch;
     }
     .layer-preview {
       width: 100%;
-      max-width: 900px;
-      margin: 0 auto;
+      max-width: none;
+      margin: 0;
       border-radius: 0.5rem;
       overflow: hidden;
       border: 2px solid #d1d5db;
@@ -491,15 +490,18 @@
       color: #0f172a;
       transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
-    @media (max-width: 1200px) {
+    @media (max-width: 1400px) {
       .module-color-layer {
         padding: 1.1rem;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
-      .module-color-preview,
-      .module-layer-controls {
-        flex: 1 1 100%;
-        min-width: 0;
-        max-width: none;
+    }
+    @media (max-width: 1100px) {
+      .module-color-layer {
+        grid-template-columns: 1fr;
+      }
+      .module-color-preview {
+        justify-content: center;
       }
     }
     @media (max-width: 900px) {
@@ -519,9 +521,9 @@
       }
     }
     .module-layer-controls {
-      flex: 1 1 45%;
-      min-width: 360px;
-      max-width: 640px;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
       display: flex;
       flex-direction: column;
       gap: 0.85rem;
@@ -548,6 +550,11 @@
       border-radius: 0.75rem;
       background: #f9fafb;
       border: 1px solid var(--border-color);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+    }
+    .module-layer-group,
+    .module-layer-subgroup {
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .module-layer-group-title {
       font-size: 0.8125rem;
@@ -560,7 +567,7 @@
     .module-layer-group-grid {
       display: grid;
       gap: 0.65rem;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     }
     .module-layer-subgroups {
       display: grid;
@@ -643,8 +650,11 @@
       color: #6b7280;
     }
     @media (max-width: 768px) {
+      .module-color-layer {
+        padding: 1rem;
+      }
       .module-color-preview {
-        flex: 1 1 100%;
+        justify-content: center;
       }
     }
 
@@ -3920,6 +3930,58 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   }
 }
 
+function styleModuleLayerGroup(groupEl, bg, text, border) {
+  if (!groupEl) return;
+  groupEl.style.backgroundColor = bg;
+  groupEl.style.borderColor = border;
+  groupEl.style.color = text;
+  groupEl.style.boxShadow = 'none';
+  const title = groupEl.querySelector('.module-layer-group-title');
+  if (title) {
+    title.style.color = text;
+    title.style.opacity = '1';
+  }
+  groupEl.querySelectorAll('.module-layer-color').forEach(label => {
+    label.style.color = text;
+    const span = label.querySelector('span');
+    if (span) {
+      span.style.color = text;
+      span.style.opacity = '1';
+    }
+  });
+}
+
+function styleModuleLayerSubgroup(subgroupEl, bg, text, border) {
+  if (!subgroupEl) return;
+  subgroupEl.style.backgroundColor = bg;
+  subgroupEl.style.borderColor = border;
+  subgroupEl.style.color = text;
+  subgroupEl.style.boxShadow = 'none';
+  const title = subgroupEl.querySelector('.module-layer-subgroup-title');
+  if (title) {
+    title.style.color = text;
+    title.style.opacity = '1';
+  }
+  const description = subgroupEl.querySelector('.module-layer-subgroup-description');
+  if (description) {
+    description.style.color = text;
+    description.style.opacity = '1';
+  }
+  subgroupEl.querySelectorAll('.module-layer-color').forEach(label => {
+    label.style.color = text;
+    const span = label.querySelector('span');
+    if (span) {
+      span.style.color = text;
+      span.style.opacity = '1';
+    }
+  });
+  const childContainer = subgroupEl.querySelector('.module-layer-subgroup-children');
+  if (childContainer) {
+    const connectorColor = hexToRgba(border, 0.45) || border;
+    childContainer.style.borderLeftColor = connectorColor;
+  }
+}
+
 function applyModuleColorLayerPreview(layerEl, layer) {
   if (!layerEl || !layer) return;
   const ensureColor = (value, fallback) => (typeof value === 'string' && value.trim() ? value : fallback);
@@ -3942,6 +4004,39 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     moduleBg,
     moduleText
   );
+  const moduleGroupBorder = hexToRgba(moduleBorder, 0.35) || moduleBorder;
+  const headerGroupBorder = hexToRgba(headerBorder, 0.35) || headerBorder;
+  styleModuleLayerGroup(
+    layerEl.querySelector('.module-layer-group[data-group="module"]'),
+    moduleBg,
+    moduleText,
+    moduleGroupBorder
+  );
+  styleModuleLayerGroup(
+    layerEl.querySelector('.module-layer-group[data-group="header"]'),
+    headerBg,
+    headerText,
+    headerGroupBorder
+  );
+  const subsContainer = layerEl.querySelector('.module-layer-group--subs');
+  if (subsContainer) {
+    const subsBg = hexToRgba(moduleBg, 0.08) || '#f9fafb';
+    const subsBorder = hexToRgba(moduleBorder, 0.25) || moduleBorder;
+    subsContainer.style.backgroundColor = subsBg;
+    subsContainer.style.borderColor = subsBorder;
+    subsContainer.style.boxShadow = 'none';
+    subsContainer.style.color = moduleText;
+    const subsTitle = subsContainer.querySelector('.module-layer-group-title');
+    if (subsTitle) {
+      subsTitle.style.color = moduleText;
+      subsTitle.style.opacity = '1';
+    }
+  }
+  const getSubLayerData = index => subLayersData[index] || subLayersData[subLayersData.length - 1] || {
+    bg: moduleBg,
+    text: moduleText,
+    border: moduleBg
+  };
 
   const preview = layerEl.querySelector('.layer-preview');
   if (preview) {
@@ -3993,7 +4088,7 @@ function applyModuleColorLayerPreview(layerEl, layer) {
   const subElements = layerEl.querySelectorAll('.layer-sub');
   const subLabels = layerEl.querySelectorAll('.layer-label--sub');
   subElements.forEach((subEl, index) => {
-    const data = subLayersData[index] || subLayersData[subLayersData.length - 1] || { bg: moduleBg, text: moduleText, border: moduleBg };
+    const data = getSubLayerData(index);
     const subBg = ensureColor(data.bg, moduleBg);
     const subText = ensureColor(data.text, moduleText);
     const subBorder = ensureColor(data.border, subBg);
@@ -4003,13 +4098,21 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     subEl.style.boxShadow = 'none';
   });
   subLabels.forEach((label, index) => {
-    const data = subLayersData[index] || subLayersData[subLayersData.length - 1] || { bg: moduleBg, text: moduleText, border: moduleBg };
+    const data = getSubLayerData(index);
     const subBg = ensureColor(data.bg, moduleBg);
     const subText = ensureColor(data.text, moduleText);
     const subBorder = ensureColor(data.border, subBg);
     label.style.backgroundColor = subText;
     label.style.color = subBg;
     label.style.borderColor = subBorder;
+  });
+  const subgroupControls = layerEl.querySelectorAll('.module-layer-subgroup');
+  subgroupControls.forEach((subgroupEl, index) => {
+    const data = getSubLayerData(index);
+    const subBg = ensureColor(data.bg, moduleBg);
+    const subText = ensureColor(data.text, moduleText);
+    const subBorder = ensureColor(data.border, subBg);
+    styleModuleLayerSubgroup(subgroupEl, subBg, subText, subBorder);
   });
 }
 
