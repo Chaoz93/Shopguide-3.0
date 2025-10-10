@@ -244,35 +244,101 @@
     return map;
   }
 
+  function buildRawHslaString(hRaw, sRaw, lRaw, aRaw){
+    const clean = (value) => (typeof value === 'string' ? value.trim() : '');
+    const format = (value, suffix) => {
+      const trimmed = clean(value);
+      if(!trimmed) return suffix ? `0${suffix}` : '0';
+      if(suffix && trimmed.endsWith(suffix)) return trimmed;
+      return `${trimmed}${suffix}`;
+    };
+    const normalizeAlphaValue = (value) => {
+      const trimmed = clean(value);
+      if(!trimmed) return '1';
+      const parsed = parseLayerNumber(trimmed);
+      if(Number.isFinite(parsed)){
+        const alpha = normalizeAlpha(parsed);
+        return String(alpha);
+      }
+      if(trimmed.endsWith('%')){
+        const pct = parseLayerNumber(trimmed);
+        if(Number.isFinite(pct)){
+          return String(clampNumber(pct / 100, 0, 1));
+        }
+      }
+      return trimmed;
+    };
+    const hue = format(hRaw, '');
+    const sat = format(sRaw, '%');
+    const light = format(lRaw, '%');
+    const alpha = normalizeAlphaValue(aRaw);
+    return `hsla(${hue}, ${sat}, ${light}, ${alpha})`;
+  }
+
   function loadGlobalColorLayers(maxLayers = 15){
     const layers = [];
-    const root = document.documentElement;
-    if(!root) return layers;
-    let styles = null;
-    try {
-      styles = getComputedStyle(root);
-    } catch {
-      styles = null;
+    const sources = [];
+    const docEl = document.documentElement;
+    if(docEl){
+      try { sources.push(getComputedStyle(docEl)); } catch {}
     }
-    if(!styles) return layers;
+    const body = document.body;
+    if(body && body !== docEl){
+      try { sources.push(getComputedStyle(body)); } catch {}
+    }
+    if(!sources.length) return layers;
+
+    const readVar = (name) => {
+      for(const style of sources){
+        if(!style) continue;
+        const raw = style.getPropertyValue(name);
+        if(typeof raw === 'string' && raw.trim()) return raw.trim();
+      }
+      return '';
+    };
 
     for(let i = 1; i <= maxLayers; i++){
-      const hRaw = styles.getPropertyValue(`--layer${i}-h`).trim();
-      const sRaw = styles.getPropertyValue(`--layer${i}-s`).trim();
-      const lRaw = styles.getPropertyValue(`--layer${i}-l`).trim();
-      const aRaw = styles.getPropertyValue(`--layer${i}-a`).trim();
+      const hRaw = readVar(`--layer${i}-h`);
+      const sRaw = readVar(`--layer${i}-s`);
+      const lRaw = readVar(`--layer${i}-l`);
+      const aRaw = readVar(`--layer${i}-a`);
 
-      if(!hRaw || !sRaw || !lRaw || !aRaw) continue;
+      if(!hRaw || !sRaw || !lRaw) continue;
 
       const hVal = parseLayerNumber(hRaw);
       const sVal = parseLayerNumber(sRaw);
       const lVal = parseLayerNumber(lRaw);
       const aValRaw = parseLayerNumber(aRaw);
-      if(!Number.isFinite(hVal) || !Number.isFinite(sVal) || !Number.isFinite(lVal) || !Number.isFinite(aValRaw)){
+      const hasNumeric = Number.isFinite(hVal) && Number.isFinite(sVal) && Number.isFinite(lVal);
+      if(!hasNumeric) {
+        const colorOnly = buildRawHslaString(hRaw, sRaw, lRaw, aRaw);
+        const fallbackText = Number.isFinite(lVal) ? pickTextColor(lVal) : '#ffffff';
+        layers.push({
+          id: `layer${i}`,
+          label: `Layer ${i}`,
+          name: `Layer ${i}`,
+          color: colorOnly,
+          swatch: colorOnly,
+          moduleBg: colorOnly,
+          moduleText: fallbackText,
+          moduleBorder: colorOnly,
+          headerBg: colorOnly,
+          headerText: fallbackText,
+          headerBorder: colorOnly,
+          subLayers: [{ bg: colorOnly, text: fallbackText, border: colorOnly }],
+          subBg: colorOnly,
+          subText: fallbackText,
+          subBorder: colorOnly,
+          preview: {
+            main: { bg: colorOnly, text: fallbackText },
+            header: { bg: colorOnly, text: fallbackText },
+            buttons: { bg: colorOnly, text: fallbackText }
+          }
+        });
         continue;
       }
 
-      const alpha = normalizeAlpha(aValRaw);
+      const alpha = Number.isFinite(aValRaw) ? normalizeAlpha(aValRaw) : 1;
       const baseColor = buildHslaColor(hVal, sVal, lVal, alpha);
       const moduleText = pickTextColor(lVal);
       const moduleBorder = buildHslaColor(hVal, sVal, shiftLightness(lVal, -14), shiftAlpha(alpha, 0));
@@ -292,6 +358,7 @@
         label: `Layer ${i}`,
         name: `Layer ${i}`,
         color: baseColor,
+        swatch: baseColor,
         moduleBg: baseColor,
         moduleText,
         moduleBorder,
@@ -311,6 +378,18 @@
     }
 
     return layers;
+  }
+
+  function ensureLayerSwatch(layer){
+    if(!layer || typeof layer !== 'object') return layer;
+    if(typeof layer.swatch === 'string' && layer.swatch) return layer;
+    const previewMain = layer.preview && layer.preview.main ? layer.preview.main.bg : '';
+    const swatch = (typeof previewMain === 'string' && previewMain)
+      || (typeof layer.moduleBg === 'string' && layer.moduleBg)
+      || (typeof layer.color === 'string' && layer.color)
+      || '';
+    if(!swatch) return layer;
+    return { ...layer, swatch };
   }
 
   function getColorLayers(){
@@ -366,7 +445,7 @@
       });
     });
 
-    return merged;
+    return merged.map(layer => ensureLayerSwatch(layer));
   }
 
   function findLayerById(layers, id){
@@ -841,7 +920,9 @@
       let lastFocus = null;
 
       function formatLabel(layer, area){
-        const name = typeof layer?.name === 'string' && layer.name ? layer.name : 'Layer';
+        const name = typeof layer?.name === 'string' && layer.name
+          ? layer.name
+          : (typeof layer?.label === 'string' && layer.label ? layer.label : 'Layer');
         let colors;
         if(area === 'header') colors = deriveHeaderColors(layer);
         else if(area === 'buttons') colors = deriveButtonColors(layer);
@@ -875,8 +956,13 @@
       function styleOption(option, layer, area){
         if(!option) return;
         const preview = getPreviewForArea(layer, area);
-        const textColor = preview.text || (preview.bg ? '#fff' : '');
-        option.style.background = preview.bg || '';
+        const swatch = (typeof layer?.swatch === 'string' && layer.swatch)
+          || preview.bg
+          || (typeof layer?.color === 'string' ? layer.color : '');
+        const textColor = preview.text
+          || (typeof layer?.moduleText === 'string' && layer.moduleText)
+          || (swatch ? '#fff' : '');
+        option.style.background = swatch || '';
         option.style.color = textColor;
         option.style.padding = '4px 8px';
         option.style.borderRadius = '4px';
@@ -893,8 +979,13 @@
         }
         const layer = findLayerById(currentLayers, value);
         const preview = getPreviewForArea(layer, area);
-        const textColor = preview.text || (preview.bg ? '#fff' : '');
-        select.style.background = preview.bg || '';
+        const swatch = (typeof layer?.swatch === 'string' && layer.swatch)
+          || preview.bg
+          || (typeof layer?.color === 'string' ? layer.color : '');
+        const textColor = preview.text
+          || (typeof layer?.moduleText === 'string' && layer.moduleText)
+          || (swatch ? '#fff' : '');
+        select.style.background = swatch || '';
         select.style.color = textColor;
       }
 
