@@ -4,6 +4,12 @@ Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [1.1.13] – 2025-10-10
+### Changed
+- Scrollleisten des Aspen-Boards optisch überarbeitet und an das globale Dashboard-Design angepasst.
+- Hervorhebung aktiver Karten mit deutlicherem Rahmen und Schatten versehen, damit Statusfarben klar hervorstechen.
+- Moduloberfläche und Kartenfarben an den New-Standard-Findings-Look angepasst, inklusive aktualisierter Standardfarbpalette.
+
 ## [1.1.12] – 2025-10-06
 ### Changed
 - Die aktive Spalte lässt sich jetzt direkt im Optionsdialog ein- oder ausblenden; Layout und Flex-Berechnung passen sich an die
