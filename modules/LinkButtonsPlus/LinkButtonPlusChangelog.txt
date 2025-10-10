@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.0] – 2025-10-02
+### Added
+- Layer-Auswahl unterstützt nun bis zu 15 globale Farblayer aus den `--layerX-h/s/l/a` Variablen der Shopguide-HTML
+- Dropdown-Einträge zeigen die echte HSLA-Farbe je Layer als Hintergrundvorschau für schnellere Entscheidungen
+
 ## [1.4.1] – 2025-10-01
 ### Fixed
 - Dropdown-Auswahl der Modul-Farb-Layer setzt nun die gewählten Farben zuverlässig auf Rahmen, Header, Buttons und Status-Badge

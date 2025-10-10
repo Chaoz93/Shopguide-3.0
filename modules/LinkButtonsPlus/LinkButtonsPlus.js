@@ -185,8 +185,136 @@
     }
   }
 
+  function parseLayerNumber(value){
+    if(typeof value !== 'string') return null;
+    const normalized = value.trim().replace(',', '.');
+    if(!normalized) return null;
+    const match = normalized.match(/-?\d+(?:\.\d+)?/);
+    if(!match) return null;
+    const parsed = parseFloat(match[0]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function normalizeAlpha(value){
+    if(!Number.isFinite(value)) return 1;
+    const alpha = value > 1 ? value / 100 : value;
+    return clampNumber(alpha, 0, 1);
+  }
+
+  function buildHslaColor(h, s, l, a){
+    const hue = Number.isFinite(h) ? clampNumber(h, 0, 360) : 0;
+    const sat = Number.isFinite(s) ? clampNumber(s, 0, 100) : 0;
+    const light = Number.isFinite(l) ? clampNumber(l, 0, 100) : 0;
+    const alpha = Number.isFinite(a) ? clampNumber(a, 0, 1) : 1;
+    const format = (value, digits) => {
+      if(!Number.isFinite(value)) return '0';
+      const rounded = Number(value.toFixed(digits));
+      return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+    };
+    return `hsla(${format(hue, 1)}, ${format(sat, 1)}%, ${format(light, 1)}%, ${format(alpha, 3)})`;
+  }
+
+  function shiftLightness(value, delta){
+    if(!Number.isFinite(value)) return value;
+    return clampNumber(value + delta, 0, 100);
+  }
+
+  function shiftAlpha(value, delta){
+    if(!Number.isFinite(value)) return value;
+    return clampNumber(value + delta, 0, 1);
+  }
+
+  function pickTextColor(lightness){
+    if(!Number.isFinite(lightness)) return '#0f172a';
+    return lightness >= 55 ? '#0f172a' : '#f8fafc';
+  }
+
+  function buildPreviewFromLayer(layer){
+    const map = {};
+    COLOR_AREAS.forEach(area => {
+      let colors = null;
+      if(area === 'header') colors = deriveHeaderColors(layer);
+      else if(area === 'buttons') colors = deriveButtonColors(layer);
+      else colors = deriveMainColors(layer);
+      map[area] = {
+        bg: colors?.bg || '',
+        text: colors?.text || ''
+      };
+    });
+    return map;
+  }
+
+  function loadGlobalColorLayers(maxLayers = 15){
+    const layers = [];
+    const root = document.documentElement;
+    if(!root) return layers;
+    let styles = null;
+    try {
+      styles = getComputedStyle(root);
+    } catch {
+      styles = null;
+    }
+    if(!styles) return layers;
+
+    for(let i = 1; i <= maxLayers; i++){
+      const hRaw = styles.getPropertyValue(`--layer${i}-h`).trim();
+      const sRaw = styles.getPropertyValue(`--layer${i}-s`).trim();
+      const lRaw = styles.getPropertyValue(`--layer${i}-l`).trim();
+      const aRaw = styles.getPropertyValue(`--layer${i}-a`).trim();
+
+      if(!hRaw || !sRaw || !lRaw || !aRaw) continue;
+
+      const hVal = parseLayerNumber(hRaw);
+      const sVal = parseLayerNumber(sRaw);
+      const lVal = parseLayerNumber(lRaw);
+      const aValRaw = parseLayerNumber(aRaw);
+      if(!Number.isFinite(hVal) || !Number.isFinite(sVal) || !Number.isFinite(lVal) || !Number.isFinite(aValRaw)){
+        continue;
+      }
+
+      const alpha = normalizeAlpha(aValRaw);
+      const baseColor = buildHslaColor(hVal, sVal, lVal, alpha);
+      const moduleText = pickTextColor(lVal);
+      const moduleBorder = buildHslaColor(hVal, sVal, shiftLightness(lVal, -14), shiftAlpha(alpha, 0));
+
+      const headerLight = shiftLightness(lVal, -6);
+      const headerBg = buildHslaColor(hVal, sVal, headerLight, alpha);
+      const headerText = pickTextColor(headerLight);
+      const headerBorder = buildHslaColor(hVal, sVal, shiftLightness(headerLight, -8), shiftAlpha(alpha, 0.05));
+
+      const buttonLight = shiftLightness(lVal, -12);
+      const buttonBg = buildHslaColor(hVal, sVal, buttonLight, shiftAlpha(alpha, 0.05));
+      const buttonText = pickTextColor(buttonLight);
+      const buttonBorder = buildHslaColor(hVal, sVal, shiftLightness(buttonLight, -6), shiftAlpha(alpha, 0.08));
+
+      layers.push({
+        id: `layer${i}`,
+        label: `Layer ${i}`,
+        name: `Layer ${i}`,
+        color: baseColor,
+        moduleBg: baseColor,
+        moduleText,
+        moduleBorder,
+        headerBg,
+        headerText,
+        headerBorder,
+        subLayers: [{ bg: buttonBg, text: buttonText, border: buttonBorder }],
+        subBg: buttonBg,
+        subText: buttonText,
+        subBorder: buttonBorder,
+        preview: {
+          main: { bg: baseColor, text: moduleText },
+          header: { bg: headerBg, text: headerText },
+          buttons: { bg: buttonBg, text: buttonText }
+        }
+      });
+    }
+
+    return layers;
+  }
+
   function getColorLayers(){
-    const source = (() => {
+    const configLayers = (() => {
       if (Array.isArray(window?.appSettings?.moduleColorLayers)) {
         return window.appSettings.moduleColorLayers;
       }
@@ -195,14 +323,50 @@
       }
       return [];
     })();
-    if (!Array.isArray(source)) return [];
-    return source.map((layer, index) => ({
+
+    const cssLayers = loadGlobalColorLayers(15);
+    const normalizedConfig = Array.isArray(configLayers)
+      ? configLayers.map((layer, index) => ({
+          ...layer,
+          id: sanitizeId(layer?.id) || `layer-${index}`,
+          subLayers: Array.isArray(layer?.subLayers)
+            ? layer.subLayers.map(sub => ({ ...sub }))
+            : []
+        }))
+      : [];
+
+    if(!cssLayers.length && !normalizedConfig.length) return [];
+
+    if(!cssLayers.length) return normalizedConfig.map(layer => ({
       ...layer,
-      id: sanitizeId(layer?.id) || `layer-${index}`,
-      subLayers: Array.isArray(layer?.subLayers)
-        ? layer.subLayers.map(sub => ({ ...sub }))
-        : []
+      preview: buildPreviewFromLayer(layer)
     }));
+
+    const merged = cssLayers.map(layer => {
+      const existing = findLayerById(normalizedConfig, layer.id);
+      if(existing){
+        const name = typeof existing.name === 'string' && existing.name ? existing.name : layer.name;
+        return {
+          ...layer,
+          ...existing,
+          id: layer.id,
+          name,
+          preview: existing.preview || layer.preview || buildPreviewFromLayer({ ...layer, ...existing, id: layer.id })
+        };
+      }
+      return layer;
+    });
+
+    normalizedConfig.forEach(layer => {
+      const id = sanitizeId(layer?.id);
+      if(!id || merged.some(item => sanitizeId(item.id) === id)) return;
+      merged.push({
+        ...layer,
+        preview: layer.preview ? layer.preview : buildPreviewFromLayer(layer)
+      });
+    });
+
+    return merged;
   }
 
   function findLayerById(layers, id){
@@ -689,6 +853,51 @@
         return name;
       }
 
+      function getPreviewForArea(layer, area){
+        if(!layer) return { bg:'', text:'' };
+        const previewEntry = layer.preview?.[area];
+        if(previewEntry){
+          return {
+            bg: previewEntry.bg || '',
+            text: previewEntry.text || ''
+          };
+        }
+        let colors = null;
+        if(area === 'header') colors = deriveHeaderColors(layer);
+        else if(area === 'buttons') colors = deriveButtonColors(layer);
+        else colors = deriveMainColors(layer);
+        return {
+          bg: colors?.bg || '',
+          text: colors?.text || ''
+        };
+      }
+
+      function styleOption(option, layer, area){
+        if(!option) return;
+        const preview = getPreviewForArea(layer, area);
+        const textColor = preview.text || (preview.bg ? '#fff' : '');
+        option.style.background = preview.bg || '';
+        option.style.color = textColor;
+        option.style.padding = '4px 8px';
+        option.style.borderRadius = '4px';
+      }
+
+      function updateSelectBackground(area){
+        const select = selects[area];
+        if(!select) return;
+        const value = sanitizeId(select.value);
+        if(!value){
+          select.style.background = '';
+          select.style.color = '';
+          return;
+        }
+        const layer = findLayerById(currentLayers, value);
+        const preview = getPreviewForArea(layer, area);
+        const textColor = preview.text || (preview.bg ? '#fff' : '');
+        select.style.background = preview.bg || '';
+        select.style.color = textColor;
+      }
+
       function populateOptions(layers){
         COLOR_AREAS.forEach(area => {
           const select = selects[area];
@@ -698,17 +907,21 @@
           const def = document.createElement('option');
           def.value = '';
           def.textContent = 'Standard (App)';
+          def.style.background = '';
+          def.style.color = '';
           select.appendChild(def);
           layers.forEach(layer => {
             const option = document.createElement('option');
             option.value = sanitizeId(layer?.id) || '';
             option.textContent = formatLabel(layer, area);
+            styleOption(option, layer, area);
             select.appendChild(option);
           });
           if(previous){
             select.value = previous;
             if(select.value !== previous) select.value = '';
           }
+          updateSelectBackground(area);
         });
       }
 
@@ -723,6 +936,7 @@
           } else {
             select.value = '';
           }
+          updateSelectBackground(area);
         });
       }
 
@@ -764,6 +978,7 @@
             label.title = label.textContent;
           }
         });
+        COLOR_AREAS.forEach(area => updateSelectBackground(area));
       }
 
       function close(){
@@ -819,6 +1034,7 @@
             setSelection(nextSelection);
           }
           updatePreviews();
+          updateSelectBackground(area);
         });
       });
 
