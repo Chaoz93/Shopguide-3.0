@@ -34,8 +34,12 @@
     .nr-panel{background:#fff;color:#111827;width:min(92vw,760px);border-radius:.9rem;padding:1rem;box-shadow:0 10px 30px rgba(0,0,0,.25);}
     .nr-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;}
     .nr-field label{font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem;}
-    .nr-color{width:100%;height:2.25rem;border:1px solid #e5e7eb;border-radius:.5rem;}
     .nr-input{width:100%;height:2.25rem;border:1px solid #e5e7eb;border-radius:.5rem;padding:.4rem .55rem;}
+    .nr-layer{width:100%;min-height:2.25rem;border:1px solid #e5e7eb;border-radius:.5rem;padding:.4rem .55rem;font-weight:600;
+      background:var(--module-bg,#ffffff);color:var(--text-color,#111827);appearance:none;cursor:pointer;
+      box-shadow:0 4px 12px rgba(15,23,42,.08);transition:box-shadow .15s ease,transform .12s ease;}
+    .nr-layer:focus{outline:2px solid var(--module-border-color,#2563eb);outline-offset:2px;box-shadow:0 0 0 3px rgba(37,99,235,.2);
+      transform:translateY(-1px);}
     .nr-row{display:flex;gap:.5rem;align-items:center;}
     .nr-file{font-size:.85rem;opacity:.85;}
     @media(max-width:840px){.nr-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
@@ -118,6 +122,121 @@
     await w.close();
   }
 
+  const MAX_COLOR_LAYERS=15;
+  const CONTRAST_LIGHT_TEXT='#ffffff';
+  const CONTRAST_DARK_TEXT='#111827';
+  const FALLBACK_MODULE_BG='#f5f7fb';
+  const FALLBACK_ITEM_BG='#ffffff';
+  const FALLBACK_TITLE='#2563eb';
+  const FALLBACK_SUB='#4b5563';
+
+  const clampNumber=(value,min,max)=>Math.min(Math.max(value,min),max);
+  const parseNumberFromString=value=>{if(typeof value!=='string')return null;const match=value.trim().match(/-?\d+(?:\.\d+)?/);return match?parseFloat(match[0]):null;};
+  const parseHue=value=>{const num=parseNumberFromString(value);return Number.isFinite(num)?num:null;};
+  const parsePercent=value=>{const num=parseNumberFromString(value);return Number.isFinite(num)?clampNumber(num,0,100):null;};
+  const parseAlpha=value=>{const num=parseNumberFromString(value);return Number.isFinite(num)?clampNumber(num,0,1):null;};
+
+  function formatHsla(h,s,l,a){
+    const hue=Number.isFinite(h)?h:0;
+    const sat=Number.isFinite(s)?s:0;
+    const lig=Number.isFinite(l)?l:0;
+    const alp=Number.isFinite(a)?a:1;
+    return `hsla(${hue}, ${sat}%, ${lig}%, ${alp})`;
+  }
+
+  function loadGlobalColorLayers(){
+    const layers=[];
+    try{
+      const root=document.documentElement;
+      if(!root)return layers;
+      const styles=getComputedStyle(root);
+      for(let i=1;i<=MAX_COLOR_LAYERS;i+=1){
+        const h=styles.getPropertyValue(`--layer${i}-h`).trim();
+        const s=styles.getPropertyValue(`--layer${i}-s`).trim();
+        const l=styles.getPropertyValue(`--layer${i}-l`).trim();
+        const a=styles.getPropertyValue(`--layer${i}-a`).trim();
+        const hue=parseHue(h);
+        const sat=parsePercent(s);
+        const lig=parsePercent(l);
+        const alp=parseAlpha(a);
+        if(Number.isFinite(hue)||Number.isFinite(sat)||Number.isFinite(lig)||Number.isFinite(alp)){
+          layers.push({
+            id:`layer${i}`,
+            label:`Unter-Layer ${i}`,
+            h:Number.isFinite(hue)?hue:null,
+            s:Number.isFinite(sat)?sat:null,
+            l:Number.isFinite(lig)?lig:null,
+            a:Number.isFinite(alp)?alp:1,
+            hsla:formatHsla(hue??0,sat??0,lig??0,alp??1)
+          });
+        }
+      }
+    }catch(err){console.warn('Unter-Layer konnten nicht geladen werden',err);}
+    if(!layers.length){
+      layers.push({id:'layer1',label:'Unter-Layer 1',h:null,s:null,l:null,a:1,hsla:formatHsla(210,65,46,1)});
+    }
+    return layers;
+  }
+
+  function computeLayerTextColor(layer,fallback=CONTRAST_LIGHT_TEXT){
+    if(!layer)return fallback;
+    if(Number.isFinite(layer.l))return layer.l>=58?CONTRAST_DARK_TEXT:CONTRAST_LIGHT_TEXT;
+    return fallback;
+  }
+
+  function populateLayerDropdown(selectEl,layers=loadGlobalColorLayers()){
+    if(!selectEl)return;
+    selectEl.innerHTML='';
+    layers.forEach(layer=>{
+      const opt=document.createElement('option');
+      opt.value=layer.id;
+      opt.textContent=layer.label||layer.id;
+      if(layer.hsla){
+        opt.style.backgroundColor=layer.hsla;
+        opt.style.color=computeLayerTextColor(layer,CONTRAST_LIGHT_TEXT);
+      }
+      selectEl.appendChild(opt);
+    });
+  }
+
+  function getLayerData(layers,id){if(!Array.isArray(layers))return null;return layers.find(layer=>layer&&layer.id===id)||null;}
+  function getLayerColor(layers,id){const layer=getLayerData(layers,id);return layer?.hsla||null;}
+
+  function adjustLayerLightness(layer,delta){
+    if(!layer||!Number.isFinite(layer.l))return null;
+    const next=clampNumber(layer.l+delta,0,100);
+    return formatHsla(Number.isFinite(layer.h)?layer.h:0,Number.isFinite(layer.s)?layer.s:0,next,Number.isFinite(layer.a)?layer.a:1);
+  }
+
+  function readAppSettings(){
+    try{const raw=localStorage.getItem('appSettings');if(!raw)return{};const parsed=JSON.parse(raw);return parsed&&typeof parsed==='object'?parsed:{};}catch{return{};}}
+
+  function mutateAppSettings(mutator){
+    if(typeof mutator!=='function')return;
+    const stored=readAppSettings();
+    const target={...stored};
+    mutator(target);
+    try{localStorage.setItem('appSettings',JSON.stringify(target));}catch{}
+    if(typeof window==='object'&&window&&typeof window.appSettings==='object'){
+      mutator(window.appSettings);
+    }else if(typeof window==='object'){
+      window.appSettings={...target};
+    }
+    return target;
+  }
+
+  function readModuleColorSettings(instanceId){
+    const settings=readAppSettings();
+    if(!settings||typeof settings!=='object')return null;
+    const modules=settings.modules;
+    if(!modules||typeof modules!=='object')return null;
+    const entry=modules[instanceId];
+    if(!entry||typeof entry!=='object')return null;
+    const colors=entry.colors;
+    if(!colors||typeof colors!=='object')return null;
+    return {...colors};
+  }
+
   // ---------- UI ----------
   function buildUI(root){
     root.innerHTML=`
@@ -146,20 +265,16 @@
               <input type="text" class="nr-input nr-title-input" placeholder="Kein Titel">
             </div>
             <div class="nr-field">
-              <label>Hintergrund</label>
-              <input type="color" class="nr-color nr-c-bg" value="#f5f7fb">
+              <label>Hauptmodul</label>
+              <select class="nr-layer nr-layer-module" data-target="module"></select>
             </div>
             <div class="nr-field">
-              <label>Item Hintergrund</label>
-              <input type="color" class="nr-color nr-c-item" value="#ffffff">
+              <label>Header</label>
+              <select class="nr-layer nr-layer-header" data-target="header"></select>
             </div>
             <div class="nr-field">
-              <label>Titelfarbe</label>
-              <input type="color" class="nr-color nr-c-title" value="#2563eb">
-            </div>
-            <div class="nr-field">
-              <label>Untertitel-Farbe</label>
-              <input type="color" class="nr-color nr-c-sub" value="#4b5563">
+              <label>Buttons</label>
+              <select class="nr-layer nr-layer-buttons" data-target="buttons"></select>
             </div>
           </div>
           <div class="nr-row" style="justify-content:flex-end;margin-top:.75rem">
@@ -204,10 +319,9 @@
       create:root.querySelector('.nr-create'),
       save:root.querySelector('.nr-save'),
       fLabel:root.querySelector('.nr-file'),
-      cBg:root.querySelector('.nr-c-bg'),
-      cItem:root.querySelector('.nr-c-item'),
-      cTitle:root.querySelector('.nr-c-title'),
-      cSub:root.querySelector('.nr-c-sub'),
+      cModule:root.querySelector('.nr-layer-module'),
+      cHeader:root.querySelector('.nr-layer-header'),
+      cButtons:root.querySelector('.nr-layer-buttons'),
       titleInput:root.querySelector('.nr-title-input'),
       addModal:root.querySelector('.nr-add-modal'),
       addClose:root.querySelector('.nr-add-close'),
@@ -235,18 +349,106 @@
     }
     const els=buildUI(root);
     const instanceId=instanceIdOf(root);
+    const colorSelects=[els.cModule,els.cHeader,els.cButtons].filter(Boolean);
+    let colorLayers=loadGlobalColorLayers();
+    const isColorSelection=value=>value&&typeof value==='object'&&!Array.isArray(value)&&('module' in value||'header' in value||'buttons' in value);
+
     let cfg=getCfg(instanceId)||{};
-    cfg.colors=cfg.colors||{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563'};
-    cfg.title=cfg.title||'';
+    if(!cfg||typeof cfg!=='object')cfg={};
+    const storedColorSelection=readModuleColorSettings(instanceId);
+    const initialColorSource=isColorSelection(storedColorSelection)?storedColorSelection:(isColorSelection(cfg.colors)?cfg.colors:{});
+    cfg.colors={...initialColorSource};
+    cfg.title=typeof cfg.title==='string'?cfg.title:'';
+
+    function sanitizeColorSelection(raw){
+      const fallback=colorLayers[0]?.id||'layer1';
+      const ensureId=(value,fb)=>{if(typeof value==='string'&&colorLayers.some(layer=>layer.id===value))return value;return fb;};
+      const moduleId=ensureId(raw?.module,fallback);
+      const headerId=ensureId(raw?.header,moduleId);
+      const buttonsId=ensureId(raw?.buttons,headerId);
+      return{module:moduleId,header:headerId,buttons:buttonsId};
+    }
+
+    const sanitizedInitialColors=sanitizeColorSelection(cfg.colors);
+    const initialColorsChanged=JSON.stringify(cfg.colors)!==JSON.stringify(sanitizedInitialColors);
+    cfg.colors=sanitizedInitialColors;
+
+    function styleLayerSelect(select){
+      if(!select)return;
+      const layer=getLayerData(colorLayers,select.value);
+      if(layer){
+        select.style.backgroundColor=layer.hsla;
+        select.style.color=computeLayerTextColor(layer,CONTRAST_LIGHT_TEXT);
+      }else{
+        select.style.backgroundColor='';
+        select.style.color='';
+      }
+    }
+
+    function syncLayerSelectOptions(){
+      colorSelects.forEach(select=>{
+        populateLayerDropdown(select,colorLayers);
+        const target=select?.dataset?.target;
+        if(target&&cfg.colors[target])select.value=cfg.colors[target];
+        styleLayerSelect(select);
+      });
+    }
+
+    function persistModuleColorSelection(selection=cfg.colors){
+      const sanitized=sanitizeColorSelection(selection);
+      mutateAppSettings(settings=>{
+        if(!settings.modules||typeof settings.modules!=='object')settings.modules={};
+        const entry=(settings.modules[instanceId]&&typeof settings.modules[instanceId]==='object')?settings.modules[instanceId]:{};
+        entry.colors={...sanitized};
+        settings.modules[instanceId]=entry;
+      });
+    }
+
+    function applyColorsFromSelection(){
+      cfg.colors=sanitizeColorSelection(cfg.colors);
+      const moduleLayer=getLayerData(colorLayers,cfg.colors.module);
+      const headerLayer=getLayerData(colorLayers,cfg.colors.header)||moduleLayer;
+      const buttonLayer=getLayerData(colorLayers,cfg.colors.buttons)||headerLayer||moduleLayer;
+      const moduleBg=getLayerColor(colorLayers,cfg.colors.module)||FALLBACK_MODULE_BG;
+      const headerBg=getLayerColor(colorLayers,cfg.colors.header)||moduleBg||FALLBACK_ITEM_BG;
+      const buttonColor=getLayerColor(colorLayers,cfg.colors.buttons)||FALLBACK_TITLE;
+      const subColor=adjustLayerLightness(buttonLayer,buttonLayer? (buttonLayer.l>=58?-20:22):0)||FALLBACK_SUB;
+      const moduleText=computeLayerTextColor(moduleLayer,CONTRAST_DARK_TEXT);
+      if(els.rootVars){
+        const style=els.rootVars.style;
+        style.setProperty('--nr-bg',moduleBg||FALLBACK_MODULE_BG);
+        style.setProperty('--nr-item-bg',headerBg||FALLBACK_ITEM_BG);
+        style.setProperty('--nr-title',buttonColor||FALLBACK_TITLE);
+        style.setProperty('--nr-sub',subColor||FALLBACK_SUB);
+        style.setProperty('--text-color',moduleText);
+      }
+      colorSelects.forEach(styleLayerSelect);
+    }
+
+    function refreshModuleColors({persist=true,repopulate=true}={}){
+      const before=JSON.stringify(cfg.colors);
+      colorLayers=loadGlobalColorLayers();
+      cfg.colors=sanitizeColorSelection(cfg.colors);
+      if(repopulate)syncLayerSelectOptions();
+      applyColorsFromSelection();
+      if(persist&&JSON.stringify(cfg.colors)!==before){
+        persistModuleColorSelection();
+        saveCfg(instanceId,cfg);
+      }
+    }
+
+    persistModuleColorSelection();
     const g=loadGlobal().general||{};
     cfg.idbKey=cfg.idbKey||('nr-'+instanceId);
     cfg.fileName=cfg.fileName||g.nameFileName||'';
+    if(initialColorsChanged)saveCfg(instanceId,cfg);
     let fileHandle=null;
     let items=[];
 
-    function applyColors(c){els.rootVars.style.setProperty('--nr-bg',c.bg);els.rootVars.style.setProperty('--nr-item-bg',c.item);els.rootVars.style.setProperty('--nr-title',c.title);els.rootVars.style.setProperty('--nr-sub',c.sub);}
     function applyTitle(t){els.titlebar.textContent=t;els.titlebar.style.display=t?'':'none';}
-    applyColors(cfg.colors);applyTitle(cfg.title);
+    applyColorsFromSelection();
+    syncLayerSelectOptions();
+    applyTitle(cfg.title);
 
     function renderList(){els.list.innerHTML='';items.forEach(it=>els.list.appendChild(cardEl(it)));}
     function reorderFromDOM(){const order=Array.from(els.list.children).map(el=>el.dataset.id);items.sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id));}
@@ -270,9 +472,34 @@
     [els.addPrefix,els.addName].forEach(inp=>inp.addEventListener('keydown',e=>{if(e.key==='Enter')els.addSave.click();}));
 
     // options modal
-    function openModal(){els.modal.classList.add('open');els.cBg.value=cfg.colors.bg;els.cItem.value=cfg.colors.item;els.cTitle.value=cfg.colors.title;els.cSub.value=cfg.colors.sub;els.titleInput.value=cfg.title;}
+    function openModal(){
+      els.modal.classList.add('open');
+      els.titleInput.value=cfg.title;
+      colorSelects.forEach(select=>{
+        const target=select?.dataset?.target;
+        if(target&&cfg.colors[target])select.value=cfg.colors[target];
+        styleLayerSelect(select);
+      });
+    }
     function closeModal(){els.modal.classList.remove('open');}
-    els.save.addEventListener('click',()=>{cfg.colors={bg:els.cBg.value,item:els.cItem.value,title:els.cTitle.value,sub:els.cSub.value};cfg.title=els.titleInput.value||'';applyColors(cfg.colors);applyTitle(cfg.title);saveCfg(instanceId,cfg);closeModal();});
+    els.save.addEventListener('click',()=>{
+      cfg.title=els.titleInput.value||'';
+      applyTitle(cfg.title);
+      saveCfg(instanceId,cfg);
+      closeModal();
+    });
+    colorSelects.forEach(select=>{
+      select?.addEventListener('change',()=>{
+        const target=select?.dataset?.target;
+        if(!target)return;
+        cfg.colors={...cfg.colors,[target]:select.value};
+        cfg.colors=sanitizeColorSelection(cfg.colors);
+        styleLayerSelect(select);
+        applyColorsFromSelection();
+        persistModuleColorSelection();
+        saveCfg(instanceId,cfg);
+      });
+    });
     els.close.addEventListener('click',closeModal);
 
     // file pick/create
@@ -288,11 +515,22 @@
     window.addEventListener('click',()=>els.menu.classList.remove('open'));
     window.addEventListener('keydown',e=>{if(e.key==='Escape')els.menu.classList.remove('open');});
 
+    const handleSubLayerUpdate=()=>refreshModuleColors({persist:true,repopulate:true});
+    const handleAppSettingsStorage=e=>{
+      if(e.key==='appSettings'){
+        const stored=readModuleColorSettings(instanceId);
+        if(stored)cfg.colors=sanitizeColorSelection(stored);
+        refreshModuleColors({persist:false,repopulate:true});
+      }
+    };
+    window.addEventListener('shopguide:sub-layers-updated',handleSubLayerUpdate);
+    window.addEventListener('storage',handleAppSettingsStorage);
+
     // restore previous handle + items
     (async()=>{try{let h=await idbGet(cfg.idbKey);if(!h){h=await idbGet(GLOBAL_NAME_KEY);if(h){await idbSet(cfg.idbKey,h);if(!cfg.fileName){const gg=loadGlobal().general||{};cfg.fileName=gg.nameFileName||h.name||'';saveCfg(instanceId,cfg);} }}if(h&&await ensureRWPermission(h)){fileHandle=h;items=await readItemsFromHandle(h);renderList();els.fLabel.textContent='• '+(cfg.fileName||h.name);}}catch(e){console.warn('Restore failed',e);}})();
 
     // cleanup when removed
-    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){try{sortable.destroy();}catch{};els.menu?.remove();(async()=>{try{await idbDel(cfg.idbKey);}catch{};try{removeCfg(instanceId);}catch{};})();mo.disconnect();}});
+    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){try{sortable.destroy();}catch{};els.menu?.remove();window.removeEventListener('shopguide:sub-layers-updated',handleSubLayerUpdate);window.removeEventListener('storage',handleAppSettingsStorage);(async()=>{try{await idbDel(cfg.idbKey);}catch{};try{removeCfg(instanceId);}catch{};})();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
   };
 })();
