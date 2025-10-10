@@ -104,18 +104,41 @@
     .ops-filter-actions .ops-action-button{margin:0;}
     .ops-menu .ops-file{display:block; font-size:.75rem; opacity:.8; padding:.2rem .6rem 0;}
     .ops-menu .ops-file-hint{display:block; font-size:.72rem; opacity:.65; padding:.15rem .6rem .2rem; min-height:1em;}
-    .ops-layer-picker{padding:.35rem .35rem .25rem; display:flex; flex-direction:column; gap:.45rem;}
-    .ops-layer-label{display:flex; flex-direction:column; gap:.25rem; font-weight:600; font-size:.85rem;}
-    .ops-layer-label span{font-size:.75rem; font-weight:600;}
-    .ops-layer-select{width:100%; padding:.35rem .45rem; border:1px solid var(--border-color,#d1d5db); border-radius:.4rem; background:var(--sidebar-module-card-bg,#fff); color:inherit; font-size:.85rem; box-sizing:border-box;}
-    .ops-layer-preview{display:flex; padding:0 .35rem .3rem; min-height:3.4rem;}
-    .ops-layer-preview-card{flex:1; display:flex; flex-direction:column; gap:.25rem; border-radius:.65rem; overflow:hidden; border:1px solid rgba(0,0,0,.08); background:#fff;}
-    .ops-layer-preview-header{padding:.3rem .45rem; font-size:.7rem; font-weight:700; border-bottom:1px solid transparent;}
-    .ops-layer-preview-main{padding:.4rem .45rem; font-size:.7rem; opacity:.82;}
-    .ops-layer-preview-button{align-self:flex-start; margin:.35rem .45rem .45rem; padding:.25rem .55rem; border-radius:999px; font-size:.7rem; font-weight:600; border:1px solid currentColor;}
-    .ops-layer-preview-empty{padding:.3rem .45rem; font-size:.75rem; opacity:.7;}
+    .ops-layer-summary{padding:.4rem .5rem; margin:.35rem .35rem 0; border-radius:.5rem; background:rgba(37,99,235,.08); font-size:.76rem; line-height:1.45;}
+    .ops-layer-summary strong{display:block; font-size:.82rem; margin-bottom:.2rem;}
+    .ops-layer-summary-line{display:flex; justify-content:space-between; gap:.5rem;}
+    .ops-layer-summary-line span:last-child{font-weight:600;}
+    .ops-menu .ops-layer-config-button{margin:.35rem .35rem 0;}
+    .ops-layer-select{width:100%; padding:.45rem .6rem; border:1px solid var(--border-color,#d1d5db); border-radius:.5rem; background:var(--sidebar-module-card-bg,#fff); color:inherit; font-size:.9rem; box-sizing:border-box;}
+    .ops-layer-select:disabled{opacity:.55; cursor:not-allowed;}
     .ops-layer-toggle-list{padding:.1rem .2rem .35rem; display:flex; flex-direction:column; gap:.1rem;}
     .ops-layer-toggle-list label{border-radius:.35rem;}
+    .ops-layer-modal-backdrop{position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:1.5rem; background:rgba(15,23,42,.55); z-index:1100;}
+    .ops-layer-modal-backdrop.open{display:flex;}
+    .ops-layer-modal{width:min(640px, 100%); max-height:calc(100vh - 3rem); background:var(--sidebar-module-card-bg,#fff); color:var(--sidebar-module-card-text,#0f172a); border-radius:1rem; box-shadow:0 24px 60px rgba(15,23,42,.45); display:flex; flex-direction:column; overflow:hidden;}
+    .ops-layer-modal-header{display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; border-bottom:1px solid var(--border-color,#e2e8f0);}
+    .ops-layer-modal-title{margin:0; font-size:1.1rem; font-weight:700;}
+    .ops-layer-modal-close{border:none; background:transparent; font-size:1.4rem; line-height:1; cursor:pointer; color:inherit; padding:.25rem; border-radius:.4rem;}
+    .ops-layer-modal-close:focus-visible{outline:2px solid rgba(37,99,235,.35); outline-offset:2px;}
+    .ops-layer-modal-body{padding:1rem 1.25rem; overflow:auto; display:flex; flex-direction:column; gap:1.1rem;}
+    .ops-layer-modal-hint{margin:0; font-size:.85rem; opacity:.8;}
+    .ops-layer-mapping-grid{display:flex; flex-direction:column; gap:.8rem;}
+    .ops-layer-form-row{display:flex; flex-direction:column; gap:.35rem;}
+    .ops-layer-form-label{display:flex; flex-direction:column; gap:.2rem; font-size:.85rem; font-weight:600;}
+    .ops-layer-form-label small{font-size:.75rem; font-weight:500; opacity:.75;}
+    .ops-layer-preview{display:flex; flex-direction:column; gap:.75rem;}
+    .ops-layer-preview-card{display:flex; flex-direction:column; gap:.4rem; border-radius:.85rem; border:1px solid rgba(15,23,42,.12); padding:.85rem 1rem; background:#fff; box-shadow:0 10px 24px rgba(15,23,42,.12);}
+    .ops-layer-preview-header{padding:.4rem .65rem; border-radius:.65rem; font-weight:700; border:1px solid transparent;}
+    .ops-layer-preview-main{padding:.4rem .65rem; border-radius:.65rem;}
+    .ops-layer-preview-button{align-self:flex-start; padding:.35rem .85rem; border-radius:999px; border:1px solid currentColor; font-weight:600; font-size:.85rem;}
+    .ops-layer-preview-meta{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.2rem; font-size:.8rem;}
+    .ops-layer-preview-meta li{display:flex; justify-content:space-between; gap:.5rem;}
+    .ops-layer-preview-meta span{font-weight:600;}
+    .ops-layer-preview-meta em{font-style:normal; opacity:.75;}
+    .ops-layer-preview-empty{padding:.6rem; border-radius:.65rem; background:rgba(15,23,42,.05); font-size:.8rem; text-align:center; opacity:.8;}
+    .ops-layer-modal-footer{padding:.85rem 1.25rem; border-top:1px solid var(--border-color,#e2e8f0); display:flex; justify-content:flex-end;}
+    .ops-layer-modal-footer button{border:none; border-radius:.65rem; padding:.45rem 1.1rem; font-weight:600; cursor:pointer; background:var(--button-bg,#2563eb); color:var(--button-text,#fff); box-shadow:0 8px 18px rgba(37,99,235,.35);}
+    .ops-layer-modal-footer button:focus-visible{outline:2px solid rgba(37,99,235,.35); outline-offset:2px;}
     `;
     const tag = document.createElement('style');
     tag.id = 'ops-panel-styles';
@@ -140,6 +163,12 @@
       Object.freeze({ bg: '#2563eb', text: '#ffffff', border: '#1d4ed8' })
     ])
   });
+
+  const LAYER_PARTS = Object.freeze([
+    { key: 'module', label: 'Hauptmodul', description: 'Rahmen & Hintergrund' },
+    { key: 'header', label: 'Header', description: 'Titelzeile & Status' },
+    { key: 'buttons', label: 'Buttons', description: 'Karten & Aktionen' }
+  ]);
 
   function ensureColor(value, fallback) {
     return (typeof value === 'string' && value.trim()) ? value.trim() : fallback;
@@ -223,6 +252,31 @@
     return [FALLBACK_LAYER];
   }
 
+  function normalizeLayerMapping(mapping, layers = getLayerDefinitions()) {
+    const fallbackLayer = layers.length ? (layers[0] || FALLBACK_LAYER) : FALLBACK_LAYER;
+    const fallbackId = typeof fallbackLayer?.id === 'string' ? fallbackLayer.id : 'fallback-layer';
+    if (typeof mapping === 'string' && mapping.trim()) {
+      const id = layers.some(layer => layer?.id === mapping) ? mapping : fallbackId;
+      return { module: id, header: id, buttons: id };
+    }
+    const isObject = mapping && typeof mapping === 'object' && !Array.isArray(mapping);
+    const normalized = {};
+    LAYER_PARTS.forEach(({ key }) => {
+      const requested = isObject ? mapping[key] : undefined;
+      const candidate = (typeof requested === 'string' && layers.some(layer => layer?.id === requested))
+        ? requested
+        : fallbackId;
+      normalized[key] = candidate;
+    });
+    return normalized;
+  }
+
+  function layerMappingsEqual(a, b) {
+    if (!a || typeof a !== 'object' || Array.isArray(a)) return false;
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return false;
+    return LAYER_PARTS.every(({ key }) => a[key] === b[key]);
+  }
+
   function resolveLayerColors(layer) {
     const base = layer || FALLBACK_LAYER;
     const moduleBg = ensureColor(base.moduleBg, FALLBACK_LAYER.moduleBg);
@@ -273,6 +327,53 @@
     targetEl.style.borderColor = moduleBorder;
     if (targetEl.dataset) targetEl.dataset.colorLayer = layer?.id || 'fallback-layer';
     return colors;
+  }
+
+  function applyLayerMapping(mapping, targetEl, layers = getLayerDefinitions()) {
+    const normalized = normalizeLayerMapping(mapping, layers);
+    const resolveLayer = (id) => {
+      if (typeof id === 'string') {
+        const found = layers.find(layer => layer?.id === id);
+        if (found) return found;
+      }
+      return layers[0] || FALLBACK_LAYER;
+    };
+    const moduleLayer = resolveLayer(normalized.module);
+    const headerLayer = resolveLayer(normalized.header);
+    const buttonLayer = resolveLayer(normalized.buttons);
+    const moduleColors = resolveLayerColors(moduleLayer);
+    const headerColors = resolveLayerColors(headerLayer);
+    const buttonColors = resolveLayerColors(buttonLayer);
+    if (targetEl) {
+      targetEl.style.setProperty('--ops-module-bg', moduleColors.moduleBg);
+      targetEl.style.setProperty('--ops-module-text', moduleColors.moduleText);
+      targetEl.style.setProperty('--ops-module-border', moduleColors.moduleBorder);
+      targetEl.style.setProperty('--ops-header-bg', headerColors.headerBg);
+      targetEl.style.setProperty('--ops-header-text', headerColors.headerText);
+      targetEl.style.setProperty('--ops-header-border', headerColors.headerBorder);
+      targetEl.style.setProperty('--ops-header-shadow', buildShadow(headerColors.headerBg, 0.45, '0 12px 28px'));
+      targetEl.style.setProperty('--ops-card-bg', buttonColors.subBg);
+      targetEl.style.setProperty('--ops-card-text', buttonColors.subText);
+      targetEl.style.setProperty('--ops-card-border', buttonColors.subBorder);
+      targetEl.style.setProperty('--ops-card-border-hover', mixColor(buttonColors.subBorder, '#ffffff', 0.25));
+      targetEl.style.setProperty('--ops-card-hover-bg', mixColor(buttonColors.subBg, '#ffffff', 0.1));
+      targetEl.style.setProperty('--ops-card-active-bg', withAlpha(buttonColors.subBg, 0.35));
+      targetEl.style.setProperty('--ops-card-shadow', buildShadow(buttonColors.subBg, 0.38, '0 16px 34px'));
+      targetEl.style.setProperty('--ops-card-shadow-hover', buildShadow(buttonColors.subBg, 0.45, '0 20px 40px'));
+      targetEl.style.setProperty('--ops-pill-bg', mixColor(buttonColors.subBg, '#ffffff', 0.12));
+      targetEl.style.setProperty('--ops-pill-text', buttonColors.subText);
+      targetEl.style.setProperty('--ops-pill-border', mixColor(buttonColors.subBg, '#000000', 0.2));
+      targetEl.style.setProperty('--ops-pill-shadow', buildShadow(buttonColors.subBg, 0.28, '0 8px 18px'));
+      targetEl.style.backgroundColor = moduleColors.moduleBg;
+      targetEl.style.color = moduleColors.moduleText;
+      targetEl.style.borderColor = moduleColors.moduleBorder;
+      if (targetEl.dataset) {
+        targetEl.dataset.moduleLayer = moduleLayer?.id || 'fallback-layer';
+        targetEl.dataset.headerLayer = headerLayer?.id || 'fallback-layer';
+        targetEl.dataset.buttonsLayer = buttonLayer?.id || 'fallback-layer';
+      }
+    }
+    return { mapping: normalized, moduleLayer, headerLayer, buttonLayer, moduleColors, headerColors, buttonColors };
   }
 
   // ---------- storage helpers ----------
@@ -603,13 +704,8 @@
         <button type="button" class="ops-tab-btn" data-tab="filters">Filter</button>
       </div>
       <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
-        <div class="ops-layer-picker">
-          <label class="ops-layer-label">
-            <span>Farbschema</span>
-            <select class="ops-layer-select"></select>
-          </label>
-          <div class="ops-layer-preview"></div>
-        </div>
+        <div class="ops-layer-summary"></div>
+        <button type="button" class="ops-layer-config-button ops-action-button">Farben anpassen …</button>
         <hr>
         <div class="ops-layer-toggle-list">
           ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
@@ -628,81 +724,188 @@
       </div>
     `;
     document.body.appendChild(menu);
-    const layerSelect = menu.querySelector('.ops-layer-select');
-    const layerPreview = menu.querySelector('.ops-layer-preview');
+    const layerSummary = menu.querySelector('.ops-layer-summary');
+    const openLayerModalBtn = menu.querySelector('.ops-layer-config-button');
     const layerSelections = loadLayerSelections();
     const layerStateKey = itemEl?.dataset.instanceId || '__default__';
-    let selectedLayerId = typeof layerSelections[layerStateKey] === 'string' ? layerSelections[layerStateKey] : '';
+    let selectedLayerMapping = normalizeLayerMapping(layerSelections[layerStateKey]);
 
-    function renderLayerPreview(layer, colors) {
-      if (!layerPreview) return;
-      if (!layer) {
-        layerPreview.innerHTML = '<div class="ops-layer-preview-empty">Keine Layer verfügbar</div>';
-        return;
-      }
-      const resolved = colors || resolveLayerColors(layer);
-      const { moduleBg, moduleText, moduleBorder, headerBg, headerText, headerBorder, subBg, subText, subBorder } = resolved;
-      layerPreview.innerHTML = `
-        <div class="ops-layer-preview-card" style="background:${moduleBg}; color:${moduleText}; border-color:${moduleBorder};">
-          <div class="ops-layer-preview-header" style="background:${headerBg}; color:${headerText}; border-color:${headerBorder};">Header</div>
-          <div class="ops-layer-preview-main">Modulfläche</div>
-          <div class="ops-layer-preview-button" style="background:${subBg}; color:${subText}; border-color:${subBorder};">Button</div>
-        </div>
-      `;
-    }
-
-    function populateLayerSelect() {
-      if (!layerSelect) return;
-      const layers = getLayerDefinitions();
-      layerSelect.innerHTML = '';
-      if (!layers.length) {
-        layerSelect.disabled = true;
-        renderLayerPreview(null);
-        return;
-      }
-      layerSelect.disabled = false;
-      if (!layers.some(layer => layer.id === selectedLayerId)) {
-        selectedLayerId = layers[0].id;
-      }
-      layers.forEach(layer => {
-        const option = document.createElement('option');
-        option.value = layer.id;
-        option.textContent = layer.name || layer.id || 'Layer';
-        layerSelect.appendChild(option);
-      });
-      layerSelect.value = selectedLayerId;
-    }
-
-    function setColorLayer(requestedId, { save = true } = {}) {
-      const layers = getLayerDefinitions();
-      if (!layers.length) {
-        selectedLayerId = '';
-        renderLayerPreview(null);
-        return;
-      }
-      let layer = layers.find(l => l.id === requestedId);
-      if (!layer) {
-        layer = layers[0];
-      }
-      selectedLayerId = layer.id;
-      if (layerSelect && layerSelect.value !== selectedLayerId) {
-        layerSelect.value = selectedLayerId;
-      }
-      const colors = applyColorLayer(layer, contentEl);
-      renderLayerPreview(layer, colors);
-      if (save) {
-        layerSelections[layerStateKey] = selectedLayerId;
+    function persistSelectedMapping() {
+      const previous = layerSelections[layerStateKey];
+      const next = { ...selectedLayerMapping };
+      const changed = !layerMappingsEqual(previous, next);
+      layerSelections[layerStateKey] = next;
+      if (changed) {
         saveLayerSelections(layerSelections);
       }
     }
 
-    populateLayerSelect();
-    setColorLayer(selectedLayerId, { save: false });
-    if (layerSelect) {
-      layerSelect.addEventListener('change', () => {
-        setColorLayer(layerSelect.value, { save: true });
+    selectedLayerMapping = applyLayerMapping(selectedLayerMapping, contentEl).mapping;
+    persistSelectedMapping();
+
+    const modalSuffix = Math.random().toString(36).slice(2);
+    const layerModalBackdrop = document.createElement('div');
+    layerModalBackdrop.className = 'ops-layer-modal-backdrop';
+    layerModalBackdrop.innerHTML = `
+      <div class="ops-layer-modal" role="dialog" aria-modal="true" aria-labelledby="ops-layer-modal-title-${modalSuffix}">
+        <div class="ops-layer-modal-header">
+          <h2 class="ops-layer-modal-title" id="ops-layer-modal-title-${modalSuffix}">Farben für LinkButtons Plus</h2>
+          <button type="button" class="ops-layer-modal-close" aria-label="Schließen">×</button>
+        </div>
+        <div class="ops-layer-modal-body">
+          <p class="ops-layer-modal-hint">Wählen Sie für jeden Bereich einen Layer aus dem Hauptmenü.</p>
+          <div class="ops-layer-mapping-grid">
+            ${LAYER_PARTS.map(part => `
+              <label class="ops-layer-form-row" data-part="${part.key}">
+                <span class="ops-layer-form-label">
+                  ${part.label}
+                  <small>${part.description}</small>
+                </span>
+                <select class="ops-layer-select" data-part="${part.key}"></select>
+              </label>
+            `).join('')}
+          </div>
+          <div class="ops-layer-preview"></div>
+        </div>
+        <div class="ops-layer-modal-footer">
+          <button type="button" class="ops-layer-modal-close-btn">Schließen</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(layerModalBackdrop);
+    const layerModalPreview = layerModalBackdrop.querySelector('.ops-layer-preview');
+    const layerModalSelects = {};
+    layerModalBackdrop.querySelectorAll('.ops-layer-select').forEach(select => {
+      const part = select.dataset.part;
+      if (part) layerModalSelects[part] = select;
+    });
+    const layerModalCloseButtons = layerModalBackdrop.querySelectorAll('.ops-layer-modal-close, .ops-layer-modal-close-btn');
+
+    function renderLayerPreview(details) {
+      if (!layerModalPreview) return;
+      if (!details) {
+        layerModalPreview.innerHTML = '<div class="ops-layer-preview-empty">Keine Layer verfügbar</div>';
+        return;
+      }
+      const { moduleColors, headerColors, buttonColors, moduleLayer, headerLayer, buttonLayer } = details;
+      const moduleLabel = moduleLayer?.name || moduleLayer?.id || 'Layer';
+      const headerLabel = headerLayer?.name || headerLayer?.id || 'Layer';
+      const buttonLabel = buttonLayer?.name || buttonLayer?.id || 'Layer';
+      const surface = mixColor(moduleColors.moduleBg, '#ffffff', 0.85);
+      layerModalPreview.innerHTML = `
+        <div class="ops-layer-preview-card" style="background:${moduleColors.moduleBg}; color:${moduleColors.moduleText}; border-color:${moduleColors.moduleBorder};">
+          <div class="ops-layer-preview-header" style="background:${headerColors.headerBg}; color:${headerColors.headerText}; border-color:${headerColors.headerBorder}; box-shadow:${buildShadow(headerColors.headerBg, 0.25, '0 6px 16px')};">Header</div>
+          <div class="ops-layer-preview-main" style="background:${surface}; color:${moduleColors.moduleText};">Modulfläche</div>
+          <div class="ops-layer-preview-button" style="background:${buttonColors.subBg}; color:${buttonColors.subText}; border-color:${buttonColors.subBorder}; box-shadow:${buildShadow(buttonColors.subBg, 0.18, '0 4px 12px')};">Button</div>
+        </div>
+        <ul class="ops-layer-preview-meta">
+          <li><em>Hauptmodul</em><span>${moduleLabel}</span></li>
+          <li><em>Header</em><span>${headerLabel}</span></li>
+          <li><em>Buttons</em><span>${buttonLabel}</span></li>
+        </ul>
+      `;
+    }
+
+    function updateLayerSummary() {
+      if (!layerSummary) return;
+      const layers = getLayerDefinitions();
+      const fallback = layers[0] || FALLBACK_LAYER;
+      const summary = LAYER_PARTS.map(part => {
+        const id = selectedLayerMapping?.[part.key];
+        let layer = layers.find(l => l?.id === id);
+        if (!layer && id === FALLBACK_LAYER.id) {
+          layer = FALLBACK_LAYER;
+        }
+        if (!layer) layer = fallback || FALLBACK_LAYER;
+        const name = layer?.name || layer?.id || 'Layer';
+        return `<div class="ops-layer-summary-line"><span>${part.label}</span><span>${name}</span></div>`;
+      }).join('');
+      layerSummary.innerHTML = `<strong>Farbschema</strong>${summary}`;
+    }
+
+    function populateLayerSelects() {
+      const layers = getLayerDefinitions();
+      Object.entries(layerModalSelects).forEach(([part, select]) => {
+        if (!select) return;
+        select.innerHTML = '';
+        layers.forEach(layer => {
+          const option = document.createElement('option');
+          option.value = layer?.id || '';
+          option.textContent = layer?.name || layer?.id || 'Layer';
+          select.appendChild(option);
+        });
+        select.disabled = !layers.length;
+      });
+      selectedLayerMapping = normalizeLayerMapping(selectedLayerMapping, layers);
+      const details = applyLayerMapping(selectedLayerMapping);
+      selectedLayerMapping = details.mapping;
+      Object.entries(layerModalSelects).forEach(([part, select]) => {
+        if (!select || !layers.length) return;
+        const desired = selectedLayerMapping[part];
+        if (Array.from(select.options).some(opt => opt.value === desired)) {
+          select.value = desired;
+        }
+      });
+      persistSelectedMapping();
+      renderLayerPreview(details);
+      updateLayerSummary();
+    }
+
+    function closeLayerModal() {
+      layerModalBackdrop.classList.remove('open');
+    }
+
+    function openLayerModal() {
+      menu.classList.remove('open');
+      populateLayerSelects();
+      layerModalBackdrop.classList.add('open');
+      const focusTarget = layerModalBackdrop.querySelector('.ops-layer-select:not(:disabled)');
+      if (focusTarget) focusTarget.focus();
+    }
+
+    layerModalBackdrop.addEventListener('click', e => {
+      if (e.target === layerModalBackdrop) {
+        closeLayerModal();
+      }
+    });
+    layerModalCloseButtons.forEach(btn => {
+      btn.addEventListener('click', () => closeLayerModal());
+    });
+
+    const handleKeydown = (e) => {
+      if (e.key === 'Escape' && layerModalBackdrop.classList.contains('open')) {
+        e.preventDefault();
+        closeLayerModal();
+      }
+    };
+    document.addEventListener('keydown', handleKeydown);
+
+    if (openLayerModalBtn) {
+      openLayerModalBtn.addEventListener('click', () => {
+        openLayerModal();
       });
     }
+
+    Object.entries(layerModalSelects).forEach(([part, select]) => {
+      if (!select) return;
+      select.addEventListener('change', () => {
+        selectedLayerMapping = normalizeLayerMapping({ ...selectedLayerMapping, [part]: select.value });
+        const details = applyLayerMapping(selectedLayerMapping, contentEl);
+        selectedLayerMapping = details.mapping;
+        persistSelectedMapping();
+        renderLayerPreview(details);
+        Object.entries(layerModalSelects).forEach(([otherPart, otherSelect]) => {
+          if (!otherSelect) return;
+          const desired = selectedLayerMapping[otherPart];
+          if (Array.from(otherSelect.options).some(opt => opt.value === desired) && otherSelect.value !== desired) {
+            otherSelect.value = desired;
+          }
+        });
+        updateLayerSummary();
+      });
+    });
+
+    updateLayerSummary();
 
     const tabs = menu.querySelectorAll('.ops-tab');
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
@@ -1006,8 +1209,12 @@
       e.stopPropagation();
       workforceFilters = loadWorkforceFilters();
       renderFilters();
-      populateLayerSelect();
-      setColorLayer(selectedLayerId, { save: false });
+      Object.assign(layerSelections, loadLayerSelections());
+      selectedLayerMapping = normalizeLayerMapping(layerSelections[layerStateKey]);
+      const details = applyLayerMapping(selectedLayerMapping, contentEl);
+      selectedLayerMapping = details.mapping;
+      persistSelectedMapping();
+      updateLayerSummary();
       tabButtons.forEach(btn => {
         const isButtons = btn.dataset.tab === 'buttons';
         btn.classList.toggle('active', isButtons);
@@ -1018,7 +1225,7 @@
       menu.classList.add('open');
     });
 
-    document.addEventListener('click', e => {
+    const handleDocumentClick = e => {
       if (!menu.contains(e.target)) {
         if (menu.classList.contains('open')) {
           persistFilters();
@@ -1026,7 +1233,8 @@
         }
         menu.classList.remove('open');
       }
-    });
+    };
+    document.addEventListener('click', handleDocumentClick);
 
     // --- Layout switch based on GridStack cell height (stable, no flicker) ---
     function getCellHeight(){
@@ -1046,6 +1254,10 @@
       if (!document.body.contains(root)) {
         attrObserver.disconnect();
         clearAutoUpdateTimer();
+        document.removeEventListener('keydown', handleKeydown);
+        document.removeEventListener('click', handleDocumentClick);
+        layerModalBackdrop.remove();
+        menu.remove();
         mo.disconnect();
       }
     });

@@ -5,6 +5,13 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.0] – 2025-10-12
+### Added
+- Eigenes Farbauswahl-Modal mit Live-Vorschau für die Layer-Zuordnung einzelner Modulbereiche
+
+### Changed
+- Kontextmenü zeigt nur noch eine Zusammenfassung und öffnet das Modal zur Layer-Wahl
+
 ## [1.3.9] – 2025-10-10
 ### Added
 - Dropdown im Kontextmenü zur Auswahl eines Farblayers mit Vorschau
