@@ -531,10 +531,32 @@
       font-weight: 600;
       color: #111827;
     }
+    .module-layer-group--subs {
+      gap: 0.75rem;
+    }
     .module-layer-group-grid {
       display: grid;
       gap: 0.5rem;
       grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    }
+    .module-layer-subgroups {
+      display: grid;
+      gap: 0.65rem;
+    }
+    .module-layer-subgroup {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0.6rem;
+      border-radius: 0.65rem;
+      background: #ffffff;
+      border: 1px dashed var(--border-color);
+    }
+    .module-layer-subgroup-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #1f2937;
+      opacity: 0.85;
     }
     .module-layer-color {
       display: flex;
@@ -1004,7 +1026,7 @@
                 <button id="add-module-color-layer" type="button" class="module-layer-add">Layer hinzufügen</button>
               </div>
               <div id="module-color-layers" class="module-color-layers space-y-3"></div>
-              <p class="module-layer-hint">Bis zu 8 Layer möglich. Die Farbkombinationen kannst du später in Modulen über ein Dropdown auswählen.</p>
+              <p class="module-layer-hint">Bis zu 8 Unter-Layer möglich. Die Farbkombinationen kannst du später in Modulen über ein Dropdown auswählen.</p>
             </div>
           </div>
         </div>
@@ -1119,6 +1141,8 @@
   </div>
   <script>
 const MAX_MODULE_COLOR_LAYERS = 8;
+const DEFAULT_SUB_LAYER_COUNT = 2;
+const MAX_MODULE_SUB_LAYERS = 8;
 
 function generateLayerId() {
   return 'layer-' + Math.random().toString(36).slice(2, 10);
@@ -1139,6 +1163,34 @@ function hexToRgba(color, alpha = 1) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function normalizeSubLayerEntries(subLayers, targetCount, moduleBg, moduleText) {
+  const fallbackBg = typeof moduleBg === 'string' && moduleBg ? moduleBg : '#1f2937';
+  const fallbackText = typeof moduleText === 'string' && moduleText ? moduleText : '#ffffff';
+  const source = Array.isArray(subLayers) && subLayers.length
+    ? subLayers
+    : [{
+        bg: fallbackBg,
+        text: fallbackText,
+        border: fallbackBg
+      }];
+  const normalized = source.map(entry => {
+    const bg = typeof entry.bg === 'string' && entry.bg ? entry.bg : fallbackBg;
+    const text = typeof entry.text === 'string' && entry.text ? entry.text : fallbackText;
+    const border = typeof entry.border === 'string' && entry.border
+      ? entry.border
+      : bg;
+    return { bg, text, border };
+  });
+  while (normalized.length < targetCount) {
+    const last = normalized[normalized.length - 1] || { bg: fallbackBg, text: fallbackText, border: fallbackBg };
+    normalized.push({ ...last });
+  }
+  if (normalized.length > targetCount) {
+    normalized.length = targetCount;
+  }
+  return normalized;
+}
+
 function createColorLayer(
   name,
   moduleBg,
@@ -1147,10 +1199,19 @@ function createColorLayer(
   headerBg,
   headerText,
   headerBorder,
-  subBg,
-  subText,
-  subBorder
+  subLayerConfig,
+  maybeSubText,
+  maybeSubBorder
 ) {
+  const baseSubLayers = Array.isArray(subLayerConfig)
+    ? subLayerConfig
+    : [{
+        bg: subLayerConfig,
+        text: typeof maybeSubText === 'string' && maybeSubText ? maybeSubText : '#ffffff',
+        border: typeof maybeSubBorder === 'string' && maybeSubBorder ? maybeSubBorder : (typeof subLayerConfig === 'string' && subLayerConfig ? subLayerConfig : moduleBg)
+      }];
+  const subLayers = normalizeSubLayerEntries(baseSubLayers, DEFAULT_SUB_LAYER_COUNT, moduleBg, moduleText);
+  const firstSubLayer = subLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBg };
   return {
     id: generateLayerId(),
     name,
@@ -1160,9 +1221,10 @@ function createColorLayer(
     headerBg,
     headerText,
     headerBorder,
-    subBg,
-    subText,
-    subBorder
+    subLayers,
+    subBg: firstSubLayer.bg,
+    subText: firstSubLayer.text,
+    subBorder: firstSubLayer.border
   };
 }
 
@@ -1175,23 +1237,44 @@ function getDefaultModuleColorLayers() {
   ];
 }
 
-function normalizeModuleColorLayers(layers) {
+function normalizeModuleColorLayers(layers, subLayerCount = DEFAULT_SUB_LAYER_COUNT) {
+  const count = Math.min(Math.max(Number(subLayerCount) || DEFAULT_SUB_LAYER_COUNT, 1), MAX_MODULE_SUB_LAYERS);
   const source = Array.isArray(layers) && layers.length ? layers : getDefaultModuleColorLayers();
   return source
     .slice(0, MAX_MODULE_COLOR_LAYERS)
-    .map((layer, index) => ({
-      id: typeof layer.id === 'string' && layer.id.trim() ? layer.id : generateLayerId(),
-      name: typeof layer.name === 'string' ? layer.name : `Layer ${index + 1}`,
-      moduleBg: typeof layer.moduleBg === 'string' && layer.moduleBg ? layer.moduleBg : '#005983',
-      moduleText: typeof layer.moduleText === 'string' && layer.moduleText ? layer.moduleText : '#ffffff',
-      moduleBorder: typeof layer.moduleBorder === 'string' && layer.moduleBorder ? layer.moduleBorder : (typeof layer.moduleText === 'string' && layer.moduleText ? layer.moduleText : '#ffffff'),
-      headerBg: typeof layer.headerBg === 'string' && layer.headerBg ? layer.headerBg : (typeof layer.moduleBg === 'string' && layer.moduleBg ? layer.moduleBg : '#2563eb'),
-      headerText: typeof layer.headerText === 'string' && layer.headerText ? layer.headerText : '#ffffff',
-      headerBorder: typeof layer.headerBorder === 'string' && layer.headerBorder ? layer.headerBorder : (typeof layer.headerBg === 'string' && layer.headerBg ? layer.headerBg : '#2563eb'),
-      subBg: typeof layer.subBg === 'string' && layer.subBg ? layer.subBg : (typeof layer.moduleBg === 'string' && layer.moduleBg ? layer.moduleBg : '#1f2937'),
-      subText: typeof layer.subText === 'string' && layer.subText ? layer.subText : '#ffffff',
-      subBorder: typeof layer.subBorder === 'string' && layer.subBorder ? layer.subBorder : (typeof layer.subBg === 'string' && layer.subBg ? layer.subBg : '#1f2937')
-    }));
+    .map((layer, index) => {
+      const moduleBg = typeof layer.moduleBg === 'string' && layer.moduleBg ? layer.moduleBg : '#005983';
+      const moduleText = typeof layer.moduleText === 'string' && layer.moduleText ? layer.moduleText : '#ffffff';
+      const moduleBorder = typeof layer.moduleBorder === 'string' && layer.moduleBorder
+        ? layer.moduleBorder
+        : (typeof layer.moduleText === 'string' && layer.moduleText ? layer.moduleText : '#ffffff');
+      const headerBg = typeof layer.headerBg === 'string' && layer.headerBg ? layer.headerBg : moduleBg;
+      const headerText = typeof layer.headerText === 'string' && layer.headerText ? layer.headerText : moduleText;
+      const headerBorder = typeof layer.headerBorder === 'string' && layer.headerBorder ? layer.headerBorder : headerBg;
+      const baseSubLayers = Array.isArray(layer.subLayers) && layer.subLayers.length
+        ? layer.subLayers
+        : [{
+            bg: typeof layer.subBg === 'string' && layer.subBg ? layer.subBg : moduleBg,
+            text: typeof layer.subText === 'string' && layer.subText ? layer.subText : moduleText,
+            border: typeof layer.subBorder === 'string' && layer.subBorder ? layer.subBorder : (typeof layer.subBg === 'string' && layer.subBg ? layer.subBg : moduleBg)
+          }];
+      const subLayers = normalizeSubLayerEntries(baseSubLayers, count, moduleBg, moduleText);
+      const firstSubLayer = subLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBg };
+      return {
+        id: typeof layer.id === 'string' && layer.id.trim() ? layer.id : generateLayerId(),
+        name: typeof layer.name === 'string' ? layer.name : `Layer ${index + 1}`,
+        moduleBg,
+        moduleText,
+        moduleBorder,
+        headerBg,
+        headerText,
+        headerBorder,
+        subLayers,
+        subBg: firstSubLayer.bg,
+        subText: firstSubLayer.text,
+        subBorder: firstSubLayer.border
+      };
+    });
 }
 
 /*
@@ -1226,7 +1309,8 @@ let appSettings = {
   showUpdateStatusButton: true,
   autoUpdatePolling: false,
   hideDowngradeStatusButton: false,
-  moduleColorLayers: normalizeModuleColorLayers([])
+  moduleSubLayerCount: DEFAULT_SUB_LAYER_COUNT,
+  moduleColorLayers: normalizeModuleColorLayers([], DEFAULT_SUB_LAYER_COUNT)
 };
 
 
@@ -3570,7 +3654,11 @@ function openSettings(section = 'general') {
 
 function renderModuleColorLayers(layers = appSettings.moduleColorLayers) {
   if (!moduleColorLayersContainer) return;
-  const normalized = normalizeModuleColorLayers(layers);
+  const subLayerCount = typeof appSettings.moduleSubLayerCount === 'number' && appSettings.moduleSubLayerCount > 0
+    ? Math.min(appSettings.moduleSubLayerCount, MAX_MODULE_SUB_LAYERS)
+    : DEFAULT_SUB_LAYER_COUNT;
+  appSettings.moduleSubLayerCount = subLayerCount;
+  const normalized = normalizeModuleColorLayers(layers, subLayerCount);
   appSettings.moduleColorLayers = normalized;
   moduleColorLayersContainer.innerHTML = '';
   normalized.forEach((layer, index) => {
@@ -3596,16 +3684,7 @@ function createModuleColorLayerElement(layer, index) {
             <span class="layer-label layer-label--header">Überschrift Layer</span>
             <p class="layer-description">Titel, Aktionen oder Hinweise des Moduls</p>
           </div>
-          <div class="layer-substack">
-            <div class="layer-sub" data-layer="sub">
-              <span class="layer-label layer-label--sub">Unter-Layer</span>
-              <p>Primärer Inhaltsbereich für Listen, Tabellen oder Widgets.</p>
-            </div>
-            <div class="layer-sub" data-layer="sub">
-              <span class="layer-label layer-label--sub">Unter-Layer</span>
-              <p>Weitere Inhalte, Detailansichten oder ergänzende Module.</p>
-            </div>
-          </div>
+          <div class="layer-substack" data-sub-stack></div>
         </div>
       </div>
     </div>
@@ -3649,22 +3728,9 @@ function createModuleColorLayerElement(layer, index) {
             </label>
           </div>
         </div>
-        <div class="module-layer-group" data-group="sub">
+        <div class="module-layer-group module-layer-group--subs" data-group="subs">
           <div class="module-layer-group-title">Unter-Layer</div>
-          <div class="module-layer-group-grid">
-            <label class="module-layer-color">
-              <span>Hintergrund</span>
-              <input type="color" data-field="subBg" class="border rounded">
-            </label>
-            <label class="module-layer-color">
-              <span>Text</span>
-              <input type="color" data-field="subText" class="border rounded">
-            </label>
-            <label class="module-layer-color">
-              <span>Rahmen</span>
-              <input type="color" data-field="subBorder" class="border rounded">
-            </label>
-          </div>
+          <div class="module-layer-subgroups" data-sub-controls></div>
         </div>
       </div>
       <div class="module-layer-actions">
@@ -3683,20 +3749,99 @@ function createModuleColorLayerElement(layer, index) {
   const headerBgInput = wrapper.querySelector('input[data-field="headerBg"]');
   const headerTextInput = wrapper.querySelector('input[data-field="headerText"]');
   const headerBorderInput = wrapper.querySelector('input[data-field="headerBorder"]');
-  const subBgInput = wrapper.querySelector('input[data-field="subBg"]');
-  const subTextInput = wrapper.querySelector('input[data-field="subText"]');
-  const subBorderInput = wrapper.querySelector('input[data-field="subBorder"]');
+  renderModuleColorLayerSubSections(wrapper, layer);
   if (moduleBgInput) moduleBgInput.value = layer.moduleBg;
   if (moduleTextInput) moduleTextInput.value = layer.moduleText;
   if (moduleBorderInput) moduleBorderInput.value = layer.moduleBorder;
   if (headerBgInput) headerBgInput.value = layer.headerBg;
   if (headerTextInput) headerTextInput.value = layer.headerText;
   if (headerBorderInput) headerBorderInput.value = layer.headerBorder;
-  if (subBgInput) subBgInput.value = layer.subBg;
-  if (subTextInput) subTextInput.value = layer.subText;
-  if (subBorderInput) subBorderInput.value = layer.subBorder;
   applyModuleColorLayerPreview(wrapper, layer);
   return wrapper;
+}
+
+function renderModuleColorLayerSubSections(wrapper, layer) {
+  if (!wrapper) return;
+  const subLayerCount = typeof appSettings.moduleSubLayerCount === 'number' && appSettings.moduleSubLayerCount > 0
+    ? Math.min(appSettings.moduleSubLayerCount, MAX_MODULE_SUB_LAYERS)
+    : DEFAULT_SUB_LAYER_COUNT;
+  const normalizedLayer = {
+    ...layer,
+    subLayers: normalizeSubLayerEntries(
+      Array.isArray(layer?.subLayers) && layer.subLayers.length ? layer.subLayers : [{
+        bg: layer?.subBg,
+        text: layer?.subText,
+        border: layer?.subBorder
+      }],
+      subLayerCount,
+      layer?.moduleBg,
+      layer?.moduleText
+    )
+  };
+  const subLayers = normalizedLayer.subLayers;
+  const subStack = wrapper.querySelector('[data-sub-stack]');
+  if (subStack) {
+    subStack.innerHTML = '';
+    const descriptions = [
+      'Primärer Inhaltsbereich für Listen, Tabellen oder Widgets.',
+      'Weitere Inhalte, Detailansichten oder ergänzende Module.'
+    ];
+    subLayers.forEach((subLayer, subIndex) => {
+      const subEl = document.createElement('div');
+      subEl.className = 'layer-sub';
+      subEl.dataset.layer = 'sub';
+      subEl.dataset.subIndex = String(subIndex);
+      const label = document.createElement('span');
+      label.className = 'layer-label layer-label--sub';
+      label.textContent = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
+      const description = document.createElement('p');
+      const descText = descriptions[subIndex] || descriptions[descriptions.length - 1] || '';
+      description.textContent = descText;
+      subEl.appendChild(label);
+      subEl.appendChild(description);
+      subStack.appendChild(subEl);
+    });
+  }
+  const controls = wrapper.querySelector('[data-sub-controls]');
+  if (controls) {
+    controls.innerHTML = '';
+    subLayers.forEach((subLayer, subIndex) => {
+      const subgroup = document.createElement('div');
+      subgroup.className = 'module-layer-subgroup';
+      subgroup.dataset.subIndex = String(subIndex);
+      const title = document.createElement('div');
+      title.className = 'module-layer-subgroup-title';
+      title.textContent = subIndex === 0 ? 'Ebene 1 (Unter-Layer)' : `Ebene ${subIndex + 1}`;
+      subgroup.appendChild(title);
+      const grid = document.createElement('div');
+      grid.className = 'module-layer-group-grid';
+      const fields = [
+        { key: 'bg', label: 'Hintergrund' },
+        { key: 'text', label: 'Text' },
+        { key: 'border', label: 'Rahmen' }
+      ];
+      fields.forEach(field => {
+        const fieldLabel = document.createElement('label');
+        fieldLabel.className = 'module-layer-color';
+        const span = document.createElement('span');
+        span.textContent = field.label;
+        const input = document.createElement('input');
+        input.type = 'color';
+        input.className = 'border rounded';
+        input.dataset.subField = field.key;
+        input.dataset.subIndex = String(subIndex);
+        const value = typeof subLayer?.[field.key] === 'string' && subLayer[field.key]
+          ? subLayer[field.key]
+          : (field.key === 'text' ? '#ffffff' : (layer?.moduleBg || '#1f2937'));
+        input.value = value;
+        fieldLabel.appendChild(span);
+        fieldLabel.appendChild(input);
+        grid.appendChild(fieldLabel);
+      });
+      subgroup.appendChild(grid);
+      controls.appendChild(subgroup);
+    });
+  }
 }
 
 function applyModuleColorLayerPreview(layerEl, layer) {
@@ -3708,9 +3853,19 @@ function applyModuleColorLayerPreview(layerEl, layer) {
   const headerBg = ensureColor(layer.headerBg, moduleBg);
   const headerText = ensureColor(layer.headerText, moduleText);
   const headerBorder = ensureColor(layer.headerBorder, headerBg);
-  const subBg = ensureColor(layer.subBg, moduleBg);
-  const subText = ensureColor(layer.subText, moduleText);
-  const subBorder = ensureColor(layer.subBorder, subBg);
+  const subLayerCount = typeof appSettings.moduleSubLayerCount === 'number' && appSettings.moduleSubLayerCount > 0
+    ? Math.min(appSettings.moduleSubLayerCount, MAX_MODULE_SUB_LAYERS)
+    : DEFAULT_SUB_LAYER_COUNT;
+  const subLayersData = normalizeSubLayerEntries(
+    Array.isArray(layer.subLayers) && layer.subLayers.length ? layer.subLayers : [{
+      bg: layer.subBg,
+      text: layer.subText,
+      border: layer.subBorder
+    }],
+    subLayerCount,
+    moduleBg,
+    moduleText
+  );
 
   const preview = layerEl.querySelector('.layer-preview');
   if (preview) {
@@ -3762,18 +3917,26 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     headerDescription.style.color = headerText;
   }
 
-  const subLayers = layerEl.querySelectorAll('.layer-sub');
+  const subElements = layerEl.querySelectorAll('.layer-sub');
   const subLabels = layerEl.querySelectorAll('.layer-label--sub');
-  const subBackground = hexToRgba(subBg, 0.18) || subBg;
-  const subBorderTint = hexToRgba(subBorder, 0.55) || subBorder;
-  const subGlow = hexToRgba(subText, 0.12) || 'rgba(255,255,255,0.12)';
-  subLayers.forEach(subLayer => {
-    subLayer.style.backgroundColor = subBackground;
-    subLayer.style.color = subText;
-    subLayer.style.borderColor = subBorderTint;
-    subLayer.style.boxShadow = `inset 0 1px 0 ${subGlow}`;
+  subElements.forEach((subEl, index) => {
+    const data = subLayersData[index] || subLayersData[subLayersData.length - 1] || { bg: moduleBg, text: moduleText, border: moduleBg };
+    const subBg = ensureColor(data.bg, moduleBg);
+    const subText = ensureColor(data.text, moduleText);
+    const subBorder = ensureColor(data.border, subBg);
+    const subBackground = hexToRgba(subBg, 0.18) || subBg;
+    const subBorderTint = hexToRgba(subBorder, 0.55) || subBorder;
+    const subGlow = hexToRgba(subText, 0.12) || 'rgba(255,255,255,0.12)';
+    subEl.style.backgroundColor = subBackground;
+    subEl.style.color = subText;
+    subEl.style.borderColor = subBorderTint;
+    subEl.style.boxShadow = `inset 0 1px 0 ${subGlow}`;
   });
-  subLabels.forEach(label => {
+  subLabels.forEach((label, index) => {
+    const data = subLayersData[index] || subLayersData[subLayersData.length - 1] || { bg: moduleBg, text: moduleText, border: moduleBg };
+    const subBg = ensureColor(data.bg, moduleBg);
+    const subText = ensureColor(data.text, moduleText);
+    const subBorder = ensureColor(data.border, subBg);
     label.style.backgroundColor = subText;
     label.style.color = subBg;
     label.style.borderColor = subBorder;
@@ -3782,7 +3945,10 @@ function applyModuleColorLayerPreview(layerEl, layer) {
 
 function updateModuleColorLayerAddState() {
   if (!addModuleColorLayerBtn) return;
-  const atLimit = Array.isArray(appSettings.moduleColorLayers) && appSettings.moduleColorLayers.length >= MAX_MODULE_COLOR_LAYERS;
+  const currentCount = typeof appSettings.moduleSubLayerCount === 'number' && appSettings.moduleSubLayerCount > 0
+    ? appSettings.moduleSubLayerCount
+    : DEFAULT_SUB_LAYER_COUNT;
+  const atLimit = currentCount >= MAX_MODULE_SUB_LAYERS;
   addModuleColorLayerBtn.disabled = atLimit;
 }
 
@@ -3808,6 +3974,23 @@ function collectModuleColorLayersFromDom() {
       const input = layerEl.querySelector(`input[data-field="${field}"]`);
       return input ? input.value : '';
     };
+    const subLayerCount = typeof appSettings.moduleSubLayerCount === 'number' && appSettings.moduleSubLayerCount > 0
+      ? Math.min(appSettings.moduleSubLayerCount, MAX_MODULE_SUB_LAYERS)
+      : DEFAULT_SUB_LAYER_COUNT;
+    const subLayers = [];
+    layerEl.querySelectorAll('.module-layer-subgroup').forEach((groupEl, subIndex) => {
+      const getSubColor = key => {
+        const input = groupEl.querySelector(`input[data-sub-field="${key}"]`);
+        return input ? input.value : '';
+      };
+      subLayers[subIndex] = {
+        bg: getSubColor('bg'),
+        text: getSubColor('text'),
+        border: getSubColor('border')
+      };
+    });
+    const normalizedSubLayers = normalizeSubLayerEntries(subLayers, subLayerCount, getColor('moduleBg'), getColor('moduleText'));
+    const firstSub = normalizedSubLayers[0] || { bg: '', text: '', border: '' };
     layers.push({
       id,
       name: nameInput ? nameInput.value : `Layer ${index + 1}`,
@@ -3817,9 +4000,10 @@ function collectModuleColorLayersFromDom() {
       headerBg: getColor('headerBg'),
       headerText: getColor('headerText'),
       headerBorder: getColor('headerBorder'),
-      subBg: getColor('subBg'),
-      subText: getColor('subText'),
-      subBorder: getColor('subBorder')
+      subLayers: normalizedSubLayers,
+      subBg: firstSub.bg,
+      subText: firstSub.text,
+      subBorder: firstSub.border
     });
   });
   return layers;
@@ -3866,8 +4050,17 @@ function handleModuleColorLayerClick(event) {
     const clone = {
       ...sourceLayer,
       id: generateLayerId(),
-      name: `${sourceLayer.name || `Layer ${index + 1}`}-Kopie`
+      name: `${sourceLayer.name || `Layer ${index + 1}`}-Kopie`,
+      subLayers: Array.isArray(sourceLayer.subLayers)
+        ? sourceLayer.subLayers.map(subLayer => ({ ...subLayer }))
+        : undefined
     };
+    if (Array.isArray(clone.subLayers) && clone.subLayers.length) {
+      const firstSub = clone.subLayers[0];
+      clone.subBg = firstSub.bg;
+      clone.subText = firstSub.text;
+      clone.subBorder = firstSub.border;
+    }
     appSettings.moduleColorLayers.splice(index + 1, 0, clone);
     renderModuleColorLayers(appSettings.moduleColorLayers);
     scheduleSettingsSave();
@@ -4304,31 +4497,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   if (addModuleColorLayerBtn) {
     addModuleColorLayerBtn.addEventListener('click', () => {
-      if (!Array.isArray(appSettings.moduleColorLayers)) {
-        appSettings.moduleColorLayers = normalizeModuleColorLayers([]);
-      }
-      if (appSettings.moduleColorLayers.length >= MAX_MODULE_COLOR_LAYERS) {
+      const currentCount = typeof appSettings.moduleSubLayerCount === 'number' && appSettings.moduleSubLayerCount > 0
+        ? appSettings.moduleSubLayerCount
+        : DEFAULT_SUB_LAYER_COUNT;
+      if (currentCount >= MAX_MODULE_SUB_LAYERS) {
         updateModuleColorLayerAddState();
         return;
       }
-      const lastLayer = appSettings.moduleColorLayers[appSettings.moduleColorLayers.length - 1] || createColorLayer(
-        `Layer ${appSettings.moduleColorLayers.length + 1}`,
-        '#005983',
-        '#ffffff',
-        '#0f6ab4',
-        '#0f6ab4',
-        '#ffffff',
-        '#0a487a',
-        '#07365b',
-        '#ffffff',
-        '#052b47'
-      );
-      const newLayer = {
-        ...lastLayer,
-        id: generateLayerId(),
-        name: `Layer ${appSettings.moduleColorLayers.length + 1}`
-      };
-      appSettings.moduleColorLayers.push(newLayer);
+      const nextCount = currentCount + 1;
+      appSettings.moduleSubLayerCount = nextCount;
+      if (!Array.isArray(appSettings.moduleColorLayers)) {
+        appSettings.moduleColorLayers = normalizeModuleColorLayers([], nextCount);
+      } else {
+        appSettings.moduleColorLayers = normalizeModuleColorLayers(appSettings.moduleColorLayers, nextCount);
+      }
       renderModuleColorLayers(appSettings.moduleColorLayers);
       scheduleSettingsSave();
     });
@@ -4523,7 +4705,23 @@ function applyLoadedSettings(loadedSettings) {
   if (!loadedSettings || typeof loadedSettings !== 'object') return;
   const { gridFloat, autoArrangeModules, ...rest } = loadedSettings;
   appSettings = { ...appSettings, ...rest };
-  appSettings.moduleColorLayers = normalizeModuleColorLayers(appSettings.moduleColorLayers);
+  const desiredSubLayerCount = (() => {
+    if (typeof rest.moduleSubLayerCount === 'number') {
+      return Math.min(Math.max(Math.floor(rest.moduleSubLayerCount), 1), MAX_MODULE_SUB_LAYERS);
+    }
+    if (Array.isArray(rest.moduleColorLayers) && rest.moduleColorLayers.length) {
+      const maxLength = rest.moduleColorLayers.reduce((max, layer) => {
+        if (Array.isArray(layer?.subLayers)) {
+          return Math.max(max, layer.subLayers.length);
+        }
+        return max;
+      }, DEFAULT_SUB_LAYER_COUNT);
+      return Math.min(Math.max(maxLength, 1), MAX_MODULE_SUB_LAYERS);
+    }
+    return DEFAULT_SUB_LAYER_COUNT;
+  })();
+  appSettings.moduleSubLayerCount = desiredSubLayerCount;
+  appSettings.moduleColorLayers = normalizeModuleColorLayers(appSettings.moduleColorLayers, desiredSubLayerCount);
   if (typeof autoArrangeModules === 'boolean') {
     appSettings.autoArrangeModules = autoArrangeModules;
   } else if (typeof gridFloat === 'boolean') {
