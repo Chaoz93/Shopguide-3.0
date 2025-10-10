@@ -4,14 +4,14 @@
   if (!document.getElementById('ops-panel-styles')) {
     const css = `
     .ops-root{ height:100%; }
-    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; display:flex; flex-direction:column; gap:.6rem; }
+    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; display:flex; flex-direction:column; gap:.6rem; color:var(--lbp-main-text, var(--module-header-text,#fff)); }
     .ops-header{
       display:flex; align-items:center; justify-content:space-between; gap:.75rem;
       padding:.55rem .95rem; border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);
-      background:rgba(21,45,76,.86);
-      color:#f8fafc; font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem); font-weight:700;
+      background:var(--lbp-header-bg, rgba(21,45,76,.86));
+      color:var(--lbp-header-text, #f8fafc); font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem); font-weight:700;
       letter-spacing:.4px; text-transform:uppercase; box-shadow:0 12px 28px rgba(12,24,41,.45);
-      border:1px solid rgba(76,114,163,.32);
+      border:1px solid var(--lbp-header-border, rgba(76,114,163,.32));
     }
     .ops-title{ display:flex; align-items:center; gap:.45rem; }
     .ops-title::before{
@@ -19,8 +19,9 @@
     }
     .ops-autorefresh{
       display:inline-flex; align-items:center; gap:.4rem;
-      padding:.35rem .9rem; border-radius:999px; color:#fff;
-      background:rgba(37,99,235,.92); box-shadow:0 8px 18px rgba(15,23,42,.28);
+      padding:.35rem .9rem; border-radius:999px;
+      color:var(--lbp-accent-text,#fff);
+      background:var(--lbp-accent-bg, rgba(37,99,235,.92)); box-shadow:0 8px 18px rgba(15,23,42,.28);
       font-size:.78rem; font-weight:600; letter-spacing:.25px;
       cursor:default; transition:opacity .15s ease, box-shadow .15s ease;
     }
@@ -52,19 +53,27 @@
     }
     .ops-card{
       width:100%; height:100%; box-sizing:border-box;
-      background:rgba(21,45,76,.82);
-      border: 1px solid rgba(76,114,163,.34);
+      background:var(--lbp-card-bg, rgba(21,45,76,.82));
+      border: 1px solid var(--lbp-card-border, rgba(76,114,163,.34));
       border-radius: var(--module-border-radius, 1.25rem);
-      color: var(--module-header-text,#fff);
+      color: var(--lbp-card-text, var(--module-header-text,#fff));
       display:flex; align-items:center; justify-content:center;
       padding:.5rem 1rem; font-weight:600; letter-spacing:.2px;
       font-size: clamp(.9rem, 1.1vw + .4vh, 1.25rem);
       user-select:none; text-align:center;
       transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease, border-color .12s ease;
-      box-shadow: 0 16px 34px rgba(12,24,41,.45);
+      box-shadow: var(--lbp-card-shadow, 0 16px 34px rgba(12,24,41,.45));
     }
-    .ops-card:hover{ transform: translateY(-1px); box-shadow: 0 20px 40px rgba(15,23,42,.45); border-color:rgba(37,99,235,.45); }
-    .ops-card:active{ transform: translateY(0); filter:none; background:rgba(37,99,235,.32); }
+    .ops-card:hover{
+      transform: translateY(-1px);
+      box-shadow: var(--lbp-card-shadow-hover, 0 20px 40px rgba(15,23,42,.45));
+      border-color: var(--lbp-card-hover-border, rgba(37,99,235,.45));
+    }
+    .ops-card:active{
+      transform: translateY(0);
+      filter:none;
+      background: var(--lbp-card-active-bg, rgba(37,99,235,.32));
+    }
     .leftTop{ grid-area:leftTop; } .leftBot{ grid-area:leftBot; }
     .r0{ grid-area:r0; } .r1{ grid-area:r1; } .r2{ grid-area:r2; } .r3{ grid-area:r3; } .r4{ grid-area:r4; } .r5{ grid-area:r5; }
     .ops-bounce{ animation: ops-bounce .25s ease; }
@@ -98,6 +107,26 @@
     .ops-filter-actions .ops-action-button{margin:0;}
     .ops-menu .ops-file{display:block; font-size:.75rem; opacity:.8; padding:.2rem .6rem 0;}
     .ops-menu .ops-file-hint{display:block; font-size:.72rem; opacity:.65; padding:.15rem .6rem .2rem; min-height:1em;}
+    .ops-color-overlay{position:fixed; inset:0; padding:1.5rem; box-sizing:border-box; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); z-index:2500;}
+    .ops-color-overlay.open{display:flex;}
+    .ops-color-dialog{width:min(520px, 92vw); max-height:92vh; overflow:auto; background:var(--sidebar-module-card-bg,#fff); color:var(--sidebar-module-card-text,#111); border-radius:.95rem; box-shadow:0 24px 52px rgba(15,23,42,.32); display:flex; flex-direction:column;}
+    .ops-color-header{display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:1rem 1.25rem .75rem; border-bottom:1px solid var(--border-color,#e5e7eb);}
+    .ops-color-title{margin:0; font-size:1.12rem; font-weight:700;}
+    .ops-color-dismiss{border:none; background:transparent; font-size:1.45rem; line-height:1; color:inherit; padding:.15rem .4rem; border-radius:.55rem; cursor:pointer;}
+    .ops-color-dismiss:hover{background:rgba(148,163,184,.18);}
+    .ops-color-body{padding:1rem 1.25rem; display:flex; flex-direction:column; gap:1rem;}
+    .ops-color-section{display:flex; flex-direction:column; gap:.35rem;}
+    .ops-color-label{font-weight:600; font-size:.95rem;}
+    .ops-color-hint{font-size:.78rem; color:rgba(15,23,42,.62);}
+    .ops-color-select{width:100%; padding:.55rem .7rem; border-radius:.6rem; border:1px solid var(--border-color,#d1d5db); background:var(--sidebar-module-card-bg,#fff); color:inherit; font:inherit;}
+    .ops-color-preview{display:flex; align-items:center; gap:.45rem; padding:.4rem .5rem; border-radius:.65rem; background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.28); font-size:.78rem; color:rgba(15,23,42,.75);}
+    .ops-color-chip{width:1.1rem; height:1.1rem; border-radius:50%; border:2px solid rgba(255,255,255,.7); box-shadow:0 0 0 1px rgba(15,23,42,.18); background:transparent;}
+    .ops-color-preview-label{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .ops-color-footer{display:flex; align-items:center; justify-content:flex-end; gap:.65rem; padding:.75rem 1.25rem 1.1rem; border-top:1px solid var(--border-color,#e5e7eb);}
+    .ops-color-reset{border:none; border-radius:.65rem; padding:.55rem .95rem; font-weight:600; background:rgba(148,163,184,.18); color:rgba(15,23,42,.85); cursor:pointer;}
+    .ops-color-reset:hover{background:rgba(148,163,184,.28);}
+    .ops-color-done{border:none; border-radius:.65rem; padding:.55rem 1rem; font-weight:600; background:var(--button-bg,#2563eb); color:var(--button-text,#fff); cursor:pointer;}
+    .ops-color-done:hover{filter:brightness(.95);}
     `;
     const tag = document.createElement('style');
     tag.id = 'ops-panel-styles';
@@ -118,6 +147,366 @@
     serial: ['serial','serialno','serialnumber','serialnr','serialnummer','sn','snr']
   };
   const WORKFORCE_FILTER_KEY = 'linkbuttonsplus-filters';
+  const COLOR_CONFIG_KEY = 'linkbuttonsplus-colors-v1';
+  const COLOR_AREAS = ['main','header','buttons'];
+
+  function clampNumber(value, min, max){
+    if (typeof value !== 'number' || Number.isNaN(value)) return min;
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function loadColorConfig(){
+    try{
+      const raw = localStorage.getItem(COLOR_CONFIG_KEY);
+      if(!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    }catch{}
+    return {};
+  }
+
+  function saveColorConfig(value){
+    try{
+      localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(value));
+    }catch{}
+  }
+
+  function sanitizeId(value){
+    return (typeof value === 'string' && value.trim()) || '';
+  }
+
+  function setCssVar(el, name, value){
+    if(!el || !name) return;
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    if(trimmed){
+      el.style.setProperty(name, trimmed);
+    }else{
+      el.style.removeProperty(name);
+    }
+  }
+
+  function parseLayerNumber(value){
+    if(typeof value !== 'string') return null;
+    const normalized = value.trim().replace(',', '.');
+    if(!normalized) return null;
+    const match = normalized.match(/-?\d+(?:\.\d+)?/);
+    if(!match) return null;
+    const parsed = parseFloat(match[0]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function normalizeAlpha(value){
+    if(!Number.isFinite(value)) return 1;
+    const alpha = value > 1 ? value / 100 : value;
+    return clampNumber(alpha, 0, 1);
+  }
+
+  function buildHslaColor(h, s, l, a){
+    const hue = Number.isFinite(h) ? clampNumber(h, 0, 360) : 0;
+    const sat = Number.isFinite(s) ? clampNumber(s, 0, 100) : 0;
+    const light = Number.isFinite(l) ? clampNumber(l, 0, 100) : 0;
+    const alpha = Number.isFinite(a) ? clampNumber(a, 0, 1) : 1;
+    const format = (value, digits) => {
+      if(!Number.isFinite(value)) return '0';
+      const rounded = Number(value.toFixed(digits));
+      return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+    };
+    return `hsla(${format(hue, 1)}, ${format(sat, 1)}%, ${format(light, 1)}%, ${format(alpha, 3)})`;
+  }
+
+  function shiftLightness(value, delta){
+    if(!Number.isFinite(value)) return value;
+    return clampNumber(value + delta, 0, 100);
+  }
+
+  function shiftAlpha(value, delta){
+    if(!Number.isFinite(value)) return value;
+    return clampNumber(value + delta, 0, 1);
+  }
+
+  function pickTextColor(lightness){
+    if(!Number.isFinite(lightness)) return '#0f172a';
+    return lightness >= 55 ? '#0f172a' : '#f8fafc';
+  }
+
+  function buildPreviewFromLayer(layer){
+    const map = {};
+    COLOR_AREAS.forEach(area => {
+      let colors = null;
+      if(area === 'header') colors = deriveHeaderColors(layer);
+      else if(area === 'buttons') colors = deriveButtonColors(layer);
+      else colors = deriveMainColors(layer);
+      map[area] = {
+        bg: colors?.bg || '',
+        text: colors?.text || ''
+      };
+    });
+    return map;
+  }
+
+  function buildRawHslaString(hRaw, sRaw, lRaw, aRaw){
+    const clean = (value) => (typeof value === 'string' ? value.trim() : '');
+    const format = (value, suffix) => {
+      const trimmed = clean(value);
+      if(!trimmed) return suffix ? `0${suffix}` : '0';
+      if(suffix && trimmed.endsWith(suffix)) return trimmed;
+      return `${trimmed}${suffix}`;
+    };
+    const normalizeAlphaValue = (value) => {
+      const trimmed = clean(value);
+      if(!trimmed) return '1';
+      const parsed = parseLayerNumber(trimmed);
+      if(Number.isFinite(parsed)){
+        const alpha = normalizeAlpha(parsed);
+        return String(alpha);
+      }
+      if(trimmed.endsWith('%')){
+        const pct = parseLayerNumber(trimmed);
+        if(Number.isFinite(pct)){
+          return String(clampNumber(pct / 100, 0, 1));
+        }
+      }
+      return trimmed;
+    };
+    const hue = format(hRaw, '');
+    const sat = format(sRaw, '%');
+    const light = format(lRaw, '%');
+    const alpha = normalizeAlphaValue(aRaw);
+    return `hsla(${hue}, ${sat}, ${light}, ${alpha})`;
+  }
+
+  function loadGlobalColorLayers(maxLayers = 15){
+    const layers = [];
+    const sources = [];
+    const docEl = document.documentElement;
+    if(docEl){
+      try { sources.push(getComputedStyle(docEl)); } catch {}
+    }
+    const body = document.body;
+    if(body && body !== docEl){
+      try { sources.push(getComputedStyle(body)); } catch {}
+    }
+    if(!sources.length) return layers;
+
+    const readVar = (name) => {
+      for(const style of sources){
+        if(!style) continue;
+        const raw = style.getPropertyValue(name);
+        if(typeof raw === 'string' && raw.trim()) return raw.trim();
+      }
+      return '';
+    };
+
+    for(let i = 1; i <= maxLayers; i++){
+      const hRaw = readVar(`--layer${i}-h`);
+      const sRaw = readVar(`--layer${i}-s`);
+      const lRaw = readVar(`--layer${i}-l`);
+      const aRaw = readVar(`--layer${i}-a`);
+
+      if(!hRaw || !sRaw || !lRaw) continue;
+
+      const hVal = parseLayerNumber(hRaw);
+      const sVal = parseLayerNumber(sRaw);
+      const lVal = parseLayerNumber(lRaw);
+      const aValRaw = parseLayerNumber(aRaw);
+      const hasNumeric = Number.isFinite(hVal) && Number.isFinite(sVal) && Number.isFinite(lVal);
+      if(!hasNumeric) {
+        const colorOnly = buildRawHslaString(hRaw, sRaw, lRaw, aRaw);
+        const fallbackText = Number.isFinite(lVal) ? pickTextColor(lVal) : '#ffffff';
+        layers.push({
+          id: `layer${i}`,
+          label: `Layer ${i}`,
+          name: `Layer ${i}`,
+          color: colorOnly,
+          swatch: colorOnly,
+          moduleBg: colorOnly,
+          moduleText: fallbackText,
+          moduleBorder: colorOnly,
+          headerBg: colorOnly,
+          headerText: fallbackText,
+          headerBorder: colorOnly,
+          subLayers: [{ bg: colorOnly, text: fallbackText, border: colorOnly }],
+          subBg: colorOnly,
+          subText: fallbackText,
+          subBorder: colorOnly,
+          preview: {
+            main: { bg: colorOnly, text: fallbackText },
+            header: { bg: colorOnly, text: fallbackText },
+            buttons: { bg: colorOnly, text: fallbackText }
+          }
+        });
+        continue;
+      }
+
+      const alpha = Number.isFinite(aValRaw) ? normalizeAlpha(aValRaw) : 1;
+      const baseColor = buildHslaColor(hVal, sVal, lVal, alpha);
+      const moduleText = pickTextColor(lVal);
+      const moduleBorder = buildHslaColor(hVal, sVal, shiftLightness(lVal, -14), shiftAlpha(alpha, 0));
+
+      const headerLight = shiftLightness(lVal, -6);
+      const headerBg = buildHslaColor(hVal, sVal, headerLight, alpha);
+      const headerText = pickTextColor(headerLight);
+      const headerBorder = buildHslaColor(hVal, sVal, shiftLightness(headerLight, -8), shiftAlpha(alpha, 0.05));
+
+      const buttonLight = shiftLightness(lVal, -12);
+      const buttonBg = buildHslaColor(hVal, sVal, buttonLight, shiftAlpha(alpha, 0.05));
+      const buttonText = pickTextColor(buttonLight);
+      const buttonBorder = buildHslaColor(hVal, sVal, shiftLightness(buttonLight, -6), shiftAlpha(alpha, 0.08));
+
+      layers.push({
+        id: `layer${i}`,
+        label: `Layer ${i}`,
+        name: `Layer ${i}`,
+        color: baseColor,
+        swatch: baseColor,
+        moduleBg: baseColor,
+        moduleText,
+        moduleBorder,
+        headerBg,
+        headerText,
+        headerBorder,
+        subLayers: [{ bg: buttonBg, text: buttonText, border: buttonBorder }],
+        subBg: buttonBg,
+        subText: buttonText,
+        subBorder: buttonBorder,
+        preview: {
+          main: { bg: baseColor, text: moduleText },
+          header: { bg: headerBg, text: headerText },
+          buttons: { bg: buttonBg, text: buttonText }
+        }
+      });
+    }
+
+    return layers;
+  }
+
+  function ensureLayerSwatch(layer){
+    if(!layer || typeof layer !== 'object') return layer;
+    if(typeof layer.swatch === 'string' && layer.swatch) return layer;
+    const previewMain = layer.preview && layer.preview.main ? layer.preview.main.bg : '';
+    const swatch = (typeof previewMain === 'string' && previewMain)
+      || (typeof layer.moduleBg === 'string' && layer.moduleBg)
+      || (typeof layer.color === 'string' && layer.color)
+      || '';
+    if(!swatch) return layer;
+    return { ...layer, swatch };
+  }
+
+  function getColorLayers(){
+    const configLayers = (() => {
+      if (Array.isArray(window?.appSettings?.moduleColorLayers)) {
+        return window.appSettings.moduleColorLayers;
+      }
+      if (typeof window?.getDefaultModuleColorLayers === 'function') {
+        try { return window.getDefaultModuleColorLayers(); } catch { return []; }
+      }
+      return [];
+    })();
+
+    const cssLayers = loadGlobalColorLayers(15);
+    const normalizedConfig = Array.isArray(configLayers)
+      ? configLayers.map((layer, index) => ({
+          ...layer,
+          id: sanitizeId(layer?.id) || `layer-${index}`,
+          subLayers: Array.isArray(layer?.subLayers)
+            ? layer.subLayers.map(sub => ({ ...sub }))
+            : []
+        }))
+      : [];
+
+    if(!cssLayers.length && !normalizedConfig.length) return [];
+
+    if(!cssLayers.length) return normalizedConfig.map(layer => ({
+      ...layer,
+      preview: buildPreviewFromLayer(layer)
+    }));
+
+    const merged = cssLayers.map(layer => {
+      const existing = findLayerById(normalizedConfig, layer.id);
+      if(existing){
+        const name = typeof existing.name === 'string' && existing.name ? existing.name : layer.name;
+        return {
+          ...layer,
+          ...existing,
+          id: layer.id,
+          name,
+          preview: existing.preview || layer.preview || buildPreviewFromLayer({ ...layer, ...existing, id: layer.id })
+        };
+      }
+      return layer;
+    });
+
+    normalizedConfig.forEach(layer => {
+      const id = sanitizeId(layer?.id);
+      if(!id || merged.some(item => sanitizeId(item.id) === id)) return;
+      merged.push({
+        ...layer,
+        preview: layer.preview ? layer.preview : buildPreviewFromLayer(layer)
+      });
+    });
+
+    return merged.map(layer => ensureLayerSwatch(layer));
+  }
+
+  function findLayerById(layers, id){
+    const wanted = sanitizeId(id);
+    if(!wanted) return null;
+    return layers.find(layer => sanitizeId(layer?.id) === wanted) || null;
+  }
+
+  function adjustColorLightness(color, delta){
+    if (typeof window?.parseColor !== 'function' || typeof window?.hslaToString !== 'function') return '';
+    try{
+      const parsed = window.parseColor(color);
+      if(!parsed) return '';
+      const next = { ...parsed, l: clampNumber(parsed.l + delta, 0, 100) };
+      return window.hslaToString(next);
+    }catch{}
+    return '';
+  }
+
+  function adjustColorAlpha(color, alpha){
+    if (typeof window?.parseColor !== 'function' || typeof window?.hslaToString !== 'function') return '';
+    try{
+      const parsed = window.parseColor(color);
+      if(!parsed) return '';
+      const next = { ...parsed, a: clampNumber(alpha, 0, 1) };
+      return window.hslaToString(next);
+    }catch{}
+    return '';
+  }
+
+  function deriveMainColors(layer){
+    if(!layer) return null;
+    const bg = typeof layer.moduleBg === 'string' && layer.moduleBg ? layer.moduleBg : '';
+    const text = typeof layer.moduleText === 'string' && layer.moduleText ? layer.moduleText : '';
+    const border = typeof layer.moduleBorder === 'string' && layer.moduleBorder ? layer.moduleBorder : (text || bg);
+    return { bg, text, border };
+  }
+
+  function deriveHeaderColors(layer){
+    if(!layer) return null;
+    const main = deriveMainColors(layer) || { bg:'', text:'', border:'' };
+    const bg = typeof layer.headerBg === 'string' && layer.headerBg ? layer.headerBg : main.bg;
+    const text = typeof layer.headerText === 'string' && layer.headerText ? layer.headerText : main.text;
+    const border = typeof layer.headerBorder === 'string' && layer.headerBorder ? layer.headerBorder : (bg || main.border);
+    return { bg, text, border };
+  }
+
+  function deriveButtonColors(layer){
+    if(!layer) return null;
+    const main = deriveMainColors(layer) || { bg:'', text:'', border:'' };
+    let sub = null;
+    if(Array.isArray(layer.subLayers) && layer.subLayers.length){
+      sub = layer.subLayers[0];
+    } else {
+      sub = { bg: layer.subBg, text: layer.subText, border: layer.subBorder };
+    }
+    const bg = typeof sub?.bg === 'string' && sub.bg ? sub.bg : main.bg;
+    const text = typeof sub?.text === 'string' && sub.text ? sub.text : main.text;
+    const border = typeof sub?.border === 'string' && sub.border ? sub.border : (bg || main.border);
+    return { bg, text, border };
+  }
 
   function normalizeLookupKey(value){
     return String(value ?? '')
@@ -310,6 +699,476 @@
       </div>
     `;
 
+    const gridItem = root.closest('.grid-stack-item');
+    const hostEl = root.closest('.grid-stack-item-content');
+    const instanceId = gridItem?.dataset.instanceId || 'default';
+    let colorConfigStore = loadColorConfig();
+    const storedSelection = (colorConfigStore && typeof colorConfigStore === 'object') ? colorConfigStore[instanceId] : null;
+    const selectedColors = {
+      main: sanitizeId(storedSelection?.main),
+      header: sanitizeId(storedSelection?.header),
+      buttons: sanitizeId(storedSelection?.buttons)
+    };
+    let colorModal = null;
+
+    function getSelectionSnapshot(){
+      const snapshot = {};
+      let hasValues = false;
+      for(const area of COLOR_AREAS){
+        const id = sanitizeId(selectedColors[area]);
+        snapshot[area] = id;
+        if(id) hasValues = true;
+      }
+      return { snapshot, hasValues };
+    }
+
+    function persistColorSelection(){
+      const { snapshot, hasValues } = getSelectionSnapshot();
+      const nextStore = { ...colorConfigStore };
+      if(hasValues){
+        nextStore[instanceId] = snapshot;
+      } else {
+        delete nextStore[instanceId];
+      }
+      colorConfigStore = nextStore;
+      saveColorConfig(colorConfigStore);
+    }
+
+    function applySelectedColors(){
+      const layers = getColorLayers();
+      let removed = false;
+      for(const area of COLOR_AREAS){
+        const id = sanitizeId(selectedColors[area]);
+        if(id && !findLayerById(layers, id)){
+          selectedColors[area] = '';
+          removed = true;
+        }
+      }
+      if(removed) persistColorSelection();
+
+      const mainLayer = findLayerById(layers, selectedColors.main);
+      const headerLayer = selectedColors.header ? findLayerById(layers, selectedColors.header) : mainLayer;
+      const buttonLayer = selectedColors.buttons ? findLayerById(layers, selectedColors.buttons) : mainLayer;
+
+      const mainColors = mainLayer ? deriveMainColors(mainLayer) : null;
+      const headerColors = headerLayer ? deriveHeaderColors(headerLayer) : null;
+      const buttonColors = buttonLayer ? deriveButtonColors(buttonLayer) : null;
+
+      if(hostEl){
+        if(mainColors){
+          setCssVar(hostEl, '--module-bg', mainColors.bg);
+          setCssVar(hostEl, '--text-color', mainColors.text);
+          setCssVar(hostEl, '--module-border-color', mainColors.border);
+          const baseHeader = deriveHeaderColors(mainLayer);
+          setCssVar(hostEl, '--module-header-bg', baseHeader?.bg || '');
+          setCssVar(hostEl, '--module-header-text', baseHeader?.text || '');
+          hostEl.style.background = mainColors.bg || '';
+          hostEl.style.color = mainColors.text || '';
+          hostEl.style.borderColor = mainColors.border || '';
+        } else {
+          setCssVar(hostEl, '--module-bg', '');
+          setCssVar(hostEl, '--text-color', '');
+          setCssVar(hostEl, '--module-border-color', '');
+          setCssVar(hostEl, '--module-header-bg', '');
+          setCssVar(hostEl, '--module-header-text', '');
+          hostEl.style.background = '';
+          hostEl.style.color = '';
+          hostEl.style.borderColor = '';
+        }
+      }
+
+      setCssVar(root, '--lbp-main-text', mainColors?.text || '');
+      setCssVar(root, '--lbp-main-border', mainColors?.border || '');
+      root.style.color = mainColors?.text || '';
+
+      setCssVar(root, '--lbp-header-bg', headerColors?.bg || '');
+      setCssVar(root, '--lbp-header-text', headerColors?.text || '');
+      setCssVar(root, '--lbp-header-border', headerColors?.border || '');
+      const headerEl = root.querySelector('.ops-header');
+      if(headerEl){
+        headerEl.style.background = headerColors?.bg || '';
+        headerEl.style.color = headerColors?.text || '';
+        headerEl.style.borderColor = headerColors?.border || '';
+      }
+
+      const cards = Array.from(root.querySelectorAll('.ops-card'));
+      if(buttonColors){
+        setCssVar(root, '--lbp-card-bg', buttonColors.bg || '');
+        setCssVar(root, '--lbp-card-text', buttonColors.text || '');
+        setCssVar(root, '--lbp-card-border', buttonColors.border || '');
+        const hoverBorder = adjustColorLightness(buttonColors.border, 10) || buttonColors.border;
+        setCssVar(root, '--lbp-card-hover-border', hoverBorder || '');
+        const activeBg = adjustColorLightness(buttonColors.bg, 6) || adjustColorAlpha(buttonColors.bg, 0.78) || '';
+        setCssVar(root, '--lbp-card-active-bg', activeBg);
+        const shadow = buttonColors.border ? adjustColorAlpha(buttonColors.border, 0.26) : '';
+        const hoverShadow = buttonColors.border ? adjustColorAlpha(buttonColors.border, 0.32) : '';
+        const shadowValue = shadow ? `0 16px 34px ${shadow}` : '';
+        const hoverShadowValue = hoverShadow ? `0 20px 40px ${hoverShadow}` : '';
+        setCssVar(root, '--lbp-card-shadow', shadowValue);
+        setCssVar(root, '--lbp-card-shadow-hover', hoverShadowValue);
+        cards.forEach(card => {
+          card.style.background = buttonColors.bg || '';
+          card.style.color = buttonColors.text || '';
+          card.style.borderColor = buttonColors.border || '';
+        });
+      } else {
+        setCssVar(root, '--lbp-card-bg','');
+        setCssVar(root, '--lbp-card-text','');
+        setCssVar(root, '--lbp-card-border','');
+        setCssVar(root, '--lbp-card-hover-border','');
+        setCssVar(root, '--lbp-card-active-bg','');
+        setCssVar(root, '--lbp-card-shadow','');
+        setCssVar(root, '--lbp-card-shadow-hover','');
+        cards.forEach(card => {
+          card.style.background = '';
+          card.style.color = '';
+          card.style.borderColor = '';
+        });
+      }
+
+      const accentSource = headerColors || mainColors || buttonColors || null;
+      const accentEl = root.querySelector('.ops-autorefresh');
+      if(accentSource){
+        const accentBg = adjustColorLightness(accentSource.border || accentSource.bg, 8)
+          || adjustColorAlpha(accentSource.bg, 0.82)
+          || accentSource.bg;
+        setCssVar(root, '--lbp-accent-bg', accentBg || '');
+        setCssVar(root, '--lbp-accent-text', accentSource.text || '');
+        if(accentEl){
+          accentEl.style.background = accentBg || '';
+          accentEl.style.color = accentSource.text || '';
+        }
+      } else {
+        setCssVar(root, '--lbp-accent-bg','');
+        setCssVar(root, '--lbp-accent-text','');
+        if(accentEl){
+          accentEl.style.background = '';
+          accentEl.style.color = '';
+        }
+      }
+
+      if(colorModal && colorModal.isOpen()) colorModal.updatePreviews();
+    }
+
+    function syncSelectionFromStorage(){
+      const fresh = loadColorConfig();
+      colorConfigStore = fresh;
+      const entry = (fresh && typeof fresh === 'object') ? fresh[instanceId] : null;
+      for (const area of COLOR_AREAS) {
+        selectedColors[area] = sanitizeId(entry?.[area]);
+      }
+      applySelectedColors();
+      if(colorModal) {
+        colorModal.setSelection(selectedColors);
+      }
+    }
+
+    const storageHandler = (event) => {
+      if(event && event.key && event.key !== COLOR_CONFIG_KEY) return;
+      syncSelectionFromStorage();
+    };
+    window.addEventListener('storage', storageHandler);
+
+    function createColorModal(rootEl, hostContent){
+      const titleId = 'ops-color-title-' + Math.random().toString(36).slice(2,9);
+      const sectionMarkup = COLOR_AREAS.map(area => {
+        const label = area === 'header' ? 'Header' : (area === 'main' ? 'Hauptmodul' : 'Buttons');
+        const hint = area === 'header' ? 'Titelzeile & Status' : (area === 'main' ? 'Rahmen & Hintergrund' : 'Karten & Aktionen');
+        const selectId = `ops-color-select-${area}-${Math.random().toString(36).slice(2,8)}`;
+        return `
+          <section class="ops-color-section">
+            <label class="ops-color-label" for="${selectId}">${label}</label>
+            <div class="ops-color-hint">${hint}</div>
+            <select id="${selectId}" data-area="${area}" class="ops-color-select"></select>
+            <div class="ops-color-preview" data-preview="${area}">
+              <span class="ops-color-chip" data-chip="bg" aria-hidden="true"></span>
+              <span class="ops-color-chip" data-chip="text" aria-hidden="true"></span>
+              <span class="ops-color-chip" data-chip="border" aria-hidden="true"></span>
+              <span class="ops-color-preview-label">Standard (App)</span>
+            </div>
+          </section>`;
+      }).join('');
+
+      const overlay = document.createElement('div');
+      overlay.className = 'ops-color-overlay';
+      overlay.setAttribute('aria-hidden','true');
+      overlay.innerHTML = `
+        <div class="ops-color-dialog" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
+          <div class="ops-color-header">
+            <h2 class="ops-color-title" id="${titleId}">Farben für LinkButtons Plus</h2>
+            <button type="button" class="ops-color-dismiss" aria-label="Farbauswahl schließen">×</button>
+          </div>
+          <div class="ops-color-body">${sectionMarkup}</div>
+          <div class="ops-color-footer">
+            <button type="button" class="ops-color-reset">Zurücksetzen</button>
+            <button type="button" class="ops-color-done">Schließen</button>
+          </div>
+        </div>`;
+      (document.body || document.documentElement).appendChild(overlay);
+
+      const dialog = overlay.querySelector('.ops-color-dialog');
+      const selects = {};
+      const previews = {};
+      COLOR_AREAS.forEach(area => {
+        selects[area] = overlay.querySelector(`select[data-area="${area}"]`);
+        previews[area] = overlay.querySelector(`[data-preview="${area}"]`);
+      });
+
+      let openState = false;
+      let callbacks = { onChange:null, onReset:null, getSelection:null };
+      let currentLayers = [];
+      let lastFocus = null;
+
+      function formatLabel(layer, area){
+        const name = typeof layer?.name === 'string' && layer.name
+          ? layer.name
+          : (typeof layer?.label === 'string' && layer.label ? layer.label : 'Layer');
+        let colors;
+        if(area === 'header') colors = deriveHeaderColors(layer);
+        else if(area === 'buttons') colors = deriveButtonColors(layer);
+        else colors = deriveMainColors(layer);
+        if(colors?.bg && colors?.text){
+          return `${name} (${colors.bg} · ${colors.text})`;
+        }
+        if(colors?.bg) return `${name} (${colors.bg})`;
+        return name;
+      }
+
+      function getPreviewForArea(layer, area){
+        if(!layer) return { bg:'', text:'' };
+        const previewEntry = layer.preview?.[area];
+        if(previewEntry){
+          return {
+            bg: previewEntry.bg || '',
+            text: previewEntry.text || ''
+          };
+        }
+        let colors = null;
+        if(area === 'header') colors = deriveHeaderColors(layer);
+        else if(area === 'buttons') colors = deriveButtonColors(layer);
+        else colors = deriveMainColors(layer);
+        return {
+          bg: colors?.bg || '',
+          text: colors?.text || ''
+        };
+      }
+
+      function styleOption(option, layer, area){
+        if(!option) return;
+        const preview = getPreviewForArea(layer, area);
+        const swatch = (typeof layer?.swatch === 'string' && layer.swatch)
+          || preview.bg
+          || (typeof layer?.color === 'string' ? layer.color : '');
+        const textColor = preview.text
+          || (typeof layer?.moduleText === 'string' && layer.moduleText)
+          || (swatch ? '#fff' : '');
+        option.style.background = swatch || '';
+        option.style.color = textColor;
+        option.style.padding = '4px 8px';
+        option.style.borderRadius = '4px';
+      }
+
+      function updateSelectBackground(area){
+        const select = selects[area];
+        if(!select) return;
+        const value = sanitizeId(select.value);
+        if(!value){
+          select.style.background = '';
+          select.style.color = '';
+          return;
+        }
+        const layer = findLayerById(currentLayers, value);
+        const preview = getPreviewForArea(layer, area);
+        const swatch = (typeof layer?.swatch === 'string' && layer.swatch)
+          || preview.bg
+          || (typeof layer?.color === 'string' ? layer.color : '');
+        const textColor = preview.text
+          || (typeof layer?.moduleText === 'string' && layer.moduleText)
+          || (swatch ? '#fff' : '');
+        select.style.background = swatch || '';
+        select.style.color = textColor;
+      }
+
+      function populateOptions(layers){
+        COLOR_AREAS.forEach(area => {
+          const select = selects[area];
+          if(!select) return;
+          const previous = select.value;
+          select.innerHTML = '';
+          const def = document.createElement('option');
+          def.value = '';
+          def.textContent = 'Standard (App)';
+          def.style.background = '';
+          def.style.color = '';
+          select.appendChild(def);
+          layers.forEach(layer => {
+            const option = document.createElement('option');
+            option.value = sanitizeId(layer?.id) || '';
+            option.textContent = formatLabel(layer, area);
+            styleOption(option, layer, area);
+            select.appendChild(option);
+          });
+          if(previous){
+            select.value = previous;
+            if(select.value !== previous) select.value = '';
+          }
+          updateSelectBackground(area);
+        });
+      }
+
+      function setSelection(selection){
+        COLOR_AREAS.forEach(area => {
+          const select = selects[area];
+          if(!select) return;
+          const wanted = sanitizeId(selection?.[area]);
+          if(wanted){
+            select.value = wanted;
+            if(select.value !== wanted) select.value = '';
+          } else {
+            select.value = '';
+          }
+          updateSelectBackground(area);
+        });
+      }
+
+      function updatePreviews(){
+        const mainStyle = hostContent ? getComputedStyle(hostContent) : null;
+        const headerEl = rootEl.querySelector('.ops-header');
+        const headerStyle = headerEl ? getComputedStyle(headerEl) : null;
+        const cardEl = rootEl.querySelector('.ops-card');
+        const cardStyle = cardEl ? getComputedStyle(cardEl) : null;
+        const styleMap = { main: mainStyle, header: headerStyle, buttons: cardStyle };
+        COLOR_AREAS.forEach(area => {
+          const preview = previews[area];
+          const style = styleMap[area];
+          if(!preview || !style) return;
+          let bg = '', text = '', border = '';
+          if(area === 'main'){
+            bg = style.getPropertyValue('--module-bg') || style.backgroundColor || '';
+            text = style.getPropertyValue('--text-color') || style.color || '';
+            border = style.getPropertyValue('--module-border-color') || style.borderTopColor || '';
+          } else {
+            bg = style.backgroundColor || '';
+            text = style.color || '';
+            border = style.borderTopColor || style.borderColor || '';
+          }
+          const chips = {
+            bg: preview.querySelector('[data-chip="bg"]'),
+            text: preview.querySelector('[data-chip="text"]'),
+            border: preview.querySelector('[data-chip="border"]')
+          };
+          const label = preview.querySelector('.ops-color-preview-label');
+          const clean = str => (typeof str === 'string' ? str.trim() : '');
+          const values = { bg: clean(bg), text: clean(text), border: clean(border) };
+          if(chips.bg) chips.bg.style.background = values.bg || 'transparent';
+          if(chips.text) chips.text.style.background = values.text || 'transparent';
+          if(chips.border) chips.border.style.background = values.border || 'transparent';
+          if(label){
+            const parts = [values.bg, values.text, values.border].filter(Boolean);
+            label.textContent = parts.length ? parts.join(' · ') : 'Standard (App)';
+            label.title = label.textContent;
+          }
+        });
+        COLOR_AREAS.forEach(area => updateSelectBackground(area));
+      }
+
+      function close(){
+        if(!openState) return;
+        overlay.classList.remove('open');
+        overlay.setAttribute('aria-hidden','true');
+        document.removeEventListener('keydown', handleKeydown, true);
+        openState = false;
+        if(lastFocus && typeof lastFocus.focus === 'function'){
+          try { lastFocus.focus(); } catch {}
+        }
+      }
+
+      function handleKeydown(event){
+        if(event.key === 'Escape'){
+          event.preventDefault();
+          close();
+        }
+      }
+
+      overlay.addEventListener('click', event => {
+        if(event.target === overlay) close();
+      });
+      overlay.querySelector('.ops-color-dismiss')?.addEventListener('click', close);
+      overlay.querySelector('.ops-color-done')?.addEventListener('click', close);
+      const resetBtn = overlay.querySelector('.ops-color-reset');
+      if(resetBtn){
+        resetBtn.addEventListener('click', () => {
+          let nextSelection = null;
+          if(typeof callbacks.onReset === 'function'){
+            nextSelection = callbacks.onReset();
+          }
+          if(nextSelection && typeof nextSelection === 'object'){
+            setSelection(nextSelection);
+          } else if (callbacks.getSelection) {
+            const latest = callbacks.getSelection();
+            if(latest && typeof latest === 'object') setSelection(latest);
+          }
+          updatePreviews();
+        });
+      }
+
+      COLOR_AREAS.forEach(area => {
+        const select = selects[area];
+        if(!select) return;
+        select.addEventListener('change', () => {
+          const value = sanitizeId(select.value);
+          let nextSelection = null;
+          if(typeof callbacks.onChange === 'function'){
+            nextSelection = callbacks.onChange(area, value);
+          }
+          if(nextSelection && typeof nextSelection === 'object'){
+            setSelection(nextSelection);
+          }
+          updatePreviews();
+          updateSelectBackground(area);
+        });
+      });
+
+      function open(options = {}){
+        currentLayers = Array.isArray(options.layers) ? options.layers : [];
+        callbacks = {
+          onChange: typeof options.onChange === 'function' ? options.onChange : null,
+          onReset: typeof options.onReset === 'function' ? options.onReset : null,
+          getSelection: typeof options.getSelection === 'function' ? options.getSelection : null
+        };
+        populateOptions(currentLayers);
+        if(options.selection) setSelection(options.selection);
+        overlay.classList.add('open');
+        overlay.setAttribute('aria-hidden','false');
+        openState = true;
+        lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        if(dialog){
+          dialog.setAttribute('tabindex','-1');
+          try { dialog.focus({ preventScroll:true }); } catch {}
+        }
+        document.addEventListener('keydown', handleKeydown, true);
+        updatePreviews();
+      }
+
+      function destroy(){
+        close();
+        overlay.remove();
+      }
+
+      return {
+        open,
+        close,
+        destroy,
+        setSelection,
+        updatePreviews,
+        isOpen: () => openState
+      };
+    }
+
+    colorModal = createColorModal(root, hostEl);
+    applySelectedColors();
+    setTimeout(() => applySelectedColors(), 0);
+
     // ---- URLs ----
     const URLS = {
       ZIAUF3_BASE: 'https://sap-p04.lht.ham.dlh.de/sap/bc/gui/sap/its/webgui?sap-client=002&~transaction=*ziauf3+CAUFVD-AUFNR%3D',
@@ -432,6 +1291,8 @@
       <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
         ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
         <hr>
+        <button type="button" class="ops-color-settings ops-action-button">Farben anpassen</button>
+        <hr>
         <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
         <div class="ops-file"></div>
         <div class="ops-file-hint"></div>
@@ -458,6 +1319,40 @@
     const fileHint = menu.querySelector('.ops-file-hint');
     const autoBadge = root.querySelector('.ops-autorefresh');
     const autoBadgeTime = autoBadge?.querySelector('.ops-autorefresh-time');
+    const colorButton = menu.querySelector('.ops-color-settings');
+
+    function openColorSettings(){
+      const layers = getColorLayers();
+      const snapshot = {};
+      COLOR_AREAS.forEach(area => { snapshot[area] = sanitizeId(selectedColors[area]); });
+      colorModal.open({
+        layers,
+        selection: snapshot,
+        onChange(area, value){
+          selectedColors[area] = sanitizeId(value);
+          persistColorSelection();
+          applySelectedColors();
+          return { ...selectedColors };
+        },
+        onReset(){
+          COLOR_AREAS.forEach(area => { selectedColors[area] = ''; });
+          persistColorSelection();
+          applySelectedColors();
+          return { ...selectedColors };
+        },
+        getSelection(){
+          return { ...selectedColors };
+        }
+      });
+    }
+
+    if(colorButton){
+      colorButton.addEventListener('click', () => {
+        persistFilters();
+        menu.classList.remove('open');
+        openColorSettings();
+      });
+    }
 
     function updateAutoRefreshUI(){
       if(!autoBadge) return;
@@ -786,6 +1681,12 @@
       if (!document.body.contains(root)) {
         attrObserver.disconnect();
         clearAutoUpdateTimer();
+        window.removeEventListener('storage', storageHandler);
+        if (colorModal) {
+          colorModal.destroy();
+          colorModal = null;
+        }
+        menu.remove();
         mo.disconnect();
       }
     });

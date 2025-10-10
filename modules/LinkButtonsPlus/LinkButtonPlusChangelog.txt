@@ -5,6 +5,27 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.1] – 2025-10-02
+### Fixed
+- Layer-Dropdowns lesen die globalen `--layerX-h/s/l/a` Variablen nun sowohl vom `<html>`- als auch vom `<body>`-Element aus und zeigen dadurch bis zu 15 Ebenen zuverlässig an.
+- Ausgewählte Layer behalten ihren echten HSLA-Hintergrund als Vorschau im Dropdown und lassen sich ohne Rückfall auf „Standard (App)“ speichern.
+
+## [1.5.0] – 2025-10-02
+### Added
+- Layer-Auswahl unterstützt nun bis zu 15 globale Farblayer aus den `--layerX-h/s/l/a` Variablen der Shopguide-HTML
+- Dropdown-Einträge zeigen die echte HSLA-Farbe je Layer als Hintergrundvorschau für schnellere Entscheidungen
+
+## [1.4.1] – 2025-10-01
+### Fixed
+- Dropdown-Auswahl der Modul-Farb-Layer setzt nun die gewählten Farben zuverlässig auf Rahmen, Header, Buttons und Status-Badge
+  (inkl. sofortiger Vorschau)
+
+## [1.4.0] – 2025-09-30
+### Added
+- Kontextmenü-Option „Farben anpassen“ mit Modal, das die globalen Modul-Farb-Layer aus der Shopguide-HTML per Dropdown auswählbar macht
+- Instanzbezogene Speicherung der Farbzuweisungen (Hauptmodul, Header, Buttons) inkl. automatischer Aktualisierung bei Änderungen
+- Dynamische Vorschau der aktiven Farben sowie Anpassung der Modul-CSS-Variablen (inkl. Hover/Active-Zustände und Status-Badge)
+
 ## [1.0.2] – 2025-09-23
 ### Changed
 - Standard- und Mindestbreite auf 2 Grid-Spalten × 12 Zeilen Höhe reduziert  
