@@ -4,14 +4,14 @@
   if (!document.getElementById('ops-panel-styles')) {
     const css = `
     .ops-root{ height:100%; }
-    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; display:flex; flex-direction:column; gap:.6rem; }
+    .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; display:flex; flex-direction:column; gap:.6rem; color:var(--ops-module-text, inherit); }
     .ops-header{
       display:flex; align-items:center; justify-content:space-between; gap:.75rem;
       padding:.55rem .95rem; border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);
-      background:rgba(21,45,76,.86);
-      color:#f8fafc; font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem); font-weight:700;
-      letter-spacing:.4px; text-transform:uppercase; box-shadow:0 12px 28px rgba(12,24,41,.45);
-      border:1px solid rgba(76,114,163,.32);
+      background:var(--ops-header-bg, rgba(21,45,76,.86));
+      color:var(--ops-header-text,#f8fafc); font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem); font-weight:700;
+      letter-spacing:.4px; text-transform:uppercase; box-shadow:var(--ops-header-shadow, 0 12px 28px rgba(12,24,41,.45));
+      border:1px solid var(--ops-header-border, rgba(76,114,163,.32));
     }
     .ops-title{ display:flex; align-items:center; gap:.45rem; }
     .ops-title::before{
@@ -19,10 +19,11 @@
     }
     .ops-autorefresh{
       display:inline-flex; align-items:center; gap:.4rem;
-      padding:.35rem .9rem; border-radius:999px; color:#fff;
-      background:rgba(37,99,235,.92); box-shadow:0 8px 18px rgba(15,23,42,.28);
-      font-size:.78rem; font-weight:600; letter-spacing:.25px;
+      padding:.35rem .9rem; border-radius:999px;
+      background:var(--ops-pill-bg, rgba(37,99,235,.92)); box-shadow:var(--ops-pill-shadow, 0 8px 18px rgba(15,23,42,.28));
+      color:var(--ops-pill-text,#fff); font-size:.78rem; font-weight:600; letter-spacing:.25px;
       cursor:default; transition:opacity .15s ease, box-shadow .15s ease;
+      border:1px solid var(--ops-pill-border, transparent);
     }
     .ops-autorefresh[data-state="active"]{ opacity:1; }
     .ops-autorefresh[data-state="idle"],
@@ -52,19 +53,24 @@
     }
     .ops-card{
       width:100%; height:100%; box-sizing:border-box;
-      background:rgba(21,45,76,.82);
-      border: 1px solid rgba(76,114,163,.34);
+      background:var(--ops-card-bg, rgba(21,45,76,.82));
+      border: 1px solid var(--ops-card-border, rgba(76,114,163,.34));
       border-radius: var(--module-border-radius, 1.25rem);
-      color: var(--module-header-text,#fff);
+      color: var(--ops-card-text, var(--module-header-text,#fff));
       display:flex; align-items:center; justify-content:center;
       padding:.5rem 1rem; font-weight:600; letter-spacing:.2px;
       font-size: clamp(.9rem, 1.1vw + .4vh, 1.25rem);
       user-select:none; text-align:center;
       transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease, border-color .12s ease;
-      box-shadow: 0 16px 34px rgba(12,24,41,.45);
+      box-shadow: var(--ops-card-shadow, 0 16px 34px rgba(12,24,41,.45));
     }
-    .ops-card:hover{ transform: translateY(-1px); box-shadow: 0 20px 40px rgba(15,23,42,.45); border-color:rgba(37,99,235,.45); }
-    .ops-card:active{ transform: translateY(0); filter:none; background:rgba(37,99,235,.32); }
+    .ops-card:hover{
+      transform: translateY(-1px);
+      box-shadow: var(--ops-card-shadow-hover, 0 20px 40px rgba(15,23,42,.45));
+      border-color:var(--ops-card-border-hover, rgba(37,99,235,.45));
+      background:var(--ops-card-hover-bg, var(--ops-card-bg, rgba(21,45,76,.82)));
+    }
+    .ops-card:active{ transform: translateY(0); filter:none; background:var(--ops-card-active-bg, rgba(37,99,235,.32)); }
     .leftTop{ grid-area:leftTop; } .leftBot{ grid-area:leftBot; }
     .r0{ grid-area:r0; } .r1{ grid-area:r1; } .r2{ grid-area:r2; } .r3{ grid-area:r3; } .r4{ grid-area:r4; } .r5{ grid-area:r5; }
     .ops-bounce{ animation: ops-bounce .25s ease; }
@@ -98,11 +104,175 @@
     .ops-filter-actions .ops-action-button{margin:0;}
     .ops-menu .ops-file{display:block; font-size:.75rem; opacity:.8; padding:.2rem .6rem 0;}
     .ops-menu .ops-file-hint{display:block; font-size:.72rem; opacity:.65; padding:.15rem .6rem .2rem; min-height:1em;}
+    .ops-layer-picker{padding:.35rem .35rem .25rem; display:flex; flex-direction:column; gap:.45rem;}
+    .ops-layer-label{display:flex; flex-direction:column; gap:.25rem; font-weight:600; font-size:.85rem;}
+    .ops-layer-label span{font-size:.75rem; font-weight:600;}
+    .ops-layer-select{width:100%; padding:.35rem .45rem; border:1px solid var(--border-color,#d1d5db); border-radius:.4rem; background:var(--sidebar-module-card-bg,#fff); color:inherit; font-size:.85rem; box-sizing:border-box;}
+    .ops-layer-preview{display:flex; padding:0 .35rem .3rem; min-height:3.4rem;}
+    .ops-layer-preview-card{flex:1; display:flex; flex-direction:column; gap:.25rem; border-radius:.65rem; overflow:hidden; border:1px solid rgba(0,0,0,.08); background:#fff;}
+    .ops-layer-preview-header{padding:.3rem .45rem; font-size:.7rem; font-weight:700; border-bottom:1px solid transparent;}
+    .ops-layer-preview-main{padding:.4rem .45rem; font-size:.7rem; opacity:.82;}
+    .ops-layer-preview-button{align-self:flex-start; margin:.35rem .45rem .45rem; padding:.25rem .55rem; border-radius:999px; font-size:.7rem; font-weight:600; border:1px solid currentColor;}
+    .ops-layer-preview-empty{padding:.3rem .45rem; font-size:.75rem; opacity:.7;}
+    .ops-layer-toggle-list{padding:.1rem .2rem .35rem; display:flex; flex-direction:column; gap:.1rem;}
+    .ops-layer-toggle-list label{border-radius:.35rem;}
     `;
     const tag = document.createElement('style');
     tag.id = 'ops-panel-styles';
     tag.textContent = css;
     document.head.appendChild(tag);
+  }
+
+  const LAYER_STATE_KEY = 'linkbuttonsplus-layer-selection';
+  const FALLBACK_LAYER = Object.freeze({
+    id: 'fallback-layer',
+    name: 'Standard',
+    moduleBg: '#152d4c',
+    moduleText: '#f8fafc',
+    moduleBorder: '#4c72a3',
+    headerBg: '#152d4c',
+    headerText: '#f8fafc',
+    headerBorder: '#4c72a3',
+    subBg: '#2563eb',
+    subText: '#ffffff',
+    subBorder: '#1d4ed8',
+    subLayers: Object.freeze([
+      Object.freeze({ bg: '#2563eb', text: '#ffffff', border: '#1d4ed8' })
+    ])
+  });
+
+  function ensureColor(value, fallback) {
+    return (typeof value === 'string' && value.trim()) ? value.trim() : fallback;
+  }
+
+  function parseColorChannels(color) {
+    if (!color || typeof color !== 'string') return null;
+    const input = color.trim();
+    if (!input) return null;
+    if (input.startsWith('#')) {
+      let hex = input.slice(1);
+      if (hex.length === 3) {
+        hex = hex.split('').map(ch => ch + ch).join('');
+      }
+      if (hex.length !== 6) return null;
+      const intVal = Number.parseInt(hex, 16);
+      if (Number.isNaN(intVal)) return null;
+      return {
+        r: (intVal >> 16) & 255,
+        g: (intVal >> 8) & 255,
+        b: intVal & 255
+      };
+    }
+    const match = input.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    if (match) {
+      const r = Number.parseFloat(match[1]);
+      const g = Number.parseFloat(match[2]);
+      const b = Number.parseFloat(match[3]);
+      if ([r, g, b].some(v => Number.isNaN(v))) return null;
+      return {
+        r: Math.max(0, Math.min(255, Math.round(r))),
+        g: Math.max(0, Math.min(255, Math.round(g))),
+        b: Math.max(0, Math.min(255, Math.round(b)))
+      };
+    }
+    return null;
+  }
+
+  function mixColor(base, mixWith, weight = 0.5) {
+    const source = parseColorChannels(base);
+    if (!source) return base;
+    const target = parseColorChannels(mixWith) || (weight >= 0.5
+      ? { r: 255, g: 255, b: 255 }
+      : { r: 0, g: 0, b: 0 });
+    const w = Math.max(0, Math.min(1, Number(weight) || 0));
+    const r = Math.round(source.r + (target.r - source.r) * w);
+    const g = Math.round(source.g + (target.g - source.g) * w);
+    const b = Math.round(source.b + (target.b - source.b) * w);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
+  function withAlpha(color, alpha, fallbackOpacity = 0.35) {
+    const channels = parseColorChannels(color);
+    if (!channels) return `rgba(0,0,0,${fallbackOpacity})`;
+    const a = Math.max(0, Math.min(1, Number(alpha) || 0));
+    return `rgba(${channels.r}, ${channels.g}, ${channels.b}, ${a})`;
+  }
+
+  function buildShadow(color, alpha, template, fallbackOpacity = 0.35) {
+    return `${template} ${withAlpha(color, alpha, fallbackOpacity)}`;
+  }
+
+  function loadLayerSelections() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LAYER_STATE_KEY));
+      return raw && typeof raw === 'object' ? raw : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveLayerSelections(state) {
+    try {
+      localStorage.setItem(LAYER_STATE_KEY, JSON.stringify(state));
+    } catch {}
+  }
+
+  function getLayerDefinitions() {
+    const layers = window?.appSettings?.moduleColorLayers;
+    if (Array.isArray(layers) && layers.length) return layers;
+    return [FALLBACK_LAYER];
+  }
+
+  function resolveLayerColors(layer) {
+    const base = layer || FALLBACK_LAYER;
+    const moduleBg = ensureColor(base.moduleBg, FALLBACK_LAYER.moduleBg);
+    const moduleText = ensureColor(base.moduleText, FALLBACK_LAYER.moduleText);
+    const moduleBorder = ensureColor(base.moduleBorder, moduleText);
+    const headerBg = ensureColor(base.headerBg, moduleBg);
+    const headerText = ensureColor(base.headerText, moduleText);
+    const headerBorder = ensureColor(base.headerBorder, headerBg);
+    const subLayers = Array.isArray(base.subLayers) && base.subLayers.length
+      ? base.subLayers
+      : [{
+          bg: ensureColor(base.subBg, moduleBg),
+          text: ensureColor(base.subText, moduleText),
+          border: ensureColor(base.subBorder, moduleBorder)
+        }];
+    const firstSub = subLayers[0] || {};
+    const subBg = ensureColor(firstSub.bg, moduleBg);
+    const subText = ensureColor(firstSub.text, moduleText);
+    const subBorder = ensureColor(firstSub.border, subBg);
+    return { moduleBg, moduleText, moduleBorder, headerBg, headerText, headerBorder, subBg, subText, subBorder };
+  }
+
+  function applyColorLayer(layer, targetEl) {
+    if (!targetEl) return resolveLayerColors(layer);
+    const colors = resolveLayerColors(layer);
+    const { moduleBg, moduleText, moduleBorder, headerBg, headerText, headerBorder, subBg, subText, subBorder } = colors;
+    targetEl.style.setProperty('--ops-module-bg', moduleBg);
+    targetEl.style.setProperty('--ops-module-text', moduleText);
+    targetEl.style.setProperty('--ops-module-border', moduleBorder);
+    targetEl.style.setProperty('--ops-header-bg', headerBg);
+    targetEl.style.setProperty('--ops-header-text', headerText);
+    targetEl.style.setProperty('--ops-header-border', headerBorder);
+    targetEl.style.setProperty('--ops-header-shadow', buildShadow(headerBg, 0.45, '0 12px 28px'));
+    targetEl.style.setProperty('--ops-card-bg', subBg);
+    targetEl.style.setProperty('--ops-card-text', subText);
+    targetEl.style.setProperty('--ops-card-border', subBorder);
+    targetEl.style.setProperty('--ops-card-border-hover', mixColor(subBorder, '#ffffff', 0.25));
+    targetEl.style.setProperty('--ops-card-hover-bg', mixColor(subBg, '#ffffff', 0.1));
+    targetEl.style.setProperty('--ops-card-active-bg', withAlpha(subBg, 0.35));
+    targetEl.style.setProperty('--ops-card-shadow', buildShadow(subBg, 0.38, '0 16px 34px'));
+    targetEl.style.setProperty('--ops-card-shadow-hover', buildShadow(subBg, 0.45, '0 20px 40px'));
+    targetEl.style.setProperty('--ops-pill-bg', mixColor(subBg, '#ffffff', 0.12));
+    targetEl.style.setProperty('--ops-pill-text', subText);
+    targetEl.style.setProperty('--ops-pill-border', mixColor(subBg, '#000000', 0.2));
+    targetEl.style.setProperty('--ops-pill-shadow', buildShadow(subBg, 0.28, '0 8px 18px'));
+    targetEl.style.backgroundColor = moduleBg;
+    targetEl.style.color = moduleText;
+    targetEl.style.borderColor = moduleBorder;
+    if (targetEl.dataset) targetEl.dataset.colorLayer = layer?.id || 'fallback-layer';
+    return colors;
   }
 
   // ---------- storage helpers ----------
@@ -285,6 +455,9 @@
     }
     while (r.length < 6) r.push('');
 
+    const itemEl = root.closest('.grid-stack-item');
+    const contentEl = root.closest('.grid-stack-item-content');
+
     root.classList.add('ops-root');
 
     root.innerHTML = `
@@ -430,7 +603,17 @@
         <button type="button" class="ops-tab-btn" data-tab="filters">Filter</button>
       </div>
       <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
-        ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
+        <div class="ops-layer-picker">
+          <label class="ops-layer-label">
+            <span>Farbschema</span>
+            <select class="ops-layer-select"></select>
+          </label>
+          <div class="ops-layer-preview"></div>
+        </div>
+        <hr>
+        <div class="ops-layer-toggle-list">
+          ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
+        </div>
         <hr>
         <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
         <div class="ops-file"></div>
@@ -445,6 +628,82 @@
       </div>
     `;
     document.body.appendChild(menu);
+    const layerSelect = menu.querySelector('.ops-layer-select');
+    const layerPreview = menu.querySelector('.ops-layer-preview');
+    const layerSelections = loadLayerSelections();
+    const layerStateKey = itemEl?.dataset.instanceId || '__default__';
+    let selectedLayerId = typeof layerSelections[layerStateKey] === 'string' ? layerSelections[layerStateKey] : '';
+
+    function renderLayerPreview(layer, colors) {
+      if (!layerPreview) return;
+      if (!layer) {
+        layerPreview.innerHTML = '<div class="ops-layer-preview-empty">Keine Layer verfügbar</div>';
+        return;
+      }
+      const resolved = colors || resolveLayerColors(layer);
+      const { moduleBg, moduleText, moduleBorder, headerBg, headerText, headerBorder, subBg, subText, subBorder } = resolved;
+      layerPreview.innerHTML = `
+        <div class="ops-layer-preview-card" style="background:${moduleBg}; color:${moduleText}; border-color:${moduleBorder};">
+          <div class="ops-layer-preview-header" style="background:${headerBg}; color:${headerText}; border-color:${headerBorder};">Header</div>
+          <div class="ops-layer-preview-main">Modulfläche</div>
+          <div class="ops-layer-preview-button" style="background:${subBg}; color:${subText}; border-color:${subBorder};">Button</div>
+        </div>
+      `;
+    }
+
+    function populateLayerSelect() {
+      if (!layerSelect) return;
+      const layers = getLayerDefinitions();
+      layerSelect.innerHTML = '';
+      if (!layers.length) {
+        layerSelect.disabled = true;
+        renderLayerPreview(null);
+        return;
+      }
+      layerSelect.disabled = false;
+      if (!layers.some(layer => layer.id === selectedLayerId)) {
+        selectedLayerId = layers[0].id;
+      }
+      layers.forEach(layer => {
+        const option = document.createElement('option');
+        option.value = layer.id;
+        option.textContent = layer.name || layer.id || 'Layer';
+        layerSelect.appendChild(option);
+      });
+      layerSelect.value = selectedLayerId;
+    }
+
+    function setColorLayer(requestedId, { save = true } = {}) {
+      const layers = getLayerDefinitions();
+      if (!layers.length) {
+        selectedLayerId = '';
+        renderLayerPreview(null);
+        return;
+      }
+      let layer = layers.find(l => l.id === requestedId);
+      if (!layer) {
+        layer = layers[0];
+      }
+      selectedLayerId = layer.id;
+      if (layerSelect && layerSelect.value !== selectedLayerId) {
+        layerSelect.value = selectedLayerId;
+      }
+      const colors = applyColorLayer(layer, contentEl);
+      renderLayerPreview(layer, colors);
+      if (save) {
+        layerSelections[layerStateKey] = selectedLayerId;
+        saveLayerSelections(layerSelections);
+      }
+    }
+
+    populateLayerSelect();
+    setColorLayer(selectedLayerId, { save: false });
+    if (layerSelect) {
+      layerSelect.addEventListener('change', () => {
+        setColorLayer(layerSelect.value, { save: true });
+      });
+    }
+
     const tabs = menu.querySelectorAll('.ops-tab');
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
     tabButtons.forEach(btn => {
@@ -747,6 +1006,8 @@
       e.stopPropagation();
       workforceFilters = loadWorkforceFilters();
       renderFilters();
+      populateLayerSelect();
+      setColorLayer(selectedLayerId, { save: false });
       tabButtons.forEach(btn => {
         const isButtons = btn.dataset.tab === 'buttons';
         btn.classList.toggle('active', isButtons);
@@ -768,7 +1029,6 @@
     });
 
     // --- Layout switch based on GridStack cell height (stable, no flicker) ---
-    const itemEl = root.closest('.grid-stack-item');
     function getCellHeight(){
       const h = itemEl?.gridstackNode?.h || parseInt(itemEl?.getAttribute('gs-h') || '0', 10);
       return isNaN(h) ? 0 : h;
