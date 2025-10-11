@@ -126,9 +126,10 @@
     .ops-title-section{display:flex; flex-direction:column; gap:.55rem; padding:.85rem .95rem; border-radius:.95rem;
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.52);}
     .ops-title-section label{font-weight:600; font-size:.92rem;}
-    .ops-input-row{display:flex; align-items:center; gap:.45rem;}
-    .ops-title-input{flex:1; padding:.55rem .75rem; border-radius:.65rem; border:1px solid rgba(148,163,184,.35);
+    .ops-input-row{display:flex; align-items:center; gap:.55rem; flex-wrap:wrap;}
+    .ops-title-input{flex:1 1 220px; min-width:0; padding:.55rem .75rem; border-radius:.65rem; border:1px solid rgba(148,163,184,.35);
       background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
+    .ops-input-row .ops-action-button{flex:0 0 auto; width:auto; white-space:nowrap; padding:.55rem 1.1rem;}
     .ops-title-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
     .ops-input-hint{margin:0; font-size:.78rem; opacity:.72;}
     .ops-tab-colors{display:none; flex-direction:column; gap:.85rem; padding-top:.45rem;}
