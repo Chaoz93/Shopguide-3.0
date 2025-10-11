@@ -126,9 +126,10 @@
     .ops-title-section{display:flex; flex-direction:column; gap:.55rem; padding:.85rem .95rem; border-radius:.95rem;
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.52);}
     .ops-title-section label{font-weight:600; font-size:.92rem;}
-    .ops-input-row{display:flex; align-items:center; gap:.45rem;}
-    .ops-title-input{flex:1; padding:.55rem .75rem; border-radius:.65rem; border:1px solid rgba(148,163,184,.35);
+    .ops-input-row{display:flex; align-items:center; gap:.55rem; flex-wrap:wrap;}
+    .ops-title-input{flex:1 1 220px; min-width:0; padding:.55rem .75rem; border-radius:.65rem; border:1px solid rgba(148,163,184,.35);
       background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
+    .ops-input-row .ops-action-button{flex:0 0 auto; width:auto; white-space:nowrap; padding:.55rem 1.1rem;}
     .ops-title-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
     .ops-input-hint{margin:0; font-size:.78rem; opacity:.72;}
     .ops-tab-colors{display:none; flex-direction:column; gap:.85rem; padding-top:.45rem;}
@@ -1431,16 +1432,21 @@
             <button type="button" class="ops-tab-btn" data-tab="filters">Filter</button>
             <button type="button" class="ops-tab-btn" data-tab="colors">Farben anpassen</button>
           </div>
-          <div class="ops-title-section" data-tab-owner="buttons">
-            <label for="ops-title-input">Überschrift</label>
-            <div class="ops-input-row">
-              <input type="text" id="ops-title-input" class="ops-title-input" maxlength="60" autocomplete="off">
-              <button type="button" class="ops-action-button ops-secondary ops-title-reset">Standardtitel</button>
-            </div>
-            <p class="ops-input-hint">Leer lassen, um den Standardtitel zu verwenden.</p>
-          </div>
           <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
+            <div class="ops-title-section" data-tab-owner="buttons">
+              <label for="ops-title-input">Überschrift</label>
+              <div class="ops-input-row">
+                <input type="text" id="ops-title-input" class="ops-title-input" maxlength="60" autocomplete="off">
+                <button type="button" class="ops-action-button ops-secondary ops-title-reset">Standardtitel</button>
+              </div>
+              <p class="ops-input-hint">Leer lassen, um den Standardtitel zu verwenden.</p>
+            </div>
             ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
+            <div class="ops-aspen-section">
+              <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
+              <div class="ops-file"></div>
+              <div class="ops-file-hint"></div>
+            </div>
           </div>
           <div class="ops-tab ops-tab-filters" data-tab="filters">
             <div class="ops-filter-hint">Namen für Workforce-Filter (ein Name pro Zeile)</div>
@@ -1451,11 +1457,6 @@
           </div>
           <div class="ops-tab ops-tab-colors" data-tab="colors">
             <div class="ops-color-panel"></div>
-          </div>
-          <div class="ops-aspen-section" data-tab-owner="buttons">
-            <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
-            <div class="ops-file"></div>
-            <div class="ops-file-hint"></div>
           </div>
         </div>
         <div class="ops-settings-footer">
