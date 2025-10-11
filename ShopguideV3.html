@@ -5364,9 +5364,9 @@ function applyModuleColorLayerPreview(layerEl, layer) {
   if (nameInput && nameInput.value !== resolvedName) {
     nameInput.value = resolvedName;
   }
-  const badge = layerEl.querySelector('.module-layer-badge');
-  if (badge) {
-    badge.textContent = resolvedName;
+  const badgeEl = layerEl.querySelector('.module-layer-badge');
+  if (badgeEl) {
+    badgeEl.textContent = resolvedName;
   }
   if (!layer) return;
   const ensureColor = (value, fallback) => (typeof value === 'string' && value.trim() ? value : fallback);
@@ -5489,11 +5489,10 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     main.style.boxShadow = `inset 0 0 0 1px ${innerOutline}`;
   }
   paintSampleGroup('module', { bg: moduleBg, text: moduleText, border: moduleBorder }, moduleBg);
-  const badge = layerEl.querySelector('.module-layer-badge');
-  if (badge) {
-    badge.style.backgroundColor = moduleText;
-    badge.style.color = moduleBg;
-    badge.style.borderColor = moduleBorder;
+  if (badgeEl) {
+    badgeEl.style.backgroundColor = moduleText;
+    badgeEl.style.color = moduleBg;
+    badgeEl.style.borderColor = moduleBorder;
   }
   const mainLabel = layerEl.querySelector('.layer-label--main');
   if (mainLabel) {
