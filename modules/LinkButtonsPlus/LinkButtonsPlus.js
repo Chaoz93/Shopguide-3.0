@@ -397,28 +397,76 @@
     };
 
     const readLayerName = (index) => {
-      const datasetKeys = [
-        `moduleLayer${index}Name`,
-        `layer${index}Name`,
-        `moduleLayer${index}`,
-        `layer${index}`
+      const baseDatasetKeys = [`moduleLayer${index}`, `layer${index}`];
+      const datasetSuffixes = [
+        '',
+        'Name',
+        'Label',
+        'Title',
+        'Display',
+        'DisplayName',
+        'Displayname',
+        'Anzeige',
+        'Anzeigename',
+        'AnzeigeName',
+        'Anzeigenamen',
+        'Bezeichnung',
+        'Beschreibung'
       ];
-      for (const key of datasetKeys) {
-        const value = readDatasetValue(key);
-        if (value) return value;
+
+      for (const base of baseDatasetKeys) {
+        for (const suffix of datasetSuffixes) {
+          const candidates = new Set();
+          candidates.add(`${base}${suffix}`);
+          if (suffix) {
+            candidates.add(`${base}${suffix.charAt(0).toLowerCase()}${suffix.slice(1)}`);
+            candidates.add(`${base}${suffix.toLowerCase()}`);
+          }
+          for (const key of candidates) {
+            const value = readDatasetValue(key);
+            if (value) return value;
+          }
+        }
       }
 
-      const cssCandidates = [
-        `--module-layer-${index}-name`,
-        `--module-layer-${index}-name-quoted`,
-        `--module-layer-${index}-label`,
-        `--module-layer-${index}-title`,
-        `--layer${index}-name`,
-        `--layer${index}-label`,
-        `--layer${index}-title`,
-        '--module-layer-name',
-        '--module-layer-primary-name'
+      const baseCssKeys = [`--module-layer-${index}`, `--layer${index}`, '--module-layer'];
+      const cssSuffixes = [
+        '-name',
+        '-name-quoted',
+        '-label',
+        '-label-quoted',
+        '-title',
+        '-title-quoted',
+        '-display',
+        '-display-quoted',
+        '-display-name',
+        '-display-name-quoted',
+        '-anzeige',
+        '-anzeige-quoted',
+        '-anzeige-name',
+        '-anzeige-name-quoted',
+        '-anzeigename',
+        '-anzeigename-quoted',
+        '-anzeigenamen',
+        '-anzeigenamen-quoted',
+        '-bezeichnung',
+        '-bezeichnung-quoted',
+        '-beschreibung',
+        '-beschreibung-quoted'
       ];
+
+      const cssCandidates = [];
+      baseCssKeys.forEach(base => {
+        cssSuffixes.forEach(suffix => {
+          cssCandidates.push(`${base}${suffix}`);
+        });
+      });
+      cssCandidates.push(
+        '--module-layer-primary-name',
+        '--module-layer-primary-name-quoted',
+        '--module-layer-primary-display-name',
+        '--module-layer-primary-display-name-quoted'
+      );
 
       for (const candidate of cssCandidates) {
         const raw = readVar(candidate);
