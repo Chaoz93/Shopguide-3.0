@@ -94,34 +94,62 @@
     .ops-bounce{ animation: ops-bounce .25s ease; }
     @keyframes ops-bounce { 0%{transform:scale(1)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
 
-    .ops-menu{position:fixed; z-index:1000; display:none; min-width:160px; padding:.25rem;
-      background:var(--sidebar-module-card-bg,#fff); color:var(--sidebar-module-card-text,#111);
-      border:1px solid var(--border-color,#e5e7eb); border-radius:.5rem; box-shadow:0 10px 24px rgba(0,0,0,.18);}
-    .ops-menu.open{display:block;}
-    .ops-menu label{display:flex; align-items:center; gap:.4rem; padding:.35rem .6rem; cursor:pointer;}
-    .ops-menu label:hover{background:rgba(0,0,0,.06);}
-    .ops-menu hr{border:none; border-top:1px solid var(--border-color,#e5e7eb); margin:.25rem;}
-    .ops-tabs{display:flex; gap:.25rem; padding:.25rem .35rem .1rem;}
-    .ops-menu .ops-tab-btn{display:inline-flex; align-items:center; justify-content:center; width:auto; margin:0; padding:.35rem .75rem;
-      background:transparent; color:inherit; border:none; border-bottom:2px solid transparent; border-radius:.35rem .35rem 0 0;
-      cursor:pointer; font-weight:600; box-shadow:none;}
-    .ops-menu .ops-tab-btn.active{border-bottom-color:var(--button-bg,#2563eb); color:var(--button-bg,#2563eb);}
-    .ops-tab{display:none; max-height:260px; overflow:auto;}
+    .ops-settings-overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:3200; padding:2rem;
+      background:rgba(15,23,42,.55); backdrop-filter:blur(18px);}
+    .ops-settings-overlay.open{display:flex;}
+    .ops-settings-dialog{width:min(780px, 96vw); max-height:92vh; display:flex; flex-direction:column;
+      background:rgba(15,23,42,.92); color:var(--lbp-header-text,#f8fafc);
+      border-radius:1.35rem; border:1px solid rgba(148,163,184,.25); box-shadow:0 30px 60px rgba(8,15,35,.46);}
+    .ops-settings-header{display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+      padding:1.2rem 1.6rem 1rem; border-bottom:1px solid rgba(148,163,184,.24);}
+    .ops-settings-title{margin:0; font-size:1.28rem; font-weight:700; letter-spacing:.35px;}
+    .ops-settings-subtitle{margin:.15rem 0 0; font-size:.86rem; opacity:.75;}
+    .ops-settings-close{border:none; background:rgba(15,23,42,.65); color:inherit; font-size:1.45rem; line-height:1;
+      border-radius:.75rem; width:2.4rem; height:2.4rem; display:inline-flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:background .15s ease, transform .15s ease;}
+    .ops-settings-close:hover{background:rgba(37,99,235,.35); transform:translateY(-1px);}
+    .ops-settings-close:active{transform:none;}
+    .ops-settings-body{flex:1; min-height:0; overflow:auto; padding:1.3rem 1.6rem 1.4rem; display:flex; flex-direction:column; gap:1.2rem;}
+    .ops-settings-body hr{border:none; border-top:1px solid rgba(148,163,184,.2); margin:.6rem 0;}
+    .ops-tabs{display:flex; gap:.45rem; padding:0 0 .35rem; border-bottom:1px solid rgba(148,163,184,.18);}
+    .ops-tab-btn{display:inline-flex; align-items:center; justify-content:center; padding:.45rem .85rem; background:transparent;
+      color:inherit; border:none; border-bottom:2px solid transparent; border-radius:.55rem .55rem 0 0; font-weight:600;
+      font-size:.92rem; cursor:pointer; transition:color .15s ease, border-color .15s ease, background .15s ease;}
+    .ops-tab-btn:hover{background:rgba(148,163,184,.14);}
+    .ops-tab-btn.active{border-bottom-color:var(--lbp-accent-bg, rgba(59,130,246,.95));
+      color:var(--lbp-accent-bg, rgba(59,130,246,.95));}
+    .ops-tab{display:none;}
     .ops-tab.active{display:block;}
-    .ops-tab-buttons{padding:.35rem .35rem .25rem;}
-    .ops-tab-filters{padding:.35rem .35rem .45rem;}
-    .ops-menu .ops-action-button{display:block; width:100%; margin:.25rem 0 0; padding:.35rem .6rem; border:none;
-      border-radius:.4rem; background:var(--button-bg); color:var(--button-text); cursor:pointer;}
-    .ops-menu .ops-action-button:disabled{opacity:.55; cursor:not-allowed;}
-    .ops-filter-hint{padding:.2rem .35rem; font-size:.78rem; opacity:.7;}
-    .ops-filter-list{padding:.1rem 0;}
-    .ops-filter-row{padding:.2rem .35rem;}
-    .ops-filter-row input{width:100%; padding:.35rem .45rem; border:1px solid var(--border-color,#d1d5db); border-radius:.35rem;
-      background:var(--sidebar-module-card-bg,#fff); color:inherit; font-size:.85rem; box-sizing:border-box;}
-    .ops-filter-actions{padding:.3rem .35rem 0;}
-    .ops-filter-actions .ops-action-button{margin:0;}
-    .ops-menu .ops-file{display:block; font-size:.75rem; opacity:.8; padding:.2rem .6rem 0;}
-    .ops-menu .ops-file-hint{display:block; font-size:.72rem; opacity:.65; padding:.15rem .6rem .2rem; min-height:1em;}
+    .ops-tab-buttons{display:grid; gap:.35rem; padding-top:.35rem;}
+    .ops-tab-buttons label{display:flex; align-items:center; gap:.5rem; padding:.45rem .65rem; border-radius:.65rem;
+      background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.22); font-size:.95rem; cursor:pointer;
+      transition:border-color .15s ease, background .15s ease;}
+    .ops-tab-buttons label:hover{border-color:var(--lbp-accent-bg, rgba(59,130,246,.65)); background:rgba(37,99,235,.22);}
+    .ops-tab-buttons input{width:1.1rem; height:1.1rem;}
+    .ops-tab-buttons .ops-action-button{margin-top:.45rem;}
+    .ops-tab-filters{display:flex; flex-direction:column; gap:.65rem; padding-top:.45rem;}
+    .ops-filter-hint{font-size:.82rem; opacity:.75;}
+    .ops-filter-list{display:flex; flex-direction:column; gap:.45rem; max-height:280px; overflow:auto;}
+    .ops-filter-row{padding:0;}
+    .ops-filter-row input{width:100%; padding:.55rem .75rem; border-radius:.65rem; border:1px solid rgba(148,163,184,.35);
+      background:rgba(15,23,42,.58); color:inherit; font-size:.9rem; box-sizing:border-box;}
+    .ops-filter-row input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
+    .ops-filter-actions{display:flex; justify-content:flex-end;}
+    .ops-file{padding:.35rem .65rem 0; font-size:.85rem; opacity:.82;}
+    .ops-file-hint{padding:.15rem .65rem .1rem; font-size:.78rem; opacity:.72;}
+    .ops-action-button{display:inline-flex; align-items:center; justify-content:center; gap:.35rem; padding:.55rem .9rem;
+      border-radius:.75rem; border:none; font-weight:600; cursor:pointer;
+      background:var(--lbp-accent-bg, rgba(59,130,246,.92)); color:var(--lbp-accent-text,#fff);
+      box-shadow:0 14px 28px rgba(8,15,35,.32); transition:filter .15s ease, transform .15s ease, box-shadow .15s ease;}
+    .ops-action-button:hover{filter:brightness(1.05); transform:translateY(-1px);}
+    .ops-action-button:active{transform:none; box-shadow:none;}
+    .ops-action-button:disabled{opacity:.55; cursor:not-allowed;}
+    .ops-settings-body .ops-action-button{width:100%;}
+    .ops-settings-footer{display:flex; justify-content:flex-end; gap:.75rem; padding:0 1.6rem 1.4rem;
+      border-top:1px solid rgba(148,163,184,.18);}
+    .ops-settings-footer .ops-action-button{width:auto; box-shadow:none;}
+    .ops-settings-footer .ops-secondary{background:rgba(148,163,184,.2); color:inherit;}
+    body.ops-settings-open{overflow:hidden;}
     .ops-color-overlay{position:fixed; inset:0; padding:1.5rem; box-sizing:border-box; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); z-index:2500;}
     .ops-color-overlay.open{display:flex;}
     .ops-color-dialog{width:min(520px, 92vw); max-height:92vh; overflow:auto; background:var(--sidebar-module-card-bg,#fff); color:var(--sidebar-module-card-text,#111); border-radius:.95rem; box-shadow:0 24px 52px rgba(15,23,42,.32); display:flex; flex-direction:column;}
@@ -214,36 +242,6 @@
     if(!Number.isFinite(value)) return 1;
     const alpha = value > 1 ? value / 100 : value;
     return clampNumber(alpha, 0, 1);
-  }
-
-  // === Rechtsklick-Modal ===
-  function openModuleSettingsModal(moduleId, pos){
-    const modal = document.getElementById('module-settings-modal');
-    if(!modal){
-      console.warn('[LinkButtonsPlus] Module settings modal not found');
-      return;
-    }
-
-    const loadFn = typeof window.loadModuleSettingsIntoModal === 'function'
-      ? window.loadModuleSettingsIntoModal
-      : (typeof loadModuleSettingsIntoModal === 'function' ? loadModuleSettingsIntoModal : null);
-    if(loadFn){
-      try {
-        loadFn(moduleId);
-      } catch (err) {
-        console.warn('[LinkButtonsPlus] Failed to load module settings', err);
-      }
-    }
-
-    if(pos && Number.isFinite(pos.x)) modal.style.left = `${pos.x}px`;
-    if(pos && Number.isFinite(pos.y)) modal.style.top = `${pos.y}px`;
-
-    modal.dataset.moduleId = moduleId || '';
-    modal.classList.add('visible');
-  }
-
-  if(typeof window.openModuleSettingsModal !== 'function'){
-    window.openModuleSettingsModal = openModuleSettingsModal;
   }
 
   function buildHslaColor(h, s, l, a){
@@ -1329,32 +1327,51 @@
     applyDisabled();
 
     const menu = document.createElement('div');
-    menu.className = 'ops-menu';
+    menu.className = 'ops-settings-overlay';
+    menu.id = 'module-settings-modal';
     const allLabels = [leftTop, leftBottom, ...r].filter(Boolean);
     menu.innerHTML = `
-      <div class="ops-tabs">
-        <button type="button" class="ops-tab-btn active" data-tab="buttons">Buttons</button>
-        <button type="button" class="ops-tab-btn" data-tab="filters">Filter</button>
-      </div>
-      <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
-        ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
-        <hr>
-        <button type="button" class="ops-color-settings ops-action-button">Farben anpassen</button>
-        <hr>
-        <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
-        <div class="ops-file"></div>
-        <div class="ops-file-hint"></div>
-      </div>
-      <div class="ops-tab ops-tab-filters" data-tab="filters">
-        <div class="ops-filter-hint">Namen für Workforce-Filter (ein Name pro Zeile)</div>
-        <div class="ops-filter-list"></div>
-        <div class="ops-filter-actions">
-          <button type="button" class="ops-filter-clear ops-action-button">Alle Filter löschen</button>
+      <div class="ops-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="ops-settings-title">
+        <div class="ops-settings-header">
+          <div>
+            <h2 class="ops-settings-title" id="ops-settings-title">LinkButtons Plus</h2>
+            <p class="ops-settings-subtitle"></p>
+          </div>
+          <button type="button" class="ops-settings-close" aria-label="Einstellungen schließen">×</button>
+        </div>
+        <div class="ops-settings-body">
+          <div class="ops-tabs">
+            <button type="button" class="ops-tab-btn active" data-tab="buttons">Buttons</button>
+            <button type="button" class="ops-tab-btn" data-tab="filters">Filter</button>
+          </div>
+          <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
+            ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
+            <hr>
+            <button type="button" class="ops-color-settings ops-action-button">Farben anpassen</button>
+            <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
+            <div class="ops-file"></div>
+            <div class="ops-file-hint"></div>
+          </div>
+          <div class="ops-tab ops-tab-filters" data-tab="filters">
+            <div class="ops-filter-hint">Namen für Workforce-Filter (ein Name pro Zeile)</div>
+            <div class="ops-filter-list"></div>
+            <div class="ops-filter-actions">
+              <button type="button" class="ops-filter-clear ops-action-button">Alle Filter löschen</button>
+            </div>
+          </div>
+        </div>
+        <div class="ops-settings-footer">
+          <button type="button" class="ops-secondary ops-action-button ops-settings-dismiss">Schließen</button>
         </div>
       </div>
     `;
     document.body.appendChild(menu);
     const menuTrigger = root.querySelector('.ops-settings-trigger');
+    const dialogEl = menu.querySelector('.ops-settings-dialog');
+    const bodyEl = menu.querySelector('.ops-settings-body');
+    const subtitleEl = menu.querySelector('.ops-settings-subtitle');
+    const closeButton = menu.querySelector('.ops-settings-close');
+    const dismissButton = menu.querySelector('.ops-settings-dismiss');
     const tabs = menu.querySelectorAll('.ops-tab');
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
     tabButtons.forEach(btn => {
@@ -1363,6 +1380,23 @@
         tabButtons.forEach(b => b.classList.toggle('active', b === btn));
         tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === target));
       });
+    });
+    if(closeButton){
+      closeButton.addEventListener('click', () => closeModuleSettingsModal());
+    }
+    if(dismissButton){
+      dismissButton.addEventListener('click', () => closeModuleSettingsModal());
+    }
+    menu.addEventListener('click', event => {
+      if(event.target === menu){
+        closeModuleSettingsModal();
+      }
+    });
+    menu.addEventListener('contextmenu', event => {
+      if(event.target === menu){
+        event.preventDefault();
+        closeModuleSettingsModal();
+      }
     });
     const fileLbl = menu.querySelector('.ops-file');
     const fileHint = menu.querySelector('.ops-file-hint');
@@ -1397,8 +1431,7 @@
 
     if(colorButton){
       colorButton.addEventListener('click', () => {
-        persistFilters();
-        menu.classList.remove('open');
+        closeModuleSettingsModal({ restoreFocus:false });
         openColorSettings();
       });
     }
@@ -1653,11 +1686,13 @@
       updateFileState();
     }
 
-    menu.querySelector('.ops-pick').addEventListener('click', ()=>{
-      persistFilters();
-      menu.classList.remove('open');
-      pickAspen();
-    });
+    const pickButton = menu.querySelector('.ops-pick');
+    if(pickButton){
+      pickButton.addEventListener('click', () => {
+        closeModuleSettingsModal({ restoreFocus:false });
+        pickAspen();
+      });
+    }
 
     (async()=>{
       try{
@@ -1686,7 +1721,16 @@
       });
     });
 
-    function openOpsMenu(position = {}){
+    let lastFocusedElement = null;
+    function openModuleSettingsModal(moduleId){
+      const resolvedId = typeof moduleId === 'string' ? moduleId.trim() : '';
+      menu.dataset.moduleId = resolvedId;
+      if(dialogEl){
+        dialogEl.dataset.moduleId = resolvedId;
+      }
+      if(subtitleEl){
+        subtitleEl.textContent = resolvedId ? `Modul-ID: ${resolvedId}` : 'Modul-Einstellungen';
+      }
       workforceFilters = loadWorkforceFilters();
       renderFilters();
       tabButtons.forEach(btn => {
@@ -1694,52 +1738,55 @@
         btn.classList.toggle('active', isButtons);
       });
       tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === 'buttons'));
-      const rect = menuTrigger?.getBoundingClientRect();
-      const fallbackX = rect ? rect.left + rect.width / 2 + window.scrollX : window.scrollX + 24;
-      const fallbackY = rect ? rect.bottom + window.scrollY + 12 : window.scrollY + 24;
-      const finalX = Number.isFinite(position.x) ? position.x : fallbackX;
-      const finalY = Number.isFinite(position.y) ? position.y : fallbackY;
-      menu.style.left = `${finalX}px`;
-      menu.style.top = `${finalY}px`;
-      menu.classList.add('open');
+      if(bodyEl){
+        bodyEl.scrollTop = 0;
+      }
+      lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      menu.classList.add('open', 'visible');
+      document.body.classList.add('ops-settings-open');
+      requestAnimationFrame(() => {
+        if(closeButton){
+          closeButton.focus();
+        }
+      });
     }
 
-    root.addEventListener('contextmenu', e => {
-      if(e.defaultPrevented) return;
-      e.preventDefault();
-      e.stopPropagation();
-      openOpsMenu({ x: e.pageX, y: e.pageY });
-    });
+    function closeModuleSettingsModal(options = {}){
+      const { restoreFocus = true, persist = true } = options;
+      if(!menu.classList.contains('open')) return;
+      if(persist){
+        persistFilters();
+        renderFilters();
+      }
+      menu.classList.remove('open', 'visible');
+      document.body.classList.remove('ops-settings-open');
+      if(restoreFocus && lastFocusedElement && typeof lastFocusedElement.focus === 'function'){
+        try{ lastFocusedElement.focus(); }catch{}
+      }
+      lastFocusedElement = null;
+    }
+
+    const handleKeydown = event => {
+      if(event.key === 'Escape' && menu.classList.contains('open')){
+        event.preventDefault();
+        closeModuleSettingsModal();
+      }
+    };
+    document.addEventListener('keydown', handleKeydown, true);
 
     if(menuTrigger){
       menuTrigger.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
-        const rect = menuTrigger.getBoundingClientRect();
-        openOpsMenu({
-          x: rect.left + rect.width / 2 + window.scrollX,
-          y: rect.bottom + window.scrollY + 12
-        });
+        openModuleSettingsModal(resolveModuleId());
       });
     }
 
-    document.addEventListener('click', e => {
-      if (!menu.contains(e.target)) {
-        if (menu.classList.contains('open')) {
-          persistFilters();
-          renderFilters();
-        }
-        menu.classList.remove('open');
-      }
-    });
-
-    // === Rechtsklick-Modal ===
+    // === Rechtsklick-Modal (Right-Click Handler) ===
     const moduleContainer = root.closest('.module');
-    const moduleContextHandler = event => {
-      if(!moduleContainer || !moduleContainer.contains(event.target)) return;
-      if(menu.contains(event.target)) return;
-      event.preventDefault();
-      event.stopPropagation();
+    // Ermittelt den richtigen Modulkontext für Rechtsklicks und globale Aufrufe.
+    function resolveModuleId(){
+      if(!moduleContainer) return '';
       const idCandidates = [
         moduleContainer.dataset.moduleId,
         moduleContainer.dataset.module,
@@ -1748,21 +1795,38 @@
         ctx?.moduleJson?.moduleId,
         instanceId
       ];
-      const moduleId = idCandidates.find(val => typeof val === 'string' && val.trim()) || '';
-      const pos = { x: event.clientX, y: event.clientY };
-      if(typeof window.openSettingsModal === 'function'){
-        window.openSettingsModal(moduleId, pos);
-        return;
-      }
-      if(typeof window.showModuleMenu === 'function'){
-        window.showModuleMenu(moduleId, pos);
-        return;
-      }
-      openModuleSettingsModal(moduleId, pos);
+      return idCandidates.find(val => typeof val === 'string' && val.trim())?.trim() || '';
+    }
+    const moduleContextHandler = event => {
+      if(!moduleContainer || !moduleContainer.contains(event.target)) return;
+      if(menu.contains(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openModuleSettingsModal(resolveModuleId());
     };
     if(moduleContainer){
       moduleContainer.addEventListener('contextmenu', moduleContextHandler, true);
     }
+
+    // Bindet sich in einen evtl. vorhandenen globalen Helper ein und respektiert andere Module.
+    const previousOpenModuleModal = typeof window.openModuleSettingsModal === 'function'
+      ? window.openModuleSettingsModal
+      : null;
+    const bridgeOpenModuleSettingsModal = moduleId => {
+      const requestedId = typeof moduleId === 'string' ? moduleId.trim() : '';
+      const currentId = resolveModuleId();
+      if(previousOpenModuleModal && requestedId && currentId && requestedId !== currentId){
+        previousOpenModuleModal(moduleId);
+        return;
+      }
+      if(previousOpenModuleModal && requestedId && !currentId){
+        previousOpenModuleModal(moduleId);
+        return;
+      }
+      openModuleSettingsModal(requestedId || currentId);
+    };
+    bridgeOpenModuleSettingsModal.__lbpBridge = true;
+    window.openModuleSettingsModal = bridgeOpenModuleSettingsModal;
 
     // --- Layout switch based on GridStack cell height (stable, no flicker) ---
     const itemEl = root.closest('.grid-stack-item');
@@ -1787,6 +1851,15 @@
         if (colorModal) {
           colorModal.destroy();
           colorModal = null;
+        }
+        closeModuleSettingsModal({ restoreFocus:false, persist:false });
+        document.removeEventListener('keydown', handleKeydown, true);
+        if(window.openModuleSettingsModal === bridgeOpenModuleSettingsModal){
+          if(previousOpenModuleModal){
+            window.openModuleSettingsModal = previousOpenModuleModal;
+          }else{
+            delete window.openModuleSettingsModal;
+          }
         }
         menu.remove();
         if(moduleContainer){
