@@ -140,6 +140,9 @@
       transition:filter .15s ease, transform .15s ease, box-shadow .15s ease;}
     .ops-tab-colors .ops-color-reset:hover{filter:brightness(1.05); transform:translateY(-1px);}
     .ops-tab-colors .ops-color-reset:active{transform:none; box-shadow:none;}
+    .ops-aspen-section{margin-top:1.2rem; padding:1rem 1.1rem; border-radius:.95rem; border:1px solid rgba(148,163,184,.22);
+      background:rgba(15,23,42,.55); display:flex; flex-direction:column; gap:.55rem;}
+    .ops-aspen-section .ops-action-button{width:auto; align-self:flex-start;}
     .ops-color-empty{font-size:.85rem; opacity:.75; padding:.15rem .15rem 0;}
     .ops-file{padding:.35rem .65rem 0; font-size:.85rem; opacity:.82;}
     .ops-file-hint{padding:.15rem .65rem .1rem; font-size:.78rem; opacity:.72;}
@@ -1330,10 +1333,6 @@
           </div>
           <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
             ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
-            <hr>
-            <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
-            <div class="ops-file"></div>
-            <div class="ops-file-hint"></div>
           </div>
           <div class="ops-tab ops-tab-filters" data-tab="filters">
             <div class="ops-filter-hint">Namen für Workforce-Filter (ein Name pro Zeile)</div>
@@ -1344,6 +1343,11 @@
           </div>
           <div class="ops-tab ops-tab-colors" data-tab="colors">
             <div class="ops-color-panel"></div>
+          </div>
+          <div class="ops-aspen-section" data-tab-owner="buttons">
+            <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
+            <div class="ops-file"></div>
+            <div class="ops-file-hint"></div>
           </div>
         </div>
         <div class="ops-settings-footer">
@@ -1359,8 +1363,17 @@
     const dismissButton = menu.querySelector('.ops-settings-dismiss');
     const tabs = menu.querySelectorAll('.ops-tab');
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
+    const ownedSections = menu.querySelectorAll('[data-tab-owner]');
     const colorPanelContainer = menu.querySelector('.ops-color-panel');
     colorPanel = createColorPanel(root, hostEl, colorPanelContainer);
+
+    function syncOwnedSections(activeTab){
+      ownedSections.forEach(section => {
+        section.hidden = section.dataset.tabOwner !== activeTab;
+      });
+    }
+
+    syncOwnedSections('buttons');
 
     function configureColorPanel(){
       if(!colorPanel) return;
@@ -1393,6 +1406,7 @@
         const target = btn.dataset.tab;
         tabButtons.forEach(b => b.classList.toggle('active', b === btn));
         tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === target));
+        syncOwnedSections(target);
         if(target === 'colors'){
           configureColorPanel();
         }
@@ -1724,6 +1738,7 @@
         btn.classList.toggle('active', isButtons);
       });
       tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === 'buttons'));
+      syncOwnedSections('buttons');
       if(bodyEl){
         bodyEl.scrollTop = 0;
       }
