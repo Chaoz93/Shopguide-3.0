@@ -123,6 +123,14 @@
       background:rgba(15,23,42,.58); color:inherit; font-size:.9rem; box-sizing:border-box;}
     .ops-filter-row input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
     .ops-filter-actions{display:flex; justify-content:flex-end;}
+    .ops-title-section{display:flex; flex-direction:column; gap:.55rem; padding:.85rem .95rem; border-radius:.95rem;
+      border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.52);}
+    .ops-title-section label{font-weight:600; font-size:.92rem;}
+    .ops-input-row{display:flex; align-items:center; gap:.45rem;}
+    .ops-title-input{flex:1; padding:.55rem .75rem; border-radius:.65rem; border:1px solid rgba(148,163,184,.35);
+      background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
+    .ops-title-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
+    .ops-input-hint{margin:0; font-size:.78rem; opacity:.72;}
     .ops-tab-colors{display:none; flex-direction:column; gap:.85rem; padding-top:.45rem;}
     .ops-tab-colors.active{display:flex;}
     .ops-tab-colors .ops-color-panel{display:flex; flex-direction:column; gap:.85rem;}
@@ -156,11 +164,13 @@
     .ops-action-button:hover{filter:brightness(1.05); transform:translateY(-1px);}
     .ops-action-button:active{transform:none; box-shadow:none;}
     .ops-action-button:disabled{opacity:.55; cursor:not-allowed;}
+    .ops-action-button.ops-secondary{background:rgba(148,163,184,.2); color:inherit; box-shadow:none;}
+    .ops-action-button.ops-secondary:hover{filter:brightness(1.05); transform:translateY(-1px);}
+    .ops-action-button.ops-secondary:active{transform:none; box-shadow:none;}
     .ops-settings-body .ops-action-button{width:100%;}
     .ops-settings-footer{display:flex; justify-content:flex-end; gap:.75rem; padding:0 1.6rem 1.4rem;
       border-top:1px solid rgba(148,163,184,.18);}
     .ops-settings-footer .ops-action-button{width:auto; box-shadow:none;}
-    .ops-settings-footer .ops-secondary{background:rgba(148,163,184,.2); color:inherit;}
     body.ops-settings-open{overflow:hidden;}
     .ops-color-overlay{position:fixed; inset:0; padding:1.5rem; box-sizing:border-box; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); z-index:2500;}
     .ops-color-overlay.open{display:flex;}
@@ -624,6 +634,27 @@
     }catch{}
   }
 
+  const HEADER_KEY = 'linkbuttonsplus-headers';
+  const HEADER_MAX_LENGTH = 60;
+  function loadHeaderOverrides(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(HEADER_KEY));
+      if(raw && typeof raw === 'object'){
+        return raw;
+      }
+    }catch{}
+    return {};
+  }
+  function saveHeaderOverrides(map){
+    try{
+      localStorage.setItem(HEADER_KEY, JSON.stringify(map));
+    }catch{}
+  }
+  function sanitizeHeaderTitle(value){
+    if(typeof value !== 'string') return '';
+    return value.replace(/\s+/g,' ').trim().slice(0, HEADER_MAX_LENGTH);
+  }
+
   function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open(IDB_NAME,1); r.onupgradeneeded=()=>r.result.createObjectStore(IDB_STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
   async function idbSet(k,v){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readwrite'); tx.objectStore(IDB_STORE).put(v,k); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
   async function idbGet(k){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readonly'); const rq=tx.objectStore(IDB_STORE).get(k); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); }); }
@@ -717,6 +748,74 @@
   // ---------- render ----------
   window.renderLinkButtonsPlus = function renderLinkButtonsPlus(root, ctx){
     const s = (ctx && ctx.moduleJson && ctx.moduleJson.settings) || {};
+    const gridItem = root.closest('.grid-stack-item');
+    const hostEl = root.closest('.grid-stack-item-content');
+    const instanceId = gridItem?.dataset.instanceId || 'default';
+    const defaultHeaderTitle = sanitizeHeaderTitle(s.headerTitle) || 'LinkButtons Plus';
+    let headerOverrides = loadHeaderOverrides();
+    if(!headerOverrides || typeof headerOverrides !== 'object') headerOverrides = {};
+    let headerOverride = sanitizeHeaderTitle(headerOverrides[instanceId] || '');
+    if(headerOverride){
+      if(headerOverrides[instanceId] !== headerOverride){
+        headerOverrides = { ...headerOverrides, [instanceId]: headerOverride };
+        saveHeaderOverrides(headerOverrides);
+      }
+    } else if(headerOverrides[instanceId]){
+      const next = { ...headerOverrides };
+      delete next[instanceId];
+      headerOverrides = next;
+      saveHeaderOverrides(headerOverrides);
+    }
+    let titleEl = null;
+    let settingsTitleEl = null;
+    let headerInput = null;
+    let headerResetBtn = null;
+
+    function getEffectiveHeaderTitle(){
+      return headerOverride || defaultHeaderTitle;
+    }
+    function syncHeaderUI({ skipInput = false } = {}){
+      const effective = getEffectiveHeaderTitle();
+      if(titleEl) titleEl.textContent = effective;
+      if(settingsTitleEl) settingsTitleEl.textContent = effective;
+      if(headerInput){
+        if(!skipInput && document.activeElement !== headerInput){
+          headerInput.value = headerOverride;
+        }
+        headerInput.placeholder = defaultHeaderTitle;
+      }
+      if(headerResetBtn){
+        headerResetBtn.disabled = !headerOverride;
+      }
+    }
+    function setHeaderOverride(raw, { persist = true, syncInput = true } = {}){
+      const sanitized = sanitizeHeaderTitle(raw);
+      const hasStored = Object.prototype.hasOwnProperty.call(headerOverrides, instanceId);
+      const previous = sanitizeHeaderTitle(headerOverrides[instanceId] || '');
+      headerOverride = sanitized;
+      let changed = false;
+      if(sanitized){
+        if(previous !== sanitized){
+          headerOverrides = { ...headerOverrides, [instanceId]: sanitized };
+          changed = true;
+        }
+      }else if(previous){
+        const next = { ...headerOverrides };
+        delete next[instanceId];
+        headerOverrides = next;
+        changed = true;
+      }else if(hasStored){
+        const next = { ...headerOverrides };
+        delete next[instanceId];
+        headerOverrides = next;
+        changed = true;
+      }
+      if(persist && changed){
+        saveHeaderOverrides(headerOverrides);
+      }
+      syncHeaderUI({ skipInput: !syncInput });
+    }
+
     const leftTop = s.leftTop || 'Event';
     const leftBottom = s.leftBottom || 'CMDS';
     let r = Array.isArray(s.rightLabels) && s.rightLabels.length
@@ -734,7 +833,7 @@
     root.innerHTML = `
       <div class="ops-outer">
         <div class="ops-header">
-          <div class="ops-title">LinkButtons Plus</div>
+          <div class="ops-title"></div>
           <div class="ops-actions">
             <div class="ops-autorefresh" data-state="idle" hidden role="status" aria-live="polite">
               <span class="ops-autorefresh-icon" aria-hidden="true">🔄</span>
@@ -755,10 +854,8 @@
         </div>
       </div>
     `;
-
-    const gridItem = root.closest('.grid-stack-item');
-    const hostEl = root.closest('.grid-stack-item-content');
-    const instanceId = gridItem?.dataset.instanceId || 'default';
+    titleEl = root.querySelector('.ops-title');
+    syncHeaderUI();
     let colorConfigStore = loadColorConfig();
     const storedSelection = (colorConfigStore && typeof colorConfigStore === 'object') ? colorConfigStore[instanceId] : null;
     const selectedColors = {
@@ -1334,6 +1431,14 @@
             <button type="button" class="ops-tab-btn" data-tab="filters">Filter</button>
             <button type="button" class="ops-tab-btn" data-tab="colors">Farben anpassen</button>
           </div>
+          <div class="ops-title-section" data-tab-owner="buttons">
+            <label for="ops-title-input">Überschrift</label>
+            <div class="ops-input-row">
+              <input type="text" id="ops-title-input" class="ops-title-input" maxlength="60" autocomplete="off">
+              <button type="button" class="ops-action-button ops-secondary ops-title-reset">Standardtitel</button>
+            </div>
+            <p class="ops-input-hint">Leer lassen, um den Standardtitel zu verwenden.</p>
+          </div>
           <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
             ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
           </div>
@@ -1361,6 +1466,7 @@
     document.body.appendChild(menu);
     const dialogEl = menu.querySelector('.ops-settings-dialog');
     const bodyEl = menu.querySelector('.ops-settings-body');
+    settingsTitleEl = menu.querySelector('.ops-settings-title');
     const subtitleEl = menu.querySelector('.ops-settings-subtitle');
     const closeButton = menu.querySelector('.ops-settings-close');
     const dismissButton = menu.querySelector('.ops-settings-dismiss');
@@ -1368,7 +1474,46 @@
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
     const ownedSections = menu.querySelectorAll('[data-tab-owner]');
     const colorPanelContainer = menu.querySelector('.ops-color-panel');
+    headerInput = menu.querySelector('.ops-title-input');
+    headerResetBtn = menu.querySelector('.ops-title-reset');
     colorPanel = createColorPanel(root, hostEl, colorPanelContainer);
+
+    if(headerInput){
+      headerInput.value = headerOverride;
+      headerInput.placeholder = defaultHeaderTitle;
+      headerInput.addEventListener('input', () => {
+        if(headerInput.value.length > HEADER_MAX_LENGTH){
+          headerInput.value = headerInput.value.slice(0, HEADER_MAX_LENGTH);
+        }
+        const preview = sanitizeHeaderTitle(headerInput.value);
+        const effective = preview || defaultHeaderTitle;
+        if(titleEl) titleEl.textContent = effective;
+        if(settingsTitleEl) settingsTitleEl.textContent = effective;
+        if(headerResetBtn){
+          headerResetBtn.disabled = !preview && !headerOverride;
+        }
+      });
+      headerInput.addEventListener('blur', () => {
+        setHeaderOverride(headerInput.value, { persist:true });
+      });
+      headerInput.addEventListener('keydown', event => {
+        if(event.key === 'Enter'){
+          event.preventDefault();
+          headerInput.blur();
+        }
+      });
+    }
+    if(headerResetBtn){
+      headerResetBtn.addEventListener('click', () => {
+        setHeaderOverride('', { persist:true });
+        if(headerInput){
+          headerInput.value = '';
+          headerInput.focus();
+        }
+      });
+    }
+
+    syncHeaderUI();
 
     function syncOwnedSections(activeTab){
       ownedSections.forEach(section => {
@@ -1735,6 +1880,7 @@
       }
       workforceFilters = loadWorkforceFilters();
       renderFilters();
+      syncHeaderUI({ skipInput:false });
       configureColorPanel();
       tabButtons.forEach(btn => {
         const isButtons = btn.dataset.tab === 'buttons';
@@ -1759,8 +1905,13 @@
       const { restoreFocus = true, persist = true } = options;
       if(!menu.classList.contains('open')) return;
       if(persist){
+        if(headerInput){
+          setHeaderOverride(headerInput.value, { persist:true, syncInput:false });
+        }
         persistFilters();
         renderFilters();
+      }else{
+        syncHeaderUI({ skipInput:true });
       }
       menu.classList.remove('open', 'visible');
       document.body.classList.remove('ops-settings-open');
