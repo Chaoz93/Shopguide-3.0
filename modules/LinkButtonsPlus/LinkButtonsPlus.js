@@ -1431,15 +1431,15 @@
             <button type="button" class="ops-tab-btn" data-tab="filters">Filter</button>
             <button type="button" class="ops-tab-btn" data-tab="colors">Farben anpassen</button>
           </div>
-          <div class="ops-title-section" data-tab-owner="buttons">
-            <label for="ops-title-input">Überschrift</label>
-            <div class="ops-input-row">
-              <input type="text" id="ops-title-input" class="ops-title-input" maxlength="60" autocomplete="off">
-              <button type="button" class="ops-action-button ops-secondary ops-title-reset">Standardtitel</button>
-            </div>
-            <p class="ops-input-hint">Leer lassen, um den Standardtitel zu verwenden.</p>
-          </div>
           <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
+            <div class="ops-title-section" data-tab-owner="buttons">
+              <label for="ops-title-input">Überschrift</label>
+              <div class="ops-input-row">
+                <input type="text" id="ops-title-input" class="ops-title-input" maxlength="60" autocomplete="off">
+                <button type="button" class="ops-action-button ops-secondary ops-title-reset">Standardtitel</button>
+              </div>
+              <p class="ops-input-hint">Leer lassen, um den Standardtitel zu verwenden.</p>
+            </div>
             ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
             <div class="ops-aspen-section">
               <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
