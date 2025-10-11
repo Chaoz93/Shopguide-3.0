@@ -17,6 +17,21 @@
     .ops-title::before{
       content:'🔗'; font-size:1.05em; filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
     }
+    .ops-actions{ display:flex; align-items:center; gap:.45rem; }
+    .ops-settings-trigger{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:2.1rem; height:2.1rem; border-radius:999px;
+      border:1px solid var(--lbp-header-border, rgba(76,114,163,.32));
+      background:rgba(15,23,42,.18); color:inherit;
+      font-size:1.15rem; line-height:1; cursor:pointer;
+      transition:background .16s ease, transform .16s ease, box-shadow .16s ease;
+    }
+    .ops-settings-trigger:hover{ background:rgba(37,99,235,.22); transform:translateY(-1px); box-shadow:0 8px 18px rgba(12,24,41,.35); }
+    .ops-settings-trigger:active{ transform:none; box-shadow:none; }
+    .ops-settings-trigger:focus-visible{
+      outline:2px solid rgba(148,163,184,.65);
+      outline-offset:2px;
+    }
     .ops-autorefresh{
       display:inline-flex; align-items:center; gap:.4rem;
       padding:.35rem .9rem; border-radius:999px;
@@ -199,6 +214,36 @@
     if(!Number.isFinite(value)) return 1;
     const alpha = value > 1 ? value / 100 : value;
     return clampNumber(alpha, 0, 1);
+  }
+
+  // === Rechtsklick-Modal ===
+  function openModuleSettingsModal(moduleId, pos){
+    const modal = document.getElementById('module-settings-modal');
+    if(!modal){
+      console.warn('[LinkButtonsPlus] Module settings modal not found');
+      return;
+    }
+
+    const loadFn = typeof window.loadModuleSettingsIntoModal === 'function'
+      ? window.loadModuleSettingsIntoModal
+      : (typeof loadModuleSettingsIntoModal === 'function' ? loadModuleSettingsIntoModal : null);
+    if(loadFn){
+      try {
+        loadFn(moduleId);
+      } catch (err) {
+        console.warn('[LinkButtonsPlus] Failed to load module settings', err);
+      }
+    }
+
+    if(pos && Number.isFinite(pos.x)) modal.style.left = `${pos.x}px`;
+    if(pos && Number.isFinite(pos.y)) modal.style.top = `${pos.y}px`;
+
+    modal.dataset.moduleId = moduleId || '';
+    modal.classList.add('visible');
+  }
+
+  if(typeof window.openModuleSettingsModal !== 'function'){
+    window.openModuleSettingsModal = openModuleSettingsModal;
   }
 
   function buildHslaColor(h, s, l, a){
@@ -680,10 +725,13 @@
       <div class="ops-outer">
         <div class="ops-header">
           <div class="ops-title">LinkButtons Plus</div>
-          <div class="ops-autorefresh" data-state="idle" hidden role="status" aria-live="polite">
-            <span class="ops-autorefresh-icon" aria-hidden="true">🔄</span>
-            <span class="ops-autorefresh-label">Auto-Update</span>
-            <span class="ops-autorefresh-time">Bereit</span>
+          <div class="ops-actions">
+            <button type="button" class="ops-settings-trigger" aria-label="Modulmenü öffnen" title="Modulmenü öffnen">⋮</button>
+            <div class="ops-autorefresh" data-state="idle" hidden role="status" aria-live="polite">
+              <span class="ops-autorefresh-icon" aria-hidden="true">🔄</span>
+              <span class="ops-autorefresh-label">Auto-Update</span>
+              <span class="ops-autorefresh-time">Bereit</span>
+            </div>
           </div>
         </div>
         <div class="ops-grid">
@@ -1306,6 +1354,7 @@
       </div>
     `;
     document.body.appendChild(menu);
+    const menuTrigger = root.querySelector('.ops-settings-trigger');
     const tabs = menu.querySelectorAll('.ops-tab');
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
     tabButtons.forEach(btn => {
@@ -1637,9 +1686,7 @@
       });
     });
 
-    root.addEventListener('contextmenu', e => {
-      e.preventDefault();
-      e.stopPropagation();
+    function openOpsMenu(position = {}){
       workforceFilters = loadWorkforceFilters();
       renderFilters();
       tabButtons.forEach(btn => {
@@ -1647,10 +1694,34 @@
         btn.classList.toggle('active', isButtons);
       });
       tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === 'buttons'));
-      menu.style.left = e.pageX + 'px';
-      menu.style.top = e.pageY + 'px';
+      const rect = menuTrigger?.getBoundingClientRect();
+      const fallbackX = rect ? rect.left + rect.width / 2 + window.scrollX : window.scrollX + 24;
+      const fallbackY = rect ? rect.bottom + window.scrollY + 12 : window.scrollY + 24;
+      const finalX = Number.isFinite(position.x) ? position.x : fallbackX;
+      const finalY = Number.isFinite(position.y) ? position.y : fallbackY;
+      menu.style.left = `${finalX}px`;
+      menu.style.top = `${finalY}px`;
       menu.classList.add('open');
+    }
+
+    root.addEventListener('contextmenu', e => {
+      if(e.defaultPrevented) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openOpsMenu({ x: e.pageX, y: e.pageY });
     });
+
+    if(menuTrigger){
+      menuTrigger.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const rect = menuTrigger.getBoundingClientRect();
+        openOpsMenu({
+          x: rect.left + rect.width / 2 + window.scrollX,
+          y: rect.bottom + window.scrollY + 12
+        });
+      });
+    }
 
     document.addEventListener('click', e => {
       if (!menu.contains(e.target)) {
@@ -1661,6 +1732,37 @@
         menu.classList.remove('open');
       }
     });
+
+    // === Rechtsklick-Modal ===
+    const moduleContainer = root.closest('.module');
+    const moduleContextHandler = event => {
+      if(!moduleContainer || !moduleContainer.contains(event.target)) return;
+      if(menu.contains(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const idCandidates = [
+        moduleContainer.dataset.moduleId,
+        moduleContainer.dataset.module,
+        moduleContainer.dataset.id,
+        ctx?.moduleId,
+        ctx?.moduleJson?.moduleId,
+        instanceId
+      ];
+      const moduleId = idCandidates.find(val => typeof val === 'string' && val.trim()) || '';
+      const pos = { x: event.clientX, y: event.clientY };
+      if(typeof window.openSettingsModal === 'function'){
+        window.openSettingsModal(moduleId, pos);
+        return;
+      }
+      if(typeof window.showModuleMenu === 'function'){
+        window.showModuleMenu(moduleId, pos);
+        return;
+      }
+      openModuleSettingsModal(moduleId, pos);
+    };
+    if(moduleContainer){
+      moduleContainer.addEventListener('contextmenu', moduleContextHandler, true);
+    }
 
     // --- Layout switch based on GridStack cell height (stable, no flicker) ---
     const itemEl = root.closest('.grid-stack-item');
@@ -1687,6 +1789,9 @@
           colorModal = null;
         }
         menu.remove();
+        if(moduleContainer){
+          moduleContainer.removeEventListener('contextmenu', moduleContextHandler, true);
+        }
         mo.disconnect();
       }
     });
