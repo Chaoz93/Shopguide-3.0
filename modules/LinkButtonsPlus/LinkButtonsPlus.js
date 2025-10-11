@@ -1304,6 +1304,8 @@
       buttons: sanitizeId(storedSelection?.buttons)
     };
     let colorPanel = null;
+    let pendingLayerRefresh = null;
+    let pendingLayerRefreshIsTimeout = false;
 
     function getSelectionSnapshot(){
       const snapshot = {};
@@ -1466,6 +1468,51 @@
       syncSelectionFromStorage();
     };
     window.addEventListener('storage', storageHandler);
+
+    const cancelPendingLayerRefresh = () => {
+      if(pendingLayerRefresh === null) return;
+      if(pendingLayerRefreshIsTimeout){
+        clearTimeout(pendingLayerRefresh);
+      }else if(typeof cancelAnimationFrame === 'function'){
+        cancelAnimationFrame(pendingLayerRefresh);
+      }
+      pendingLayerRefresh = null;
+      pendingLayerRefreshIsTimeout = false;
+    };
+
+    const flushLayerRefresh = () => {
+      pendingLayerRefresh = null;
+      pendingLayerRefreshIsTimeout = false;
+      applySelectedColors();
+      if(colorPanel){
+        configureColorPanel();
+      }
+    };
+
+    const scheduleLayerRefresh = () => {
+      cancelPendingLayerRefresh();
+      if(typeof requestAnimationFrame === 'function'){
+        pendingLayerRefreshIsTimeout = false;
+        pendingLayerRefresh = requestAnimationFrame(() => {
+          if(typeof requestAnimationFrame === 'function'){
+            pendingLayerRefresh = requestAnimationFrame(() => {
+              flushLayerRefresh();
+            });
+          }else{
+            pendingLayerRefreshIsTimeout = true;
+            pendingLayerRefresh = setTimeout(() => flushLayerRefresh(), 24);
+          }
+        });
+      }else{
+        pendingLayerRefreshIsTimeout = true;
+        pendingLayerRefresh = setTimeout(() => flushLayerRefresh(), 24);
+      }
+    };
+
+    const layerBroadcastHandler = () => {
+      scheduleLayerRefresh();
+    };
+    window.addEventListener('shopguide:sub-layers-updated', layerBroadcastHandler);
 
     function createColorPanel(rootEl, hostContent, containerEl){
       if(!containerEl) return null;
@@ -2448,6 +2495,8 @@
           colorPanel.destroy();
           colorPanel = null;
         }
+        cancelPendingLayerRefresh();
+        window.removeEventListener('shopguide:sub-layers-updated', layerBroadcastHandler);
         closeModuleSettingsModal({ restoreFocus:false, persist:false });
         document.removeEventListener('keydown', handleKeydown, true);
         if(window.openModuleSettingsModal === bridgeOpenModuleSettingsModal){
