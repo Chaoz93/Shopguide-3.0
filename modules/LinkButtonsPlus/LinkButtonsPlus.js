@@ -352,6 +352,84 @@
       return '';
     };
 
+    const datasetSources = [];
+    if (docEl && docEl.dataset) datasetSources.push(docEl.dataset);
+    if (body && body !== docEl && body.dataset) datasetSources.push(body.dataset);
+
+    const readDatasetValue = (key) => {
+      if(!key) return '';
+      for (const source of datasetSources) {
+        if (!source) continue;
+        const value = source[key];
+        if (typeof value === 'string' && value.trim()) return value.trim();
+      }
+      return '';
+    };
+
+    const stripQuotes = (value) => {
+      if (typeof value !== 'string') return '';
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+      const first = trimmed.charAt(0);
+      const last = trimmed.charAt(trimmed.length - 1);
+      if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+        return trimmed.slice(1, -1).trim();
+      }
+      return trimmed;
+    };
+
+    const resolveCustomProperty = (rawValue, seen = new Set()) => {
+      if (typeof rawValue !== 'string') return '';
+      const trimmed = rawValue.trim();
+      if (!trimmed) return '';
+      const match = trimmed.match(/^var\((--[A-Za-z0-9\-]+)(?:,([^\)]*))?\)$/);
+      if (!match) return trimmed;
+      const varName = match[1];
+      if (seen.has(varName)) return '';
+      seen.add(varName);
+      const replacement = readVar(varName);
+      if (replacement) {
+        return resolveCustomProperty(replacement, seen);
+      }
+      const fallback = typeof match[2] === 'string' ? match[2].trim() : '';
+      if (!fallback) return '';
+      return resolveCustomProperty(fallback, seen);
+    };
+
+    const readLayerName = (index) => {
+      const datasetKeys = [
+        `moduleLayer${index}Name`,
+        `layer${index}Name`,
+        `moduleLayer${index}`,
+        `layer${index}`
+      ];
+      for (const key of datasetKeys) {
+        const value = readDatasetValue(key);
+        if (value) return value;
+      }
+
+      const cssCandidates = [
+        `--module-layer-${index}-name`,
+        `--module-layer-${index}-name-quoted`,
+        `--module-layer-${index}-label`,
+        `--module-layer-${index}-title`,
+        `--layer${index}-name`,
+        `--layer${index}-label`,
+        `--layer${index}-title`,
+        '--module-layer-name',
+        '--module-layer-primary-name'
+      ];
+
+      for (const candidate of cssCandidates) {
+        const raw = readVar(candidate);
+        if (!raw) continue;
+        const resolved = resolveCustomProperty(raw);
+        const normalized = stripQuotes(resolved);
+        if (normalized) return normalized;
+      }
+      return '';
+    };
+
     for(let i = 1; i <= maxLayers; i++){
       const hRaw = readVar(`--layer${i}-h`);
       const sRaw = readVar(`--layer${i}-s`);
@@ -365,13 +443,14 @@
       const lVal = parseLayerNumber(lRaw);
       const aValRaw = parseLayerNumber(aRaw);
       const hasNumeric = Number.isFinite(hVal) && Number.isFinite(sVal) && Number.isFinite(lVal);
+      const displayName = readLayerName(i) || `Layer ${i}`;
       if(!hasNumeric) {
         const colorOnly = buildRawHslaString(hRaw, sRaw, lRaw, aRaw);
         const fallbackText = Number.isFinite(lVal) ? pickTextColor(lVal) : '#ffffff';
         layers.push({
           id: `layer${i}`,
-          label: `Layer ${i}`,
-          name: `Layer ${i}`,
+          label: displayName,
+          name: displayName,
           color: colorOnly,
           swatch: colorOnly,
           moduleBg: colorOnly,
@@ -410,8 +489,8 @@
 
       layers.push({
         id: `layer${i}`,
-        label: `Layer ${i}`,
-        name: `Layer ${i}`,
+        label: displayName,
+        name: displayName,
         color: baseColor,
         swatch: baseColor,
         moduleBg: baseColor,
