@@ -1441,6 +1441,11 @@
           </div>
           <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
             ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
+            <div class="ops-aspen-section">
+              <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
+              <div class="ops-file"></div>
+              <div class="ops-file-hint"></div>
+            </div>
           </div>
           <div class="ops-tab ops-tab-filters" data-tab="filters">
             <div class="ops-filter-hint">Namen für Workforce-Filter (ein Name pro Zeile)</div>
@@ -1451,11 +1456,6 @@
           </div>
           <div class="ops-tab ops-tab-colors" data-tab="colors">
             <div class="ops-color-panel"></div>
-          </div>
-          <div class="ops-aspen-section" data-tab-owner="buttons">
-            <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
-            <div class="ops-file"></div>
-            <div class="ops-file-hint"></div>
           </div>
         </div>
         <div class="ops-settings-footer">
