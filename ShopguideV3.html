@@ -1938,6 +1938,45 @@ function normalizeHue(value) {
   return normalized < 0 ? normalized + 360 : normalized;
 }
 
+function toCssVariableIdentifier(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  let normalized = trimmed;
+  if (typeof normalized.normalize === 'function') {
+    normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  normalized = normalized.toLowerCase();
+  normalized = normalized.replace(/[^a-z0-9]+/g, '-');
+  normalized = normalized.replace(/-{2,}/g, '-');
+  normalized = normalized.replace(/^-+|-+$/g, '');
+  if (!normalized) return '';
+  if (!/^[a-z]/.test(normalized)) {
+    normalized = `layer-${normalized}`;
+  }
+  return normalized.slice(0, 60);
+}
+
+function ensureUniqueCssIdentifier(baseId, registry) {
+  const used = registry || new Set();
+  let candidate = baseId;
+  let index = 2;
+  while (used.has(candidate)) {
+    candidate = `${baseId}-${index}`;
+    index += 1;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+function deriveCssVariableId(name, fallback, registry, preferredId) {
+  const baseName = typeof name === 'string' && name.trim() ? name.trim() : '';
+  const fallbackName = typeof fallback === 'string' && fallback.trim() ? fallback.trim() : '';
+  const preferred = typeof preferredId === 'string' && preferredId.trim() ? toCssVariableIdentifier(preferredId) : '';
+  const requestedId = preferred || toCssVariableIdentifier(baseName) || toCssVariableIdentifier(fallbackName) || 'layer';
+  return ensureUniqueCssIdentifier(requestedId, registry);
+}
+
 function parseRgbComponent(token) {
   if (typeof token !== 'string') return 0;
   const trimmed = token.trim();
@@ -2494,11 +2533,12 @@ function normalizeSubLayerEntries(subLayers, targetCount, moduleBg, moduleText) 
       ? entry.border
       : bg;
     const name = typeof entry?.name === 'string' && entry.name.trim() ? entry.name.trim() : '';
-    return { bg, text, border, name };
+    const variableId = typeof entry?.variableId === 'string' && entry.variableId.trim() ? entry.variableId.trim() : '';
+    return { bg, text, border, name, variableId };
   });
   while (normalized.length < targetCount) {
-    const last = normalized[normalized.length - 1] || { bg: fallbackBg, text: fallbackText, border: fallbackBg, name: '' };
-    normalized.push({ ...last, name: '' });
+    const last = normalized[normalized.length - 1] || { bg: fallbackBg, text: fallbackText, border: fallbackBg, name: '', variableId: '' };
+    normalized.push({ ...last, name: '', variableId: '' });
   }
   if (normalized.length > targetCount) {
     normalized.length = targetCount;
@@ -2507,7 +2547,8 @@ function normalizeSubLayerEntries(subLayers, targetCount, moduleBg, moduleText) 
     bg: entry.bg,
     text: entry.text,
     border: entry.border,
-    name: entry.name && entry.name.trim() ? entry.name.trim() : fallbackName(index)
+    name: entry.name && entry.name.trim() ? entry.name.trim() : fallbackName(index),
+    variableId: typeof entry.variableId === 'string' && entry.variableId.trim() ? entry.variableId.trim() : ''
   }));
 }
 
@@ -2557,6 +2598,7 @@ function getDefaultModuleColorLayers() {
 function normalizeModuleColorLayers(layers, subLayerCount = DEFAULT_SUB_LAYER_COUNT) {
   const count = Math.min(Math.max(Number(subLayerCount) || DEFAULT_SUB_LAYER_COUNT, 1), MAX_MODULE_SUB_LAYERS);
   const source = Array.isArray(layers) && layers.length ? layers : getDefaultModuleColorLayers();
+  const layerRegistry = new Set();
   return source
     .slice(0, MAX_MODULE_COLOR_LAYERS)
     .map((layer, index) => {
@@ -2576,20 +2618,36 @@ function normalizeModuleColorLayers(layers, subLayerCount = DEFAULT_SUB_LAYER_CO
             border: typeof layer.subBorder === 'string' && layer.subBorder ? layer.subBorder : (typeof layer.subBg === 'string' && layer.subBg ? layer.subBg : moduleBg)
           }];
       const subLayers = normalizeSubLayerEntries(baseSubLayers, count, moduleBg, moduleText);
-      const firstSubLayer = subLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBg };
+      const subRegistry = new Set();
+      const enrichedSubLayers = subLayers.map((subLayer, subIndex) => {
+        const defaultSubName = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
+        const preferredSubId = typeof subLayer?.variableId === 'string' && subLayer.variableId.trim()
+          ? subLayer.variableId.trim()
+          : '';
+        const variableId = deriveCssVariableId(subLayer?.name, defaultSubName, subRegistry, preferredSubId);
+        return {
+          ...subLayer,
+          variableId
+        };
+      });
+      const firstSubLayer = enrichedSubLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBg };
+      const fallbackLayerName = `Unter-Layer ${index + 1}`;
       const normalizedName = typeof layer.name === 'string' && layer.name.trim()
         ? layer.name.trim()
-        : `Unter-Layer ${index + 1}`;
+        : fallbackLayerName;
+      const preferredLayerId = typeof layer.variableId === 'string' && layer.variableId.trim() ? layer.variableId.trim() : '';
+      const variableId = deriveCssVariableId(normalizedName, fallbackLayerName, layerRegistry, preferredLayerId);
       return {
         id: typeof layer.id === 'string' && layer.id.trim() ? layer.id : generateLayerId(),
         name: normalizedName,
+        variableId,
         moduleBg,
         moduleText,
         moduleBorder,
         headerBg,
         headerText,
         headerBorder,
-        subLayers,
+        subLayers: enrichedSubLayers,
         subBg: firstSubLayer.bg,
         subText: firstSubLayer.text,
         subBorder: firstSubLayer.border
@@ -5181,9 +5239,35 @@ function renderModuleColorLayers(layers = appSettings.moduleColorLayers) {
     : DEFAULT_SUB_LAYER_COUNT;
   appSettings.moduleSubLayerCount = subLayerCount;
   const normalized = normalizeModuleColorLayers(layers, subLayerCount);
-  appSettings.moduleColorLayers = normalized;
+  const layerRegistry = new Set();
+  const enrichedLayers = normalized.map((layer, index) => {
+    const defaultName = `Unter-Layer ${index + 1}`;
+    const resolvedName = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : defaultName;
+    const variableId = deriveCssVariableId(resolvedName, defaultName, layerRegistry, layer?.variableId);
+    const subRegistry = new Set();
+    const subLayers = Array.isArray(layer?.subLayers) ? layer.subLayers : [];
+    const enrichedSubLayers = subLayers.map((subLayer, subIndex) => {
+      const defaultSubName = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
+      const resolvedSubName = typeof subLayer?.name === 'string' && subLayer.name.trim()
+        ? subLayer.name.trim()
+        : defaultSubName;
+      const subVariableId = deriveCssVariableId(resolvedSubName, defaultSubName, subRegistry, subLayer?.variableId);
+      return {
+        ...subLayer,
+        name: resolvedSubName,
+        variableId: subVariableId
+      };
+    });
+    return {
+      ...layer,
+      name: resolvedName,
+      variableId,
+      subLayers: enrichedSubLayers
+    };
+  });
+  appSettings.moduleColorLayers = enrichedLayers;
   moduleColorLayersContainer.innerHTML = '';
-  normalized.forEach((layer, index) => {
+  enrichedLayers.forEach((layer, index) => {
     const layerEl = createModuleColorLayerElement(layer, index);
     moduleColorLayersContainer.appendChild(layerEl);
   });
@@ -5262,6 +5346,14 @@ function createModuleColorLayerElement(layer, index) {
   `;
   const defaultName = `Unter-Layer ${index + 1}`;
   const resolvedName = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : defaultName;
+  const preferredVarId = typeof layer?.variableId === 'string' && layer.variableId.trim() ? layer.variableId.trim() : '';
+  const sanitizedVarId = toCssVariableIdentifier(preferredVarId)
+    || toCssVariableIdentifier(resolvedName)
+    || toCssVariableIdentifier(defaultName)
+    || `layer-${index + 1}`;
+  if (layer && typeof layer === 'object') {
+    layer.variableId = sanitizedVarId;
+  }
   const badge = wrapper.querySelector('.module-layer-badge');
   if (badge) badge.textContent = resolvedName;
   const nameInput = wrapper.querySelector('.module-layer-name');
@@ -5270,6 +5362,7 @@ function createModuleColorLayerElement(layer, index) {
     nameInput.placeholder = defaultName;
   }
   wrapper.dataset.layerName = resolvedName;
+  wrapper.dataset.layerVar = sanitizedVarId;
   const moduleBgInput = wrapper.querySelector('input[data-field="moduleBg"]');
   const moduleTextInput = wrapper.querySelector('input[data-field="moduleText"]');
   const moduleBorderInput = wrapper.querySelector('input[data-field="moduleBorder"]');
@@ -5336,6 +5429,7 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     ];
     let parentContainer = controls;
     let lastSubgroup = null;
+    const usedSubLayerIds = new Set();
     subLayers.forEach((subLayer, subIndex) => {
       const subgroup = document.createElement('div');
       subgroup.className = 'module-layer-subgroup';
@@ -5349,7 +5443,13 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
         ? subLayer.name.trim()
         : defaultSubName;
       subLayer.name = resolvedSubName;
+      const preferredSubVar = typeof subLayer?.variableId === 'string' && subLayer.variableId.trim()
+        ? subLayer.variableId.trim()
+        : '';
+      const subVariableId = deriveCssVariableId(resolvedSubName, defaultSubName, usedSubLayerIds, preferredSubVar);
+      subLayer.variableId = subVariableId;
       subgroup.dataset.subLayerName = resolvedSubName;
+      subgroup.dataset.subLayerVar = subVariableId;
       title.textContent = defaultSubName;
       headerRow.appendChild(title);
       const deleteBtn = document.createElement('button');
@@ -5469,13 +5569,19 @@ function bindLayerColorSync() {
   const syncAllSubgroups = () => {
     const subgroups = getSubgroups();
     const activeIds = new Set();
+    const usedIds = new Set();
 
     subgroups.forEach((subgroup, index) => {
       const colorInput = subgroup.querySelector('input[data-sub-field="bg"]');
       if (!colorInput) return;
+      const datasetName = typeof subgroup.dataset.subLayerName === 'string' ? subgroup.dataset.subLayerName : '';
+      const datasetVar = typeof subgroup.dataset.subLayerVar === 'string' ? subgroup.dataset.subLayerVar : '';
+      const subIndex = Number(subgroup.dataset.subIndex || index);
+      const fallbackName = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
+      const layerId = deriveCssVariableId(datasetName, fallbackName, usedIds, datasetVar);
+      subgroup.dataset.subLayerVar = layerId;
       const value = getColorInputValue(colorInput);
       if (!value) return;
-      const layerId = `layer${index + 1}`;
       activeIds.add(layerId);
       applyLayerVariables(layerId, value);
     });
@@ -5577,6 +5683,17 @@ function applyModuleColorLayerPreview(layerEl, layer) {
   const defaultName = `Unter-Layer ${layerIndex + 1}`;
   const resolvedName = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : defaultName;
   layerEl.dataset.layerName = resolvedName;
+  const preferredVarId = typeof layer?.variableId === 'string' && layer.variableId.trim()
+    ? layer.variableId.trim()
+    : (typeof layerEl.dataset.layerVar === 'string' ? layerEl.dataset.layerVar : '');
+  const sanitizedVarId = toCssVariableIdentifier(preferredVarId)
+    || toCssVariableIdentifier(resolvedName)
+    || toCssVariableIdentifier(defaultName)
+    || `layer-${layerIndex + 1}`;
+  layerEl.dataset.layerVar = sanitizedVarId;
+  if (layer && typeof layer === 'object') {
+    layer.variableId = sanitizedVarId;
+  }
   const nameInput = layerEl.querySelector('.module-layer-name');
   if (nameInput && nameInput.value !== resolvedName) {
     nameInput.value = resolvedName;
@@ -5765,6 +5882,7 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     label.style.borderColor = subBorder;
   });
   const subgroupControls = layerEl.querySelectorAll('.module-layer-subgroup');
+  const usedSubLayerIds = new Set();
   subgroupControls.forEach((subgroupEl, index) => {
     const data = getSubLayerData(index);
     const subBg = ensureColor(data.bg, moduleBg);
@@ -5773,6 +5891,12 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     const fallbackSubName = index === 0 ? 'Unter-Layer' : `Unter-Layer ${index + 1}`;
     const resolvedSubName = typeof data.name === 'string' && data.name.trim() ? data.name.trim() : fallbackSubName;
     subgroupEl.dataset.subLayerName = resolvedSubName;
+    const preferredSubVar = typeof data.variableId === 'string' && data.variableId.trim()
+      ? data.variableId.trim()
+      : (typeof subgroupEl.dataset.subLayerVar === 'string' ? subgroupEl.dataset.subLayerVar : '');
+    const subVariableId = deriveCssVariableId(resolvedSubName, fallbackSubName, usedSubLayerIds, preferredSubVar);
+    subgroupEl.dataset.subLayerVar = subVariableId;
+    data.variableId = subVariableId;
     const nameInput = subgroupEl.querySelector('.module-sub-layer-name');
     if (nameInput) {
       if (nameInput.value !== resolvedSubName) {
@@ -5954,6 +6078,7 @@ function updateModuleColorLayerRemoveStates() {
 function collectModuleColorLayersFromDom() {
   if (!moduleColorLayersContainer) return [];
   const layers = [];
+  const layerRegistry = new Set();
   moduleColorLayersContainer.querySelectorAll('.module-color-layer').forEach((layerEl, index) => {
     let id = typeof layerEl.dataset.id === 'string' && layerEl.dataset.id.trim() ? layerEl.dataset.id : '';
     if (!id) {
@@ -5964,6 +6089,9 @@ function collectModuleColorLayersFromDom() {
     const defaultName = `Unter-Layer ${index + 1}`;
     const inputName = typeof nameInput?.value === 'string' ? nameInput.value.trim() : '';
     const resolvedName = inputName || defaultName;
+    const datasetVar = typeof layerEl.dataset.layerVar === 'string' ? layerEl.dataset.layerVar : '';
+    const variableId = deriveCssVariableId(resolvedName, defaultName, layerRegistry, datasetVar);
+    layerEl.dataset.layerVar = variableId;
     const getColor = field => {
       const input = layerEl.querySelector(`input[data-field="${field}"]`);
       return input ? getColorInputValue(input) : '';
@@ -5972,6 +6100,7 @@ function collectModuleColorLayersFromDom() {
       ? Math.min(appSettings.moduleSubLayerCount, MAX_MODULE_SUB_LAYERS)
       : DEFAULT_SUB_LAYER_COUNT;
     const subLayers = [];
+    const subRegistry = new Set();
     layerEl.querySelectorAll('.module-layer-subgroup').forEach((groupEl, subIndex) => {
       const getSubColor = key => {
         const input = groupEl.querySelector(`input[data-sub-field="${key}"]`);
@@ -5985,8 +6114,12 @@ function collectModuleColorLayersFromDom() {
         nameInput.value = resolvedSubName;
       }
       groupEl.dataset.subLayerName = resolvedSubName;
+      const datasetSubVar = typeof groupEl.dataset.subLayerVar === 'string' ? groupEl.dataset.subLayerVar : '';
+      const subVariableId = deriveCssVariableId(resolvedSubName, defaultSubName, subRegistry, datasetSubVar);
+      groupEl.dataset.subLayerVar = subVariableId;
       subLayers[subIndex] = {
         name: resolvedSubName,
+        variableId: subVariableId,
         bg: getSubColor('bg'),
         text: getSubColor('text'),
         border: getSubColor('border')
@@ -6001,6 +6134,7 @@ function collectModuleColorLayersFromDom() {
     layers.push({
       id,
       name: resolvedName,
+      variableId,
       moduleBg: getColor('moduleBg'),
       moduleText: getColor('moduleText'),
       moduleBorder: getColor('moduleBorder'),
