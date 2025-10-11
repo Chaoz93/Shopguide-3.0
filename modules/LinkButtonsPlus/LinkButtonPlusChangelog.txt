@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.6] – 2025-10-03
+### Added
+- Farb-Dropdowns reagieren nun auf die globalen `shopguide:sub-layers-updated` Broadcasts der HTML und übernehmen neue Layernamen
+  sowie Farbkombinationen unmittelbar in Auswahl und Vorschau.
+
 ## [1.5.5] – 2025-10-03
 ### Added
 - Modulüberschrift kann jetzt direkt im Kontextmenü angepasst oder auf den Standardtitel zurückgesetzt werden.

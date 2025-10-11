@@ -1467,6 +1467,14 @@
     };
     window.addEventListener('storage', storageHandler);
 
+    const layerBroadcastHandler = () => {
+      applySelectedColors();
+      if(colorPanel){
+        configureColorPanel();
+      }
+    };
+    window.addEventListener('shopguide:sub-layers-updated', layerBroadcastHandler);
+
     function createColorPanel(rootEl, hostContent, containerEl){
       if(!containerEl) return null;
       const sectionMarkup = COLOR_AREAS.map(area => {
@@ -2448,6 +2456,7 @@
           colorPanel.destroy();
           colorPanel = null;
         }
+        window.removeEventListener('shopguide:sub-layers-updated', layerBroadcastHandler);
         closeModuleSettingsModal({ restoreFocus:false, persist:false });
         document.removeEventListener('keydown', handleKeydown, true);
         if(window.openModuleSettingsModal === bridgeOpenModuleSettingsModal){
