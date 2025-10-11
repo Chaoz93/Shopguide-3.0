@@ -35,6 +35,7 @@
       --module-border-radius: 1.25rem;
       --module-header-bg: rgba(255,255,255,0.08);
       --module-header-text: #ffffff;
+      --module-header-border: #e5e7eb;
       /* Module border */
       --module-border-color: #e5e7eb;
       --danger-bg: #ef4444;
@@ -63,6 +64,72 @@
 
       /* Body text colour (used for general text; separate from sidebar text) */
       --body-text: #1f2937;
+
+      /* Active module layer colour fallbacks */
+      --module-layer-module-bg: var(--module-bg);
+      --module-layer-module-text: var(--text-color);
+      --module-layer-module-border: var(--module-border-color);
+      --module-layer-header-bg: var(--module-header-bg);
+      --module-layer-header-text: var(--module-header-text);
+      --module-layer-header-border: var(--module-header-border);
+
+      /* Primary layer aliases */
+      --module-layer-primary-module-bg: var(--module-layer-module-bg);
+      --module-layer-primary-module-text: var(--module-layer-module-text);
+      --module-layer-primary-module-border: var(--module-layer-module-border);
+      --module-layer-primary-header-bg: var(--module-layer-header-bg);
+      --module-layer-primary-header-text: var(--module-layer-header-text);
+      --module-layer-primary-header-border: var(--module-layer-header-border);
+
+      /* Individual layer colour slots */
+      --module-layer-1-module-bg: var(--module-layer-module-bg);
+      --module-layer-1-module-text: var(--module-layer-module-text);
+      --module-layer-1-module-border: var(--module-layer-module-border);
+      --module-layer-1-header-bg: var(--module-layer-header-bg);
+      --module-layer-1-header-text: var(--module-layer-header-text);
+      --module-layer-1-header-border: var(--module-layer-header-border);
+      --module-layer-2-module-bg: var(--module-layer-module-bg);
+      --module-layer-2-module-text: var(--module-layer-module-text);
+      --module-layer-2-module-border: var(--module-layer-module-border);
+      --module-layer-2-header-bg: var(--module-layer-header-bg);
+      --module-layer-2-header-text: var(--module-layer-header-text);
+      --module-layer-2-header-border: var(--module-layer-header-border);
+      --module-layer-3-module-bg: var(--module-layer-module-bg);
+      --module-layer-3-module-text: var(--module-layer-module-text);
+      --module-layer-3-module-border: var(--module-layer-module-border);
+      --module-layer-3-header-bg: var(--module-layer-header-bg);
+      --module-layer-3-header-text: var(--module-layer-header-text);
+      --module-layer-3-header-border: var(--module-layer-header-border);
+      --module-layer-4-module-bg: var(--module-layer-module-bg);
+      --module-layer-4-module-text: var(--module-layer-module-text);
+      --module-layer-4-module-border: var(--module-layer-module-border);
+      --module-layer-4-header-bg: var(--module-layer-header-bg);
+      --module-layer-4-header-text: var(--module-layer-header-text);
+      --module-layer-4-header-border: var(--module-layer-header-border);
+      --module-layer-5-module-bg: var(--module-layer-module-bg);
+      --module-layer-5-module-text: var(--module-layer-module-text);
+      --module-layer-5-module-border: var(--module-layer-module-border);
+      --module-layer-5-header-bg: var(--module-layer-header-bg);
+      --module-layer-5-header-text: var(--module-layer-header-text);
+      --module-layer-5-header-border: var(--module-layer-header-border);
+      --module-layer-6-module-bg: var(--module-layer-module-bg);
+      --module-layer-6-module-text: var(--module-layer-module-text);
+      --module-layer-6-module-border: var(--module-layer-module-border);
+      --module-layer-6-header-bg: var(--module-layer-header-bg);
+      --module-layer-6-header-text: var(--module-layer-header-text);
+      --module-layer-6-header-border: var(--module-layer-header-border);
+      --module-layer-7-module-bg: var(--module-layer-module-bg);
+      --module-layer-7-module-text: var(--module-layer-module-text);
+      --module-layer-7-module-border: var(--module-layer-module-border);
+      --module-layer-7-header-bg: var(--module-layer-header-bg);
+      --module-layer-7-header-text: var(--module-layer-header-text);
+      --module-layer-7-header-border: var(--module-layer-header-border);
+      --module-layer-8-module-bg: var(--module-layer-module-bg);
+      --module-layer-8-module-text: var(--module-layer-module-text);
+      --module-layer-8-module-border: var(--module-layer-module-border);
+      --module-layer-8-header-bg: var(--module-layer-header-bg);
+      --module-layer-8-header-text: var(--module-layer-header-text);
+      --module-layer-8-header-border: var(--module-layer-header-border);
     }
 
     html, body { height: 100%; }
@@ -5520,23 +5587,33 @@ function syncModuleLayerCssVariables() {
         assignments[`${globalPrefix}-border`] = typeof subLayer?.border === 'string' ? subLayer.border : '';
       }
     }
-    assignLayerColorTriplet(assignments, `--module-main-layer-${layerIndex + 1}`, {
+    assignLayerColorTriplet(assignments, `--module-layer-${layerIndex + 1}-module`, {
       bg: moduleBg,
       text: moduleText,
       border: moduleBorder
     });
-    assignLayerColorTriplet(assignments, `--module-header-layer-${layerIndex + 1}`, {
+    assignLayerColorTriplet(assignments, `--module-layer-${layerIndex + 1}-header`, {
       bg: headerBg,
       text: headerText,
       border: headerBorder
     });
     if (layerIndex === 0) {
-      assignLayerColorTriplet(assignments, '--module-main-layer', {
+      assignLayerColorTriplet(assignments, '--module-layer-module', {
         bg: moduleBg,
         text: moduleText,
         border: moduleBorder
       });
-      assignLayerColorTriplet(assignments, '--module-header-layer', {
+      assignLayerColorTriplet(assignments, '--module-layer-header', {
+        bg: headerBg,
+        text: headerText,
+        border: headerBorder
+      });
+      assignLayerColorTriplet(assignments, '--module-layer-primary-module', {
+        bg: moduleBg,
+        text: moduleText,
+        border: moduleBorder
+      });
+      assignLayerColorTriplet(assignments, '--module-layer-primary-header', {
         bg: headerBg,
         text: headerText,
         border: headerBorder
