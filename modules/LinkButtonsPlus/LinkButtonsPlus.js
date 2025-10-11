@@ -106,14 +106,16 @@
       color:var(--lbp-accent-bg, rgba(59,130,246,.95));}
     .ops-tab{display:none;}
     .ops-tab.active{display:block;}
-    .ops-tab-buttons{display:grid; gap:.35rem; padding-top:.35rem;}
+    .ops-tab-buttons{display:none; gap:.35rem; padding-top:.35rem;}
+    .ops-tab-buttons.active{display:grid;}
     .ops-tab-buttons label{display:flex; align-items:center; gap:.5rem; padding:.45rem .65rem; border-radius:.65rem;
       background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.22); font-size:.95rem; cursor:pointer;
       transition:border-color .15s ease, background .15s ease;}
     .ops-tab-buttons label:hover{border-color:var(--lbp-accent-bg, rgba(59,130,246,.65)); background:rgba(37,99,235,.22);}
     .ops-tab-buttons input{width:1.1rem; height:1.1rem;}
     .ops-tab-buttons .ops-action-button{margin-top:.45rem;}
-    .ops-tab-filters{display:flex; flex-direction:column; gap:.65rem; padding-top:.45rem;}
+    .ops-tab-filters{display:none; flex-direction:column; gap:.65rem; padding-top:.45rem;}
+    .ops-tab-filters.active{display:flex;}
     .ops-filter-hint{font-size:.82rem; opacity:.75;}
     .ops-filter-list{display:flex; flex-direction:column; gap:.45rem; max-height:280px; overflow:auto;}
     .ops-filter-row{padding:0;}
@@ -121,7 +123,8 @@
       background:rgba(15,23,42,.58); color:inherit; font-size:.9rem; box-sizing:border-box;}
     .ops-filter-row input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
     .ops-filter-actions{display:flex; justify-content:flex-end;}
-    .ops-tab-colors{display:flex; flex-direction:column; gap:.85rem; padding-top:.45rem;}
+    .ops-tab-colors{display:none; flex-direction:column; gap:.85rem; padding-top:.45rem;}
+    .ops-tab-colors.active{display:flex;}
     .ops-tab-colors .ops-color-panel{display:flex; flex-direction:column; gap:.85rem;}
     .ops-tab-colors .ops-color-body{background:rgba(15,23,42,.52); border:1px solid rgba(148,163,184,.22);
       border-radius:.95rem; padding:1rem 1.1rem; display:flex; flex-direction:column; gap:1rem; color:inherit;}
