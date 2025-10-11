@@ -7,6 +7,7 @@
   "w": 2,
   "h": 12,
   "settings": {
+    "headerTitle": "LinkButtons Plus",
     "leftTop": "Event",
     "leftBottom": "CMDS",
     "rightLabels": [
@@ -19,5 +20,5 @@
     ]
   },
   "moduleId": "LinkButtonsPlus",
-  "version": "1.5.4"
+  "version": "1.5.5"
 }

@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.5] – 2025-10-03
+### Added
+- Modulüberschrift kann jetzt direkt im Kontextmenü angepasst oder auf den Standardtitel zurückgesetzt werden.
+
 ## [1.5.1] – 2025-10-02
 ### Fixed
 - Layer-Dropdowns lesen die globalen `--layerX-h/s/l/a` Variablen nun sowohl vom `<html>`- als auch vom `<body>`-Element aus und zeigen dadurch bis zu 15 Ebenen zuverlässig an.
