@@ -1969,6 +1969,17 @@ function ensureUniqueCssIdentifier(baseId, registry) {
   return candidate;
 }
 
+function resolvePreferredCssVariableId(preferredId, ...names) {
+  if (typeof preferredId !== 'string') return '';
+  const sanitizedPreferred = toCssVariableIdentifier(preferredId);
+  if (!sanitizedPreferred) return '';
+  const comparableNames = names
+    .map(name => (typeof name === 'string' ? toCssVariableIdentifier(name) : ''))
+    .filter(Boolean);
+  if (!comparableNames.length) return '';
+  return comparableNames.includes(sanitizedPreferred) ? sanitizedPreferred : '';
+}
+
 function deriveCssVariableId(name, fallback, registry, preferredId) {
   const baseName = typeof name === 'string' && name.trim() ? name.trim() : '';
   const fallbackName = typeof fallback === 'string' && fallback.trim() ? fallback.trim() : '';
@@ -2621,12 +2632,14 @@ function normalizeModuleColorLayers(layers, subLayerCount = DEFAULT_SUB_LAYER_CO
       const subRegistry = new Set();
       const enrichedSubLayers = subLayers.map((subLayer, subIndex) => {
         const defaultSubName = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
-        const preferredSubId = typeof subLayer?.variableId === 'string' && subLayer.variableId.trim()
-          ? subLayer.variableId.trim()
-          : '';
-        const variableId = deriveCssVariableId(subLayer?.name, defaultSubName, subRegistry, preferredSubId);
+        const normalizedSubName = typeof subLayer?.name === 'string' && subLayer.name.trim()
+          ? subLayer.name.trim()
+          : defaultSubName;
+        const preferredSubId = resolvePreferredCssVariableId(subLayer?.variableId, normalizedSubName, defaultSubName);
+        const variableId = deriveCssVariableId(normalizedSubName, defaultSubName, subRegistry, preferredSubId);
         return {
           ...subLayer,
+          name: normalizedSubName,
           variableId
         };
       });
@@ -2635,7 +2648,7 @@ function normalizeModuleColorLayers(layers, subLayerCount = DEFAULT_SUB_LAYER_CO
       const normalizedName = typeof layer.name === 'string' && layer.name.trim()
         ? layer.name.trim()
         : fallbackLayerName;
-      const preferredLayerId = typeof layer.variableId === 'string' && layer.variableId.trim() ? layer.variableId.trim() : '';
+      const preferredLayerId = resolvePreferredCssVariableId(layer.variableId, normalizedName, fallbackLayerName);
       const variableId = deriveCssVariableId(normalizedName, fallbackLayerName, layerRegistry, preferredLayerId);
       return {
         id: typeof layer.id === 'string' && layer.id.trim() ? layer.id : generateLayerId(),
@@ -5243,7 +5256,8 @@ function renderModuleColorLayers(layers = appSettings.moduleColorLayers) {
   const enrichedLayers = normalized.map((layer, index) => {
     const defaultName = `Unter-Layer ${index + 1}`;
     const resolvedName = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : defaultName;
-    const variableId = deriveCssVariableId(resolvedName, defaultName, layerRegistry, layer?.variableId);
+    const preferredVarId = resolvePreferredCssVariableId(layer?.variableId, resolvedName, defaultName);
+    const variableId = deriveCssVariableId(resolvedName, defaultName, layerRegistry, preferredVarId);
     const subRegistry = new Set();
     const subLayers = Array.isArray(layer?.subLayers) ? layer.subLayers : [];
     const enrichedSubLayers = subLayers.map((subLayer, subIndex) => {
@@ -5251,7 +5265,8 @@ function renderModuleColorLayers(layers = appSettings.moduleColorLayers) {
       const resolvedSubName = typeof subLayer?.name === 'string' && subLayer.name.trim()
         ? subLayer.name.trim()
         : defaultSubName;
-      const subVariableId = deriveCssVariableId(resolvedSubName, defaultSubName, subRegistry, subLayer?.variableId);
+      const preferredSubVar = resolvePreferredCssVariableId(subLayer?.variableId, resolvedSubName, defaultSubName);
+      const subVariableId = deriveCssVariableId(resolvedSubName, defaultSubName, subRegistry, preferredSubVar);
       return {
         ...subLayer,
         name: resolvedSubName,
@@ -5346,8 +5361,8 @@ function createModuleColorLayerElement(layer, index) {
   `;
   const defaultName = `Unter-Layer ${index + 1}`;
   const resolvedName = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : defaultName;
-  const preferredVarId = typeof layer?.variableId === 'string' && layer.variableId.trim() ? layer.variableId.trim() : '';
-  const sanitizedVarId = toCssVariableIdentifier(preferredVarId)
+  const preferredVarId = resolvePreferredCssVariableId(layer?.variableId, resolvedName, defaultName);
+  const sanitizedVarId = preferredVarId
     || toCssVariableIdentifier(resolvedName)
     || toCssVariableIdentifier(defaultName)
     || `layer-${index + 1}`;
@@ -5443,9 +5458,7 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
         ? subLayer.name.trim()
         : defaultSubName;
       subLayer.name = resolvedSubName;
-      const preferredSubVar = typeof subLayer?.variableId === 'string' && subLayer.variableId.trim()
-        ? subLayer.variableId.trim()
-        : '';
+      const preferredSubVar = resolvePreferredCssVariableId(subLayer?.variableId, resolvedSubName, defaultSubName);
       const subVariableId = deriveCssVariableId(resolvedSubName, defaultSubName, usedSubLayerIds, preferredSubVar);
       subLayer.variableId = subVariableId;
       subgroup.dataset.subLayerName = resolvedSubName;
@@ -5578,7 +5591,8 @@ function bindLayerColorSync() {
       const datasetVar = typeof subgroup.dataset.subLayerVar === 'string' ? subgroup.dataset.subLayerVar : '';
       const subIndex = Number(subgroup.dataset.subIndex || index);
       const fallbackName = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
-      const layerId = deriveCssVariableId(datasetName, fallbackName, usedIds, datasetVar);
+      const preferredVar = resolvePreferredCssVariableId(datasetVar, datasetName, fallbackName);
+      const layerId = deriveCssVariableId(datasetName, fallbackName, usedIds, preferredVar);
       subgroup.dataset.subLayerVar = layerId;
       const value = getColorInputValue(colorInput);
       if (!value) return;
@@ -5683,10 +5697,12 @@ function applyModuleColorLayerPreview(layerEl, layer) {
   const defaultName = `Unter-Layer ${layerIndex + 1}`;
   const resolvedName = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : defaultName;
   layerEl.dataset.layerName = resolvedName;
-  const preferredVarId = typeof layer?.variableId === 'string' && layer.variableId.trim()
+  const datasetVarId = typeof layerEl.dataset.layerVar === 'string' ? layerEl.dataset.layerVar : '';
+  const candidateVarId = typeof layer?.variableId === 'string' && layer.variableId.trim()
     ? layer.variableId.trim()
-    : (typeof layerEl.dataset.layerVar === 'string' ? layerEl.dataset.layerVar : '');
-  const sanitizedVarId = toCssVariableIdentifier(preferredVarId)
+    : datasetVarId;
+  const preferredVarId = resolvePreferredCssVariableId(candidateVarId, resolvedName, defaultName);
+  const sanitizedVarId = preferredVarId
     || toCssVariableIdentifier(resolvedName)
     || toCssVariableIdentifier(defaultName)
     || `layer-${layerIndex + 1}`;
@@ -5891,9 +5907,11 @@ function applyModuleColorLayerPreview(layerEl, layer) {
     const fallbackSubName = index === 0 ? 'Unter-Layer' : `Unter-Layer ${index + 1}`;
     const resolvedSubName = typeof data.name === 'string' && data.name.trim() ? data.name.trim() : fallbackSubName;
     subgroupEl.dataset.subLayerName = resolvedSubName;
-    const preferredSubVar = typeof data.variableId === 'string' && data.variableId.trim()
+    const datasetSubVar = typeof subgroupEl.dataset.subLayerVar === 'string' ? subgroupEl.dataset.subLayerVar : '';
+    const candidateSubVar = typeof data.variableId === 'string' && data.variableId.trim()
       ? data.variableId.trim()
-      : (typeof subgroupEl.dataset.subLayerVar === 'string' ? subgroupEl.dataset.subLayerVar : '');
+      : datasetSubVar;
+    const preferredSubVar = resolvePreferredCssVariableId(candidateSubVar, resolvedSubName, fallbackSubName);
     const subVariableId = deriveCssVariableId(resolvedSubName, fallbackSubName, usedSubLayerIds, preferredSubVar);
     subgroupEl.dataset.subLayerVar = subVariableId;
     data.variableId = subVariableId;
@@ -6090,7 +6108,8 @@ function collectModuleColorLayersFromDom() {
     const inputName = typeof nameInput?.value === 'string' ? nameInput.value.trim() : '';
     const resolvedName = inputName || defaultName;
     const datasetVar = typeof layerEl.dataset.layerVar === 'string' ? layerEl.dataset.layerVar : '';
-    const variableId = deriveCssVariableId(resolvedName, defaultName, layerRegistry, datasetVar);
+    const preferredVar = resolvePreferredCssVariableId(datasetVar, resolvedName, defaultName);
+    const variableId = deriveCssVariableId(resolvedName, defaultName, layerRegistry, preferredVar);
     layerEl.dataset.layerVar = variableId;
     const getColor = field => {
       const input = layerEl.querySelector(`input[data-field="${field}"]`);
@@ -6115,7 +6134,8 @@ function collectModuleColorLayersFromDom() {
       }
       groupEl.dataset.subLayerName = resolvedSubName;
       const datasetSubVar = typeof groupEl.dataset.subLayerVar === 'string' ? groupEl.dataset.subLayerVar : '';
-      const subVariableId = deriveCssVariableId(resolvedSubName, defaultSubName, subRegistry, datasetSubVar);
+      const preferredSubVar = resolvePreferredCssVariableId(datasetSubVar, resolvedSubName, defaultSubName);
+      const subVariableId = deriveCssVariableId(resolvedSubName, defaultSubName, subRegistry, preferredSubVar);
       groupEl.dataset.subLayerVar = subVariableId;
       subLayers[subIndex] = {
         name: resolvedSubName,
