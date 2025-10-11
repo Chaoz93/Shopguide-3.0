@@ -5478,18 +5478,34 @@ function broadcastActiveSubLayerOptions() {
   }
 }
 
+function assignLayerColorTriplet(target, prefix, colors) {
+  if (!target || typeof target !== 'object' || typeof prefix !== 'string' || !prefix) {
+    return;
+  }
+  const safeValue = key => (typeof colors?.[key] === 'string' ? colors[key] : '');
+  target[`${prefix}-bg`] = safeValue('bg');
+  target[`${prefix}-text`] = safeValue('text');
+  target[`${prefix}-border`] = safeValue('border');
+}
+
 function syncModuleLayerCssVariables() {
   const assignments = {};
   const layers = Array.isArray(appSettings.moduleColorLayers) ? appSettings.moduleColorLayers : [];
   for (let layerIndex = 0; layerIndex < MAX_MODULE_COLOR_LAYERS; layerIndex += 1) {
     const layer = layers[layerIndex];
     const basePrefix = `--module-layer-${layerIndex + 1}`;
-    assignments[`${basePrefix}-bg`] = typeof layer?.moduleBg === 'string' ? layer.moduleBg : '';
-    assignments[`${basePrefix}-text`] = typeof layer?.moduleText === 'string' ? layer.moduleText : '';
-    assignments[`${basePrefix}-border`] = typeof layer?.moduleBorder === 'string' ? layer.moduleBorder : '';
-    assignments[`${basePrefix}-header-bg`] = typeof layer?.headerBg === 'string' ? layer.headerBg : '';
-    assignments[`${basePrefix}-header-text`] = typeof layer?.headerText === 'string' ? layer.headerText : '';
-    assignments[`${basePrefix}-header-border`] = typeof layer?.headerBorder === 'string' ? layer.headerBorder : '';
+    const moduleBg = typeof layer?.moduleBg === 'string' ? layer.moduleBg : '';
+    const moduleText = typeof layer?.moduleText === 'string' ? layer.moduleText : '';
+    const moduleBorder = typeof layer?.moduleBorder === 'string' ? layer.moduleBorder : '';
+    const headerBg = typeof layer?.headerBg === 'string' ? layer.headerBg : '';
+    const headerText = typeof layer?.headerText === 'string' ? layer.headerText : '';
+    const headerBorder = typeof layer?.headerBorder === 'string' ? layer.headerBorder : '';
+    assignments[`${basePrefix}-bg`] = moduleBg;
+    assignments[`${basePrefix}-text`] = moduleText;
+    assignments[`${basePrefix}-border`] = moduleBorder;
+    assignments[`${basePrefix}-header-bg`] = headerBg;
+    assignments[`${basePrefix}-header-text`] = headerText;
+    assignments[`${basePrefix}-header-border`] = headerBorder;
     const subLayers = Array.isArray(layer?.subLayers) ? layer.subLayers : [];
     for (let subIndex = 0; subIndex < MAX_MODULE_SUB_LAYERS; subIndex += 1) {
       const subLayer = subLayers[subIndex];
@@ -5503,6 +5519,28 @@ function syncModuleLayerCssVariables() {
         assignments[`${globalPrefix}-text`] = typeof subLayer?.text === 'string' ? subLayer.text : '';
         assignments[`${globalPrefix}-border`] = typeof subLayer?.border === 'string' ? subLayer.border : '';
       }
+    }
+    assignLayerColorTriplet(assignments, `--module-main-layer-${layerIndex + 1}`, {
+      bg: moduleBg,
+      text: moduleText,
+      border: moduleBorder
+    });
+    assignLayerColorTriplet(assignments, `--module-header-layer-${layerIndex + 1}`, {
+      bg: headerBg,
+      text: headerText,
+      border: headerBorder
+    });
+    if (layerIndex === 0) {
+      assignLayerColorTriplet(assignments, '--module-main-layer', {
+        bg: moduleBg,
+        text: moduleText,
+        border: moduleBorder
+      });
+      assignLayerColorTriplet(assignments, '--module-header-layer', {
+        bg: headerBg,
+        text: headerText,
+        border: headerBorder
+      });
     }
     if (layerIndex === 0 && subLayers.length === 0) {
       for (let subIndex = 0; subIndex < MAX_MODULE_SUB_LAYERS; subIndex += 1) {
