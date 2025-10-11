@@ -121,6 +121,26 @@
       background:rgba(15,23,42,.58); color:inherit; font-size:.9rem; box-sizing:border-box;}
     .ops-filter-row input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
     .ops-filter-actions{display:flex; justify-content:flex-end;}
+    .ops-tab-colors{display:flex; flex-direction:column; gap:.85rem; padding-top:.45rem;}
+    .ops-tab-colors .ops-color-panel{display:flex; flex-direction:column; gap:.85rem;}
+    .ops-tab-colors .ops-color-body{background:rgba(15,23,42,.52); border:1px solid rgba(148,163,184,.22);
+      border-radius:.95rem; padding:1rem 1.1rem; display:flex; flex-direction:column; gap:1rem; color:inherit;}
+    .ops-tab-colors .ops-color-section{display:flex; flex-direction:column; gap:.4rem; padding:.75rem .85rem;
+      border-radius:.75rem; border:1px solid rgba(148,163,184,.18); background:rgba(15,23,42,.48);}
+    .ops-tab-colors .ops-color-hint{font-size:.78rem; color:rgba(226,232,240,.78);}
+    .ops-tab-colors .ops-color-select{width:100%; padding:.55rem .75rem; border-radius:.65rem;
+      border:1px solid rgba(148,163,184,.35); background:rgba(15,23,42,.65); color:inherit; font:inherit;}
+    .ops-tab-colors .ops-color-preview{display:flex; align-items:center; gap:.45rem; padding:.4rem .5rem;
+      border-radius:.65rem; background:rgba(148,163,184,.14); border:1px solid rgba(148,163,184,.26); font-size:.78rem; color:inherit;}
+    .ops-tab-colors .ops-color-chip{width:1.1rem; height:1.1rem; border-radius:50%; border:2px solid rgba(255,255,255,.68);
+      box-shadow:0 0 0 1px rgba(15,23,42,.35); background:transparent;}
+    .ops-tab-colors .ops-color-footer{display:flex; justify-content:flex-end;}
+    .ops-tab-colors .ops-color-reset{border:none; border-radius:.75rem; padding:.6rem 1.05rem; font-weight:600;
+      background:rgba(148,163,184,.22); color:inherit; cursor:pointer; box-shadow:0 12px 24px rgba(8,15,35,.32);
+      transition:filter .15s ease, transform .15s ease, box-shadow .15s ease;}
+    .ops-tab-colors .ops-color-reset:hover{filter:brightness(1.05); transform:translateY(-1px);}
+    .ops-tab-colors .ops-color-reset:active{transform:none; box-shadow:none;}
+    .ops-color-empty{font-size:.85rem; opacity:.75; padding:.15rem .15rem 0;}
     .ops-file{padding:.35rem .65rem 0; font-size:.85rem; opacity:.82;}
     .ops-file-hint{padding:.15rem .65rem .1rem; font-size:.78rem; opacity:.72;}
     .ops-action-button{display:inline-flex; align-items:center; justify-content:center; gap:.35rem; padding:.55rem .9rem;
@@ -740,7 +760,7 @@
       header: sanitizeId(storedSelection?.header),
       buttons: sanitizeId(storedSelection?.buttons)
     };
-    let colorModal = null;
+    let colorPanel = null;
 
     function getSelectionSnapshot(){
       const snapshot = {};
@@ -878,7 +898,10 @@
         }
       }
 
-      if(colorModal && colorModal.isOpen()) colorModal.updatePreviews();
+      if(colorPanel) {
+        colorPanel.setSelection(selectedColors);
+        colorPanel.updatePreviews();
+      }
     }
 
     function syncSelectionFromStorage(){
@@ -889,8 +912,9 @@
         selectedColors[area] = sanitizeId(entry?.[area]);
       }
       applySelectedColors();
-      if(colorModal) {
-        colorModal.setSelection(selectedColors);
+      if(colorPanel) {
+        colorPanel.setSelection(selectedColors);
+        colorPanel.updatePreviews();
       }
     }
 
@@ -900,8 +924,8 @@
     };
     window.addEventListener('storage', storageHandler);
 
-    function createColorModal(rootEl, hostContent){
-      const titleId = 'ops-color-title-' + Math.random().toString(36).slice(2,9);
+    function createColorPanel(rootEl, hostContent, containerEl){
+      if(!containerEl) return null;
       const sectionMarkup = COLOR_AREAS.map(area => {
         const label = area === 'header' ? 'Header' : (area === 'main' ? 'Hauptmodul' : 'Buttons');
         const hint = area === 'header' ? 'Titelzeile & Status' : (area === 'main' ? 'Rahmen & Hintergrund' : 'Karten & Aktionen');
@@ -920,35 +944,26 @@
           </section>`;
       }).join('');
 
-      const overlay = document.createElement('div');
-      overlay.className = 'ops-color-overlay';
-      overlay.setAttribute('aria-hidden','true');
-      overlay.innerHTML = `
-        <div class="ops-color-dialog" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
-          <div class="ops-color-header">
-            <h2 class="ops-color-title" id="${titleId}">Farben für LinkButtons Plus</h2>
-            <button type="button" class="ops-color-dismiss" aria-label="Farbauswahl schließen">×</button>
-          </div>
+      containerEl.innerHTML = `
+        <div class="ops-color-panel-inner">
+          <div class="ops-color-empty" hidden>Keine Farbvarianten gefunden. Es werden Standardfarben verwendet.</div>
           <div class="ops-color-body">${sectionMarkup}</div>
           <div class="ops-color-footer">
             <button type="button" class="ops-color-reset">Zurücksetzen</button>
-            <button type="button" class="ops-color-done">Schließen</button>
           </div>
         </div>`;
-      (document.body || document.documentElement).appendChild(overlay);
 
-      const dialog = overlay.querySelector('.ops-color-dialog');
+      const emptyEl = containerEl.querySelector('.ops-color-empty');
       const selects = {};
       const previews = {};
       COLOR_AREAS.forEach(area => {
-        selects[area] = overlay.querySelector(`select[data-area="${area}"]`);
-        previews[area] = overlay.querySelector(`[data-preview="${area}"]`);
+        selects[area] = containerEl.querySelector(`select[data-area="${area}"]`);
+        previews[area] = containerEl.querySelector(`[data-preview="${area}"]`);
       });
 
-      let openState = false;
       let callbacks = { onChange:null, onReset:null, getSelection:null };
       let currentLayers = [];
-      let lastFocus = null;
+      let currentSelection = { main:'', header:'', buttons:'' };
 
       function formatLabel(layer, area){
         const name = typeof layer?.name === 'string' && layer.name
@@ -1048,6 +1063,7 @@
       }
 
       function setSelection(selection){
+        const snapshot = {};
         COLOR_AREAS.forEach(area => {
           const select = selects[area];
           if(!select) return;
@@ -1058,8 +1074,10 @@
           } else {
             select.value = '';
           }
+          snapshot[area] = sanitizeId(select.value);
           updateSelectBackground(area);
         });
+        currentSelection = snapshot;
       }
 
       function updatePreviews(){
@@ -1103,30 +1121,13 @@
         COLOR_AREAS.forEach(area => updateSelectBackground(area));
       }
 
-      function close(){
-        if(!openState) return;
-        overlay.classList.remove('open');
-        overlay.setAttribute('aria-hidden','true');
-        document.removeEventListener('keydown', handleKeydown, true);
-        openState = false;
-        if(lastFocus && typeof lastFocus.focus === 'function'){
-          try { lastFocus.focus(); } catch {}
+      function updateVisibility(){
+        if(emptyEl){
+          emptyEl.hidden = currentLayers.length > 0;
         }
       }
 
-      function handleKeydown(event){
-        if(event.key === 'Escape'){
-          event.preventDefault();
-          close();
-        }
-      }
-
-      overlay.addEventListener('click', event => {
-        if(event.target === overlay) close();
-      });
-      overlay.querySelector('.ops-color-dismiss')?.addEventListener('click', close);
-      overlay.querySelector('.ops-color-done')?.addEventListener('click', close);
-      const resetBtn = overlay.querySelector('.ops-color-reset');
+      const resetBtn = containerEl.querySelector('.ops-color-reset');
       if(resetBtn){
         resetBtn.addEventListener('click', () => {
           let nextSelection = null;
@@ -1138,6 +1139,9 @@
           } else if (callbacks.getSelection) {
             const latest = callbacks.getSelection();
             if(latest && typeof latest === 'object') setSelection(latest);
+            else setSelection({});
+          } else {
+            setSelection({});
           }
           updatePreviews();
         });
@@ -1154,49 +1158,43 @@
           }
           if(nextSelection && typeof nextSelection === 'object'){
             setSelection(nextSelection);
+          } else {
+            currentSelection[area] = value;
           }
           updatePreviews();
           updateSelectBackground(area);
         });
       });
 
-      function open(options = {}){
+      function configure(options = {}){
         currentLayers = Array.isArray(options.layers) ? options.layers : [];
         callbacks = {
           onChange: typeof options.onChange === 'function' ? options.onChange : null,
           onReset: typeof options.onReset === 'function' ? options.onReset : null,
           getSelection: typeof options.getSelection === 'function' ? options.getSelection : null
         };
+        updateVisibility();
         populateOptions(currentLayers);
-        if(options.selection) setSelection(options.selection);
-        overlay.classList.add('open');
-        overlay.setAttribute('aria-hidden','false');
-        openState = true;
-        lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        if(dialog){
-          dialog.setAttribute('tabindex','-1');
-          try { dialog.focus({ preventScroll:true }); } catch {}
+        if(options.selection && typeof options.selection === 'object'){
+          setSelection(options.selection);
+        } else {
+          setSelection(currentSelection);
         }
-        document.addEventListener('keydown', handleKeydown, true);
         updatePreviews();
       }
 
       function destroy(){
-        close();
-        overlay.remove();
+        containerEl.innerHTML = '';
       }
 
       return {
-        open,
-        close,
-        destroy,
+        configure,
         setSelection,
         updatePreviews,
-        isOpen: () => openState
+        destroy
       };
     }
 
-    colorModal = createColorModal(root, hostEl);
     applySelectedColors();
     setTimeout(() => applySelectedColors(), 0);
 
@@ -1328,11 +1326,11 @@
           <div class="ops-tabs">
             <button type="button" class="ops-tab-btn active" data-tab="buttons">Buttons</button>
             <button type="button" class="ops-tab-btn" data-tab="filters">Filter</button>
+            <button type="button" class="ops-tab-btn" data-tab="colors">Farben anpassen</button>
           </div>
           <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
             ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
             <hr>
-            <button type="button" class="ops-color-settings ops-action-button">Farben anpassen</button>
             <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
             <div class="ops-file"></div>
             <div class="ops-file-hint"></div>
@@ -1343,6 +1341,9 @@
             <div class="ops-filter-actions">
               <button type="button" class="ops-filter-clear ops-action-button">Alle Filter löschen</button>
             </div>
+          </div>
+          <div class="ops-tab ops-tab-colors" data-tab="colors">
+            <div class="ops-color-panel"></div>
           </div>
         </div>
         <div class="ops-settings-footer">
@@ -1358,13 +1359,46 @@
     const dismissButton = menu.querySelector('.ops-settings-dismiss');
     const tabs = menu.querySelectorAll('.ops-tab');
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
+    const colorPanelContainer = menu.querySelector('.ops-color-panel');
+    colorPanel = createColorPanel(root, hostEl, colorPanelContainer);
+
+    function configureColorPanel(){
+      if(!colorPanel) return;
+      const layers = getColorLayers();
+      const snapshot = {};
+      COLOR_AREAS.forEach(area => { snapshot[area] = sanitizeId(selectedColors[area]); });
+      colorPanel.configure({
+        layers,
+        selection: snapshot,
+        onChange(area, value){
+          selectedColors[area] = sanitizeId(value);
+          persistColorSelection();
+          applySelectedColors();
+          return { ...selectedColors };
+        },
+        onReset(){
+          COLOR_AREAS.forEach(area => { selectedColors[area] = ''; });
+          persistColorSelection();
+          applySelectedColors();
+          return { ...selectedColors };
+        },
+        getSelection(){
+          return { ...selectedColors };
+        }
+      });
+    }
+
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const target = btn.dataset.tab;
         tabButtons.forEach(b => b.classList.toggle('active', b === btn));
         tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === target));
+        if(target === 'colors'){
+          configureColorPanel();
+        }
       });
     });
+    configureColorPanel();
     if(closeButton){
       closeButton.addEventListener('click', () => closeModuleSettingsModal());
     }
@@ -1386,39 +1420,6 @@
     const fileHint = menu.querySelector('.ops-file-hint');
     const autoBadge = root.querySelector('.ops-autorefresh');
     const autoBadgeTime = autoBadge?.querySelector('.ops-autorefresh-time');
-    const colorButton = menu.querySelector('.ops-color-settings');
-
-    function openColorSettings(){
-      const layers = getColorLayers();
-      const snapshot = {};
-      COLOR_AREAS.forEach(area => { snapshot[area] = sanitizeId(selectedColors[area]); });
-      colorModal.open({
-        layers,
-        selection: snapshot,
-        onChange(area, value){
-          selectedColors[area] = sanitizeId(value);
-          persistColorSelection();
-          applySelectedColors();
-          return { ...selectedColors };
-        },
-        onReset(){
-          COLOR_AREAS.forEach(area => { selectedColors[area] = ''; });
-          persistColorSelection();
-          applySelectedColors();
-          return { ...selectedColors };
-        },
-        getSelection(){
-          return { ...selectedColors };
-        }
-      });
-    }
-
-    if(colorButton){
-      colorButton.addEventListener('click', () => {
-        closeModuleSettingsModal({ restoreFocus:false });
-        openColorSettings();
-      });
-    }
 
     function updateAutoRefreshUI(){
       if(!autoBadge) return;
@@ -1717,6 +1718,7 @@
       }
       workforceFilters = loadWorkforceFilters();
       renderFilters();
+      configureColorPanel();
       tabButtons.forEach(btn => {
         const isButtons = btn.dataset.tab === 'buttons';
         btn.classList.toggle('active', isButtons);
@@ -1831,9 +1833,9 @@
         attrObserver.disconnect();
         clearAutoUpdateTimer();
         window.removeEventListener('storage', storageHandler);
-        if (colorModal) {
-          colorModal.destroy();
-          colorModal = null;
+        if (colorPanel) {
+          colorPanel.destroy();
+          colorPanel = null;
         }
         closeModuleSettingsModal({ restoreFocus:false, persist:false });
         document.removeEventListener('keydown', handleKeydown, true);
