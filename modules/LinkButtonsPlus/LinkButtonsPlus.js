@@ -295,25 +295,106 @@
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
 
+  const DEFAULT_LAYER_TITLES = {
+    1: 'Hauptmodul (Rahmen & Hintergrund)',
+    2: 'Header (Titelzeile & Status)',
+    3: 'Buttons (Karten & Aktionen)',
+    4: 'Sekundäre Infoflächen',
+    5: 'Hervorhebungen',
+    6: 'Navigationsleisten',
+    7: 'Modale Hintergründe',
+    8: 'Listen & Tabellen',
+    9: 'Inputs & Felder',
+    10: 'Tooltips & Hinweise'
+  };
+
+  function inferLayerIndexFromName(name){
+    if(typeof name !== 'string') return null;
+    const trimmed = name.trim();
+    if(!trimmed) return null;
+    let match = trimmed.match(/unter-layer-(\d+)/i);
+    if(match){
+      const parsed = parseInt(match[1], 10);
+      if(Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    match = trimmed.match(/layer-?(\d+)/i);
+    if(match){
+      const parsed = parseInt(match[1], 10);
+      if(Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    match = trimmed.match(/(\d+)/);
+    if(match){
+      const parsed = parseInt(match[1], 10);
+      if(Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return null;
+  }
+
+  function toTitleCase(value){
+    return value.replace(/\b\w/g, char => char.toUpperCase());
+  }
+
+  function buildReadableTitle(name, index){
+    const inferredIndex = Number.isFinite(index) && index > 0 ? Math.floor(index) : inferLayerIndexFromName(name);
+    if(Number.isFinite(inferredIndex) && DEFAULT_LAYER_TITLES[inferredIndex]){
+      return DEFAULT_LAYER_TITLES[inferredIndex];
+    }
+    const cleaned = typeof name === 'string' ? name.replace(/[-_]+/g, ' ').trim() : '';
+    if(cleaned){
+      return toTitleCase(cleaned);
+    }
+    if(Number.isFinite(inferredIndex)){
+      return `Unter-Layer ${inferredIndex}`;
+    }
+    return 'Unter-Layer';
+  }
+
+  function normalizePaletteEntry(name, value, order){
+    const entry = (value && typeof value === 'object') ? value : { color: value };
+    const explicitName = typeof entry.name === 'string' ? entry.name : '';
+    const fallbackName = typeof name === 'string' ? name : '';
+    const safeName = sanitizeId(explicitName) || sanitizeId(fallbackName);
+    if(!safeName) return null;
+    const color = typeof entry.color === 'string' ? entry.color.trim() : '';
+    if(!color) return null;
+    const explicitTitle = typeof entry.title === 'string' ? entry.title.trim() : '';
+    const explicitIndex = Number.isFinite(entry.index) ? Math.floor(entry.index) : null;
+    const normalizedIndex = Number.isFinite(explicitIndex) && explicitIndex > 0 ? explicitIndex : inferLayerIndexFromName(safeName);
+    const title = explicitTitle || buildReadableTitle(safeName, normalizedIndex);
+    return {
+      name: safeName,
+      title,
+      color,
+      index: Number.isFinite(normalizedIndex) && normalizedIndex > 0 ? normalizedIndex : null,
+      order: Number.isFinite(entry.order) ? entry.order : order
+    };
+  }
+
   function updateCachedPalette(layers){
     if(typeof window === 'undefined') return false;
     if(!layers || typeof layers !== 'object') return false;
     if(!window.__lbpPalette || typeof window.__lbpPalette !== 'object'){
       window.__lbpPalette = {};
     }
-    const normalized = {};
-    Object.entries(layers).forEach(([name, color]) => {
+
+    const entries = [];
+    Object.entries(layers).forEach(([name, value], order) => {
       if(typeof name !== 'string') return;
-      const trimmedColor = typeof color === 'string' ? color.trim() : '';
-      if(!trimmedColor) return;
-      normalized[name] = trimmedColor;
+      const normalized = normalizePaletteEntry(name, value, order);
+      if(normalized) entries.push(normalized);
     });
-    const serialized = JSON.stringify(normalized);
+
+    const palette = {};
+    entries.forEach(entry => {
+      palette[entry.name] = entry;
+    });
+
+    const serialized = JSON.stringify(palette);
     if(serialized === cachedPaletteSignature){
       return false;
     }
     cachedPaletteSignature = serialized;
-    window.__lbpPalette = normalized;
+    window.__lbpPalette = palette;
     return true;
   }
 
@@ -321,7 +402,28 @@
     if(typeof window === 'undefined' || !window.localStorage) return {};
     try {
       const raw = window.localStorage.getItem(LBP_MAP_KEY);
-      return raw ? JSON.parse(raw) || {} : {};
+      const parsed = raw ? JSON.parse(raw) || {} : {};
+      if(parsed && typeof parsed === 'object'){
+        Object.keys(parsed).forEach(key => {
+          const value = sanitizeId(parsed[key]);
+          if(!value){
+            delete parsed[key];
+            return;
+          }
+          const legacyMatch = value.match(/^layer-?(\d+)$/i);
+          if(legacyMatch){
+            const parsedIndex = parseInt(legacyMatch[1], 10);
+            if(Number.isFinite(parsedIndex) && parsedIndex > 0){
+              parsed[key] = `unter-layer-${parsedIndex}`;
+            } else {
+              parsed[key] = value;
+            }
+          } else {
+            parsed[key] = value;
+          }
+        });
+      }
+      return parsed;
     } catch {
       return {};
     }
@@ -330,7 +432,24 @@
   function setLayerMap(map){
     if(typeof window === 'undefined' || !window.localStorage) return;
     try {
-      window.localStorage.setItem(LBP_MAP_KEY, JSON.stringify(map || {}));
+      const normalized = {};
+      if(map && typeof map === 'object'){
+        Object.entries(map).forEach(([key, value]) => {
+          if(!key) return;
+          const sanitizedValue = sanitizeId(value);
+          if(!sanitizedValue) return;
+          const legacyMatch = sanitizedValue.match(/^layer-?(\d+)$/i);
+          if(legacyMatch){
+            const parsedIndex = parseInt(legacyMatch[1], 10);
+            if(Number.isFinite(parsedIndex) && parsedIndex > 0){
+              normalized[key] = `unter-layer-${parsedIndex}`;
+              return;
+            }
+          }
+          normalized[key] = sanitizedValue;
+        });
+      }
+      window.localStorage.setItem(LBP_MAP_KEY, JSON.stringify(normalized));
     } catch {}
   }
 
@@ -340,7 +459,17 @@
     if(existing && Object.keys(existing).length) return;
     const palette = window.__lbpPalette && typeof window.__lbpPalette === 'object' ? window.__lbpPalette : null;
     if(!palette) return;
-    const names = Object.keys(palette);
+    const names = Object.values(palette)
+      .sort((a, b) => {
+        const orderA = Number.isFinite(a?.order) ? a.order : 0;
+        const orderB = Number.isFinite(b?.order) ? b.order : 0;
+        if(orderA !== orderB) return orderA - orderB;
+        const indexA = Number.isFinite(a?.index) ? a.index : 0;
+        const indexB = Number.isFinite(b?.index) ? b.index : 0;
+        return indexA - indexB;
+      })
+      .map(entry => entry?.name)
+      .filter(Boolean);
     if(!names.length) return;
     const auto = {};
     for(let i = 1; i <= 15; i += 1){
@@ -348,37 +477,67 @@
     }
     setLayerMap(auto);
     try {
-      console.log('[LayerSync] Auto-mapped layer indices to palette order:', auto);
+      console.log('[LinkButtonsPlus] Auto-mapped layer indices to palette order:', auto);
     } catch {}
   }
 
   function resolveLayerColor(idx){
     const map = getLayerMap();
-    const name = map && typeof map === 'object' ? map[idx] : null;
     const palette = (typeof window !== 'undefined' && window.__lbpPalette && typeof window.__lbpPalette === 'object') ? window.__lbpPalette : {};
-    const paletteNames = Object.keys(palette);
+
+    const orderedEntries = Object.values(palette).sort((a, b) => {
+      const orderA = Number.isFinite(a?.order) ? a.order : 0;
+      const orderB = Number.isFinite(b?.order) ? b.order : 0;
+      if(orderA !== orderB) return orderA - orderB;
+      const indexA = Number.isFinite(a?.index) ? a.index : 0;
+      const indexB = Number.isFinite(b?.index) ? b.index : 0;
+      return indexA - indexB;
+    });
+
+    const pickEntry = (entry, fallbackIndex) => {
+      if(!entry || typeof entry !== 'object') return null;
+      const safeName = sanitizeId(entry.name);
+      const color = typeof entry.color === 'string' ? entry.color.trim() : '';
+      if(!safeName || !color) return null;
+      const explicitIndex = Number.isFinite(entry.index) && entry.index > 0 ? Math.floor(entry.index) : null;
+      const normalizedIndex = explicitIndex || fallbackIndex || inferLayerIndexFromName(safeName);
+      const title = typeof entry.title === 'string' && entry.title.trim()
+        ? entry.title.trim()
+        : buildReadableTitle(safeName, normalizedIndex);
+      return {
+        name: safeName,
+        title,
+        color,
+        index: Number.isFinite(normalizedIndex) && normalizedIndex > 0 ? normalizedIndex : null
+      };
+    };
+
+    const mappedName = map && typeof map === 'object' ? map[idx] : null;
+    const mappedEntry = mappedName ? pickEntry(palette[sanitizeId(mappedName)], idx) : null;
+    if(mappedEntry) return mappedEntry;
+
+    const orderEntry = orderedEntries[idx - 1] || null;
+    const resolvedFromOrder = orderEntry ? pickEntry(orderEntry, idx) : null;
+    if(resolvedFromOrder) return resolvedFromOrder;
+
+    for(const entry of orderedEntries){
+      const resolved = pickEntry(entry, idx);
+      if(resolved && Number.isFinite(resolved.index) && resolved.index === idx){
+        return resolved;
+      }
+    }
+
     const rootStyle = getRootComputedStyle();
     const cssValue = rootStyle ? rootStyle.getPropertyValue(`--module-layer-${idx}-module-bg`) : '';
-    if(name && palette[name]){
-      const paletteColor = palette[name];
-      const trimmedPaletteColor = typeof paletteColor === 'string' ? paletteColor.trim() : '';
-      if(trimmedPaletteColor){
-        return { name, color: trimmedPaletteColor };
-      }
-    }
-    if(paletteNames[idx - 1]){
-      const fallbackName = paletteNames[idx - 1];
-      const fallbackColor = palette[fallbackName];
-      const trimmedFallbackColor = typeof fallbackColor === 'string' ? fallbackColor.trim() : '';
-      if(trimmedFallbackColor){
-        return { name: fallbackName, color: trimmedFallbackColor };
-      }
-    }
     const trimmed = typeof cssValue === 'string' ? cssValue.trim() : '';
-    if(trimmed){
-      return { name: null, color: trimmed };
-    }
-    return { name: null, color: 'hsla(0, 0%, 100%, 1)' };
+    const fallbackName = `unter-layer-${idx}`;
+    const color = trimmed || 'hsla(0, 0%, 100%, 1)';
+    return {
+      name: fallbackName,
+      title: buildReadableTitle(fallbackName, idx),
+      color,
+      index: idx
+    };
   }
 
   function ensureCssVarForIndex(idx, hsla){
@@ -426,12 +585,12 @@
       const updated = updateCachedPalette(layers);
       if(!updated) return;
       try {
-        console.log('[LayerSync] Cached global sub-layer palette:', layers);
+        console.log('[LinkButtonsPlus] Received readable palette:', layers);
       } catch {}
       bootstrapLayerMapIfEmpty();
       if(!syncDropdownsFromCachedPalette()){
         try {
-          console.log('[LayerSync] Palette broadcast received – waiting for dropdowns to mount');
+          console.log('[LinkButtonsPlus] Palette broadcast received – waiting for dropdowns to mount');
         } catch {}
       }
     };
@@ -442,7 +601,7 @@
       if(Object.keys(window.__lbpPalette).length){
         if(!syncDropdownsFromCachedPalette()){
           try {
-            console.log('[LayerSync] DOM ready – cached palette available but dropdowns not rendered yet');
+            console.log('[LinkButtonsPlus] DOM ready – cached readable palette available but dropdowns not rendered yet');
           } catch {}
         }
       }
@@ -455,7 +614,7 @@
     }
 
     try {
-      console.log('[LayerSync] Subscriber initialized – awaiting palette broadcast');
+      console.log('[LinkButtonsPlus] Readable layer subscriber initialized');
     } catch {}
   })();
 
@@ -469,22 +628,34 @@
     select.appendChild(def);
 
     for(let i = 1; i <= 15; i += 1){
-      const { name, color } = resolveLayerColor(i);
-      const textColor = ensureCssVarForIndex(i, color);
+      const resolved = resolveLayerColor(i);
+      if(!resolved || !resolved.color) continue;
       const option = window.document.createElement('option');
-      option.value = `layer-${i}`;
-      option.textContent = name ? `Unter-Layer ${i} – ${name} (${color})` : `Unter-Layer ${i} (${color})`;
+      const value = sanitizeId(resolved.name) || `unter-layer-${i}`;
+      const label = resolved.title && resolved.title.trim()
+        ? resolved.title.trim()
+        : buildReadableTitle(value, resolved.index || i);
+      const color = resolved.color;
+      const targetIndex = Number.isFinite(resolved.index) && resolved.index > 0 ? resolved.index : i;
+      const textColor = ensureCssVarForIndex(targetIndex, color);
+      option.value = value;
+      option.textContent = `${label} (${color})`;
       option.style.background = color;
       option.style.color = textColor;
+      if(Number.isFinite(resolved.index)){
+        option.dataset.layerIndex = String(resolved.index);
+      } else {
+        option.dataset.layerIndex = String(i);
+      }
       select.appendChild(option);
     }
 
-    const desired = (typeof previousValue === 'string' && previousValue.trim()) || DROPDOWN_DEFAULT_VALUE;
+    const desired = dropdownValueForSelection(previousValue);
     select.value = desired;
     if(select.value !== desired){
       select.value = DROPDOWN_DEFAULT_VALUE;
     }
-    console.log('[LayerSync] Dropdown built from resolved layer mapping');
+    console.log('[LinkButtonsPlus] Dropdown rebuilt with readable palette');
     return true;
   }
 
@@ -494,7 +665,7 @@
       selects.forEach(sel => buildDropdownFromResolvedLayers(sel));
       return true;
     }
-    console.log('[LayerSync] No dropdowns present at build time');
+    console.log('[LinkButtonsPlus] No dropdowns present for readable palette build');
     return false;
   }
 
@@ -507,7 +678,15 @@
     const trimmed = value.trim();
     if(!trimmed) return '';
     if(trimmed.toLowerCase() === DROPDOWN_DEFAULT_VALUE) return '';
-    return sanitizeId(trimmed);
+    const sanitized = sanitizeId(trimmed);
+    const legacyMatch = sanitized.match(/^layer-?(\d+)$/i);
+    if(legacyMatch){
+      const parsed = parseInt(legacyMatch[1], 10);
+      if(Number.isFinite(parsed) && parsed > 0){
+        return `unter-layer-${parsed}`;
+      }
+    }
+    return sanitized;
   }
 
   function dropdownValueForSelection(value){
@@ -516,7 +695,41 @@
   }
 
   function layerIndexFromValue(value){
-    const parsed = parseLayerNumber(value);
+    const normalized = normalizeDropdownValue(value);
+    if(!normalized) return null;
+
+    const map = getLayerMap();
+    if(map && typeof map === 'object'){
+      for(const [idx, name] of Object.entries(map)){
+        if(sanitizeId(name) === normalized){
+          const parsedIndex = parseInt(idx, 10);
+          if(Number.isFinite(parsedIndex) && parsedIndex > 0){
+            return parsedIndex;
+          }
+        }
+      }
+    }
+
+    const palette = (typeof window !== 'undefined' && window.__lbpPalette && typeof window.__lbpPalette === 'object') ? window.__lbpPalette : null;
+    if(palette && palette[normalized]){
+      const entry = palette[normalized];
+      const entryIndex = Number.isFinite(entry.index) && entry.index > 0
+        ? Math.floor(entry.index)
+        : inferLayerIndexFromName(normalized);
+      if(Number.isFinite(entryIndex) && entryIndex > 0){
+        return entryIndex;
+      }
+    }
+
+    const aliasMatch = normalized.match(/^unter-layer-(\d+)$/i);
+    if(aliasMatch){
+      const parsedAlias = parseInt(aliasMatch[1], 10);
+      if(Number.isFinite(parsedAlias) && parsedAlias > 0){
+        return parsedAlias;
+      }
+    }
+
+    const parsed = parseLayerNumber(normalized);
     if(!Number.isFinite(parsed)) return null;
     const index = Math.abs(Math.floor(parsed));
     return index > 0 ? index : null;
@@ -525,7 +738,7 @@
   if(typeof window !== 'undefined' && typeof window.MutationObserver === 'function' && window.document?.body){
     const resolvedDropdownObserver = new window.MutationObserver(() => {
       if(syncDropdownsFromResolvedLayers()){
-        console.log('[LayerSync] Dropdown auto-synced via MutationObserver');
+        console.log('[LinkButtonsPlus] Dropdown auto-synced via MutationObserver');
         resolvedDropdownObserver.disconnect();
       }
     });
@@ -554,7 +767,7 @@
     }
     window.document.addEventListener('shopguide:modal-opened', () => {
       if(syncDropdownsFromResolvedLayers()){
-        console.log('[LayerSync] Dropdown re-synced after modal opened');
+        console.log('[LinkButtonsPlus] Dropdown re-synced after modal opened');
       }
     });
   }
