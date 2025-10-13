@@ -3414,7 +3414,7 @@
         ucToggle.appendChild(ucControl);
         const ucText=document.createElement('span');
         ucText.className='db-extra-uc-switch-text';
-        ucText.textContent='UC-Sortierung';
+        ucText.textContent='AutoUC';
         ucToggle.appendChild(ucText);
         header.appendChild(ucToggle);
         row.appendChild(header);
