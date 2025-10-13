@@ -267,8 +267,102 @@
     }catch{}
   }
 
+  const DROPDOWN_DEFAULT_VALUE = 'standard';
+
+  function buildDropdownFromLiveColors(select) {
+    if (!select || typeof window === 'undefined' || !window.document) return;
+    const root = window.document.documentElement;
+    if (!root) return;
+    let rootStyle;
+    try {
+      rootStyle = getComputedStyle(root);
+    } catch {
+      rootStyle = null;
+    }
+    if (!rootStyle) return;
+    const previousValue = select.value;
+    select.innerHTML = '';
+    const def = window.document.createElement('option');
+    def.value = DROPDOWN_DEFAULT_VALUE;
+    def.textContent = 'Standard (App)';
+    select.appendChild(def);
+
+    for (let i = 1; i <= 15; i += 1) {
+      let color = '';
+      try {
+        color = rootStyle.getPropertyValue(`--module-layer-${i}-module-bg`);
+      } catch {
+        color = '';
+      }
+      color = (typeof color === 'string' && color.trim()) || 'hsla(0, 0%, 100%, 1)';
+      const opt = window.document.createElement('option');
+      opt.value = `layer-${i}`;
+      opt.textContent = `Unter-Layer ${i} (${color})`;
+      opt.style.background = color;
+      opt.style.color = '#0f172a';
+      select.appendChild(opt);
+    }
+    const desired = (typeof previousValue === 'string' && previousValue.trim()) || DROPDOWN_DEFAULT_VALUE;
+    select.value = desired;
+    if (select.value !== desired) {
+      select.value = DROPDOWN_DEFAULT_VALUE;
+    }
+    console.log('[LayerSync] Dropdown built from live CSS variables');
+  }
+
+  function syncDropdownsFromLiveColors(){
+    const selects = window?.document?.querySelectorAll?.('.ops-color-select') || [];
+    if(selects.length){
+      selects.forEach(sel => buildDropdownFromLiveColors(sel));
+      return true;
+    }
+    console.log('[LayerSync] No dropdowns present at build time');
+    return false;
+  }
+
   function sanitizeId(value){
     return (typeof value === 'string' && value.trim()) || '';
+  }
+
+  function normalizeDropdownValue(value){
+    if(typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    if(!trimmed) return '';
+    if(trimmed.toLowerCase() === DROPDOWN_DEFAULT_VALUE) return '';
+    return sanitizeId(trimmed);
+  }
+
+  function dropdownValueForSelection(value){
+    const normalized = normalizeDropdownValue(value);
+    return normalized || DROPDOWN_DEFAULT_VALUE;
+  }
+
+  function layerIndexFromValue(value){
+    const parsed = parseLayerNumber(value);
+    if(!Number.isFinite(parsed)) return null;
+    const index = Math.abs(Math.floor(parsed));
+    return index > 0 ? index : null;
+  }
+
+  if(typeof window !== 'undefined' && typeof window.MutationObserver === 'function' && window.document?.body){
+    const liveDropdownObserver = new window.MutationObserver(() => {
+      if(syncDropdownsFromLiveColors()){
+        console.log('[LayerSync] Dropdown auto-synced via MutationObserver');
+        liveDropdownObserver.disconnect();
+      }
+    });
+    try {
+      liveDropdownObserver.observe(window.document.body, { childList: true, subtree: true });
+    } catch {}
+  }
+
+  if(typeof window !== 'undefined' && window.document){
+    syncDropdownsFromLiveColors();
+    window.document.addEventListener('shopguide:sub-layers-updated', () => {
+      if(syncDropdownsFromLiveColors()){
+        console.log('[LayerSync] Dropdown re-synced after global sub-layer update');
+      }
+    });
   }
 
   function getRootComputedStyle(){
@@ -1817,9 +1911,9 @@
     let colorConfigStore = loadColorConfig();
     const storedSelection = (colorConfigStore && typeof colorConfigStore === 'object') ? colorConfigStore[instanceId] : null;
     const selectedColors = {
-      main: sanitizeId(storedSelection?.main),
-      header: sanitizeId(storedSelection?.header),
-      buttons: sanitizeId(storedSelection?.buttons)
+      main: normalizeDropdownValue(storedSelection?.main),
+      header: normalizeDropdownValue(storedSelection?.header),
+      buttons: normalizeDropdownValue(storedSelection?.buttons)
     };
     let colorPanel = null;
     let pendingLayerRefresh = null;
@@ -1829,7 +1923,7 @@
       const snapshot = {};
       let hasValues = false;
       for(const area of COLOR_AREAS){
-        const id = sanitizeId(selectedColors[area]);
+        const id = normalizeDropdownValue(selectedColors[area]);
         snapshot[area] = id;
         if(id) hasValues = true;
       }
@@ -1852,7 +1946,7 @@
       const layers = getColorLayers();
       let removed = false;
       for(const area of COLOR_AREAS){
-        const id = sanitizeId(selectedColors[area]);
+        const id = normalizeDropdownValue(selectedColors[area]);
         if(id && !findLayerById(layers, id)){
           selectedColors[area] = '';
           removed = true;
@@ -1972,7 +2066,7 @@
       colorConfigStore = fresh;
       const entry = (fresh && typeof fresh === 'object') ? fresh[instanceId] : null;
       for (const area of COLOR_AREAS) {
-        selectedColors[area] = sanitizeId(entry?.[area]);
+        selectedColors[area] = normalizeDropdownValue(entry?.[area]);
       }
       applySelectedColors();
       if(colorPanel) {
@@ -2111,15 +2205,33 @@
         };
       }
 
+      function getCssPreview(area, value){
+        const index = layerIndexFromValue(value);
+        if(!index) return { bg:'', text:'' };
+        const css = getCssColorsForLayer(index, area);
+        return {
+          bg: css?.bg || '',
+          text: css?.text || ''
+        };
+      }
+
       function styleOption(option, layer, area){
         if(!option) return;
-        const preview = getPreviewForArea(layer, area);
+        const normalized = normalizeDropdownValue(option.value);
+        if(!normalized){
+          option.style.background = '';
+          option.style.color = '';
+          option.style.padding = '4px 8px';
+          option.style.borderRadius = '4px';
+          return;
+        }
+        const preview = layer ? getPreviewForArea(layer, area) : getCssPreview(area, normalized);
         const swatch = (typeof layer?.swatch === 'string' && layer.swatch)
           || preview.bg
           || (typeof layer?.color === 'string' ? layer.color : '');
         const textColor = preview.text
           || (typeof layer?.moduleText === 'string' && layer.moduleText)
-          || (swatch ? '#fff' : '');
+          || (swatch ? '#fff' : '#0f172a');
         option.style.background = swatch || '';
         option.style.color = textColor;
         option.style.padding = '4px 8px';
@@ -2129,20 +2241,20 @@
       function updateSelectBackground(area){
         const select = selects[area];
         if(!select) return;
-        const value = sanitizeId(select.value);
+        const value = normalizeDropdownValue(select.value);
         if(!value){
           select.style.background = '';
           select.style.color = '';
           return;
         }
         const layer = findLayerById(currentLayers, value);
-        const preview = getPreviewForArea(layer, area);
+        const preview = layer ? getPreviewForArea(layer, area) : getCssPreview(area, value);
         const swatch = (typeof layer?.swatch === 'string' && layer.swatch)
           || preview.bg
           || (typeof layer?.color === 'string' ? layer.color : '');
         const textColor = preview.text
           || (typeof layer?.moduleText === 'string' && layer.moduleText)
-          || (swatch ? '#fff' : '');
+          || (swatch ? '#fff' : '#0f172a');
         select.style.background = swatch || '';
         select.style.color = textColor;
       }
@@ -2151,24 +2263,21 @@
         COLOR_AREAS.forEach(area => {
           const select = selects[area];
           if(!select) return;
-          const previous = select.value;
-          select.innerHTML = '';
-          const def = document.createElement('option');
-          def.value = '';
-          def.textContent = 'Standard (App)';
-          def.style.background = '';
-          def.style.color = '';
-          select.appendChild(def);
-          layers.forEach(layer => {
-            const option = document.createElement('option');
-            option.value = sanitizeId(layer?.id) || '';
-            option.textContent = formatLabel(layer, area);
-            styleOption(option, layer, area);
-            select.appendChild(option);
+          const previous = normalizeDropdownValue(select.value);
+          buildDropdownFromLiveColors(select);
+          const options = Array.from(select.options);
+          options.forEach(option => {
+            const normalized = normalizeDropdownValue(option.value);
+            if(!normalized) return;
+            const layer = findLayerById(layers, normalized);
+            if(layer){
+              option.textContent = formatLabel(layer, area);
+            }
+            styleOption(option, layer || null, area);
           });
-          if(previous){
-            select.value = previous;
-            if(select.value !== previous) select.value = '';
+          select.value = dropdownValueForSelection(previous);
+          if(select.value !== dropdownValueForSelection(previous)){
+            select.value = DROPDOWN_DEFAULT_VALUE;
           }
           updateSelectBackground(area);
         });
@@ -2179,14 +2288,12 @@
         COLOR_AREAS.forEach(area => {
           const select = selects[area];
           if(!select) return;
-          const wanted = sanitizeId(selection?.[area]);
-          if(wanted){
-            select.value = wanted;
-            if(select.value !== wanted) select.value = '';
-          } else {
-            select.value = '';
+          const wanted = normalizeDropdownValue(selection?.[area]);
+          select.value = dropdownValueForSelection(wanted);
+          if(select.value !== dropdownValueForSelection(wanted)){
+            select.value = DROPDOWN_DEFAULT_VALUE;
           }
-          snapshot[area] = sanitizeId(select.value);
+          snapshot[area] = normalizeDropdownValue(select.value);
           updateSelectBackground(area);
         });
         currentSelection = snapshot;
@@ -2263,7 +2370,7 @@
         const select = selects[area];
         if(!select) return;
         select.addEventListener('change', () => {
-          const value = sanitizeId(select.value);
+          const value = normalizeDropdownValue(select.value);
           let nextSelection = null;
           if(typeof callbacks.onChange === 'function'){
             nextSelection = callbacks.onChange(area, value);
@@ -2536,12 +2643,12 @@
       if(!colorPanel) return;
       const layers = getColorLayers();
       const snapshot = {};
-      COLOR_AREAS.forEach(area => { snapshot[area] = sanitizeId(selectedColors[area]); });
+      COLOR_AREAS.forEach(area => { snapshot[area] = normalizeDropdownValue(selectedColors[area]); });
       colorPanel.configure({
         layers,
         selection: snapshot,
         onChange(area, value){
-          selectedColors[area] = sanitizeId(value);
+          selectedColors[area] = normalizeDropdownValue(value);
           persistColorSelection();
           applySelectedColors();
           return { ...selectedColors };
