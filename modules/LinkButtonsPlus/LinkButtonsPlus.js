@@ -201,6 +201,35 @@
     document.head.appendChild(tag);
   }
 
+  (function preInitLayerColorSync() {
+    try {
+      const root = document.documentElement;
+      const storedColors = JSON.parse(localStorage.getItem('linkbuttonsplus-colors-v1') || '{}');
+      const layers = storedColors?.layers || storedColors;
+
+      if (layers && typeof layers === 'object' && Object.keys(layers).length > 0) {
+        console.log('[LayerSync] Pre-Init: applying stored layer colors...');
+        Object.entries(layers).forEach(([key, value]) => {
+          if (!value || typeof value !== 'string') return;
+
+          root.style.setProperty(`--module-layer-${key}-module-bg`, value);
+          root.style.setProperty(`--module-layer-${key}-header-bg`, value);
+
+          const match = value.match(/(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%/);
+          const lightness = match ? parseFloat(match[3]) : 50;
+          const textColor = lightness > 55 ? '#0f172a' : '#f8fafc';
+          root.style.setProperty(`--module-layer-${key}-module-text`, textColor);
+          root.style.setProperty(`--module-layer-${key}-header-text`, textColor);
+        });
+        console.log('[LayerSync] Pre-Init layer colors applied successfully');
+      } else {
+        console.log('[LayerSync] Pre-Init: no stored colors found in localStorage');
+      }
+    } catch (err) {
+      console.error('[LayerSync] Pre-Init color sync failed:', err);
+    }
+  })();
+
   // ---------- storage helpers ----------
   const LS_KEY = 'module_data_v1';
   const IDB_NAME = 'modulesApp';
