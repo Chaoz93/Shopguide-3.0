@@ -292,18 +292,124 @@
   }
 
   const DROPDOWN_DEFAULT_VALUE = 'standard';
+  const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
 
-  function buildDropdownFromLiveColors(select) {
-    if (!select || typeof window === 'undefined' || !window.document) return;
+  (function initPaletteCache(){
+    if(typeof window === 'undefined') return;
+    if(!window.__lbpPalette) window.__lbpPalette = {};
+    const handler = (event) => {
+      const detail = event && event.detail && typeof event.detail === 'object' ? event.detail : null;
+      const layers = detail && detail.layers && typeof detail.layers === 'object' ? detail.layers : null;
+      if(layers){
+        window.__lbpPalette = layers;
+        try {
+          console.log('[LayerSync] Cached global sub-layer palette:', Object.keys(layers));
+        } catch {}
+      }
+      bootstrapLayerMapIfEmpty();
+      if(syncDropdownsFromResolvedLayers()){
+        console.log('[LayerSync] Dropdown re-synced after global sub-layer update');
+      }
+    };
+    try {
+      window.document?.addEventListener?.('shopguide:sub-layers-updated', handler, { passive: true });
+    } catch {}
+  })();
+
+  function getLayerMap(){
+    if(typeof window === 'undefined' || !window.localStorage) return {};
+    try {
+      const raw = window.localStorage.getItem(LBP_MAP_KEY);
+      return raw ? JSON.parse(raw) || {} : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function setLayerMap(map){
+    if(typeof window === 'undefined' || !window.localStorage) return;
+    try {
+      window.localStorage.setItem(LBP_MAP_KEY, JSON.stringify(map || {}));
+    } catch {}
+  }
+
+  function bootstrapLayerMapIfEmpty(){
+    if(typeof window === 'undefined') return;
+    const existing = getLayerMap();
+    if(existing && Object.keys(existing).length) return;
+    const palette = window.__lbpPalette && typeof window.__lbpPalette === 'object' ? window.__lbpPalette : null;
+    if(!palette) return;
+    const names = Object.keys(palette);
+    if(!names.length) return;
+    const auto = {};
+    for(let i = 1; i <= 15; i += 1){
+      if(names[i - 1]) auto[i] = names[i - 1];
+    }
+    setLayerMap(auto);
+    try {
+      console.log('[LayerSync] Auto-mapped layer indices to palette order:', auto);
+    } catch {}
+  }
+
+  function resolveLayerColor(idx){
+    const map = getLayerMap();
+    const name = map && typeof map === 'object' ? map[idx] : null;
+    const palette = (typeof window !== 'undefined' && window.__lbpPalette && typeof window.__lbpPalette === 'object') ? window.__lbpPalette : {};
+    const paletteNames = Object.keys(palette);
+    const rootStyle = getRootComputedStyle();
+    const cssValue = rootStyle ? rootStyle.getPropertyValue(`--module-layer-${idx}-module-bg`) : '';
+    if(name && palette[name]){
+      const paletteColor = palette[name];
+      const trimmedPaletteColor = typeof paletteColor === 'string' ? paletteColor.trim() : '';
+      if(trimmedPaletteColor){
+        return { name, color: trimmedPaletteColor };
+      }
+    }
+    if(paletteNames[idx - 1]){
+      const fallbackName = paletteNames[idx - 1];
+      const fallbackColor = palette[fallbackName];
+      const trimmedFallbackColor = typeof fallbackColor === 'string' ? fallbackColor.trim() : '';
+      if(trimmedFallbackColor){
+        return { name: fallbackName, color: trimmedFallbackColor };
+      }
+    }
+    const trimmed = typeof cssValue === 'string' ? cssValue.trim() : '';
+    if(trimmed){
+      return { name: null, color: trimmed };
+    }
+    return { name: null, color: 'hsla(0, 0%, 100%, 1)' };
+  }
+
+  function ensureCssVarForIndex(idx, hsla){
+    if(typeof window === 'undefined' || !window.document || !window.document.documentElement) return '#0f172a';
+    const color = typeof hsla === 'string' && hsla.trim() ? hsla.trim() : 'hsla(0, 0%, 100%, 1)';
     const root = window.document.documentElement;
-    if (!root) return;
     let rootStyle;
     try {
       rootStyle = getComputedStyle(root);
     } catch {
       rootStyle = null;
     }
-    if (!rootStyle) return;
+    const key = `--module-layer-${idx}-module-bg`;
+    const current = rootStyle ? rootStyle.getPropertyValue(key).trim() : '';
+    const needsUpdate = !current || /^hsla?\(\s*0\s*,\s*0%?\s*,\s*100%/i.test(current);
+    const match = color.match(/hsla?\(\s*\d+\s*,\s*\d+%?\s*,\s*(\d+)%/i);
+    const lightness = match ? parseFloat(match[1]) : 50;
+    const derivedText = Number.isFinite(lightness) && lightness > 55 ? '#0f172a' : '#f8fafc';
+    const existingText = rootStyle ? rootStyle.getPropertyValue(`--module-layer-${idx}-module-text`).trim() : '';
+    if(needsUpdate){
+      root.style.setProperty(key, color);
+      root.style.setProperty(`--module-layer-${idx}-header-bg`, color);
+      root.style.setProperty(`--module-layer-${idx}-module-text`, derivedText);
+      root.style.setProperty(`--module-layer-${idx}-header-text`, derivedText);
+    }
+    return existingText || derivedText;
+  }
+
+  bootstrapLayerMapIfEmpty();
+
+  function buildDropdownFromResolvedLayers(select){
+    if(!select || typeof window === 'undefined' || !window.document) return false;
     const previousValue = select.value;
     select.innerHTML = '';
     const def = window.document.createElement('option');
@@ -311,33 +417,30 @@
     def.textContent = 'Standard (App)';
     select.appendChild(def);
 
-    for (let i = 1; i <= 15; i += 1) {
-      let color = '';
-      try {
-        color = rootStyle.getPropertyValue(`--module-layer-${i}-module-bg`);
-      } catch {
-        color = '';
-      }
-      color = (typeof color === 'string' && color.trim()) || 'hsla(0, 0%, 100%, 1)';
-      const opt = window.document.createElement('option');
-      opt.value = `layer-${i}`;
-      opt.textContent = `Unter-Layer ${i} (${color})`;
-      opt.style.background = color;
-      opt.style.color = '#0f172a';
-      select.appendChild(opt);
+    for(let i = 1; i <= 15; i += 1){
+      const { name, color } = resolveLayerColor(i);
+      const textColor = ensureCssVarForIndex(i, color);
+      const option = window.document.createElement('option');
+      option.value = `layer-${i}`;
+      option.textContent = name ? `Unter-Layer ${i} – ${name} (${color})` : `Unter-Layer ${i} (${color})`;
+      option.style.background = color;
+      option.style.color = textColor;
+      select.appendChild(option);
     }
+
     const desired = (typeof previousValue === 'string' && previousValue.trim()) || DROPDOWN_DEFAULT_VALUE;
     select.value = desired;
-    if (select.value !== desired) {
+    if(select.value !== desired){
       select.value = DROPDOWN_DEFAULT_VALUE;
     }
-    console.log('[LayerSync] Dropdown built from live CSS variables');
+    console.log('[LayerSync] Dropdown built from resolved layer mapping');
+    return true;
   }
 
-  function syncDropdownsFromLiveColors(){
+  function syncDropdownsFromResolvedLayers(){
     const selects = window?.document?.querySelectorAll?.('.ops-color-select') || [];
     if(selects.length){
-      selects.forEach(sel => buildDropdownFromLiveColors(sel));
+      selects.forEach(sel => buildDropdownFromResolvedLayers(sel));
       return true;
     }
     console.log('[LayerSync] No dropdowns present at build time');
@@ -369,22 +472,38 @@
   }
 
   if(typeof window !== 'undefined' && typeof window.MutationObserver === 'function' && window.document?.body){
-    const liveDropdownObserver = new window.MutationObserver(() => {
-      if(syncDropdownsFromLiveColors()){
+    const resolvedDropdownObserver = new window.MutationObserver(() => {
+      if(syncDropdownsFromResolvedLayers()){
         console.log('[LayerSync] Dropdown auto-synced via MutationObserver');
-        liveDropdownObserver.disconnect();
+        resolvedDropdownObserver.disconnect();
       }
     });
     try {
-      liveDropdownObserver.observe(window.document.body, { childList: true, subtree: true });
+      resolvedDropdownObserver.observe(window.document.body, { childList: true, subtree: true });
     } catch {}
   }
 
   if(typeof window !== 'undefined' && window.document){
-    syncDropdownsFromLiveColors();
-    window.document.addEventListener('shopguide:sub-layers-updated', () => {
-      if(syncDropdownsFromLiveColors()){
-        console.log('[LayerSync] Dropdown re-synced after global sub-layer update');
+    const attemptInitialDropdownSync = () => {
+      if(syncDropdownsFromResolvedLayers()){
+        return;
+      }
+      let tries = 0;
+      const timer = window.setInterval(() => {
+        tries += 1;
+        if(syncDropdownsFromResolvedLayers() || tries >= 15){
+          window.clearInterval(timer);
+        }
+      }, 100);
+    };
+    if(window.document.readyState === 'loading'){
+      window.document.addEventListener('DOMContentLoaded', attemptInitialDropdownSync, { once: true });
+    } else {
+      attemptInitialDropdownSync();
+    }
+    window.document.addEventListener('shopguide:modal-opened', () => {
+      if(syncDropdownsFromResolvedLayers()){
+        console.log('[LayerSync] Dropdown re-synced after modal opened');
       }
     });
   }
@@ -2288,7 +2407,7 @@
           const select = selects[area];
           if(!select) return;
           const previous = normalizeDropdownValue(select.value);
-          buildDropdownFromLiveColors(select);
+          buildDropdownFromResolvedLayers(select);
           const options = Array.from(select.options);
           options.forEach(option => {
             const normalized = normalizeDropdownValue(option.value);
