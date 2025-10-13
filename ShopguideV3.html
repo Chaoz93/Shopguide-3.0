@@ -5546,80 +5546,49 @@ function bindLayerColorSync() {
   const lastValues = new Map();
   let lastBroadcastSignature = '';
 
-  const broadcastGlobalSubLayerPalette = () => {
-    if (typeof window === 'undefined' || !window.document) return;
+  const publishGlobalPresetLayers = () => {
+    if (typeof window === 'undefined') return;
     try {
-      const root = window.document.documentElement;
-      if (!root) return;
-      const computed = getComputedStyle(root);
-      if (!computed) return;
+      const globalPreset =
+        window.__activeLayerPreset ||
+        (window.__layerManager && window.__layerManager.current) ||
+        (window.__layerPresets && window.__layerPresets.Standard) ||
+        null;
 
-      const baseTitles = {
-        'unter-layer-1': 'Hauptmodul (Rahmen & Hintergrund)',
-        'unter-layer-2': 'Header (Titelzeile & Status)',
-        'unter-layer-3': 'Buttons (Karten & Aktionen)',
-        'unter-layer-4': 'Sekundäre Infoflächen',
-        'unter-layer-5': 'Hervorhebungen',
-        'unter-layer-6': 'Navigationsleisten',
-        'unter-layer-7': 'Modale Hintergründe',
-        'unter-layer-8': 'Listen & Tabellen',
-        'unter-layer-9': 'Inputs & Felder',
-        'unter-layer-10': 'Tooltips & Hinweise'
-      };
-
-      const toTitleCase = (value) => value.replace(/\b\w/g, char => char.toUpperCase());
-
-      const formatCustomTitle = (name) => {
-        const spaced = name.replace(/[-_]+/g, ' ').trim();
-        if (!spaced) return `Sonderlayer ${name}`;
-        return `Sonderlayer ${toTitleCase(spaced)}`;
-      };
-
-      const layerDefinitions = {};
-
-      for (let i = 1; i <= 15; i += 1) {
-        const key = `unter-layer-${i}`;
-        const raw = computed.getPropertyValue(`--module-layer-${i}-module-bg`).trim();
-        if (raw && raw.startsWith('hsl')) {
-          layerDefinitions[key] = {
-            name: key,
-            title: baseTitles[key] || `Unter-Layer ${i}`,
-            color: raw
-          };
-        }
+      if (!globalPreset) {
+        console.warn('[ShopguideV3] No global preset found – using fallback.');
+        return;
       }
 
-      const extraLayers = ['testname', 'testnamelayer2'];
-      extraLayers.forEach(name => {
-        const customValue = computed.getPropertyValue(`--module-layer-${name}-module-bg`).trim();
-        if (customValue && customValue.startsWith('hsl')) {
-          layerDefinitions[name] = {
-            name,
-            title: formatCustomTitle(name),
-            color: customValue
+      const readableLayers = {};
+      Object.entries(globalPreset).forEach(([key, value]) => {
+        if (value && typeof value === 'object' && value.hsla) {
+          readableLayers[key] = {
+            name: key,
+            title: value.title || key,
+            color: value.hsla
           };
         }
       });
 
-      const serialized = JSON.stringify(layerDefinitions);
+      const serialized = JSON.stringify(readableLayers);
       if (serialized === lastBroadcastSignature) {
         return;
       }
       lastBroadcastSignature = serialized;
 
-      const event = new CustomEvent('shopguide:sub-layers-updated', {
-        detail: { layers: layerDefinitions, source: 'ShopguideV3' }
-      });
-      window.dispatchEvent(event);
+      window.dispatchEvent(new CustomEvent('shopguide:sub-layers-updated', {
+        detail: { layers: readableLayers, source: 'GlobalPreset' }
+      }));
 
-      console.log('[ShopguideV3] Dispatched readable layer palette:', layerDefinitions);
+      console.log('[ShopguideV3] Published global preset layers:', readableLayers);
     } catch (err) {
-      console.error('[ShopguideV3] Failed to dispatch readable palette:', err);
+      console.error('[ShopguideV3] Failed to publish global preset:', err);
     }
   };
 
   if (!manager || !layersContainer) {
-    broadcastGlobalSubLayerPalette();
+    publishGlobalPresetLayers();
     return;
   }
 
@@ -5688,7 +5657,7 @@ function bindLayerColorSync() {
       }
     });
 
-    broadcastGlobalSubLayerPalette();
+    publishGlobalPresetLayers();
   };
 
   manager.addEventListener('input', event => {
