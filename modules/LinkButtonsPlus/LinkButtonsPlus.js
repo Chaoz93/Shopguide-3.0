@@ -1,4 +1,5 @@
 /* Ops Panel — extended with toggleable links and Testreport deeplink */
+// v3.6.1 – Added deferred global layer sync via 'shopguide:sub-layers-updated'
 (function () {
   // ---------- styles ----------
   if (!document.getElementById('ops-panel-styles')) {
@@ -2512,5 +2513,37 @@
       }
     });
     mo.observe(document.body, { childList:true, subtree:true });
+
+    /* === Layer Sync Integration (v3.6.1) ===
+       Wartet auf globale Farb-Updates und synchronisiert die Modulfarben
+       zuverlässig nach dem nächsten Frame, damit getComputedStyle() korrekte
+       Werte der globalen --module-layer-* Variablen erhält. */
+    (function setupLayerSync() {
+      const SYNC_EVENT = "shopguide:sub-layers-updated";
+      let frameHandle = null;
+
+      const handleLayerUpdate = () => {
+        if (frameHandle) cancelAnimationFrame(frameHandle);
+        frameHandle = requestAnimationFrame(() => {
+          console.log("[LayerSync] Detected global sub-layer update — refreshing LinkButtons Plus colors");
+          try {
+            applySelectedColors();
+          } catch (err) {
+            console.warn("[LayerSync] applySelectedColors() failed:", err);
+          }
+          frameHandle = null;
+        });
+      };
+
+      // Reagiere auf Shopguide-Events
+      window.addEventListener(SYNC_EVENT, handleLayerUpdate, false);
+
+      // Erster Initial-Sync nach dem Laden
+      if (document.readyState === "complete") {
+        requestAnimationFrame(handleLayerUpdate);
+      } else {
+        window.addEventListener("load", () => requestAnimationFrame(handleLayerUpdate), { once: true });
+      }
+    })();
   };
 })();
