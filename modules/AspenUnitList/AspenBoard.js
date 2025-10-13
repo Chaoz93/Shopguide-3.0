@@ -128,14 +128,21 @@
     .db-extra-count-label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
     .db-extra-count{width:120px;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
     .db-extra-name-list{display:flex;flex-direction:column;gap:.35rem;}
-    .db-extra-name-row{display:flex;flex-direction:column;gap:.35rem;}
-    .db-active-toggle{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--dl-sub,#4b5563);}
-    .db-active-toggle input{margin:0;}
-    .db-extra-uc-toggle{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--dl-sub,#4b5563);}
-    .db-extra-uc-toggle input{margin:0;}
-    .db-extra-name-row label{font-size:.8rem;color:var(--dl-sub,#4b5563);display:flex;flex-direction:column;gap:.35rem;}
-    .db-extra-name-label{font-weight:600;}
-    .db-extra-name-row input{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-extra-name-row{display:flex;flex-direction:column;gap:.6rem;padding:.2rem .1rem;}
+    .db-extra-name-header{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;}
+    .db-extra-name-title{font-weight:600;font-size:.85rem;color:var(--dl-sub,#4b5563);}
+    .db-extra-name-input{display:flex;flex-direction:column;gap:.35rem;font-size:.8rem;color:var(--dl-sub,#4b5563);}
+    .db-extra-name-input-label{font-weight:600;}
+    .db-extra-name-input-field{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-extra-name-input-field:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .db-extra-uc-switch{position:relative;display:inline-flex;align-items:center;gap:.4rem;padding:.2rem .25rem;border-radius:999px;font-size:.75rem;font-weight:600;color:var(--dl-sub,#4b5563);cursor:pointer;user-select:none;transition:color .2s ease,opacity .2s ease;}
+    .db-extra-uc-switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;}
+    .db-extra-uc-switch-control{position:relative;flex:0 0 auto;width:38px;height:20px;border-radius:999px;background:rgba(148,163,184,.45);transition:background .2s ease,box-shadow .2s ease;}
+    .db-extra-uc-switch-control::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 2px 4px rgba(15,23,42,.25);transition:transform .2s ease,box-shadow .2s ease;}
+    .db-extra-uc-switch input:focus-visible+.db-extra-uc-switch-control{box-shadow:0 0 0 3px rgba(37,99,235,.22);}
+    .db-extra-uc-switch input:checked+.db-extra-uc-switch-control{background:var(--ab-accent,#2563eb);box-shadow:0 0 0 2px rgba(37,99,235,.18);}
+    .db-extra-uc-switch input:checked+.db-extra-uc-switch-control::after{transform:translateX(18px);}
+    .db-extra-uc-switch-text{white-space:nowrap;}
     .db-rule-label{font-size:.85rem;font-weight:600;}
     .db-rule-list{display:flex;flex-direction:column;gap:.35rem;}
     .db-rule-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,1fr) auto auto;gap:.4rem;align-items:center;}
@@ -264,7 +271,6 @@
       border:1px solid var(--border-color);
       border-radius:.5rem;
     }
-    .aspenboard .db-active-toggle{color:var(--muted-text,rgba(217,229,247,0.72));}
     .aspenboard .db-panel input[type=text]:focus,
     .aspenboard .db-panel select:focus,
     .aspenboard .db-part-select-input:focus,
@@ -350,7 +356,14 @@
     .aspenboard .db-config-main{color:var(--text-color);}
     .aspenboard .db-extra-card-title{color:#fff;}
     .aspenboard .db-extra-card .db-extra-count-label{color:var(--muted-text);}
-    .aspenboard .db-extra-card .db-extra-name-label{color:var(--text-color);}
+    .aspenboard .db-extra-name-title{color:var(--text-color);}
+    .aspenboard .db-extra-name-input{color:var(--muted-text,rgba(217,229,247,.78));}
+    .aspenboard .db-extra-name-input-label{color:var(--text-color);}
+    .aspenboard .db-extra-name-input-field{background:rgba(12,28,47,.65);border-color:rgba(76,114,163,.45);color:var(--text-color);}
+    .aspenboard .db-extra-name-input-field::placeholder{color:rgba(217,229,247,.65);}
+    .aspenboard .db-extra-uc-switch{color:var(--muted-text,rgba(217,229,247,.78));}
+    .aspenboard .db-extra-uc-switch-control{background:rgba(148,163,184,.35);}
+    .aspenboard .db-extra-uc-switch input:checked+.db-extra-uc-switch-control{background:var(--ab-accent,#2f7edb);box-shadow:0 0 0 2px rgba(47,125,203,.32);}
     .aspenboard .db-color-card-title{color:var(--text-color);}
     .aspenboard .db-color-field span{color:var(--text-color);}
   `;
@@ -3311,16 +3324,6 @@
       }
     }
 
-    function handleActiveToggleChange(event){
-      const checkbox=event.target;
-      if(!checkbox) return;
-      tempActiveColumnEnabled=!!checkbox.checked;
-      if(!tempActiveColumnEnabled){
-        state.showActiveList=false;
-      }
-      scheduleOptionPersist(true);
-    }
-
     function handleExtraNameInput(event){
       const input=event.target;
       if(!input || typeof input.value!=='string') return;
@@ -3387,51 +3390,52 @@
         };
       }
       const fragment=document.createDocumentFragment();
-      const activeRow=document.createElement('div');
-      activeRow.className='db-extra-name-row db-active-name-row';
-      activeRow.dataset.columnId=ACTIVE_COLUMN_ID;
-      const toggle=document.createElement('label');
-      toggle.className='db-active-toggle';
-      const checkbox=document.createElement('input');
-      checkbox.type='checkbox';
-      checkbox.className='db-active-checkbox';
-      checkbox.checked=!!tempActiveColumnEnabled;
-      checkbox.addEventListener('change',handleActiveToggleChange);
-      toggle.appendChild(checkbox);
-      const toggleText=document.createElement('span');
-      toggleText.textContent=`Spalte "${normalizedActiveLabel}" anzeigen`;
-      toggle.appendChild(toggleText);
-      activeRow.appendChild(toggle);
-      fragment.appendChild(activeRow);
       tempExtraColumns.forEach((column,index)=>{
         const row=document.createElement('div');
         row.className='db-extra-name-row';
         row.dataset.columnId=column.id;
-        const label=document.createElement('label');
-        const span=document.createElement('span');
-        span.className='db-extra-name-label';
-        span.textContent=`Spalte ${index+1}`;
-        label.appendChild(span);
-        const input=document.createElement('input');
-        input.type='text';
-        input.placeholder='Name der Extraspalte';
-        input.value=column.label||'';
-        input.dataset.columnId=column.id;
-        input.dataset.columnType='extra';
-        input.addEventListener('input',handleExtraNameInput);
-        input.addEventListener('change',handleExtraNameCommit);
-        label.appendChild(input);
-        row.appendChild(label);
+        const header=document.createElement('div');
+        header.className='db-extra-name-header';
+        const title=document.createElement('span');
+        title.className='db-extra-name-title';
+        title.textContent=`Spalte ${index+1}`;
+        header.appendChild(title);
         const ucToggle=document.createElement('label');
-        ucToggle.className='db-extra-uc-toggle';
+        ucToggle.className='db-extra-uc-switch';
+        ucToggle.dataset.columnId=column.id;
         const ucCheckbox=document.createElement('input');
         ucCheckbox.type='checkbox';
         ucCheckbox.dataset.columnId=column.id;
         ucCheckbox.checked=!!column.ucSort;
         ucCheckbox.addEventListener('change',handleExtraUcToggleChange);
         ucToggle.appendChild(ucCheckbox);
-        ucToggle.append(' UC-Sortierung aktivieren');
-        row.appendChild(ucToggle);
+        const ucControl=document.createElement('span');
+        ucControl.className='db-extra-uc-switch-control';
+        ucToggle.appendChild(ucControl);
+        const ucText=document.createElement('span');
+        ucText.className='db-extra-uc-switch-text';
+        ucText.textContent='UC-Sortierung';
+        ucToggle.appendChild(ucText);
+        header.appendChild(ucToggle);
+        row.appendChild(header);
+        const label=document.createElement('label');
+        label.className='db-extra-name-input';
+        label.dataset.columnId=column.id;
+        const helper=document.createElement('span');
+        helper.className='db-extra-name-input-label';
+        helper.textContent='Name der Extraspalte';
+        label.appendChild(helper);
+        const input=document.createElement('input');
+        input.type='text';
+        input.placeholder='Name der Extraspalte';
+        input.value=column.label||'';
+        input.dataset.columnId=column.id;
+        input.dataset.columnType='extra';
+        input.className='db-extra-name-input-field';
+        input.addEventListener('input',handleExtraNameInput);
+        input.addEventListener('change',handleExtraNameCommit);
+        label.appendChild(input);
+        row.appendChild(label);
         fragment.appendChild(row);
       });
       elements.extraNameList.innerHTML='';
