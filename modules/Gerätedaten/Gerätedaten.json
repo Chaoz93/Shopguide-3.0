@@ -33,13 +33,6 @@
         "key": "repairorder",
         "label": "Repairorder",
         "enabled": true
-      },
-      {
-        "key": "calc-kv-stunden",
-        "label": "KV-Stunden",
-        "enabled": true,
-        "group": "calc",
-        "originalKey": "calc-kv-stunden"
       }
     ]
   },

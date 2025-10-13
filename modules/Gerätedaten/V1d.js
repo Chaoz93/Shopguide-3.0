@@ -467,8 +467,7 @@
       {id:'meldung',key:'meldung',label:'Meldung',enabled:true,group:'base',originalKey:'meldung'},
       {id:'auftrag',key:'auftrag',label:'Auftrag',enabled:true,group:'base',originalKey:'auftrag'},
       {id:'part',key:'part',label:'P/N',enabled:true,group:'base',originalKey:'part'},
-      {id:'serial',key:'serial',label:'S/N',enabled:true,group:'base',originalKey:'serial'},
-      {id:'calc-kv-stunden',key:'calc-kv-stunden',label:'KV-Stunden',enabled:true,group:'calc',originalKey:'calc-kv-stunden'}
+      {id:'serial',key:'serial',label:'S/N',enabled:true,group:'base',originalKey:'serial'}
     ];
     const defaultsRaw=Array.isArray(defaults.fields)&&defaults.fields.length?defaults.fields.map(f=>({...f})):fallbackFields.map(f=>({...f}));
     const defaultFields=normalizeFields(ensureBaseFields(defaultsRaw));
