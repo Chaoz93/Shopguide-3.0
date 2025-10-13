@@ -390,8 +390,10 @@
   const LS_STATE = 'aspenUnitListState';
   const LS_STATE_VERSION = 2;
   const CUSTOM_BROADCAST = 'unitBoard:update';
-  const HANDLE_DB_NAME = 'AspenUnitListHandles';
-  const HANDLE_STORE_NAME = 'handles';
+  const HANDLE_DB_NAME = 'modulesApp';
+  const HANDLE_STORE_NAME = 'fs-handles';
+  const LEGACY_HANDLE_DB_NAME = 'AspenUnitListHandles';
+  const LEGACY_HANDLE_STORE_NAME = 'handles';
 
   let activePermissionDialog=null;
 
@@ -562,23 +564,101 @@
     });
   }
 
-  async function openHandleStore(){
+  async function openIndexedDbStore(dbName,storeName,{logLabel}={}){
     if(typeof indexedDB==='undefined') return null;
     try{
       return await new Promise((resolve,reject)=>{
-        const request=indexedDB.open(HANDLE_DB_NAME,1);
+        const request=indexedDB.open(dbName,1);
         request.onupgradeneeded=()=>{
           const db=request.result;
-          if(db && !db.objectStoreNames.contains(HANDLE_STORE_NAME)){
-            db.createObjectStore(HANDLE_STORE_NAME);
+          if(db && !db.objectStoreNames.contains(storeName)){
+            db.createObjectStore(storeName);
           }
         };
         request.onsuccess=()=>resolve(request.result);
         request.onerror=()=>reject(request.error);
       });
     }catch(error){
-      console.warn('[AspenBoard] IndexedDB für Aspen-Dateien nicht verfügbar',error);
+      const label=logLabel||'IndexedDB für Aspen-Dateien nicht verfügbar';
+      console.warn(`[AspenBoard] ${label}`,error);
       return null;
+    }
+  }
+
+  async function openHandleStore(){
+    return openIndexedDbStore(HANDLE_DB_NAME,HANDLE_STORE_NAME,{logLabel:'IndexedDB für Aspen-Dateien nicht verfügbar'});
+  }
+
+  async function openLegacyHandleStore(){
+    return openIndexedDbStore(
+      LEGACY_HANDLE_DB_NAME,
+      LEGACY_HANDLE_STORE_NAME,
+      {logLabel:'Legacy-IndexedDB für Aspen-Dateien nicht verfügbar'}
+    );
+  }
+
+  async function persistFileHandleLegacy(key,handle){
+    let legacyDb=null;
+    try{
+      legacyDb=await openLegacyHandleStore();
+      if(!legacyDb) return false;
+      await new Promise((resolve,reject)=>{
+        const tx=legacyDb.transaction(LEGACY_HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(LEGACY_HANDLE_STORE_NAME).put(handle,key);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return true;
+    }catch(error){
+      console.warn('[AspenBoard] Aspen-Dateihandle konnte nicht im Legacy-Store gespeichert werden',error);
+      return false;
+    }finally{
+      try{legacyDb?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function removeLegacyHandle(key){
+    if(!key) return false;
+    let legacyDb=null;
+    try{
+      legacyDb=await openLegacyHandleStore();
+      if(!legacyDb) return false;
+      await new Promise((resolve,reject)=>{
+        const tx=legacyDb.transaction(LEGACY_HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(LEGACY_HANDLE_STORE_NAME).delete(key);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return true;
+    }catch(error){
+      return false;
+    }finally{
+      try{legacyDb?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function readLegacyHandle(key){
+    if(!key) return null;
+    let legacyDb=null;
+    try{
+      legacyDb=await openLegacyHandleStore();
+      if(!legacyDb) return null;
+      const result=await new Promise((resolve,reject)=>{
+        const tx=legacyDb.transaction(LEGACY_HANDLE_STORE_NAME,'readonly');
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const store=tx.objectStore(LEGACY_HANDLE_STORE_NAME);
+        const request=store.get(key);
+        request.onsuccess=()=>resolve(request.result||null);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return result||null;
+    }catch(error){
+      console.warn('[AspenBoard] Aspen-Dateihandle konnte nicht aus Legacy-Store gelesen werden',error);
+      return null;
+    }finally{
+      try{legacyDb?.close();}catch{/* ignore */}
     }
   }
 
@@ -587,22 +667,24 @@
     let db=null;
     try{
       db=await openHandleStore();
-      if(!db) return false;
-      await new Promise((resolve,reject)=>{
-        const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
-        tx.oncomplete=()=>resolve();
-        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
-        const request=tx.objectStore(HANDLE_STORE_NAME).put(handle,key);
-        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
-      });
-      console.info('[AspenBoard] FileHandle gespeichert');
-      return true;
+      if(db){
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+          tx.oncomplete=()=>resolve();
+          tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+          const request=tx.objectStore(HANDLE_STORE_NAME).put(handle,key);
+          request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+        });
+        console.info('[AspenBoard] FileHandle gespeichert');
+        try{await removeLegacyHandle(key);}catch{/* ignore */}
+        return true;
+      }
     }catch(error){
       console.warn('[AspenBoard] Aspen-Dateihandle konnte nicht gespeichert werden',error);
-      return false;
     }finally{
       try{db?.close();}catch{/* ignore */}
     }
+    return persistFileHandleLegacy(key,handle);
   }
 
   async function restoreFileHandleFromStore(key){
@@ -610,44 +692,53 @@
     let db=null;
     try{
       db=await openHandleStore();
-      if(!db) return null;
-      const result=await new Promise((resolve,reject)=>{
-        const tx=db.transaction(HANDLE_STORE_NAME,'readonly');
-        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
-        const store=tx.objectStore(HANDLE_STORE_NAME);
-        const request=store.get(key);
-        request.onsuccess=()=>resolve(request.result||null);
-        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
-      });
-      return result||null;
+      if(db){
+        const result=await new Promise((resolve,reject)=>{
+          const tx=db.transaction(HANDLE_STORE_NAME,'readonly');
+          tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+          const store=tx.objectStore(HANDLE_STORE_NAME);
+          const request=store.get(key);
+          request.onsuccess=()=>resolve(request.result||null);
+          request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+        });
+        if(result) return result;
+      }
     }catch(error){
       console.warn('[AspenBoard] Aspen-Dateihandle konnte nicht gelesen werden',error);
-      return null;
     }finally{
       try{db?.close();}catch{/* ignore */}
     }
+    const legacyResult=await readLegacyHandle(key);
+    if(legacyResult){
+      try{await persistFileHandle(key,legacyResult);}catch{/* ignore */}
+      return legacyResult;
+    }
+    return null;
   }
 
   async function clearStoredFileHandle(key){
     if(!key) return false;
+    let removed=false;
     let db=null;
     try{
       db=await openHandleStore();
-      if(!db) return false;
-      await new Promise((resolve,reject)=>{
-        const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
-        tx.oncomplete=()=>resolve();
-        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
-        const request=tx.objectStore(HANDLE_STORE_NAME).delete(key);
-        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
-      });
-      return true;
+      if(db){
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction(HANDLE_STORE_NAME,'readwrite');
+          tx.oncomplete=()=>resolve();
+          tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+          const request=tx.objectStore(HANDLE_STORE_NAME).delete(key);
+          request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+        });
+        removed=true;
+      }
     }catch(error){
       console.warn('[AspenBoard] Aspen-Dateihandle konnte nicht entfernt werden',error);
-      return false;
     }finally{
       try{db?.close();}catch{/* ignore */}
     }
+    const legacyRemoved=await removeLegacyHandle(key);
+    return removed||legacyRemoved;
   }
 
   function injectStyles(){

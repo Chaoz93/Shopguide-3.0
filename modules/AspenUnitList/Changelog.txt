@@ -4,6 +4,11 @@ Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [1.1.14] – 2025-10-11
+### Changed
+- Datei-Handles werden jetzt im gemeinsamen IndexedDB-Store (`modulesApp` → `fs-handles`) der Module abgelegt; bestehende Aspen-
+  Einträge aus dem Legacy-Speicher werden automatisch übernommen und bereinigt.
+
 ## [1.1.13] – 2025-10-10
 ### Changed
 - Scrollleisten des Aspen-Boards optisch überarbeitet und an das globale Dashboard-Design angepasst.
