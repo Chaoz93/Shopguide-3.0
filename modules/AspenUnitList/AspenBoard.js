@@ -90,7 +90,7 @@
     .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
     .db-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:2150;}
     .db-modal.open{display:flex;}
-    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radius:.75rem;min-width:320px;max-width:min(96vw,1380px);width:100%;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relative;z-index:2210;}
+    .db-panel{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);padding:1rem;border-radius:.75rem;min-width:320px;max-width:min(96vw,1600px);width:100%;box-shadow:0 10px 24px rgba(0,0,0,.18);position:relative;z-index:2210;}
     .db-panel .row{margin-bottom:.75rem;}
     .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
     .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
@@ -146,7 +146,7 @@
     .db-extra-uc-switch input:checked~.db-extra-uc-switch-text{background:var(--ab-accent,#2563eb);color:#fff;box-shadow:0 0 0 1px rgba(37,99,235,.25);}
     .db-rule-label{font-size:.85rem;font-weight:600;}
     .db-rule-list{display:flex;flex-direction:column;gap:.35rem;}
-    .db-rule-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,1fr) auto auto;gap:.4rem;align-items:center;}
+    .db-rule-row{display:grid;grid-template-columns:minmax(0,1.1fr) auto minmax(0,1fr) minmax(0,1.6fr) auto auto;gap:.4rem;align-items:center;}
     .db-rule-row select,.db-rule-row input{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
     .db-rule-row .db-rule-color{padding:0;height:2.25rem;width:3rem;min-width:2.5rem;cursor:pointer;}
     .db-rule-row .db-rule-remove{padding:.35rem .55rem;}
@@ -195,11 +195,11 @@
     .db-color-field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:0;font-size:.85rem;}
     .db-color-field span{font-weight:600;color:var(--dl-sub,#4b5563);}
     @media(min-width:900px){
-      .db-config-layout{flex-direction:row;align-items:flex-start;gap:1.5rem;}
+      .db-config-layout{flex-direction:row;align-items:flex-start;gap:1.75rem;}
       .db-config-filter{max-width:320px;}
-      .db-config-extras{max-width:320px;}
+      .db-config-extras{max-width:260px;}
       .db-extra-card{height:100%;}
-      .db-config-main{flex:1;}
+      .db-config-main{flex:1.25;min-width:0;}
       .db-config-colors{max-width:280px;}
     }
     .aspenboard{
