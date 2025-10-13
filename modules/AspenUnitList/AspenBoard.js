@@ -140,9 +140,9 @@
     .db-extra-uc-switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;}
     .db-extra-uc-switch-control{position:relative;flex:0 0 auto;width:38px;height:20px;margin-left:auto;border-radius:999px;background:rgba(148,163,184,.45);transition:background .2s ease,box-shadow .2s ease;}
     .db-extra-uc-switch-control::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 2px 4px rgba(15,23,42,.25);transition:transform .2s ease,box-shadow .2s ease;}
-    .db-extra-uc-switch input:focus-visible+.db-extra-uc-switch-control{box-shadow:0 0 0 3px rgba(37,99,235,.22);}
-    .db-extra-uc-switch input:checked+.db-extra-uc-switch-control{background:var(--ab-accent,#2563eb);box-shadow:0 0 0 2px rgba(37,99,235,.18);}
-    .db-extra-uc-switch input:checked+.db-extra-uc-switch-control::after{transform:translateX(18px);}
+    .db-extra-uc-switch input:focus-visible~.db-extra-uc-switch-control{box-shadow:0 0 0 3px rgba(37,99,235,.22);}
+    .db-extra-uc-switch input:checked~.db-extra-uc-switch-control{background:var(--ab-accent,#2563eb);box-shadow:0 0 0 2px rgba(37,99,235,.18);}
+    .db-extra-uc-switch input:checked~.db-extra-uc-switch-control::after{transform:translateX(18px);}
     .db-extra-uc-switch-text{flex:1;white-space:nowrap;color:var(--dl-title,#1f2937);}
     .db-rule-label{font-size:.85rem;font-weight:600;}
     .db-rule-list{display:flex;flex-direction:column;gap:.35rem;}
@@ -364,7 +364,7 @@
     .aspenboard .db-extra-name-input-field::placeholder{color:rgba(217,229,247,.65);}
     .aspenboard .db-extra-uc-switch{color:var(--muted-text,rgba(217,229,247,.78));}
     .aspenboard .db-extra-uc-switch-control{background:rgba(148,163,184,.35);}
-    .aspenboard .db-extra-uc-switch input:checked+.db-extra-uc-switch-control{background:var(--ab-accent,#2f7edb);box-shadow:0 0 0 2px rgba(47,125,203,.32);}
+    .aspenboard .db-extra-uc-switch input:checked~.db-extra-uc-switch-control{background:var(--ab-accent,#2f7edb);box-shadow:0 0 0 2px rgba(47,125,203,.32);}
     .aspenboard .db-color-card-title{color:var(--text-color);}
     .aspenboard .db-color-field span{color:var(--text-color);}
   `;
