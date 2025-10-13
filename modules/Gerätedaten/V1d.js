@@ -51,15 +51,33 @@
   .rs-new-search{width:100%;padding:.3rem .4rem;border-radius:.35rem;border:1px solid #d1d5db;margin-bottom:.45rem}
   .rs-new-list{list-style:none;margin:0;padding:0;max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:.35rem}
   .rs-new-item{display:flex;align-items:center;justify-content:space-between;gap:.45rem;padding:.35rem .45rem;border:1px solid var(--rs-surface-border);border-radius:.5rem;background:var(--rs-surface-bg);color:var(--rs-surface-text);box-shadow:0 14px 28px rgba(12,24,41,.44)}
+  .rs-new-item-calc{flex-wrap:wrap;align-items:flex-start}
   .rs-new-info{display:flex;flex-direction:column;gap:.15rem}
+  .rs-new-formula{font-size:.75rem;opacity:.7}
   .rs-new-key{font-weight:600}
   .rs-new-original{font-size:.72rem;opacity:.65}
   .rs-new-add{border:1px solid var(--rs-button-border);border-radius:.35rem;padding:.3rem .55rem;background:var(--rs-button-bg);color:var(--rs-button-text);cursor:pointer}
   .rs-new-add.secondary{background:var(--rs-button-secondary-bg);color:var(--rs-button-secondary-text);border:1px solid var(--rs-button-secondary-bg)}
+  .rs-new-divider{font-size:.75rem;font-weight:600;opacity:.8;padding:.2rem .15rem;border-bottom:1px solid rgba(255,255,255,.12)}
   .rs-new-inline{display:flex;align-items:center;gap:.35rem;margin-top:.35rem}
   .rs-new-inline input{flex:1;padding:.25rem .4rem;border-radius:.35rem;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text)}
   .rs-new-inline button{border:1px solid var(--rs-button-border);border-radius:.35rem;padding:.25rem .55rem;cursor:pointer;background:var(--rs-button-bg);color:var(--rs-button-text)}
   .rs-new-empty{font-size:.8rem;opacity:.65}
+  .rs-calc-section{margin-top:1rem;padding:.65rem .6rem;border:1px solid var(--rs-surface-border);border-radius:.6rem;background:var(--rs-surface-bg);color:var(--rs-surface-text);box-shadow:0 14px 30px rgba(12,24,41,.46)}
+  .rs-calc-section-title{font-size:.85rem;font-weight:600;margin-bottom:.4rem}
+  .rs-calc-section-note{font-size:.78rem;opacity:.7;margin-bottom:.45rem}
+  .rs-calc-actions{display:flex;justify-content:flex-end;margin-bottom:.4rem}
+  .rs-calc-add{border-radius:.35rem;padding:.3rem .6rem;border:1px solid var(--rs-button-border);background:var(--rs-button-bg);color:var(--rs-button-text);cursor:pointer;font-weight:600}
+  .rs-calc-add:hover{opacity:.92}
+  .rs-calc-list{display:flex;flex-direction:column;gap:.55rem}
+  .rs-calc-empty{font-size:.8rem;opacity:.65}
+  .rs-calc-item{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr)) auto;gap:.45rem;align-items:end;background:rgba(15,23,42,.12);border:1px solid rgba(148,163,184,.35);padding:.6rem;border-radius:.6rem}
+  .rs-calc-field{display:flex;flex-direction:column;gap:.25rem}
+  .rs-calc-field label{font-size:.75rem;font-weight:600}
+  .rs-calc-field input,.rs-calc-field select{background:var(--rs-inline-bg);color:var(--rs-surface-text);border:1px solid var(--rs-inline-border);border-radius:.35rem;padding:.3rem .45rem}
+  .rs-calc-field input.invalid{border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.35)}
+  .rs-calc-remove{align-self:center;border:none;background:transparent;color:#dc2626;font-weight:600;cursor:pointer}
+  .rs-calc-select-missing{border-color:#dc2626!important;box-shadow:0 0 0 2px rgba(220,38,38,.35)}
   .rs-history-actions .db-btn{font-size:.8rem}
   .rs-color-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;margin-top:.35rem}
   .rs-color-select{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;color:var(--text-color)}
@@ -144,7 +162,17 @@
     ]
   };
   const ASPEN_MELDUNGS_COLUMN='MELDUNGS_NO';
-  const GROUP_LABELS={base:'Basisfeld',extra:'Zusatzfeld',aspen:'Aspen-Feld'};
+  const GROUP_LABELS={base:'Basisfeld',extra:'Zusatzfeld',aspen:'Aspen-Feld',calc:'Aspen-Berechnung'};
+  const CALC_OPERATORS=[
+    {value:'+',label:'+'},
+    {value:'-',label:'−'},
+    {value:'*',label:'×'},
+    {value:'/',label:'÷'}
+  ];
+  const DEFAULT_CALCULATIONS=[
+    {id:'calc-kv-stunden',label:'KV-Stunden',leftColumn:'',rightColumn:'',operator:'-'}
+  ];
+  const DEFAULT_CALCULATION_LABEL='Aspen-Berechnung';
   const MAX_HISTORY=50;
   const LABEL_BLOCKLIST=/[<>#]/;
 
@@ -159,7 +187,7 @@
   function labelHash(str){let h=0;const s=String(str||'').trim().toLowerCase();for(let i=0;i<s.length;i++){h=(h<<5)-h+s.charCodeAt(i);h|=0;}return Math.abs(h).toString(36);}
   function defaultLabelForKey(key){const base=String(key||'').trim();if(!base)return'Feld';return base.replace(/[_-]+/g,' ').replace(/\s+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
   function generateFieldId(key,label,used){const slug=slugify(key||label||'feld');const hash=labelHash(label||slug);let candidate=`${slug}#${hash}`;let i=1;while(used&&used.has(candidate)){candidate=`${slug}#${hash}-${i++}`;}return candidate;}
-  function inferGroup(key,raw){if(raw?.group==='aspen'||raw?.source==='aspen'||raw?.aspen)return'aspen';const base=String(key||'').trim().toLowerCase();if(BASE_FIELD_KEYS.includes(base))return'base';return raw?.group||'extra';}
+  function inferGroup(key,raw){if(raw?.group==='calc'||raw?.calculation)return'calc';if(raw?.group==='aspen'||raw?.source==='aspen'||raw?.aspen)return'aspen';const base=String(key||'').trim().toLowerCase();if(BASE_FIELD_KEYS.includes(base))return'base';return raw?.group||'extra';}
   function candidateValuesForField(field,{includeOriginal=true}={}){const seen=new Set();const add=value=>{const trimmed=String(value||'').trim();if(!trimmed)return;const lower=trimmed.toLowerCase();if(seen.has(lower))return;seen.add(lower);candidates.push(trimmed);};const candidates=[];if(includeOriginal)add(field?.originalKey);add(field?.key);add(field?.id);add(field?.label);const hints=DEFAULT_FIELD_SOURCE_HINTS[String(field?.key||'').trim().toLowerCase()];if(Array.isArray(hints))hints.forEach(add);return candidates;}
   function normalizeFieldEntry(raw,used){if(!raw||typeof raw!=='object')return null;const original=String(raw.originalKey??raw.sourceKey??raw.key??'').trim();const key=String(raw.key??original).trim().toLowerCase();const label=String(raw.label??'').trim()||defaultLabelForKey(original||key||'Feld');let id=String(raw.id??'').trim().toLowerCase();if(!id){id=key||generateFieldId(original||key||label,label,used);}if(!id){id=generateFieldId('feld',label,used);}if(used.has(id)){id=generateFieldId(key||original||id||label,label,used);}const group=inferGroup(key||original,raw);const enabled=raw.enabled!==false;const originalKey=original||key||id;return{id,key:key||id,label,enabled,group,originalKey};}
   function normalizeFields(list){const used=new Set();const out=[];(Array.isArray(list)?list:[]).forEach(raw=>{const field=normalizeFieldEntry(raw,used);if(field){used.add(field.id);out.push(field);}});return out;}
@@ -167,6 +195,13 @@
   function normalizeButtonEntry(raw,used){if(!raw||typeof raw!=='object')return null;const label=String(raw.label??'').trim();const column=String(raw.column??raw.source??raw.key??'').trim();const suffix=String(raw.suffix??'').trim();let id=String(raw.id??'').trim();const baseLabel=label||column||DEFAULT_BUTTON_LABEL;const slug=slugify(baseLabel||'button')||'button';if(!id){id=slug;}if(used.has(id)){let i=1;let candidate=`${slug}-${i}`;while(used.has(candidate)){i+=1;candidate=`${slug}-${i}`;}id=candidate;}used.add(id);return{id,label:label||DEFAULT_BUTTON_LABEL,column,suffix};}
   function normalizeCustomButtons(list){const used=new Set();const result=[];(Array.isArray(list)?list:[]).forEach(raw=>{const entry=normalizeButtonEntry(raw,used);if(entry)result.push(entry);});return result;}
   function serializeCustomButtons(list){return(Array.isArray(list)?list:[]).map(btn=>({id:btn.id,label:btn.label||'',column:btn.column||'',suffix:btn.suffix||''}));}
+  function isValidCalcOperator(value){return CALC_OPERATORS.some(op=>op.value===value);}
+  function normalizeCalcOperator(value){return isValidCalcOperator(value)?value:'-';}
+  function generateCalculationId(label,used){const base=slugify(label||'calc')||'calc';let candidate=`calc-${base}`;if(!used.has(candidate))return candidate;let i=1;while(used.has(`${candidate}-${i}`)){i+=1;}return`${candidate}-${i}`;}
+  function normalizeCalculationEntry(raw,used){if(!raw||typeof raw!=='object')return null;const label=String(raw.label||'').trim()||DEFAULT_CALCULATION_LABEL;let id=String(raw.id||'').trim().toLowerCase();if(!id){id=generateCalculationId(label,used);}else{const slug=slugify(id)||slugify(label)||'calc';id=slug.startsWith('calc-')?slug:`calc-${slug}`;if(used.has(id))id=generateCalculationId(label,used);}if(used.has(id)){let i=1;let candidate=`${id}-${i}`;while(used.has(candidate)){i+=1;candidate=`${id}-${i}`;}id=candidate;}const left=String(raw.leftColumn||'').trim();const right=String(raw.rightColumn||'').trim();const operator=normalizeCalcOperator(raw.operator);used.add(id);return{id,label,leftColumn:left,rightColumn:right,operator};}
+  function normalizeCalculations(list){const used=new Set();const out=[];(Array.isArray(list)?list:[]).forEach(raw=>{const calc=normalizeCalculationEntry(raw,used);if(calc)out.push(calc);});return out;}
+  function serializeCalculations(list){return(Array.isArray(list)?list:[]).map(calc=>({id:calc.id,label:calc.label||'',leftColumn:calc.leftColumn||'',rightColumn:calc.rightColumn||'',operator:normalizeCalcOperator(calc.operator)}));}
+  function calculationOperatorSymbol(value){const entry=CALC_OPERATORS.find(op=>op.value===value);return entry?entry.label||entry.value||'':value||'';}
   function fieldsEqual(a,b){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++){const x=a[i],y=b[i];if(!x||!y)return false;if(x.id!==y.id||x.key!==y.key||x.label!==y.label||x.enabled!==y.enabled||(x.group||'')!==(y.group||'')||(x.originalKey||'')!==(y.originalKey||''))return false;}return true;}
   function validateLabel(label){const trimmed=String(label||'').trim();if(!trimmed)return'Label darf nicht leer sein.';if(trimmed.length>80)return'Label ist zu lang.';if(LABEL_BLOCKLIST.test(trimmed))return'Unerlaubte Zeichen im Label (#, <, >).';if(/[\x00-\x1F]/.test(trimmed))return'Unerlaubte Steuerzeichen im Label.';return'';}
   function tooltipForField(field){const lbl=field?.label||defaultLabelForKey(field?.originalKey||field?.key||'');const orig=field?.originalKey||field?.key||field?.id||'';const group=GROUP_LABELS[field?.group]||'Feld';return`${lbl} – ${orig} – (${group})`;}
@@ -192,6 +227,8 @@
   const CONTRAST_DARK_TEXT='hsla(222, 47%, 11%, 1)';
   const clamp=(value,min,max)=>Math.min(Math.max(value,min),max);
   const extractNumeric=value=>{const str=typeof value==='string'?value.trim():'';if(!str)return null;const match=str.match(/-?\d+(?:\.\d+)?/);if(!match)return null;const num=Number(match[0]);return Number.isFinite(num)?num:null;};
+  function parseCalcNumber(value){const str=String(value??'').trim();if(!str)return null;const normalized=str.replace(/\s+/g,'').replace(/,/g,'.');const direct=Number(normalized);if(Number.isFinite(direct))return direct;const extracted=extractNumeric(normalized);return Number.isFinite(extracted)?extracted:null;}
+  function formatCalcNumber(value){if(!Number.isFinite(value))return'';try{return new Intl.NumberFormat('de-DE',{maximumFractionDigits:2}).format(value);}catch{return String(Math.round(value*100)/100);}}
   const parsePercent=value=>{const num=extractNumeric(value);if(num==null)return null;return clamp(num,0,100);};
   const parseHue=value=>{const num=extractNumeric(value);if(num==null)return null;const normalized=((num%360)+360)%360;return normalized;};
   const parseAlpha=value=>{const num=extractNumeric(value);if(num==null)return null;const str=typeof value==='string'?value.trim():'';const normalized=str.includes('%')?num/100:num;return clamp(normalized,0,1);};
@@ -353,6 +390,15 @@
               <ul class="rs-new-list"></ul>
               <div class="rs-new-empty">Aspen-Datei wählen, um verfügbare Felder zu laden.</div>
             </div>
+            <div class="rs-calc-section">
+              <div class="rs-calc-section-title">Aspenberechnungen</div>
+              <div class="rs-calc-section-note">Erstellen Sie Berechnungen aus zwei Aspen-Spalten. Die Ergebnisse erscheinen wie reguläre Felder.</div>
+              <div class="rs-calc-actions">
+                <button type="button" class="rs-calc-add">➕ Berechnung hinzufügen</button>
+              </div>
+              <div class="rs-calc-empty">Noch keine Berechnungen definiert.</div>
+              <div class="rs-calc-list"></div>
+            </div>
           </div>
           <div class="db-field" style="margin-top:1rem;">
             <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Zusätzliche Schaltflächen</label>
@@ -394,6 +440,9 @@
       mNewSearch:root.querySelector('.rs-new-search'),
       mNewList:root.querySelector('.rs-new-list'),
       mNewEmpty:root.querySelector('.rs-new-empty'),
+      mCalcList:root.querySelector('.rs-calc-list'),
+      mCalcEmpty:root.querySelector('.rs-calc-empty'),
+      mCalcAdd:root.querySelector('.rs-calc-add'),
       mColorModule:root.querySelector('.rs-color-module'),
       mColorHeader:root.querySelector('.rs-color-header'),
       mColorButtons:root.querySelector('.rs-color-buttons'),
@@ -423,6 +472,7 @@
     const defaultsRaw=Array.isArray(defaults.fields)&&defaults.fields.length?defaults.fields.map(f=>({...f})):fallbackFields.map(f=>({...f}));
     const defaultFields=normalizeFields(ensureBaseFields(defaultsRaw));
     const defaultColumns=defaults.columns||2;
+    const defaultCalculations=normalizeCalculations(DEFAULT_CALCULATIONS);
 
     const els=buildUI(root);
     const moduleHost=root.closest('.grid-stack-item-content');
@@ -519,19 +569,22 @@
       const general=doc?.general||{};
       const raw=doc?.instances?.[instanceId]?.recordSheet||{};
       const fields=cloneFields(Array.isArray(raw.fields)?raw.fields:defaultFields);
+      const calcRaw=Array.isArray(raw.calculations)?raw.calculations:defaultCalculations;
+      const calculations=normalizeCalculations(calcRaw.length?calcRaw:defaultCalculations);
       return{
         ruleIdbKey:raw.ruleIdbKey||ruleIdbKey,
         ruleFileName:raw.ruleFileName||general.nameFileName||'',
         aspenIdbKey:raw.aspenIdbKey||aspenIdbKey,
         aspenFileName:raw.aspenFileName||'',
         fields,
+        calculations,
         columns:raw.columns||defaultColumns,
         colors:sanitizeColorSelection(raw.colors),
         customButtons:normalizeCustomButtons(raw.customButtons)
       };
     }
     function serializeFields(fields){return fields.map(f=>({id:f.id,key:f.key,label:f.label,enabled:!!f.enabled,group:f.group||'extra',originalKey:f.originalKey||f.key||f.id}));}
-    function saveCfg(current){const doc=loadDoc();doc.instances=doc.instances||{};doc.instances[instanceId]=doc.instances[instanceId]||{};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),columns:current.columns,colors:sanitizeColorSelection(current.colors),customButtons:serializeCustomButtons(current.customButtons)};saveDoc(doc);}
+    function saveCfg(current){const doc=loadDoc();doc.instances=doc.instances||{};doc.instances[instanceId]=doc.instances[instanceId]||{};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),calculations:serializeCalculations(current.calculations),columns:current.columns,colors:sanitizeColorSelection(current.colors),customButtons:serializeCustomButtons(current.customButtons)};saveDoc(doc);}
     function removeCfg(){const doc=loadDoc();if(doc?.instances?.[instanceId]){delete doc.instances[instanceId].recordSheet;if(!Object.keys(doc.instances[instanceId]).length)delete doc.instances[instanceId];saveDoc(doc);}}
 
     const setNote=s=>els.note.textContent=s||'';
@@ -552,7 +605,9 @@
     const setDebugInfo=message=>{debugInfo=String(message||'').trim();renderHead();};
     const clearDebugInfo=()=>{debugInfo='';renderHead();};
 
+    let calculationMap=new Map();
     cfg=loadCfg();
+    rebuildCalculationMap();
     const storedModuleColors=readModuleColorSettings(instanceId);
     if(storedModuleColors){
       const sanitizedStored=sanitizeColorSelection(storedModuleColors);
@@ -585,6 +640,8 @@
     updateAspenDisplays();
     els.head.style.display='none';
     renderCustomButtons();
+    renderCalculationEditor();
+    syncCalculationFields();
     [
       {el:els.mColorModule,key:'module'},
       {el:els.mColorHeader,key:'header'},
@@ -607,16 +664,19 @@
     }
 
     function rebuildAspenHeaderMaps(){aspenHeaderKeyMap=new Map();aspenHeaderOriginalMap=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();const keyLower=(h.key||'').toLowerCase();if(originalLower&&!aspenHeaderOriginalMap.has(originalLower)){aspenHeaderOriginalMap.set(originalLower,h);}if(keyLower&&!aspenHeaderKeyMap.has(keyLower)){aspenHeaderKeyMap.set(keyLower,h);}});}
+    function rebuildCalculationMap(){calculationMap=new Map((cfg.calculations||[]).map(calc=>[calc.id,calc]));}
 
     function resolveAspenColumn(field){if(!field)return'';const candidates=candidateValuesForField(field);for(const candidate of candidates){const lower=candidate.toLowerCase();const byOriginal=aspenHeaderOriginalMap.get(lower);if(byOriginal)return byOriginal.original;const byKey=aspenHeaderKeyMap.get(lower);if(byKey)return byKey.original;}return'';}
 
     function getAspenColumnValue(row,column){if(!row)return'';const col=String(column||'').trim();if(!col)return'';if(Object.prototype.hasOwnProperty.call(row,col))return String(row[col]??'');const lower=col.toLowerCase();if(row.__lower&&Object.prototype.hasOwnProperty.call(row.__lower,lower))return String(row.__lower[lower]??'');const header=aspenHeaderOriginalMap.get(lower)||aspenHeaderKeyMap.get(lower);if(header&&header.original&&header.original!==col)return getAspenColumnValue(row,header.original);return'';}
 
     function getAspenValue(row,field){if(!row||!field)return'';const column=resolveAspenColumn(field);if(!column)return'';if(Object.prototype.hasOwnProperty.call(row,column))return String(row[column]||'');const lower=column.toLowerCase();if(row.__lower&&Object.prototype.hasOwnProperty.call(row.__lower,lower))return String(row.__lower[lower]||'');return'';}
+    function getCalculationValue(row,field){if(!row||!field)return'';const calc=calculationMap.get(field.originalKey||field.id||field.key);if(!calc)return'';const leftRaw=calc.leftColumn?getAspenColumnValue(row,calc.leftColumn):'';const rightRaw=calc.rightColumn?getAspenColumnValue(row,calc.rightColumn):'';const left=calc.leftColumn?parseCalcNumber(leftRaw):null;const right=calc.rightColumn?parseCalcNumber(rightRaw):null;const op=calc.operator&&isValidCalcOperator(calc.operator)?calc.operator:'-';let result=null;switch(op){case '+':if(left==null||right==null)return'';result=left+right;break;case '-':if(left==null||right==null)return'';result=left-right;break;case '*':if(left==null||right==null)return'';result=left*right;break;case '/':if(left==null||right==null)return'';if(Math.abs(right)<Number.EPSILON)return'';result=left/right;break;default:return'';}return formatCalcNumber(result);}
+    const calculationFormula=calc=>{if(!calc)return'';const left=calc.leftColumn||'–';const right=calc.rightColumn||'–';const op=calculationOperatorSymbol(calc.operator||'-')||calc.operator||'';return`${left} ${op||''} ${right}`.trim();};
 
     function findAspenRow(meldung){const column=ASPEN_MELDUNGS_COLUMN;const target=String(meldung||'').trim().toLowerCase();if(!target)return null;const lowerKey=column.toLowerCase();return aspenData.find(row=>{const raw=row[column];if(typeof raw==='string'||typeof raw==='number'){if(String(raw||'').trim().toLowerCase()===target)return true;}const alt=row.__lower?.[lowerKey];return typeof alt==='string'||typeof alt==='number'?String(alt||'').trim().toLowerCase()===target:false;})||null;}
 
-    function alignFieldSources(){if(!aspenHeaders.length)return;const byOriginal=new Map();const byKey=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();if(originalLower&&!byOriginal.has(originalLower))byOriginal.set(originalLower,h);if(h.key&&!byKey.has(h.key))byKey.set(h.key,h);});let changed=false;cfg.fields.forEach(field=>{const existing=String(field.originalKey||'').trim();if(existing&&byOriginal.has(existing.toLowerCase()))return;const candidates=candidateValuesForField(field,{includeOriginal:false});for(const cand of candidates){const lower=cand.toLowerCase();const match=byOriginal.get(lower)||byKey.get(lower);if(match){if(field.originalKey!==match.original){field.originalKey=match.original;changed=true;}break;}}});if(changed)saveCfg(cfg);}
+    function alignFieldSources(){if(!aspenHeaders.length)return;const byOriginal=new Map();const byKey=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();if(originalLower&&!byOriginal.has(originalLower))byOriginal.set(originalLower,h);if(h.key&&!byKey.has(h.key))byKey.set(h.key,h);});let changed=false;cfg.fields.forEach(field=>{if(field.group==='calc')return;const existing=String(field.originalKey||'').trim();if(existing&&byOriginal.has(existing.toLowerCase()))return;const candidates=candidateValuesForField(field,{includeOriginal:false});for(const cand of candidates){const lower=cand.toLowerCase();const match=byOriginal.get(lower)||byKey.get(lower);if(match){if(field.originalKey!==match.original){field.originalKey=match.original;changed=true;}break;}}});if(changed)saveCfg(cfg);}
 
     const isModalOpen=()=>els.modal.style.display==='grid';
     function snapshotFields(){return cfg.fields.map(f=>({...f}));}
@@ -693,6 +753,7 @@
         alignFieldSources();
         rebuildAspenHeaderMaps();
         updateAspenFieldList();
+        renderCalculationEditor();
         if(isModalOpen())renderCustomButtonEditor();
         refreshFromAspen();
         clearDebugInfo();
@@ -709,15 +770,23 @@
     if(els.mRedo)els.mRedo.addEventListener('click',redo);
     if(els.mNewSearch)els.mNewSearch.addEventListener('input',()=>updateAspenFieldList());
     if(els.mButtonAdd)els.mButtonAdd.addEventListener('click',()=>{const options=buildAspenColumnOptions();const primaryOption=options.find(opt=>!opt.missing)?.value||'';mutateCustomButtons(items=>{const next=[...items,{label:primaryOption||`Button ${items.length+1}`,column:primaryOption,suffix:''}];return next;});});
+    if(els.mCalcAdd)els.mCalcAdd.addEventListener('click',()=>{setNote('Berechnung hinzugefügt.');mutateCalculations(items=>[...items,{label:DEFAULT_CALCULATION_LABEL,leftColumn:'',rightColumn:'',operator:'-'}]);});
 
-    async function bindAspenHandle(handle){try{const ok=await ensureRPermission(handle);if(!ok){setNote('Berechtigung verweigert.');setDebugInfo('Aspen: Berechtigung verweigert.');return false;}aspenHandle=handle;await idbSet(cfg.aspenIdbKey,handle);cfg.aspenFileName=handle.name||'Aspen.xlsx';saveCfg(cfg);updateAspenDisplays();let success=false;try{const result=await readAspenFile(handle);aspenHeaders=result.headers||[];aspenData=result.rows||[];success=true;clearDebugInfo();}catch(err){console.warn('Aspen-Datei konnte nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setNote('Aspen-Daten konnten nicht gelesen werden.');setDebugInfo(`Aspen-Leseproblem: ${err?.message||err}`);}rebuildAspenHeaderMaps();if(success){alignFieldSources();setNote('Aspen-Datei geladen.');}refreshFromAspen();updateAspenFieldList();if(isModalOpen())renderCustomButtonEditor();return true;}catch(err){console.warn('Aspen-Datei konnte nicht gebunden werden:',err);setNote('Aspen-Datei konnte nicht geladen werden.');setDebugInfo(`Aspen-Bindung fehlgeschlagen: ${err?.message||err}`);return false;}}
+    async function bindAspenHandle(handle){try{const ok=await ensureRPermission(handle);if(!ok){setNote('Berechtigung verweigert.');setDebugInfo('Aspen: Berechtigung verweigert.');return false;}aspenHandle=handle;await idbSet(cfg.aspenIdbKey,handle);cfg.aspenFileName=handle.name||'Aspen.xlsx';saveCfg(cfg);updateAspenDisplays();let success=false;try{const result=await readAspenFile(handle);aspenHeaders=result.headers||[];aspenData=result.rows||[];success=true;clearDebugInfo();}catch(err){console.warn('Aspen-Datei konnte nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setNote('Aspen-Daten konnten nicht gelesen werden.');setDebugInfo(`Aspen-Leseproblem: ${err?.message||err}`);}rebuildAspenHeaderMaps();if(success){alignFieldSources();setNote('Aspen-Datei geladen.');}refreshFromAspen();updateAspenFieldList();renderCalculationEditor();if(isModalOpen())renderCustomButtonEditor();return true;}catch(err){console.warn('Aspen-Datei konnte nicht gebunden werden:',err);setNote('Aspen-Datei konnte nicht geladen werden.');setDebugInfo(`Aspen-Bindung fehlgeschlagen: ${err?.message||err}`);return false;}}
 
     function buildAspenColumnOptions(){const options=[];const seen=new Set();aspenHeaders.forEach(h=>{const original=String(h.original||'').trim();if(!original)return;const lower=original.toLowerCase();if(seen.has(lower))return;seen.add(lower);options.push({value:original,label:original,missing:false});});(cfg.customButtons||[]).forEach(btn=>{const column=String(btn.column||'').trim();if(!column)return;const lower=column.toLowerCase();if(seen.has(lower))return;seen.add(lower);options.push({value:column,label:`${column} (nicht gefunden)`,missing:true});});options.sort((a,b)=>a.label.localeCompare(b.label,'de',{sensitivity:'base'}));return options;}
     function mutateCustomButtons(mutator){const draft=(cfg.customButtons||[]).map(btn=>({...btn}));const result=mutator(draft);const next=Array.isArray(result)?result:draft;cfg.customButtons=normalizeCustomButtons(next);saveCfg(cfg);renderCustomButtons();if(isModalOpen())renderCustomButtonEditor();}
     function renderCustomButtons(){const wrap=els.customButtons;if(!wrap)return;const list=Array.isArray(cfg.customButtons)?cfg.customButtons:[];wrap.innerHTML='';customButtonEls=new Map();if(!list.length){wrap.style.display='none';return;}wrap.style.display='';list.forEach(info=>{if(!info)return;const btn=document.createElement('button');btn.type='button';btn.className='rs-custom-button';btn.textContent=info.label||DEFAULT_BUTTON_LABEL;btn.dataset.id=info.id;btn.addEventListener('click',()=>handleCustomButtonClick(info.id));wrap.appendChild(btn);customButtonEls.set(info.id,btn);});updateCustomButtonStates();}
     function updateCustomButtonStates(row){const wrap=els.customButtons;if(!wrap)return;const buttons=Array.isArray(cfg.customButtons)?cfg.customButtons:[];const map=new Map(buttons.map(btn=>[btn.id,btn]));let currentRow=row||null;if(!currentRow){const meldung=activeMeldung();if(meldung)currentRow=findAspenRow(meldung);}const hasRow=!!currentRow;customButtonEls.forEach((button,id)=>{const info=map.get(id);if(!info){button.disabled=true;button.title='';return;}const hasColumn=!!info.column;const missing=hasColumn&&!aspenHeaders.some(h=>String(h.original||'').trim().toLowerCase()===info.column.toLowerCase());button.disabled=!hasRow||!hasColumn;const suffixTip=info.suffix?` · Suffix: ${info.suffix}`:'';const baseLabel=info.column||'Kein Feld';button.title=missing?`${baseLabel} (nicht in Aspen)${suffixTip}`:`${baseLabel}${suffixTip}`;});wrap.style.display=customButtonEls.size?'':'none';}
     function handleCustomButtonClick(id){const info=(cfg.customButtons||[]).find(btn=>btn.id===id);if(!info)return;const meldung=activeMeldung();const row=meldung?findAspenRow(meldung):null;if(!row){setNote('Keine Aspen-Daten zur Meldung gefunden.');return;}if(!info.column){setNote('Kein Aspen-Feld zugewiesen.');return;}const value=getAspenColumnValue(row,info.column);const output=(value||'')+(info.suffix||'');if(!value&&!info.suffix){setNote('Kein Wert zum Kopieren.');return;}copy(output);}
+    function syncCalculationFields({addedIds=[]}={}){const list=Array.isArray(cfg.calculations)?cfg.calculations:[];const calcMapLocal=new Map(list.map(calc=>[calc.id,calc]));const added=new Set(Array.isArray(addedIds)?addedIds:[]);mutateFields(fields=>{let changed=false;const seen=new Set();const next=[];fields.forEach(field=>{if(field.group==='calc'){const calc=calcMapLocal.get(field.originalKey||field.id||field.key);if(!calc){changed=true;return;}seen.add(calc.id);if(field.id!==calc.id){field.id=calc.id;field.key=calc.id;changed=true;}else if(field.key!==calc.id){field.key=calc.id;changed=true;}if(field.label!==calc.label){field.label=calc.label;changed=true;}}next.push(field);});added.forEach(id=>{if(seen.has(id))return;const calc=calcMapLocal.get(id);if(!calc)return;next.push({id:calc.id,key:calc.id,label:calc.label||DEFAULT_CALCULATION_LABEL,enabled:true,group:'calc',originalKey:calc.id});seen.add(id);changed=true;});return changed?next:fields;},{recordHistory:false});}
+    function mutateCalculations(mutator){const beforeIds=new Set((cfg.calculations||[]).map(calc=>calc.id));const draft=(cfg.calculations||[]).map(calc=>({...calc}));const result=mutator(draft);const next=normalizeCalculations(Array.isArray(result)?result:draft);const addedIds=[];next.forEach(calc=>{if(!beforeIds.has(calc.id))addedIds.push(calc.id);});cfg.calculations=next;rebuildCalculationMap();syncCalculationFields({addedIds});saveCfg(cfg);renderCalculationEditor();updateAspenFieldList();refreshFromAspen();}
+    function renderCalculationEditor(){const list=els.mCalcList;if(!list)return;list.innerHTML='';const empty=els.mCalcEmpty;const calcs=Array.isArray(cfg.calculations)?cfg.calculations:[];if(!calcs.length){if(empty){empty.textContent='Noch keine Berechnungen definiert.';empty.style.display='block';}return;}if(empty)empty.style.display='none';const options=buildAspenColumnOptions();const applyOptions=(select,value)=>{select.innerHTML='';const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='– Feld wählen –';select.appendChild(placeholder);const seen=new Set();options.forEach(opt=>{const option=document.createElement('option');option.value=opt.value;option.textContent=opt.label;select.appendChild(option);seen.add(opt.value.toLowerCase());});const normalized=String(value||'').trim();if(normalized&&!seen.has(normalized.toLowerCase())){const missing=document.createElement('option');missing.value=normalized;missing.textContent=`${normalized} (nicht gefunden)`;select.appendChild(missing);}select.value=normalized;const missing=!!normalized&&!options.some(opt=>opt.value===normalized);select.classList.toggle('rs-calc-select-missing',missing);};calcs.forEach(calc=>{const row=document.createElement('div');row.className='rs-calc-item';const labelField=document.createElement('div');labelField.className='rs-calc-field';const labelLabel=document.createElement('label');labelLabel.textContent='Anzeigename';const labelInput=document.createElement('input');labelInput.type='text';labelInput.value=calc.label||'';labelField.append(labelLabel,labelInput);const leftField=document.createElement('div');leftField.className='rs-calc-field';const leftLabel=document.createElement('label');leftLabel.textContent='Spalte A';const leftSelect=document.createElement('select');applyOptions(leftSelect,calc.leftColumn||'');leftField.append(leftLabel,leftSelect);const operatorField=document.createElement('div');operatorField.className='rs-calc-field';const operatorLabel=document.createElement('label');operatorLabel.textContent='Operator';const operatorSelect=document.createElement('select');CALC_OPERATORS.forEach(opt=>{const option=document.createElement('option');option.value=opt.value;option.textContent=opt.label;operatorSelect.appendChild(option);});operatorSelect.value=calc.operator&&isValidCalcOperator(calc.operator)?calc.operator:'-';operatorField.append(operatorLabel,operatorSelect);const rightField=document.createElement('div');rightField.className='rs-calc-field';const rightLabel=document.createElement('label');rightLabel.textContent='Spalte B';const rightSelect=document.createElement('select');applyOptions(rightSelect,calc.rightColumn||'');rightField.append(rightLabel,rightSelect);const removeBtn=document.createElement('button');removeBtn.type='button';removeBtn.className='rs-calc-remove';removeBtn.title='Berechnung entfernen';removeBtn.textContent='✕';row.append(labelField,leftField,operatorField,rightField,removeBtn);list.appendChild(row);labelInput.addEventListener('input',()=>{labelInput.classList.remove('invalid');});const commitLabel=()=>{const trimmed=labelInput.value.trim();const error=validateLabel(trimmed);if(error){labelInput.classList.add('invalid');setNote(error);labelInput.focus();labelInput.select();return;}setNote('');mutateCalculations(items=>items.map(item=>item.id===calc.id?{...item,label:trimmed}:item));};labelInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitLabel();}});labelInput.addEventListener('blur',commitLabel);const handleSelect=(select,key)=>{const value=select.value;const missing=!!value&&!options.some(opt=>opt.value===value);select.classList.toggle('rs-calc-select-missing',missing);mutateCalculations(items=>items.map(item=>item.id===calc.id?{...item,[key]:value}:item));};leftSelect.addEventListener('change',()=>handleSelect(leftSelect,'leftColumn'));rightSelect.addEventListener('change',()=>handleSelect(rightSelect,'rightColumn'));operatorSelect.addEventListener('change',()=>{const op=isValidCalcOperator(operatorSelect.value)?operatorSelect.value:'-';mutateCalculations(items=>items.map(item=>item.id===calc.id?{...item,operator:op}:item));});removeBtn.addEventListener('click',()=>{mutateCalculations(items=>items.filter(item=>item.id!==calc.id));setNote('Berechnung entfernt.');});});}
     const lookupName=pn=>{for(const r of rules){if(pn.startsWith(r.prefix))return r.name;}return'';};
+    const getFieldTooltip=field=>{if(field?.group==='calc'){const calc=calculationMap.get(field.originalKey||field.id||field.key);if(calc){const left=calc.leftColumn||'–';const right=calc.rightColumn||'–';const op=calculationOperatorSymbol(calc.operator||'-')||calc.operator||'';return`${field.label} – ${left} ${op||''} ${right} – (${GROUP_LABELS.calc})`;}
+      return`${field?.label||DEFAULT_CALCULATION_LABEL} – (${GROUP_LABELS.calc})`;}
+      return tooltipForField(field);
+    };
     function updateName(){if(!rules.length){deviceName='';renderHead();return;}const partField=cfg.fields.find(f=>f.key==='part'&&f.enabled);const pn=partField?(fieldEls[partField.id]?.input?.value||'').trim():'';const name=lookupName(pn);deviceName=name||'Unbekanntes Gerät';renderHead();}
 
     function applyColumns(){const cols=Math.max(1,parseInt(cfg.columns)||1);els.grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;}
@@ -727,7 +796,7 @@
         const wrap=document.createElement('div');
         wrap.className='rs-field';
         wrap.dataset.fieldId=f.id;
-        const tooltip=tooltipForField(f);
+        const tooltip=getFieldTooltip(f);
         const labelWrap=document.createElement('div');
         labelWrap.className='rs-labelwrap';
         const labelSpan=document.createElement('span');
@@ -772,7 +841,7 @@
         const li=document.createElement('li');
         li.className='rs-item'+(f.enabled?'':' off');
         li.dataset.id=f.id;
-        li.title=tooltipForField(f);
+        li.title=getFieldTooltip(f);
         const handle=document.createElement('span');
         handle.className='rs-item-handle';
         handle.textContent='☰';
@@ -839,7 +908,7 @@
       if(!current){return{changed:false};}
       if(current.label===trimmed){setNote('');return{changed:false};}
       const changed=mutateFields(fields=>{const target=fields.find(x=>x.id===fieldId);if(target)target.label=trimmed;return fields;},options);
-      if(changed){setNote('Label aktualisiert.');return{changed:true};}
+      if(changed){if(current.group==='calc'){const calcId=current.originalKey||current.id;mutateCalculations(items=>items.map(item=>item.id===calcId?{...item,label:trimmed}:item));}setNote('Label aktualisiert.');return{changed:true};}
       return{changed:false};
     }
     function startInlineLabelEdit(fieldId,labelWrap,labelSpan,infoEl){
@@ -852,15 +921,16 @@
       labelWrap.replaceChild(input,labelSpan);
       input.focus();input.select();
       input.addEventListener('input',()=>input.classList.remove('invalid'));
-      const commit=()=>{const result=applyLabelChange(fieldId,input.value);if(result.error){input.classList.add('invalid');setNote(result.error);input.focus();input.select();return;}input.classList.remove('invalid');if(result.changed){return;}if(!labelWrap.isConnected)return;labelWrap.replaceChild(labelSpan,input);labelSpan.textContent=field.label;const tip=tooltipForField(field);labelSpan.title=tip;if(infoEl)infoEl.title=tip;};
-      const cancel=()=>{setNote('');if(!labelWrap.isConnected)return;labelWrap.replaceChild(labelSpan,input);labelSpan.textContent=field.label;const tip=tooltipForField(field);labelSpan.title=tip;if(infoEl)infoEl.title=tip;};
+      const commit=()=>{const result=applyLabelChange(fieldId,input.value);if(result.error){input.classList.add('invalid');setNote(result.error);input.focus();input.select();return;}input.classList.remove('invalid');if(result.changed){return;}if(!labelWrap.isConnected)return;labelWrap.replaceChild(labelSpan,input);labelSpan.textContent=field.label;const tip=getFieldTooltip(field);labelSpan.title=tip;if(infoEl)infoEl.title=tip;};
+      const cancel=()=>{setNote('');if(!labelWrap.isConnected)return;labelWrap.replaceChild(labelSpan,input);labelSpan.textContent=field.label;const tip=getFieldTooltip(field);labelSpan.title=tip;if(infoEl)infoEl.title=tip;};
       input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}else if(e.key==='Escape'){e.preventDefault();cancel();}});
       input.addEventListener('blur',commit);
     }
 
-    function updateAspenFieldList(){const list=els.mNewList;if(!list)return;list.innerHTML='';activeNewFieldEditor=null;const empty=els.mNewEmpty;if(!aspenHeaders.length){if(empty){empty.textContent=aspenHandle?'Keine zusätzlichen Felder verfügbar.':'Aspen-Datei wählen, um verfügbare Felder zu laden.';empty.style.display='block';}return;}const term=(els.mNewSearch?.value||'').trim().toLowerCase();const matches=aspenHeaders.filter(h=>!term||h.original.toLowerCase().includes(term)||h.key.includes(term));if(!matches.length){if(empty){empty.textContent='Keine Treffer.';empty.style.display='block';}return;}if(empty)empty.style.display='none';matches.forEach(info=>{const li=document.createElement('li');li.className='rs-new-item';li.dataset.key=info.key;const infoWrap=document.createElement('div');infoWrap.className='rs-new-info';const keyLabel=document.createElement('div');keyLabel.className='rs-new-key';keyLabel.textContent=info.original||info.key;const original=document.createElement('div');original.className='rs-new-original';original.textContent=info.key;infoWrap.appendChild(keyLabel);infoWrap.appendChild(original);const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='rs-new-add';const count=cfg.fields.filter(f=>f.key===info.key).length;if(count){addBtn.classList.add('secondary');addBtn.textContent='Nochmal hinzufügen';}else{addBtn.textContent='Hinzufügen';}addBtn.addEventListener('click',()=>startAspenFieldEditor(info,li));li.append(infoWrap,addBtn);list.appendChild(li);});}
-    function startAspenFieldEditor(info,li){if(activeNewFieldEditor&&activeNewFieldEditor!==li){activeNewFieldEditor.querySelector('.rs-new-inline')?.remove();}if(li.querySelector('.rs-new-inline'))return;activeNewFieldEditor=li;const inline=document.createElement('div');inline.className='rs-new-inline';const input=document.createElement('input');input.type='text';input.value=defaultLabelForKey(info.original||info.key);const confirm=document.createElement('button');confirm.type='button';confirm.textContent='Hinzufügen';const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Abbrechen';inline.append(input,confirm,cancel);li.appendChild(inline);input.focus();input.select();input.addEventListener('input',()=>input.classList.remove('invalid'));const close=()=>{inline.remove();if(activeNewFieldEditor===li)activeNewFieldEditor=null;};const submit=()=>{const ok=addAspenField(info,input.value);if(ok)close();else input.classList.add('invalid');};confirm.addEventListener('click',submit);cancel.addEventListener('click',()=>{close();setNote('');});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit();}else if(e.key==='Escape'){e.preventDefault();close();setNote('');}});}
+    function updateAspenFieldList(){const list=els.mNewList;if(!list)return;list.innerHTML='';activeNewFieldEditor=null;const empty=els.mNewEmpty;const term=(els.mNewSearch?.value||'').trim().toLowerCase();const hasAspenHeaders=aspenHeaders.length>0;const calcList=Array.isArray(cfg.calculations)?cfg.calculations:[];const aspenMatches=hasAspenHeaders?aspenHeaders.filter(h=>!term||h.original.toLowerCase().includes(term)||h.key.includes(term)):[];const calcMatches=calcList.filter(calc=>{const label=String(calc.label||'').toLowerCase();const formula=calculationFormula(calc).toLowerCase();return!term||label.includes(term)||formula.includes(term);});if(!aspenMatches.length&&!calcMatches.length){if(empty){if(term){empty.textContent='Keine Treffer.';}else if(hasAspenHeaders||calcList.length){empty.textContent='Keine zusätzlichen Felder verfügbar.';}else{empty.textContent=aspenHandle?'Keine zusätzlichen Felder verfügbar.':'Aspen-Datei wählen, um verfügbare Felder zu laden.';}empty.style.display='block';}return;}if(empty)empty.style.display='none';aspenMatches.forEach(info=>{const li=document.createElement('li');li.className='rs-new-item';li.dataset.key=info.key;const infoWrap=document.createElement('div');infoWrap.className='rs-new-info';const keyLabel=document.createElement('div');keyLabel.className='rs-new-key';keyLabel.textContent=info.original||info.key;const original=document.createElement('div');original.className='rs-new-original';original.textContent=info.key;infoWrap.appendChild(keyLabel);infoWrap.appendChild(original);const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='rs-new-add';const count=cfg.fields.filter(f=>f.key===info.key).length;if(count){addBtn.classList.add('secondary');addBtn.textContent='Nochmal hinzufügen';}else{addBtn.textContent='Hinzufügen';}addBtn.addEventListener('click',()=>startNewFieldEditor(info,li,'aspen'));li.appendChild(infoWrap);li.appendChild(addBtn);list.appendChild(li);});if(calcMatches.length){const divider=document.createElement('li');divider.className='rs-new-divider';divider.textContent='Aspenberechnungen';list.appendChild(divider);calcMatches.forEach(calc=>{const li=document.createElement('li');li.className='rs-new-item rs-new-item-calc';li.dataset.calcId=calc.id;const infoWrap=document.createElement('div');infoWrap.className='rs-new-info';const label=document.createElement('div');label.className='rs-new-key';label.textContent=calc.label||DEFAULT_CALCULATION_LABEL;const formula=document.createElement('div');formula.className='rs-new-formula';const formulaText=calculationFormula(calc)||'–';formula.textContent=formulaText;infoWrap.appendChild(label);infoWrap.appendChild(formula);const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='rs-new-add';const exists=cfg.fields.some(f=>f.group==='calc'&&f.originalKey===calc.id);if(exists){addBtn.classList.add('secondary');addBtn.textContent='Aktualisieren';}else{addBtn.textContent='Hinzufügen';}addBtn.addEventListener('click',()=>startNewFieldEditor(calc,li,'calc'));li.appendChild(infoWrap);li.appendChild(addBtn);list.appendChild(li);});}}
+    function startNewFieldEditor(info,li,mode){if(activeNewFieldEditor&&activeNewFieldEditor!==li){activeNewFieldEditor.querySelector('.rs-new-inline')?.remove();}if(li.querySelector('.rs-new-inline'))return;activeNewFieldEditor=li;const inline=document.createElement('div');inline.className='rs-new-inline';const input=document.createElement('input');input.type='text';const defaultLabel=mode==='calc'?(info.label||DEFAULT_CALCULATION_LABEL):defaultLabelForKey(info.original||info.key);input.value=defaultLabel;const confirm=document.createElement('button');confirm.type='button';confirm.textContent='Hinzufügen';const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Abbrechen';inline.appendChild(input);inline.appendChild(confirm);inline.appendChild(cancel);li.appendChild(inline);input.focus();input.select();input.addEventListener('input',()=>input.classList.remove('invalid'));const close=()=>{inline.remove();if(activeNewFieldEditor===li)activeNewFieldEditor=null;};const submit=()=>{const ok=mode==='calc'?addCalculationField(info,input.value):addAspenField(info,input.value);if(ok)close();else input.classList.add('invalid');};confirm.addEventListener('click',submit);cancel.addEventListener('click',()=>{close();setNote('');});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit();}else if(e.key==='Escape'){e.preventDefault();close();setNote('');}});}
     function addAspenField(info,label){const trimmed=String(label||'').trim();const error=validateLabel(trimmed);if(error){setNote(error);return false;}const used=new Set(cfg.fields.map(f=>f.id));const id=generateFieldId(info.key,trimmed,used);const changed=mutateFields(fields=>{fields.push({id,key:info.key,label:trimmed,enabled:true,group:'aspen',originalKey:info.original||info.key});return fields;});if(changed){setNote('Feld hinzugefügt.');return true;}setNote('');return false;}
+    function addCalculationField(calc,label){if(!calc||!calc.id){setNote('Berechnung nicht gefunden.');return false;}const trimmed=String(label||'').trim();const error=validateLabel(trimmed);if(error){setNote(error);return false;}const changed=mutateFields(fields=>{const existing=fields.find(f=>f.group==='calc'&&f.originalKey===calc.id);if(existing){existing.label=trimmed;existing.enabled=true;return fields;}fields.push({id:calc.id,key:calc.id,label:trimmed,enabled:true,group:'calc',originalKey:calc.id});return fields;});if(changed){setNote('Feld hinzugefügt.');return true;}setNote('');return false;}
 
     function bringModalToFront(){
       if(!els.modal)return;
@@ -881,7 +951,7 @@
         closeModal();
       }
     };
-    function openModal(){refreshColorLayers();renderFieldList();renderCustomButtonEditor();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';bringModalToFront();els.rootEl?.classList.add('rs-module-blur');window.addEventListener('keydown',handleModalKeydown,modalKeydownOptions);}
+    function openModal(){refreshColorLayers();renderFieldList();renderCustomButtonEditor();renderCalculationEditor();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';bringModalToFront();els.rootEl?.classList.add('rs-module-blur');window.addEventListener('keydown',handleModalKeydown,modalKeydownOptions);}
     function closeModal(){els.modal.style.display='none';els.rootEl?.classList.remove('rs-module-blur');window.removeEventListener('keydown',handleModalKeydown,modalKeydownOptions);saveCfg(cfg);renderFields();}
     if(els.modal){
       els.modal.addEventListener('click',event=>{
@@ -898,7 +968,7 @@
     (async()=>{try{let h=await idbGet(cfg.ruleIdbKey);if(!h){h=await idbGet(GLOBAL_NAME_KEY);if(h){await idbSet(cfg.ruleIdbKey,h);if(!cfg.ruleFileName){const g=loadDoc().general||{};cfg.ruleFileName=g.nameFileName||h.name||'Rules.xlsx';saveCfg(cfg);els.mRuleFile.textContent=`• ${cfg.ruleFileName}`;}}}if(h&&await ensureRPermission(h)){ruleHandle=h;rules=await readRulesFromHandle(h);els.mRuleFile.textContent=`• ${cfg.ruleFileName||h.name||'Rules.xlsx'}`;updateName();}}catch(e){}})();
 
     function activeMeldung(){return(loadDoc()?.general?.Meldung||'').trim();}
-    function refreshFromAspen(){const m=activeMeldung();const row=m?findAspenRow(m):null;cfg.fields.forEach(f=>{const el=fieldEls[f.id];if(!el)return;if(f.key==='meldung'){el.input.value=m;}else{el.input.value=row?getAspenValue(row,f):'';}const tip=tooltipForField(f);if(el.labelEl){el.labelEl.textContent=f.label;el.labelEl.title=tip;}if(el.infoEl)el.infoEl.title=tip;});updateName();updateCustomButtonStates(row);}
+    function refreshFromAspen(){const m=activeMeldung();const row=m?findAspenRow(m):null;cfg.fields.forEach(f=>{const el=fieldEls[f.id];if(!el)return;if(f.key==='meldung'){el.input.value=m;}else if(f.group==='calc'){el.input.value=row?getCalculationValue(row,f):'';}else{el.input.value=row?getAspenValue(row,f):'';}const tip=getFieldTooltip(f);if(el.labelEl){el.labelEl.textContent=f.label;el.labelEl.title=tip;}if(el.infoEl)el.infoEl.title=tip;});updateName();updateCustomButtonStates(row);}
 
     addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromAspen();if(e.key==='appSettings')refreshColorLayers();});
     addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromAspen();});
