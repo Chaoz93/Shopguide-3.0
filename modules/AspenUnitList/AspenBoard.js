@@ -3409,13 +3409,13 @@
         ucCheckbox.checked=!!column.ucSort;
         ucCheckbox.addEventListener('change',handleExtraUcToggleChange);
         ucToggle.appendChild(ucCheckbox);
+        const ucControl=document.createElement('span');
+        ucControl.className='db-extra-uc-switch-control';
+        ucToggle.appendChild(ucControl);
         const ucText=document.createElement('span');
         ucText.className='db-extra-uc-switch-text';
         ucText.textContent='UC-Sortierung';
         ucToggle.appendChild(ucText);
-        const ucControl=document.createElement('span');
-        ucControl.className='db-extra-uc-switch-control';
-        ucToggle.appendChild(ucControl);
         header.appendChild(ucToggle);
         row.appendChild(header);
         const label=document.createElement('label');
