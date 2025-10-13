@@ -1,5 +1,5 @@
 /* Ops Panel — extended with toggleable links and Testreport deeplink */
-// v3.6.1 – Added deferred global layer sync via 'shopguide:sub-layers-updated'
+// v3.7.0 – Deterministic global layer sync via 'shopguide:sub-layers-updated'
 (function () {
   // ---------- styles ----------
   if (!document.getElementById('ops-panel-styles')) {
@@ -293,28 +293,29 @@
 
   const DROPDOWN_DEFAULT_VALUE = 'standard';
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
+  let cachedPaletteSignature = '';
 
-  (function initPaletteCache(){
-    if(typeof window === 'undefined') return;
-    if(!window.__lbpPalette) window.__lbpPalette = {};
-    const handler = (event) => {
-      const detail = event && event.detail && typeof event.detail === 'object' ? event.detail : null;
-      const layers = detail && detail.layers && typeof detail.layers === 'object' ? detail.layers : null;
-      if(layers){
-        window.__lbpPalette = layers;
-        try {
-          console.log('[LayerSync] Cached global sub-layer palette:', Object.keys(layers));
-        } catch {}
-      }
-      bootstrapLayerMapIfEmpty();
-      if(syncDropdownsFromResolvedLayers()){
-        console.log('[LayerSync] Dropdown re-synced after global sub-layer update');
-      }
-    };
-    try {
-      window.document?.addEventListener?.('shopguide:sub-layers-updated', handler, { passive: true });
-    } catch {}
-  })();
+  function updateCachedPalette(layers){
+    if(typeof window === 'undefined') return false;
+    if(!layers || typeof layers !== 'object') return false;
+    if(!window.__lbpPalette || typeof window.__lbpPalette !== 'object'){
+      window.__lbpPalette = {};
+    }
+    const normalized = {};
+    Object.entries(layers).forEach(([name, color]) => {
+      if(typeof name !== 'string') return;
+      const trimmedColor = typeof color === 'string' ? color.trim() : '';
+      if(!trimmedColor) return;
+      normalized[name] = trimmedColor;
+    });
+    const serialized = JSON.stringify(normalized);
+    if(serialized === cachedPaletteSignature){
+      return false;
+    }
+    cachedPaletteSignature = serialized;
+    window.__lbpPalette = normalized;
+    return true;
+  }
 
   function getLayerMap(){
     if(typeof window === 'undefined' || !window.localStorage) return {};
@@ -407,6 +408,56 @@
   }
 
   bootstrapLayerMapIfEmpty();
+
+  function syncDropdownsFromCachedPalette(){
+    return syncDropdownsFromResolvedLayers();
+  }
+
+  (function initLayerColorSubscriber(){
+    if(typeof window === 'undefined') return;
+    if(!window.__lbpPalette || typeof window.__lbpPalette !== 'object'){
+      window.__lbpPalette = {};
+    }
+
+    const broadcastHandler = (event) => {
+      const detail = event && typeof event.detail === 'object' ? event.detail : null;
+      const layers = detail && typeof detail.layers === 'object' ? detail.layers : null;
+      if(!layers) return;
+      const updated = updateCachedPalette(layers);
+      if(!updated) return;
+      try {
+        console.log('[LayerSync] Cached global sub-layer palette:', layers);
+      } catch {}
+      bootstrapLayerMapIfEmpty();
+      if(!syncDropdownsFromCachedPalette()){
+        try {
+          console.log('[LayerSync] Palette broadcast received – waiting for dropdowns to mount');
+        } catch {}
+      }
+    };
+
+    window.addEventListener('shopguide:sub-layers-updated', broadcastHandler);
+
+    const onDomReady = () => {
+      if(Object.keys(window.__lbpPalette).length){
+        if(!syncDropdownsFromCachedPalette()){
+          try {
+            console.log('[LayerSync] DOM ready – cached palette available but dropdowns not rendered yet');
+          } catch {}
+        }
+      }
+    };
+
+    if(window.document?.readyState === 'loading'){
+      window.document.addEventListener('DOMContentLoaded', onDomReady, { once: true });
+    } else {
+      onDomReady();
+    }
+
+    try {
+      console.log('[LayerSync] Subscriber initialized – awaiting palette broadcast');
+    } catch {}
+  })();
 
   function buildDropdownFromResolvedLayers(select){
     if(!select || typeof window === 'undefined' || !window.document) return false;

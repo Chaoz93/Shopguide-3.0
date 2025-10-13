@@ -5540,10 +5540,52 @@ function bindLayerColorSync() {
   const manager = document.querySelector('.module-layer-manager');
   const layersContainer = document.getElementById('module-color-layers');
   const docEl = document.documentElement;
-  if (!manager || !layersContainer || !docEl) return;
+  if (!docEl) return;
 
   const style = docEl.style;
   const lastValues = new Map();
+  let lastBroadcastSignature = '';
+
+  const broadcastGlobalSubLayerPalette = () => {
+    if (typeof window === 'undefined' || !window.document) return;
+    try {
+      const root = window.document.documentElement;
+      if (!root) return;
+      const computed = getComputedStyle(root);
+      if (!computed) return;
+      const palette = {};
+      for (let i = 1; i <= 15; i += 1) {
+        const raw = computed.getPropertyValue(`--module-layer-${i}-module-bg`).trim();
+        if (raw && raw.startsWith('hsl')) {
+          palette[`unter-layer-${i}`] = raw;
+        }
+      }
+      const customLayers = ['testname', 'testnamelayer2', 'unter-layer-3', 'unter-layer-4'];
+      customLayers.forEach(name => {
+        const customValue = computed.getPropertyValue(`--module-layer-${name}-module-bg`).trim();
+        if (customValue && customValue.startsWith('hsl')) {
+          palette[name] = customValue;
+        }
+      });
+      const serialized = JSON.stringify(palette);
+      if (serialized === lastBroadcastSignature) {
+        return;
+      }
+      lastBroadcastSignature = serialized;
+      const event = new CustomEvent('shopguide:sub-layers-updated', {
+        detail: { layers: palette, source: 'ShopguideV3' }
+      });
+      window.dispatchEvent(event);
+      console.log('[ShopguideV3] Global palette broadcasted:', palette);
+    } catch (err) {
+      console.error('[ShopguideV3] Failed to broadcast palette:', err);
+    }
+  };
+
+  if (!manager || !layersContainer) {
+    broadcastGlobalSubLayerPalette();
+    return;
+  }
 
   const getSubgroups = () => Array.from(manager.querySelectorAll('.module-layer-subgroup'));
 
@@ -5609,6 +5651,8 @@ function bindLayerColorSync() {
         lastValues.delete(layerId);
       }
     });
+
+    broadcastGlobalSubLayerPalette();
   };
 
   manager.addEventListener('input', event => {
