@@ -564,10 +564,6 @@
     updateColorSelectValues();
     applyColorTheme();
     let aspenHandle=null;
-    els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
-    updateAspenDisplays();
-    els.head.style.display='none';
-    renderCustomButtons();
     let aspenHeaders=[];
     let aspenHeaderKeyMap=new Map();
     let aspenHeaderOriginalMap=new Map();
@@ -578,6 +574,12 @@
     let rules=[];
     let activeNewFieldEditor=null;
     let listSortable=null;
+    let fieldEls={};
+    let customButtonEls=new Map();
+    els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
+    updateAspenDisplays();
+    els.head.style.display='none';
+    renderCustomButtons();
     [
       {el:els.mColorModule,key:'module'},
       {el:els.mColorHeader,key:'header'},
@@ -705,8 +707,6 @@
 
     async function bindAspenHandle(handle){try{const ok=await ensureRPermission(handle);if(!ok){setNote('Berechtigung verweigert.');setDebugInfo('Aspen: Berechtigung verweigert.');return false;}aspenHandle=handle;await idbSet(cfg.aspenIdbKey,handle);cfg.aspenFileName=handle.name||'Aspen.xlsx';saveCfg(cfg);updateAspenDisplays();let success=false;try{const result=await readAspenFile(handle);aspenHeaders=result.headers||[];aspenData=result.rows||[];success=true;clearDebugInfo();}catch(err){console.warn('Aspen-Datei konnte nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setNote('Aspen-Daten konnten nicht gelesen werden.');setDebugInfo(`Aspen-Leseproblem: ${err?.message||err}`);}rebuildAspenHeaderMaps();if(success){alignFieldSources();setNote('Aspen-Datei geladen.');}refreshFromAspen();updateAspenFieldList();if(isModalOpen())renderCustomButtonEditor();return true;}catch(err){console.warn('Aspen-Datei konnte nicht gebunden werden:',err);setNote('Aspen-Datei konnte nicht geladen werden.');setDebugInfo(`Aspen-Bindung fehlgeschlagen: ${err?.message||err}`);return false;}}
 
-    let fieldEls={};
-    let customButtonEls=new Map();
     function buildAspenColumnOptions(){const options=[];const seen=new Set();aspenHeaders.forEach(h=>{const original=String(h.original||'').trim();if(!original)return;const lower=original.toLowerCase();if(seen.has(lower))return;seen.add(lower);options.push({value:original,label:original,missing:false});});(cfg.customButtons||[]).forEach(btn=>{const column=String(btn.column||'').trim();if(!column)return;const lower=column.toLowerCase();if(seen.has(lower))return;seen.add(lower);options.push({value:column,label:`${column} (nicht gefunden)`,missing:true});});options.sort((a,b)=>a.label.localeCompare(b.label,'de',{sensitivity:'base'}));return options;}
     function mutateCustomButtons(mutator){const draft=(cfg.customButtons||[]).map(btn=>({...btn}));const result=mutator(draft);const next=Array.isArray(result)?result:draft;cfg.customButtons=normalizeCustomButtons(next);saveCfg(cfg);renderCustomButtons();if(isModalOpen())renderCustomButtonEditor();}
     function renderCustomButtons(){const wrap=els.customButtons;if(!wrap)return;const list=Array.isArray(cfg.customButtons)?cfg.customButtons:[];wrap.innerHTML='';customButtonEls=new Map();if(!list.length){wrap.style.display='none';return;}wrap.style.display='';list.forEach(info=>{if(!info)return;const btn=document.createElement('button');btn.type='button';btn.className='rs-custom-button';btn.textContent=info.label||DEFAULT_BUTTON_LABEL;btn.dataset.id=info.id;btn.addEventListener('click',()=>handleCustomButtonClick(info.id));wrap.appendChild(btn);customButtonEls.set(info.id,btn);});updateCustomButtonStates();}
