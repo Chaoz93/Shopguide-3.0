@@ -78,8 +78,10 @@
   .rs-color-foot{margin-top:.45rem;font-size:.78rem;opacity:.75;color:var(--text-color)}
   .rs-color-reload{margin-top:.5rem;background:transparent;border:1px solid var(--module-border-color);color:var(--text-color);border-radius:.6rem;padding:.3rem .65rem;cursor:pointer;font-size:.78rem;font-weight:600;display:inline-flex;align-items:center;gap:.3rem}
   .rs-color-reload:hover{background:var(--module-header-bg);color:var(--module-header-text)}
-  .rs-module-blur{filter:blur(6px);opacity:.6;pointer-events:none;user-select:none;transition:filter .2s ease,opacity .2s ease}
-  .rs-modal{backdrop-filter:blur(6px)}
+  .rs-root.rs-module-blur{filter:blur(6px);opacity:.6;pointer-events:none;user-select:none;transition:filter .2s ease,opacity .2s ease}
+  .rs-modal{position:fixed;inset:0;display:none;align-items:center;justify-items:center;padding:2rem;background:rgba(15,23,42,.45);backdrop-filter:blur(10px);z-index:70}
+  .rs-modal-panel{background:#fff;color:#111827;width:min(94vw,960px);max-height:90vh;overflow:auto;border-radius:1rem;padding:1.25rem 1.5rem;box-shadow:0 24px 60px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem}
+  .rs-modal-panel .db-field{margin-top:0!important}
   .rs-button-editor{display:flex;flex-direction:column;gap:.6rem}
   .rs-button-actions{display:flex;justify-content:flex-end}
   .rs-button-add{border-radius:.5rem;padding:.32rem .7rem;background:var(--rs-button-bg);color:var(--rs-button-text);border:1px solid var(--rs-button-border);cursor:pointer;font-weight:600}
@@ -286,8 +288,8 @@
           <div class="rs-note"></div>
         </div>
       </div>
-      <div class="db-modal rs-modal" style="position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.35);z-index:50;">
-        <div class="db-panel" style="background:#fff;color:#111827;width:min(92vw,720px);border-radius:.9rem;padding:1rem;">
+      <div class="db-modal rs-modal">
+        <div class="db-panel rs-modal-panel">
           <div class="db-row" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.5rem">
             <div class="font-semibold">Gerätedaten – Optionen</div>
             <button class="db-btn secondary rs-close" style="background:#eee;border-radius:.5rem;padding:.35rem .6rem">Schließen</button>
@@ -870,8 +872,8 @@
       const targetZ=Math.max(highestZ+1, currentZ||50);
       els.modal.style.zIndex=String(targetZ);
     }
-    function openModal(){refreshColorLayers();renderFieldList();renderCustomButtonEditor();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';bringModalToFront();moduleHost?.classList.add('rs-module-blur');}
-    function closeModal(){els.modal.style.display='none';moduleHost?.classList.remove('rs-module-blur');saveCfg(cfg);renderFields();}
+    function openModal(){refreshColorLayers();renderFieldList();renderCustomButtonEditor();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';bringModalToFront();els.rootEl?.classList.add('rs-module-blur');}
+    function closeModal(){els.modal.style.display='none';els.rootEl?.classList.remove('rs-module-blur');saveCfg(cfg);renderFields();}
     els.mClose.onclick=closeModal;
     els.mCols.addEventListener('change',()=>{cfg.columns=Math.max(1,parseInt(els.mCols.value)||1);applyColumns();saveCfg(cfg);});
 
