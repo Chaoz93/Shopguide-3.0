@@ -1,5 +1,5 @@
 /* Ops Panel — extended with toggleable links and Testreport deeplink */
-// v3.7.0 – Deterministic global layer sync via 'shopguide:sub-layers-updated'
+// v5.0 – Config-Palette-Sync über JSON
 (function () {
   // ---------- styles ----------
   if (!document.getElementById('ops-panel-styles')) {
@@ -292,8 +292,10 @@
   }
 
   const DROPDOWN_DEFAULT_VALUE = 'standard';
+  const PALETTE_URL = 'Config/FarblayerConfig.json';
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
+  const paletteUpdateListeners = new Set();
 
   const DEFAULT_LAYER_TITLES = {
     1: 'Hauptmodul (Rahmen & Hintergrund)',
@@ -396,6 +398,28 @@
     cachedPaletteSignature = serialized;
     window.__lbpPalette = palette;
     return true;
+  }
+
+  function notifyPaletteListeners(){
+    if(!paletteUpdateListeners.size) return;
+    const palette = (typeof window !== 'undefined' && window.__lbpPalette && typeof window.__lbpPalette === 'object')
+      ? window.__lbpPalette
+      : {};
+    paletteUpdateListeners.forEach(listener => {
+      try {
+        listener(palette);
+      } catch (err) {
+        console.error('[LinkButtonsPlus] Palette listener failed:', err);
+      }
+    });
+  }
+
+  function onPaletteUpdated(listener){
+    if(typeof listener !== 'function') return () => {};
+    paletteUpdateListeners.add(listener);
+    return () => {
+      paletteUpdateListeners.delete(listener);
+    };
   }
 
   function getLayerMap(){
@@ -572,40 +596,93 @@
     return syncDropdownsFromResolvedLayers();
   }
 
-  (function initLayerColorSubscriber(){
+  async function fetchPaletteFromConfig(){
+    if(typeof window === 'undefined') return null;
+    let fetchError = null;
+    try {
+      const response = await fetch(PALETTE_URL, { cache: 'no-store' });
+      if(!response.ok){
+        throw new Error(`${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      if(data && typeof data === 'object'){
+        try {
+          localStorage.setItem(PALETTE_URL, JSON.stringify(data));
+        } catch {}
+        return data;
+      }
+    } catch (err) {
+      fetchError = err;
+    }
+
+    try {
+      const stored = localStorage.getItem(PALETTE_URL);
+      if(stored){
+        const parsed = JSON.parse(stored);
+        if(parsed && typeof parsed === 'object'){
+          if(fetchError){
+            console.warn('[LinkButtonsPlus] Nutze FarblayerConfig.json aus lokalem Speicher:', fetchError);
+          }
+          return parsed;
+        }
+      }
+    } catch (storageErr) {
+      if(!fetchError){
+        fetchError = storageErr;
+      }
+    }
+
+    if(fetchError){
+      throw fetchError;
+    }
+    return null;
+  }
+
+  let lastPaletteFetchFailed = false;
+
+  async function refreshPaletteFromConfig(reason){
+    if(typeof window === 'undefined') return;
+    try {
+      const layers = await fetchPaletteFromConfig();
+      lastPaletteFetchFailed = false;
+      if(!layers) return;
+      const updated = updateCachedPalette(layers);
+      if(!updated) return;
+      try {
+        console.log(`[LinkButtonsPlus] Palette ${reason || 'updated'} from config`, layers);
+      } catch {}
+      bootstrapLayerMapIfEmpty();
+      if(!syncDropdownsFromCachedPalette()){
+        try {
+          console.log('[LinkButtonsPlus] Palette loaded – waiting for dropdowns to mount');
+        } catch {}
+      }
+      notifyPaletteListeners();
+    } catch (err) {
+      if(!lastPaletteFetchFailed){
+        console.error('[LinkButtonsPlus] Failed to load palette:', err);
+      }
+      lastPaletteFetchFailed = true;
+    }
+  }
+
+  (function initPaletteConfigSync(){
     if(typeof window === 'undefined') return;
     if(!window.__lbpPalette || typeof window.__lbpPalette !== 'object'){
       window.__lbpPalette = {};
     }
 
-    const broadcastHandler = (event) => {
-      const detail = event && typeof event.detail === 'object' ? event.detail : null;
-      const layers = detail && typeof detail.layers === 'object' ? detail.layers : null;
-      if(!layers) return;
-      const updated = updateCachedPalette(layers);
-      if(!updated) return;
-      try {
-        console.log('[LinkButtonsPlus] Received readable palette:', layers);
-      } catch {}
-      bootstrapLayerMapIfEmpty();
-      if(!syncDropdownsFromCachedPalette()){
-        try {
-          console.log('[LinkButtonsPlus] Palette broadcast received – waiting for dropdowns to mount');
-        } catch {}
-      }
-    };
-
-    window.addEventListener('shopguide:sub-layers-updated', broadcastHandler);
-
     const onDomReady = () => {
       if(Object.keys(window.__lbpPalette).length){
         if(!syncDropdownsFromCachedPalette()){
           try {
-            console.log('[LinkButtonsPlus] DOM ready – cached readable palette available but dropdowns not rendered yet');
+            console.log('[LinkButtonsPlus] DOM ready – cached palette available but dropdowns not rendered yet');
           } catch {}
         }
       }
     };
+
+    refreshPaletteFromConfig('loaded');
 
     if(window.document?.readyState === 'loading'){
       window.document.addEventListener('DOMContentLoaded', onDomReady, { once: true });
@@ -613,9 +690,11 @@
       onDomReady();
     }
 
-    try {
-      console.log('[LinkButtonsPlus] Readable layer subscriber initialized');
-    } catch {}
+    if(!window.__lbpPalettePoller){
+      window.__lbpPalettePoller = window.setInterval(() => {
+        refreshPaletteFromConfig('refreshed');
+      }, 10000);
+    }
   })();
 
   function buildDropdownFromResolvedLayers(select){
@@ -2325,6 +2404,7 @@
     let colorPanel = null;
     let pendingLayerRefresh = null;
     let pendingLayerRefreshIsTimeout = false;
+    let unsubscribePalette = null;
 
     function getSelectionSnapshot(){
       const snapshot = {};
@@ -2531,7 +2611,7 @@
     const layerBroadcastHandler = () => {
       scheduleLayerRefresh();
     };
-    window.addEventListener('shopguide:sub-layers-updated', layerBroadcastHandler);
+    unsubscribePalette = onPaletteUpdated(layerBroadcastHandler);
 
     function createColorPanel(rootEl, hostContent, containerEl){
       if(!containerEl) return null;
@@ -3530,7 +3610,14 @@
           colorPanel = null;
         }
         cancelPendingLayerRefresh();
-        window.removeEventListener('shopguide:sub-layers-updated', layerBroadcastHandler);
+        if(unsubscribePalette){
+          try {
+            unsubscribePalette();
+          } catch (err) {
+            console.error('[LinkButtonsPlus] Failed to unsubscribe palette listener:', err);
+          }
+          unsubscribePalette = null;
+        }
         closeModuleSettingsModal({ restoreFocus:false, persist:false });
         document.removeEventListener('keydown', handleKeydown, true);
         if(window.openModuleSettingsModal === bridgeOpenModuleSettingsModal){
@@ -3547,71 +3634,5 @@
     });
     mo.observe(document.body, { childList:true, subtree:true });
 
-    /* === Layer Sync Integration (v3.6.1) ===
-       Wartet auf globale Farb-Updates und synchronisiert die Modulfarben
-       zuverlässig nach dem nächsten Frame, damit getComputedStyle() korrekte
-       Werte der globalen --module-layer-* Variablen erhält. */
-    (function setupLayerSync() {
-      const SYNC_EVENT = "shopguide:sub-layers-updated";
-      let frameHandle = null;
-
-      const handleLayerUpdate = () => {
-        if (frameHandle) cancelAnimationFrame(frameHandle);
-        frameHandle = requestAnimationFrame(() => {
-          console.log("[LayerSync] Detected global sub-layer update — refreshing LinkButtons Plus colors");
-          const root = document.documentElement;
-
-          try {
-            console.log("[LayerSync] Forcing CSS variable sync on global update");
-
-            // Load stored color config (used by LinkButtons Plus)
-            const storedColors = JSON.parse(localStorage.getItem("linkbuttonsplus-colors-v1") || "{}");
-            const layers = storedColors?.layers || storedColors;
-
-            if (layers && typeof layers === "object") {
-              Object.entries(layers).forEach(([key, value]) => {
-                if (!value || typeof value !== "string") return;
-
-                // Apply background colors for module + header
-                root.style.setProperty(`--module-layer-${key}-module-bg`, value);
-                root.style.setProperty(`--module-layer-${key}-header-bg`, value);
-
-                // Derive a readable text color based on HSLA lightness
-                const lightnessMatch = value.match(/(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%/);
-                const lightness = lightnessMatch ? parseFloat(lightnessMatch[3]) : 50;
-                const textColor = lightness > 55 ? "#0f172a" : "#f8fafc";
-
-                root.style.setProperty(`--module-layer-${key}-module-text`, textColor);
-                root.style.setProperty(`--module-layer-${key}-header-text`, textColor);
-
-                console.log(`[LayerSync] Applied ${key} → ${value}`);
-              });
-
-              console.log("[LayerSync] CSS variables updated successfully");
-            } else {
-              console.warn("[LayerSync] No valid stored layer colors found");
-            }
-          } catch (err) {
-            console.error("[LayerSync] Failed to apply CSS vars on update:", err);
-          }
-          try {
-            applySelectedColors();
-          } catch (err) {
-            console.warn("[LayerSync] applySelectedColors() failed:", err);
-          }
-          frameHandle = null;
-        });
-      };
-
-      // Reagiere auf Shopguide-Events
-      window.addEventListener(SYNC_EVENT, handleLayerUpdate, false);
-
-      // Erster Initial-Sync nach dem Laden
-      if (document.readyState === "complete") {
-        requestAnimationFrame(handleLayerUpdate);
-      } else {
-        window.addEventListener("load", () => requestAnimationFrame(handleLayerUpdate), { once: true });
-      }
-    })();
   };
 })();

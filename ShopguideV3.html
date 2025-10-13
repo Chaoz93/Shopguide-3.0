@@ -5535,6 +5535,108 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   }
 }
 
+// === Codex Prompt v5.5 – Global Layer Config Publisher ===
+//
+// 📍 Erzeugt und aktualisiert automatisch Config/FarblayerConfig.json
+//     → enthält ALLE ermittelten Layernamen und HSLA-Werte
+//     → dient als globale Quelle für alle Module
+//
+// =======================================================================
+
+(function setupGlobalLayerConfigPublisher() {
+  const CONFIG_PATH = 'Config/FarblayerConfig.json';
+  const CONFIG_FILE_NAME = CONFIG_PATH.split('/').pop() || 'FarblayerConfig.json';
+  let fileHandle = null;
+  let writeQueued = false;
+
+  function collectLayerData() {
+    const root = document.documentElement;
+    if (!root) return {};
+    const cs = getComputedStyle(root);
+    const result = {};
+    for (let i = 1; i <= 15; i += 1) {
+      const key = `unter-layer-${i}`;
+      const hsla = cs.getPropertyValue(`--module-layer-${i}-module-bg`).trim();
+      if (hsla && hsla.startsWith('hsl')) {
+        result[key] = hsla;
+      }
+    }
+
+    const extraLayers = Array.from(document.querySelectorAll('[data-layer-name]'));
+    extraLayers.forEach(el => {
+      const name = el.dataset.layerName;
+      if (!name) return;
+      const color = cs.getPropertyValue(`--module-${name}-bg`).trim();
+      if (color && color.startsWith('hsl')) {
+        result[name] = color;
+      }
+    });
+
+    return result;
+  }
+
+  async function requestFileHandle() {
+    if (fileHandle) return fileHandle;
+    if (!window.showSaveFilePicker) {
+      throw new Error('FileSystem Access API nicht verfügbar.');
+    }
+    fileHandle = await window.showSaveFilePicker({
+      suggestedName: CONFIG_FILE_NAME,
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+    });
+    return fileHandle;
+  }
+
+  async function writeConfigFile(data) {
+    const jsonText = JSON.stringify(data, null, 2);
+    try {
+      if (typeof window !== 'undefined' && typeof window.__shopguideAutosave === 'function') {
+        await window.__shopguideAutosave(CONFIG_PATH, jsonText, 'application/json');
+        console.log('[ShopguideV3] Global FarblayerConfig.json autosaved:', data);
+        return;
+      }
+    } catch (err) {
+      console.warn('[ShopguideV3] Autosave für FarblayerConfig.json fehlgeschlagen:', err);
+    }
+
+    const handle = await requestFileHandle();
+    const writable = await handle.createWritable();
+    await writable.write(new Blob([jsonText], { type: 'application/json' }));
+    await writable.close();
+    console.log('[ShopguideV3] Global FarblayerConfig.json gespeichert:', data);
+  }
+
+  function queueConfigWrite() {
+    if (writeQueued) return;
+    writeQueued = true;
+    setTimeout(async () => {
+      const data = collectLayerData();
+      try {
+        await writeConfigFile(data);
+      } catch (err) {
+        console.warn('[ShopguideV3] Kein FileHandle vorhanden – nutze Autosave-Fallback.', err);
+        try {
+          localStorage.setItem(CONFIG_PATH, JSON.stringify(data));
+          console.log('[ShopguideV3] Global FarblayerConfig.json lokal gespeichert (Fallback):', data);
+        } catch (storageErr) {
+          console.error('[ShopguideV3] Autosave-Fallback für FarblayerConfig.json fehlgeschlagen:', storageErr);
+        }
+      } finally {
+        writeQueued = false;
+      }
+    }, 500);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.__queueGlobalLayerConfigWrite = queueConfigWrite;
+    window.__saveLinkButtonsPalette = queueConfigWrite;
+
+    queueConfigWrite();
+    window.addEventListener('shopguide:sub-layers-updated', queueConfigWrite);
+    window.addEventListener('theme:changed', queueConfigWrite);
+  }
+})();
+
 // Verbindet die Farbeditor-Steuerelemente der Unter-Layer mit den globalen CSS-Variablen.
 function bindLayerColorSync() {
   const manager = document.querySelector('.module-layer-manager');
@@ -5544,44 +5646,13 @@ function bindLayerColorSync() {
 
   const style = docEl.style;
   const lastValues = new Map();
-  let lastBroadcastSignature = '';
 
   const publishGlobalPresetLayers = () => {
     if (typeof window === 'undefined') return;
     try {
-      const globalPreset =
-        window.__activeLayerPreset ||
-        (window.__layerManager && window.__layerManager.current) ||
-        (window.__layerPresets && window.__layerPresets.Standard) ||
-        null;
-
-      if (!globalPreset) {
-        console.warn('[ShopguideV3] No global preset found – using fallback.');
-        return;
+      if (typeof window.__saveLinkButtonsPalette === 'function') {
+        window.__saveLinkButtonsPalette();
       }
-
-      const readableLayers = {};
-      Object.entries(globalPreset).forEach(([key, value]) => {
-        if (value && typeof value === 'object' && value.hsla) {
-          readableLayers[key] = {
-            name: key,
-            title: value.title || key,
-            color: value.hsla
-          };
-        }
-      });
-
-      const serialized = JSON.stringify(readableLayers);
-      if (serialized === lastBroadcastSignature) {
-        return;
-      }
-      lastBroadcastSignature = serialized;
-
-      window.dispatchEvent(new CustomEvent('shopguide:sub-layers-updated', {
-        detail: { layers: readableLayers, source: 'GlobalPreset' }
-      }));
-
-      console.log('[ShopguideV3] Published global preset layers:', readableLayers);
     } catch (err) {
       console.error('[ShopguideV3] Failed to publish global preset:', err);
     }
@@ -6000,20 +6071,6 @@ function getActiveSubLayerOptions() {
 
 getActiveSubLayerOptions.placeholder = 'Unter-Layer auswählen';
 
-function broadcastActiveSubLayerOptions() {
-  if (typeof window === 'undefined') return;
-  try {
-    window.dispatchEvent(new CustomEvent('shopguide:sub-layers-updated', {
-      detail: {
-        placeholder: getActiveSubLayerOptions.placeholder || 'Unter-Layer auswählen',
-        options: getActiveSubLayerOptions()
-      }
-    }));
-  } catch (err) {
-    console.warn('Konnte Unter-Layer-Optionen nicht senden', err);
-  }
-}
-
 function assignLayerColorTriplet(target, prefix, colors) {
   if (!target || typeof target !== 'object' || typeof prefix !== 'string' || !prefix) {
     return;
@@ -6118,7 +6175,9 @@ function syncModuleLayerCssVariables() {
     }
   }
   updateCssVariables(assignments);
-  broadcastActiveSubLayerOptions();
+  if (typeof window !== 'undefined' && typeof window.__saveLinkButtonsPalette === 'function') {
+    window.__saveLinkButtonsPalette();
+  }
 }
 
 if (typeof window !== 'undefined') {
