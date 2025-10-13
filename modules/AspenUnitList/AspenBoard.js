@@ -131,6 +131,8 @@
     .db-extra-name-row{display:flex;flex-direction:column;gap:.35rem;}
     .db-active-toggle{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--dl-sub,#4b5563);}
     .db-active-toggle input{margin:0;}
+    .db-extra-uc-toggle{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--dl-sub,#4b5563);}
+    .db-extra-uc-toggle input{margin:0;}
     .db-extra-name-row label{font-size:.8rem;color:var(--dl-sub,#4b5563);display:flex;flex-direction:column;gap:.35rem;}
     .db-extra-name-label{font-weight:600;}
     .db-extra-name-row input{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
@@ -1073,7 +1075,8 @@
       activeSearchFilters:new Set(),
       showActiveList:false,
       columnAssignments:new Map(),
-      hiddenExtraColumns:new Set()
+      hiddenExtraColumns:new Set(),
+      autoAssignments:new Map()
     };
   }
 
@@ -1092,6 +1095,7 @@
     if(!Array.isArray(columns)) return [];
     const sanitized=[];
     const seen=new Set();
+    let ucAssigned=false;
     for(const entry of columns){
       if(sanitized.length>=MAX_EXTRA_COLUMNS) break;
       const source=entry&&typeof entry==='object'?entry:{};
@@ -1101,7 +1105,10 @@
         id=generateExtraColumnId();
       }
       seen.add(id);
-      sanitized.push({id,label});
+      const requestedUcSort=!!source.ucSort;
+      const ucSort=!ucAssigned && requestedUcSort;
+      if(ucSort) ucAssigned=true;
+      sanitized.push({id,label,ucSort});
     }
     return sanitized;
   }
@@ -1392,6 +1399,7 @@
       state.columnAssignments=normalizeColumnAssignments(saved.columnAssignments);
       ensureColumnAssignments(state);
       ensureHiddenExtraColumns(state);
+      state.autoAssignments=new Map();
       if(!restoredOrder){
         state.items=dedupeByMeldung(state.items);
         if(Array.isArray(state.items) && state.items.length){
@@ -1490,6 +1498,21 @@
     });
     if(!base.length) base.push(DEFAULT_SUB_FIELD);
     return base;
+  }
+
+  function getUcFieldValue(item){
+    if(!item||typeof item!=='object') return '';
+    const data=item.data&&typeof item.data==='object'?item.data:{};
+    if(Object.prototype.hasOwnProperty.call(data,'UC')){
+      return String(data.UC??'').trim();
+    }
+    for(const key of Object.keys(data||{})){
+      if(typeof key!=='string') continue;
+      if(key.trim().toLowerCase()==='uc'){
+        return String(data[key]??'').trim();
+      }
+    }
+    return '';
   }
 
   function parseColorToRgb(color){
@@ -2583,7 +2606,7 @@
     function ensureExtraListElements(){
       ensureExtraColumns(state.config);
       const columns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
-      const signature=columns.map(col=>`${col.id}:${col.label}`).join('|');
+      const signature=columns.map(col=>`${col.id}:${col.label}:${col.ucSort?'1':'0'}`).join('|');
       if(signature===lastExtraSignature && Array.isArray(elements.extraWraps)){
         columns.forEach((column,index)=>{
           const wrap=elements.extraWraps[index];
@@ -2591,6 +2614,7 @@
           wrap.title.textContent=column.label||`Extraspalte ${index+1}`;
           wrap.list.dataset.columnId=column.id;
           wrap.wrap.dataset.columnId=column.id;
+          wrap.wrap.dataset.ucSort=column.ucSort?'true':'false';
         });
         if(!columns.length){
           if(elements.extraContainer){
@@ -2613,6 +2637,7 @@
         const wrap=document.createElement('div');
         wrap.className='db-list-wrap db-extra-wrap';
         wrap.dataset.columnId=column.id;
+        wrap.dataset.ucSort=column.ucSort?'true':'false';
         const title=document.createElement('div');
         title.className='db-list-title';
         title.textContent=column.label||`Extraspalte ${index+1}`;
@@ -2764,6 +2789,7 @@
       const newAssignments=new Map();
       const removedAssignments=new Set();
       const activeMeldungen=new Set();
+      const autoAssignments=state.autoAssignments instanceof Map?state.autoAssignments:new Map();
       const collect=(container,target,columnId)=>{
         if(!container) return;
         container.querySelectorAll('.db-card').forEach(node=>{
@@ -2789,12 +2815,16 @@
           }
           target.push(item);
           if(meldung){
+            const autoColumn=autoAssignments.get(meldung)||'';
+            const hasAutoAssignment=!!autoColumn;
             if(columnId===ACTIVE_COLUMN_ID){
               activeMeldungen.add(meldung);
               removedAssignments.add(meldung);
             }else if(columnId){
-              newAssignments.set(meldung,columnId);
-            }else{
+              if(!hasAutoAssignment){
+                newAssignments.set(meldung,columnId);
+              }
+            }else if(!hasAutoAssignment){
               removedAssignments.add(meldung);
             }
           }
@@ -2853,10 +2883,25 @@
       const extraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
       const hiddenExtras=state.hiddenExtraColumns instanceof Set?state.hiddenExtraColumns:new Set();
       const extraBuckets=new Map(extraColumns.map(col=>[col.id,[]]));
+      const ucColumn=extraColumns.find(col=>col?.ucSort);
+      const ucColumnId=ucColumn?.id||'';
+      const autoAssignments=new Map();
       const activeItems=[];
       const mainItems=[];
       state.items.forEach(item=>{
         const meldung=item.meldung;
+        let autoColumnId='';
+        if(ucColumnId && meldung){
+          const ucValue=getUcFieldValue(item);
+          if(ucValue){
+            autoColumnId=ucColumnId;
+            autoAssignments.set(meldung,ucColumnId);
+          }
+        }
+        if(autoColumnId && extraBuckets.has(autoColumnId)){
+          extraBuckets.get(autoColumnId).push(item);
+          return;
+        }
         const assigned=meldung?assignments.get(meldung):undefined;
         if(assigned && extraBuckets.has(assigned)){
           extraBuckets.get(assigned).push(item);
@@ -2870,6 +2915,7 @@
         }
         mainItems.push(item);
       });
+      state.autoAssignments=autoAssignments;
       renderListSection(elements.list,state,mainItems,{emptyMessage:'Keine Geräte',searchContext});
       if(Array.isArray(elements.extraWraps)){
         elements.extraWraps.forEach((wrap,index)=>{
@@ -3294,6 +3340,23 @@
       scheduleOptionPersist(true);
     }
 
+    function handleExtraUcToggleChange(event){
+      const checkbox=event.target;
+      if(!checkbox) return;
+      const columnId=checkbox.dataset?.columnId||'';
+      if(!columnId) return;
+      const index=tempExtraColumns.findIndex(col=>col.id===columnId);
+      if(index===-1) return;
+      const enabled=!!checkbox.checked;
+      if(enabled){
+        tempExtraColumns=tempExtraColumns.map((col,idx)=>idx===index?{...col,ucSort:true}:{...col,ucSort:false});
+      }else{
+        tempExtraColumns[index]={...tempExtraColumns[index],ucSort:false};
+      }
+      renderExtraControls();
+      scheduleOptionPersist(true);
+    }
+
     function renderExtraControls(){
       const sanitized=sanitizeExtraColumns(tempExtraColumns);
       tempExtraColumns=sanitized.map(col=>({...col}));
@@ -3359,6 +3422,16 @@
         input.addEventListener('change',handleExtraNameCommit);
         label.appendChild(input);
         row.appendChild(label);
+        const ucToggle=document.createElement('label');
+        ucToggle.className='db-extra-uc-toggle';
+        const ucCheckbox=document.createElement('input');
+        ucCheckbox.type='checkbox';
+        ucCheckbox.dataset.columnId=column.id;
+        ucCheckbox.checked=!!column.ucSort;
+        ucCheckbox.addEventListener('change',handleExtraUcToggleChange);
+        ucToggle.appendChild(ucCheckbox);
+        ucToggle.append(' UC-Sortierung aktivieren');
+        row.appendChild(ucToggle);
         fragment.appendChild(row);
       });
       elements.extraNameList.innerHTML='';
@@ -3389,7 +3462,7 @@
       }
       if(clamped>tempExtraColumns.length){
         for(let i=tempExtraColumns.length;i<clamped;i+=1){
-          tempExtraColumns.push({id:generateExtraColumnId(),label:''});
+          tempExtraColumns.push({id:generateExtraColumnId(),label:'',ucSort:false});
         }
       }else{
         tempExtraColumns=tempExtraColumns.slice(0,clamped);
