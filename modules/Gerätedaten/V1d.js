@@ -606,6 +606,7 @@
     const setDebugInfo=message=>{debugInfo=String(message||'').trim();renderHead();};
     const clearDebugInfo=()=>{debugInfo='';renderHead();};
 
+    let calculationMap=new Map();
     cfg=loadCfg();
     rebuildCalculationMap();
     const storedModuleColors=readModuleColorSettings(instanceId);
@@ -636,7 +637,6 @@
     let listSortable=null;
     let fieldEls={};
     let customButtonEls=new Map();
-    let calculationMap=new Map();
     els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
     updateAspenDisplays();
     els.head.style.display='none';
