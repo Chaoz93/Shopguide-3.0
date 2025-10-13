@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.8] – 2025-10-03
+### Fixed
+- Globale Shopguide-Farbsets aus den `--module-layer-*-bg/text/border` Variablen werden wieder erkannt, sodass die Dropdowns die
+  in den Einstellungen konfigurierten Haupt-, Header- und Unter-Layer anzeigen und anwenden.
+
 ## [1.5.7] – 2025-10-03
 ### Fixed
 - Farb-Dropdowns warten beim `shopguide:sub-layers-updated` Broadcast nun einen Frame, damit die globalen CSS-Variablen vollständig
