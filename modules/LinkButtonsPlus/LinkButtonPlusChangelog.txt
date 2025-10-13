@@ -5,6 +5,22 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.10] – 2025-10-03
+### Fixed
+- Layer-Dropdowns übernehmen DOM-bereitgestellte Anzeigenamen jetzt über einen sicheren Index-/ID-Abgleich, damit umbenannte
+  Haupt- und Unter-Layer direkt aus den Shopguide-Einstellungen erscheinen, ohne dass globale Farben erneut eingelesen werden
+  müssen.
+
+## [1.5.9] – 2025-10-03
+### Fixed
+- Farb-Dropdowns lesen die Layer- & Unter-Layer-Namen nun direkt aus den `data-*`-Attributen der Shopguide-HTML, sodass umbenannte
+  Varianten sofort in der Auswahl erscheinen und nicht mehr als generische „Unter-Layer“ angezeigt werden.
+
+## [1.5.8] – 2025-10-03
+### Fixed
+- Globale Shopguide-Farbsets aus den `--module-layer-*-bg/text/border` Variablen werden wieder erkannt, sodass die Dropdowns die
+  in den Einstellungen konfigurierten Haupt-, Header- und Unter-Layer anzeigen und anwenden.
+
 ## [1.5.7] – 2025-10-03
 ### Fixed
 - Farb-Dropdowns warten beim `shopguide:sub-layers-updated` Broadcast nun einen Frame, damit die globalen CSS-Variablen vollständig

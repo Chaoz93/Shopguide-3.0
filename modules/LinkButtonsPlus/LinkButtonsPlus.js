@@ -470,7 +470,77 @@
       .join('');
   }
 
-  function loadGlobalColorLayers(maxLayers = 15, configLayers = []){
+  function readDomModuleLayers(){
+    if (typeof document === 'undefined') {
+      return { layers: [], datasetSources: [] };
+    }
+
+    const container = document.getElementById('module-color-layers')
+      || document.querySelector('.module-color-layers');
+    if (!container) {
+      return { layers: [], datasetSources: [] };
+    }
+
+    const datasetSources = [];
+    const layers = [];
+    const layerNodes = container.querySelectorAll('.module-color-layer');
+
+    layerNodes.forEach((layerEl, index) => {
+      if (!layerEl) return;
+      if (layerEl.dataset) datasetSources.push(layerEl.dataset);
+
+      const idx = index + 1;
+      const defaultName = `Unter-Layer ${idx}`;
+      const rawName = typeof layerEl.dataset.layerName === 'string'
+        ? layerEl.dataset.layerName.trim()
+        : '';
+      const name = rawName || defaultName;
+      const rawVar = typeof layerEl.dataset.layerVar === 'string'
+        ? layerEl.dataset.layerVar.trim()
+        : '';
+      const rawId = typeof layerEl.dataset.id === 'string'
+        ? layerEl.dataset.id.trim()
+        : '';
+      const variableId = sanitizeId(rawVar) || sanitizeId(rawId);
+      const id = sanitizeId(rawId) || variableId || `layer-${idx}`;
+
+      const subLayers = [];
+      const subNodes = layerEl.querySelectorAll('.module-layer-subgroup');
+      subNodes.forEach((subEl, subIndex) => {
+        if (!subEl) return;
+        if (subEl.dataset) datasetSources.push(subEl.dataset);
+        const defaultSub = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
+        const rawSubName = typeof subEl.dataset.subLayerName === 'string'
+          ? subEl.dataset.subLayerName.trim()
+          : '';
+        const subName = rawSubName || defaultSub;
+        const subVar = typeof subEl.dataset.subLayerVar === 'string'
+          ? subEl.dataset.subLayerVar.trim()
+          : '';
+        subLayers.push({
+          index: subIndex + 1,
+          name: subName,
+          displayName: subName,
+          label: subName,
+          variableId: sanitizeId(subVar) || ''
+        });
+      });
+
+      layers.push({
+        index: idx,
+        id,
+        variableId: variableId || '',
+        name,
+        displayName: name,
+        label: name,
+        subLayers
+      });
+    });
+
+    return { layers, datasetSources };
+  }
+
+  function loadGlobalColorLayers(maxLayers = 15, configLayers = [], domData = null){
     const layers = [];
     const sources = [];
     const docEl = document.documentElement;
@@ -495,6 +565,11 @@
     const datasetSources = [];
     if (docEl && docEl.dataset) datasetSources.push(docEl.dataset);
     if (body && body !== docEl && body.dataset) datasetSources.push(body.dataset);
+    if (domData && Array.isArray(domData.datasetSources)) {
+      domData.datasetSources.forEach(source => {
+        if (source) datasetSources.push(source);
+      });
+    }
 
     const readDatasetValue = (key) => {
       if(!key) return '';
@@ -536,12 +611,62 @@
       return resolveCustomProperty(fallback, seen);
     };
 
+    const readResolvedVar = (name) => {
+      if (!name) return '';
+      const raw = readVar(name);
+      if (!raw) return '';
+      const resolved = resolveCustomProperty(raw);
+      return typeof resolved === 'string' ? resolved.trim() : '';
+    };
+
+    const readTripletForPrefix = (prefix) => {
+      if (!prefix) return null;
+      const bg = readResolvedVar(`${prefix}-bg`);
+      const text = readResolvedVar(`${prefix}-text`);
+      const border = readResolvedVar(`${prefix}-border`);
+      if (!bg && !text && !border) return null;
+      return { bg, text, border };
+    };
+
+    const readTripletFromCandidates = (candidates) => {
+      if (!Array.isArray(candidates)) return null;
+      for (const candidate of candidates) {
+        const triplet = readTripletForPrefix(candidate);
+        if (triplet) return triplet;
+      }
+      return null;
+    };
+
+    const readNameFromCandidates = (candidates) => {
+      if (!Array.isArray(candidates)) return '';
+      for (const candidate of candidates) {
+        const raw = readResolvedVar(`${candidate}-name`);
+        const value = stripQuotes(raw);
+        if (value) return value;
+      }
+      return '';
+    };
+
+    const normalizeTriplet = (value) => ({
+      bg: typeof value?.bg === 'string' ? value.bg : '',
+      text: typeof value?.text === 'string' ? value.text : '',
+      border: typeof value?.border === 'string' ? value.border : ''
+    });
+
+    const hasTripletValues = (value) => {
+      if (!value) return false;
+      return Boolean(value.bg || value.text || value.border);
+    };
+
+    const SUB_LAYER_LIMIT = 8;
+
     const limit = Math.max(maxLayers, Array.isArray(configLayers) ? configLayers.length : 0);
 
     const indexCandidates = new Map();
     const ensureEntry = (index) => {
       if (!indexCandidates.has(index)) {
         indexCandidates.set(index, {
+          index,
           variableIds: new Set(),
           datasetTokens: new Set(),
           configLayer: null
@@ -705,17 +830,90 @@
 
     const readLayerColors = (entry) => {
       if (!entry) return null;
-      for (const varId of entry.variableIds) {
-        if (!varId) continue;
+      const index = Number.isFinite(entry.index) ? entry.index : null;
+      const rawVarIds = Array.from(entry.variableIds || []);
+      const sanitizedVarIds = rawVarIds
+        .map(id => sanitizeId(id))
+        .filter(Boolean);
+      const preferredFromConfig = sanitizeId(entry?.configLayer?.variableId);
+      const baseNamePrefixes = [];
+      if (index) baseNamePrefixes.push(`--module-layer-${index}`);
+      sanitizedVarIds.forEach(id => baseNamePrefixes.push(`--${id}`));
+      const fallbackName = readNameFromCandidates(baseNamePrefixes);
+      const fallbackId = fallbackName ? toCssIdentifier(fallbackName) : '';
+      const preferredId = preferredFromConfig || sanitizedVarIds[0] || fallbackId || (index ? `layer${index}` : '');
+
+      const tryReadHsla = (varId) => {
+        if (!varId) return null;
         const hRaw = readVar(`--${varId}-h`);
         const sRaw = readVar(`--${varId}-s`);
         const lRaw = readVar(`--${varId}-l`);
         const aRaw = readVar(`--${varId}-a`);
         if (hRaw && sRaw && lRaw) {
-          return { variableId: varId, hRaw, sRaw, lRaw, aRaw };
+          return { mode: 'hsla', variableId: varId, hRaw, sRaw, lRaw, aRaw };
         }
+        return null;
+      };
+
+      for (const varId of sanitizedVarIds) {
+        const hsla = tryReadHsla(varId);
+        if (hsla) return hsla;
       }
-      return null;
+      if (index) {
+        const hsla = tryReadHsla(`module-layer-${index}`);
+        if (hsla) return hsla;
+      }
+
+      const modulePrefixes = [];
+      const headerPrefixes = [];
+      const namePrefixes = baseNamePrefixes.slice();
+      if (index) {
+        modulePrefixes.push(`--module-layer-${index}-module`);
+        modulePrefixes.push(`--module-layer-${index}`);
+        headerPrefixes.push(`--module-layer-${index}-header`);
+      }
+      sanitizedVarIds.forEach(id => {
+        modulePrefixes.push(`--${id}-module`);
+        modulePrefixes.push(`--${id}`);
+        headerPrefixes.push(`--${id}-header`);
+      });
+
+      const moduleTriplet = readTripletFromCandidates(modulePrefixes);
+      const headerTriplet = readTripletFromCandidates(headerPrefixes);
+      const resolvedName = fallbackName || readNameFromCandidates(namePrefixes);
+
+      const subLayers = [];
+      for (let subIndex = 1; subIndex <= SUB_LAYER_LIMIT; subIndex += 1) {
+        const subPrefixes = [];
+        if (index) {
+          subPrefixes.push(`--module-layer-${index}-sub-${subIndex}`);
+          if (index === 1) subPrefixes.push(`--module-sub-layer-${subIndex}`);
+        }
+        sanitizedVarIds.forEach(id => {
+          subPrefixes.push(`--${id}-sub-${subIndex}`);
+        });
+        const subTriplet = readTripletFromCandidates(subPrefixes);
+        const subName = readNameFromCandidates(subPrefixes);
+        if (!hasTripletValues(subTriplet) && !subName) continue;
+        const normalizedSub = normalizeTriplet(subTriplet);
+        if (subName) normalizedSub.name = subName;
+        subLayers.push(normalizedSub);
+      }
+
+      if (!hasTripletValues(moduleTriplet) && !hasTripletValues(headerTriplet) && !subLayers.length) {
+        return null;
+      }
+
+      const resolvedVariableId = sanitizeId(preferredId) || fallbackId || (index ? `layer${index}` : '');
+
+      return {
+        mode: 'triplet',
+        variableId: resolvedVariableId,
+        module: normalizeTriplet(moduleTriplet),
+        header: normalizeTriplet(headerTriplet),
+        subLayers,
+        name: resolvedName
+      };
     };
 
     const sortedEntries = Array.from(indexCandidates.entries()).sort((a, b) => a[0] - b[0]);
@@ -725,20 +923,77 @@
       if (!colors) return;
 
       const displayName = readDisplayNameForEntry(index, entry) || `Layer ${index}`;
+      const resolvedId = sanitizeId(colors.variableId) || `layer${index}`;
+
+      if (colors.mode === 'triplet') {
+        const moduleColors = hasTripletValues(colors.module) ? normalizeTriplet(colors.module) : { bg:'', text:'', border:'' };
+        const headerColors = hasTripletValues(colors.header) ? normalizeTriplet(colors.header) : { bg:'', text:'', border:'' };
+        const firstSub = Array.isArray(colors.subLayers) && colors.subLayers.length
+          ? (() => {
+              const sub = colors.subLayers[0];
+              const normalized = normalizeTriplet(sub);
+              if (sub && typeof sub.name === 'string' && sub.name) {
+                normalized.name = sub.name;
+              }
+              return normalized;
+            })()
+          : { bg:'', text:'', border:'' };
+        const effectiveModule = hasTripletValues(moduleColors)
+          ? moduleColors
+          : (hasTripletValues(headerColors) ? headerColors : firstSub);
+        const effectiveHeader = hasTripletValues(headerColors) ? headerColors : effectiveModule;
+        const buttonSource = hasTripletValues(firstSub) ? firstSub : effectiveModule;
+        const normalizedSubs = Array.isArray(colors.subLayers) && colors.subLayers.length
+          ? colors.subLayers.map(sub => {
+              const normalized = normalizeTriplet(sub);
+              if (sub && typeof sub.name === 'string' && sub.name) {
+                normalized.name = sub.name;
+              }
+              return normalized;
+            })
+          : [buttonSource];
+        layers.push({
+          id: resolvedId,
+          variableId: resolvedId,
+          index,
+          label: displayName,
+          name: displayName,
+          displayName,
+          color: effectiveModule.bg || effectiveHeader.bg || '',
+          swatch: effectiveModule.bg || effectiveHeader.bg || '',
+          moduleBg: effectiveModule.bg || '',
+          moduleText: effectiveModule.text || '',
+          moduleBorder: effectiveModule.border || effectiveModule.text || effectiveModule.bg || '',
+          headerBg: effectiveHeader.bg || '',
+          headerText: effectiveHeader.text || '',
+          headerBorder: effectiveHeader.border || effectiveHeader.bg || effectiveModule.border || '',
+          subLayers: normalizedSubs,
+          subBg: buttonSource.bg || '',
+          subText: buttonSource.text || '',
+          subBorder: buttonSource.border || '',
+          preview: {
+            main: { bg: effectiveModule.bg || '', text: effectiveModule.text || '' },
+            header: { bg: effectiveHeader.bg || '', text: effectiveHeader.text || '' },
+            buttons: { bg: buttonSource.bg || '', text: buttonSource.text || '' }
+          }
+        });
+        return;
+      }
+
       const { hRaw, sRaw, lRaw, aRaw, variableId } = colors;
       const hVal = parseLayerNumber(hRaw);
       const sVal = parseLayerNumber(sRaw);
       const lVal = parseLayerNumber(lRaw);
       const aValRaw = parseLayerNumber(aRaw);
       const hasNumeric = Number.isFinite(hVal) && Number.isFinite(sVal) && Number.isFinite(lVal);
-      const resolvedId = sanitizeId(variableId) || `layer${index}`;
+      const resolvedVariableId = sanitizeId(variableId) || resolvedId;
 
       if(!hasNumeric) {
         const colorOnly = buildRawHslaString(hRaw, sRaw, lRaw, aRaw);
         const fallbackText = Number.isFinite(lVal) ? pickTextColor(lVal) : '#ffffff';
         layers.push({
-          id: resolvedId,
-          variableId: resolvedId,
+          id: resolvedVariableId,
+          variableId: resolvedVariableId,
           index,
           label: displayName,
           name: displayName,
@@ -780,8 +1035,8 @@
       const buttonBorder = buildHslaColor(hVal, sVal, shiftLightness(buttonLight, -6), shiftAlpha(alpha, 0.08));
 
       layers.push({
-        id: resolvedId,
-        variableId: resolvedId,
+        id: resolvedVariableId,
+        variableId: resolvedVariableId,
         index,
         label: displayName,
         name: displayName,
@@ -822,7 +1077,7 @@
   }
 
   function getColorLayers(){
-    const configLayers = (() => {
+    const configLayersFromSettings = (() => {
       if (Array.isArray(window?.appSettings?.moduleColorLayers)) {
         return window.appSettings.moduleColorLayers;
       }
@@ -832,8 +1087,13 @@
       return [];
     })();
 
-    const normalizedConfig = Array.isArray(configLayers)
-      ? configLayers.map((layer, index) => {
+    const domLayerData = readDomModuleLayers();
+    const configSourceLayers = Array.isArray(configLayersFromSettings) && configLayersFromSettings.length
+      ? configLayersFromSettings
+      : (Array.isArray(domLayerData.layers) && domLayerData.layers.length ? domLayerData.layers : []);
+
+    const normalizedConfig = Array.isArray(configSourceLayers)
+      ? configSourceLayers.map((layer, index) => {
           const id = sanitizeId(layer?.id) || `layer-${index}`;
           const variableId = sanitizeId(layer?.variableId) || '';
           const name = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : '';
@@ -851,7 +1111,7 @@
         })
       : [];
 
-    const cssLayers = loadGlobalColorLayers(15, normalizedConfig);
+    const cssLayers = loadGlobalColorLayers(15, normalizedConfig, domLayerData);
 
     if(!cssLayers.length && !normalizedConfig.length) return [];
 
@@ -931,7 +1191,119 @@
       });
     });
 
-    return merged.map(layer => ensureLayerSwatch(layer));
+    const domLayers = Array.isArray(domLayerData?.layers) ? domLayerData.layers : [];
+    const mergedWithDom = applyDomLayerMetadata(merged, domLayers);
+
+    return mergedWithDom.map(layer => ensureLayerSwatch(layer));
+  }
+
+  function applyDomLayerMetadata(layers, domLayers){
+    if(!Array.isArray(layers) || !layers.length) return layers;
+    if(!Array.isArray(domLayers) || !domLayers.length) return layers;
+
+    const lookupById = new Map();
+    const lookupByIndex = new Map();
+
+    domLayers.forEach((domLayer, idx) => {
+      if(!domLayer || typeof domLayer !== 'object') return;
+      const domIndexRaw = Number.isFinite(domLayer.index) ? domLayer.index : Number(domLayer.index);
+      const domIndex = Number.isFinite(domIndexRaw) ? domIndexRaw : idx + 1;
+      if(Number.isFinite(domIndex)) lookupByIndex.set(domIndex, domLayer);
+      const domId = sanitizeId(domLayer.id) || sanitizeId(domLayer.variableId);
+      if(domId) lookupById.set(domId, domLayer);
+    });
+
+    if(!lookupById.size && !lookupByIndex.size) return layers;
+
+    const resolveDomName = (input) => {
+      if(!input || typeof input !== 'object') return '';
+      const candidates = [input.displayName, input.label, input.name];
+      for(const candidate of candidates){
+        if(typeof candidate === 'string'){
+          const trimmed = candidate.trim();
+          if(trimmed) return trimmed;
+        }
+      }
+      return '';
+    };
+
+    const resolveDomSubLayer = (layer, index) => {
+      if(!layer || typeof layer !== 'object') return null;
+      const subs = Array.isArray(layer.subLayers) ? layer.subLayers : [];
+      if(!subs.length) return null;
+      if(Number.isFinite(index) && index > 0){
+        const found = subs.find(sub => {
+          const subIndexRaw = Number.isFinite(sub.index) ? sub.index : Number(sub.index);
+          return Number.isFinite(subIndexRaw) && subIndexRaw === index;
+        });
+        if(found) return found;
+      }
+      return subs[index - 1] || null;
+    };
+
+    return layers.map(layer => {
+      if(!layer || typeof layer !== 'object') return layer;
+
+      const idCandidates = [sanitizeId(layer.id), sanitizeId(layer.variableId)]
+        .filter(candidate => typeof candidate === 'string' && candidate);
+      let domLayer = null;
+      for(const candidate of idCandidates){
+        domLayer = lookupById.get(candidate);
+        if(domLayer) break;
+      }
+
+      if(!domLayer){
+        const numericIndex = Number.isFinite(layer.index)
+          ? layer.index
+          : (() => {
+              const parsed = Number(layer.index);
+              return Number.isFinite(parsed) ? parsed : null;
+            })();
+        if(Number.isFinite(numericIndex)){
+          domLayer = lookupByIndex.get(numericIndex) || null;
+        }
+      }
+
+      if(!domLayer) return layer;
+
+      let updated = layer;
+      const domName = resolveDomName(domLayer);
+      if(domName && domName !== layer.displayName){
+        updated = {
+          ...updated,
+          name: domName,
+          displayName: domName,
+          label: domName
+        };
+      }
+
+      const existingSubs = Array.isArray(updated.subLayers) ? updated.subLayers : [];
+      if(existingSubs.length){
+        const nextSubs = existingSubs.map((subLayer, subIdx) => {
+          if(!subLayer || typeof subLayer !== 'object') return subLayer;
+          const domSub = resolveDomSubLayer(domLayer, subIdx + 1);
+          if(!domSub) return subLayer;
+          const domSubName = resolveDomName(domSub);
+          if(!domSubName || domSubName === subLayer.name) return subLayer;
+          return { ...subLayer, name: domSubName };
+        });
+        let changed = false;
+        for(let i = 0; i < existingSubs.length; i += 1){
+          if(existingSubs[i] !== nextSubs[i]){
+            changed = true;
+            break;
+          }
+        }
+        if(changed){
+          updated = {
+            ...updated,
+            subLayers: nextSubs
+          };
+        }
+      }
+
+      return updated;
+    });
   }
 
   function findLayerById(layers, id){
