@@ -128,12 +128,23 @@
     .db-extra-count-label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
     .db-extra-count{width:120px;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
     .db-extra-name-list{display:flex;flex-direction:column;gap:.35rem;}
-    .db-extra-name-row{display:flex;flex-direction:column;gap:.35rem;}
-    .db-active-toggle{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--dl-sub,#4b5563);}
-    .db-active-toggle input{margin:0;}
-    .db-extra-name-row label{font-size:.8rem;color:var(--dl-sub,#4b5563);display:flex;flex-direction:column;gap:.35rem;}
-    .db-extra-name-label{font-weight:600;}
-    .db-extra-name-row input{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-extra-name-row{display:flex;flex-direction:column;gap:.6rem;padding:.2rem .1rem;}
+    .db-extra-name-header{display:flex;flex-direction:column;align-items:stretch;gap:.45rem;width:100%;}
+    .db-extra-name-title{font-weight:600;font-size:.85rem;color:var(--dl-sub,#4b5563);}
+    .db-extra-name-input{display:flex;flex-direction:column;gap:.35rem;font-size:.8rem;color:var(--dl-sub,#4b5563);}
+    .db-extra-name-input-label{font-weight:600;}
+    .db-extra-name-input-field{width:100%;padding:.35rem .5rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-extra-name-input-field:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .db-extra-uc-switch{position:relative;display:flex;align-items:center;gap:.65rem;padding:.35rem .75rem;border-radius:.75rem;font-size:.78rem;font-weight:600;color:var(--dl-title,#1f2937);background:rgba(255,255,255,.9);box-shadow:0 10px 22px rgba(15,23,42,.08),inset 0 0 0 1px rgba(148,163,184,.35);cursor:pointer;user-select:none;transition:background .2s ease,box-shadow .2s ease,color .2s ease;min-width:0;line-height:1.1;}
+    .db-extra-uc-switch:hover{background:#fff;box-shadow:0 12px 26px rgba(15,23,42,.1),inset 0 0 0 1px rgba(47,126,219,.35);}
+    .db-extra-uc-switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;}
+    .db-extra-uc-switch-control{position:relative;flex:0 0 auto;width:38px;height:20px;margin-left:auto;border-radius:999px;background:rgba(148,163,184,.45);transition:background .2s ease,box-shadow .2s ease;box-shadow:inset 0 0 0 1px rgba(148,163,184,.35);}
+    .db-extra-uc-switch-control::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 2px 4px rgba(15,23,42,.25);transition:transform .2s ease,box-shadow .2s ease;}
+    .db-extra-uc-switch input:focus-visible~.db-extra-uc-switch-control{box-shadow:0 0 0 3px rgba(37,99,235,.22);}
+    .db-extra-uc-switch input:checked~.db-extra-uc-switch-control{background:var(--ab-accent,#2563eb);box-shadow:0 0 0 2px rgba(37,99,235,.18);}
+    .db-extra-uc-switch input:checked~.db-extra-uc-switch-control::after{transform:translateX(18px);}
+    .db-extra-uc-switch-text{flex:0 1 auto;padding:.2rem .65rem;border-radius:.6rem;background:rgba(47,126,219,.16);white-space:nowrap;color:var(--dl-title,#1f2937);transition:background .2s ease,color .2s ease,box-shadow .2s ease;}
+    .db-extra-uc-switch input:checked~.db-extra-uc-switch-text{background:var(--ab-accent,#2563eb);color:#fff;box-shadow:0 0 0 1px rgba(37,99,235,.25);}
     .db-rule-label{font-size:.85rem;font-weight:600;}
     .db-rule-list{display:flex;flex-direction:column;gap:.35rem;}
     .db-rule-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,1fr) auto auto;gap:.4rem;align-items:center;}
@@ -262,7 +273,6 @@
       border:1px solid var(--border-color);
       border-radius:.5rem;
     }
-    .aspenboard .db-active-toggle{color:var(--muted-text,rgba(217,229,247,0.72));}
     .aspenboard .db-panel input[type=text]:focus,
     .aspenboard .db-panel select:focus,
     .aspenboard .db-part-select-input:focus,
@@ -348,7 +358,14 @@
     .aspenboard .db-config-main{color:var(--text-color);}
     .aspenboard .db-extra-card-title{color:#fff;}
     .aspenboard .db-extra-card .db-extra-count-label{color:var(--muted-text);}
-    .aspenboard .db-extra-card .db-extra-name-label{color:var(--text-color);}
+    .aspenboard .db-extra-name-title{color:var(--text-color);}
+    .aspenboard .db-extra-name-input{color:var(--muted-text,rgba(217,229,247,.78));}
+    .aspenboard .db-extra-name-input-label{color:var(--text-color);}
+    .aspenboard .db-extra-name-input-field{background:rgba(12,28,47,.65);border-color:rgba(76,114,163,.45);color:var(--text-color);}
+    .aspenboard .db-extra-name-input-field::placeholder{color:rgba(217,229,247,.65);}
+    .aspenboard .db-extra-uc-switch{color:var(--muted-text,rgba(217,229,247,.78));}
+    .aspenboard .db-extra-uc-switch-control{background:rgba(148,163,184,.35);}
+    .aspenboard .db-extra-uc-switch input:checked~.db-extra-uc-switch-control{background:var(--ab-accent,#2f7edb);box-shadow:0 0 0 2px rgba(47,125,203,.32);}
     .aspenboard .db-color-card-title{color:var(--text-color);}
     .aspenboard .db-color-field span{color:var(--text-color);}
   `;
@@ -1073,7 +1090,8 @@
       activeSearchFilters:new Set(),
       showActiveList:false,
       columnAssignments:new Map(),
-      hiddenExtraColumns:new Set()
+      hiddenExtraColumns:new Set(),
+      autoAssignments:new Map()
     };
   }
 
@@ -1092,6 +1110,7 @@
     if(!Array.isArray(columns)) return [];
     const sanitized=[];
     const seen=new Set();
+    let ucAssigned=false;
     for(const entry of columns){
       if(sanitized.length>=MAX_EXTRA_COLUMNS) break;
       const source=entry&&typeof entry==='object'?entry:{};
@@ -1101,7 +1120,10 @@
         id=generateExtraColumnId();
       }
       seen.add(id);
-      sanitized.push({id,label});
+      const requestedUcSort=!!source.ucSort;
+      const ucSort=!ucAssigned && requestedUcSort;
+      if(ucSort) ucAssigned=true;
+      sanitized.push({id,label,ucSort});
     }
     return sanitized;
   }
@@ -1392,6 +1414,7 @@
       state.columnAssignments=normalizeColumnAssignments(saved.columnAssignments);
       ensureColumnAssignments(state);
       ensureHiddenExtraColumns(state);
+      state.autoAssignments=new Map();
       if(!restoredOrder){
         state.items=dedupeByMeldung(state.items);
         if(Array.isArray(state.items) && state.items.length){
@@ -1490,6 +1513,21 @@
     });
     if(!base.length) base.push(DEFAULT_SUB_FIELD);
     return base;
+  }
+
+  function getUcFieldValue(item){
+    if(!item||typeof item!=='object') return '';
+    const data=item.data&&typeof item.data==='object'?item.data:{};
+    if(Object.prototype.hasOwnProperty.call(data,'UC')){
+      return String(data.UC??'').trim();
+    }
+    for(const key of Object.keys(data||{})){
+      if(typeof key!=='string') continue;
+      if(key.trim().toLowerCase()==='uc'){
+        return String(data[key]??'').trim();
+      }
+    }
+    return '';
   }
 
   function parseColorToRgb(color){
@@ -2583,7 +2621,7 @@
     function ensureExtraListElements(){
       ensureExtraColumns(state.config);
       const columns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
-      const signature=columns.map(col=>`${col.id}:${col.label}`).join('|');
+      const signature=columns.map(col=>`${col.id}:${col.label}:${col.ucSort?'1':'0'}`).join('|');
       if(signature===lastExtraSignature && Array.isArray(elements.extraWraps)){
         columns.forEach((column,index)=>{
           const wrap=elements.extraWraps[index];
@@ -2591,6 +2629,7 @@
           wrap.title.textContent=column.label||`Extraspalte ${index+1}`;
           wrap.list.dataset.columnId=column.id;
           wrap.wrap.dataset.columnId=column.id;
+          wrap.wrap.dataset.ucSort=column.ucSort?'true':'false';
         });
         if(!columns.length){
           if(elements.extraContainer){
@@ -2613,6 +2652,7 @@
         const wrap=document.createElement('div');
         wrap.className='db-list-wrap db-extra-wrap';
         wrap.dataset.columnId=column.id;
+        wrap.dataset.ucSort=column.ucSort?'true':'false';
         const title=document.createElement('div');
         title.className='db-list-title';
         title.textContent=column.label||`Extraspalte ${index+1}`;
@@ -2764,6 +2804,7 @@
       const newAssignments=new Map();
       const removedAssignments=new Set();
       const activeMeldungen=new Set();
+      const autoAssignments=state.autoAssignments instanceof Map?state.autoAssignments:new Map();
       const collect=(container,target,columnId)=>{
         if(!container) return;
         container.querySelectorAll('.db-card').forEach(node=>{
@@ -2789,12 +2830,16 @@
           }
           target.push(item);
           if(meldung){
+            const autoColumn=autoAssignments.get(meldung)||'';
+            const hasAutoAssignment=!!autoColumn;
             if(columnId===ACTIVE_COLUMN_ID){
               activeMeldungen.add(meldung);
               removedAssignments.add(meldung);
             }else if(columnId){
-              newAssignments.set(meldung,columnId);
-            }else{
+              if(!hasAutoAssignment){
+                newAssignments.set(meldung,columnId);
+              }
+            }else if(!hasAutoAssignment){
               removedAssignments.add(meldung);
             }
           }
@@ -2853,10 +2898,25 @@
       const extraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
       const hiddenExtras=state.hiddenExtraColumns instanceof Set?state.hiddenExtraColumns:new Set();
       const extraBuckets=new Map(extraColumns.map(col=>[col.id,[]]));
+      const ucColumn=extraColumns.find(col=>col?.ucSort);
+      const ucColumnId=ucColumn?.id||'';
+      const autoAssignments=new Map();
       const activeItems=[];
       const mainItems=[];
       state.items.forEach(item=>{
         const meldung=item.meldung;
+        let autoColumnId='';
+        if(ucColumnId && meldung){
+          const ucValue=getUcFieldValue(item);
+          if(ucValue){
+            autoColumnId=ucColumnId;
+            autoAssignments.set(meldung,ucColumnId);
+          }
+        }
+        if(autoColumnId && extraBuckets.has(autoColumnId)){
+          extraBuckets.get(autoColumnId).push(item);
+          return;
+        }
         const assigned=meldung?assignments.get(meldung):undefined;
         if(assigned && extraBuckets.has(assigned)){
           extraBuckets.get(assigned).push(item);
@@ -2870,6 +2930,7 @@
         }
         mainItems.push(item);
       });
+      state.autoAssignments=autoAssignments;
       renderListSection(elements.list,state,mainItems,{emptyMessage:'Keine Geräte',searchContext});
       if(Array.isArray(elements.extraWraps)){
         elements.extraWraps.forEach((wrap,index)=>{
@@ -3265,16 +3326,6 @@
       }
     }
 
-    function handleActiveToggleChange(event){
-      const checkbox=event.target;
-      if(!checkbox) return;
-      tempActiveColumnEnabled=!!checkbox.checked;
-      if(!tempActiveColumnEnabled){
-        state.showActiveList=false;
-      }
-      scheduleOptionPersist(true);
-    }
-
     function handleExtraNameInput(event){
       const input=event.target;
       if(!input || typeof input.value!=='string') return;
@@ -3291,6 +3342,23 @@
       if(!columnId) return;
       updateTempColumnLabel(columnId,input.value);
       updateTempColumnPreview(columnId);
+      scheduleOptionPersist(true);
+    }
+
+    function handleExtraUcToggleChange(event){
+      const checkbox=event.target;
+      if(!checkbox) return;
+      const columnId=checkbox.dataset?.columnId||'';
+      if(!columnId) return;
+      const index=tempExtraColumns.findIndex(col=>col.id===columnId);
+      if(index===-1) return;
+      const enabled=!!checkbox.checked;
+      if(enabled){
+        tempExtraColumns=tempExtraColumns.map((col,idx)=>idx===index?{...col,ucSort:true}:{...col,ucSort:false});
+      }else{
+        tempExtraColumns[index]={...tempExtraColumns[index],ucSort:false};
+      }
+      renderExtraControls();
       scheduleOptionPersist(true);
     }
 
@@ -3324,37 +3392,48 @@
         };
       }
       const fragment=document.createDocumentFragment();
-      const activeRow=document.createElement('div');
-      activeRow.className='db-extra-name-row db-active-name-row';
-      activeRow.dataset.columnId=ACTIVE_COLUMN_ID;
-      const toggle=document.createElement('label');
-      toggle.className='db-active-toggle';
-      const checkbox=document.createElement('input');
-      checkbox.type='checkbox';
-      checkbox.className='db-active-checkbox';
-      checkbox.checked=!!tempActiveColumnEnabled;
-      checkbox.addEventListener('change',handleActiveToggleChange);
-      toggle.appendChild(checkbox);
-      const toggleText=document.createElement('span');
-      toggleText.textContent=`Spalte "${normalizedActiveLabel}" anzeigen`;
-      toggle.appendChild(toggleText);
-      activeRow.appendChild(toggle);
-      fragment.appendChild(activeRow);
       tempExtraColumns.forEach((column,index)=>{
         const row=document.createElement('div');
         row.className='db-extra-name-row';
         row.dataset.columnId=column.id;
+        const header=document.createElement('div');
+        header.className='db-extra-name-header';
+        const title=document.createElement('span');
+        title.className='db-extra-name-title';
+        title.textContent=`Spalte ${index+1}`;
+        header.appendChild(title);
+        const ucToggle=document.createElement('label');
+        ucToggle.className='db-extra-uc-switch';
+        ucToggle.dataset.columnId=column.id;
+        const ucCheckbox=document.createElement('input');
+        ucCheckbox.type='checkbox';
+        ucCheckbox.dataset.columnId=column.id;
+        ucCheckbox.checked=!!column.ucSort;
+        ucCheckbox.addEventListener('change',handleExtraUcToggleChange);
+        ucToggle.appendChild(ucCheckbox);
+        const ucText=document.createElement('span');
+        ucText.className='db-extra-uc-switch-text';
+        ucText.textContent='AutoUC';
+        ucToggle.appendChild(ucText);
+        const ucControl=document.createElement('span');
+        ucControl.className='db-extra-uc-switch-control';
+        ucToggle.appendChild(ucControl);
+        header.appendChild(ucToggle);
+        row.appendChild(header);
         const label=document.createElement('label');
-        const span=document.createElement('span');
-        span.className='db-extra-name-label';
-        span.textContent=`Spalte ${index+1}`;
-        label.appendChild(span);
+        label.className='db-extra-name-input';
+        label.dataset.columnId=column.id;
+        const helper=document.createElement('span');
+        helper.className='db-extra-name-input-label';
+        helper.textContent='Name der Extraspalte';
+        label.appendChild(helper);
         const input=document.createElement('input');
         input.type='text';
         input.placeholder='Name der Extraspalte';
         input.value=column.label||'';
         input.dataset.columnId=column.id;
         input.dataset.columnType='extra';
+        input.className='db-extra-name-input-field';
         input.addEventListener('input',handleExtraNameInput);
         input.addEventListener('change',handleExtraNameCommit);
         label.appendChild(input);
@@ -3389,7 +3468,7 @@
       }
       if(clamped>tempExtraColumns.length){
         for(let i=tempExtraColumns.length;i<clamped;i+=1){
-          tempExtraColumns.push({id:generateExtraColumnId(),label:''});
+          tempExtraColumns.push({id:generateExtraColumnId(),label:'',ucSort:false});
         }
       }else{
         tempExtraColumns=tempExtraColumns.slice(0,clamped);
