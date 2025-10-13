@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.11] – 2025-10-13
+### Changed
+- Farb-Layer-Dropdowns aus einer bereitgestellten Palette (`window.__lbpPalette`) aufgebaut, inklusive Sortierung, Farbvorschau
+  und Fallback auf bisherige Layer-Erkennung.
+
 ## [1.5.10] – 2025-10-03
 ### Fixed
 - Layer-Dropdowns übernehmen DOM-bereitgestellte Anzeigenamen jetzt über einen sicheren Index-/ID-Abgleich, damit umbenannte
