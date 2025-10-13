@@ -136,6 +136,10 @@
     .ops-tab-colors{display:none; flex-direction:column; gap:.85rem; padding-top:.45rem;}
     .ops-tab-colors.active{display:flex;}
     .ops-tab-colors .ops-color-panel{display:flex; flex-direction:column; gap:.85rem;}
+    .ops-tab-colors .ops-color-source{display:flex; flex-direction:column; gap:.25rem; padding:.25rem .35rem .4rem; font-size:.78rem; color:rgba(226,232,240,.82);}
+    .ops-tab-colors .ops-color-source-path{font-family:'JetBrains Mono','Fira Code','Fira Mono',monospace; font-size:.72rem; color:rgba(148,163,184,.92); word-break:break-all;}
+    .ops-tab-colors .ops-color-source-status{font-size:.74rem; color:rgba(226,232,240,.7);}
+    .ops-tab-colors .ops-color-source-preview{margin:0; padding:.45rem .55rem; border-radius:.65rem; border:1px solid rgba(148,163,184,.25); background:rgba(15,23,42,.65); font-family:'JetBrains Mono','Fira Code','Fira Mono',monospace; font-size:.72rem; color:rgba(226,232,240,.86); max-height:120px; overflow:auto; white-space:pre-wrap;}
     .ops-tab-colors .ops-color-body{background:rgba(15,23,42,.52); border:1px solid rgba(148,163,184,.22);
       border-radius:.95rem; padding:1rem 1.1rem; display:flex; flex-direction:column; gap:1rem; color:inherit;}
     .ops-tab-colors .ops-color-section{display:flex; flex-direction:column; gap:.4rem; padding:.75rem .85rem;
@@ -292,7 +296,7 @@
   }
 
   const DROPDOWN_DEFAULT_VALUE = 'standard';
-  const PALETTE_URL = 'Config/FarblayerConfig.json';
+  const PALETTE_URL = 'configs/FarblayerConfig.json';
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
   const paletteUpdateListeners = new Set();
@@ -449,7 +453,51 @@
     return 'Unter-Layer';
   }
 
-  function updateCachedPalette(layers){
+  function countPaletteItems(layers){
+    if(Array.isArray(layers)){
+      return layers.length;
+    }
+    if(layers && typeof layers === 'object'){
+      try {
+        return Object.keys(layers).length;
+      } catch {
+        return 0;
+      }
+    }
+    return 0;
+  }
+
+  function applyPaletteMetadata(context = {}, entryCount = 0){
+    if(typeof window === 'undefined') return;
+    const ctx = (context && typeof context === 'object') ? context : {};
+    const now = new Date();
+    const loadedAt = ctx.loadedAt || now.toISOString();
+    const basePath = typeof ctx.path === 'string' && ctx.path.trim()
+      ? ctx.path.trim()
+      : PALETTE_URL;
+    const source = typeof ctx.source === 'string' && ctx.source.trim()
+      ? ctx.source.trim()
+      : 'unbekannt';
+    const layerCount = Number.isFinite(ctx.layerCount) ? ctx.layerCount : entryCount;
+    const meta = {
+      path: basePath,
+      source,
+      loadedAt,
+      layerCount,
+      entryCount
+    };
+    try {
+      window.__lbpPaletteMeta = meta;
+    } catch {}
+  }
+
+  function getPaletteMetadata(){
+    if(typeof window === 'undefined') return null;
+    const meta = window.__lbpPaletteMeta;
+    return (meta && typeof meta === 'object') ? meta : null;
+  }
+
+  function updateCachedPalette(layers, context){
     if(typeof window === 'undefined') return false;
     if(!window.__lbpPalette || typeof window.__lbpPalette !== 'object'){
       window.__lbpPalette = {};
@@ -462,6 +510,21 @@
     }
     cachedPaletteSignature = serialized;
     window.__lbpPalette = palette;
+    try {
+      window.__lbpPaletteSource = layers;
+    } catch {}
+    const entryCount = (() => {
+      try {
+        return Object.keys(palette).length;
+      } catch {
+        return 0;
+      }
+    })();
+    const contextObject = (context && typeof context === 'object') ? context : {};
+    applyPaletteMetadata({
+      ...contextObject,
+      layerCount: Number.isFinite(contextObject.layerCount) ? contextObject.layerCount : countPaletteItems(layers)
+    }, entryCount);
     return true;
   }
 
@@ -683,6 +746,7 @@
   async function fetchPaletteFromConfig(){
     if(typeof window === 'undefined') return null;
     let fetchError = null;
+    const nowIso = () => new Date().toISOString();
     try {
       const response = await fetch(PALETTE_URL, { cache: 'no-store' });
       if(!response.ok){
@@ -693,7 +757,13 @@
         try {
           localStorage.setItem(PALETTE_URL, JSON.stringify(data));
         } catch {}
-        return data;
+        return {
+          data,
+          source: 'Dateisystem',
+          path: PALETTE_URL,
+          loadedAt: nowIso(),
+          layerCount: countPaletteItems(data)
+        };
       }
     } catch (err) {
       fetchError = err;
@@ -707,7 +777,13 @@
           if(fetchError){
             console.warn('[LinkButtonsPlus] Nutze FarblayerConfig.json aus lokalem Speicher:', fetchError);
           }
-          return parsed;
+          return {
+            data: parsed,
+            source: 'Lokaler Speicher',
+            path: PALETTE_URL,
+            loadedAt: nowIso(),
+            layerCount: countPaletteItems(parsed)
+          };
         }
       }
     } catch (storageErr) {
@@ -727,13 +803,24 @@
   async function refreshPaletteFromConfig(reason){
     if(typeof window === 'undefined') return;
     try {
-      const layers = await fetchPaletteFromConfig();
+      const result = await fetchPaletteFromConfig();
+      const layers = result?.data || result;
       lastPaletteFetchFailed = false;
       if(!layers) return;
-      const updated = updateCachedPalette(layers);
+      const context = {
+        path: result?.path || PALETTE_URL,
+        source: result?.source || 'Dateisystem',
+        loadedAt: result?.loadedAt,
+        layerCount: Number.isFinite(result?.layerCount) ? result.layerCount : countPaletteItems(layers)
+      };
+      const updated = updateCachedPalette(layers, context);
       if(!updated) return;
       try {
-        console.log(`[LinkButtonsPlus] Palette ${reason || 'updated'} from config`, layers);
+        console.log(`[LinkButtonsPlus] Palette ${reason || 'updated'} from config`, {
+          source: context.source,
+          path: context.path,
+          layerCount: context.layerCount
+        });
       } catch {}
       bootstrapLayerMapIfEmpty();
       if(!syncDropdownsFromCachedPalette()){
@@ -2727,6 +2814,11 @@
 
       containerEl.innerHTML = `
         <div class="ops-color-panel-inner">
+          <div class="ops-color-source">
+            <div class="ops-color-source-path" data-color-source-path>${PALETTE_URL}</div>
+            <div class="ops-color-source-status" data-color-source-status>FarblayerConfig wird geladen…</div>
+            <pre class="ops-color-source-preview" data-color-source-preview hidden></pre>
+          </div>
           <div class="ops-color-empty" hidden>Keine Farbvarianten gefunden. Es werden Standardfarben verwendet.</div>
           <div class="ops-color-body">${sectionMarkup}</div>
           <div class="ops-color-footer">
@@ -2741,6 +2833,9 @@
         selects[area] = containerEl.querySelector(`select[data-area="${area}"]`);
         previews[area] = containerEl.querySelector(`[data-preview="${area}"]`);
       });
+      const sourcePathEl = containerEl.querySelector('[data-color-source-path]');
+      const sourceStatusEl = containerEl.querySelector('[data-color-source-status]');
+      const sourcePreviewEl = containerEl.querySelector('[data-color-source-preview]');
 
       let callbacks = { onChange:null, onReset:null, getSelection:null };
       let currentLayers = [];
@@ -2919,10 +3014,91 @@
         COLOR_AREAS.forEach(area => updateSelectBackground(area));
       }
 
+      function extractPaletteNames(data){
+        if(!data) return [];
+        if(Array.isArray(data)){
+          return data.map((layer, idx) => {
+            if(!layer || typeof layer !== 'object') return `Layer ${idx + 1}`;
+            const candidates = [layer.displayName, layer.label, layer.name, layer.id];
+            for(const candidate of candidates){
+              if(typeof candidate === 'string' && candidate.trim()){
+                return candidate.trim();
+              }
+            }
+            return `Layer ${idx + 1}`;
+          }).filter(Boolean);
+        }
+        if(typeof data === 'object'){
+          try {
+            return Object.keys(data);
+          } catch {
+            return [];
+          }
+        }
+        return [];
+      }
+
+      function formatMetaTimestamp(value){
+        if(!value) return '';
+        try {
+          const date = new Date(value);
+          if(Number.isNaN(date.getTime())) return '';
+          return date.toLocaleString?.('de-DE', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }) || date.toLocaleString();
+        } catch {
+          return '';
+        }
+      }
+
+      function updateSourceInfo(){
+        const meta = getPaletteMetadata();
+        if(sourcePathEl){
+          const path = meta?.path || PALETTE_URL;
+          sourcePathEl.textContent = path;
+          sourcePathEl.title = path;
+        }
+        if(sourceStatusEl){
+          if(!meta){
+            sourceStatusEl.textContent = 'FarblayerConfig noch nicht geladen.';
+          } else {
+            const parts = [];
+            if(meta.source) parts.push(`Quelle: ${meta.source}`);
+            const count = Number.isFinite(meta.layerCount) ? meta.layerCount : Number(meta.entryCount) || 0;
+            if(count > 0) parts.push(`${count} Einträge`);
+            const timestamp = formatMetaTimestamp(meta.loadedAt);
+            if(timestamp) parts.push(`Stand ${timestamp}`);
+            sourceStatusEl.textContent = parts.length ? parts.join(' • ') : 'FarblayerConfig geladen.';
+          }
+        }
+        if(sourcePreviewEl){
+          const paletteSource = (typeof window !== 'undefined' && window.__lbpPaletteSource)
+            ? window.__lbpPaletteSource
+            : null;
+          const names = extractPaletteNames(paletteSource);
+          if(names.length){
+            const unique = Array.from(new Set(names)).slice(0, 20);
+            sourcePreviewEl.hidden = false;
+            sourcePreviewEl.textContent = unique.join('\n');
+            sourcePreviewEl.title = unique.join(', ');
+          } else {
+            sourcePreviewEl.hidden = true;
+            sourcePreviewEl.textContent = '';
+            sourcePreviewEl.title = '';
+          }
+        }
+      }
+
       function updateVisibility(){
         if(emptyEl){
           emptyEl.hidden = currentLayers.length > 0;
         }
+        updateSourceInfo();
       }
 
       const resetBtn = containerEl.querySelector('.ops-color-reset');
@@ -2979,6 +3155,7 @@
           setSelection(currentSelection);
         }
         updatePreviews();
+        updateSourceInfo();
       }
 
       function destroy(){

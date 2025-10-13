@@ -5548,12 +5548,11 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
 // }
 
 (function exportVisibleLayerDataToConfig() {
-  const CONFIG_PATH = 'Config/FarblayerConfig.json';
+  const CONFIG_PATH = 'configs/FarblayerConfig.json';
   const SAVE_DELAY = 400;
   const STORAGE_KEY = CONFIG_PATH;
   let saveTimer = null;
   let lastSerialized = '';
-  let fileHandle = null;
 
   function hslaOrNull(input) {
     const value = typeof input === 'string' ? input.trim() : '';
@@ -5674,42 +5673,6 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     return true;
   }
 
-  async function requestFileHandle() {
-    if (fileHandle) return fileHandle;
-    if (typeof window === 'undefined') return null;
-    if (window.__farblayerFileHandle) {
-      fileHandle = window.__farblayerFileHandle;
-      return fileHandle;
-    }
-    if (typeof window.showSaveFilePicker !== 'function') return null;
-    const handle = await window.showSaveFilePicker({
-      suggestedName: 'FarblayerConfig.json',
-      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
-    });
-    window.__farblayerFileHandle = handle;
-    fileHandle = handle;
-    return fileHandle;
-  }
-
-  async function writeConfigFile(jsonText, data) {
-    const handle = await requestFileHandle();
-    if (!handle) return false;
-    try {
-      const writable = await handle.createWritable();
-      await writable.write(new Blob([jsonText], { type: 'application/json' }));
-      await writable.close();
-      console.log('[ShopguideV3] FarblayerConfig.json erfolgreich gespeichert.', data);
-      return true;
-    } catch (err) {
-      console.warn('[ShopguideV3] Schreiben der FarblayerConfig.json fehlgeschlagen:', err);
-      if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') {
-        fileHandle = null;
-        window.__farblayerFileHandle = null;
-      }
-      return false;
-    }
-  }
-
   function storeLocal(jsonText, data, { reason = 'Fallback', quiet = false } = {}) {
     try {
       localStorage.setItem(STORAGE_KEY, jsonText);
@@ -5732,14 +5695,6 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
       saved = await tryAutosave(jsonText, data);
     } catch (err) {
       console.warn('[ShopguideV3] Autosave für FarblayerConfig fehlgeschlagen:', err);
-    }
-
-    if (!saved) {
-      try {
-        saved = await writeConfigFile(jsonText, data);
-      } catch (err) {
-        console.warn('[ShopguideV3] Dateizugriff für FarblayerConfig fehlgeschlagen:', err);
-      }
     }
 
     if (saved) {
@@ -5772,9 +5727,6 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   }
 
   if (typeof window !== 'undefined') {
-    if (window.__farblayerFileHandle) {
-      fileHandle = window.__farblayerFileHandle;
-    }
     window.__exportFarblayerConfig = scheduleConfigSave;
     window.__queueGlobalLayerConfigWrite = scheduleConfigSave;
     window.__saveLinkButtonsPalette = scheduleConfigSave;
