@@ -3,7 +3,23 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
----
+## [1.1.17] – 2025-10-15
+### Changed
+- Schnellaktionen (Titel, Datei-Auswahl, Aktivieren/Deaktivieren) in die linke Spalte des Einstellungsdialogs verschoben, wo sie oberhalb des Überschriftenfilters gebündelt sind.
+
+## [1.1.16] – 2025-10-14
+### Changed
+- Überschriftenfilter im Einstellungsdialog links neben den Extraspalten angeordnet, damit beide Bereiche nebeneinander erscheinen.
+
+## [1.1.15] – 2025-10-13
+### Changed
+- Kontextmenü-Optionen in das Einstellungsmodal verlagert; das Modal öffnet jetzt per Rechtsklick und bündelt Dateiauswahl, Schnellaktionen und Partfilter an einem Ort.
+
+## [1.1.14] – 2025-10-11
+### Changed
+- Datei-Handles werden jetzt im gemeinsamen IndexedDB-Store (`modulesApp` → `fs-handles`) der Module abgelegt; bestehende Aspen-
+  Einträge aus dem Legacy-Speicher werden automatisch übernommen und bereinigt.
+
 ## [1.1.13] – 2025-10-10
 ### Changed
 - Scrollleisten des Aspen-Boards optisch überarbeitet und an das globale Dashboard-Design angepasst.
