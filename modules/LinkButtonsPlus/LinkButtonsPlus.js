@@ -1,5 +1,5 @@
 /* Ops Panel — extended with toggleable links and Testreport deeplink */
-// v3.7.0 – Deterministic global layer sync via 'shopguide:sub-layers-updated'
+// v5.0 – Config-Palette-Sync über JSON
 (function () {
   // ---------- styles ----------
   if (!document.getElementById('ops-panel-styles')) {
@@ -292,8 +292,10 @@
   }
 
   const DROPDOWN_DEFAULT_VALUE = 'standard';
+  const PALETTE_URL = 'Config/FarblayerConfig.json';
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
+  const paletteUpdateListeners = new Set();
 
   const DEFAULT_LAYER_TITLES = {
     1: 'Hauptmodul (Rahmen & Hintergrund)',
@@ -330,6 +332,104 @@
     return null;
   }
 
+  function isValidHsla(value){
+    return typeof value === 'string' && /^hsla?\(/i.test(value.trim());
+  }
+
+  function pickHsla(...values){
+    for(const value of values){
+      if(isValidHsla(value)){
+        return value.trim();
+      }
+    }
+    return '';
+  }
+
+  function isColorDescriptor(value){
+    if(!value || typeof value !== 'object') return false;
+    const colorKeys = ['background','text','border','color','hsla','moduleBg','moduleText','moduleBorder','bg'];
+    return colorKeys.some(key => typeof value[key] === 'string');
+  }
+
+  function normalizeColorEntry(sourceName, rawValue, group, order, existing){
+    if(!rawValue || typeof rawValue !== 'object') return null;
+    const candidates = [rawValue.id, rawValue.name, sourceName];
+    let identifier = '';
+    for(const candidate of candidates){
+      const sanitized = sanitizeId(typeof candidate === 'string' ? candidate : '');
+      if(sanitized){
+        identifier = sanitized;
+        break;
+      }
+    }
+    if(!identifier) return null;
+    if(existing && existing[identifier]){
+      let suffix = 2;
+      let next = `${identifier}-${suffix}`;
+      while(existing[next]){
+        suffix += 1;
+        next = `${identifier}-${suffix}`;
+      }
+      identifier = next;
+    }
+
+    const background = pickHsla(rawValue.background, rawValue.color, rawValue.hsla, rawValue.moduleBg, rawValue.bg);
+    if(!background) return null;
+    const textColor = pickHsla(rawValue.text, rawValue.textColor, rawValue.moduleText);
+    const borderColor = pickHsla(rawValue.border, rawValue.borderColor, rawValue.moduleBorder);
+
+    const explicitTitle = typeof rawValue.title === 'string' ? rawValue.title.trim() : '';
+    const displayName = typeof rawValue.displayName === 'string' ? rawValue.displayName.trim() : '';
+    const fallbackName = typeof sourceName === 'string' ? sourceName.trim() : '';
+    const title = explicitTitle || displayName || fallbackName || identifier;
+    const groupName = typeof rawValue.group === 'string' && rawValue.group.trim()
+      ? rawValue.group.trim()
+      : (typeof group === 'string' && group.trim() ? group.trim() : '');
+
+    const explicitIndex = Number.isFinite(rawValue.index) && rawValue.index > 0 ? Math.floor(rawValue.index) : null;
+    const inferredIndex = explicitIndex || inferLayerIndexFromName(identifier);
+
+    return {
+      name: identifier,
+      title,
+      displayName: displayName || fallbackName || title,
+      color: background,
+      textColor,
+      borderColor,
+      group: groupName,
+      order,
+      index: Number.isFinite(inferredIndex) && inferredIndex > 0 ? inferredIndex : null
+    };
+  }
+
+  function flattenPaletteSource(source){
+    const flat = {};
+    if(!source || typeof source !== 'object') return flat;
+    let order = 0;
+    const queue = [{ group: '', entries: Object.entries(source) }];
+
+    while(queue.length){
+      const { group, entries } = queue.shift();
+      entries.forEach(([key, value]) => {
+        if(!value || typeof value !== 'object') return;
+        if(isColorDescriptor(value)){
+          const entry = normalizeColorEntry(key, value, group || key, order, flat);
+          order += 1;
+          if(entry){
+            flat[entry.name] = entry;
+          }
+          return;
+        }
+        const nextEntries = Object.entries(value);
+        if(nextEntries.length){
+          queue.push({ group: group || key, entries: nextEntries });
+        }
+      });
+    }
+
+    return flat;
+  }
+
   function toTitleCase(value){
     return value.replace(/\b\w/g, char => char.toUpperCase());
   }
@@ -349,46 +449,13 @@
     return 'Unter-Layer';
   }
 
-  function normalizePaletteEntry(name, value, order){
-    const entry = (value && typeof value === 'object') ? value : { color: value };
-    const explicitName = typeof entry.name === 'string' ? entry.name : '';
-    const fallbackName = typeof name === 'string' ? name : '';
-    const safeName = sanitizeId(explicitName) || sanitizeId(fallbackName);
-    if(!safeName) return null;
-    const color = typeof entry.color === 'string' ? entry.color.trim() : '';
-    if(!color) return null;
-    const explicitTitle = typeof entry.title === 'string' ? entry.title.trim() : '';
-    const explicitIndex = Number.isFinite(entry.index) ? Math.floor(entry.index) : null;
-    const normalizedIndex = Number.isFinite(explicitIndex) && explicitIndex > 0 ? explicitIndex : inferLayerIndexFromName(safeName);
-    const title = explicitTitle || buildReadableTitle(safeName, normalizedIndex);
-    return {
-      name: safeName,
-      title,
-      color,
-      index: Number.isFinite(normalizedIndex) && normalizedIndex > 0 ? normalizedIndex : null,
-      order: Number.isFinite(entry.order) ? entry.order : order
-    };
-  }
-
   function updateCachedPalette(layers){
     if(typeof window === 'undefined') return false;
-    if(!layers || typeof layers !== 'object') return false;
     if(!window.__lbpPalette || typeof window.__lbpPalette !== 'object'){
       window.__lbpPalette = {};
     }
 
-    const entries = [];
-    Object.entries(layers).forEach(([name, value], order) => {
-      if(typeof name !== 'string') return;
-      const normalized = normalizePaletteEntry(name, value, order);
-      if(normalized) entries.push(normalized);
-    });
-
-    const palette = {};
-    entries.forEach(entry => {
-      palette[entry.name] = entry;
-    });
-
+    const palette = flattenPaletteSource(layers);
     const serialized = JSON.stringify(palette);
     if(serialized === cachedPaletteSignature){
       return false;
@@ -396,6 +463,28 @@
     cachedPaletteSignature = serialized;
     window.__lbpPalette = palette;
     return true;
+  }
+
+  function notifyPaletteListeners(){
+    if(!paletteUpdateListeners.size) return;
+    const palette = (typeof window !== 'undefined' && window.__lbpPalette && typeof window.__lbpPalette === 'object')
+      ? window.__lbpPalette
+      : {};
+    paletteUpdateListeners.forEach(listener => {
+      try {
+        listener(palette);
+      } catch (err) {
+        console.error('[LinkButtonsPlus] Palette listener failed:', err);
+      }
+    });
+  }
+
+  function onPaletteUpdated(listener){
+    if(typeof listener !== 'function') return () => {};
+    paletteUpdateListeners.add(listener);
+    return () => {
+      paletteUpdateListeners.delete(listener);
+    };
   }
 
   function getLayerMap(){
@@ -504,10 +593,20 @@
       const title = typeof entry.title === 'string' && entry.title.trim()
         ? entry.title.trim()
         : buildReadableTitle(safeName, normalizedIndex);
+      const displayName = typeof entry.displayName === 'string' && entry.displayName.trim()
+        ? entry.displayName.trim()
+        : title;
+      const textColor = typeof entry.textColor === 'string' && entry.textColor.trim() ? entry.textColor.trim() : '';
+      const borderColor = typeof entry.borderColor === 'string' && entry.borderColor.trim() ? entry.borderColor.trim() : '';
+      const group = typeof entry.group === 'string' && entry.group.trim() ? entry.group.trim() : '';
       return {
         name: safeName,
         title,
+        displayName,
         color,
+        textColor,
+        borderColor,
+        group,
         index: Number.isFinite(normalizedIndex) && normalizedIndex > 0 ? normalizedIndex : null
       };
     };
@@ -540,7 +639,7 @@
     };
   }
 
-  function ensureCssVarForIndex(idx, hsla){
+  function ensureCssVarForIndex(idx, hsla, preferredText){
     if(typeof window === 'undefined' || !window.document || !window.document.documentElement) return '#0f172a';
     const color = typeof hsla === 'string' && hsla.trim() ? hsla.trim() : 'hsla(0, 0%, 100%, 1)';
     const root = window.document.documentElement;
@@ -552,18 +651,27 @@
     }
     const key = `--module-layer-${idx}-module-bg`;
     const current = rootStyle ? rootStyle.getPropertyValue(key).trim() : '';
-    const needsUpdate = !current || /^hsla?\(\s*0\s*,\s*0%?\s*,\s*100%/i.test(current);
+    const needsUpdate = !current || current !== color;
     const match = color.match(/hsla?\(\s*\d+\s*,\s*\d+%?\s*,\s*(\d+)%/i);
     const lightness = match ? parseFloat(match[1]) : 50;
     const derivedText = Number.isFinite(lightness) && lightness > 55 ? '#0f172a' : '#f8fafc';
+    const preferred = isValidHsla(preferredText) ? preferredText.trim() : '';
     const existingText = rootStyle ? rootStyle.getPropertyValue(`--module-layer-${idx}-module-text`).trim() : '';
+    const finalText = preferred || existingText || derivedText;
+
     if(needsUpdate){
       root.style.setProperty(key, color);
       root.style.setProperty(`--module-layer-${idx}-header-bg`, color);
-      root.style.setProperty(`--module-layer-${idx}-module-text`, derivedText);
-      root.style.setProperty(`--module-layer-${idx}-header-text`, derivedText);
     }
-    return existingText || derivedText;
+
+    if(preferred && preferred !== existingText){
+      root.style.setProperty(`--module-layer-${idx}-module-text`, preferred);
+      root.style.setProperty(`--module-layer-${idx}-header-text`, preferred);
+    } else if(needsUpdate){
+      root.style.setProperty(`--module-layer-${idx}-module-text`, finalText);
+      root.style.setProperty(`--module-layer-${idx}-header-text`, finalText);
+    }
+    return finalText;
   }
 
   bootstrapLayerMapIfEmpty();
@@ -572,40 +680,93 @@
     return syncDropdownsFromResolvedLayers();
   }
 
-  (function initLayerColorSubscriber(){
+  async function fetchPaletteFromConfig(){
+    if(typeof window === 'undefined') return null;
+    let fetchError = null;
+    try {
+      const response = await fetch(PALETTE_URL, { cache: 'no-store' });
+      if(!response.ok){
+        throw new Error(`${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      if(data && typeof data === 'object'){
+        try {
+          localStorage.setItem(PALETTE_URL, JSON.stringify(data));
+        } catch {}
+        return data;
+      }
+    } catch (err) {
+      fetchError = err;
+    }
+
+    try {
+      const stored = localStorage.getItem(PALETTE_URL);
+      if(stored){
+        const parsed = JSON.parse(stored);
+        if(parsed && typeof parsed === 'object'){
+          if(fetchError){
+            console.warn('[LinkButtonsPlus] Nutze FarblayerConfig.json aus lokalem Speicher:', fetchError);
+          }
+          return parsed;
+        }
+      }
+    } catch (storageErr) {
+      if(!fetchError){
+        fetchError = storageErr;
+      }
+    }
+
+    if(fetchError){
+      throw fetchError;
+    }
+    return null;
+  }
+
+  let lastPaletteFetchFailed = false;
+
+  async function refreshPaletteFromConfig(reason){
+    if(typeof window === 'undefined') return;
+    try {
+      const layers = await fetchPaletteFromConfig();
+      lastPaletteFetchFailed = false;
+      if(!layers) return;
+      const updated = updateCachedPalette(layers);
+      if(!updated) return;
+      try {
+        console.log(`[LinkButtonsPlus] Palette ${reason || 'updated'} from config`, layers);
+      } catch {}
+      bootstrapLayerMapIfEmpty();
+      if(!syncDropdownsFromCachedPalette()){
+        try {
+          console.log('[LinkButtonsPlus] Palette loaded – waiting for dropdowns to mount');
+        } catch {}
+      }
+      notifyPaletteListeners();
+    } catch (err) {
+      if(!lastPaletteFetchFailed){
+        console.error('[LinkButtonsPlus] Failed to load palette:', err);
+      }
+      lastPaletteFetchFailed = true;
+    }
+  }
+
+  (function initPaletteConfigSync(){
     if(typeof window === 'undefined') return;
     if(!window.__lbpPalette || typeof window.__lbpPalette !== 'object'){
       window.__lbpPalette = {};
     }
 
-    const broadcastHandler = (event) => {
-      const detail = event && typeof event.detail === 'object' ? event.detail : null;
-      const layers = detail && typeof detail.layers === 'object' ? detail.layers : null;
-      if(!layers) return;
-      const updated = updateCachedPalette(layers);
-      if(!updated) return;
-      try {
-        console.log('[LinkButtonsPlus] Received readable palette:', layers);
-      } catch {}
-      bootstrapLayerMapIfEmpty();
-      if(!syncDropdownsFromCachedPalette()){
-        try {
-          console.log('[LinkButtonsPlus] Palette broadcast received – waiting for dropdowns to mount');
-        } catch {}
-      }
-    };
-
-    window.addEventListener('shopguide:sub-layers-updated', broadcastHandler);
-
     const onDomReady = () => {
       if(Object.keys(window.__lbpPalette).length){
         if(!syncDropdownsFromCachedPalette()){
           try {
-            console.log('[LinkButtonsPlus] DOM ready – cached readable palette available but dropdowns not rendered yet');
+            console.log('[LinkButtonsPlus] DOM ready – cached palette available but dropdowns not rendered yet');
           } catch {}
         }
       }
     };
+
+    refreshPaletteFromConfig('loaded');
 
     if(window.document?.readyState === 'loading'){
       window.document.addEventListener('DOMContentLoaded', onDomReady, { once: true });
@@ -613,9 +774,11 @@
       onDomReady();
     }
 
-    try {
-      console.log('[LinkButtonsPlus] Readable layer subscriber initialized');
-    } catch {}
+    if(!window.__lbpPalettePoller){
+      window.__lbpPalettePoller = window.setInterval(() => {
+        refreshPaletteFromConfig('refreshed');
+      }, 10000);
+    }
   })();
 
   function buildDropdownFromResolvedLayers(select){
@@ -632,12 +795,14 @@
       if(!resolved || !resolved.color) continue;
       const option = window.document.createElement('option');
       const value = sanitizeId(resolved.name) || `unter-layer-${i}`;
-      const label = resolved.title && resolved.title.trim()
-        ? resolved.title.trim()
-        : buildReadableTitle(value, resolved.index || i);
+      const label = resolved.displayName && resolved.displayName.trim()
+        ? resolved.displayName.trim()
+        : (resolved.title && resolved.title.trim()
+          ? resolved.title.trim()
+          : buildReadableTitle(value, resolved.index || i));
       const color = resolved.color;
       const targetIndex = Number.isFinite(resolved.index) && resolved.index > 0 ? resolved.index : i;
-      const textColor = ensureCssVarForIndex(targetIndex, color);
+      const textColor = ensureCssVarForIndex(targetIndex, color, resolved.textColor);
       option.value = value;
       option.textContent = `${label} (${color})`;
       option.style.background = color;
@@ -646,6 +811,12 @@
         option.dataset.layerIndex = String(resolved.index);
       } else {
         option.dataset.layerIndex = String(i);
+      }
+      if(resolved.group){
+        option.dataset.layerGroup = resolved.group;
+      }
+      if(resolved.borderColor){
+        option.dataset.layerBorder = resolved.borderColor;
       }
       select.appendChild(option);
     }
@@ -2325,6 +2496,7 @@
     let colorPanel = null;
     let pendingLayerRefresh = null;
     let pendingLayerRefreshIsTimeout = false;
+    let unsubscribePalette = null;
 
     function getSelectionSnapshot(){
       const snapshot = {};
@@ -2531,7 +2703,7 @@
     const layerBroadcastHandler = () => {
       scheduleLayerRefresh();
     };
-    window.addEventListener('shopguide:sub-layers-updated', layerBroadcastHandler);
+    unsubscribePalette = onPaletteUpdated(layerBroadcastHandler);
 
     function createColorPanel(rootEl, hostContent, containerEl){
       if(!containerEl) return null;
@@ -3530,7 +3702,14 @@
           colorPanel = null;
         }
         cancelPendingLayerRefresh();
-        window.removeEventListener('shopguide:sub-layers-updated', layerBroadcastHandler);
+        if(unsubscribePalette){
+          try {
+            unsubscribePalette();
+          } catch (err) {
+            console.error('[LinkButtonsPlus] Failed to unsubscribe palette listener:', err);
+          }
+          unsubscribePalette = null;
+        }
         closeModuleSettingsModal({ restoreFocus:false, persist:false });
         document.removeEventListener('keydown', handleKeydown, true);
         if(window.openModuleSettingsModal === bridgeOpenModuleSettingsModal){
@@ -3547,71 +3726,5 @@
     });
     mo.observe(document.body, { childList:true, subtree:true });
 
-    /* === Layer Sync Integration (v3.6.1) ===
-       Wartet auf globale Farb-Updates und synchronisiert die Modulfarben
-       zuverlässig nach dem nächsten Frame, damit getComputedStyle() korrekte
-       Werte der globalen --module-layer-* Variablen erhält. */
-    (function setupLayerSync() {
-      const SYNC_EVENT = "shopguide:sub-layers-updated";
-      let frameHandle = null;
-
-      const handleLayerUpdate = () => {
-        if (frameHandle) cancelAnimationFrame(frameHandle);
-        frameHandle = requestAnimationFrame(() => {
-          console.log("[LayerSync] Detected global sub-layer update — refreshing LinkButtons Plus colors");
-          const root = document.documentElement;
-
-          try {
-            console.log("[LayerSync] Forcing CSS variable sync on global update");
-
-            // Load stored color config (used by LinkButtons Plus)
-            const storedColors = JSON.parse(localStorage.getItem("linkbuttonsplus-colors-v1") || "{}");
-            const layers = storedColors?.layers || storedColors;
-
-            if (layers && typeof layers === "object") {
-              Object.entries(layers).forEach(([key, value]) => {
-                if (!value || typeof value !== "string") return;
-
-                // Apply background colors for module + header
-                root.style.setProperty(`--module-layer-${key}-module-bg`, value);
-                root.style.setProperty(`--module-layer-${key}-header-bg`, value);
-
-                // Derive a readable text color based on HSLA lightness
-                const lightnessMatch = value.match(/(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%/);
-                const lightness = lightnessMatch ? parseFloat(lightnessMatch[3]) : 50;
-                const textColor = lightness > 55 ? "#0f172a" : "#f8fafc";
-
-                root.style.setProperty(`--module-layer-${key}-module-text`, textColor);
-                root.style.setProperty(`--module-layer-${key}-header-text`, textColor);
-
-                console.log(`[LayerSync] Applied ${key} → ${value}`);
-              });
-
-              console.log("[LayerSync] CSS variables updated successfully");
-            } else {
-              console.warn("[LayerSync] No valid stored layer colors found");
-            }
-          } catch (err) {
-            console.error("[LayerSync] Failed to apply CSS vars on update:", err);
-          }
-          try {
-            applySelectedColors();
-          } catch (err) {
-            console.warn("[LayerSync] applySelectedColors() failed:", err);
-          }
-          frameHandle = null;
-        });
-      };
-
-      // Reagiere auf Shopguide-Events
-      window.addEventListener(SYNC_EVENT, handleLayerUpdate, false);
-
-      // Erster Initial-Sync nach dem Laden
-      if (document.readyState === "complete") {
-        requestAnimationFrame(handleLayerUpdate);
-      } else {
-        window.addEventListener("load", () => requestAnimationFrame(handleLayerUpdate), { once: true });
-      }
-    })();
   };
 })();
