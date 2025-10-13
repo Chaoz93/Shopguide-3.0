@@ -877,35 +877,120 @@
     def.textContent = 'Standard (App)';
     select.appendChild(def);
 
-    for(let i = 1; i <= 15; i += 1){
-      const resolved = resolveLayerColor(i);
-      if(!resolved || !resolved.color) continue;
-      const option = window.document.createElement('option');
-      const value = sanitizeId(resolved.name) || `unter-layer-${i}`;
-      const label = resolved.displayName && resolved.displayName.trim()
-        ? resolved.displayName.trim()
-        : (resolved.title && resolved.title.trim()
-          ? resolved.title.trim()
-          : buildReadableTitle(value, resolved.index || i));
-      const color = resolved.color;
-      const targetIndex = Number.isFinite(resolved.index) && resolved.index > 0 ? resolved.index : i;
-      const textColor = ensureCssVarForIndex(targetIndex, color, resolved.textColor);
-      option.value = value;
-      option.textContent = `${label} (${color})`;
-      option.style.background = color;
-      option.style.color = textColor;
-      if(Number.isFinite(resolved.index)){
-        option.dataset.layerIndex = String(resolved.index);
-      } else {
-        option.dataset.layerIndex = String(i);
+    const palette = (typeof window !== 'undefined' && window.__lbpPalette && typeof window.__lbpPalette === 'object')
+      ? window.__lbpPalette
+      : null;
+
+    const normalizeColorString = (...candidates) => {
+      for(const candidate of candidates){
+        if(typeof candidate === 'string'){
+          const trimmed = candidate.trim();
+          if(trimmed) return trimmed;
+        }
       }
-      if(resolved.group){
-        option.dataset.layerGroup = resolved.group;
+      return '';
+    };
+
+    let builtCount = 0;
+    const seen = new Set();
+    if(palette){
+      const entries = Object.values(palette)
+        .filter(entry => entry && typeof entry === 'object')
+        .sort((a, b) => {
+          const orderA = Number.isFinite(a?.order) ? a.order : 0;
+          const orderB = Number.isFinite(b?.order) ? b.order : 0;
+          if(orderA !== orderB) return orderA - orderB;
+          const indexA = Number.isFinite(a?.index) ? a.index : 0;
+          const indexB = Number.isFinite(b?.index) ? b.index : 0;
+          if(indexA !== indexB) return indexA - indexB;
+          const nameA = (a?.displayName || a?.title || a?.name || '').toString().toLowerCase();
+          const nameB = (b?.displayName || b?.title || b?.name || '').toString().toLowerCase();
+          if(nameA && nameB){
+            return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+          }
+          if(nameA) return -1;
+          if(nameB) return 1;
+          return 0;
+        });
+
+      entries.forEach((entry, idx) => {
+        const id = sanitizeId(entry?.name) || sanitizeId(entry?.id) || '';
+        if(!id || seen.has(id)) return;
+        seen.add(id);
+        const option = window.document.createElement('option');
+        const labelSource = entry?.displayName || entry?.title || entry?.name || `Layer ${idx + 1}`;
+        const label = typeof labelSource === 'string' && labelSource.trim()
+          ? labelSource.trim()
+          : `Layer ${idx + 1}`;
+        const swatch = normalizeColorString(entry?.swatch, entry?.color, entry?.moduleBg, entry?.background, entry?.bg, entry?.hsla);
+        const preferredText = normalizeColorString(entry?.textColor, entry?.moduleText, entry?.text, entry?.headerText);
+        const explicitIndex = Number.isFinite(entry?.index) && entry.index > 0 ? Math.floor(entry.index) : null;
+        option.value = id;
+        option.textContent = swatch ? `${label} (${swatch})` : label;
+        if(explicitIndex){
+          option.dataset.layerIndex = String(explicitIndex);
+        }
+        if(typeof entry?.group === 'string' && entry.group.trim()){
+          option.dataset.layerGroup = entry.group.trim();
+        }
+        if(typeof entry?.borderColor === 'string' && entry.borderColor.trim()){
+          option.dataset.layerBorder = entry.borderColor.trim();
+        }
+        if(swatch){
+          option.style.background = swatch;
+        }
+        let textColor = preferredText;
+        if(explicitIndex && swatch){
+          textColor = ensureCssVarForIndex(explicitIndex, swatch, preferredText);
+        }
+        if(textColor){
+          option.style.color = textColor;
+        }
+        option.style.padding = '4px 8px';
+        option.style.borderRadius = '4px';
+        select.appendChild(option);
+        builtCount += 1;
+      });
+    }
+
+    if(!builtCount){
+      for(let i = 1; i <= 15; i += 1){
+        const resolved = resolveLayerColor(i);
+        if(!resolved || !resolved.color) continue;
+        const option = window.document.createElement('option');
+        const value = sanitizeId(resolved.name) || `unter-layer-${i}`;
+        const label = resolved.displayName && resolved.displayName.trim()
+          ? resolved.displayName.trim()
+          : (resolved.title && resolved.title.trim()
+            ? resolved.title.trim()
+            : buildReadableTitle(value, resolved.index || i));
+        const color = normalizeColorString(resolved.color);
+        const targetIndex = Number.isFinite(resolved.index) && resolved.index > 0 ? resolved.index : i;
+        const textColor = ensureCssVarForIndex(targetIndex, color, resolved.textColor);
+        option.value = value;
+        option.textContent = color ? `${label} (${color})` : label;
+        if(color){
+          option.style.background = color;
+        }
+        if(textColor){
+          option.style.color = textColor;
+        }
+        option.style.padding = '4px 8px';
+        option.style.borderRadius = '4px';
+        if(Number.isFinite(resolved.index)){
+          option.dataset.layerIndex = String(resolved.index);
+        } else {
+          option.dataset.layerIndex = String(i);
+        }
+        if(resolved.group){
+          option.dataset.layerGroup = resolved.group;
+        }
+        if(resolved.borderColor){
+          option.dataset.layerBorder = resolved.borderColor;
+        }
+        select.appendChild(option);
+        builtCount += 1;
       }
-      if(resolved.borderColor){
-        option.dataset.layerBorder = resolved.borderColor;
-      }
-      select.appendChild(option);
     }
 
     const desired = dropdownValueForSelection(previousValue);
@@ -913,8 +998,12 @@
     if(select.value !== desired){
       select.value = DROPDOWN_DEFAULT_VALUE;
     }
-    console.log('[LinkButtonsPlus] Dropdown rebuilt with readable palette');
-    return true;
+    if(builtCount){
+      console.log(`[LinkButtonsPlus] Dropdown rebuilt with ${builtCount} palette option${builtCount === 1 ? '' : 's'}`);
+    } else {
+      console.log('[LinkButtonsPlus] Dropdown rebuilt without palette entries');
+    }
+    return builtCount > 0;
   }
 
   function syncDropdownsFromResolvedLayers(){
