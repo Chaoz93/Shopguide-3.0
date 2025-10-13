@@ -204,29 +204,53 @@
   (function preInitLayerColorSync() {
     try {
       const root = document.documentElement;
+      const cs = getComputedStyle(root);
       const storedColors = JSON.parse(localStorage.getItem('linkbuttonsplus-colors-v1') || '{}');
       const layers = storedColors?.layers || storedColors;
 
-      if (layers && typeof layers === 'object' && Object.keys(layers).length > 0) {
-        console.log('[LayerSync] Pre-Init: applying stored layer colors...');
-        Object.entries(layers).forEach(([key, value]) => {
-          if (!value || typeof value !== 'string') return;
-
-          root.style.setProperty(`--module-layer-${key}-module-bg`, value);
-          root.style.setProperty(`--module-layer-${key}-header-bg`, value);
-
-          const match = value.match(/(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%/);
-          const lightness = match ? parseFloat(match[3]) : 50;
-          const textColor = lightness > 55 ? '#0f172a' : '#f8fafc';
-          root.style.setProperty(`--module-layer-${key}-module-text`, textColor);
-          root.style.setProperty(`--module-layer-${key}-header-text`, textColor);
-        });
-        console.log('[LayerSync] Pre-Init layer colors applied successfully');
-      } else {
-        console.log('[LayerSync] Pre-Init: no stored colors found in localStorage');
+      if (!layers || typeof layers !== 'object') {
+        console.log('[LayerSync] No stored named layers to apply (safe mode)');
+        return;
       }
+
+      const idxFromName = (name) => {
+        const match = String(name).match(/(\d+)\s*$/);
+        if (!match) return null;
+        return Math.max(1, Math.min(15, parseInt(match[1], 10)));
+      };
+
+      Object.entries(layers).forEach(([name, hsla]) => {
+        if (typeof hsla !== 'string' || !hsla.includes('hsl')) return;
+        const idx = idxFromName(name);
+        if (!idx) {
+          console.log('[LayerSync] Skip non-indexed layer name:', name);
+          return;
+        }
+
+        const bgKey = `--module-layer-${idx}-module-bg`;
+        const current = cs.getPropertyValue(bgKey).trim();
+        const isDefault = !current || /^hsla?\(\s*0\s*,\s*0%?\s*,\s*100%/i.test(current);
+
+        if (!isDefault) {
+          console.log(`[LayerSync] Kept existing index ${idx} (already set): ${current}`);
+          return;
+        }
+
+        root.style.setProperty(bgKey, hsla);
+        root.style.setProperty(`--module-layer-${idx}-header-bg`, hsla);
+
+        const lightnessMatch = hsla.match(/\(\s*\d+\s*,\s*\d+%?\s*,\s*(\d+)%/);
+        const lightness = lightnessMatch ? parseFloat(lightnessMatch[1]) : 50;
+        const textColor = lightness > 55 ? '#0f172a' : '#f8fafc';
+        root.style.setProperty(`--module-layer-${idx}-module-text`, textColor);
+        root.style.setProperty(`--module-layer-${idx}-header-text`, textColor);
+
+        console.log(`[LayerSync] Applied layer ${name} -> index ${idx}: ${hsla}`);
+      });
+
+      console.log('[LayerSync] Safe layer apply completed (no blanket overrides).');
     } catch (err) {
-      console.error('[LayerSync] Pre-Init color sync failed:', err);
+      console.error('[LayerSync] Safe layer apply failed:', err);
     }
   })();
 
