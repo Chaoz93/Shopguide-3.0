@@ -5540,10 +5540,57 @@ function bindLayerColorSync() {
   const manager = document.querySelector('.module-layer-manager');
   const layersContainer = document.getElementById('module-color-layers');
   const docEl = document.documentElement;
-  if (!manager || !layersContainer || !docEl) return;
+  if (!docEl) return;
 
   const style = docEl.style;
   const lastValues = new Map();
+  let lastBroadcastSignature = '';
+
+  const publishGlobalPresetLayers = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const globalPreset =
+        window.__activeLayerPreset ||
+        (window.__layerManager && window.__layerManager.current) ||
+        (window.__layerPresets && window.__layerPresets.Standard) ||
+        null;
+
+      if (!globalPreset) {
+        console.warn('[ShopguideV3] No global preset found – using fallback.');
+        return;
+      }
+
+      const readableLayers = {};
+      Object.entries(globalPreset).forEach(([key, value]) => {
+        if (value && typeof value === 'object' && value.hsla) {
+          readableLayers[key] = {
+            name: key,
+            title: value.title || key,
+            color: value.hsla
+          };
+        }
+      });
+
+      const serialized = JSON.stringify(readableLayers);
+      if (serialized === lastBroadcastSignature) {
+        return;
+      }
+      lastBroadcastSignature = serialized;
+
+      window.dispatchEvent(new CustomEvent('shopguide:sub-layers-updated', {
+        detail: { layers: readableLayers, source: 'GlobalPreset' }
+      }));
+
+      console.log('[ShopguideV3] Published global preset layers:', readableLayers);
+    } catch (err) {
+      console.error('[ShopguideV3] Failed to publish global preset:', err);
+    }
+  };
+
+  if (!manager || !layersContainer) {
+    publishGlobalPresetLayers();
+    return;
+  }
 
   const getSubgroups = () => Array.from(manager.querySelectorAll('.module-layer-subgroup'));
 
@@ -5609,6 +5656,8 @@ function bindLayerColorSync() {
         lastValues.delete(layerId);
       }
     });
+
+    publishGlobalPresetLayers();
   };
 
   manager.addEventListener('input', event => {
