@@ -518,10 +518,11 @@
           ? subEl.dataset.subLayerVar.trim()
           : '';
         subLayers.push({
+          index: subIndex + 1,
           name: subName,
           displayName: subName,
           label: subName,
-          variableId: sanitizeId(subVar)
+          variableId: sanitizeId(subVar) || ''
         });
       });
 
@@ -1190,7 +1191,119 @@
       });
     });
 
-    return merged.map(layer => ensureLayerSwatch(layer));
+    const domLayers = Array.isArray(domLayerData?.layers) ? domLayerData.layers : [];
+    const mergedWithDom = applyDomLayerMetadata(merged, domLayers);
+
+    return mergedWithDom.map(layer => ensureLayerSwatch(layer));
+  }
+
+  function applyDomLayerMetadata(layers, domLayers){
+    if(!Array.isArray(layers) || !layers.length) return layers;
+    if(!Array.isArray(domLayers) || !domLayers.length) return layers;
+
+    const lookupById = new Map();
+    const lookupByIndex = new Map();
+
+    domLayers.forEach((domLayer, idx) => {
+      if(!domLayer || typeof domLayer !== 'object') return;
+      const domIndexRaw = Number.isFinite(domLayer.index) ? domLayer.index : Number(domLayer.index);
+      const domIndex = Number.isFinite(domIndexRaw) ? domIndexRaw : idx + 1;
+      if(Number.isFinite(domIndex)) lookupByIndex.set(domIndex, domLayer);
+      const domId = sanitizeId(domLayer.id) || sanitizeId(domLayer.variableId);
+      if(domId) lookupById.set(domId, domLayer);
+    });
+
+    if(!lookupById.size && !lookupByIndex.size) return layers;
+
+    const resolveDomName = (input) => {
+      if(!input || typeof input !== 'object') return '';
+      const candidates = [input.displayName, input.label, input.name];
+      for(const candidate of candidates){
+        if(typeof candidate === 'string'){
+          const trimmed = candidate.trim();
+          if(trimmed) return trimmed;
+        }
+      }
+      return '';
+    };
+
+    const resolveDomSubLayer = (layer, index) => {
+      if(!layer || typeof layer !== 'object') return null;
+      const subs = Array.isArray(layer.subLayers) ? layer.subLayers : [];
+      if(!subs.length) return null;
+      if(Number.isFinite(index) && index > 0){
+        const found = subs.find(sub => {
+          const subIndexRaw = Number.isFinite(sub.index) ? sub.index : Number(sub.index);
+          return Number.isFinite(subIndexRaw) && subIndexRaw === index;
+        });
+        if(found) return found;
+      }
+      return subs[index - 1] || null;
+    };
+
+    return layers.map(layer => {
+      if(!layer || typeof layer !== 'object') return layer;
+
+      const idCandidates = [sanitizeId(layer.id), sanitizeId(layer.variableId)]
+        .filter(candidate => typeof candidate === 'string' && candidate);
+      let domLayer = null;
+      for(const candidate of idCandidates){
+        domLayer = lookupById.get(candidate);
+        if(domLayer) break;
+      }
+
+      if(!domLayer){
+        const numericIndex = Number.isFinite(layer.index)
+          ? layer.index
+          : (() => {
+              const parsed = Number(layer.index);
+              return Number.isFinite(parsed) ? parsed : null;
+            })();
+        if(Number.isFinite(numericIndex)){
+          domLayer = lookupByIndex.get(numericIndex) || null;
+        }
+      }
+
+      if(!domLayer) return layer;
+
+      let updated = layer;
+      const domName = resolveDomName(domLayer);
+      if(domName && domName !== layer.displayName){
+        updated = {
+          ...updated,
+          name: domName,
+          displayName: domName,
+          label: domName
+        };
+      }
+
+      const existingSubs = Array.isArray(updated.subLayers) ? updated.subLayers : [];
+      if(existingSubs.length){
+        const nextSubs = existingSubs.map((subLayer, subIdx) => {
+          if(!subLayer || typeof subLayer !== 'object') return subLayer;
+          const domSub = resolveDomSubLayer(domLayer, subIdx + 1);
+          if(!domSub) return subLayer;
+          const domSubName = resolveDomName(domSub);
+          if(!domSubName || domSubName === subLayer.name) return subLayer;
+          return { ...subLayer, name: domSubName };
+        });
+        let changed = false;
+        for(let i = 0; i < existingSubs.length; i += 1){
+          if(existingSubs[i] !== nextSubs[i]){
+            changed = true;
+            break;
+          }
+        }
+        if(changed){
+          updated = {
+            ...updated,
+            subLayers: nextSubs
+          };
+        }
+      }
+
+      return updated;
+    });
   }
 
   function findLayerById(layers, id){
