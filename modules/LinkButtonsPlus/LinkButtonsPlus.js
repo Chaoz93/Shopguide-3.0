@@ -2898,6 +2898,41 @@
         if (frameHandle) cancelAnimationFrame(frameHandle);
         frameHandle = requestAnimationFrame(() => {
           console.log("[LayerSync] Detected global sub-layer update — refreshing LinkButtons Plus colors");
+          const root = document.documentElement;
+
+          try {
+            console.log("[LayerSync] Forcing CSS variable sync on global update");
+
+            // Load stored color config (used by LinkButtons Plus)
+            const storedColors = JSON.parse(localStorage.getItem("linkbuttonsplus-colors-v1") || "{}");
+            const layers = storedColors?.layers || storedColors;
+
+            if (layers && typeof layers === "object") {
+              Object.entries(layers).forEach(([key, value]) => {
+                if (!value || typeof value !== "string") return;
+
+                // Apply background colors for module + header
+                root.style.setProperty(`--module-layer-${key}-module-bg`, value);
+                root.style.setProperty(`--module-layer-${key}-header-bg`, value);
+
+                // Derive a readable text color based on HSLA lightness
+                const lightnessMatch = value.match(/(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%/);
+                const lightness = lightnessMatch ? parseFloat(lightnessMatch[3]) : 50;
+                const textColor = lightness > 55 ? "#0f172a" : "#f8fafc";
+
+                root.style.setProperty(`--module-layer-${key}-module-text`, textColor);
+                root.style.setProperty(`--module-layer-${key}-header-text`, textColor);
+
+                console.log(`[LayerSync] Applied ${key} → ${value}`);
+              });
+
+              console.log("[LayerSync] CSS variables updated successfully");
+            } else {
+              console.warn("[LayerSync] No valid stored layer colors found");
+            }
+          } catch (err) {
+            console.error("[LayerSync] Failed to apply CSS vars on update:", err);
+          }
           try {
             applySelectedColors();
           } catch (err) {
