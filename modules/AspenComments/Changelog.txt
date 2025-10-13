@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.2] – 2025-10-13
+### Changed
+- Kontextmenü in ein vollwertiges Modal mit Aktionen für Aspen- und Kommentar-Dateien überführt, inklusive Header, Sektionen und
+  klarer Button-Gruppierung.
+
 ## [1.2.1] – 2025-10-02
 ### Changed
 - Ausgewählte Kommentar- und Aspen-Dateien behalten nun ihren vollständigen Namen inklusive Unterordnerpfad und werden nach dem Laden in Status und Tooltips angezeigt.

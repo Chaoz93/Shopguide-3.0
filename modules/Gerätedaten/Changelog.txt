@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.6.1] – 2025-10-13
+### Fixed
+- Automatisch ergänztes Standardfeld für „KV-Stunden“ entfernt, sodass nur noch explizit konfigurierte Zusatzfelder geladen werd
+  en.
+
 ## [1.5.1] – 2025-10-02
 ### Fixed
 - Standardfeld-Erkennung nutzt nun eine erweiterte Kandidatenliste, sodass hinterlegte Basisfelder wieder korrekt mit Aspen-Spalten abgeglichen werden.
