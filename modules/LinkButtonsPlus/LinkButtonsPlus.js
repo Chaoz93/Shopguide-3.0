@@ -271,6 +271,122 @@
     return (typeof value === 'string' && value.trim()) || '';
   }
 
+  function getRootComputedStyle(){
+    if(typeof window === 'undefined' || !window.document || !window.document.documentElement){
+      return null;
+    }
+    try {
+      return getComputedStyle(window.document.documentElement);
+    } catch {
+      return null;
+    }
+  }
+
+  function resolveCssVariableValue(style, value, seen = new Set()){
+    if(!style || typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    if(!trimmed) return '';
+    const match = trimmed.match(/^var\((--[^,\s)]+)(?:,([^)]*))?\)$/);
+    if(!match) return trimmed;
+    const name = match[1];
+    if(seen.has(name)) return '';
+    seen.add(name);
+    const replacement = style.getPropertyValue(name);
+    if(typeof replacement === 'string' && replacement.trim()){
+      return resolveCssVariableValue(style, replacement, seen);
+    }
+    const fallback = typeof match[2] === 'string' ? match[2].trim() : '';
+    if(fallback){
+      return resolveCssVariableValue(style, fallback, seen);
+    }
+    return '';
+  }
+
+  function readCssCustomProperty(style, property){
+    if(!style || typeof property !== 'string' || !property) return '';
+    let value = '';
+    try {
+      value = style.getPropertyValue(property);
+    } catch {
+      value = '';
+    }
+    if(typeof value !== 'string' || !value.trim()) return '';
+    return resolveCssVariableValue(style, value);
+  }
+
+  function resolveLayerIndex(layer){
+    if(!layer || typeof layer !== 'object') return null;
+    if(Number.isFinite(layer.index) && layer.index > 0){
+      return Math.floor(layer.index);
+    }
+    const candidates = [layer.variableId, layer.id];
+    for(const candidate of candidates){
+      const normalized = sanitizeId(candidate);
+      if(!normalized) continue;
+      const match = normalized.match(/layer-?(\d+)/i);
+      if(match){
+        const parsed = parseInt(match[1], 10);
+        if(Number.isFinite(parsed) && parsed > 0){
+          return parsed;
+        }
+      }
+    }
+    return null;
+  }
+
+  function getCssColorsForLayer(index, area = 'main'){
+    if(!Number.isFinite(index) || index <= 0) return { bg:'', text:'', border:'' };
+    const style = getRootComputedStyle();
+    if(!style) return { bg:'', text:'', border:'' };
+    const safeIndex = Math.floor(index);
+    const basePrefix = `--module-layer-${safeIndex}`;
+    const areaPrefixes = [];
+    if(area === 'header'){
+      areaPrefixes.push(`${basePrefix}-header`);
+    } else if(area === 'buttons'){
+      areaPrefixes.push(`${basePrefix}-sub-1`);
+      areaPrefixes.push(`${basePrefix}-buttons`);
+    } else {
+      areaPrefixes.push(`${basePrefix}-module`);
+    }
+    areaPrefixes.push(basePrefix);
+
+    const readFromPrefixes = (suffix) => {
+      for(const prefix of areaPrefixes){
+        if(!prefix) continue;
+        const value = readCssCustomProperty(style, `${prefix}-${suffix}`);
+        if(value) return value.trim();
+      }
+      return '';
+    };
+
+    return {
+      bg: readFromPrefixes('bg'),
+      text: readFromPrefixes('text'),
+      border: readFromPrefixes('border')
+    };
+  }
+
+  function mergeLiveCssColors(layer, colors, area = 'main'){
+    const base = (colors && typeof colors === 'object')
+      ? { bg: colors.bg || '', text: colors.text || '', border: colors.border || '' }
+      : { bg:'', text:'', border:'' };
+    const index = resolveLayerIndex(layer);
+    if(!index) return base;
+    const live = getCssColorsForLayer(index, area);
+    if(!live) return base;
+    const shouldReplace = (value) => {
+      if(!value) return true;
+      const trimmed = value.trim();
+      if(!trimmed) return true;
+      return trimmed.startsWith('var(');
+    };
+    if(live.bg && shouldReplace(base.bg)) base.bg = live.bg;
+    if(live.text && shouldReplace(base.text)) base.text = live.text;
+    if(live.border && shouldReplace(base.border)) base.border = live.border;
+    return base;
+  }
+
   function setCssVar(el, name, value){
     if(!el || !name) return;
     const trimmed = typeof value === 'string' ? value.trim() : '';
@@ -1967,6 +2083,7 @@
         if(area === 'header') colors = deriveHeaderColors(layer);
         else if(area === 'buttons') colors = deriveButtonColors(layer);
         else colors = deriveMainColors(layer);
+        colors = mergeLiveCssColors(layer, colors, area);
         if(colors?.bg && colors?.text){
           return `${name} (${colors.bg} · ${colors.text})`;
         }
@@ -1987,9 +2104,10 @@
         if(area === 'header') colors = deriveHeaderColors(layer);
         else if(area === 'buttons') colors = deriveButtonColors(layer);
         else colors = deriveMainColors(layer);
+        const merged = mergeLiveCssColors(layer, colors, area);
         return {
-          bg: colors?.bg || '',
-          text: colors?.text || ''
+          bg: merged?.bg || '',
+          text: merged?.text || ''
         };
       }
 
