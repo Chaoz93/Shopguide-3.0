@@ -16,10 +16,15 @@
   .rs-aspen-status{display:none;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;line-height:1;margin-left:.35rem;transition:background .2s,color .2s}
   .rs-aspen-status.ok{display:inline-flex;background:rgba(16,185,129,.18);color:#10b981}
   .rs-aspen-status.warn{display:inline-flex;background:rgba(234,179,8,.18);color:#ca8a04}
-  .rs-aspen-refresh{margin-left:auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text);cursor:pointer}
+  .rs-aspen-refresh{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text);cursor:pointer}
   .rs-aspen-refresh:hover{background:rgba(255,255,255,.12)}
   .rs-aspen-refresh:active{transform:scale(.96)}
   .rs-aspen-refresh:disabled{opacity:.45;cursor:default;transform:none}
+  .rs-custom-buttons{margin-left:auto;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+  .rs-custom-button{border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text);padding:.3rem .55rem;border-radius:.45rem;font-weight:600;cursor:pointer;transition:background .2s ease,color .2s ease,transform .1s ease}
+  .rs-custom-button:hover{background:rgba(255,255,255,.14)}
+  .rs-custom-button:active{transform:scale(.97)}
+  .rs-custom-button:disabled{opacity:.45;cursor:default;transform:none}
   .rs-aspen-hint{font-size:.8rem;opacity:.7;margin-bottom:.45rem;color:var(--text-color)}
   .rs-grid{display:grid;gap:.9rem}
   .rs-field{display:flex;flex-direction:column;gap:.35rem}
@@ -73,6 +78,31 @@
   .rs-color-foot{margin-top:.45rem;font-size:.78rem;opacity:.75;color:var(--text-color)}
   .rs-color-reload{margin-top:.5rem;background:transparent;border:1px solid var(--module-border-color);color:var(--text-color);border-radius:.6rem;padding:.3rem .65rem;cursor:pointer;font-size:.78rem;font-weight:600;display:inline-flex;align-items:center;gap:.3rem}
   .rs-color-reload:hover{background:var(--module-header-bg);color:var(--module-header-text)}
+  .rs-root.rs-module-blur{filter:blur(6px);opacity:.6;pointer-events:none;user-select:none;transition:filter .2s ease,opacity .2s ease}
+  .rs-modal{position:fixed;inset:0;display:none;align-items:center;justify-items:center;padding:2rem;background:rgba(15,23,42,.45);backdrop-filter:blur(10px);z-index:70}
+  .rs-modal-panel{background:#fff;color:#111827;width:min(94vw,960px);max-height:90vh;overflow:auto;border-radius:1rem;padding:1.25rem 1.5rem;box-shadow:0 24px 60px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem}
+  .rs-modal-panel .db-field{margin-top:0!important}
+  .rs-button-editor{display:flex;flex-direction:column;gap:.6rem}
+  .rs-button-actions{display:flex;justify-content:flex-end}
+  .rs-button-add{border-radius:.5rem;padding:.32rem .7rem;background:var(--rs-button-bg);color:var(--rs-button-text);border:1px solid var(--rs-button-border);cursor:pointer;font-weight:600}
+  .rs-button-add:hover{opacity:.92}
+  .rs-button-list{display:flex;flex-direction:column;gap:.6rem}
+  .rs-button-item{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr)) auto;gap:.6rem;align-items:end;background:#f8fafc;border:1px solid #cbd5f5;padding:.8rem;border-radius:.75rem;box-shadow:0 16px 36px rgba(15,23,42,.18);color:#0f172a}
+  .rs-button-item:hover{border-color:#94a3ff;box-shadow:0 18px 42px rgba(30,64,175,.22)}
+  .rs-button-item input,.rs-button-item select{background:#fff;border:1px solid #d1d5f9;color:#0f172a;box-shadow:0 10px 24px rgba(15,23,42,.12);padding:.35rem .55rem;border-radius:.55rem}
+  .rs-button-item select{appearance:none}
+  .rs-button-item input:focus,.rs-button-item select:focus{outline:2px solid #2563eb;outline-offset:2px;border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.18)}
+  .rs-button-item label{color:#1f2937;font-weight:600}
+  .rs-button-item .rs-inline-input{background:#fff;border:1px solid #d1d5f9;color:#0f172a}
+  .rs-button-field{display:flex;flex-direction:column;gap:.25rem;font-size:.78rem}
+  .rs-button-field label{font-weight:600;opacity:.8}
+  .rs-button-field input,.rs-button-field select{padding:.3rem .45rem;border-radius:.4rem;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text)}
+  .rs-button-field select{cursor:pointer}
+  .rs-button-remove{align-self:center;border:none;background:transparent;color:#dc2626;font-size:1.1rem;font-weight:700;cursor:pointer}
+  .rs-button-remove:disabled{opacity:.5;cursor:default}
+  .rs-button-empty{font-size:.8rem;opacity:.7}
+  .rs-button-select-missing{border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.25)}
+  .rs-button-item select.rs-button-select-missing{background:#fef2f2;color:#991b1b}
   `;
   (function inject(){
     let tag=document.getElementById('record-sheet-styles');
@@ -135,6 +165,10 @@
   function candidateValuesForField(field,{includeOriginal=true}={}){const seen=new Set();const add=value=>{const trimmed=String(value||'').trim();if(!trimmed)return;const lower=trimmed.toLowerCase();if(seen.has(lower))return;seen.add(lower);candidates.push(trimmed);};const candidates=[];if(includeOriginal)add(field?.originalKey);add(field?.key);add(field?.id);add(field?.label);const hints=DEFAULT_FIELD_SOURCE_HINTS[String(field?.key||'').trim().toLowerCase()];if(Array.isArray(hints))hints.forEach(add);return candidates;}
   function normalizeFieldEntry(raw,used){if(!raw||typeof raw!=='object')return null;const original=String(raw.originalKey??raw.sourceKey??raw.key??'').trim();const key=String(raw.key??original).trim().toLowerCase();const label=String(raw.label??'').trim()||defaultLabelForKey(original||key||'Feld');let id=String(raw.id??'').trim().toLowerCase();if(!id){id=key||generateFieldId(original||key||label,label,used);}if(!id){id=generateFieldId('feld',label,used);}if(used.has(id)){id=generateFieldId(key||original||id||label,label,used);}const group=inferGroup(key||original,raw);const enabled=raw.enabled!==false;const originalKey=original||key||id;return{id,key:key||id,label,enabled,group,originalKey};}
   function normalizeFields(list){const used=new Set();const out=[];(Array.isArray(list)?list:[]).forEach(raw=>{const field=normalizeFieldEntry(raw,used);if(field){used.add(field.id);out.push(field);}});return out;}
+  const DEFAULT_BUTTON_LABEL='Button';
+  function normalizeButtonEntry(raw,used){if(!raw||typeof raw!=='object')return null;const label=String(raw.label??'').trim();const column=String(raw.column??raw.source??raw.key??'').trim();const suffix=String(raw.suffix??'').trim();let id=String(raw.id??'').trim();const baseLabel=label||column||DEFAULT_BUTTON_LABEL;const slug=slugify(baseLabel||'button')||'button';if(!id){id=slug;}if(used.has(id)){let i=1;let candidate=`${slug}-${i}`;while(used.has(candidate)){i+=1;candidate=`${slug}-${i}`;}id=candidate;}used.add(id);return{id,label:label||DEFAULT_BUTTON_LABEL,column,suffix};}
+  function normalizeCustomButtons(list){const used=new Set();const result=[];(Array.isArray(list)?list:[]).forEach(raw=>{const entry=normalizeButtonEntry(raw,used);if(entry)result.push(entry);});return result;}
+  function serializeCustomButtons(list){return(Array.isArray(list)?list:[]).map(btn=>({id:btn.id,label:btn.label||'',column:btn.column||'',suffix:btn.suffix||''}));}
   function fieldsEqual(a,b){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++){const x=a[i],y=b[i];if(!x||!y)return false;if(x.id!==y.id||x.key!==y.key||x.label!==y.label||x.enabled!==y.enabled||(x.group||'')!==(y.group||'')||(x.originalKey||'')!==(y.originalKey||''))return false;}return true;}
   function validateLabel(label){const trimmed=String(label||'').trim();if(!trimmed)return'Label darf nicht leer sein.';if(trimmed.length>80)return'Label ist zu lang.';if(LABEL_BLOCKLIST.test(trimmed))return'Unerlaubte Zeichen im Label (#, <, >).';if(/[\x00-\x1F]/.test(trimmed))return'Unerlaubte Steuerzeichen im Label.';return'';}
   function tooltipForField(field){const lbl=field?.label||defaultLabelForKey(field?.originalKey||field?.key||'');const orig=field?.originalKey||field?.key||field?.id||'';const group=GROUP_LABELS[field?.group]||'Feld';return`${lbl} – ${orig} – (${group})`;}
@@ -253,6 +287,7 @@
           <div class="rs-actions">
             <span class="rs-inline-file"></span>
             <span class="rs-aspen-status" role="img" aria-live="polite"></span>
+            <div class="rs-custom-buttons" style="display:none"></div>
             <button type="button" class="rs-aspen-refresh" title="Aspen aktualisieren" aria-label="Aspen aktualisieren">↻</button>
           </div>
           <div class="rs-aspen-hint"></div>
@@ -260,8 +295,8 @@
           <div class="rs-note"></div>
         </div>
       </div>
-      <div class="db-modal rs-modal" style="position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.35);z-index:50;">
-        <div class="db-panel" style="background:#fff;color:#111827;width:min(92vw,720px);border-radius:.9rem;padding:1rem;">
+      <div class="db-modal rs-modal">
+        <div class="db-panel rs-modal-panel">
           <div class="db-row" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.5rem">
             <div class="font-semibold">Gerätedaten – Optionen</div>
             <button class="db-btn secondary rs-close" style="background:#eee;border-radius:.5rem;padding:.35rem .6rem">Schließen</button>
@@ -323,19 +358,28 @@
             </div>
           </div>
           <div class="db-field" style="margin-top:1rem;">
+            <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Zusätzliche Schaltflächen</label>
+            <div style="font-size:.78rem;opacity:.75;margin-bottom:.4rem;">Buttons kopieren Aspen-Werte und können einen eigenen Suffix anhängen.</div>
+            <div class="rs-button-editor">
+              <div class="rs-button-actions">
+                <button type="button" class="rs-button-add">➕ Button hinzufügen</button>
+              </div>
+              <div class="rs-button-empty">Noch keine Buttons angelegt.</div>
+              <div class="rs-button-list"></div>
+            </div>
+          </div>
+          <div class="db-field" style="margin-top:1rem;">
             <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Spalten</label>
             <input type="number" min="1" max="6" class="rs-cols" style="width:4rem;padding:.25rem .4rem;border:1px solid #ccc;border-radius:.25rem;" />
           </div>
         </div>
       </div>
     `;
-    const menu=document.createElement('div');
-    menu.className='db-menu';
-    menu.innerHTML=`<button class="mi mi-opt">⚙️ Optionen</button>`;
-    document.body.appendChild(menu);
     return {
+      rootEl:root.querySelector('.rs-root'),
       grid:root.querySelector('.rs-grid'),
       note:root.querySelector('.rs-note'),
+      customButtons:root.querySelector('.rs-custom-buttons'),
       modal:root.querySelector('.rs-modal'),
       mClose:root.querySelector('.rs-close'),
       head:root.querySelector('.rs-head'),
@@ -360,7 +404,9 @@
       mColorPreview:root.querySelector('[data-rs-color-preview]'),
       mColorSummary:root.querySelector('.rs-color-summary'),
       mColorReload:root.querySelector('.rs-color-reload'),
-      menu
+      mButtonList:root.querySelector('.rs-button-list'),
+      mButtonEmpty:root.querySelector('.rs-button-empty'),
+      mButtonAdd:root.querySelector('.rs-button-add')
     };
   }
 
@@ -484,11 +530,12 @@
         aspenFileName:raw.aspenFileName||'',
         fields,
         columns:raw.columns||defaultColumns,
-        colors:sanitizeColorSelection(raw.colors)
+        colors:sanitizeColorSelection(raw.colors),
+        customButtons:normalizeCustomButtons(raw.customButtons)
       };
     }
     function serializeFields(fields){return fields.map(f=>({id:f.id,key:f.key,label:f.label,enabled:!!f.enabled,group:f.group||'extra',originalKey:f.originalKey||f.key||f.id}));}
-    function saveCfg(current){const doc=loadDoc();doc.instances=doc.instances||{};doc.instances[instanceId]=doc.instances[instanceId]||{};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),columns:current.columns,colors:sanitizeColorSelection(current.colors)};saveDoc(doc);}
+    function saveCfg(current){const doc=loadDoc();doc.instances=doc.instances||{};doc.instances[instanceId]=doc.instances[instanceId]||{};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),columns:current.columns,colors:sanitizeColorSelection(current.colors),customButtons:serializeCustomButtons(current.customButtons)};saveDoc(doc);}
     function removeCfg(){const doc=loadDoc();if(doc?.instances?.[instanceId]){delete doc.instances[instanceId].recordSheet;if(!Object.keys(doc.instances[instanceId]).length)delete doc.instances[instanceId];saveDoc(doc);}}
 
     const setNote=s=>els.note.textContent=s||'';
@@ -526,9 +573,6 @@
     updateColorSelectValues();
     applyColorTheme();
     let aspenHandle=null;
-    els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
-    updateAspenDisplays();
-    els.head.style.display='none';
     let aspenHeaders=[];
     let aspenHeaderKeyMap=new Map();
     let aspenHeaderOriginalMap=new Map();
@@ -539,6 +583,12 @@
     let rules=[];
     let activeNewFieldEditor=null;
     let listSortable=null;
+    let fieldEls={};
+    let customButtonEls=new Map();
+    els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
+    updateAspenDisplays();
+    els.head.style.display='none';
+    renderCustomButtons();
     [
       {el:els.mColorModule,key:'module'},
       {el:els.mColorHeader,key:'header'},
@@ -563,6 +613,8 @@
     function rebuildAspenHeaderMaps(){aspenHeaderKeyMap=new Map();aspenHeaderOriginalMap=new Map();aspenHeaders.forEach(h=>{const originalLower=(h.original||'').toLowerCase();const keyLower=(h.key||'').toLowerCase();if(originalLower&&!aspenHeaderOriginalMap.has(originalLower)){aspenHeaderOriginalMap.set(originalLower,h);}if(keyLower&&!aspenHeaderKeyMap.has(keyLower)){aspenHeaderKeyMap.set(keyLower,h);}});}
 
     function resolveAspenColumn(field){if(!field)return'';const candidates=candidateValuesForField(field);for(const candidate of candidates){const lower=candidate.toLowerCase();const byOriginal=aspenHeaderOriginalMap.get(lower);if(byOriginal)return byOriginal.original;const byKey=aspenHeaderKeyMap.get(lower);if(byKey)return byKey.original;}return'';}
+
+    function getAspenColumnValue(row,column){if(!row)return'';const col=String(column||'').trim();if(!col)return'';if(Object.prototype.hasOwnProperty.call(row,col))return String(row[col]??'');const lower=col.toLowerCase();if(row.__lower&&Object.prototype.hasOwnProperty.call(row.__lower,lower))return String(row.__lower[lower]??'');const header=aspenHeaderOriginalMap.get(lower)||aspenHeaderKeyMap.get(lower);if(header&&header.original&&header.original!==col)return getAspenColumnValue(row,header.original);return'';}
 
     function getAspenValue(row,field){if(!row||!field)return'';const column=resolveAspenColumn(field);if(!column)return'';if(Object.prototype.hasOwnProperty.call(row,column))return String(row[column]||'');const lower=column.toLowerCase();if(row.__lower&&Object.prototype.hasOwnProperty.call(row.__lower,lower))return String(row.__lower[lower]||'');return'';}
 
@@ -623,6 +675,7 @@
       if(!hasHandle&&!hasFileName){
         setNote('');
       }
+      updateCustomButtonStates();
     }
     const copy=async val=>{try{await navigator.clipboard.writeText(val||'');setNote('Kopiert.');setTimeout(()=>setNote(''),800);}catch(err){setNote('Kopieren fehlgeschlagen');setDebugInfo('Clipboard-API nicht verfügbar.');console.warn('Clipboard copy failed',err);}};
 
@@ -644,6 +697,7 @@
         alignFieldSources();
         rebuildAspenHeaderMaps();
         updateAspenFieldList();
+        if(isModalOpen())renderCustomButtonEditor();
         refreshFromAspen();
         clearDebugInfo();
         setNote('Aspen aktualisiert.');
@@ -658,10 +712,15 @@
     if(els.mUndo)els.mUndo.addEventListener('click',undo);
     if(els.mRedo)els.mRedo.addEventListener('click',redo);
     if(els.mNewSearch)els.mNewSearch.addEventListener('input',()=>updateAspenFieldList());
+    if(els.mButtonAdd)els.mButtonAdd.addEventListener('click',()=>{const options=buildAspenColumnOptions();const primaryOption=options.find(opt=>!opt.missing)?.value||'';mutateCustomButtons(items=>{const next=[...items,{label:primaryOption||`Button ${items.length+1}`,column:primaryOption,suffix:''}];return next;});});
 
-    async function bindAspenHandle(handle){try{const ok=await ensureRPermission(handle);if(!ok){setNote('Berechtigung verweigert.');setDebugInfo('Aspen: Berechtigung verweigert.');return false;}aspenHandle=handle;await idbSet(cfg.aspenIdbKey,handle);cfg.aspenFileName=handle.name||'Aspen.xlsx';saveCfg(cfg);updateAspenDisplays();let success=false;try{const result=await readAspenFile(handle);aspenHeaders=result.headers||[];aspenData=result.rows||[];success=true;clearDebugInfo();}catch(err){console.warn('Aspen-Datei konnte nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setNote('Aspen-Daten konnten nicht gelesen werden.');setDebugInfo(`Aspen-Leseproblem: ${err?.message||err}`);}rebuildAspenHeaderMaps();if(success){alignFieldSources();setNote('Aspen-Datei geladen.');}refreshFromAspen();updateAspenFieldList();return true;}catch(err){console.warn('Aspen-Datei konnte nicht gebunden werden:',err);setNote('Aspen-Datei konnte nicht geladen werden.');setDebugInfo(`Aspen-Bindung fehlgeschlagen: ${err?.message||err}`);return false;}}
+    async function bindAspenHandle(handle){try{const ok=await ensureRPermission(handle);if(!ok){setNote('Berechtigung verweigert.');setDebugInfo('Aspen: Berechtigung verweigert.');return false;}aspenHandle=handle;await idbSet(cfg.aspenIdbKey,handle);cfg.aspenFileName=handle.name||'Aspen.xlsx';saveCfg(cfg);updateAspenDisplays();let success=false;try{const result=await readAspenFile(handle);aspenHeaders=result.headers||[];aspenData=result.rows||[];success=true;clearDebugInfo();}catch(err){console.warn('Aspen-Datei konnte nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setNote('Aspen-Daten konnten nicht gelesen werden.');setDebugInfo(`Aspen-Leseproblem: ${err?.message||err}`);}rebuildAspenHeaderMaps();if(success){alignFieldSources();setNote('Aspen-Datei geladen.');}refreshFromAspen();updateAspenFieldList();if(isModalOpen())renderCustomButtonEditor();return true;}catch(err){console.warn('Aspen-Datei konnte nicht gebunden werden:',err);setNote('Aspen-Datei konnte nicht geladen werden.');setDebugInfo(`Aspen-Bindung fehlgeschlagen: ${err?.message||err}`);return false;}}
 
-    let fieldEls={};
+    function buildAspenColumnOptions(){const options=[];const seen=new Set();aspenHeaders.forEach(h=>{const original=String(h.original||'').trim();if(!original)return;const lower=original.toLowerCase();if(seen.has(lower))return;seen.add(lower);options.push({value:original,label:original,missing:false});});(cfg.customButtons||[]).forEach(btn=>{const column=String(btn.column||'').trim();if(!column)return;const lower=column.toLowerCase();if(seen.has(lower))return;seen.add(lower);options.push({value:column,label:`${column} (nicht gefunden)`,missing:true});});options.sort((a,b)=>a.label.localeCompare(b.label,'de',{sensitivity:'base'}));return options;}
+    function mutateCustomButtons(mutator){const draft=(cfg.customButtons||[]).map(btn=>({...btn}));const result=mutator(draft);const next=Array.isArray(result)?result:draft;cfg.customButtons=normalizeCustomButtons(next);saveCfg(cfg);renderCustomButtons();if(isModalOpen())renderCustomButtonEditor();}
+    function renderCustomButtons(){const wrap=els.customButtons;if(!wrap)return;const list=Array.isArray(cfg.customButtons)?cfg.customButtons:[];wrap.innerHTML='';customButtonEls=new Map();if(!list.length){wrap.style.display='none';return;}wrap.style.display='';list.forEach(info=>{if(!info)return;const btn=document.createElement('button');btn.type='button';btn.className='rs-custom-button';btn.textContent=info.label||DEFAULT_BUTTON_LABEL;btn.dataset.id=info.id;btn.addEventListener('click',()=>handleCustomButtonClick(info.id));wrap.appendChild(btn);customButtonEls.set(info.id,btn);});updateCustomButtonStates();}
+    function updateCustomButtonStates(row){const wrap=els.customButtons;if(!wrap)return;const buttons=Array.isArray(cfg.customButtons)?cfg.customButtons:[];const map=new Map(buttons.map(btn=>[btn.id,btn]));let currentRow=row||null;if(!currentRow){const meldung=activeMeldung();if(meldung)currentRow=findAspenRow(meldung);}const hasRow=!!currentRow;customButtonEls.forEach((button,id)=>{const info=map.get(id);if(!info){button.disabled=true;button.title='';return;}const hasColumn=!!info.column;const missing=hasColumn&&!aspenHeaders.some(h=>String(h.original||'').trim().toLowerCase()===info.column.toLowerCase());button.disabled=!hasRow||!hasColumn;const suffixTip=info.suffix?` · Suffix: ${info.suffix}`:'';const baseLabel=info.column||'Kein Feld';button.title=missing?`${baseLabel} (nicht in Aspen)${suffixTip}`:`${baseLabel}${suffixTip}`;});wrap.style.display=customButtonEls.size?'':'none';}
+    function handleCustomButtonClick(id){const info=(cfg.customButtons||[]).find(btn=>btn.id===id);if(!info)return;const meldung=activeMeldung();const row=meldung?findAspenRow(meldung):null;if(!row){setNote('Keine Aspen-Daten zur Meldung gefunden.');return;}if(!info.column){setNote('Kein Aspen-Feld zugewiesen.');return;}const value=getAspenColumnValue(row,info.column);const output=(value||'')+(info.suffix||'');if(!value&&!info.suffix){setNote('Kein Wert zum Kopieren.');return;}copy(output);}
     const lookupName=pn=>{for(const r of rules){if(pn.startsWith(r.prefix))return r.name;}return'';};
     function updateName(){if(!rules.length){deviceName='';renderHead();return;}const partField=cfg.fields.find(f=>f.key==='part'&&f.enabled);const pn=partField?(fieldEls[partField.id]?.input?.value||'').trim():'';const name=lookupName(pn);deviceName=name||'Unbekanntes Gerät';renderHead();}
 
@@ -775,6 +834,8 @@
       updateUndoRedoButtons();
     }
 
+    function renderCustomButtonEditor(){const list=els.mButtonList;if(!list)return;list.innerHTML='';const empty=els.mButtonEmpty;const buttons=Array.isArray(cfg.customButtons)?cfg.customButtons:[];const options=buildAspenColumnOptions();const hasOptions=options.some(opt=>!opt.missing);if(!buttons.length){if(empty){empty.textContent=hasOptions?'Noch keine Buttons angelegt.':'Keine Aspen-Daten verfügbar.';empty.style.display='block';}return;}if(empty)empty.style.display='none';buttons.forEach(button=>{const row=document.createElement('div');row.className='rs-button-item';const labelField=document.createElement('div');labelField.className='rs-button-field';const labelLabel=document.createElement('label');labelLabel.textContent='Beschriftung';const labelInput=document.createElement('input');labelInput.type='text';labelInput.value=button.label||'';labelField.append(labelLabel,labelInput);const selectField=document.createElement('div');selectField.className='rs-button-field';const selectLabel=document.createElement('label');selectLabel.textContent='Aspen-Feld';const select=document.createElement('select');const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='– Feld wählen –';select.appendChild(placeholder);options.forEach(opt=>{const option=document.createElement('option');option.value=opt.value;option.textContent=opt.label;select.appendChild(option);});select.value=button.column||'';const updateSelectState=value=>{select.classList.toggle('rs-button-select-missing',!!value&&!options.some(opt=>!opt.missing&&opt.value===value));};updateSelectState(select.value);selectField.append(selectLabel,select);const suffixField=document.createElement('div');suffixField.className='rs-button-field';const suffixLabel=document.createElement('label');suffixLabel.textContent='Suffix';const suffixInput=document.createElement('input');suffixInput.type='text';suffixInput.value=button.suffix||'';suffixField.append(suffixLabel,suffixInput);const removeBtn=document.createElement('button');removeBtn.type='button';removeBtn.className='rs-button-remove';removeBtn.title='Button entfernen';removeBtn.textContent='✕';row.append(labelField,selectField,suffixField,removeBtn);list.appendChild(row);labelInput.addEventListener('blur',()=>{const value=labelInput.value.trim();mutateCustomButtons(items=>{const next=items.map(item=>item.id===button.id?{...item,label:value||DEFAULT_BUTTON_LABEL}:item);return next;});});select.addEventListener('change',()=>{const value=select.value;updateSelectState(value);mutateCustomButtons(items=>{const next=items.map(item=>item.id===button.id?{...item,column:value}:item);return next;});});suffixInput.addEventListener('blur',()=>{const value=suffixInput.value;mutateCustomButtons(items=>{const next=items.map(item=>item.id===button.id?{...item,suffix:value}:item);return next;});});removeBtn.addEventListener('click',()=>{mutateCustomButtons(items=>items.filter(item=>item.id!==button.id));});});}
+
     function applyLabelChange(fieldId,value,options){
       const trimmed=String(value||'').trim();
       const error=validateLabel(trimmed);
@@ -806,16 +867,24 @@
     function startAspenFieldEditor(info,li){if(activeNewFieldEditor&&activeNewFieldEditor!==li){activeNewFieldEditor.querySelector('.rs-new-inline')?.remove();}if(li.querySelector('.rs-new-inline'))return;activeNewFieldEditor=li;const inline=document.createElement('div');inline.className='rs-new-inline';const input=document.createElement('input');input.type='text';input.value=defaultLabelForKey(info.original||info.key);const confirm=document.createElement('button');confirm.type='button';confirm.textContent='Hinzufügen';const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Abbrechen';inline.append(input,confirm,cancel);li.appendChild(inline);input.focus();input.select();input.addEventListener('input',()=>input.classList.remove('invalid'));const close=()=>{inline.remove();if(activeNewFieldEditor===li)activeNewFieldEditor=null;};const submit=()=>{const ok=addAspenField(info,input.value);if(ok)close();else input.classList.add('invalid');};confirm.addEventListener('click',submit);cancel.addEventListener('click',()=>{close();setNote('');});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit();}else if(e.key==='Escape'){e.preventDefault();close();setNote('');}});}
     function addAspenField(info,label){const trimmed=String(label||'').trim();const error=validateLabel(trimmed);if(error){setNote(error);return false;}const used=new Set(cfg.fields.map(f=>f.id));const id=generateFieldId(info.key,trimmed,used);const changed=mutateFields(fields=>{fields.push({id,key:info.key,label:trimmed,enabled:true,group:'aspen',originalKey:info.original||info.key});return fields;});if(changed){setNote('Feld hinzugefügt.');return true;}setNote('');return false;}
 
-    function openModal(){refreshColorLayers();renderFieldList();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';}
-    function closeModal(){els.modal.style.display='none';saveCfg(cfg);renderFields();}
+    function bringModalToFront(){
+      if(!els.modal)return;
+      const currentZ=parseInt(window.getComputedStyle(els.modal).zIndex||els.modal.style.zIndex||'0',10)||0;
+      let highestZ=currentZ;
+      document.querySelectorAll('.db-modal').forEach(node=>{
+        if(node===els.modal)return;
+        const z=parseInt(window.getComputedStyle(node).zIndex||node.style.zIndex||'0',10);
+        if(!Number.isNaN(z))highestZ=Math.max(highestZ,z);
+      });
+      const targetZ=Math.max(highestZ+1, currentZ||50);
+      els.modal.style.zIndex=String(targetZ);
+    }
+    function openModal(){refreshColorLayers();renderFieldList();renderCustomButtonEditor();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';bringModalToFront();els.rootEl?.classList.add('rs-module-blur');}
+    function closeModal(){els.modal.style.display='none';els.rootEl?.classList.remove('rs-module-blur');saveCfg(cfg);renderFields();}
     els.mClose.onclick=closeModal;
     els.mCols.addEventListener('change',()=>{cfg.columns=Math.max(1,parseInt(els.mCols.value)||1);applyColumns();saveCfg(cfg);});
 
-    function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
-    root.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();const m=els.menu,pad=8,vw=innerWidth,vh=innerHeight;const rect=m.getBoundingClientRect();const w=rect.width||200,h=rect.height||44;m.style.left=clamp(e.clientX,pad,vw-w-pad)+'px';m.style.top=clamp(e.clientY,pad,vh-h-pad)+'px';m.classList.add('open');});
-    addEventListener('click',()=>els.menu.classList.remove('open'));
-    addEventListener('keydown',e=>{if(e.key==='Escape')els.menu.classList.remove('open');});
-    els.menu.querySelector('.mi-opt').addEventListener('click',()=>{els.menu.classList.remove('open');openModal();});
+    root.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();openModal();});
 
     async function bindRuleHandle(h){const ok=await ensureRPermission(h);if(!ok){setNote('Berechtigung verweigert.');return false;}ruleHandle=h;await idbSet(cfg.ruleIdbKey,h);cfg.ruleFileName=h.name||'Rules.xlsx';saveCfg(cfg);els.mRuleFile.textContent=`• ${cfg.ruleFileName}`;saveGlobalRules(h,cfg.ruleFileName);try{rules=await readRulesFromHandle(h);}catch{rules=[];}updateName();return true;}
     els.mRulePick.onclick=async()=>{try{const [h]=await showOpenFilePicker({types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],excludeAcceptAllOption:false,multiple:false});if(h)await bindRuleHandle(h);}catch(e){if(e?.name!=='AbortError')setNote('Auswahl fehlgeschlagen.');}};
@@ -823,7 +892,7 @@
     (async()=>{try{let h=await idbGet(cfg.ruleIdbKey);if(!h){h=await idbGet(GLOBAL_NAME_KEY);if(h){await idbSet(cfg.ruleIdbKey,h);if(!cfg.ruleFileName){const g=loadDoc().general||{};cfg.ruleFileName=g.nameFileName||h.name||'Rules.xlsx';saveCfg(cfg);els.mRuleFile.textContent=`• ${cfg.ruleFileName}`;}}}if(h&&await ensureRPermission(h)){ruleHandle=h;rules=await readRulesFromHandle(h);els.mRuleFile.textContent=`• ${cfg.ruleFileName||h.name||'Rules.xlsx'}`;updateName();}}catch(e){}})();
 
     function activeMeldung(){return(loadDoc()?.general?.Meldung||'').trim();}
-    function refreshFromAspen(){const m=activeMeldung();const row=m?findAspenRow(m):null;cfg.fields.forEach(f=>{const el=fieldEls[f.id];if(!el)return;if(f.key==='meldung'){el.input.value=m;}else{el.input.value=row?getAspenValue(row,f):'';}const tip=tooltipForField(f);if(el.labelEl){el.labelEl.textContent=f.label;el.labelEl.title=tip;}if(el.infoEl)el.infoEl.title=tip;});updateName();}
+    function refreshFromAspen(){const m=activeMeldung();const row=m?findAspenRow(m):null;cfg.fields.forEach(f=>{const el=fieldEls[f.id];if(!el)return;if(f.key==='meldung'){el.input.value=m;}else{el.input.value=row?getAspenValue(row,f):'';}const tip=tooltipForField(f);if(el.labelEl){el.labelEl.textContent=f.label;el.labelEl.title=tip;}if(el.infoEl)el.infoEl.title=tip;});updateName();updateCustomButtonStates(row);}
 
     addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromAspen();if(e.key==='appSettings')refreshColorLayers();});
     addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromAspen();});
@@ -850,13 +919,13 @@
     if(els.mAspenPick)els.mAspenPick.addEventListener('click',openAspenPicker);
     if(els.aspenRefresh)els.aspenRefresh.addEventListener('click',refreshAspenData);
     updateAspenFieldList();
-    (async()=>{try{const stored=await idbGet(cfg.aspenIdbKey);if(stored&&await ensureRPermission(stored)){aspenHandle=stored;if(!cfg.aspenFileName){cfg.aspenFileName=stored.name||'Aspen.xlsx';saveCfg(cfg);}updateAspenDisplays();try{const result=await readAspenFile(stored);aspenHeaders=result.headers||[];aspenData=result.rows||[];alignFieldSources();clearDebugInfo();}catch(err){console.warn('Aspen-Daten konnten nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setDebugInfo(`Aspen-Init fehlgeschlagen: ${err?.message||err}`);}}}catch(err){console.warn('Lesen der Aspen-Datei fehlgeschlagen:',err);setDebugInfo(`Aspen-Zugriff fehlgeschlagen: ${err?.message||err}`);}finally{rebuildAspenHeaderMaps();updateAspenFieldList();refreshFromAspen();}})();
+    (async()=>{try{const stored=await idbGet(cfg.aspenIdbKey);if(stored&&await ensureRPermission(stored)){aspenHandle=stored;if(!cfg.aspenFileName){cfg.aspenFileName=stored.name||'Aspen.xlsx';saveCfg(cfg);}updateAspenDisplays();try{const result=await readAspenFile(stored);aspenHeaders=result.headers||[];aspenData=result.rows||[];alignFieldSources();clearDebugInfo();}catch(err){console.warn('Aspen-Daten konnten nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];setDebugInfo(`Aspen-Init fehlgeschlagen: ${err?.message||err}`);}}}catch(err){console.warn('Lesen der Aspen-Datei fehlgeschlagen:',err);setDebugInfo(`Aspen-Zugriff fehlgeschlagen: ${err?.message||err}`);}finally{rebuildAspenHeaderMaps();updateAspenFieldList();if(isModalOpen())renderCustomButtonEditor();refreshFromAspen();}})();
 
 
     renderFields();
     updateUndoRedoButtons();
 
-    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);els.menu?.remove();(async()=>{try{await idbDel(cfg.ruleIdbKey);}catch{}try{await idbDel(cfg.aspenIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
+    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);(async()=>{try{await idbDel(cfg.ruleIdbKey);}catch{}try{await idbDel(cfg.aspenIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
   };
 })();
