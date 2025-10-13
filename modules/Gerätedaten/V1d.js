@@ -858,7 +858,19 @@
     function startAspenFieldEditor(info,li){if(activeNewFieldEditor&&activeNewFieldEditor!==li){activeNewFieldEditor.querySelector('.rs-new-inline')?.remove();}if(li.querySelector('.rs-new-inline'))return;activeNewFieldEditor=li;const inline=document.createElement('div');inline.className='rs-new-inline';const input=document.createElement('input');input.type='text';input.value=defaultLabelForKey(info.original||info.key);const confirm=document.createElement('button');confirm.type='button';confirm.textContent='Hinzufügen';const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Abbrechen';inline.append(input,confirm,cancel);li.appendChild(inline);input.focus();input.select();input.addEventListener('input',()=>input.classList.remove('invalid'));const close=()=>{inline.remove();if(activeNewFieldEditor===li)activeNewFieldEditor=null;};const submit=()=>{const ok=addAspenField(info,input.value);if(ok)close();else input.classList.add('invalid');};confirm.addEventListener('click',submit);cancel.addEventListener('click',()=>{close();setNote('');});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit();}else if(e.key==='Escape'){e.preventDefault();close();setNote('');}});}
     function addAspenField(info,label){const trimmed=String(label||'').trim();const error=validateLabel(trimmed);if(error){setNote(error);return false;}const used=new Set(cfg.fields.map(f=>f.id));const id=generateFieldId(info.key,trimmed,used);const changed=mutateFields(fields=>{fields.push({id,key:info.key,label:trimmed,enabled:true,group:'aspen',originalKey:info.original||info.key});return fields;});if(changed){setNote('Feld hinzugefügt.');return true;}setNote('');return false;}
 
-    function openModal(){refreshColorLayers();renderFieldList();renderCustomButtonEditor();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';moduleHost?.classList.add('rs-module-blur');}
+    function bringModalToFront(){
+      if(!els.modal)return;
+      const currentZ=parseInt(window.getComputedStyle(els.modal).zIndex||els.modal.style.zIndex||'0',10)||0;
+      let highestZ=currentZ;
+      document.querySelectorAll('.db-modal').forEach(node=>{
+        if(node===els.modal)return;
+        const z=parseInt(window.getComputedStyle(node).zIndex||node.style.zIndex||'0',10);
+        if(!Number.isNaN(z))highestZ=Math.max(highestZ,z);
+      });
+      const targetZ=Math.max(highestZ+1, currentZ||50);
+      els.modal.style.zIndex=String(targetZ);
+    }
+    function openModal(){refreshColorLayers();renderFieldList();renderCustomButtonEditor();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';bringModalToFront();moduleHost?.classList.add('rs-module-blur');}
     function closeModal(){els.modal.style.display='none';moduleHost?.classList.remove('rs-module-blur');saveCfg(cfg);renderFields();}
     els.mClose.onclick=closeModal;
     els.mCols.addEventListener('change',()=>{cfg.columns=Math.max(1,parseInt(els.mCols.value)||1);applyColumns();saveCfg(cfg);});
