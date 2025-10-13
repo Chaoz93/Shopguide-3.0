@@ -33,10 +33,8 @@
   .rs-label-info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.18);color:inherit;opacity:.85;cursor:help}
   .rs-inline-input{min-width:140px;padding:.25rem .45rem;border-radius:.35rem;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text)}
   .rs-inline-input.invalid,.rs-item-label.invalid{border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.35)}
-  .rs-inputwrap{display:grid;grid-template-columns:auto 38px;align-items:center}
-  .rs-input{width:100%;background:var(--rs-inline-bg);border:1px solid var(--rs-inline-border);color:var(--rs-surface-text);padding:.45rem .55rem;border-radius:.4rem}
-  .rs-copy{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid var(--rs-inline-border);border-radius:.35rem;background:var(--rs-inline-bg);cursor:pointer;color:var(--rs-surface-text)}
-  .rs-copy:active{transform:scale(.98)}
+  .rs-inputwrap{display:flex;align-items:center;width:100%}
+  .rs-input{width:100%;background:var(--rs-inline-bg);border:1px solid var(--rs-inline-border);color:var(--rs-surface-text);padding:.45rem .55rem;border-radius:.4rem;cursor:pointer}
   .rs-note{font-size:.85rem;opacity:.75;margin-top:.15rem;color:var(--text-color)}
   .rs-item{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:.45rem;padding:.35rem .5rem;margin-bottom:.3rem;border:1px solid var(--rs-surface-border);border-radius:.55rem;cursor:grab;background:var(--rs-surface-bg);color:var(--rs-surface-text);box-shadow:0 14px 30px rgba(12,24,41,.48)}
   .rs-item.off{opacity:.6;background:var(--rs-surface-bg)}
@@ -297,9 +295,8 @@
       </div>
       <div class="db-modal rs-modal">
         <div class="db-panel rs-modal-panel">
-          <div class="db-row" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.5rem">
+          <div class="db-row" style="display:flex;justify-content:flex-start;align-items:center;gap:.5rem;margin-bottom:.5rem">
             <div class="font-semibold">Gerätedaten – Optionen</div>
-            <button class="db-btn secondary rs-close" style="background:#eee;border-radius:.5rem;padding:.35rem .6rem">Schließen</button>
           </div>
           <div class="db-field" style="margin-top:1rem;">
             <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Namensregeln</label>
@@ -381,7 +378,6 @@
       note:root.querySelector('.rs-note'),
       customButtons:root.querySelector('.rs-custom-buttons'),
       modal:root.querySelector('.rs-modal'),
-      mClose:root.querySelector('.rs-close'),
       head:root.querySelector('.rs-head'),
       aspenInlineFile:root.querySelector('.rs-inline-file'),
       aspenStatus:root.querySelector('.rs-aspen-status'),
@@ -750,16 +746,15 @@
         input.className='rs-input';
         input.type='text';
         input.setAttribute('readonly','');
-        const copyBtn=document.createElement('button');
-        copyBtn.className='rs-copy';
-        copyBtn.title='Kopieren';
-        copyBtn.textContent='⧉';
+        input.title='Klicken zum Kopieren';
         inputWrap.appendChild(input);
-        inputWrap.appendChild(copyBtn);
         wrap.appendChild(labelWrap);
         wrap.appendChild(inputWrap);
         els.grid.appendChild(wrap);
-        copyBtn.addEventListener('click',()=>copy(input.value));
+        input.addEventListener('click',()=>{
+          input.select();
+          copy(input.value);
+        });
         labelWrap.addEventListener('dblclick',e=>{if(e.target===info)return;startInlineLabelEdit(f.id,labelWrap,labelSpan,info);});
         fieldEls[f.id]={input,labelEl:labelSpan,infoEl:info,wrap,labelWrap};
       });
@@ -879,9 +874,20 @@
       const targetZ=Math.max(highestZ+1, currentZ||50);
       els.modal.style.zIndex=String(targetZ);
     }
-    function openModal(){refreshColorLayers();renderFieldList();renderCustomButtonEditor();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';bringModalToFront();els.rootEl?.classList.add('rs-module-blur');}
-    function closeModal(){els.modal.style.display='none';els.rootEl?.classList.remove('rs-module-blur');saveCfg(cfg);renderFields();}
-    els.mClose.onclick=closeModal;
+    const modalKeydownOptions={capture:true};
+    const handleModalKeydown=e=>{
+      if(e.key==='Escape'&&!e.defaultPrevented&&isModalOpen()){
+        e.preventDefault();
+        closeModal();
+      }
+    };
+    function openModal(){refreshColorLayers();renderFieldList();renderCustomButtonEditor();els.mCols.value=cfg.columns;updateAspenFieldList();updateUndoRedoButtons();els.modal.style.display='grid';bringModalToFront();els.rootEl?.classList.add('rs-module-blur');window.addEventListener('keydown',handleModalKeydown,modalKeydownOptions);}
+    function closeModal(){els.modal.style.display='none';els.rootEl?.classList.remove('rs-module-blur');window.removeEventListener('keydown',handleModalKeydown,modalKeydownOptions);saveCfg(cfg);renderFields();}
+    if(els.modal){
+      els.modal.addEventListener('click',event=>{
+        if(event.target===els.modal)closeModal();
+      });
+    }
     els.mCols.addEventListener('change',()=>{cfg.columns=Math.max(1,parseInt(els.mCols.value)||1);applyColumns();saveCfg(cfg);});
 
     root.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();openModal();});
