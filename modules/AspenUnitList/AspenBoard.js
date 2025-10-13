@@ -69,17 +69,16 @@
     .db-card.active{border-color:var(--dl-active,#34d399);box-shadow:0 0 0 2px var(--dl-active,#34d399) inset,0 0 0 2px var(--dl-active,#34d399),0 14px 32px rgba(12,24,41,.45);transform:translateY(-1px);color:#fff;}
     .db-ghost{opacity:.4;}
     .db-chosen{transform:scale(1.01);}
-    .db-menu{position:fixed;z-index:2200;display:none;min-width:200px;padding:.25rem;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
-    .db-menu.open{display:block;}
-    .db-menu .mi{display:block;width:100%;padding:.5rem .75rem;text-align:left;border-radius:.4rem;cursor:pointer;}
-    .db-menu .mi:hover{background:rgba(0,0,0,.06);}
-    .db-menu .db-menu-toggle-group{display:flex;align-items:center;gap:.35rem;padding:.35rem .5rem .25rem;}
-    .db-menu .db-menu-toggle{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:.45rem;padding:.45rem .75rem;border:1px solid var(--ab-border,rgba(76,114,163,.32));border-radius:.65rem;background:rgba(21,45,76,.72);color:var(--ab-text,#f8fafc);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease,transform .2s ease;}
-    .db-menu .db-menu-toggle:hover{background:rgba(37,99,235,.22);border-color:var(--ab-accent,#2563eb);color:#fff;}
-    .db-menu .db-menu-toggle.is-active{background:var(--ab-accent,#2563eb);color:#fff;border-color:var(--ab-accent,#2563eb);box-shadow:0 0 0 2px rgba(37,99,235,.3);transform:translateY(-1px);}
-    .db-menu .db-menu-toggle:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none;}
-    .db-menu .db-menu-toggle-icon{flex:0 0 auto;width:1.4rem;height:1.4rem;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:.9rem;background:rgba(37,99,235,.22);color:var(--ab-text,#f8fafc);transition:background .2s ease,color .2s ease;}
-    .db-menu .db-menu-toggle.is-active .db-menu-toggle-icon{background:rgba(255,255,255,.25);color:#fff;}
+    .db-menu-toggle-group{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
+    .db-menu-toggle{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:.45rem;padding:.45rem .75rem;border:1px solid var(--ab-border,rgba(76,114,163,.32));border-radius:.65rem;background:rgba(21,45,76,.72);color:var(--ab-text,#f8fafc);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease,transform .2s ease;}
+    .db-menu-toggle:hover{background:rgba(37,99,235,.22);border-color:var(--ab-accent,#2563eb);color:#fff;}
+    .db-menu-toggle.is-active{background:var(--ab-accent,#2563eb);color:#fff;border-color:var(--ab-accent,#2563eb);box-shadow:0 0 0 2px rgba(37,99,235,.3);transform:translateY(-1px);}
+    .db-menu-toggle:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none;}
+    .db-menu-toggle-icon{flex:0 0 auto;width:1.4rem;height:1.4rem;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:.9rem;background:rgba(37,99,235,.22);color:var(--ab-text,#f8fafc);transition:background .2s ease,color .2s ease;}
+    .db-menu-toggle.is-active .db-menu-toggle-icon{background:rgba(255,255,255,.25);color:#fff;}
+    .db-option-section{display:flex;flex-direction:column;gap:.75rem;}
+    .db-option-actions{display:flex;flex-wrap:wrap;gap:.35rem;}
+    .db-part-section{display:flex;flex-direction:column;gap:.35rem;padding:.5rem;border-radius:.65rem;border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.05);}
     .db-part-filter{padding:.35rem .5rem .15rem;}
     .db-part-filter input{width:100%;padding:.35rem .55rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;background:transparent;color:inherit;font-size:.85rem;}
     .db-part-filter input:focus{outline:none;border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
@@ -206,8 +205,7 @@
       backdrop-filter:blur(12px);
       -webkit-backdrop-filter:blur(12px);
     }
-    .aspenboard .db-panel,
-    .aspenboard .db-menu{
+    .aspenboard .db-panel{
       --bg-color:#102237;
       --panel-bg:rgba(25,52,86,0.12);
       --accent-gradient-from:#1b436d;
@@ -229,15 +227,11 @@
       backdrop-filter:blur(28px);
       -webkit-backdrop-filter:blur(28px);
     }
-    .aspenboard .db-menu{
-      backdrop-filter:blur(14px);
-      -webkit-backdrop-filter:blur(14px);
-    }
-    .aspenboard .db-menu{padding:.5rem;color:var(--text-color);border:1px solid var(--border-color);border-radius:.75rem;box-shadow:0 12px 32px var(--shadow-color);}
-    .aspenboard .db-menu .mi{color:inherit;border-radius:.5rem;}
-    .aspenboard .db-menu .mi:hover{background:rgba(var(--accent-rgb,47,109,163),.22);}
-    .aspenboard .db-menu .db-menu-toggle{background:rgba(21,45,76,.72);color:var(--text-color);border:1px solid var(--border-color);}
-    .aspenboard .db-menu .db-menu-toggle:hover{background:rgba(var(--accent-rgb,47,109,163),.24);}
+    .aspenboard .db-option-section{color:var(--text-color);}
+    .aspenboard .db-part-section{background:rgba(17,40,68,.6);border:1px solid var(--border-color);box-shadow:0 14px 30px var(--shadow-color);}
+    .aspenboard .db-part-section .db-empty{color:var(--muted-text);}
+    .aspenboard .db-menu-toggle{background:rgba(21,45,76,.72);color:var(--text-color);border:1px solid var(--border-color);}
+    .aspenboard .db-menu-toggle:hover{background:rgba(var(--accent-rgb,47,109,163),.24);}
     .aspenboard .db-surface{background:rgba(17,40,68,.6);border:1px solid rgba(76,114,163,.28);box-shadow:0 22px 40px var(--shadow-color);}
     .aspenboard .db-list-title{color:var(--muted-text);}
     .aspenboard .db-card{background:rgba(17,40,68,.66);color:var(--text-color);border:1px solid rgba(76,114,163,.3);box-shadow:0 18px 34px var(--shadow-color);}
@@ -247,10 +241,10 @@
     .aspenboard .db-config-main,
     .aspenboard .db-extra-card,
     .aspenboard .db-color-card{background:rgba(17,40,68,.6);border:1px solid rgba(76,114,163,.28);box-shadow:0 20px 40px var(--shadow-color);color:var(--text-color);}
-    .aspenboard .db-menu .db-menu-toggle.is-active{background:var(--accent-gradient,var(--accent-color));color:#fff;border-color:var(--accent-border,var(--accent-color));box-shadow:0 0 0 3px rgba(var(--accent-rgb,47,109,163),.3);}
-    .aspenboard .db-menu .db-menu-toggle-icon{background:rgba(var(--accent-rgb,47,109,163),.26);color:var(--text-color);}
-    .aspenboard .db-menu .db-menu-toggle.is-active .db-menu-toggle-icon{background:rgba(255,255,255,.25);color:#fff;}
-    .aspenboard .db-menu .db-menu-toggle:disabled{opacity:.4;}
+    .aspenboard .db-menu-toggle.is-active{background:var(--accent-gradient,var(--accent-color));color:#fff;border-color:var(--accent-border,var(--accent-color));box-shadow:0 0 0 3px rgba(var(--accent-rgb,47,109,163),.3);}
+    .aspenboard .db-menu-toggle-icon{background:rgba(var(--accent-rgb,47,109,163),.26);color:var(--text-color);}
+    .aspenboard .db-menu-toggle.is-active .db-menu-toggle-icon{background:rgba(255,255,255,.25);color:#fff;}
+    .aspenboard .db-menu-toggle:disabled{opacity:.4;}
     .aspenboard .db-part-filter input{background:rgba(255,255,255,.05);color:var(--text-color);border:1px solid var(--border-color);border-radius:.5rem;}
     .aspenboard .db-part-filter input:focus{outline:none;border-color:var(--accent-color);box-shadow:0 0 0 3px rgba(var(--accent-rgb,47,109,163),.3);}
     .aspenboard .db-part-list{color:var(--text-color);}
@@ -1093,7 +1087,7 @@
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root aspenboard';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><div class="db-search-filter-group" aria-label="Such-Vorfilter"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><aside class="db-config-extras"><div class="db-extra-card"><div class="db-extra-card-title">Extraspalten</div><div class="db-extra-card-body"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div></div></aside><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row filters"><div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div><div class="db-filter-list"></div><button type="button" class="db-add-filter">Filter hinzufügen</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Verlauf Start</span><input type="color" class="db-color db-c-gradient-from" value="#173752"></label><label class="db-color-field"><span>Verlauf Ende</span><input type="color" class="db-color db-c-gradient-to" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><div class="db-search-filter-group" aria-label="Such-Vorfilter"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><aside class="db-config-extras"><div class="db-extra-card"><div class="db-extra-card-title">Extraspalten</div><div class="db-extra-card-body"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div></div></aside><div class="db-config-main"><div class="row"><label>Titel (optional)<input type="text" class="db-title-input"></label></div><div class="row quick"><div class="db-option-section"><div class="db-option-actions"><button type="button" class="db-menu-toggle db-action-pick" title="Aspen-Datei auswählen"><span class="db-menu-toggle-icon" aria-hidden="true">📂</span><span class="db-menu-toggle-label">Aspen.xlsx wählen</span></button><div class="db-menu-toggle-group" role="group" aria-label="Partfilter Schnellaktionen"><button type="button" class="db-menu-toggle db-action-enable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✓</span><span class="db-menu-toggle-label">Alles aktivieren</span></button><button type="button" class="db-menu-toggle db-action-disable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✕</span><span class="db-menu-toggle-label">Alle deaktivieren</span></button></div></div><div class="db-part-section"><div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div><div class="db-part-list"></div></div></div></div><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row filters"><div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div><div class="db-filter-list"></div><button type="button" class="db-add-filter">Filter hinzufügen</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Verlauf Start</span><input type="color" class="db-color db-c-gradient-from" value="#173752"></label><label class="db-color-field"><span>Verlauf Ende</span><input type="color" class="db-color db-c-gradient-to" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -1102,12 +1096,7 @@
       titleBar.hidden=!(initialTitle||'').trim();
     }
 
-    const menu=document.createElement('div');
-    menu.className='db-menu';
-    menu.innerHTML='<div class="mi mi-opt">⚙️ Optionen</div><div class="mi mi-pick">Aspen.xlsx wählen</div><div class="db-menu-toggle-group" role="group" aria-label="Partfilter Schnellaktionen"><button type="button" class="db-menu-toggle mi-enable" aria-pressed="false"><span class="db-menu-toggle-icon">✓</span><span class="db-menu-toggle-label">Alles aktivieren</span></button><button type="button" class="db-menu-toggle mi-disable" aria-pressed="false"><span class="db-menu-toggle-icon">✕</span><span class="db-menu-toggle-label">Alle deaktivieren</span></button></div><div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div><div class="db-part-list"></div>';
-    document.body.appendChild(menu);
-
-    return {
+        return {
       root,
       list:root.querySelector('.db-main-list'),
       activeWrap:root.querySelector('.db-active-wrap'),
@@ -1150,12 +1139,11 @@
       cActive:root.querySelector('.db-c-active'),
       extraCount:root.querySelector('.db-extra-count'),
       extraNameList:root.querySelector('.db-extra-name-list'),
-      menu,
-      partList:menu.querySelector('.db-part-list'),
-      partFilter:menu.querySelector('.db-part-filter-input'),
-      enableAllBtn:menu.querySelector('.mi-enable'),
-      disableAllBtn:menu.querySelector('.mi-disable'),
-      menuToggleGroup:menu.querySelector('.db-menu-toggle-group')
+      partList:root.querySelector('.db-part-list'),
+      partFilter:root.querySelector('.db-part-filter-input'),
+      enableAllBtn:root.querySelector('.db-action-enable'),
+      disableAllBtn:root.querySelector('.db-action-disable'),
+      pickBtn:root.querySelector('.db-action-pick')
     };
   }
 
@@ -2034,8 +2022,9 @@
     updateHighlights(listEl);
   }
 
-  function refreshMenu(menuEl,state,renderFn){
-    if(!menuEl?.partList) return;
+  function refreshPartControls(elements,state,renderFn){
+    const partListEl=elements?.partList;
+    if(!partListEl) return;
     state.items=dedupeByMeldung(state.items);
     const filterRaw=(state.partFilter||'').trim().toLowerCase();
     const parts=Array.from(new Set(state.items.map(item=>item.part))).sort();
@@ -2043,29 +2032,33 @@
     const excludedCount=parts.reduce((count,part)=>count+(state.excluded.has(part)?1:0),0);
     const allEnabled=totalParts>0 && excludedCount===0;
     const allDisabled=totalParts>0 && excludedCount===totalParts;
-    if(menuEl.enableAllBtn){
-      menuEl.enableAllBtn.disabled=!totalParts;
-      menuEl.enableAllBtn.classList.toggle('is-active',allEnabled);
-      menuEl.enableAllBtn.setAttribute('aria-pressed',String(!!allEnabled));
+    if(elements.enableAllBtn){
+      elements.enableAllBtn.disabled=!totalParts;
+      elements.enableAllBtn.classList.toggle('is-active',allEnabled);
+      elements.enableAllBtn.setAttribute('aria-pressed',String(!!allEnabled));
     }
-    if(menuEl.disableAllBtn){
-      menuEl.disableAllBtn.disabled=!totalParts;
-      menuEl.disableAllBtn.classList.toggle('is-active',allDisabled);
-      menuEl.disableAllBtn.setAttribute('aria-pressed',String(!!allDisabled));
+    if(elements.disableAllBtn){
+      elements.disableAllBtn.disabled=!totalParts;
+      elements.disableAllBtn.classList.toggle('is-active',allDisabled);
+      elements.disableAllBtn.setAttribute('aria-pressed',String(!!allDisabled));
+    }
+    if(elements.partFilter){
+      elements.partFilter.value=state.partFilter||'';
     }
     const filtered=filterRaw?parts.filter(part=>part.toLowerCase().includes(filterRaw)):parts;
-    if(menuEl.partFilter){
-      menuEl.partFilter.value=state.partFilter||'';
-    }
     if(!filtered.length){
-      menuEl.partList.innerHTML='<div class="db-empty">Keine Treffer</div>';
+      partListEl.innerHTML='<div class="db-empty">Keine Treffer</div>';
       return;
     }
-    menuEl.partList.innerHTML=filtered.map(part=>`<label class="db-check"><input type="checkbox" data-part="${part}" ${state.excluded.has(part)?'':'checked'}> ${part}</label>`).join('');
-    menuEl.partList.querySelectorAll('input').forEach(input=>{
+    partListEl.innerHTML=filtered.map(part=>`<label class="db-check"><input type="checkbox" data-part="${part}" ${state.excluded.has(part)?'':'checked'}> ${part}</label>`).join('');
+    partListEl.querySelectorAll('input').forEach(input=>{
       input.addEventListener('change',()=>{
         const part=input.dataset.part;
-        if(input.checked) state.excluded.delete(part); else state.excluded.add(part);
+        if(input.checked){
+          state.excluded.delete(part);
+        }else{
+          state.excluded.add(part);
+        }
         renderFn();
       });
     });
@@ -2658,7 +2651,7 @@
       elements.partFilter.value=state.partFilter||'';
       elements.partFilter.addEventListener('input',()=>{
         state.partFilter=elements.partFilter.value;
-        refreshMenu(elements,state,render);
+        refreshPartControls(elements,state,render);
       });
     }
 
@@ -3067,36 +3060,32 @@
       elements.root.classList.toggle('db-has-active',activeColumnEnabled&&!!state.showActiveList);
       persistState(state,instanceId,stateStorageKey);
       SHARED.publishAspenItems(instanceId,state.items);
-      refreshMenu(elements,state,render);
+      refreshPartControls(elements,state,render);
     }
 
     populateFieldSelects();
     render();
 
-    function openMenu(x,y){
-      refreshMenu(elements,state,render);
-      const rect=elements.menu.getBoundingClientRect();
-      const pad=8;
-      const vw=window.innerWidth;
-      const vh=window.innerHeight;
-      elements.menu.style.left=clamp(x,pad,vw-rect.width-pad)+'px';
-      elements.menu.style.top=clamp(y,pad,vh-rect.height-pad)+'px';
-      elements.menu.classList.add('open');
+    if(elements.pickBtn){
+      elements.pickBtn.addEventListener('click',()=>{
+        closeOptions();
+        pickFromExcel();
+      });
     }
-    function closeMenu(){elements.menu.classList.remove('open');}
-
-    elements.menu.querySelector('.mi-pick').addEventListener('click',pickFromExcel);
-    elements.menu.querySelector('.mi-enable').addEventListener('click',()=>{
-      state.items=dedupeByMeldung(state.items);
-      state.excluded.clear();
-      render();
-    });
-    elements.menu.querySelector('.mi-disable').addEventListener('click',()=>{
-      state.items=dedupeByMeldung(state.items);
-      state.excluded=new Set(state.items.map(item=>item.part));
-      render();
-    });
-    elements.menu.querySelector('.mi-opt').addEventListener('click',()=>{closeMenu();openOptions();});
+    if(elements.enableAllBtn){
+      elements.enableAllBtn.addEventListener('click',()=>{
+        state.items=dedupeByMeldung(state.items);
+        state.excluded.clear();
+        render();
+      });
+    }
+    if(elements.disableAllBtn){
+      elements.disableAllBtn.addEventListener('click',()=>{
+        state.items=dedupeByMeldung(state.items);
+        state.excluded=new Set(state.items.map(item=>item.part));
+        render();
+      });
+    }
 
     function renderSubFieldControls(){
       const existing=Array.isArray(tempSubFields)?tempSubFields:[];
@@ -3770,6 +3759,7 @@
       renderSearchFilterControls();
       renderExtraControls();
       renderRuleControls();
+      refreshPartControls(elements,state,render);
       elements.titleInput.value=state.config.title||'';
       elements.cBg.value=state.config.colors.bg;
       elements.cItem.value=state.config.colors.item;
@@ -3973,13 +3963,9 @@
       elements.extraContainer.addEventListener('click',handleCardClick);
     }
 
-    elements.menu.addEventListener('click',e=>e.stopPropagation());
     targetDiv.addEventListener('contextmenu',event=>{
       event.preventDefault();
-      openMenu(event.clientX,event.clientY);
-    });
-    document.addEventListener('click',event=>{
-      if(!elements.menu.contains(event.target)) closeMenu();
+      openOptions();
     });
 
     const refreshHighlights=()=>{
@@ -3994,7 +3980,6 @@
       if(!document.body.contains(elements.root)){
         flushOptionPersist();
         persistState(state,instanceId,stateStorageKey);
-        elements.menu.remove();
         SHARED.clearAspenItems(instanceId);
         stopPolling();
         window.removeEventListener('beforeunload',handleBeforeUnload);
@@ -4145,7 +4130,6 @@
     }
 
     async function pickFromExcel(){
-      closeMenu();
       try{
         const [handle]=await showOpenFilePicker({
           types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
