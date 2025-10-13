@@ -25,15 +25,31 @@
     .dc-note.warn{color:#b45309;}
     .dc-note.error{color:#b91c1c;}
     .dc-note.success{color:#0f766e;}
-    .dc-menu{position:fixed;z-index:1200;display:none;min-width:220px;padding:.35rem;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#d1d5db);border-radius:.75rem;box-shadow:0 18px 36px rgba(15,23,42,.2);}
-    .dc-menu.open{display:block;}
-    .dc-menu button{width:100%;display:flex;align-items:center;gap:.45rem;padding:.55rem .75rem;border:none;background:transparent;color:inherit;font:inherit;cursor:pointer;border-radius:.55rem;text-align:left;}
-    .dc-menu button:hover{background:rgba(148,163,184,.18);}
-    .dc-menu-sep{height:1px;margin:.25rem 0;background:rgba(148,163,184,.35);}
-    .dc-menu-section{padding:.35rem .45rem .5rem;display:flex;flex-direction:column;gap:.35rem;}
-    .dc-menu-section label{display:flex;flex-direction:column;gap:.35rem;font-size:.75rem;font-weight:600;opacity:.75;}
-    .dc-menu-select{width:100%;padding:.4rem .55rem;border-radius:.55rem;border:1px solid var(--border-color,#d1d5db);background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);font:inherit;}
-    .dc-menu-select:disabled{opacity:.6;cursor:not-allowed;}
+    .dc-modal-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:2.2rem;background:rgba(15,23,42,.55);backdrop-filter:blur(18px);z-index:2600;}
+    .dc-modal-overlay.open{display:flex;}
+    .dc-modal{width:min(780px,96vw);max-height:92vh;overflow:hidden;display:flex;flex-direction:column;background:rgba(15,23,42,.94);color:var(--module-header-text,#f8fafc);border-radius:1.35rem;border:1px solid rgba(148,163,184,.28);box-shadow:0 32px 68px rgba(8,15,35,.55);}
+    .dc-modal-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.35rem 1.6rem 1.1rem;border-bottom:1px solid rgba(148,163,184,.22);}
+    .dc-modal-title{margin:0;font-size:1.32rem;font-weight:700;letter-spacing:.4px;}
+    .dc-modal-subtitle{margin:.25rem 0 0;font-size:.86rem;opacity:.75;font-weight:500;}
+    .dc-modal-close{border:none;background:rgba(15,23,42,.58);color:inherit;font-size:1.6rem;line-height:1;border-radius:.8rem;width:2.6rem;height:2.6rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease,transform .15s ease;}
+    .dc-modal-close:hover{background:rgba(37,99,235,.35);transform:translateY(-1px);}
+    .dc-modal-close:active{transform:none;}
+    .dc-modal-body{flex:1;min-height:0;overflow:auto;padding:1.35rem 1.6rem 1.6rem;display:flex;flex-direction:column;gap:1.35rem;}
+    .dc-modal-section{display:flex;flex-direction:column;gap:.75rem;padding:1rem 1.15rem;border-radius:1rem;background:rgba(21,45,76,.72);border:1px solid rgba(76,114,163,.28);box-shadow:0 16px 38px rgba(10,20,38,.48);}
+    .dc-modal-section[data-variant="danger"]{background:rgba(127,29,29,.18);border-color:rgba(239,68,68,.42);color:#fecaca;box-shadow:0 18px 42px rgba(127,29,29,.4);}
+    .dc-modal-section h3{margin:0;font-size:1.02rem;font-weight:700;letter-spacing:.3px;color:inherit;}
+    .dc-modal-section p{margin:0;font-size:.85rem;opacity:.82;color:inherit;}
+    .dc-modal-actions{display:flex;flex-wrap:wrap;gap:.6rem;}
+    .dc-modal-actions .dc-action-btn{flex:1 1 220px;display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:.6rem 1rem;border-radius:.75rem;border:1px solid rgba(59,130,246,.45);background:rgba(37,99,235,.88);color:#fff;font-weight:600;letter-spacing:.25px;cursor:pointer;box-shadow:0 18px 42px rgba(15,23,42,.45);transition:transform .12s ease,box-shadow .12s ease,filter .12s ease;}
+    .dc-modal-actions .dc-action-btn:hover{transform:translateY(-1px);box-shadow:0 22px 50px rgba(15,23,42,.5);filter:brightness(1.03);}
+    .dc-modal-actions .dc-action-btn:active{transform:none;}
+    .dc-modal-actions .dc-action-btn.secondary{background:rgba(71,85,105,.82);border-color:rgba(148,163,184,.35);}
+    .dc-modal-actions .dc-action-btn.danger{background:rgba(185,28,28,.92);border-color:rgba(239,68,68,.65);box-shadow:0 20px 46px rgba(127,29,29,.55);}
+    .dc-modal-actions .dc-action-btn:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none;filter:none;}
+    .dc-modal-select-wrap{display:flex;flex-direction:column;gap:.5rem;}
+    .dc-modal-select-label{font-size:.82rem;font-weight:600;opacity:.85;}
+    .dc-modal-select{width:100%;padding:.55rem .75rem;border-radius:.7rem;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.58);color:inherit;font:inherit;box-shadow:0 12px 28px rgba(8,15,35,.35);}
+    .dc-modal-select:disabled{opacity:.6;cursor:not-allowed;}
   `;
 
   const XLSX_URLS=[
@@ -263,31 +279,55 @@
         <div class="dc-note" data-note></div>
       </div>
     `;
-    const menu=document.createElement('div');
-    menu.className='dc-menu';
-    menu.innerHTML=`
-      <div class="dc-menu-section">
-        <label>Aspen-Auswahl
-          <select class="dc-menu-select" data-aspen-select>
-            <option value="">Automatisch (aktive Meldung)</option>
-          </select>
-        </label>
+    const modalOverlay=document.createElement('div');
+    modalOverlay.className='dc-modal-overlay';
+    modalOverlay.innerHTML=`
+      <div class="dc-modal" role="dialog" aria-modal="true" aria-labelledby="dc-modal-title" tabindex="-1">
+        <div class="dc-modal-header">
+          <div class="dc-modal-header-text">
+            <h2 class="dc-modal-title" id="dc-modal-title">Aspen & Kommentare</h2>
+            <p class="dc-modal-subtitle">Verwalte Dateien, Auswahl und Schnellaktionen</p>
+          </div>
+          <button type="button" class="dc-modal-close" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="dc-modal-body">
+          <section class="dc-modal-section">
+            <div class="dc-modal-select-wrap">
+              <span class="dc-modal-select-label">Aspen-Auswahl</span>
+              <select class="dc-modal-select" data-aspen-select>
+                <option value="">Automatisch (aktive Meldung)</option>
+              </select>
+            </div>
+            <div class="dc-modal-actions">
+              <button type="button" class="dc-action-btn" data-action="pick-aspen">📄 Aspen-Datei wählen</button>
+              <button type="button" class="dc-action-btn secondary" data-action="reload-aspen">🔁 Aspen neu laden</button>
+            </div>
+          </section>
+          <section class="dc-modal-section">
+            <h3>Kommentar-Datei</h3>
+            <p>Wähle eine bestehende Datei oder erstelle eine neue Vorlage für Kommentare.</p>
+            <div class="dc-modal-actions">
+              <button type="button" class="dc-action-btn" data-action="pick-comments">📂 Kommentar-Datei wählen</button>
+              <button type="button" class="dc-action-btn secondary" data-action="create-comments">🆕 Kommentar-Datei erstellen</button>
+              <button type="button" class="dc-action-btn secondary" data-action="reload-comments">🔄 Kommentare neu laden</button>
+            </div>
+          </section>
+          <section class="dc-modal-section" data-variant="danger">
+            <h3>Kommentar zurücksetzen</h3>
+            <p>Löscht den aktuellen Kommentar-Eintrag für die aktive Kombination aus PN/SN.</p>
+            <div class="dc-modal-actions">
+              <button type="button" class="dc-action-btn danger" data-action="clear-comment">🗑️ Kommentar löschen</button>
+            </div>
+          </section>
+        </div>
       </div>
-      <div class="dc-menu-sep"></div>
-      <button type="button" data-action="pick-aspen">📄 Aspen-Datei wählen</button>
-      <button type="button" data-action="reload-aspen">🔁 Aspen neu laden</button>
-      <div class="dc-menu-sep"></div>
-      <button type="button" data-action="pick-comments">📂 Kommentar-Datei wählen</button>
-      <button type="button" data-action="create-comments">🆕 Kommentar-Datei erstellen</button>
-      <div class="dc-menu-sep"></div>
-      <button type="button" data-action="reload-comments">🔄 Kommentare neu laden</button>
-      <div class="dc-menu-sep"></div>
-      <button type="button" data-action="clear-comment">🗑️ Kommentar löschen</button>
     `;
-    document.body.appendChild(menu);
+    document.body.appendChild(modalOverlay);
     return {
       root,
-      menu,
+      modalOverlay,
+      modal:modalOverlay.querySelector('.dc-modal'),
+      aspenSelect:modalOverlay.querySelector('[data-aspen-select]'),
       aspenLabel:root.querySelector('[data-aspen]'),
       commentsLabel:root.querySelector('[data-comments]'),
       meldung:root.querySelector('[data-meldung]'),
@@ -299,7 +339,7 @@
   }
 
   function destroyUI(elements){
-    elements?.menu?.remove();
+    elements?.modalOverlay?.remove();
   }
 
   function findColumn(header,patterns,{preferred=[],exclude,allowPatternFallback=true}={}){
@@ -856,7 +896,7 @@
     }
 
     function updateAspenSelectOptions(){
-      const select=elements.menu?.querySelector('[data-aspen-select]');
+      const select=elements.aspenSelect;
       if(!select) return;
       const hasFile=!!state.aspenHandle;
       const options=Array.isArray(state.aspenOptions)?state.aspenOptions:[];
@@ -1311,26 +1351,32 @@
       flashNote('Kommentar gelöscht','success');
     }
 
-    function closeMenu(){
-      elements.menu.classList.remove('open');
+    function closeModal(){
+      elements.modalOverlay?.classList.remove('open');
     }
 
-    function openMenu(x,y){
+    function openModal(){
       updateAspenSelectOptions();
-      elements.menu.classList.add('open');
-      const rect=elements.menu.getBoundingClientRect();
-      const pad=12;
-      const left=clamp(x-rect.width/2,pad,window.innerWidth-rect.width-pad);
-      const top=clamp(y,pad,window.innerHeight-rect.height-pad);
-      elements.menu.style.left=left+'px';
-      elements.menu.style.top=top+'px';
+      elements.modalOverlay?.classList.add('open');
+      const modal=elements.modal;
+      if(modal){
+        modal.focus({preventScroll:true});
+      }
     }
 
-    elements.menu.addEventListener('click',event=>{
-      const button=event.target.closest('button');
+    elements.modalOverlay.addEventListener('click',event=>{
+      if(event.target===elements.modalOverlay){
+        closeModal();
+        return;
+      }
+      if(event.target.closest('[data-modal-close]')){
+        closeModal();
+        return;
+      }
+      const button=event.target.closest('button[data-action]');
       if(!button) return;
       const action=button.dataset.action;
-      closeMenu();
+      closeModal();
       if(action==='pick-aspen') pickAspenFile();
       else if(action==='reload-aspen') reloadAspenFile();
       else if(action==='pick-comments') pickCommentsFile();
@@ -1339,7 +1385,7 @@
       else if(action==='clear-comment') clearActiveComment();
     });
 
-    const aspenSelect=elements.menu.querySelector('[data-aspen-select]');
+    const aspenSelect=elements.aspenSelect;
     if(aspenSelect){
       aspenSelect.addEventListener('change',()=>{
         const value=aspenSelect.value;
@@ -1370,14 +1416,16 @@
 
     const handleContextMenu=event=>{
       event.preventDefault();
-      openMenu(event.clientX,event.clientY);
+      openModal();
     };
     elements.root.addEventListener('contextmenu',handleContextMenu);
 
-    const handleDocClick=event=>{
-      if(!elements.menu.contains(event.target)) closeMenu();
+    const handleKeydown=event=>{
+      if(event.key==='Escape'&&elements.modalOverlay.classList.contains('open')){
+        closeModal();
+      }
     };
-    document.addEventListener('click',handleDocClick);
+    document.addEventListener('keydown',handleKeydown);
 
     elements.textarea.addEventListener('input',()=>{
       if(state.updatingTextarea) return;
@@ -1395,7 +1443,7 @@
 
     const cleanup=()=>{
       clearInterval(intervalId);
-      document.removeEventListener('click',handleDocClick);
+      document.removeEventListener('keydown',handleKeydown);
       window.removeEventListener('storage',storageListener);
       window.removeEventListener('unitBoard:update',customListener);
       elements.root.removeEventListener('contextmenu',handleContextMenu);
