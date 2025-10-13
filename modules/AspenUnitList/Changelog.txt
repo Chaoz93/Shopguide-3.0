@@ -3,7 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
----
+## [1.1.17] – 2025-10-15
+### Changed
+- Schnellaktionen (Titel, Datei-Auswahl, Aktivieren/Deaktivieren) in die linke Spalte des Einstellungsdialogs verschoben, wo sie oberhalb des Überschriftenfilters gebündelt sind.
+
 ## [1.1.16] – 2025-10-14
 ### Changed
 - Überschriftenfilter im Einstellungsdialog links neben den Extraspalten angeordnet, damit beide Bereiche nebeneinander erscheinen.
