@@ -5535,105 +5535,258 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   }
 }
 
-// === Codex Prompt v5.5 – Global Layer Config Publisher ===
+// === Codex Prompt v6.1: FarblayerConfig Export inkl. Layernamen ===
+// Ersetzt den bisherigen globalen Farbexport und liest ALLE sichtbaren Layer
+// direkt aus dem DOM (auch verschachtelte Unter-Layer) mit Namen und HSLA-Werten.
 //
-// 📍 Erzeugt und aktualisiert automatisch Config/FarblayerConfig.json
-//     → enthält ALLE ermittelten Layernamen und HSLA-Werte
-//     → dient als globale Quelle für alle Module
-//
-// =======================================================================
+// Ausgabeformat:
+// {
+//   "Standard": {
+//     "Hauptmodul": { "background": "hsla(...)" },
+//     ...
+//   }
+// }
 
-(function setupGlobalLayerConfigPublisher() {
+(function exportVisibleLayerDataToConfig() {
   const CONFIG_PATH = 'Config/FarblayerConfig.json';
-  const CONFIG_FILE_NAME = CONFIG_PATH.split('/').pop() || 'FarblayerConfig.json';
+  const SAVE_DELAY = 400;
+  const STORAGE_KEY = CONFIG_PATH;
+  let saveTimer = null;
+  let lastSerialized = '';
   let fileHandle = null;
-  let writeQueued = false;
 
-  function collectLayerData() {
-    const root = document.documentElement;
-    if (!root) return {};
-    const cs = getComputedStyle(root);
-    const result = {};
-    for (let i = 1; i <= 15; i += 1) {
-      const key = `unter-layer-${i}`;
-      const hsla = cs.getPropertyValue(`--module-layer-${i}-module-bg`).trim();
-      if (hsla && hsla.startsWith('hsl')) {
-        result[key] = hsla;
+  function hslaOrNull(input) {
+    const value = typeof input === 'string' ? input.trim() : '';
+    return value && value.startsWith('hsl') ? value : null;
+  }
+
+  function getInputValue(el) {
+    if (!el) return '';
+    if (typeof el.value === 'string') return el.value.trim();
+    if (typeof el.textContent === 'string') return el.textContent.trim();
+    return '';
+  }
+
+  function readColorValue(input) {
+    if (!input) return null;
+    try {
+      if (typeof getColorInputValue === 'function') {
+        const pickerValue = getColorInputValue(input);
+        const normalized = hslaOrNull(pickerValue);
+        if (normalized) return normalized;
       }
+    } catch (err) {
+      console.warn('[ShopguideV3] Konnte Pickerwert nicht lesen:', err);
     }
+    return hslaOrNull(input.value || input.textContent || '');
+  }
 
-    const extraLayers = Array.from(document.querySelectorAll('[data-layer-name]'));
-    extraLayers.forEach(el => {
-      const name = el.dataset.layerName;
-      if (!name) return;
-      const color = cs.getPropertyValue(`--module-${name}-bg`).trim();
-      if (color && color.startsWith('hsl')) {
-        result[name] = color;
+  function readColorLabels(container) {
+    const colors = { background: null, text: null, border: null };
+    if (!container) return colors;
+    const labels = container.querySelectorAll('.module-layer-color');
+    labels.forEach(labelEl => {
+      const labelText = labelEl.querySelector('span')?.textContent?.toLowerCase?.() || '';
+      const input = labelEl.querySelector('input');
+      const value = readColorValue(input);
+      if (!value) return;
+      if (labelText.includes('hintergrund')) colors.background = value;
+      else if (labelText.includes('text')) colors.text = value;
+      else if (labelText.includes('rahmen')) colors.border = value;
+    });
+    return colors;
+  }
+
+  function ensureUniqueName(name, fallback, seen) {
+    const base = (typeof name === 'string' && name.trim()) || fallback;
+    let candidate = base || 'Layer';
+    let suffix = 2;
+    while (seen.has(candidate)) {
+      candidate = `${base || fallback || 'Layer'} (${suffix})`;
+      suffix += 1;
+    }
+    seen.add(candidate);
+    return candidate;
+  }
+
+  function formatColors(colors) {
+    const background = hslaOrNull(colors.background) || 'n/a';
+    const text = hslaOrNull(colors.text) || 'n/a';
+    const border = hslaOrNull(colors.border) || 'n/a';
+    if (background === 'n/a' && text === 'n/a' && border === 'n/a') {
+      return null;
+    }
+    return { background, text, border };
+  }
+
+  function collectAllLayers() {
+    const result = {};
+    const standard = {};
+    const seenNames = new Set();
+    const scope = document.querySelector('.module-layer-manager') || document.body;
+    if (!scope) return { Standard: standard };
+
+    const registerColors = (rawName, colors, fallback) => {
+      const formatted = formatColors(colors);
+      if (!formatted) return;
+      const uniqueName = ensureUniqueName(rawName, fallback, seenNames);
+      standard[uniqueName] = formatted;
+    };
+
+    const layerCards = scope.querySelectorAll('.module-color-layer');
+    layerCards.forEach((layerEl, layerIndex) => {
+      const moduleGroup = layerEl.querySelector('.module-layer-group[data-group="module"]');
+      if (moduleGroup) {
+        const moduleName = moduleGroup.querySelector('.module-layer-group-title')?.textContent?.trim();
+        registerColors(moduleName, readColorLabels(moduleGroup), `Layer ${layerIndex + 1}`);
+        moduleGroup.querySelectorAll('.module-layer-group--nested').forEach(nested => {
+          const nestedName = nested.querySelector('.module-layer-group-title')?.textContent?.trim();
+          registerColors(nestedName, readColorLabels(nested), `Layer ${layerIndex + 1} Bereich`);
+        });
       }
+
+      layerEl.querySelectorAll('.module-layer-subgroup').forEach((subgroup, subgroupIndex) => {
+        const nameField = subgroup.querySelector('.module-sub-layer-name');
+        const datasetName = subgroup.dataset.subLayerName;
+        const fallbackName = subgroup.querySelector('.module-layer-subgroup-title')?.textContent?.trim()
+          || `Unter-Layer ${subgroupIndex + 1}`;
+        const resolvedName = getInputValue(nameField) || datasetName || fallbackName;
+        registerColors(resolvedName, readColorLabels(subgroup), fallbackName);
+      });
     });
 
+    if (!layerCards.length) {
+      scope.querySelectorAll('.module-layer-group, .module-layer-subgroup').forEach(block => {
+        const title = block.querySelector('.module-layer-group-title, .module-layer-subgroup-title');
+        const name = title ? title.textContent.trim() : '';
+        registerColors(name, readColorLabels(block), 'Layer');
+      });
+    }
+
+    result.Standard = standard;
     return result;
+  }
+
+  async function tryAutosave(jsonText, data) {
+    if (typeof window?.__shopguideAutosave !== 'function') return false;
+    await window.__shopguideAutosave(CONFIG_PATH, jsonText, 'application/json');
+    console.log('[ShopguideV3] FarblayerConfig.json automatisch gespeichert:', data);
+    return true;
   }
 
   async function requestFileHandle() {
     if (fileHandle) return fileHandle;
-    if (!window.showSaveFilePicker) {
-      throw new Error('FileSystem Access API nicht verfügbar.');
+    if (typeof window === 'undefined') return null;
+    if (window.__farblayerFileHandle) {
+      fileHandle = window.__farblayerFileHandle;
+      return fileHandle;
     }
-    fileHandle = await window.showSaveFilePicker({
-      suggestedName: CONFIG_FILE_NAME,
-      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+    if (typeof window.showSaveFilePicker !== 'function') return null;
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'FarblayerConfig.json',
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
     });
+    window.__farblayerFileHandle = handle;
+    fileHandle = handle;
     return fileHandle;
   }
 
-  async function writeConfigFile(data) {
-    const jsonText = JSON.stringify(data, null, 2);
-    try {
-      if (typeof window !== 'undefined' && typeof window.__shopguideAutosave === 'function') {
-        await window.__shopguideAutosave(CONFIG_PATH, jsonText, 'application/json');
-        console.log('[ShopguideV3] Global FarblayerConfig.json autosaved:', data);
-        return;
-      }
-    } catch (err) {
-      console.warn('[ShopguideV3] Autosave für FarblayerConfig.json fehlgeschlagen:', err);
-    }
-
+  async function writeConfigFile(jsonText, data) {
     const handle = await requestFileHandle();
-    const writable = await handle.createWritable();
-    await writable.write(new Blob([jsonText], { type: 'application/json' }));
-    await writable.close();
-    console.log('[ShopguideV3] Global FarblayerConfig.json gespeichert:', data);
+    if (!handle) return false;
+    try {
+      const writable = await handle.createWritable();
+      await writable.write(new Blob([jsonText], { type: 'application/json' }));
+      await writable.close();
+      console.log('[ShopguideV3] FarblayerConfig.json erfolgreich gespeichert.', data);
+      return true;
+    } catch (err) {
+      console.warn('[ShopguideV3] Schreiben der FarblayerConfig.json fehlgeschlagen:', err);
+      if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') {
+        fileHandle = null;
+        window.__farblayerFileHandle = null;
+      }
+      return false;
+    }
   }
 
-  function queueConfigWrite() {
-    if (writeQueued) return;
-    writeQueued = true;
-    setTimeout(async () => {
-      const data = collectLayerData();
-      try {
-        await writeConfigFile(data);
-      } catch (err) {
-        console.warn('[ShopguideV3] Kein FileHandle vorhanden – nutze Autosave-Fallback.', err);
-        try {
-          localStorage.setItem(CONFIG_PATH, JSON.stringify(data));
-          console.log('[ShopguideV3] Global FarblayerConfig.json lokal gespeichert (Fallback):', data);
-        } catch (storageErr) {
-          console.error('[ShopguideV3] Autosave-Fallback für FarblayerConfig.json fehlgeschlagen:', storageErr);
-        }
-      } finally {
-        writeQueued = false;
+  function storeLocal(jsonText, data, { reason = 'Fallback', quiet = false } = {}) {
+    try {
+      localStorage.setItem(STORAGE_KEY, jsonText);
+      if (!quiet) {
+        console.log(`[ShopguideV3] FarblayerConfig.json lokal gespeichert (${reason}).`, data);
       }
-    }, 500);
+    } catch (err) {
+      console.error('[ShopguideV3] FarblayerConfig.json konnte nicht lokal gespeichert werden:', err);
+    }
+  }
+
+  async function saveConfigJSON() {
+    const data = collectAllLayers();
+    const jsonText = JSON.stringify(data, null, 2);
+    if (jsonText === lastSerialized) return;
+    console.log('[ShopguideV3] Exportiere FarblayerConfig:', data);
+
+    let saved = false;
+    try {
+      saved = await tryAutosave(jsonText, data);
+    } catch (err) {
+      console.warn('[ShopguideV3] Autosave für FarblayerConfig fehlgeschlagen:', err);
+    }
+
+    if (!saved) {
+      try {
+        saved = await writeConfigFile(jsonText, data);
+      } catch (err) {
+        console.warn('[ShopguideV3] Dateizugriff für FarblayerConfig fehlgeschlagen:', err);
+      }
+    }
+
+    if (saved) {
+      storeLocal(jsonText, data, { reason: 'Cache', quiet: true });
+      lastSerialized = jsonText;
+    } else {
+      storeLocal(jsonText, data, { reason: 'Fallback' });
+      lastSerialized = jsonText;
+    }
+  }
+
+  function scheduleConfigSave() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+    }
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      saveConfigJSON();
+    }, SAVE_DELAY);
+  }
+
+  function handleRelevantEvent(event) {
+    if (!event?.target?.closest) {
+      scheduleConfigSave();
+      return;
+    }
+    if (event.target.closest('.module-layer-manager')) {
+      scheduleConfigSave();
+    }
   }
 
   if (typeof window !== 'undefined') {
-    window.__queueGlobalLayerConfigWrite = queueConfigWrite;
-    window.__saveLinkButtonsPalette = queueConfigWrite;
+    if (window.__farblayerFileHandle) {
+      fileHandle = window.__farblayerFileHandle;
+    }
+    window.__exportFarblayerConfig = scheduleConfigSave;
+    window.__queueGlobalLayerConfigWrite = scheduleConfigSave;
+    window.__saveLinkButtonsPalette = scheduleConfigSave;
 
-    queueConfigWrite();
-    window.addEventListener('shopguide:sub-layers-updated', queueConfigWrite);
-    window.addEventListener('theme:changed', queueConfigWrite);
+    const immediateEvents = ['shopguide:sub-layers-updated', 'theme:changed', 'module-layer-config:updated'];
+    immediateEvents.forEach(evt => {
+      window.addEventListener(evt, scheduleConfigSave);
+    });
+    window.addEventListener('input', handleRelevantEvent, true);
+    window.addEventListener('change', handleRelevantEvent, true);
+
+    scheduleConfigSave();
   }
 })();
 
