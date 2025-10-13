@@ -470,7 +470,76 @@
       .join('');
   }
 
-  function loadGlobalColorLayers(maxLayers = 15, configLayers = []){
+  function readDomModuleLayers(){
+    if (typeof document === 'undefined') {
+      return { layers: [], datasetSources: [] };
+    }
+
+    const container = document.getElementById('module-color-layers')
+      || document.querySelector('.module-color-layers');
+    if (!container) {
+      return { layers: [], datasetSources: [] };
+    }
+
+    const datasetSources = [];
+    const layers = [];
+    const layerNodes = container.querySelectorAll('.module-color-layer');
+
+    layerNodes.forEach((layerEl, index) => {
+      if (!layerEl) return;
+      if (layerEl.dataset) datasetSources.push(layerEl.dataset);
+
+      const idx = index + 1;
+      const defaultName = `Unter-Layer ${idx}`;
+      const rawName = typeof layerEl.dataset.layerName === 'string'
+        ? layerEl.dataset.layerName.trim()
+        : '';
+      const name = rawName || defaultName;
+      const rawVar = typeof layerEl.dataset.layerVar === 'string'
+        ? layerEl.dataset.layerVar.trim()
+        : '';
+      const rawId = typeof layerEl.dataset.id === 'string'
+        ? layerEl.dataset.id.trim()
+        : '';
+      const variableId = sanitizeId(rawVar) || sanitizeId(rawId);
+      const id = sanitizeId(rawId) || variableId || `layer-${idx}`;
+
+      const subLayers = [];
+      const subNodes = layerEl.querySelectorAll('.module-layer-subgroup');
+      subNodes.forEach((subEl, subIndex) => {
+        if (!subEl) return;
+        if (subEl.dataset) datasetSources.push(subEl.dataset);
+        const defaultSub = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
+        const rawSubName = typeof subEl.dataset.subLayerName === 'string'
+          ? subEl.dataset.subLayerName.trim()
+          : '';
+        const subName = rawSubName || defaultSub;
+        const subVar = typeof subEl.dataset.subLayerVar === 'string'
+          ? subEl.dataset.subLayerVar.trim()
+          : '';
+        subLayers.push({
+          name: subName,
+          displayName: subName,
+          label: subName,
+          variableId: sanitizeId(subVar)
+        });
+      });
+
+      layers.push({
+        index: idx,
+        id,
+        variableId: variableId || '',
+        name,
+        displayName: name,
+        label: name,
+        subLayers
+      });
+    });
+
+    return { layers, datasetSources };
+  }
+
+  function loadGlobalColorLayers(maxLayers = 15, configLayers = [], domData = null){
     const layers = [];
     const sources = [];
     const docEl = document.documentElement;
@@ -495,6 +564,11 @@
     const datasetSources = [];
     if (docEl && docEl.dataset) datasetSources.push(docEl.dataset);
     if (body && body !== docEl && body.dataset) datasetSources.push(body.dataset);
+    if (domData && Array.isArray(domData.datasetSources)) {
+      domData.datasetSources.forEach(source => {
+        if (source) datasetSources.push(source);
+      });
+    }
 
     const readDatasetValue = (key) => {
       if(!key) return '';
@@ -1002,7 +1076,7 @@
   }
 
   function getColorLayers(){
-    const configLayers = (() => {
+    const configLayersFromSettings = (() => {
       if (Array.isArray(window?.appSettings?.moduleColorLayers)) {
         return window.appSettings.moduleColorLayers;
       }
@@ -1012,8 +1086,13 @@
       return [];
     })();
 
-    const normalizedConfig = Array.isArray(configLayers)
-      ? configLayers.map((layer, index) => {
+    const domLayerData = readDomModuleLayers();
+    const configSourceLayers = Array.isArray(configLayersFromSettings) && configLayersFromSettings.length
+      ? configLayersFromSettings
+      : (Array.isArray(domLayerData.layers) && domLayerData.layers.length ? domLayerData.layers : []);
+
+    const normalizedConfig = Array.isArray(configSourceLayers)
+      ? configSourceLayers.map((layer, index) => {
           const id = sanitizeId(layer?.id) || `layer-${index}`;
           const variableId = sanitizeId(layer?.variableId) || '';
           const name = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : '';
@@ -1031,7 +1110,7 @@
         })
       : [];
 
-    const cssLayers = loadGlobalColorLayers(15, normalizedConfig);
+    const cssLayers = loadGlobalColorLayers(15, normalizedConfig, domLayerData);
 
     if(!cssLayers.length && !normalizedConfig.length) return [];
 
