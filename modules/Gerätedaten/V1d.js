@@ -87,7 +87,13 @@
   .rs-button-add{border-radius:.5rem;padding:.32rem .7rem;background:var(--rs-button-bg);color:var(--rs-button-text);border:1px solid var(--rs-button-border);cursor:pointer;font-weight:600}
   .rs-button-add:hover{opacity:.92}
   .rs-button-list{display:flex;flex-direction:column;gap:.6rem}
-  .rs-button-item{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr)) auto;gap:.6rem;align-items:end;background:var(--rs-surface-bg);border:1px solid var(--rs-surface-border);padding:.6rem;border-radius:.6rem}
+  .rs-button-item{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr)) auto;gap:.6rem;align-items:end;background:#f8fafc;border:1px solid #cbd5f5;padding:.8rem;border-radius:.75rem;box-shadow:0 16px 36px rgba(15,23,42,.18);color:#0f172a}
+  .rs-button-item:hover{border-color:#94a3ff;box-shadow:0 18px 42px rgba(30,64,175,.22)}
+  .rs-button-item input,.rs-button-item select{background:#fff;border:1px solid #d1d5f9;color:#0f172a;box-shadow:0 10px 24px rgba(15,23,42,.12);padding:.35rem .55rem;border-radius:.55rem}
+  .rs-button-item select{appearance:none}
+  .rs-button-item input:focus,.rs-button-item select:focus{outline:2px solid #2563eb;outline-offset:2px;border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.18)}
+  .rs-button-item label{color:#1f2937;font-weight:600}
+  .rs-button-item .rs-inline-input{background:#fff;border:1px solid #d1d5f9;color:#0f172a}
   .rs-button-field{display:flex;flex-direction:column;gap:.25rem;font-size:.78rem}
   .rs-button-field label{font-weight:600;opacity:.8}
   .rs-button-field input,.rs-button-field select{padding:.3rem .45rem;border-radius:.4rem;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text)}
@@ -96,6 +102,7 @@
   .rs-button-remove:disabled{opacity:.5;cursor:default}
   .rs-button-empty{font-size:.8rem;opacity:.7}
   .rs-button-select-missing{border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.25)}
+  .rs-button-item select.rs-button-select-missing{background:#fef2f2;color:#991b1b}
   `;
   (function inject(){
     let tag=document.getElementById('record-sheet-styles');
