@@ -5834,6 +5834,8 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   const STORAGE_KEY = CONFIG_PATH;
   let saveTimer = null;
   let lastSerialized = '';
+  let initialSnapshotReady = false;
+  let initialSnapshotPromise = null;
   const statusContainer = document.getElementById('module-layer-config-status');
   const statusTextEl = statusContainer?.querySelector('[data-status-text]') || null;
   let lastStatusState = '';
@@ -5873,6 +5875,54 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
       console.error('[ShopguideV3] FarblayerConfig.json konnte nicht lokal zwischengespeichert werden:', err);
       updateConfigStatus('error', 'Lokaler Zwischenspeicher konnte nicht beschrieben werden.');
     }
+  }
+
+  function restoreLastSerializedSnapshot() {
+    if (initialSnapshotReady) {
+      return Promise.resolve();
+    }
+
+    if (initialSnapshotPromise) {
+      return initialSnapshotPromise;
+    }
+
+    initialSnapshotPromise = (async () => {
+      let cached = '';
+      try {
+        cached = localStorage.getItem(STORAGE_KEY) || '';
+      } catch (err) {
+        console.warn('[ShopguideV3] Konnte FarblayerConfig-Zwischenspeicher nicht lesen:', err);
+      }
+
+      if (cached.trim()) {
+        lastSerialized = cached;
+        return;
+      }
+
+      if (typeof fetch === 'function') {
+        try {
+          const response = await fetch(CONFIG_PATH, { cache: 'no-store' });
+          if (response.ok) {
+            const text = await response.text();
+            if (text && text.trim()) {
+              lastSerialized = text;
+              cacheConfigLocally(text);
+            }
+          }
+        } catch (err) {
+          console.warn('[ShopguideV3] Konnte bestehende FarblayerConfig nicht laden:', err);
+        }
+      }
+    })()
+      .catch(err => {
+        console.warn('[ShopguideV3] Initiale FarblayerConfig konnte nicht wiederhergestellt werden:', err);
+      })
+      .finally(() => {
+        initialSnapshotReady = true;
+        initialSnapshotPromise = null;
+      });
+
+    return initialSnapshotPromise;
   }
 
   async function chooseSaveFolder(event) {
@@ -6170,9 +6220,23 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   }
 
   async function saveConfigJSON() {
+    if (!initialSnapshotReady) {
+      await restoreLastSerializedSnapshot();
+    }
+
     const data = collectAllLayers();
     const jsonText = JSON.stringify(data, null, 2);
     if (jsonText === lastSerialized) return;
+
+    const standardEntries = data?.Standard && typeof data.Standard === 'object'
+      ? Object.keys(data.Standard)
+      : [];
+
+    if (!standardEntries.length && lastSerialized && lastSerialized.trim()) {
+      console.log('[ShopguideV3] Überspringe Farblayer-Export: keine Layerdaten gefunden, vorhandene Werte bleiben erhalten.');
+      return;
+    }
+
     updateConfigStatus('saving', 'Schreibe FarblayerConfig.json …');
     console.log('[ShopguideV3] Exportiere FarblayerConfig:', data);
 
@@ -6219,6 +6283,7 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     });
 
     checkInitialConfigAvailability();
+    restoreLastSerializedSnapshot();
     scheduleConfigSave();
   }
 })();
