@@ -35,6 +35,12 @@
     .flv-root{height:100%;width:100%;box-sizing:border-box;}
     .flv-surface{height:100%;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
     .flv-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;flex-wrap:wrap;}
+    .flv-actions{display:flex;align-items:flex-end;gap:.65rem;flex-wrap:wrap;justify-content:flex-end;}
+    .flv-filter{display:flex;flex-direction:column;gap:.35rem;font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;opacity:.85;}
+    .flv-select{min-width:180px;padding:.45rem .65rem;border-radius:.55rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.65);color:inherit;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .12s ease,box-shadow .12s ease;}
+    .flv-select:focus{outline:none;border-color:rgba(255,255,255,.35);box-shadow:0 0 0 2px rgba(148,163,184,.25);}
+    .flv-select:disabled{opacity:.5;cursor:not-allowed;}
+    .flv-select option{color:#0f172a;}
     .flv-title{font-size:1.1rem;font-weight:700;letter-spacing:.015em;}
     .flv-meta{font-size:.82rem;opacity:.8;}
     .flv-status{min-height:1.1rem;font-size:.85rem;opacity:.9;}
@@ -717,7 +723,15 @@
             <div class="flv-title">Farblayer-Konfiguration</div>
             <div class="flv-meta" data-flv-meta>${CONFIG_PATH}</div>
           </div>
-          <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
+          <div class="flv-actions">
+            <label class="flv-filter">
+              <span>Farbe auswählen</span>
+              <select class="flv-select" data-flv-color-filter>
+                <option value="">Alle Farben</option>
+              </select>
+            </label>
+            <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
+          </div>
         </div>
         <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
         <div class="flv-list" data-flv-list></div>
@@ -728,12 +742,19 @@
     const statusEl = root.querySelector('[data-flv-status]');
     const refreshBtn = root.querySelector('[data-flv-refresh]');
     const metaEl = root.querySelector('[data-flv-meta]');
+    const colorSelect = root.querySelector('[data-flv-color-filter]');
 
     if(typeof root.__flvCleanup === 'function'){
       root.__flvCleanup();
     }
 
-    const state = { controller: null, disposed: false };
+    const state = {
+      controller: null,
+      disposed: false,
+      items: [],
+      lastSource: null,
+      selectedColor: ''
+    };
     root.__flvCleanup = () => {
       state.disposed = true;
       if(state.controller){
@@ -741,6 +762,85 @@
         state.controller = null;
       }
     };
+
+    function populateColorFilter(items, preferredColor){
+      if(!colorSelect) return;
+      const uniqueColors = [];
+      const seen = new Set();
+      items.forEach(item => {
+        const value = typeof item.background === 'string' ? item.background.trim() : '';
+        if(!value || seen.has(value)) return;
+        seen.add(value);
+        uniqueColors.push(value);
+      });
+
+      const fragment = document.createDocumentFragment();
+      const allOption = document.createElement('option');
+      allOption.value = '';
+      allOption.textContent = 'Alle Farben';
+      fragment.appendChild(allOption);
+
+      uniqueColors.forEach(color => {
+        const option = document.createElement('option');
+        option.value = color;
+        option.textContent = color;
+        option.style.backgroundColor = color;
+        option.style.color = '#0f172a';
+        fragment.appendChild(option);
+      });
+
+      colorSelect.innerHTML = '';
+      colorSelect.appendChild(fragment);
+
+      const target = preferredColor && uniqueColors.includes(preferredColor) ? preferredColor : '';
+      colorSelect.value = target;
+      state.selectedColor = colorSelect.value;
+      colorSelect.disabled = uniqueColors.length === 0;
+    }
+
+    function getFilteredItems(){
+      if(!state.items.length) return [];
+      if(!colorSelect || colorSelect.disabled){
+        return state.items.slice();
+      }
+      const selected = colorSelect.value;
+      if(!selected){
+        return state.items.slice();
+      }
+      return state.items.filter(item => item.background === selected);
+    }
+
+    function renderCurrentItems(){
+      const filtered = getFilteredItems();
+      renderItems(listEl, filtered);
+      return filtered;
+    }
+
+    function updateStatusMessage(source, filteredCount, totalCount){
+      if(!statusEl) return;
+      if(!source){
+        statusEl.textContent = '';
+        return;
+      }
+      let message;
+      if(colorSelect && !colorSelect.disabled && colorSelect.value){
+        message = `${filteredCount} von ${totalCount} Layer geladen (${source}).`;
+      }else{
+        message = `${filteredCount} Layer geladen (${source}).`;
+      }
+      if(source === 'Standardwerte (Fallback)'){
+        message += ' Bitte prüfen Sie den Pfad zur FarblayerConfig.json.';
+      }
+      statusEl.textContent = message;
+      statusEl.classList.remove('flv-error');
+    }
+
+    function handleFilterChange(){
+      if(!colorSelect) return;
+      state.selectedColor = colorSelect.value;
+      const filtered = renderCurrentItems();
+      updateStatusMessage(state.lastSource, filtered.length, state.items.length);
+    }
 
     async function loadPalette(reason){
       if(state.disposed) return;
@@ -756,17 +856,20 @@
       if(listEl){
         listEl.innerHTML = '';
       }
+      if(colorSelect){
+        state.selectedColor = colorSelect.value;
+        colorSelect.disabled = true;
+      }
       try{
         const result = await fetchPalette(controller.signal);
         if(state.disposed || controller.signal.aborted) return;
-        const items = flattenPalette(result.data);
-        renderItems(listEl, items);
-        if(statusEl){
-          let message = `${items.length} Layer geladen (${result.source}).`;
-          if(result.source === 'Standardwerte (Fallback)'){
-            message += ' Bitte prüfen Sie den Pfad zur FarblayerConfig.json.';
-          }
-          statusEl.textContent = message;
+        state.items = flattenPalette(result.data);
+        state.lastSource = result.source;
+        populateColorFilter(state.items, state.selectedColor);
+        const filtered = renderCurrentItems();
+        updateStatusMessage(result.source, filtered.length, state.items.length);
+        if(colorSelect){
+          colorSelect.disabled = state.items.length === 0;
         }
         if(metaEl){
           const labelPath = result.path || CONFIG_PATH;
@@ -786,12 +889,21 @@
           statusEl.textContent = 'Fehler beim Laden der Farblayer.';
           statusEl.classList.add('flv-error');
         }
+        state.items = [];
         renderItems(listEl, []);
+        if(colorSelect){
+          populateColorFilter([], '');
+          colorSelect.disabled = true;
+        }
       }
     }
 
     if(refreshBtn){
       refreshBtn.addEventListener('click', () => loadPalette('manual'));
+    }
+
+    if(colorSelect){
+      colorSelect.addEventListener('change', handleFilterChange);
     }
 
     loadPalette();
