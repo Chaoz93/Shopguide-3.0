@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [3.6.12] – 2025-10-10
+### Changed
+- Shopguide HTML-Version auf 3.6.12 angehoben, um die aktuellen Modulupdates auszuweisen.
+- FarblayerViewer-Modul auf Version 1.2.0 aktualisiert; neue Farbschema-Vorschauen, Auswahlpersistenz und verbesserte UI-/Fehlerbehandlung integriert.
+
 ## [3.6.11] – 2025-10-10
 ### Changed
 - Aspen Board auf Version 1.1.13 aktualisiert; Scrollleisten, aktive Karten und Oberflächenfarben folgen dem neuen Dashboard-Look.
