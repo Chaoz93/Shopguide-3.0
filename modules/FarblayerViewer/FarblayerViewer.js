@@ -1,7 +1,32 @@
 (function(){
   const STYLE_ID = 'farblayer-viewer-styles';
   const CONFIG_PATH = 'configs/FarblayerConfig.json';
+  const CONFIG_FILENAME = CONFIG_PATH.split('/').pop() || 'FarblayerConfig.json';
   const STORAGE_KEY = CONFIG_PATH;
+  const DEFAULT_DEBUG_DATA = {
+    'Debug-Standardwerte': {
+      'Hauptmodul (Debug)': {
+        background: 'hsla(165, 86%, 57%, 1)',
+        text: 'hsla(0, 0%, 100%, 1)',
+        border: 'hsla(206, 86%, 19%, 1)'
+      },
+      'Überschrift Unter-Layer (Debug)': {
+        background: 'hsla(0, 31%, 74%, 1)',
+        text: 'hsla(0, 100%, 99%, 1)',
+        border: 'hsla(207, 85%, 100%, 1)'
+      },
+      'Unter-Layer 3 (Debug)': {
+        background: 'hsla(196, 82%, 48%, 1)',
+        text: 'hsla(0, 0%, 100%, 1)',
+        border: 'hsla(216, 57%, 24%, 1)'
+      },
+      'Hinweis-Layer (Debug)': {
+        background: 'hsla(24, 95%, 58%, 1)',
+        text: 'hsla(214, 84%, 15%, 1)',
+        border: 'hsla(24, 95%, 38%, 1)'
+      }
+    }
+  };
 
   function ensureStyles(){
     if(document.getElementById(STYLE_ID)) return;
@@ -214,44 +239,177 @@
     return items;
   }
 
+  function readCachedPalette(){
+    try{
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if(!stored) return null;
+      const parsed = JSON.parse(stored);
+      if(parsed && typeof parsed === 'object'){
+        if(parsed.data && typeof parsed.data === 'object'){
+          return {
+            data: parsed.data,
+            path: typeof parsed.path === 'string' && parsed.path.trim() ? parsed.path.trim() : null
+          };
+        }
+        return { data: parsed, path: null };
+      }
+    }catch{}
+    return null;
+  }
+
+  function writeCachedPalette(data, path){
+    try{
+      const payload = {
+        data,
+        path: typeof path === 'string' && path.trim() ? path.trim() : null,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    }catch{}
+  }
+
+  function reportSearchErrors(errors){
+    if(!Array.isArray(errors) || !errors.length) return;
+    const header = `[FarblayerViewer] Fehlgeschlagene Pfadversuche (${errors.length})`;
+    if(typeof console !== 'undefined'){
+      if(typeof console.groupCollapsed === 'function'){
+        console.groupCollapsed(header);
+        errors.forEach(entry => {
+          const path = entry && typeof entry.path === 'string' ? entry.path : 'Unbekannter Pfad';
+          const message = entry && entry.message ? entry.message : 'Unbekannter Fehler';
+          console.info(`- ${path}: ${message}`);
+        });
+        console.groupEnd();
+      }else{
+        console.warn(header, errors);
+      }
+    }
+  }
+
+  function buildSearchPaths(preferredPath){
+    const candidates = [];
+    const seen = new Set();
+    const add = value => {
+      if(typeof value !== 'string') return;
+      const trimmed = value.trim();
+      if(!trimmed || seen.has(trimmed)) return;
+      seen.add(trimmed);
+      candidates.push(trimmed);
+    };
+
+    if(preferredPath) add(preferredPath);
+
+    const lowerFilename = CONFIG_FILENAME.toLowerCase();
+    const relativePrefixes = ['', './', '../', '../../', '../../../', '../../../../', '../../../../../'];
+    relativePrefixes.forEach(prefix => {
+      add(`${prefix}${CONFIG_PATH}`);
+      add(`${prefix}${CONFIG_FILENAME}`);
+      add(`${prefix}configs/${CONFIG_FILENAME}`);
+      if(lowerFilename !== CONFIG_FILENAME){
+        add(`${prefix}${lowerFilename}`);
+        add(`${prefix}configs/${lowerFilename}`);
+      }
+    });
+
+    add(`/${CONFIG_FILENAME}`);
+    add(`/configs/${CONFIG_FILENAME}`);
+    if(lowerFilename !== CONFIG_FILENAME){
+      add(`/${lowerFilename}`);
+      add(`/configs/${lowerFilename}`);
+    }
+
+    if(typeof window !== 'undefined' && window && window.location && typeof window.location.pathname === 'string'){
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      for(let depth = segments.length; depth >= 0; depth--){
+        const slice = segments.slice(0, depth).join('/');
+        const absolutePrefix = slice ? `/${slice}/` : '/';
+        add(`${absolutePrefix}${CONFIG_PATH}`);
+        add(`${absolutePrefix}${CONFIG_FILENAME}`);
+        add(`${absolutePrefix}configs/${CONFIG_FILENAME}`);
+        if(lowerFilename !== CONFIG_FILENAME){
+          add(`${absolutePrefix}${lowerFilename}`);
+          add(`${absolutePrefix}configs/${lowerFilename}`);
+        }
+      }
+    }
+
+    if(typeof document !== 'undefined' && document){
+      const scripts = document.querySelectorAll('script[src]');
+      scripts.forEach(script => {
+        const src = script.getAttribute('src');
+        if(!src) return;
+        try{
+          const url = new URL(src, typeof window !== 'undefined' ? window.location.href : undefined);
+          const basePath = url.pathname.replace(/[^/]*$/, '');
+          const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+          add(`${normalizedBase}${CONFIG_PATH}`);
+          add(`${normalizedBase}${CONFIG_FILENAME}`);
+          add(`${normalizedBase}configs/${CONFIG_FILENAME}`);
+          if(lowerFilename !== CONFIG_FILENAME){
+            add(`${normalizedBase}${lowerFilename}`);
+            add(`${normalizedBase}configs/${lowerFilename}`);
+          }
+
+          const parts = normalizedBase.split('/').filter(Boolean);
+          let relative = '';
+          for(let depth = parts.length; depth > 0; depth--){
+            relative += '../';
+            add(`${relative}${CONFIG_PATH}`);
+            add(`${relative}${CONFIG_FILENAME}`);
+            add(`${relative}configs/${CONFIG_FILENAME}`);
+            if(lowerFilename !== CONFIG_FILENAME){
+              add(`${relative}${lowerFilename}`);
+              add(`${relative}configs/${lowerFilename}`);
+            }
+          }
+        }catch{}
+      });
+    }
+
+    return candidates;
+  }
+
   async function fetchPalette(signal){
     if(typeof fetch !== 'function'){
       throw new Error('Fetch API nicht verfügbar.');
     }
-    let lastError = null;
-    try{
-      const response = await fetch(CONFIG_PATH, { cache: 'no-store', signal });
-      if(!response.ok){
-        throw new Error(`${response.status} ${response.statusText}`);
-      }
-      const data = await response.json();
-      if(data && typeof data === 'object'){
-        try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch{}
-        return { data, source: 'Dateisystem' };
-      }
-    }catch(err){
-      lastError = err;
-    }
 
-    try{
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if(stored){
-        const parsed = JSON.parse(stored);
-        if(parsed && typeof parsed === 'object'){
-          if(lastError){
-            console.warn('[FarblayerViewer] Verwende zwischengespeicherte Farblayer:', lastError);
-          }
-          return { data: parsed, source: 'Lokaler Speicher' };
+    const cached = readCachedPalette();
+    const searchPaths = buildSearchPaths(cached && cached.path ? cached.path : null);
+    const errors = [];
+
+    for(const path of searchPaths){
+      try{
+        const response = await fetch(path, { cache: 'no-store', signal });
+        if(!response.ok){
+          errors.push({ path, message: `${response.status} ${response.statusText}` });
+          continue;
         }
+        const data = await response.json();
+        if(data && typeof data === 'object'){
+          writeCachedPalette(data, path);
+          if(errors.length) reportSearchErrors(errors);
+          return { data, source: 'Dateisystem', path };
+        }
+        errors.push({ path, message: 'Datei enthält keine gültige JSON-Struktur.' });
+      }catch(err){
+        if((signal && signal.aborted) || (err && err.name === 'AbortError')){
+          throw err;
+        }
+        const message = err && err.message ? err.message : 'Unbekannter Fehler';
+        errors.push({ path, message });
       }
-    }catch(storageErr){
-      if(!lastError) lastError = storageErr;
     }
 
-    if(lastError){
-      throw lastError;
+    if(cached){
+      if(errors.length) reportSearchErrors(errors);
+      console.warn('[FarblayerViewer] Verwende zwischengespeicherte Farblayer – aktuelle Datei konnte nicht gefunden werden.');
+      return { data: cached.data, source: 'Lokaler Speicher', path: cached.path || null };
     }
-    return { data: {}, source: 'Unbekannt' };
+
+    if(errors.length) reportSearchErrors(errors);
+    console.warn(`[FarblayerViewer] Keine Farblayer-Konfiguration gefunden. Es werden Debug-Standardwerte angezeigt (${CONFIG_FILENAME}).`);
+    return { data: DEFAULT_DEBUG_DATA, source: 'Standardwerte (Fallback)', path: null };
   }
 
   function renderItems(container, items){
@@ -387,10 +545,22 @@
         const items = flattenPalette(result.data);
         renderItems(listEl, items);
         if(statusEl){
-          statusEl.textContent = `${items.length} Layer geladen (${result.source}).`;
+          let message = `${items.length} Layer geladen (${result.source}).`;
+          if(result.source === 'Standardwerte (Fallback)'){
+            message += ' Bitte prüfen Sie den Pfad zur FarblayerConfig.json.';
+          }
+          statusEl.textContent = message;
         }
         if(metaEl){
-          metaEl.textContent = `${CONFIG_PATH} • ${result.source}`;
+          const labelPath = result.path || CONFIG_PATH;
+          metaEl.textContent = `${labelPath} • ${result.source}`;
+          if(result.source === 'Standardwerte (Fallback)'){
+            metaEl.title = 'Debug-Fallback aktiv: Die Konfigurationsdatei konnte nicht gefunden werden.';
+          }else if(result.path){
+            metaEl.title = `Gefundener Pfad: ${result.path}`;
+          }else{
+            metaEl.removeAttribute('title');
+          }
         }
       }catch(err){
         if(state.disposed || controller.signal.aborted) return;
