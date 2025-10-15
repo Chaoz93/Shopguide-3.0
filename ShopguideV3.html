@@ -1350,6 +1350,35 @@
       font-size: 0.75rem;
       color: #6b7280;
     }
+    .module-layer-config-status {
+      font-size: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-top: 0.35rem;
+      padding: 0.35rem 0.55rem;
+      border-radius: 0.5rem;
+      background: rgba(148,163,184,0.12);
+      color: #475569;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .module-layer-config-status[data-state="ok"] {
+      background: rgba(34,197,94,0.12);
+      color: #047857;
+    }
+    .module-layer-config-status[data-state="saving"] {
+      background: rgba(251,191,36,0.16);
+      color: #92400e;
+    }
+    .module-layer-config-status[data-state="missing"],
+    .module-layer-config-status[data-state="error"] {
+      background: rgba(248,113,113,0.16);
+      color: #b91c1c;
+    }
+    .module-layer-config-status[data-state="fallback"] {
+      background: rgba(59,130,246,0.12);
+      color: #1d4ed8;
+    }
     @media (max-width: 768px) {
       .module-color-layer {
         padding: 1rem;
@@ -1769,6 +1798,10 @@
               </div>
               <div id="module-color-layers" class="module-color-layers space-y-3"></div>
               <p class="module-layer-hint">Bis zu 8 Unter-Layer möglich. Die Farbkombinationen kannst du später in Modulen über ein Dropdown auswählen.</p>
+              <div id="module-layer-config-status" class="module-layer-config-status" data-state="checking" role="status" aria-live="polite" aria-busy="true">
+                <span class="font-semibold">FarblayerConfig.json:</span>
+                <span data-status-text>Prüfe Datei…</span>
+              </div>
             </div>
           </div>
         </div>
@@ -5553,6 +5586,210 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   const STORAGE_KEY = CONFIG_PATH;
   let saveTimer = null;
   let lastSerialized = '';
+  const statusContainer = document.getElementById('module-layer-config-status');
+  const statusTextEl = statusContainer?.querySelector('[data-status-text]') || null;
+  let lastStatusState = '';
+  const configPathSegments = CONFIG_PATH.split('/').filter(Boolean);
+  const CONFIG_FILE_NAME = configPathSegments.pop() || 'FarblayerConfig.json';
+  const CONFIG_DIR_SEGMENTS = configPathSegments;
+
+  const hasFileSystemAccess = () => typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
+  let selectedFolderHandle = typeof window !== 'undefined' ? window.__farblayerSelectedFolderHandle || null : null;
+  let folderSelectionPromise = null;
+
+  function syncSelectedFolderHandle(handle) {
+    selectedFolderHandle = handle || null;
+    if (typeof window !== 'undefined') {
+      window.__farblayerSelectedFolderHandle = selectedFolderHandle;
+    }
+  }
+
+  function prefixStatusMessage(message) {
+    if (typeof message !== 'string' || !message.trim()) {
+      return 'FarblayerConfig.json';
+    }
+    if (message.includes('FarblayerConfig.json')) {
+      return message;
+    }
+    return `FarblayerConfig.json: ${message}`;
+  }
+
+  function updateConfigStatus(state, msg) {
+    setConfigStatus(state, prefixStatusMessage(msg));
+  }
+
+  function cacheConfigLocally(jsonText) {
+    try {
+      localStorage.setItem(STORAGE_KEY, jsonText);
+    } catch (err) {
+      console.error('[ShopguideV3] FarblayerConfig.json konnte nicht lokal zwischengespeichert werden:', err);
+      updateConfigStatus('error', 'Lokaler Zwischenspeicher konnte nicht beschrieben werden.');
+    }
+  }
+
+  async function chooseSaveFolder(event) {
+    if (event?.preventDefault) {
+      event.preventDefault();
+    }
+    if (!hasFileSystemAccess()) {
+      updateConfigStatus('fallback', 'Dateisystemzugriff nicht verfügbar. Zwischenspeicher aktiv.');
+      return null;
+    }
+    if (folderSelectionPromise) {
+      return folderSelectionPromise;
+    }
+    folderSelectionPromise = (async () => {
+      try {
+        const handle = await window.showDirectoryPicker();
+        syncSelectedFolderHandle(handle);
+        try {
+          localStorage.setItem('selectedFolderGranted', 'true');
+        } catch (storageErr) {
+          console.warn('Konnte Auswahlstatus für Farblayer-Ordner nicht speichern', storageErr);
+        }
+        console.log('✅ Ordnerzugriff erlaubt:', handle);
+        updateConfigStatus('ok', 'Ordnerzugriff erfolgreich eingerichtet');
+        return handle;
+      } catch (err) {
+        console.warn('⚠️ Ordnerauswahl abgebrochen:', err);
+        updateConfigStatus('missing', 'Ordnerzugriff verweigert');
+        return null;
+      } finally {
+        folderSelectionPromise = null;
+      }
+    })();
+    return folderSelectionPromise;
+  }
+
+  async function ensureDirectoryChainWithCreate(baseHandle, segments, { create }) {
+    let current = baseHandle;
+    for (const segment of segments) {
+      current = await current.getDirectoryHandle(segment, { create });
+    }
+    return current;
+  }
+
+  async function saveConfigJSONHybrid(filename, dataObj) {
+    const jsonText = JSON.stringify(dataObj, null, 2);
+    const timestamp = formatTimestamp();
+
+    try {
+      if (selectedFolderHandle && typeof selectedFolderHandle.getFileHandle === 'function') {
+        const pathSegments = filename.split('/').filter(Boolean);
+        const fileName = pathSegments.pop() || filename;
+        let dirHandle = selectedFolderHandle;
+        if (pathSegments.length) {
+          dirHandle = await ensureDirectoryChainWithCreate(selectedFolderHandle, pathSegments, { create: true });
+        }
+        const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(jsonText);
+        await writable.close();
+        cacheConfigLocally(jsonText);
+        console.log(`✅ ${filename} gespeichert (${timestamp})`);
+        updateConfigStatus('ok', `Gespeichert (${timestamp})`);
+        return 'saved-to-file';
+      }
+
+      cacheConfigLocally(jsonText);
+      console.log(`💾 ${filename} im LocalStorage gesichert (${timestamp})`);
+      updateConfigStatus('fallback', `Zwischenspeicher aktualisiert (${timestamp})`);
+      return 'saved-to-localstorage';
+    } catch (err) {
+      console.error('❌ Fehler beim Speichern:', err);
+      cacheConfigLocally(jsonText);
+      updateConfigStatus('error', 'Fehler beim Speichern, Fallback aktiv');
+      return 'fallback-localstorage';
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.__chooseFarblayerSaveFolder = chooseSaveFolder;
+    window.__syncFarblayerConfigHandle = syncSelectedFolderHandle;
+  }
+
+  const selectRootButton = document.getElementById('select-root');
+  selectRootButton?.addEventListener('click', chooseSaveFolder);
+
+  function formatTimestamp() {
+    try {
+      return new Intl.DateTimeFormat('de-DE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).format(new Date());
+    } catch (_) {
+      const now = new Date();
+      return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    }
+  }
+
+  function setConfigStatus(state, message) {
+    if (!statusContainer || !statusTextEl) return;
+    if (state === lastStatusState && message === statusTextEl.textContent) {
+      return;
+    }
+    statusContainer.dataset.state = state;
+    const isBusy = state === 'saving' || state === 'checking';
+    statusContainer.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    statusContainer.setAttribute('title', message);
+    statusTextEl.textContent = message;
+    lastStatusState = state;
+  }
+
+  async function checkInitialConfigAvailability() {
+    if (!statusContainer || !statusTextEl) {
+      return;
+    }
+
+    const activeHandle = hasFileSystemAccess()
+      ? (selectedFolderHandle || rootDirHandle || (typeof window !== 'undefined' ? window.rootDirHandle : null))
+      : null;
+
+    if (activeHandle && typeof activeHandle.getDirectoryHandle === 'function') {
+      try {
+        let dirHandle = activeHandle;
+        if (CONFIG_DIR_SEGMENTS.length) {
+          dirHandle = await ensureDirectoryChainWithCreate(activeHandle, CONFIG_DIR_SEGMENTS, { create: false });
+        }
+        await dirHandle.getFileHandle(CONFIG_FILE_NAME, { create: false });
+        updateConfigStatus('ok', 'FarblayerConfig.json im configs-Ordner gefunden. Änderungen werden automatisch gespeichert.');
+        return;
+      } catch (err) {
+        if (err?.name === 'NotFoundError') {
+          updateConfigStatus('missing', 'FarblayerConfig.json wird im configs-Ordner angelegt, sobald Änderungen gespeichert werden.');
+          return;
+        }
+        if (err?.name === 'SecurityError' || err?.name === 'NotAllowedError') {
+          updateConfigStatus('fallback', 'Schreibberechtigung für configs/FarblayerConfig.json erforderlich. Zwischenspeicher wird genutzt.');
+          return;
+        }
+        console.warn('[ShopguideV3] Zugriff auf FarblayerConfig.json nicht möglich:', err);
+        updateConfigStatus('fallback', 'FarblayerConfig.json konnte im Arbeitsordner nicht geprüft werden. Zwischenspeicher wird genutzt.');
+        return;
+      }
+    }
+
+    if (typeof fetch !== 'function') {
+      updateConfigStatus('fallback', 'Automatischer Status nicht verfügbar. Änderungen werden lokal zwischengespeichert.');
+      return;
+    }
+
+    updateConfigStatus('checking', 'Prüfe FarblayerConfig.json …');
+    try {
+      const response = await fetch(CONFIG_PATH, { cache: 'no-store' });
+      if (response.ok) {
+        updateConfigStatus('ok', 'FarblayerConfig.json gefunden. Änderungen werden automatisch gespeichert.');
+      } else if (response.status === 404) {
+        updateConfigStatus('missing', 'FarblayerConfig.json nicht gefunden. Es wird lokal zwischengespeichert.');
+      } else {
+        updateConfigStatus('fallback', 'FarblayerConfig.json konnte nicht geprüft werden. Zwischenspeicher wird genutzt.');
+      }
+    } catch (err) {
+      console.warn('[ShopguideV3] Prüfung der FarblayerConfig fehlgeschlagen:', err);
+      updateConfigStatus('missing', 'FarblayerConfig.json nicht gefunden. Es wird lokal zwischengespeichert.');
+    }
+  }
 
   function hslaOrNull(input) {
     const value = typeof input === 'string' ? input.trim() : '';
@@ -5580,19 +5817,37 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     return hslaOrNull(input.value || input.textContent || '');
   }
 
+  const COLOR_OWNER_SELECTOR = '[data-group], .module-layer-subgroup';
+
+  function resolveColorKey(input) {
+    const datasetField = (input?.dataset?.field || input?.dataset?.subField || '').toLowerCase();
+    if (datasetField.includes('bg')) return 'background';
+    if (datasetField.includes('text')) return 'text';
+    if (datasetField.includes('border')) return 'border';
+
+    const labelText = input?.closest('.module-layer-color')?.querySelector('span')?.textContent?.toLowerCase?.() || '';
+    if (labelText.includes('hintergrund') || labelText.includes('background')) return 'background';
+    if (labelText.includes('rahmen') || labelText.includes('border')) return 'border';
+    if (labelText.includes('text')) return 'text';
+    return null;
+  }
+
   function readColorLabels(container) {
     const colors = { background: null, text: null, border: null };
     if (!container) return colors;
-    const labels = container.querySelectorAll('.module-layer-color');
-    labels.forEach(labelEl => {
-      const labelText = labelEl.querySelector('span')?.textContent?.toLowerCase?.() || '';
-      const input = labelEl.querySelector('input');
+
+    const inputs = Array.from(container.querySelectorAll('input[type="color"]')).filter(input => {
+      return input.closest(COLOR_OWNER_SELECTOR) === container;
+    });
+
+    inputs.forEach(input => {
+      const key = resolveColorKey(input);
+      if (!key) return;
       const value = readColorValue(input);
       if (!value) return;
-      if (labelText.includes('hintergrund')) colors.background = value;
-      else if (labelText.includes('text')) colors.text = value;
-      else if (labelText.includes('rahmen')) colors.border = value;
+      colors[key] = value;
     });
+
     return colors;
   }
 
@@ -5666,44 +5921,15 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     return result;
   }
 
-  async function tryAutosave(jsonText, data) {
-    if (typeof window?.__shopguideAutosave !== 'function') return false;
-    await window.__shopguideAutosave(CONFIG_PATH, jsonText, 'application/json');
-    console.log('[ShopguideV3] FarblayerConfig.json automatisch gespeichert:', data);
-    return true;
-  }
-
-  function storeLocal(jsonText, data, { reason = 'Fallback', quiet = false } = {}) {
-    try {
-      localStorage.setItem(STORAGE_KEY, jsonText);
-      if (!quiet) {
-        console.log(`[ShopguideV3] FarblayerConfig.json lokal gespeichert (${reason}).`, data);
-      }
-    } catch (err) {
-      console.error('[ShopguideV3] FarblayerConfig.json konnte nicht lokal gespeichert werden:', err);
-    }
-  }
-
   async function saveConfigJSON() {
     const data = collectAllLayers();
     const jsonText = JSON.stringify(data, null, 2);
     if (jsonText === lastSerialized) return;
+    updateConfigStatus('saving', 'Schreibe FarblayerConfig.json …');
     console.log('[ShopguideV3] Exportiere FarblayerConfig:', data);
 
-    let saved = false;
-    try {
-      saved = await tryAutosave(jsonText, data);
-    } catch (err) {
-      console.warn('[ShopguideV3] Autosave für FarblayerConfig fehlgeschlagen:', err);
-    }
-
-    if (saved) {
-      storeLocal(jsonText, data, { reason: 'Cache', quiet: true });
-      lastSerialized = jsonText;
-    } else {
-      storeLocal(jsonText, data, { reason: 'Fallback' });
-      lastSerialized = jsonText;
-    }
+    await saveConfigJSONHybrid(CONFIG_PATH, data);
+    lastSerialized = jsonText;
   }
 
   function scheduleConfigSave() {
@@ -5737,7 +5963,14 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     });
     window.addEventListener('input', handleRelevantEvent, true);
     window.addEventListener('change', handleRelevantEvent, true);
+    window.addEventListener('shopguide:root-handle-changed', () => {
+      const currentHandle = typeof window !== 'undefined' ? window.rootDirHandle || null : null;
+      syncSelectedFolderHandle(currentHandle);
+      checkInitialConfigAvailability();
+      scheduleConfigSave();
+    });
 
+    checkInitialConfigAvailability();
     scheduleConfigSave();
   }
 })();
@@ -6714,6 +6947,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           rootBtn.classList.remove('bg-yellow-400','hover:bg-yellow-500','text-gray-900');
           rootBtn.title = '';
           rootBtn.classList.add('bg-gray-300','hover:bg-gray-400','text-gray-800');
+          if (typeof window.__syncFarblayerConfigHandle === 'function') {
+            window.__syncFarblayerConfigHandle(rootDirHandle);
+          }
+          setGlobalHandle('root', rootDirHandle);
           await loadModulesFromRoot(rootDirHandle);
           await loadAppSettings();
           applySettings();
@@ -6727,7 +6964,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (window.showDirectoryPicker) {
       try {
-        rootDirHandle = await window.showDirectoryPicker();
+        const chooseFolder = typeof window.__chooseFarblayerSaveFolder === 'function'
+          ? window.__chooseFarblayerSaveFolder
+          : async () => window.showDirectoryPicker();
+        const handle = await chooseFolder();
+        if (!handle) {
+          return;
+        }
+        rootDirHandle = handle;
+        if (typeof window.__syncFarblayerConfigHandle === 'function') {
+          window.__syncFarblayerConfigHandle(handle);
+        }
         setGlobalHandle('root', rootDirHandle);                    // expose
         rootBtn.textContent = rootDirHandle.name;
         await idbSet(FS_HANDLE_KEY, rootDirHandle);                // persist handle
@@ -6762,6 +7009,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         setGlobalHandle('root', null);              // not reusable
         await idbDel(FS_HANDLE_KEY);                // forget saved handle
         localStorage.removeItem('rememberRootMeta');
+        if (typeof window.__syncFarblayerConfigHandle === 'function') {
+          window.__syncFarblayerConfigHandle(null);
+        }
         const any = files[0];
         const parts = any.webkitRelativePath.split('/');
         const rootName = parts[0];
