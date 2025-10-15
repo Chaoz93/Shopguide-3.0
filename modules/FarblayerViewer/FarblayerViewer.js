@@ -4,6 +4,11 @@
   const CONFIG_FILENAME = CONFIG_PATH.split('/').pop() || 'FarblayerConfig.json';
   const STORAGE_KEY = CONFIG_PATH;
   const ROOT_SEARCH_MAX_DEPTH = 8;
+  const IDB_NAME = 'modulesApp';
+  const IDB_STORE = 'fs-handles';
+  const HANDLE_STORAGE_KEY = 'farblayerViewer:configHandle';
+  const POLL_INTERVAL_MS = 60000;
+  const COLOR_SELECTION_KEY = 'farblayerViewer:colorSelection';
   const DEFAULT_DEBUG_DATA = {
     'Debug-Standardwerte': {
       'Hauptmodul (Debug)': {
@@ -33,20 +38,31 @@
     if(document.getElementById(STYLE_ID)) return;
     const css = `
     .flv-root{height:100%;width:100%;box-sizing:border-box;}
-    .flv-surface{height:100%;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
+    .flv-surface{height:100%;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid var(--module-border,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
     .flv-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;flex-wrap:wrap;}
-    .flv-actions{display:flex;align-items:flex-end;gap:.65rem;flex-wrap:wrap;justify-content:flex-end;}
-    .flv-filter{display:flex;flex-direction:column;gap:.35rem;font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;opacity:.85;}
-    .flv-select{min-width:180px;padding:.45rem .65rem;border-radius:.55rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.65);color:inherit;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .12s ease,box-shadow .12s ease;}
+    .flv-actions{display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap;justify-content:flex-end;width:100%;}
+    .flv-color-picker{display:flex;flex-direction:column;gap:.45rem;min-width:220px;}
+    .flv-color-title{font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.85;}
+    .flv-color-grid{display:grid;gap:.45rem;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
+    .flv-color-group{display:flex;flex-direction:column;gap:.35rem;font-size:.8rem;}
+    .flv-color-group span{letter-spacing:.04em;text-transform:uppercase;opacity:.8;}
+    .flv-select{min-width:0;width:100%;padding:.45rem .65rem;border-radius:.55rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.65);color:inherit;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .12s ease,box-shadow .12s ease;}
     .flv-select:focus{outline:none;border-color:rgba(255,255,255,.35);box-shadow:0 0 0 2px rgba(148,163,184,.25);}
     .flv-select:disabled{opacity:.5;cursor:not-allowed;}
     .flv-select option{color:#0f172a;}
     .flv-title{font-size:1.1rem;font-weight:700;letter-spacing:.015em;}
     .flv-meta{font-size:.82rem;opacity:.8;}
     .flv-status{min-height:1.1rem;font-size:.85rem;opacity:.9;}
-    .flv-refresh{border:none;border-radius:.65rem;padding:.45rem .95rem;background:rgba(255,255,255,.14);color:inherit;font-weight:600;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.25);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease;}
-    .flv-refresh:hover{background:rgba(255,255,255,.2);}
+    .flv-refresh{border:none;border-radius:.65rem;padding:.45rem .95rem;background:var(--module-button-bg,rgba(255,255,255,.14));color:inherit;font-weight:600;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.25);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease;}
+    .flv-refresh:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.2));}
     .flv-refresh:active{transform:scale(.97);box-shadow:0 6px 18px rgba(15,23,42,.3);}
+    .flv-file{display:flex;flex-direction:column;gap:.35rem;min-width:220px;}
+    .flv-file-label{font-size:.9rem;font-weight:600;}
+    .flv-file-note{font-size:.78rem;opacity:.8;min-height:1rem;}
+    .flv-file-controls{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .flv-file-btn{border:none;border-radius:.6rem;padding:.45rem .85rem;font-weight:600;cursor:pointer;background:rgba(255,255,255,.14);color:inherit;box-shadow:0 6px 16px rgba(15,23,42,.18);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease;}
+    .flv-file-btn:hover{background:rgba(255,255,255,.22);}
+    .flv-file-btn:active{transform:scale(.97);box-shadow:0 6px 16px rgba(15,23,42,.25);}
     .flv-list{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem;overflow:auto;padding:.15rem;}
     .flv-item{background:rgba(15,23,42,.45);border-radius:.95rem;padding:.75rem;display:flex;flex-direction:column;gap:.65rem;border:1px solid rgba(255,255,255,.06);box-shadow:0 12px 28px rgba(15,23,42,.35);}
     .flv-item-header{display:flex;flex-direction:column;gap:.25rem;}
@@ -64,6 +80,83 @@
     style.id = STYLE_ID;
     style.textContent = css;
     document.head.appendChild(style);
+  }
+
+  function idbOpen(){
+    if(typeof indexedDB === 'undefined'){
+      return Promise.reject(new Error('IndexedDB nicht verfügbar'));
+    }
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(IDB_NAME, 1);
+      request.onupgradeneeded = () => {
+        try{
+          request.result.createObjectStore(IDB_STORE);
+        }catch{}
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function idbGet(key){
+    try{
+      const db = await idbOpen();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const store = tx.objectStore(IDB_STORE);
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    }catch(err){
+      console.warn('[FarblayerViewer] IndexedDB get fehlgeschlagen:', err);
+      return null;
+    }
+  }
+
+  async function idbSet(key, value){
+    try{
+      const db = await idbOpen();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        store.put(value, key);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    }catch(err){
+      console.warn('[FarblayerViewer] IndexedDB set fehlgeschlagen:', err);
+    }
+  }
+
+  async function idbDel(key){
+    try{
+      const db = await idbOpen();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        const store = tx.objectStore(IDB_STORE);
+        store.delete(key);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    }catch(err){
+      console.warn('[FarblayerViewer] IndexedDB delete fehlgeschlagen:', err);
+    }
+  }
+
+  async function ensureReadPermission(handle){
+    if(!handle || typeof handle.queryPermission !== 'function') return true;
+    try{
+      const status = await handle.queryPermission({ mode: 'read' });
+      if(status === 'granted') return true;
+      if(typeof handle.requestPermission === 'function'){
+        const next = await handle.requestPermission({ mode: 'read' });
+        return next === 'granted';
+      }
+    }catch(err){
+      console.warn('[FarblayerViewer] Berechtigungsabfrage fehlgeschlagen:', err);
+    }
+    return false;
   }
 
   function throwIfAborted(signal){
@@ -172,6 +265,37 @@
       }catch(err){
         if(err && err.name === 'AbortError') throw err;
       }
+    }
+    return null;
+  }
+
+  async function loadPaletteFromFileHandle(handle, signal, errorLog){
+    if(!handle) return null;
+    const errors = Array.isArray(errorLog) ? errorLog : null;
+    const logError = message => {
+      if(errors){
+        errors.push({ path: handle?.name || 'Datei-Handle', message });
+      }
+    };
+    const hasPermission = await ensureReadPermission(handle);
+    if(!hasPermission){
+      logError('Kein Zugriff auf Datei.');
+      return { denied: true };
+    }
+    try{
+      const file = await handle.getFile();
+      throwIfAborted(signal);
+      const text = await file.text();
+      const data = JSON.parse(text);
+      return {
+        data,
+        path: handle?.name || 'FarblayerConfig.json',
+        source: 'OneDrive-Datei',
+        lastModified: typeof file?.lastModified === 'number' ? file.lastModified : null
+      };
+    }catch(err){
+      if(err && err.name === 'AbortError') throw err;
+      logError(err && err.message ? err.message : 'Datei konnte nicht gelesen werden.');
     }
     return null;
   }
@@ -578,22 +702,50 @@
     return candidates;
   }
 
-  async function fetchPalette(signal){
+  async function fetchPalette(signal, options = {}){
     const errors = [];
     const cached = readCachedPalette();
+    const handle = options && typeof options === 'object' ? options.fileHandle || null : null;
+    const onHandleDenied = typeof options.onFileHandleDenied === 'function' ? options.onFileHandleDenied : null;
+    const onHandleError = typeof options.onFileHandleError === 'function' ? options.onFileHandleError : null;
+    const onHandleSuccess = typeof options.onFileHandleSuccess === 'function' ? options.onFileHandleSuccess : null;
+
+    if(handle){
+      const handleResult = await loadPaletteFromFileHandle(handle, signal, errors);
+      if(handleResult && handleResult.denied){
+        if(onHandleDenied) onHandleDenied();
+      }else if(handleResult && handleResult.data){
+        writeCachedPalette(handleResult.data, handleResult.path);
+        if(onHandleSuccess) onHandleSuccess(handleResult);
+        if(errors.length) reportSearchErrors(errors);
+        return {
+          data: handleResult.data,
+          source: handleResult.source,
+          path: handleResult.path,
+          lastModified: handleResult.lastModified || null
+        };
+      }else if(handleResult === null && onHandleError){
+        onHandleError();
+      }
+    }
 
     const rootResult = await loadPaletteFromRootHandle(signal, errors);
     if(rootResult){
       writeCachedPalette(rootResult.data, rootResult.path);
       if(errors.length) reportSearchErrors(errors);
-      return { data: rootResult.data, source: rootResult.source, path: rootResult.path };
+      return {
+        data: rootResult.data,
+        source: rootResult.source,
+        path: rootResult.path,
+        lastModified: null
+      };
     }
 
     if(typeof fetch !== 'function'){
       if(cached){
         if(errors.length) reportSearchErrors(errors);
         console.warn('[FarblayerViewer] Verwende zwischengespeicherte Farblayer – Fetch API nicht verfügbar.');
-        return { data: cached.data, source: 'Lokaler Speicher', path: cached.path || null };
+        return { data: cached.data, source: 'Lokaler Speicher', path: cached.path || null, lastModified: null };
       }
       if(errors.length) reportSearchErrors(errors);
       throw new Error('Fetch API nicht verfügbar.');
@@ -612,7 +764,7 @@
         if(data && typeof data === 'object'){
           writeCachedPalette(data, path);
           if(errors.length) reportSearchErrors(errors);
-          return { data, source: 'Dateisystem', path };
+          return { data, source: 'Dateisystem', path, lastModified: null };
         }
         errors.push({ path, message: 'Datei enthält keine gültige JSON-Struktur.' });
       }catch(err){
@@ -627,12 +779,12 @@
     if(cached){
       if(errors.length) reportSearchErrors(errors);
       console.warn('[FarblayerViewer] Verwende zwischengespeicherte Farblayer – aktuelle Datei konnte nicht gefunden werden.');
-      return { data: cached.data, source: 'Lokaler Speicher', path: cached.path || null };
+      return { data: cached.data, source: 'Lokaler Speicher', path: cached.path || null, lastModified: null };
     }
 
     if(errors.length) reportSearchErrors(errors);
     console.warn(`[FarblayerViewer] Keine Farblayer-Konfiguration gefunden. Es werden Debug-Standardwerte angezeigt (${CONFIG_FILENAME}).`);
-    return { data: DEFAULT_DEBUG_DATA, source: 'Standardwerte (Fallback)', path: null };
+    return { data: DEFAULT_DEBUG_DATA, source: 'Standardwerte (Fallback)', path: null, lastModified: null };
   }
 
   function renderItems(container, items){
@@ -724,13 +876,37 @@
             <div class="flv-meta" data-flv-meta>${CONFIG_PATH}</div>
           </div>
           <div class="flv-actions">
-            <label class="flv-filter">
-              <span>Farbe auswählen</span>
-              <select class="flv-select" data-flv-color-filter>
-                <option value="">Alle Farben</option>
-              </select>
-            </label>
-            <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
+            <div class="flv-file">
+              <div class="flv-file-label" data-flv-file-label>Keine Datei verbunden</div>
+              <div class="flv-file-note" data-flv-file-note>Bitte Farblayer-Datei wählen.</div>
+              <div class="flv-file-controls">
+                <button class="flv-file-btn" type="button" data-flv-file-pick>Datei wählen</button>
+                <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
+              </div>
+            </div>
+            <div class="flv-color-picker">
+              <div class="flv-color-title">Modulfarben</div>
+              <div class="flv-color-grid">
+                <label class="flv-color-group">
+                  <span>Hintergrund</span>
+                  <select class="flv-select" data-flv-color="background">
+                    <option value="">Standard</option>
+                  </select>
+                </label>
+                <label class="flv-color-group">
+                  <span>Button</span>
+                  <select class="flv-select" data-flv-color="button">
+                    <option value="">Standard</option>
+                  </select>
+                </label>
+                <label class="flv-color-group">
+                  <span>Rahmen</span>
+                  <select class="flv-select" data-flv-color="border">
+                    <option value="">Standard</option>
+                  </select>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
         <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
@@ -742,18 +918,30 @@
     const statusEl = root.querySelector('[data-flv-status]');
     const refreshBtn = root.querySelector('[data-flv-refresh]');
     const metaEl = root.querySelector('[data-flv-meta]');
-    const colorSelect = root.querySelector('[data-flv-color-filter]');
+    const colorSelects = Array.from(root.querySelectorAll('[data-flv-color]'));
+    const fileLabelEl = root.querySelector('[data-flv-file-label]');
+    const fileNoteEl = root.querySelector('[data-flv-file-note]');
+    const filePickBtn = root.querySelector('[data-flv-file-pick]');
 
     if(typeof root.__flvCleanup === 'function'){
       root.__flvCleanup();
     }
+
+    const storedSelection = readStoredSelection();
 
     const state = {
       controller: null,
       disposed: false,
       items: [],
       lastSource: null,
-      selectedColor: ''
+      selectedColors: storedSelection || { background: '', button: '', border: '' },
+      colorOptions: [],
+      fileHandle: null,
+      pollInterval: null,
+      pollInProgress: false,
+      lastModified: null,
+      autoState: 'idle',
+      autoMessage: ''
     };
     root.__flvCleanup = () => {
       state.disposed = true;
@@ -761,85 +949,159 @@
         try{ state.controller.abort(); } catch{}
         state.controller = null;
       }
+      if(state.pollInterval){
+        clearInterval(state.pollInterval);
+        state.pollInterval = null;
+      }
     };
 
-    function populateColorFilter(items, preferredColor){
-      if(!colorSelect) return;
-      const uniqueColors = [];
+    applySelectedColors();
+
+    function readStoredSelection(){
+      try{
+        const raw = localStorage.getItem(COLOR_SELECTION_KEY);
+        if(!raw) return null;
+        const parsed = JSON.parse(raw);
+        if(parsed && typeof parsed === 'object'){
+          const next = { background: '', button: '', border: '' };
+          ['background','button','border'].forEach(area => {
+            if(typeof parsed[area] === 'string' && parsed[area].trim()){
+              next[area] = parsed[area].trim();
+            }
+          });
+          return next;
+        }
+      }catch{}
+      return null;
+    }
+
+    function persistSelectedColors(){
+      try{
+        localStorage.setItem(COLOR_SELECTION_KEY, JSON.stringify(state.selectedColors));
+      }catch{}
+    }
+
+    function collectColorOptions(items){
+      const unique = [];
       const seen = new Set();
       items.forEach(item => {
-        const value = typeof item.background === 'string' ? item.background.trim() : '';
-        if(!value || seen.has(value)) return;
-        seen.add(value);
-        uniqueColors.push(value);
+        ['background','text','border'].forEach(key => {
+          const value = typeof item[key] === 'string' ? item[key].trim() : '';
+          if(!value || seen.has(value)) return;
+          seen.add(value);
+          unique.push(value);
+        });
       });
+      return unique;
+    }
 
-      const fragment = document.createDocumentFragment();
-      const allOption = document.createElement('option');
-      allOption.value = '';
-      allOption.textContent = 'Alle Farben';
-      fragment.appendChild(allOption);
+    function updateSelectVisual(select, value){
+      if(!select) return;
+      if(value){
+        select.style.background = value;
+        const lightness = parseLightness(value);
+        select.style.color = lightness != null && lightness < 55 ? '#f8fafc' : '#0f172a';
+      }else{
+        select.style.background = '';
+        select.style.color = '';
+      }
+    }
 
-      uniqueColors.forEach(color => {
-        const option = document.createElement('option');
-        option.value = color;
-        option.textContent = color;
-        option.style.backgroundColor = color;
-        option.style.color = '#0f172a';
-        fragment.appendChild(option);
+    function populateColorSelectors(items){
+      state.colorOptions = collectColorOptions(items);
+      const hasOptions = state.colorOptions.length > 0;
+      colorSelects.forEach(select => {
+        const area = select?.dataset?.flvColor;
+        const current = typeof state.selectedColors[area] === 'string' ? state.selectedColors[area] : '';
+        const fragment = document.createDocumentFragment();
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Standard';
+        fragment.appendChild(defaultOption);
+        state.colorOptions.forEach(color => {
+          const option = document.createElement('option');
+          option.value = color;
+          option.textContent = color;
+          option.style.backgroundColor = color;
+          option.style.color = '#0f172a';
+          fragment.appendChild(option);
+        });
+        select.innerHTML = '';
+        select.appendChild(fragment);
+        if(hasOptions && current && state.colorOptions.includes(current)){
+          select.value = current;
+        }else if(hasOptions){
+          select.value = '';
+          state.selectedColors[area] = '';
+        }else{
+          select.value = '';
+        }
+        updateSelectVisual(select, hasOptions ? select.value : '');
+        select.disabled = !hasOptions;
       });
-
-      colorSelect.innerHTML = '';
-      colorSelect.appendChild(fragment);
-
-      const target = preferredColor && uniqueColors.includes(preferredColor) ? preferredColor : '';
-      colorSelect.value = target;
-      state.selectedColor = colorSelect.value;
-      colorSelect.disabled = uniqueColors.length === 0;
-    }
-
-    function getFilteredItems(){
-      if(!state.items.length) return [];
-      if(!colorSelect || colorSelect.disabled){
-        return state.items.slice();
+      if(hasOptions){
+        persistSelectedColors();
       }
-      const selected = colorSelect.value;
-      if(!selected){
-        return state.items.slice();
+    }
+
+    function applySelectedColors(){
+      const surface = root.querySelector('.flv-surface');
+      if(!surface) return;
+      const bg = state.selectedColors.background;
+      const button = state.selectedColors.button;
+      const border = state.selectedColors.border;
+      if(bg){
+        surface.style.setProperty('--module-bg', bg);
+      }else{
+        surface.style.removeProperty('--module-bg');
       }
-      return state.items.filter(item => item.background === selected);
+      if(button){
+        surface.style.setProperty('--module-button-bg', button);
+        surface.style.setProperty('--module-button-bg-hover', button);
+      }else{
+        surface.style.removeProperty('--module-button-bg');
+        surface.style.removeProperty('--module-button-bg-hover');
+      }
+      if(border){
+        surface.style.setProperty('--module-border', border);
+      }else{
+        surface.style.removeProperty('--module-border');
+      }
     }
 
-    function renderCurrentItems(){
-      const filtered = getFilteredItems();
-      renderItems(listEl, filtered);
-      return filtered;
-    }
-
-    function updateStatusMessage(source, filteredCount, totalCount){
+    function updateStatusMessage(source, totalCount){
       if(!statusEl) return;
       if(!source){
         statusEl.textContent = '';
         return;
       }
-      let message;
-      if(colorSelect && !colorSelect.disabled && colorSelect.value){
-        message = `${filteredCount} von ${totalCount} Layer geladen (${source}).`;
-      }else{
-        message = `${filteredCount} Layer geladen (${source}).`;
-      }
+      let message = `${totalCount} Layer geladen (${source}).`;
       if(source === 'Standardwerte (Fallback)'){
-        message += ' Bitte prüfen Sie den Pfad zur FarblayerConfig.json.';
+        message += ' Bitte prüfen Sie den Zugriff auf die Farblayer-Datei.';
       }
       statusEl.textContent = message;
-      statusEl.classList.remove('flv-error');
     }
 
-    function handleFilterChange(){
-      if(!colorSelect) return;
-      state.selectedColor = colorSelect.value;
-      const filtered = renderCurrentItems();
-      updateStatusMessage(state.lastSource, filtered.length, state.items.length);
+    function applyPaletteResult(result){
+      if(!result) return;
+      state.items = flattenPalette(result.data);
+      state.lastSource = result.source;
+      state.lastModified = result.lastModified != null ? result.lastModified : state.lastModified;
+      populateColorSelectors(state.items);
+      applySelectedColors();
+      renderItems(listEl, state.items);
+      updateStatusMessage(result.source, state.items.length);
+      if(metaEl){
+        const labelPath = result.path || CONFIG_PATH;
+        metaEl.textContent = `${labelPath} • ${result.source}`;
+        if(result.source === 'Standardwerte (Fallback)'){
+          metaEl.title = 'Debug-Fallback aktiv: Die Konfigurationsdatei konnte nicht gefunden werden.';
+        }else if(result.path){
+          metaEl.title = `Quelle: ${result.path}`;
+        }else{
+          metaEl.removeAttribute('title');
+        }
+      }
     }
 
     async function loadPalette(reason){
@@ -851,50 +1113,262 @@
       state.controller = controller;
       if(statusEl){
         statusEl.textContent = reason === 'manual' ? 'Aktualisiere Farblayer…' : 'Farblayer werden geladen…';
-        statusEl.classList.remove('flv-error');
       }
       if(listEl){
         listEl.innerHTML = '';
       }
-      if(colorSelect){
-        state.selectedColor = colorSelect.value;
-        colorSelect.disabled = true;
-      }
+      colorSelects.forEach(select => {
+        select.disabled = true;
+      });
       try{
-        const result = await fetchPalette(controller.signal);
+        const result = await fetchPalette(controller.signal, {
+          fileHandle: state.fileHandle,
+          onFileHandleDenied: async () => {
+            state.fileHandle = null;
+            await idbDel(HANDLE_STORAGE_KEY);
+            stopAutoUpdatePolling('error', 'Berechtigung erforderlich.');
+          },
+          onFileHandleError: () => {
+            stopAutoUpdatePolling('error', 'Datei konnte nicht gelesen werden.');
+          },
+          onFileHandleSuccess: handleResult => {
+            state.lastModified = handleResult.lastModified || null;
+            startAutoUpdatePolling();
+          }
+        });
         if(state.disposed || controller.signal.aborted) return;
-        state.items = flattenPalette(result.data);
-        state.lastSource = result.source;
-        populateColorFilter(state.items, state.selectedColor);
-        const filtered = renderCurrentItems();
-        updateStatusMessage(result.source, filtered.length, state.items.length);
-        if(colorSelect){
-          colorSelect.disabled = state.items.length === 0;
+        applyPaletteResult(result);
+        colorSelects.forEach(select => {
+          select.disabled = state.colorOptions.length === 0;
+        });
+        if(state.fileHandle){
+          state.autoState = 'active';
+          state.autoMessage = '';
+        }
+        updateFileDisplay();
+      }catch(err){
+        if(state.disposed || controller.signal.aborted) return;
+        console.warn('[FarblayerViewer] Konnte Farblayer nicht laden:', err);
+        state.items = [];
+        renderItems(listEl, []);
+        populateColorSelectors([]);
+        if(statusEl){
+          statusEl.textContent = 'Farblayer konnten nicht geladen werden.';
         }
         if(metaEl){
-          const labelPath = result.path || CONFIG_PATH;
-          metaEl.textContent = `${labelPath} • ${result.source}`;
-          if(result.source === 'Standardwerte (Fallback)'){
-            metaEl.title = 'Debug-Fallback aktiv: Die Konfigurationsdatei konnte nicht gefunden werden.';
-          }else if(result.path){
-            metaEl.title = `Gefundener Pfad: ${result.path}`;
+          metaEl.textContent = `${CONFIG_PATH} • Keine Daten`;
+          metaEl.removeAttribute('title');
+        }
+        colorSelects.forEach(select => {
+          select.disabled = true;
+        });
+      }
+    }
+
+    function handleColorChange(event){
+      const select = event?.currentTarget || event?.target;
+      if(!select) return;
+      const area = select.dataset ? select.dataset.flvColor : null;
+      if(!area) return;
+      const value = typeof select.value === 'string' ? select.value : '';
+      state.selectedColors[area] = value;
+      persistSelectedColors();
+      updateSelectVisual(select, value);
+      applySelectedColors();
+    }
+
+    function formatTimestamp(timestamp){
+      if(typeof timestamp !== 'number' || !Number.isFinite(timestamp)) return '';
+      const date = new Date(timestamp);
+      if(Number.isNaN(date.getTime())) return '';
+      return date.toLocaleString('de-DE', { hour12: false });
+    }
+
+    function updateFileDisplay(){
+      if(fileLabelEl){
+        if(state.fileHandle){
+          const name = state.fileHandle.name || 'FarblayerConfig.json';
+          fileLabelEl.textContent = `• ${name}`;
+        }else{
+          fileLabelEl.textContent = 'Keine Datei verbunden';
+        }
+      }
+      if(fileNoteEl){
+        let note = '';
+        if(state.fileHandle){
+          if(state.autoState === 'error'){
+            note = state.autoMessage ? `Automatisches Update gestoppt – ${state.autoMessage}` : 'Automatisches Update gestoppt.';
+          }else if(state.autoState === 'paused'){
+            note = 'Automatisches Update pausiert.';
           }else{
-            metaEl.removeAttribute('title');
+            const ts = formatTimestamp(state.lastModified);
+            note = ts ? `Automatisches Update aktiv – Stand ${ts}` : 'Automatisches Update aktiv.';
+          }
+        }else if(state.autoState === 'manual'){
+          const ts = formatTimestamp(state.lastModified);
+          note = ts ? `Manuell geladen – Stand ${ts}` : 'Manuell geladene Farblayer.';
+        }else if(state.autoState === 'error'){
+          note = state.autoMessage || 'Datei konnte nicht geladen werden.';
+        }else{
+          note = 'Bitte Farblayer-Datei wählen.';
+        }
+        fileNoteEl.textContent = note;
+      }
+    }
+
+    function clearPolling(){
+      if(state.pollInterval){
+        clearInterval(state.pollInterval);
+        state.pollInterval = null;
+      }
+      state.pollInProgress = false;
+    }
+
+    function stopAutoUpdatePolling(nextState = 'idle', message = ''){
+      clearPolling();
+      state.autoState = nextState;
+      state.autoMessage = message || '';
+      updateFileDisplay();
+    }
+
+    async function pollFileChangesOnce(){
+      if(state.pollInProgress || !state.fileHandle) return;
+      state.pollInProgress = true;
+      try{
+        const file = await state.fileHandle.getFile();
+        const modified = typeof file?.lastModified === 'number' ? file.lastModified : null;
+        if(modified != null){
+          if(state.lastModified == null){
+            state.lastModified = modified;
+            updateFileDisplay();
+          }else if(modified > state.lastModified){
+            state.lastModified = modified;
+            await loadPalette('auto');
           }
         }
       }catch(err){
-        if(state.disposed || controller.signal.aborted) return;
-        console.error('[FarblayerViewer] Konnte Farblayer nicht laden:', err);
-        if(statusEl){
-          statusEl.textContent = 'Fehler beim Laden der Farblayer.';
-          statusEl.classList.add('flv-error');
+        console.warn('[FarblayerViewer] Auto-Update fehlgeschlagen:', err);
+        stopAutoUpdatePolling('error', 'Kein Zugriff auf Farblayer-Datei.');
+      }finally{
+        state.pollInProgress = false;
+      }
+    }
+
+    function startAutoUpdatePolling(){
+      clearPolling();
+      if(!state.fileHandle){
+        stopAutoUpdatePolling('idle');
+        return;
+      }
+      state.autoState = 'active';
+      state.autoMessage = '';
+      state.pollInterval = setInterval(() => { void pollFileChangesOnce(); }, POLL_INTERVAL_MS);
+      void pollFileChangesOnce();
+      updateFileDisplay();
+    }
+
+    async function restoreStoredHandle(){
+      const storedHandle = await idbGet(HANDLE_STORAGE_KEY);
+      if(state.disposed) return;
+      if(!storedHandle){
+        updateFileDisplay();
+        return;
+      }
+      const hasPermission = await ensureReadPermission(storedHandle);
+      if(!hasPermission){
+        await idbDel(HANDLE_STORAGE_KEY);
+        state.fileHandle = null;
+        stopAutoUpdatePolling('idle');
+        return;
+      }
+      state.fileHandle = storedHandle;
+      state.autoState = 'active';
+      state.autoMessage = '';
+      updateFileDisplay();
+    }
+
+    async function bindFileHandle(handle){
+      if(!handle) return false;
+      const hasPermission = await ensureReadPermission(handle);
+      if(!hasPermission){
+        stopAutoUpdatePolling('error', 'Berechtigung erforderlich.');
+        return false;
+      }
+      state.fileHandle = handle;
+      await idbSet(HANDLE_STORAGE_KEY, handle);
+      state.autoState = 'active';
+      state.autoMessage = '';
+      state.lastModified = null;
+      updateFileDisplay();
+      await loadPalette('manual');
+      return true;
+    }
+
+    function pickConfigFileFallback(){
+      if(typeof document === 'undefined') return;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.style.display = 'none';
+      input.addEventListener('change', async () => {
+        const file = input.files && input.files[0] ? input.files[0] : null;
+        if(file){
+          await handleManualFile(file);
         }
-        state.items = [];
-        renderItems(listEl, []);
-        if(colorSelect){
-          populateColorFilter([], '');
-          colorSelect.disabled = true;
+        input.remove();
+      });
+      document.body.appendChild(input);
+      input.click();
+    }
+
+    async function handleManualFile(file){
+      if(!file) return;
+      try{
+        const text = await file.text();
+        const data = JSON.parse(text);
+        state.fileHandle = null;
+        await idbDel(HANDLE_STORAGE_KEY);
+        state.lastModified = typeof file.lastModified === 'number' ? file.lastModified : null;
+        stopAutoUpdatePolling('manual');
+        writeCachedPalette(data, file.name || 'Manuell geladen');
+        const result = {
+          data,
+          source: 'Manuell geladen',
+          path: file.name || 'Datei',
+          lastModified: state.lastModified
+        };
+        applyPaletteResult(result);
+        state.autoState = 'manual';
+        state.autoMessage = '';
+        updateFileDisplay();
+      }catch(err){
+        console.warn('[FarblayerViewer] Manuelle Datei konnte nicht gelesen werden:', err);
+        stopAutoUpdatePolling('error', 'Datei konnte nicht gelesen werden.');
+      }
+    }
+
+    async function pickConfigFile(){
+      if(typeof window === 'undefined'){ return; }
+      if(typeof window.showOpenFilePicker === 'function'){
+        try{
+          const [handle] = await window.showOpenFilePicker({
+            types: [{
+              description: 'Farblayer-Konfiguration',
+              accept: { 'application/json': ['.json'] }
+            }],
+            excludeAcceptAllOption: false,
+            multiple: false
+          });
+          if(handle){
+            await bindFileHandle(handle);
+          }
+        }catch(err){
+          if(err && err.name === 'AbortError') return;
+          console.warn('[FarblayerViewer] Dateiauswahl fehlgeschlagen:', err);
+          stopAutoUpdatePolling('error', 'Datei konnte nicht ausgewählt werden.');
         }
+      }else{
+        pickConfigFileFallback();
       }
     }
 
@@ -902,10 +1376,23 @@
       refreshBtn.addEventListener('click', () => loadPalette('manual'));
     }
 
-    if(colorSelect){
-      colorSelect.addEventListener('change', handleFilterChange);
+    colorSelects.forEach(select => {
+      select.addEventListener('change', handleColorChange);
+      updateSelectVisual(select, select.value || state.selectedColors[select.dataset?.flvColor] || '');
+    });
+
+    if(filePickBtn){
+      filePickBtn.addEventListener('click', pickConfigFile);
     }
 
-    loadPalette();
+    void (async () => {
+      await restoreStoredHandle();
+      await loadPalette();
+      if(state.fileHandle){
+        startAutoUpdatePolling();
+      }else{
+        updateFileDisplay();
+      }
+    })();
   };
 })();
