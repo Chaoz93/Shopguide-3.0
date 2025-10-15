@@ -41,11 +41,23 @@
     .flv-surface{height:100%;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid var(--module-border,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
     .flv-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;flex-wrap:wrap;}
     .flv-actions{display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap;justify-content:flex-end;width:100%;}
-    .flv-color-picker{display:flex;flex-direction:column;gap:.45rem;min-width:220px;}
+    .flv-color-picker{display:flex;flex-direction:column;gap:.6rem;min-width:260px;}
     .flv-color-title{font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.85;}
-    .flv-color-grid{display:grid;gap:.45rem;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
-    .flv-color-group{display:flex;flex-direction:column;gap:.35rem;font-size:.8rem;}
-    .flv-color-group span{letter-spacing:.04em;text-transform:uppercase;opacity:.8;}
+    .flv-scheme-group{display:flex;flex-direction:column;gap:.55rem;}
+    .flv-scheme-field{position:relative;padding:.65rem;border-radius:.75rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
+    .flv-select-overlay{position:absolute;inset:0;margin:0;padding:0;border:none;opacity:0;cursor:pointer;background:transparent;z-index:2;}
+    .flv-select-overlay:focus-visible + .flv-scheme-preview,
+    .flv-select-overlay:focus-visible ~ .flv-scheme-name{outline:2px solid rgba(148,163,184,.55);outline-offset:4px;}
+    .flv-scheme-preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;}
+    .flv-scheme-column{display:flex;flex-direction:column;gap:.3rem;}
+    .flv-scheme-label{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;opacity:.75;}
+    .flv-scheme-swatch{height:38px;border-radius:.55rem;border:1px solid rgba(255,255,255,.12);background:rgba(148,163,184,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.18);}
+    .flv-scheme-value{font-family:var(--mono-font,"JetBrains Mono",Menlo,Consolas,monospace);font-size:.72rem;opacity:.85;word-break:break-all;}
+    .flv-scheme-name{margin-top:.45rem;font-size:.8rem;font-weight:600;opacity:.9;}
+    .flv-scheme-field[data-empty="true"] .flv-scheme-swatch{border-style:dashed;border-color:rgba(148,163,184,.4);background:rgba(148,163,184,.15);}
+    .flv-scheme-field[data-empty="true"] .flv-scheme-value{opacity:.6;}
+    .flv-scheme-field[data-disabled="true"]{opacity:.6;cursor:not-allowed;}
+    .flv-scheme-field[data-disabled="true"] .flv-select-overlay{cursor:not-allowed;}
     .flv-select{min-width:0;width:100%;padding:.45rem .65rem;border-radius:.55rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.65);color:inherit;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .12s ease,box-shadow .12s ease;}
     .flv-select:focus{outline:none;border-color:rgba(255,255,255,.35);box-shadow:0 0 0 2px rgba(148,163,184,.25);}
     .flv-select:disabled{opacity:.5;cursor:not-allowed;}
@@ -886,25 +898,30 @@
             </div>
             <div class="flv-color-picker">
               <div class="flv-color-title">Modulfarben</div>
-              <div class="flv-color-grid">
-                <label class="flv-color-group">
-                  <span>Hintergrund</span>
-                  <select class="flv-select" data-flv-color="background">
+              <div class="flv-scheme-group">
+                <div class="flv-scheme-field" data-flv-schema-field data-empty="true">
+                  <select class="flv-select flv-select-overlay" data-flv-color="scheme">
                     <option value="">Standard</option>
                   </select>
-                </label>
-                <label class="flv-color-group">
-                  <span>Button</span>
-                  <select class="flv-select" data-flv-color="button">
-                    <option value="">Standard</option>
-                  </select>
-                </label>
-                <label class="flv-color-group">
-                  <span>Rahmen</span>
-                  <select class="flv-select" data-flv-color="border">
-                    <option value="">Standard</option>
-                  </select>
-                </label>
+                  <div class="flv-scheme-preview" data-flv-scheme-preview>
+                    <div class="flv-scheme-column" data-role="background">
+                      <div class="flv-scheme-label">Hauptfarbe</div>
+                      <div class="flv-scheme-swatch" data-flv-swatch="background"></div>
+                      <div class="flv-scheme-value" data-flv-value="background">—</div>
+                    </div>
+                    <div class="flv-scheme-column" data-role="text">
+                      <div class="flv-scheme-label">Schriftfarbe</div>
+                      <div class="flv-scheme-swatch" data-flv-swatch="text"></div>
+                      <div class="flv-scheme-value" data-flv-value="text">—</div>
+                    </div>
+                    <div class="flv-scheme-column" data-role="border">
+                      <div class="flv-scheme-label">Rahmenfarbe</div>
+                      <div class="flv-scheme-swatch" data-flv-swatch="border"></div>
+                      <div class="flv-scheme-value" data-flv-value="border">—</div>
+                    </div>
+                  </div>
+                  <div class="flv-scheme-name" data-flv-scheme-name>Standard</div>
+                </div>
               </div>
             </div>
           </div>
@@ -918,7 +935,11 @@
     const statusEl = root.querySelector('[data-flv-status]');
     const refreshBtn = root.querySelector('[data-flv-refresh]');
     const metaEl = root.querySelector('[data-flv-meta]');
-    const colorSelects = Array.from(root.querySelectorAll('[data-flv-color]'));
+    const schemeFieldEl = root.querySelector('[data-flv-schema-field]');
+    const schemePreviewEl = root.querySelector('[data-flv-scheme-preview]');
+    const schemeNameEl = root.querySelector('[data-flv-scheme-name]');
+    const schemeSelect = root.querySelector('[data-flv-color="scheme"]');
+    const colorSelects = schemeSelect ? [schemeSelect] : [];
     const fileLabelEl = root.querySelector('[data-flv-file-label]');
     const fileNoteEl = root.querySelector('[data-flv-file-note]');
     const filePickBtn = root.querySelector('[data-flv-file-pick]');
@@ -934,7 +955,7 @@
       disposed: false,
       items: [],
       lastSource: null,
-      selectedColors: storedSelection || { background: '', button: '', border: '' },
+      selectedColors: storedSelection || { background: '', text: '', border: '' },
       colorOptions: [],
       fileHandle: null,
       pollInterval: null,
@@ -963,12 +984,19 @@
         if(!raw) return null;
         const parsed = JSON.parse(raw);
         if(parsed && typeof parsed === 'object'){
-          const next = { background: '', button: '', border: '' };
-          ['background','button','border'].forEach(area => {
-            if(typeof parsed[area] === 'string' && parsed[area].trim()){
-              next[area] = parsed[area].trim();
-            }
-          });
+          const next = { background: '', text: '', border: '' };
+          if(typeof parsed.background === 'string' && parsed.background.trim()){
+            next.background = parsed.background.trim();
+          }
+          const textValue = typeof parsed.text === 'string' && parsed.text.trim()
+            ? parsed.text.trim()
+            : (typeof parsed.button === 'string' && parsed.button.trim() ? parsed.button.trim() : '');
+          if(textValue){
+            next.text = textValue;
+          }
+          if(typeof parsed.border === 'string' && parsed.border.trim()){
+            next.border = parsed.border.trim();
+          }
           return next;
         }
       }catch{}
@@ -977,34 +1005,75 @@
 
     function persistSelectedColors(){
       try{
-        localStorage.setItem(COLOR_SELECTION_KEY, JSON.stringify(state.selectedColors));
+        localStorage.setItem(COLOR_SELECTION_KEY, JSON.stringify(normalizeColors(state.selectedColors)));
       }catch{}
+    }
+
+    function normalizeColors(input){
+      const result = { background: '', text: '', border: '' };
+      if(!input || typeof input !== 'object'){
+        return result;
+      }
+      if(typeof input.background === 'string' && input.background.trim()){
+        result.background = input.background.trim();
+      }
+      if(typeof input.text === 'string' && input.text.trim()){
+        result.text = input.text.trim();
+      }
+      if(typeof input.border === 'string' && input.border.trim()){
+        result.border = input.border.trim();
+      }
+      return result;
+    }
+
+    function createSchemeKey(colors){
+      const normalized = normalizeColors(colors);
+      if(!normalized.background && !normalized.text && !normalized.border){
+        return '';
+      }
+      return `${normalized.background}|${normalized.text}|${normalized.border}`;
+    }
+
+    function getOptionColors(option){
+      if(!option){
+        return { background: '', text: '', border: '' };
+      }
+      return normalizeColors({
+        background: option.dataset ? option.dataset.background : '',
+        text: option.dataset ? option.dataset.text : '',
+        border: option.dataset ? option.dataset.border : ''
+      });
+    }
+
+    function setSchemeDisabled(disabled){
+      if(schemeFieldEl){
+        schemeFieldEl.dataset.disabled = disabled ? 'true' : 'false';
+      }
     }
 
     function collectColorOptions(items){
       const entries = [];
       const seen = new Set();
-      const propLabel = {
-        background: 'Hintergrund',
-        text: 'Text',
-        border: 'Rahmen'
-      };
       items.forEach(item => {
         const baseLabel = typeof item?.name === 'string' && item.name.trim()
           ? item.name.trim()
           : (typeof item?.rawName === 'string' && item.rawName.trim() ? item.rawName.trim() : 'Layer');
-        ['background','text','border'].forEach(key => {
-          const value = typeof item[key] === 'string' ? item[key].trim() : '';
-          if(!value) return;
-          const signature = `${key}|${value}|${baseLabel}`;
-          if(seen.has(signature)) return;
-          seen.add(signature);
-          entries.push({
-            value,
-            label: baseLabel,
-            property: key,
-            propertyLabel: propLabel[key] || key
-          });
+        const background = typeof item?.background === 'string' ? item.background.trim() : '';
+        const text = typeof item?.text === 'string' ? item.text.trim() : '';
+        const border = typeof item?.border === 'string' ? item.border.trim() : '';
+        if(!background && !text && !border){
+          return;
+        }
+        const key = `${background}|${text}|${border}|${baseLabel}`;
+        if(seen.has(key)){
+          return;
+        }
+        seen.add(key);
+        entries.push({
+          label: baseLabel,
+          background,
+          text,
+          border
         });
       });
 
@@ -1015,98 +1084,148 @@
       }, Object.create(null));
 
       return entries.map(entry => {
+        const normalized = normalizeColors(entry);
         const duplicate = labelCounts[entry.label] > 1;
-        const text = duplicate ? `${entry.label} – ${entry.propertyLabel}` : entry.label;
+        const detail = [normalized.background, normalized.text, normalized.border].filter(Boolean).join(' • ');
+        const displayLabel = duplicate && detail ? `${entry.label} – ${detail}` : entry.label;
         return {
-          value: entry.value,
-          label: text,
-          property: entry.property
+          value: createSchemeKey(normalized),
+          label: displayLabel,
+          background: normalized.background,
+          text: normalized.text,
+          border: normalized.border
         };
       });
     }
 
-    function updateSelectVisual(select, value){
-      if(!select) return;
-      if(value){
-        select.style.background = value;
-        const lightness = parseLightness(value);
-        select.style.color = lightness != null && lightness < 55 ? '#f8fafc' : '#0f172a';
-      }else{
-        select.style.background = '';
-        select.style.color = '';
+    function updateSchemeVisual(select, overrideColors){
+      if(!select){
+        return { background: '', text: '', border: '' };
       }
+      const option = select.options ? select.options[select.selectedIndex] : null;
+      const normalizedOverride = normalizeColors(overrideColors);
+      const hasOverride = !!createSchemeKey(normalizedOverride);
+      const colors = hasOverride
+        ? normalizedOverride
+        : (option && option.value ? getOptionColors(option) : { background: '', text: '', border: '' });
+      const hasValue = hasOverride || (option && option.value);
+      if(schemeFieldEl){
+        schemeFieldEl.dataset.empty = hasValue ? 'false' : 'true';
+      }
+      if(schemeNameEl){
+        if(hasOverride && !(option && option.value)){
+          schemeNameEl.textContent = 'Benutzerdefiniert';
+        }else{
+          schemeNameEl.textContent = hasValue && option ? option.textContent : 'Standard';
+        }
+      }
+      if(schemePreviewEl){
+        const map = {
+          background: colors.background,
+          text: colors.text,
+          border: colors.border
+        };
+        Object.keys(map).forEach(key => {
+          const swatch = schemePreviewEl.querySelector(`[data-flv-swatch="${key}"]`);
+          const valueEl = schemePreviewEl.querySelector(`[data-flv-value="${key}"]`);
+          const value = map[key] || '';
+          if(swatch){
+            swatch.style.background = value || 'rgba(148,163,184,.18)';
+            swatch.style.borderColor = value ? 'rgba(255,255,255,.24)' : 'rgba(148,163,184,.4)';
+          }
+          if(valueEl){
+            valueEl.textContent = value || '—';
+          }
+        });
+      }
+      return colors;
     }
 
     function populateColorSelectors(items, allowOptions){
+      const select = schemeSelect;
+      if(!select){
+        return;
+      }
       const options = allowOptions ? collectColorOptions(items) : [];
-      const shouldClearSelection = !allowOptions;
       const storedSelection = allowOptions ? readStoredSelection() : null;
       state.colorOptions = options;
-      const hasOptions = options.length > 0;
-      colorSelects.forEach(select => {
-        const area = select?.dataset?.flvColor;
-        const current = typeof state.selectedColors[area] === 'string' ? state.selectedColors[area] : '';
-        const stored = storedSelection && typeof storedSelection[area] === 'string'
-          ? storedSelection[area]
-          : '';
-        const fragment = document.createDocumentFragment();
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Standard';
-        fragment.appendChild(defaultOption);
-        options.forEach(optionData => {
-          const color = optionData.value;
-          const text = optionData.label;
-          const option = document.createElement('option');
-          option.value = color;
-          option.textContent = text;
-          option.style.backgroundColor = color;
-          option.style.color = '#0f172a';
-          fragment.appendChild(option);
-        });
-        select.innerHTML = '';
-        select.appendChild(fragment);
-        const hasCurrent = hasOptions && state.colorOptions.some(entry => entry.value === current);
-        const hasStored = hasOptions && state.colorOptions.some(entry => entry.value === stored);
-        if(hasCurrent){
-          select.value = current;
-        }else if(hasStored){
-          select.value = stored;
-          state.selectedColors[area] = stored;
-        }else if(hasOptions){
-          select.value = '';
-          state.selectedColors[area] = '';
-        }else{
-          select.value = '';
-          if(shouldClearSelection){
-            state.selectedColors[area] = '';
-          }
+      const fragment = document.createDocumentFragment();
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'Standard';
+      fragment.appendChild(defaultOption);
+      options.forEach(optionData => {
+        const option = document.createElement('option');
+        option.value = optionData.value;
+        option.textContent = optionData.label;
+        if(optionData.background){
+          option.dataset.background = optionData.background;
         }
-        updateSelectVisual(select, hasOptions ? select.value : '');
-        select.disabled = !hasOptions;
+        if(optionData.text){
+          option.dataset.text = optionData.text;
+        }
+        if(optionData.border){
+          option.dataset.border = optionData.border;
+        }
+        fragment.appendChild(option);
       });
-      if(hasOptions){
-        persistSelectedColors();
+      select.innerHTML = '';
+      select.appendChild(fragment);
+
+      const storedKey = createSchemeKey(storedSelection);
+      const currentKey = createSchemeKey(state.selectedColors);
+      const hasOptions = options.length > 0;
+      const hasCurrent = hasOptions && state.colorOptions.some(entry => entry.value === currentKey);
+      const hasStored = hasOptions && state.colorOptions.some(entry => entry.value === storedKey);
+
+      if(hasCurrent){
+        select.value = currentKey;
+      }else if(hasStored){
+        select.value = storedKey;
+        state.selectedColors = normalizeColors(storedSelection);
+      }else{
+        select.value = '';
+        if(hasOptions){
+          state.selectedColors = { background: '', text: '', border: '' };
+        }
       }
+
+      const appliedColors = hasOptions && select.value
+        ? getOptionColors(select.options[select.selectedIndex])
+        : state.selectedColors;
+      state.selectedColors = normalizeColors(updateSchemeVisual(select, appliedColors));
+      select.disabled = !hasOptions;
+      setSchemeDisabled(select.disabled);
+      if(!hasOptions){
+        updateSchemeVisual(select, state.selectedColors);
+      }
+      persistSelectedColors();
     }
 
     function applySelectedColors(){
       const surface = root.querySelector('.flv-surface');
       if(!surface) return;
-      const bg = state.selectedColors.background;
-      const button = state.selectedColors.button;
-      const border = state.selectedColors.border;
+      const colors = normalizeColors(state.selectedColors);
+      const bg = colors.background;
+      const text = colors.text;
+      const border = colors.border;
       if(bg){
         surface.style.setProperty('--module-bg', bg);
       }else{
         surface.style.removeProperty('--module-bg');
       }
-      if(button){
-        surface.style.setProperty('--module-button-bg', button);
-        surface.style.setProperty('--module-button-bg-hover', button);
+      const buttonColor = bg;
+      if(buttonColor){
+        surface.style.setProperty('--module-button-bg', buttonColor);
+        surface.style.setProperty('--module-button-bg-hover', buttonColor);
       }else{
         surface.style.removeProperty('--module-button-bg');
         surface.style.removeProperty('--module-button-bg-hover');
+      }
+      if(text){
+        surface.style.setProperty('--text-color', text);
+      }else{
+        surface.style.removeProperty('--text-color');
       }
       if(border){
         surface.style.setProperty('--module-border', border);
@@ -1168,6 +1287,7 @@
       colorSelects.forEach(select => {
         select.disabled = true;
       });
+      setSchemeDisabled(true);
       try{
         const result = await fetchPalette(controller.signal, {
           fileHandle: state.fileHandle,
@@ -1189,6 +1309,7 @@
         colorSelects.forEach(select => {
           select.disabled = state.colorOptions.length === 0;
         });
+        setSchemeDisabled(state.colorOptions.length === 0);
         if(state.fileHandle){
           state.autoState = 'active';
           state.autoMessage = '';
@@ -1210,18 +1331,18 @@
         colorSelects.forEach(select => {
           select.disabled = true;
         });
+        setSchemeDisabled(true);
       }
     }
 
     function handleColorChange(event){
       const select = event?.currentTarget || event?.target;
       if(!select) return;
-      const area = select.dataset ? select.dataset.flvColor : null;
-      if(!area) return;
-      const value = typeof select.value === 'string' ? select.value : '';
-      state.selectedColors[area] = value;
+      const option = select.options ? select.options[select.selectedIndex] : null;
+      const colors = option && option.value ? getOptionColors(option) : { background: '', text: '', border: '' };
+      state.selectedColors = normalizeColors(colors);
       persistSelectedColors();
-      updateSelectVisual(select, value);
+      updateSchemeVisual(select, state.selectedColors);
       applySelectedColors();
     }
 
@@ -1426,7 +1547,8 @@
 
     colorSelects.forEach(select => {
       select.addEventListener('change', handleColorChange);
-      updateSelectVisual(select, select.value || state.selectedColors[select.dataset?.flvColor] || '');
+      updateSchemeVisual(select, state.selectedColors);
+      setSchemeDisabled(select.disabled);
     });
 
     if(filePickBtn){
