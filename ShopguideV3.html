@@ -1715,6 +1715,38 @@
               <button id="theme-profile-delete" type="button" class="profile-btn profile-delete">Profil löschen</button>
             </div>
           </div>
+          <div class="profile-manager mt-4">
+            <h3 class="profile-manager-title">Speicherpfade</h3>
+            <p class="profile-manager-hint">
+              Lege fest, wo Moduldaten, gemeinsame Dateien und Backups gespeichert werden sollen.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+              <div class="storage-card bg-white shadow-sm rounded-xl p-3 border border-gray-200">
+                <h4 class="font-semibold flex items-center gap-2">💾 Backups</h4>
+                <button id="choose-backups-path" class="profile-btn profile-save w-full mt-2">
+                  Pfad wählen
+                </button>
+                <p id="backups-storage-status" class="text-sm text-gray-600 mt-1">Nicht gesetzt</p>
+              </div>
+
+              <div class="storage-card bg-white shadow-sm rounded-xl p-3 border border-gray-200">
+                <h4 class="font-semibold flex items-center gap-2">📦 Module-Daten</h4>
+                <button id="choose-modules-path" class="profile-btn profile-save w-full mt-2">
+                  Pfad wählen
+                </button>
+                <p id="modules-storage-status" class="text-sm text-gray-600 mt-1">Nicht gesetzt</p>
+              </div>
+
+              <div class="storage-card bg-white shadow-sm rounded-xl p-3 border border-gray-200">
+                <h4 class="font-semibold flex items-center gap-2">🗃️ Shared-Data</h4>
+                <button id="choose-shared-path" class="profile-btn profile-save w-full mt-2">
+                  Pfad wählen
+                </button>
+                <p id="shared-storage-status" class="text-sm text-gray-600 mt-1">Nicht gesetzt</p>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- Topbar section -->
         <div id="section-topbar" class="settings-section">
@@ -1959,6 +1991,194 @@ function initGlobalLayers() {
 }
 
 window.addEventListener('load', initGlobalLayers, { once: true });
+
+window.savePaths = { backups: null, modules: null, shared: null };
+
+const SAVE_PATH_NAME_KEY_PREFIX = 'savePath_';
+const SAVE_PATH_HANDLE_KEY_PREFIX = 'savePathHandle:';
+
+async function chooseFolder(key, labelEl) {
+  if (typeof window.showDirectoryPicker !== 'function') {
+    if (labelEl) {
+      labelEl.textContent = '❌ Nicht verfügbar';
+    }
+    console.warn(`⚠️ Dateisystemzugriff für ${key} nicht verfügbar.`);
+    return;
+  }
+
+  try {
+    const handle = await window.showDirectoryPicker();
+    if (!handle) throw new Error('Kein Handle erhalten');
+
+    const granted = typeof ensureRWPermission === 'function'
+      ? await ensureRWPermission(handle, { mode: 'readwrite' })
+      : true;
+
+    if (!granted) {
+      throw new Error('Zugriff nicht gewährt');
+    }
+
+    window.savePaths[key] = handle;
+
+    try {
+      localStorage.setItem(`${SAVE_PATH_NAME_KEY_PREFIX}${key}_name`, handle.name);
+      localStorage.setItem(`${SAVE_PATH_NAME_KEY_PREFIX}${key}_granted`, 'true');
+    } catch (storageErr) {
+      console.warn(`⚠️ Konnte localStorage für ${key} nicht aktualisieren:`, storageErr);
+    }
+
+    if (typeof idbSet === 'function') {
+      try {
+        await idbSet(`${SAVE_PATH_HANDLE_KEY_PREFIX}${key}`, handle);
+      } catch (dbErr) {
+        console.warn(`⚠️ Konnte Handle für ${key} nicht persistent speichern:`, dbErr);
+      }
+    }
+
+    if (labelEl) {
+      labelEl.textContent = `✅ Zugriff aktiv (${handle.name})`;
+    }
+    console.log(`📂 ${key}-Pfad gesetzt:`, handle);
+  } catch (err) {
+    console.warn(`⚠️ Auswahl für ${key} abgebrochen oder fehlgeschlagen:`, err);
+    window.savePaths[key] = null;
+
+    try {
+      localStorage.removeItem(`${SAVE_PATH_NAME_KEY_PREFIX}${key}_name`);
+      localStorage.removeItem(`${SAVE_PATH_NAME_KEY_PREFIX}${key}_granted`);
+    } catch (storageErr) {
+      console.warn(`⚠️ Konnte localStorage für ${key} nicht bereinigen:`, storageErr);
+    }
+
+    if (typeof idbDel === 'function') {
+      try {
+        await idbDel(`${SAVE_PATH_HANDLE_KEY_PREFIX}${key}`);
+      } catch (dbErr) {
+        console.warn(`⚠️ Konnte Handle für ${key} nicht entfernen:`, dbErr);
+      }
+    }
+
+    if (labelEl) {
+      labelEl.textContent = '❌ Nicht gesetzt';
+    }
+  }
+}
+
+async function writeToSavePath(target, relativePath, dataObj) {
+  const jsonText = JSON.stringify(dataObj, null, 2);
+  const base = window.savePaths[target];
+  if (!base) throw new Error(`Kein Speicherpfad für ${target} definiert.`);
+
+  if (typeof ensureRWPermission === 'function') {
+    const granted = await ensureRWPermission(base, { mode: 'readwrite' });
+    if (!granted) {
+      throw new Error(`Kein Zugriff auf Speicherpfad für ${target}.`);
+    }
+  }
+
+  const parts = relativePath.split('/').filter(Boolean);
+  if (!parts.length) throw new Error('Ungültiger Dateipfad.');
+
+  let dir = base;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    dir = await dir.getDirectoryHandle(parts[i], { create: true });
+  }
+  const fileHandle = await dir.getFileHandle(parts[parts.length - 1], { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(jsonText);
+  await writable.close();
+  console.log(`💾 Datei gespeichert in ${target}: ${relativePath}`);
+}
+
+async function readFromSavePath(target, relativePath) {
+  try {
+    const base = window.savePaths[target];
+    if (!base) return null;
+
+    if (typeof ensureRWPermission === 'function') {
+      const granted = await ensureRWPermission(base, { mode: 'readwrite', request: false })
+        || await ensureRWPermission(base, { mode: 'readwrite' });
+      if (!granted) {
+        console.warn(`⚠️ Zugriff auf ${target} nicht möglich.`);
+        return null;
+      }
+    }
+
+    const parts = relativePath.split('/').filter(Boolean);
+    if (!parts.length) return null;
+
+    let dir = base;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      dir = await dir.getDirectoryHandle(parts[i]);
+    }
+    const fileHandle = await dir.getFileHandle(parts[parts.length - 1]);
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    return JSON.parse(text);
+  } catch (err) {
+    console.warn(`⚠️ ${target}: Datei ${relativePath} nicht gefunden.`, err);
+    return null;
+  }
+}
+
+async function restoreSavePathStatus() {
+  const entries = [
+    { key: 'backups', label: backupsStorageStatusEl },
+    { key: 'modules', label: modulesStorageStatusEl },
+    { key: 'shared', label: sharedStorageStatusEl }
+  ];
+
+  for (const { key, label } of entries) {
+    if (window.savePaths && Object.prototype.hasOwnProperty.call(window.savePaths, key)) {
+      window.savePaths[key] = null;
+    }
+    if (label) {
+      label.textContent = 'Nicht gesetzt';
+    }
+
+    let storedName = '';
+    let hasStoredAccess = false;
+    try {
+      storedName = localStorage.getItem(`${SAVE_PATH_NAME_KEY_PREFIX}${key}_name`) || '';
+      hasStoredAccess = localStorage.getItem(`${SAVE_PATH_NAME_KEY_PREFIX}${key}_granted`) === 'true';
+    } catch (storageErr) {
+      console.warn(`⚠️ Konnte Speicherstatus für ${key} nicht laden:`, storageErr);
+    }
+
+    if (typeof idbGet === 'function') {
+      try {
+        const handle = await idbGet(`${SAVE_PATH_HANDLE_KEY_PREFIX}${key}`);
+        if (handle) {
+          let granted = true;
+          if (typeof ensureRWPermission === 'function') {
+            granted = await ensureRWPermission(handle, { mode: 'readwrite', request: false });
+          }
+
+          if (granted) {
+            window.savePaths[key] = handle;
+            if (!storedName) {
+              storedName = handle.name || storedName;
+            }
+            hasStoredAccess = true;
+          }
+        }
+      } catch (dbErr) {
+        console.warn(`⚠️ Konnte Handle für ${key} nicht wiederherstellen:`, dbErr);
+      }
+    }
+
+    if (hasStoredAccess && label) {
+      label.textContent = storedName
+        ? `⚙️ Wiederhergestellt (${storedName})`
+        : '⚙️ Wiederhergestellt';
+    }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.writeToSavePath = writeToSavePath;
+  window.readFromSavePath = readFromSavePath;
+}
 
 function clamp(value, min, max) {
   if (Number.isNaN(value)) return min;
@@ -3122,9 +3342,37 @@ const themeProfileNameInput = document.getElementById('theme-profile-name');
 const themeProfileSaveBtn = document.getElementById('theme-profile-save');
 const themeProfileLoadBtn = document.getElementById('theme-profile-load');
 const themeProfileDeleteBtn = document.getElementById('theme-profile-delete');
+const chooseBackupsPathBtn = document.getElementById('choose-backups-path');
+const chooseModulesPathBtn = document.getElementById('choose-modules-path');
+const chooseSharedPathBtn = document.getElementById('choose-shared-path');
+const backupsStorageStatusEl = document.getElementById('backups-storage-status');
+const modulesStorageStatusEl = document.getElementById('modules-storage-status');
+const sharedStorageStatusEl = document.getElementById('shared-storage-status');
 
 // Navigation buttons for settings
 const settingsNavButtons = document.querySelectorAll('.settings-nav button');
+
+if (chooseBackupsPathBtn && backupsStorageStatusEl) {
+  chooseBackupsPathBtn.addEventListener('click', () => chooseFolder('backups', backupsStorageStatusEl));
+}
+if (chooseModulesPathBtn && modulesStorageStatusEl) {
+  chooseModulesPathBtn.addEventListener('click', () => chooseFolder('modules', modulesStorageStatusEl));
+}
+if (chooseSharedPathBtn && sharedStorageStatusEl) {
+  chooseSharedPathBtn.addEventListener('click', () => chooseFolder('shared', sharedStorageStatusEl));
+}
+
+const scheduleRestoreSavePathStatus = () => {
+  restoreSavePathStatus().catch(err => {
+    console.warn('⚠️ Speicherpfade konnten nicht wiederhergestellt werden:', err);
+  });
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', scheduleRestoreSavePathStatus, { once: true });
+} else {
+  scheduleRestoreSavePathStatus();
+}
 
 // Remember the selected root folder across sessions
 const FS_HANDLE_KEY = 'rootDirHandle';
