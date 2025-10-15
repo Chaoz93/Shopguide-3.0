@@ -1,0 +1,12 @@
+{
+  "name": "Farblayer-Viewer",
+  "icon": "🎨",
+  "script": "renderFarblayerViewer",
+  "minW": 3,
+  "minH": 4,
+  "w": 4,
+  "h": 6,
+  "settings": {},
+  "moduleId": "FarblayerViewer",
+  "version": "1.0.0"
+}
