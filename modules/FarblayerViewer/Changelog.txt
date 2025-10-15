@@ -5,6 +5,15 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.0] – 2025-10-15
+### Added
+- Kombinierte Vorschau der Farbschemata direkt in der Dropdown-Auswahl inklusive Farbfelder für Hintergrund, Schrift und Rahmen.
+- Speicherung der zuletzt gewählten Farbzusammenstellung zur automatischen Wiederherstellung beim erneuten Öffnen des Moduls.
+
+### Changed
+- Überarbeitete Moduloberfläche mit gruppierten Aktionen, neuen Vorschaukarten und klareren Statusmeldungen.
+- Verbesserte Handhabung von Dateihandles sowie Fehlermeldungen beim Laden der Farblayer-Konfiguration.
+
 ## [1.1.2] – 2025-09-26
 ### Added
 - Direkter Zugriff auf `FarblayerConfig.json` über den ausgewählten Arbeitsordner inklusive rekursiver Suche nach dem Dateinamen.
