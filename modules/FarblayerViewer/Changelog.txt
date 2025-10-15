@@ -5,6 +5,22 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.2] – 2025-09-26
+### Added
+- Direkter Zugriff auf `FarblayerConfig.json` über den ausgewählten Arbeitsordner inklusive rekursiver Suche nach dem Dateinamen.
+### Fixed
+- Verhindert fehlerhafte relative Dateipfade im lokalen Kontext, indem der globale Arbeitsordner Vorrang vor Netzwerkanfragen erhält.
+
+## [1.1.1] – 2025-09-25
+### Added
+- Globale Fallback-Suche nach `FarblayerConfig.json` inklusive Protokollierung fehlgeschlagener Pfadversuche und Debug-Standardwerten als Fehlerhilfe.
+### Changed
+- Zwischenspeicherung merkt sich den letzten erfolgreichen Pfad zur Farblayer-Konfiguration.
+
+## [1.1.0] – 2025-09-24
+### Changed
+- Parser für Farblayer-Konfiguration erweitert, um verschachtelte Objektstrukturen und String-/Array-Werte wie im neuen Exportformat zu unterstützen.
+
 ## [1.0.0] – 2025-09-23
 ### Added
 - Erstveröffentlichung des Moduls zur Anzeige der Farblayer-Konfiguration
