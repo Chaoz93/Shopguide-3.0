@@ -982,17 +982,47 @@
     }
 
     function collectColorOptions(items){
-      const unique = [];
+      const entries = [];
       const seen = new Set();
+      const propLabel = {
+        background: 'Hintergrund',
+        text: 'Text',
+        border: 'Rahmen'
+      };
       items.forEach(item => {
+        const baseLabel = typeof item?.name === 'string' && item.name.trim()
+          ? item.name.trim()
+          : (typeof item?.rawName === 'string' && item.rawName.trim() ? item.rawName.trim() : 'Layer');
         ['background','text','border'].forEach(key => {
           const value = typeof item[key] === 'string' ? item[key].trim() : '';
-          if(!value || seen.has(value)) return;
-          seen.add(value);
-          unique.push(value);
+          if(!value) return;
+          const signature = `${key}|${value}|${baseLabel}`;
+          if(seen.has(signature)) return;
+          seen.add(signature);
+          entries.push({
+            value,
+            label: baseLabel,
+            property: key,
+            propertyLabel: propLabel[key] || key
+          });
         });
       });
-      return unique;
+
+      const labelCounts = entries.reduce((acc, entry) => {
+        const key = entry.label;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, Object.create(null));
+
+      return entries.map(entry => {
+        const duplicate = labelCounts[entry.label] > 1;
+        const text = duplicate ? `${entry.label} – ${entry.propertyLabel}` : entry.label;
+        return {
+          value: entry.value,
+          label: text,
+          property: entry.property
+        };
+      });
     }
 
     function updateSelectVisual(select, value){
@@ -1024,19 +1054,23 @@
         defaultOption.value = '';
         defaultOption.textContent = 'Standard';
         fragment.appendChild(defaultOption);
-        options.forEach(color => {
+        options.forEach(optionData => {
+          const color = optionData.value;
+          const text = optionData.label;
           const option = document.createElement('option');
           option.value = color;
-          option.textContent = color;
+          option.textContent = text;
           option.style.backgroundColor = color;
           option.style.color = '#0f172a';
           fragment.appendChild(option);
         });
         select.innerHTML = '';
         select.appendChild(fragment);
-        if(hasOptions && current && state.colorOptions.includes(current)){
+        const hasCurrent = hasOptions && state.colorOptions.some(entry => entry.value === current);
+        const hasStored = hasOptions && state.colorOptions.some(entry => entry.value === stored);
+        if(hasCurrent){
           select.value = current;
-        }else if(hasOptions && stored && state.colorOptions.includes(stored)){
+        }else if(hasStored){
           select.value = stored;
           state.selectedColors[area] = stored;
         }else if(hasOptions){
