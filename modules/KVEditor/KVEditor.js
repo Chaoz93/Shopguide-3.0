@@ -5,6 +5,10 @@ class KVEditor {
     this.presets = [];
     this.customSnippets = [];
     this.customSnippetsKey = 'kvEditorCustomSnippets';
+    this.presetPathStorageKey = 'kvEditorPresetPath';
+    this.defaultPresetPath = 'configs/kv_editor_presets.config.json';
+    this.presetPath = null;
+    this.loadedPresetPath = null;
     this.bausteine = [];
     this.activeProfile = null;
     this.profileStorageKey = 'kvEditorProfiles';
@@ -572,6 +576,7 @@ class KVEditor {
   }
 
   async init() {
+    this.presetPath = this.resolvePresetPath();
     await this.loadPresets();
     this.renderPresetLibrary();
     this.loadCustomSnippets();
@@ -594,16 +599,110 @@ class KVEditor {
     }
   }
 
-  async loadPresets() {
+  resolvePresetPath() {
+    if (typeof window === 'undefined') {
+      return this.defaultPresetPath;
+    }
+
     try {
-      const response = await fetch('KV_Presets.json');
-      if (!response.ok) {
-        throw new Error('Konnte Preset-Datei nicht laden.');
+      const storage = window.localStorage;
+      if (!storage) {
+        return this.defaultPresetPath;
       }
-      const data = await response.json();
-      this.presets = data.presets || [];
+
+      const storedPath = storage.getItem(this.presetPathStorageKey);
+      if (storedPath && typeof storedPath === 'string' && storedPath.trim()) {
+        return storedPath.trim();
+      }
+
+      storage.setItem(this.presetPathStorageKey, this.defaultPresetPath);
     } catch (error) {
-      console.error('Fehler beim Laden der Presets:', error);
+      console.warn('KVEditor Presets: Zugriff auf localStorage nicht möglich. Fallback auf Standardpfad.', error);
+      return this.defaultPresetPath;
+    }
+
+    return this.defaultPresetPath;
+  }
+
+  persistPresetPath(path) {
+    if (typeof window === 'undefined' || !path) {
+      return;
+    }
+
+    try {
+      const storage = window.localStorage;
+      if (storage) {
+        storage.setItem(this.presetPathStorageKey, path);
+      }
+    } catch (error) {
+      console.warn('KVEditor Presets: Konnte Pfad nicht im localStorage speichern.', error);
+    }
+  }
+
+  setPresetPath(path) {
+    if (typeof path !== 'string') {
+      return;
+    }
+
+    const trimmedPath = path.trim();
+    if (!trimmedPath) {
+      return;
+    }
+
+    this.presetPath = trimmedPath;
+    this.persistPresetPath(trimmedPath);
+    this.loadPresets()
+      .then(() => {
+        this.renderPresetLibrary();
+      })
+      .catch((error) => {
+        console.error('KVEditor Presets: Fehler beim Anwenden des neuen Pfads.', error);
+      });
+  }
+
+  async loadPresets() {
+    const tried = new Set();
+    const tryLoad = async (path) => {
+      if (!path || tried.has(path)) {
+        return false;
+      }
+      tried.add(path);
+      try {
+        const response = await fetch(path);
+        if (!response.ok) {
+          throw new Error(`Konnte Preset-Datei nicht laden (Status ${response.status}).`);
+        }
+        const data = await response.json();
+        this.presets = Array.isArray(data.presets) ? data.presets : [];
+        this.loadedPresetPath = path;
+        return true;
+      } catch (error) {
+        console.error(`Fehler beim Laden der Presets von ${path}:`, error);
+        return false;
+      }
+    };
+
+    const preferredPath = this.presetPath || this.resolvePresetPath();
+    let success = await tryLoad(preferredPath);
+
+    const legacyPaths = ['KV_Presets.json', 'modules/KVEditor/KV_Presets.json'];
+    if (!success && legacyPaths.includes(preferredPath)) {
+      this.persistPresetPath(this.defaultPresetPath);
+      this.presetPath = this.defaultPresetPath;
+      success = await tryLoad(this.defaultPresetPath);
+      if (success) {
+        console.info('KVEditor Presets: Legacy-Pfad migriert auf configs/kv_editor_presets.config.json.');
+      }
+    }
+
+    if (!success && preferredPath !== this.defaultPresetPath) {
+      success = await tryLoad(this.defaultPresetPath);
+      if (success) {
+        console.warn(`KVEditor Presets: Fallback auf ${this.defaultPresetPath} verwendet.`);
+      }
+    }
+
+    if (!success) {
       this.presets = [];
     }
   }
@@ -1279,10 +1378,30 @@ class KVEditor {
 const globalScope = typeof window !== 'undefined' ? window : globalThis;
 
 function renderKVEditor(mount) {
-  return new KVEditor({ mount });
+  const instance = new KVEditor({ mount });
+  globalScope.__kvEditorInstance = instance;
+  return instance;
 }
 
 globalScope.renderKVEditor = renderKVEditor;
+globalScope.setKVEditorPresetPath = function setKVEditorPresetPath(path) {
+  const instance = globalScope.__kvEditorInstance;
+  if (instance && typeof instance.setPresetPath === 'function') {
+    instance.setPresetPath(path);
+  } else if (typeof window !== 'undefined' && typeof path === 'string') {
+    const trimmed = path.trim();
+    if (trimmed) {
+      try {
+        const storage = window.localStorage;
+        if (storage) {
+          storage.setItem('kvEditorPresetPath', trimmed);
+        }
+      } catch (error) {
+        console.warn('KVEditor Presets: Konnte Pfad nicht im localStorage hinterlegen.', error);
+      }
+    }
+  }
+};
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { renderKVEditor };
