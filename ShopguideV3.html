@@ -5589,6 +5589,80 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   const statusContainer = document.getElementById('module-layer-config-status');
   const statusTextEl = statusContainer?.querySelector('[data-status-text]') || null;
   let lastStatusState = '';
+  const configPathSegments = CONFIG_PATH.split('/').filter(Boolean);
+  const CONFIG_FILE_NAME = configPathSegments.pop() || 'FarblayerConfig.json';
+  const CONFIG_DIR_SEGMENTS = configPathSegments;
+
+  const hasFileSystemAccess = () => typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
+
+  async function ensureRootPermission({ request = false } = {}) {
+    if (!rootDirHandle) return false;
+    if (typeof ensureRWPermission === 'function') {
+      return ensureRWPermission(rootDirHandle, { mode: 'readwrite', request });
+    }
+    return true;
+  }
+
+  async function getConfigDirectoryHandle({ create = false, requestPermission = false } = {}) {
+    if (!rootDirHandle || typeof rootDirHandle.getDirectoryHandle !== 'function') {
+      return { ok: false, reason: 'no-root' };
+    }
+    const needPermission = create || requestPermission;
+    const hasPermission = await ensureRootPermission({ request: needPermission });
+    if (!hasPermission) {
+      return { ok: false, reason: 'permission' };
+    }
+    if (!CONFIG_DIR_SEGMENTS.length) {
+      return { ok: true, dirHandle: rootDirHandle };
+    }
+    try {
+      const dirHandle = await ensureDirectoryChain(rootDirHandle, CONFIG_DIR_SEGMENTS, { create });
+      return { ok: true, dirHandle };
+    } catch (err) {
+      if (!create && err?.name === 'NotFoundError') {
+        return { ok: false, reason: 'missing-dir' };
+      }
+      console.warn('[ShopguideV3] Zugriff auf configs-Verzeichnis fehlgeschlagen:', err);
+      return { ok: false, reason: 'error', error: err };
+    }
+  }
+
+  async function getConfigFileHandle({ create = false, requestPermission = false } = {}) {
+    const dirResult = await getConfigDirectoryHandle({ create, requestPermission });
+    if (!dirResult.ok) {
+      return dirResult;
+    }
+    try {
+      const fileHandle = await dirResult.dirHandle.getFileHandle(CONFIG_FILE_NAME, { create });
+      return { ok: true, dirHandle: dirResult.dirHandle, fileHandle };
+    } catch (err) {
+      if (!create && err?.name === 'NotFoundError') {
+        return { ok: false, reason: 'missing-file', dirHandle: dirResult.dirHandle };
+      }
+      console.warn('[ShopguideV3] Zugriff auf FarblayerConfig.json fehlgeschlagen:', err);
+      return { ok: false, reason: 'error', error: err };
+    }
+  }
+
+  async function writeConfigToRoot(jsonText, data) {
+    if (!hasFileSystemAccess()) {
+      return { success: false, reason: 'no-fs-api' };
+    }
+    const handleResult = await getConfigFileHandle({ create: true, requestPermission: true });
+    if (!handleResult.ok || !handleResult.fileHandle) {
+      return { success: false, reason: handleResult.reason || 'handle-missing' };
+    }
+    try {
+      const writable = await handleResult.fileHandle.createWritable();
+      await writable.write(jsonText);
+      await writable.close();
+      console.log(`[ShopguideV3] FarblayerConfig.json im Arbeitsordner gespeichert (${CONFIG_PATH}).`, data);
+      return { success: true };
+    } catch (err) {
+      console.warn('[ShopguideV3] FarblayerConfig.json konnte im Arbeitsordner nicht gespeichert werden:', err);
+      return { success: false, reason: 'write-failed', error: err };
+    }
+  }
 
   function formatTimestamp() {
     try {
@@ -5617,7 +5691,27 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   }
 
   async function checkInitialConfigAvailability() {
-    if (!statusContainer || !statusTextEl || typeof fetch !== 'function') {
+    if (!statusContainer || !statusTextEl) {
+      return;
+    }
+    if (rootDirHandle && hasFileSystemAccess()) {
+      const handleResult = await getConfigFileHandle({ create: false, requestPermission: false });
+      if (handleResult.ok) {
+        setConfigStatus('ok', 'FarblayerConfig.json im configs-Ordner gefunden. Änderungen werden automatisch gespeichert.');
+        return;
+      }
+      if (handleResult.reason === 'permission') {
+        setConfigStatus('fallback', 'Arbeitsordner benötigt Schreibrechte für configs/FarblayerConfig.json. Zwischenspeicher wird genutzt.');
+        return;
+      }
+      if (handleResult.reason === 'missing-dir' || handleResult.reason === 'missing-file') {
+        setConfigStatus('missing', 'FarblayerConfig.json wird im configs-Ordner angelegt, sobald Änderungen gespeichert werden.');
+        return;
+      }
+      setConfigStatus('fallback', 'FarblayerConfig.json konnte im Arbeitsordner nicht geprüft werden. Zwischenspeicher wird genutzt.');
+      return;
+    }
+    if (typeof fetch !== 'function') {
       setConfigStatus('fallback', 'Automatischer Status nicht verfügbar. Änderungen werden lokal zwischengespeichert.');
       return;
     }
@@ -5794,6 +5888,8 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     const autosaveAvailable = typeof window !== 'undefined' && typeof window.__shopguideAutosave === 'function';
     let saved = false;
     let autosaveFailed = false;
+    let rootWriteAttempted = false;
+    let rootWriteFailure = null;
     if (autosaveAvailable) {
       try {
         saved = await tryAutosave(jsonText, data);
@@ -5812,14 +5908,32 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
       }
     }
 
+    if (!saved && rootDirHandle && hasFileSystemAccess()) {
+      rootWriteAttempted = true;
+      try {
+        const result = await writeConfigToRoot(jsonText, data);
+        saved = !!result.success;
+        if (!result.success) {
+          rootWriteFailure = result.reason || 'unknown';
+        }
+      } catch (err) {
+        rootWriteFailure = 'error';
+        console.warn('[ShopguideV3] Unerwarteter Fehler beim Schreiben von FarblayerConfig.json in den Arbeitsordner:', err);
+      }
+    }
+
     if (saved) {
       storeLocal(jsonText, data, { reason: 'Cache', quiet: true });
       lastSerialized = jsonText;
-      setConfigStatus('ok', `FarblayerConfig.json wurde aktualisiert (${formatTimestamp()}).`);
+      setConfigStatus('ok', `FarblayerConfig.json wurde im configs-Ordner aktualisiert (${formatTimestamp()}).`);
     } else {
       storeLocal(jsonText, data, { reason: 'Fallback' });
       lastSerialized = jsonText;
-      if (autosaveAvailable && autosaveFailed) {
+      if (rootWriteAttempted && rootWriteFailure === 'permission') {
+        setConfigStatus('fallback', `Zugriff auf configs/FarblayerConfig.json verweigert. Zwischenspeicher aktualisiert (${formatTimestamp()}).`);
+      } else if (rootWriteAttempted && rootWriteFailure && rootWriteFailure !== 'no-fs-api') {
+        setConfigStatus('fallback', `Schreiben nach configs/FarblayerConfig.json fehlgeschlagen. Zwischenspeicher aktualisiert (${formatTimestamp()}).`);
+      } else if (autosaveAvailable && autosaveFailed) {
         setConfigStatus('fallback', `Automatisches Speichern fehlgeschlagen. Zwischenspeicher aktualisiert (${formatTimestamp()}).`);
       } else if (!autosaveAvailable) {
         setConfigStatus('fallback', `Automatisches Speichern nicht verfügbar. Zwischenspeicher aktualisiert (${formatTimestamp()}).`);
@@ -5860,6 +5974,10 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     });
     window.addEventListener('input', handleRelevantEvent, true);
     window.addEventListener('change', handleRelevantEvent, true);
+    window.addEventListener('shopguide:root-handle-changed', () => {
+      checkInitialConfigAvailability();
+      scheduleConfigSave();
+    });
 
     checkInitialConfigAvailability();
     scheduleConfigSave();
