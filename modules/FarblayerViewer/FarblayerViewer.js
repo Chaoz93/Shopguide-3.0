@@ -1007,18 +1007,24 @@
       }
     }
 
-    function populateColorSelectors(items){
-      state.colorOptions = collectColorOptions(items);
-      const hasOptions = state.colorOptions.length > 0;
+    function populateColorSelectors(items, allowOptions){
+      const options = allowOptions ? collectColorOptions(items) : [];
+      const shouldClearSelection = !allowOptions;
+      const storedSelection = allowOptions ? readStoredSelection() : null;
+      state.colorOptions = options;
+      const hasOptions = options.length > 0;
       colorSelects.forEach(select => {
         const area = select?.dataset?.flvColor;
         const current = typeof state.selectedColors[area] === 'string' ? state.selectedColors[area] : '';
+        const stored = storedSelection && typeof storedSelection[area] === 'string'
+          ? storedSelection[area]
+          : '';
         const fragment = document.createDocumentFragment();
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
         defaultOption.textContent = 'Standard';
         fragment.appendChild(defaultOption);
-        state.colorOptions.forEach(color => {
+        options.forEach(color => {
           const option = document.createElement('option');
           option.value = color;
           option.textContent = color;
@@ -1030,11 +1036,17 @@
         select.appendChild(fragment);
         if(hasOptions && current && state.colorOptions.includes(current)){
           select.value = current;
+        }else if(hasOptions && stored && state.colorOptions.includes(stored)){
+          select.value = stored;
+          state.selectedColors[area] = stored;
         }else if(hasOptions){
           select.value = '';
           state.selectedColors[area] = '';
         }else{
           select.value = '';
+          if(shouldClearSelection){
+            state.selectedColors[area] = '';
+          }
         }
         updateSelectVisual(select, hasOptions ? select.value : '');
         select.disabled = !hasOptions;
@@ -1084,10 +1096,12 @@
 
     function applyPaletteResult(result){
       if(!result) return;
-      state.items = flattenPalette(result.data);
+      const flattened = flattenPalette(result.data);
+      const allowColorOptions = result.source !== 'Standardwerte (Fallback)';
+      state.items = allowColorOptions ? flattened : [];
       state.lastSource = result.source;
       state.lastModified = result.lastModified != null ? result.lastModified : state.lastModified;
-      populateColorSelectors(state.items);
+      populateColorSelectors(state.items, allowColorOptions && state.items.length > 0);
       applySelectedColors();
       renderItems(listEl, state.items);
       updateStatusMessage(result.source, state.items.length);
@@ -1151,7 +1165,7 @@
         console.warn('[FarblayerViewer] Konnte Farblayer nicht laden:', err);
         state.items = [];
         renderItems(listEl, []);
-        populateColorSelectors([]);
+        populateColorSelectors([], false);
         if(statusEl){
           statusEl.textContent = 'Farblayer konnten nicht geladen werden.';
         }
