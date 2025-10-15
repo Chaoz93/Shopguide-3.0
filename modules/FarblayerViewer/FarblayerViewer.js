@@ -3,6 +3,7 @@
   const CONFIG_PATH = 'configs/FarblayerConfig.json';
   const CONFIG_FILENAME = CONFIG_PATH.split('/').pop() || 'FarblayerConfig.json';
   const STORAGE_KEY = CONFIG_PATH;
+  const ROOT_SEARCH_MAX_DEPTH = 8;
   const DEFAULT_DEBUG_DATA = {
     'Debug-Standardwerte': {
       'Hauptmodul (Debug)': {
@@ -57,6 +58,195 @@
     style.id = STYLE_ID;
     style.textContent = css;
     document.head.appendChild(style);
+  }
+
+  function throwIfAborted(signal){
+    if(signal && signal.aborted){
+      const reason = signal.reason instanceof Error ? signal.reason : undefined;
+      throw reason && reason.name === 'AbortError'
+        ? reason
+        : new DOMException('Aborted', 'AbortError');
+    }
+  }
+
+  function getRootDirectoryHandle(){
+    if(typeof window === 'undefined') return null;
+    const handle = window.rootDirHandle || null;
+    if(!handle) return null;
+    if(typeof handle.getDirectoryHandle !== 'function' || typeof handle.getFileHandle !== 'function'){
+      return null;
+    }
+    return handle;
+  }
+
+  function getRootDisplayBase(){
+    const handle = getRootDirectoryHandle();
+    if(handle && typeof handle.name === 'string' && handle.name){
+      return `Arbeitsordner „${handle.name}“`;
+    }
+    return 'Arbeitsordner';
+  }
+
+  function formatRootPath(subPath){
+    const base = getRootDisplayBase();
+    if(!subPath) return base;
+    const normalized = String(subPath)
+      .replace(/^[\\/]+/, '')
+      .replace(/\\+/g, '/');
+    const cleaned = normalized
+      .split('/')
+      .filter(Boolean)
+      .join('/');
+    if(!cleaned) return base;
+    return `${base}: ${cleaned}`;
+  }
+
+  async function readFileFromRootHandle(path, signal){
+    const root = getRootDirectoryHandle();
+    if(!root || typeof path !== 'string') return null;
+    const trimmed = path.trim().replace(/^[\\/]+/, '');
+    if(!trimmed) return null;
+    const segments = trimmed.split(/[\\/]+/).filter(Boolean);
+    if(!segments.length) return null;
+    let current = root;
+    for(let index = 0; index < segments.length; index += 1){
+      throwIfAborted(signal);
+      const segment = segments[index];
+      try{
+        if(index === segments.length - 1){
+          const fileHandle = await current.getFileHandle(segment, { create: false });
+          const file = await fileHandle.getFile();
+          throwIfAborted(signal);
+          const text = await file.text();
+          return { text, path: segments.join('/') };
+        }
+        current = await current.getDirectoryHandle(segment, { create: false });
+      }catch(err){
+        if(err && err.name === 'AbortError') throw err;
+        return null;
+      }
+    }
+    return null;
+  }
+
+  async function searchFileInRootHandle(names, signal){
+    const root = getRootDirectoryHandle();
+    if(!root || !names || !names.size) return null;
+    const queue = [{ handle: root, path: '', depth: 0 }];
+    const visited = new Set();
+    while(queue.length){
+      const { handle, path, depth } = queue.shift();
+      if(!handle || visited.has(handle)) continue;
+      visited.add(handle);
+      throwIfAborted(signal);
+      try{
+        for await (const [entryName, entryHandle] of handle.entries()){
+          throwIfAborted(signal);
+          if(!entryHandle || typeof entryHandle.kind !== 'string') continue;
+          if(entryHandle.kind === 'file'){
+            if(names.has(entryName.toLowerCase())){
+              try{
+                const file = await entryHandle.getFile();
+                throwIfAborted(signal);
+                const text = await file.text();
+                const relative = path ? `${path}${entryName}` : entryName;
+                return { text, path: relative };
+              }catch(err){
+                if(err && err.name === 'AbortError') throw err;
+              }
+            }
+          }else if(entryHandle.kind === 'directory' && depth < ROOT_SEARCH_MAX_DEPTH){
+            queue.push({
+              handle: entryHandle,
+              path: path ? `${path}${entryName}/` : `${entryName}/`,
+              depth: depth + 1
+            });
+          }
+        }
+      }catch(err){
+        if(err && err.name === 'AbortError') throw err;
+      }
+    }
+    return null;
+  }
+
+  async function loadPaletteFromRootHandle(signal, errorLog){
+    const root = getRootDirectoryHandle();
+    if(!root) return null;
+    const errors = Array.isArray(errorLog) ? errorLog : null;
+    const logError = (path, message) => {
+      if(errors){
+        errors.push({ path, message });
+      }
+    };
+    if(typeof root.queryPermission === 'function'){
+      try{
+        const status = await root.queryPermission({ mode: 'read' });
+        if(status === 'denied'){
+          logError(getRootDisplayBase(), 'Kein Zugriff auf Arbeitsordner (Berechtigung verweigert).');
+          return null;
+        }
+      }catch(err){
+        if(err && err.name === 'AbortError') throw err;
+      }
+    }
+    const candidatePaths = [];
+    const seen = new Set();
+    const addCandidate = value => {
+      if(typeof value !== 'string') return;
+      const trimmed = value.trim();
+      if(!trimmed) return;
+      let normalized = trimmed.replace(/\\+/g, '/');
+      normalized = normalized.replace(/^(?:\.\.\/|\.\/)+/, '');
+      if(!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      candidatePaths.push(normalized);
+    };
+    addCandidate(CONFIG_PATH);
+    addCandidate(CONFIG_FILENAME);
+    const lowerFilename = CONFIG_FILENAME.toLowerCase();
+    if(lowerFilename !== CONFIG_FILENAME){
+      addCandidate(lowerFilename);
+      addCandidate(`configs/${lowerFilename}`);
+    }
+
+    for(const path of candidatePaths){
+      const result = await readFileFromRootHandle(path, signal);
+      if(!result) continue;
+      try{
+        const data = JSON.parse(result.text);
+        return {
+          data,
+          path: formatRootPath(result.path),
+          source: `${getRootDisplayBase()}`
+        };
+      }catch(err){
+        logError(formatRootPath(result.path), err && err.message
+          ? `Ungültige JSON-Datei: ${err.message}`
+          : 'Ungültige JSON-Datei.');
+      }
+    }
+
+    const nameSet = new Set([CONFIG_FILENAME.toLowerCase()]);
+    const searchResult = await searchFileInRootHandle(nameSet, signal);
+    if(searchResult){
+      try{
+        const data = JSON.parse(searchResult.text);
+        return {
+          data,
+          path: formatRootPath(searchResult.path),
+          source: `${getRootDisplayBase()}`
+        };
+      }catch(err){
+        logError(formatRootPath(searchResult.path), err && err.message
+          ? `Ungültige JSON-Datei: ${err.message}`
+          : 'Ungültige JSON-Datei.');
+      }
+    }else{
+      logError(formatRootPath(CONFIG_FILENAME), 'Datei im Arbeitsordner nicht gefunden.');
+    }
+
+    return null;
   }
 
   function sanitizeColorValue(value){
@@ -286,6 +476,19 @@
     }
   }
 
+  function isFetchablePath(value){
+    if(typeof value !== 'string') return false;
+    const trimmed = value.trim();
+    if(!trimmed) return false;
+    if(/^https?:\/\//i.test(trimmed)) return true;
+    if(/^file:\/\//i.test(trimmed)) return true;
+    if(trimmed.startsWith('//')) return true;
+    if(trimmed.startsWith('/') || trimmed.startsWith('./') || trimmed.startsWith('../')) return true;
+    if(trimmed.startsWith('configs/') || trimmed.startsWith('modules/')) return true;
+    if(!trimmed.includes(':')) return true;
+    return false;
+  }
+
   function buildSearchPaths(preferredPath){
     const candidates = [];
     const seen = new Set();
@@ -297,7 +500,7 @@
       candidates.push(trimmed);
     };
 
-    if(preferredPath) add(preferredPath);
+    if(preferredPath && isFetchablePath(preferredPath)) add(preferredPath);
 
     const lowerFilename = CONFIG_FILENAME.toLowerCase();
     const relativePrefixes = ['', './', '../', '../../', '../../../', '../../../../', '../../../../../'];
@@ -370,13 +573,27 @@
   }
 
   async function fetchPalette(signal){
+    const errors = [];
+    const cached = readCachedPalette();
+
+    const rootResult = await loadPaletteFromRootHandle(signal, errors);
+    if(rootResult){
+      writeCachedPalette(rootResult.data, rootResult.path);
+      if(errors.length) reportSearchErrors(errors);
+      return { data: rootResult.data, source: rootResult.source, path: rootResult.path };
+    }
+
     if(typeof fetch !== 'function'){
+      if(cached){
+        if(errors.length) reportSearchErrors(errors);
+        console.warn('[FarblayerViewer] Verwende zwischengespeicherte Farblayer – Fetch API nicht verfügbar.');
+        return { data: cached.data, source: 'Lokaler Speicher', path: cached.path || null };
+      }
+      if(errors.length) reportSearchErrors(errors);
       throw new Error('Fetch API nicht verfügbar.');
     }
 
-    const cached = readCachedPalette();
     const searchPaths = buildSearchPaths(cached && cached.path ? cached.path : null);
-    const errors = [];
 
     for(const path of searchPaths){
       try{
