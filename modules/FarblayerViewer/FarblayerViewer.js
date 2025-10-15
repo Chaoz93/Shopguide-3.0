@@ -34,12 +34,34 @@
     document.head.appendChild(style);
   }
 
+  function sanitizeColorValue(value){
+    if(typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    if(!trimmed) return '';
+    const normalized = trimmed.toLowerCase();
+    const invalidTokens = ['n/a','n.a.','na','n.v.','n.v','nv','k.a.','k.a','ka','keine angabe','keine-angabe','keineangabe','null','undefined'];
+    if(invalidTokens.includes(normalized)) return '';
+    return trimmed;
+  }
+
+  function markCoerced(descriptor){
+    if(descriptor && typeof descriptor === 'object' && descriptor.__flvCoerced !== true){
+      Object.defineProperty(descriptor, '__flvCoerced', {
+        value: true,
+        enumerable: false,
+        configurable: false
+      });
+    }
+    return descriptor;
+  }
+
   function pickColorValue(entry){
     if(!entry || typeof entry !== 'object') return '';
     const candidates = [entry.background, entry.color, entry.hsla, entry.moduleBg, entry.bg];
     for(const value of candidates){
-      if(typeof value === 'string' && value.trim()){
-        return value.trim();
+      const sanitized = sanitizeColorValue(value);
+      if(sanitized){
+        return sanitized;
       }
     }
     return '';
@@ -49,8 +71,9 @@
     if(!entry || typeof entry !== 'object') return '';
     const candidates = [entry.text, entry.textColor, entry.moduleText];
     for(const value of candidates){
-      if(typeof value === 'string' && value.trim()){
-        return value.trim();
+      const sanitized = sanitizeColorValue(value);
+      if(sanitized){
+        return sanitized;
       }
     }
     return '';
@@ -60,8 +83,9 @@
     if(!entry || typeof entry !== 'object') return '';
     const candidates = [entry.border, entry.borderColor, entry.moduleBorder];
     for(const value of candidates){
-      if(typeof value === 'string' && value.trim()){
-        return value.trim();
+      const sanitized = sanitizeColorValue(value);
+      if(sanitized){
+        return sanitized;
       }
     }
     return '';
@@ -88,20 +112,57 @@
     return lightness >= 55 ? '#0f172a' : '#f8fafc';
   }
 
-  function isColorDescriptor(value){
-    if(!value || typeof value !== 'object') return false;
-    return ['background','color','hsla','moduleBg','bg'].some(key => typeof value[key] === 'string');
+  function coerceColorDescriptor(entry){
+    if(entry == null) return null;
+
+    if(typeof entry === 'string'){
+      const background = sanitizeColorValue(entry);
+      return background ? markCoerced({ background }) : null;
+    }
+
+    if(Array.isArray(entry)){
+      if(!entry.length) return null;
+      const containsOnlyStrings = entry.every(item => typeof item === 'string');
+      if(!containsOnlyStrings || entry.length > 3) return null;
+      const [backgroundRaw, textRaw, borderRaw] = entry;
+      const background = sanitizeColorValue(backgroundRaw);
+      const text = sanitizeColorValue(textRaw);
+      const border = sanitizeColorValue(borderRaw);
+      if(!background && !text && !border) return null;
+      return markCoerced({ background, text, border });
+    }
+
+    if(typeof entry === 'object'){
+      const descriptor = { ...entry };
+      const colorKeys = ['background','color','hsla','moduleBg','bg','text','textColor','moduleText','border','borderColor','moduleBorder'];
+      colorKeys.forEach(key => {
+        if(typeof descriptor[key] === 'string'){
+          const sanitized = sanitizeColorValue(descriptor[key]);
+          if(sanitized){
+            descriptor[key] = sanitized;
+          }else{
+            delete descriptor[key];
+          }
+        }
+      });
+      const hasColors = pickColorValue(descriptor) || pickTextValue(descriptor) || pickBorderValue(descriptor);
+      return hasColors ? markCoerced(descriptor) : null;
+    }
+
+    return null;
   }
 
   function normalizeEntry(groupName, entryName, entry){
-    const background = pickColorValue(entry);
+    const descriptor = entry && entry.__flvCoerced ? entry : coerceColorDescriptor(entry);
+    if(!descriptor) return null;
+    const background = pickColorValue(descriptor);
     if(!background) return null;
-    const text = getReadableTextColor(background, pickTextValue(entry));
-    const border = pickBorderValue(entry);
-    const displayName = typeof entry?.title === 'string' && entry.title.trim()
-      ? entry.title.trim()
-      : (typeof entry?.displayName === 'string' && entry.displayName.trim()
-        ? entry.displayName.trim()
+    const text = getReadableTextColor(background, pickTextValue(descriptor));
+    const border = pickBorderValue(descriptor);
+    const displayName = typeof descriptor?.title === 'string' && descriptor.title.trim()
+      ? descriptor.title.trim()
+      : (typeof descriptor?.displayName === 'string' && descriptor.displayName.trim()
+        ? descriptor.displayName.trim()
         : (typeof entryName === 'string' && entryName.trim() ? entryName.trim() : 'Layer'));
     return {
       group: typeof groupName === 'string' && groupName.trim() ? groupName.trim() : '',
@@ -118,15 +179,29 @@
     if(!data || typeof data !== 'object') return items;
 
     function walk(path, entryName, value){
-      if(!value || typeof value !== 'object') return;
-      if(isColorDescriptor(value)){
+      const descriptor = coerceColorDescriptor(value);
+      if(descriptor){
         const groupLabel = path.length ? path.map(part => (typeof part === 'string' ? part.trim() : '')).filter(Boolean).join(' › ') : '';
-        const normalized = normalizeEntry(groupLabel, entryName, value);
+        const normalized = normalizeEntry(groupLabel, entryName, descriptor);
         if(normalized) items.push(normalized);
         return;
       }
+
       const trimmedName = typeof entryName === 'string' ? entryName.trim() : '';
       const nextPath = trimmedName ? [...path, trimmedName] : path.slice();
+
+      if(Array.isArray(value)){
+        value.forEach((childValue, index) => {
+          const fallbackName = typeof childValue?.name === 'string' && childValue.name.trim()
+            ? childValue.name.trim()
+            : `${trimmedName || 'Layer'} ${index + 1}`;
+          walk(nextPath, fallbackName, childValue);
+        });
+        return;
+      }
+
+      if(!value || typeof value !== 'object') return;
+
       Object.entries(value).forEach(([childName, childValue]) => {
         walk(nextPath, childName, childValue);
       });

@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.0] – 2025-09-24
+### Changed
+- Parser für Farblayer-Konfiguration erweitert, um verschachtelte Objektstrukturen und String-/Array-Werte wie im neuen Exportformat zu unterstützen.
+
 ## [1.0.0] – 2025-09-23
 ### Added
 - Erstveröffentlichung des Moduls zur Anzeige der Farblayer-Konfiguration
