@@ -48,9 +48,11 @@
     .flv-actions{display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap;justify-content:flex-end;width:100%;}
     .flv-color-picker{display:flex;flex-direction:column;gap:.6rem;min-width:260px;}
     .flv-color-title{font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.85;}
+    .flv-color-instructions{font-size:.78rem;opacity:.7;line-height:1.4;}
     .flv-scheme-group{display:flex;flex-direction:column;gap:.75rem;}
     .flv-scheme-field{position:relative;padding:.85rem .85rem 1rem;border-radius:.9rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);display:flex;flex-direction:column;gap:.6rem;}
     .flv-scheme-heading{font-size:.82rem;font-weight:600;letter-spacing:.02em;opacity:.88;text-transform:uppercase;}
+    .flv-selection-display{border:1px dashed rgba(148,163,184,.45);border-radius:.65rem;padding:.4rem .7rem;font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;opacity:.85;background:rgba(148,163,184,.12);display:inline-flex;align-items:center;justify-content:center;min-height:36px;}
     .flv-scheme-sample{display:flex;justify-content:center;}
     .flv-sample-button{min-height:40px;min-width:180px;max-width:100%;padding:.45rem 1rem;border-radius:.7rem;border:2px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-weight:600;letter-spacing:.01em;box-shadow:0 6px 18px rgba(15,23,42,.35);transition:transform .12s ease,box-shadow .12s ease;background:rgba(15,23,42,.55);color:inherit;text-align:center;cursor:pointer;user-select:none;}
     .flv-sample-button:hover{transform:translateY(-1px);}
@@ -104,6 +106,19 @@
     .flv-values span:first-child{opacity:.75;text-transform:uppercase;letter-spacing:.08em;}
     .flv-empty{margin-top:1.5rem;text-align:center;opacity:.75;font-size:.9rem;}
     .flv-error{color:#fecaca;}
+    .flv-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:2rem;z-index:50;color:inherit;}
+    .flv-modal[data-open="true"]{display:flex;}
+    .flv-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.72);backdrop-filter:blur(6px);}
+    .flv-modal-dialog{position:relative;max-width:640px;width:100%;max-height:80vh;overflow:auto;border-radius:1rem;padding:1.25rem 1.5rem;background:rgba(15,23,42,.94);border:1px solid rgba(255,255,255,.16);box-shadow:0 24px 48px rgba(15,23,42,.55);display:flex;flex-direction:column;gap:1rem;}
+    .flv-modal-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+    .flv-modal-title{font-size:1.1rem;font-weight:700;letter-spacing:.02em;}
+    .flv-modal-close{border:none;background:transparent;color:inherit;font-size:1.4rem;cursor:pointer;line-height:1;border-radius:.5rem;padding:.2rem .4rem;transition:background .12s ease,transform .12s ease;}
+    .flv-modal-close:hover{background:rgba(148,163,184,.12);}
+    .flv-modal-close:active{transform:scale(.92);}
+    .flv-modal-body{display:flex;flex-direction:column;gap:1rem;}
+    .flv-modal-hint{font-size:.82rem;opacity:.78;line-height:1.4;margin:0;}
+    .flv-modal-section{display:flex;flex-direction:column;gap:.6rem;padding:.8rem;border-radius:.75rem;border:1px solid rgba(255,255,255,.12);background:rgba(15,23,42,.55);}
+    .flv-modal-section-heading{font-size:.82rem;font-weight:600;letter-spacing:.02em;opacity:.88;text-transform:uppercase;}
     `;
     const style = document.createElement('style');
     style.id = STYLE_ID;
@@ -897,15 +912,10 @@
     if(!root) return;
     ensureStyles();
     root.classList.add('flv-root');
-    const colorPickerMarkup = COLOR_CATEGORIES.map(category => `
+    const colorPickerDisplayMarkup = COLOR_CATEGORIES.map(category => `
               <div class="flv-scheme-field" data-flv-schema-field="${category.key}" data-empty="true">
                 <div class="flv-scheme-heading">${category.label}</div>
-                <div class="flv-dropdown" data-flv-dropdown="${category.key}">
-                  <button type="button" class="flv-dropdown-toggle" data-flv-dropdown-toggle="${category.key}" aria-haspopup="listbox" aria-expanded="false" aria-controls="flv-dropdown-menu-${category.key}" data-empty="true">
-                    <span data-flv-dropdown-label="${category.key}">Standard</span>
-                  </button>
-                  <div class="flv-dropdown-menu" role="listbox" id="flv-dropdown-menu-${category.key}" data-flv-dropdown-menu="${category.key}" aria-hidden="true"></div>
-                </div>
+                <div class="flv-selection-display" data-flv-selection-display="${category.key}">Standard</div>
                 <div class="flv-scheme-sample">
                   <div class="flv-sample-button" data-flv-preview="${category.key}" data-empty="true">
                     <span class="flv-sample-button-text" data-flv-preview-text="${category.key}">${category.label}</span>
@@ -918,8 +928,19 @@
                 </div>
               </div>
     `).join('');
+    const modalPickerMarkup = COLOR_CATEGORIES.map(category => `
+            <div class="flv-modal-section" data-flv-modal-section="${category.key}">
+              <div class="flv-modal-section-heading">${category.label}</div>
+              <div class="flv-dropdown" data-flv-dropdown="${category.key}">
+                <button type="button" class="flv-dropdown-toggle" data-flv-dropdown-toggle="${category.key}" aria-haspopup="listbox" aria-expanded="false" aria-controls="flv-dropdown-menu-${category.key}" data-empty="true">
+                  <span data-flv-dropdown-label="${category.key}">Standard</span>
+                </button>
+                <div class="flv-dropdown-menu" role="listbox" id="flv-dropdown-menu-${category.key}" data-flv-dropdown-menu="${category.key}" aria-hidden="true"></div>
+              </div>
+            </div>
+    `).join('');
     root.innerHTML = `
-      <div class="flv-surface">
+      <div class="flv-surface" data-flv-surface>
         <div class="flv-header">
           <div>
             <div class="flv-title">Farblayer-Konfiguration</div>
@@ -936,8 +957,9 @@
             </div>
             <div class="flv-color-picker">
               <div class="flv-color-title">Modulfarben</div>
+              <div class="flv-color-instructions">Farbschemata können über das Kontextmenü (Rechtsklick) angepasst werden.</div>
               <div class="flv-scheme-group">
-                ${colorPickerMarkup}
+                ${colorPickerDisplayMarkup}
               </div>
             </div>
           </div>
@@ -945,8 +967,25 @@
         <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
         <div class="flv-list" data-flv-list></div>
       </div>
+      <div class="flv-modal" data-flv-modal aria-hidden="true">
+        <div class="flv-modal-backdrop" data-flv-modal-close></div>
+        <div class="flv-modal-dialog" data-flv-modal-dialog role="dialog" aria-modal="true" aria-labelledby="flv-modal-title">
+          <div class="flv-modal-header">
+            <div class="flv-modal-title" id="flv-modal-title">Modulfarben auswählen</div>
+            <button type="button" class="flv-modal-close" data-flv-modal-close aria-label="Schließen">×</button>
+          </div>
+          <div class="flv-modal-body">
+            <p class="flv-modal-hint">Wähle für jede Kategorie einen Farblayer. Öffne dieses Menü jederzeit mit einem Rechtsklick auf die Moduloberfläche.</p>
+            ${modalPickerMarkup}
+          </div>
+        </div>
+      </div>
     `;
 
+    const surfaceEl = root.querySelector('[data-flv-surface]');
+    const modalEl = root.querySelector('[data-flv-modal]');
+    const modalDialogEl = root.querySelector('[data-flv-modal-dialog]');
+    const modalCloseEls = Array.from(root.querySelectorAll('[data-flv-modal-close]'));
     const listEl = root.querySelector('[data-flv-list]');
     const statusEl = root.querySelector('[data-flv-status]');
     const refreshBtn = root.querySelector('[data-flv-refresh]');
@@ -955,6 +994,7 @@
       key: category.key,
       label: category.label,
       field: root.querySelector(`[data-flv-schema-field="${category.key}"]`),
+      displayLabel: root.querySelector(`[data-flv-selection-display="${category.key}"]`),
       dropdown: {
         container: root.querySelector(`[data-flv-dropdown="${category.key}"]`),
         toggle: root.querySelector(`[data-flv-dropdown-toggle="${category.key}"]`),
@@ -996,8 +1036,43 @@
       autoMessage: '',
       openDropdownKey: null,
       documentClickHandler: null,
-      documentKeyHandler: null
+      documentKeyHandler: null,
+      modalElement: modalEl || null,
+      modalDialog: modalDialogEl || null,
+      modalOpen: false,
+      lastFocusElement: null,
+      surfaceContextHandler: null,
+      modalCloseHandlers: [],
+      modalContextHandler: null
     };
+    if(surfaceEl){
+      const handleSurfaceContext = event => {
+        event.preventDefault();
+        if(state.disposed){
+          return;
+        }
+        openModal();
+      };
+      surfaceEl.addEventListener('contextmenu', handleSurfaceContext);
+      state.surfaceContextHandler = handleSurfaceContext;
+    }
+    if(state.modalElement){
+      const handleModalContext = event => {
+        event.stopPropagation();
+      };
+      state.modalElement.addEventListener('contextmenu', handleModalContext);
+      state.modalContextHandler = handleModalContext;
+    }
+    if(modalCloseEls.length){
+      state.modalCloseHandlers = modalCloseEls.map(element => {
+        const handler = event => {
+          event.preventDefault();
+          closeModal();
+        };
+        element.addEventListener('click', handler);
+        return { element, handler };
+      });
+    }
     root.__flvCleanup = () => {
       state.disposed = true;
       if(state.controller){
@@ -1018,6 +1093,23 @@
           state.documentKeyHandler = null;
         }
       }
+      if(surfaceEl && state.surfaceContextHandler){
+        surfaceEl.removeEventListener('contextmenu', state.surfaceContextHandler);
+        state.surfaceContextHandler = null;
+      }
+      if(state.modalElement && state.modalContextHandler){
+        state.modalElement.removeEventListener('contextmenu', state.modalContextHandler);
+        state.modalContextHandler = null;
+      }
+      if(state.modalCloseHandlers && state.modalCloseHandlers.length){
+        state.modalCloseHandlers.forEach(binding => {
+          if(binding && binding.element && binding.handler){
+            binding.element.removeEventListener('click', binding.handler);
+          }
+        });
+        state.modalCloseHandlers = [];
+      }
+      closeModal();
       state.openDropdownKey = null;
     };
 
@@ -1122,6 +1214,11 @@
       };
       const handleDocumentKeydown = event => {
         if(event.key === 'Escape'){
+          if(state.modalOpen){
+            event.preventDefault();
+            closeModal();
+            return;
+          }
           closeAllDropdowns();
         }
       };
@@ -1155,6 +1252,49 @@
         }
         closeDropdown(ref);
       });
+    }
+
+    function openModal(){
+      if(!state.modalElement){
+        return;
+      }
+      const alreadyOpen = state.modalOpen;
+      state.modalElement.dataset.open = 'true';
+      state.modalElement.setAttribute('aria-hidden', 'false');
+      if(alreadyOpen){
+        return;
+      }
+      state.modalOpen = true;
+      if(typeof document !== 'undefined'){
+        const active = document.activeElement;
+        state.lastFocusElement = active && typeof active.focus === 'function' ? active : null;
+      }else{
+        state.lastFocusElement = null;
+      }
+      closeAllDropdowns();
+      if(state.modalDialog){
+        const focusTarget = state.modalDialog.querySelector('[data-flv-dropdown-toggle]:not([disabled])');
+        if(focusTarget && typeof focusTarget.focus === 'function'){
+          setTimeout(() => {
+            try{ focusTarget.focus(); }catch{}
+          }, 0);
+        }
+      }
+    }
+
+    function closeModal(){
+      if(!state.modalElement){
+        return;
+      }
+      const wasOpen = state.modalOpen;
+      state.modalElement.dataset.open = 'false';
+      state.modalElement.setAttribute('aria-hidden', 'true');
+      state.modalOpen = false;
+      closeAllDropdowns();
+      if(wasOpen && state.lastFocusElement && typeof state.lastFocusElement.focus === 'function'){
+        try{ state.lastFocusElement.focus(); }catch{}
+      }
+      state.lastFocusElement = null;
     }
 
     function openDropdown(ref){
@@ -1460,6 +1600,9 @@
         : '';
       if(ref.previewText){
         ref.previewText.textContent = displayName || `Standard ${ref.label}`;
+      }
+      if(ref.displayLabel){
+        ref.displayLabel.textContent = displayName || 'Standard';
       }
       if(dropdown){
         if(dropdown.labelEl){
