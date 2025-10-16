@@ -51,10 +51,8 @@
     .flv-scheme-group{display:flex;flex-direction:column;gap:.75rem;}
     .flv-scheme-field{position:relative;padding:.85rem .85rem 1rem;border-radius:.9rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);display:flex;flex-direction:column;gap:.6rem;}
     .flv-scheme-heading{font-size:.82rem;font-weight:600;letter-spacing:.02em;opacity:.88;text-transform:uppercase;}
-    .flv-select-overlay{position:absolute;inset:0;margin:0;padding:0;border:none;opacity:0;cursor:pointer;background:transparent;z-index:2;}
-    .flv-select-overlay:focus-visible + .flv-scheme-sample .flv-sample-button{outline:2px solid rgba(148,163,184,.55);outline-offset:4px;}
     .flv-scheme-sample{display:flex;justify-content:center;}
-    .flv-sample-button{min-height:40px;min-width:180px;max-width:100%;padding:.45rem 1rem;border-radius:.7rem;border:2px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-weight:600;letter-spacing:.01em;box-shadow:0 6px 18px rgba(15,23,42,.35);transition:transform .12s ease,box-shadow .12s ease;background:rgba(15,23,42,.55);color:inherit;text-align:center;}
+    .flv-sample-button{min-height:40px;min-width:180px;max-width:100%;padding:.45rem 1rem;border-radius:.7rem;border:2px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-weight:600;letter-spacing:.01em;box-shadow:0 6px 18px rgba(15,23,42,.35);transition:transform .12s ease,box-shadow .12s ease;background:rgba(15,23,42,.55);color:inherit;text-align:center;cursor:pointer;user-select:none;}
     .flv-sample-button:hover{transform:translateY(-1px);}
     .flv-sample-button[data-empty="true"]{border-style:dashed;border-color:rgba(148,163,184,.45);background:rgba(148,163,184,.12);box-shadow:none;color:rgba(248,250,252,.8);}
     .flv-sample-button-text{pointer-events:none;}
@@ -63,11 +61,26 @@
     .flv-sample-values span:first-child{opacity:.72;text-transform:uppercase;letter-spacing:.08em;font-size:.66rem;}
     .flv-scheme-field[data-empty="true"] .flv-sample-values{opacity:.65;}
     .flv-scheme-field[data-disabled="true"]{opacity:.6;cursor:not-allowed;}
-    .flv-scheme-field[data-disabled="true"] .flv-select-overlay{cursor:not-allowed;}
-    .flv-select{min-width:0;width:100%;padding:.45rem .65rem;border-radius:.55rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.65);color:inherit;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .12s ease,box-shadow .12s ease;}
-    .flv-select:focus{outline:none;border-color:rgba(255,255,255,.35);box-shadow:0 0 0 2px rgba(148,163,184,.25);}
-    .flv-select:disabled{opacity:.5;cursor:not-allowed;}
-    .flv-select option{color:#0f172a;}
+    .flv-dropdown{position:relative;display:flex;flex-direction:column;gap:.4rem;}
+    .flv-dropdown-toggle{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.45rem .75rem;border-radius:.65rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.65);color:inherit;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .12s ease,box-shadow .12s ease,background .12s ease;}
+    .flv-dropdown-toggle::after{content:'';flex:0 0 auto;width:.65rem;height:.65rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.75;transition:transform .12s ease;}
+    .flv-dropdown[data-open="true"] .flv-dropdown-toggle::after{transform:rotate(-135deg);}
+    .flv-dropdown-toggle:focus-visible{outline:2px solid rgba(148,163,184,.55);outline-offset:2px;}
+    .flv-dropdown-toggle[disabled]{opacity:.5;cursor:not-allowed;}
+    .flv-dropdown-toggle[data-empty="true"]{color:rgba(226,232,240,.85);}
+    .flv-dropdown-menu{position:absolute;top:calc(100% + .4rem);left:0;right:0;display:none;flex-direction:column;gap:.35rem;padding:.6rem;border-radius:.8rem;background:rgba(15,23,42,.92);border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 32px rgba(15,23,42,.45);max-height:280px;overflow:auto;z-index:5;backdrop-filter:blur(12px);}
+    .flv-dropdown[data-open="true"] .flv-dropdown-menu{display:flex;}
+    .flv-dropdown-option{display:flex;flex-direction:column;gap:.45rem;padding:.6rem;border-radius:.65rem;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.68);color:inherit;font-weight:500;text-align:left;cursor:pointer;transition:border-color .12s ease,background .12s ease,transform .12s ease;}
+    .flv-dropdown-option:hover{border-color:rgba(148,163,184,.45);background:rgba(30,41,59,.88);transform:translateY(-1px);}
+    .flv-dropdown-option[data-selected="true"]{border-color:rgba(94,234,212,.55);box-shadow:0 0 0 1px rgba(94,234,212,.4);}
+    .flv-dropdown-option:focus-visible{outline:2px solid rgba(148,163,184,.55);outline-offset:2px;}
+    .flv-dropdown-option-preview{display:flex;justify-content:center;}
+    .flv-dropdown-option-button{min-width:160px;padding:.4rem .9rem;border-radius:.6rem;border:2px solid rgba(255,255,255,.16);box-shadow:0 6px 16px rgba(15,23,42,.35);display:flex;justify-content:center;align-items:center;font-weight:600;}
+    .flv-dropdown-option-button[data-empty="true"]{border-style:dashed;border-color:rgba(148,163,184,.45);background:rgba(148,163,184,.12);box-shadow:none;color:rgba(248,250,252,.8);}
+    .flv-dropdown-option-button-text{pointer-events:none;}
+    .flv-dropdown-option-details{display:flex;flex-direction:column;gap:.25rem;font-size:.76rem;line-height:1.35;}
+    .flv-dropdown-option-name{font-weight:600;font-size:.82rem;letter-spacing:.01em;}
+    .flv-dropdown-option-values{display:flex;flex-wrap:wrap;gap:.35rem;opacity:.82;font-family:var(--mono-font,"JetBrains Mono",Menlo,Consolas,monospace);font-size:.7rem;}
     .flv-title{font-size:1.1rem;font-weight:700;letter-spacing:.015em;}
     .flv-meta{font-size:.82rem;opacity:.8;}
     .flv-status{min-height:1.1rem;font-size:.85rem;opacity:.9;}
@@ -888,10 +901,13 @@
     root.classList.add('flv-root');
     const colorPickerMarkup = COLOR_CATEGORIES.map(category => `
               <div class="flv-scheme-field" data-flv-schema-field="${category.key}" data-empty="true">
-                <select class="flv-select flv-select-overlay" data-flv-color="${category.key}" aria-label="${category.label}">
-                  <option value="">Standard</option>
-                </select>
                 <div class="flv-scheme-heading">${category.label}</div>
+                <div class="flv-dropdown" data-flv-dropdown="${category.key}">
+                  <button type="button" class="flv-dropdown-toggle" data-flv-dropdown-toggle="${category.key}" aria-haspopup="listbox" aria-expanded="false" aria-controls="flv-dropdown-menu-${category.key}" data-empty="true">
+                    <span data-flv-dropdown-label="${category.key}">Standard</span>
+                  </button>
+                  <div class="flv-dropdown-menu" role="listbox" id="flv-dropdown-menu-${category.key}" data-flv-dropdown-menu="${category.key}" aria-hidden="true"></div>
+                </div>
                 <div class="flv-scheme-sample">
                   <div class="flv-sample-button" data-flv-preview="${category.key}" data-empty="true">
                     <span class="flv-sample-button-text" data-flv-preview-text="${category.key}">${category.label}</span>
@@ -941,7 +957,14 @@
       key: category.key,
       label: category.label,
       field: root.querySelector(`[data-flv-schema-field="${category.key}"]`),
-      select: root.querySelector(`[data-flv-color="${category.key}"]`),
+      dropdown: {
+        container: root.querySelector(`[data-flv-dropdown="${category.key}"]`),
+        toggle: root.querySelector(`[data-flv-dropdown-toggle="${category.key}"]`),
+        menu: root.querySelector(`[data-flv-dropdown-menu="${category.key}"]`),
+        labelEl: root.querySelector(`[data-flv-dropdown-label="${category.key}"]`),
+        options: [],
+        selectedOption: null
+      },
       preview: root.querySelector(`[data-flv-preview="${category.key}"]`),
       previewText: root.querySelector(`[data-flv-preview-text="${category.key}"]`),
       values: {
@@ -950,8 +973,6 @@
         border: root.querySelector(`[data-flv-value-border="${category.key}"]`)
       }
     }));
-    const categoryRefMap = new Map();
-    categoryRefs.forEach(ref => { categoryRefMap.set(ref.key, ref); });
     const fileLabelEl = root.querySelector('[data-flv-file-label]');
     const fileNoteEl = root.querySelector('[data-flv-file-note]');
     const filePickBtn = root.querySelector('[data-flv-file-pick]');
@@ -974,7 +995,10 @@
       pollInProgress: false,
       lastModified: null,
       autoState: 'idle',
-      autoMessage: ''
+      autoMessage: '',
+      openDropdownKey: null,
+      documentClickHandler: null,
+      documentKeyHandler: null
     };
     root.__flvCleanup = () => {
       state.disposed = true;
@@ -986,6 +1010,17 @@
         clearInterval(state.pollInterval);
         state.pollInterval = null;
       }
+      if(typeof document !== 'undefined'){
+        if(state.documentClickHandler){
+          document.removeEventListener('click', state.documentClickHandler);
+          state.documentClickHandler = null;
+        }
+        if(state.documentKeyHandler){
+          document.removeEventListener('keydown', state.documentKeyHandler);
+          state.documentKeyHandler = null;
+        }
+      }
+      state.openDropdownKey = null;
     };
 
     applySelectedColors();
@@ -1072,9 +1107,284 @@
       });
     }
 
+    function ensureDropdownEventBindings(){
+      if(typeof document === 'undefined'){ return; }
+      if(state.documentClickHandler){
+        return;
+      }
+      const handleDocumentClick = event => {
+        const target = event.target;
+        const inside = categoryRefs.some(ref => {
+          const dropdown = ref?.dropdown;
+          return dropdown?.container ? dropdown.container.contains(target) : false;
+        });
+        if(!inside){
+          closeAllDropdowns();
+        }
+      };
+      const handleDocumentKeydown = event => {
+        if(event.key === 'Escape'){
+          closeAllDropdowns();
+        }
+      };
+      state.documentClickHandler = handleDocumentClick;
+      state.documentKeyHandler = handleDocumentKeydown;
+      document.addEventListener('click', handleDocumentClick);
+      document.addEventListener('keydown', handleDocumentKeydown);
+    }
+
+    function closeDropdown(ref){
+      const dropdown = ref?.dropdown;
+      if(!dropdown || !dropdown.container){
+        return;
+      }
+      dropdown.container.dataset.open = 'false';
+      if(dropdown.toggle){
+        dropdown.toggle.setAttribute('aria-expanded', 'false');
+      }
+      if(dropdown.menu){
+        dropdown.menu.setAttribute('aria-hidden', 'true');
+      }
+      if(state.openDropdownKey === ref.key){
+        state.openDropdownKey = null;
+      }
+    }
+
+    function closeAllDropdowns(exceptRef){
+      categoryRefs.forEach(ref => {
+        if(exceptRef && ref === exceptRef){
+          return;
+        }
+        closeDropdown(ref);
+      });
+    }
+
+    function openDropdown(ref){
+      const dropdown = ref?.dropdown;
+      if(!dropdown || !dropdown.container || (dropdown.toggle && dropdown.toggle.disabled)){
+        return;
+      }
+      ensureDropdownEventBindings();
+      closeAllDropdowns(ref);
+      dropdown.container.dataset.open = 'true';
+      if(dropdown.toggle){
+        dropdown.toggle.setAttribute('aria-expanded', 'true');
+      }
+      if(dropdown.menu){
+        dropdown.menu.setAttribute('aria-hidden', 'false');
+      }
+      state.openDropdownKey = ref.key;
+    }
+
+    function toggleDropdown(ref){
+      const dropdown = ref?.dropdown;
+      if(!dropdown || !dropdown.container || (dropdown.toggle && dropdown.toggle.disabled)){
+        return;
+      }
+      const isOpen = dropdown.container.dataset.open === 'true';
+      if(isOpen){
+        closeDropdown(ref);
+      }else{
+        openDropdown(ref);
+      }
+    }
+
+    function isDropdownOpen(ref){
+      const dropdown = ref?.dropdown;
+      return !!(dropdown?.container && dropdown.container.dataset.open === 'true');
+    }
+
+    function focusDropdownSelection(ref){
+      const dropdown = ref?.dropdown;
+      if(!dropdown){
+        return;
+      }
+      const target = dropdown.selectedOption || (dropdown.options && dropdown.options[0]) || null;
+      if(target){
+        target.focus();
+      }
+    }
+
+    function updateDropdownSelectionState(ref){
+      const dropdown = ref?.dropdown;
+      if(!dropdown){
+        return;
+      }
+      const options = dropdown.options || [];
+      const selected = dropdown.selectedOption || null;
+      options.forEach(option => {
+        const isSelected = option === selected;
+        option.dataset.selected = isSelected ? 'true' : 'false';
+        option.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      });
+    }
+
+    function createDropdownOptionElement(ref, optionData, { isDefault = false } = {}){
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'flv-dropdown-option';
+      option.setAttribute('role', 'option');
+      option.tabIndex = -1;
+      option.dataset.value = optionData.value || '';
+      option.dataset.background = optionData.background || '';
+      option.dataset.text = optionData.text || '';
+      option.dataset.border = optionData.border || '';
+      option.dataset.name = optionData.name || optionData.label || '';
+      option.dataset.label = optionData.label || optionData.name || '';
+      if(isDefault){
+        option.dataset.default = 'true';
+      }
+
+      const previewWrapper = document.createElement('div');
+      previewWrapper.className = 'flv-dropdown-option-preview';
+      const previewButton = document.createElement('div');
+      previewButton.className = 'flv-dropdown-option-button';
+      if(optionData.background){
+        previewButton.style.background = optionData.background;
+      }
+      if(optionData.border){
+        previewButton.style.borderColor = optionData.border;
+      }
+      if(optionData.text){
+        previewButton.style.color = optionData.text;
+      }
+      if(!optionData.background && !optionData.text && !optionData.border){
+        previewButton.dataset.empty = 'true';
+      }
+      const previewText = document.createElement('span');
+      previewText.className = 'flv-dropdown-option-button-text';
+      previewText.textContent = optionData.name || optionData.label || ref.label;
+      previewButton.appendChild(previewText);
+      previewWrapper.appendChild(previewButton);
+      option.appendChild(previewWrapper);
+
+      const details = document.createElement('div');
+      details.className = 'flv-dropdown-option-details';
+      const nameRow = document.createElement('div');
+      nameRow.className = 'flv-dropdown-option-name';
+      nameRow.textContent = optionData.label || optionData.name || ref.label;
+      details.appendChild(nameRow);
+      const valuesRow = document.createElement('div');
+      valuesRow.className = 'flv-dropdown-option-values';
+      const valueEntries = [];
+      if(optionData.background){
+        valueEntries.push(`Hauptfarbe: ${optionData.background}`);
+      }
+      if(optionData.text){
+        valueEntries.push(`Textfarbe: ${optionData.text}`);
+      }
+      if(optionData.border){
+        valueEntries.push(`Rahmenfarbe: ${optionData.border}`);
+      }
+      if(valueEntries.length === 0){
+        const span = document.createElement('span');
+        span.textContent = 'Standardfarben verwenden';
+        valuesRow.appendChild(span);
+      }else{
+        valueEntries.forEach(entry => {
+          const span = document.createElement('span');
+          span.textContent = entry;
+          valuesRow.appendChild(span);
+        });
+      }
+      details.appendChild(valuesRow);
+      option.appendChild(details);
+
+      option.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        handleDropdownSelection(ref, option);
+      });
+
+      option.addEventListener('keydown', event => {
+        const dropdown = ref.dropdown;
+        if(!dropdown){
+          return;
+        }
+        if(event.key === 'ArrowDown' || event.key === 'ArrowUp'){
+          event.preventDefault();
+          const options = dropdown.options || [];
+          const currentIndex = options.indexOf(option);
+          if(currentIndex >= 0){
+            const delta = event.key === 'ArrowDown' ? 1 : -1;
+            let nextIndex = currentIndex + delta;
+            if(nextIndex < 0){
+              nextIndex = options.length - 1;
+            }else if(nextIndex >= options.length){
+              nextIndex = 0;
+            }
+            const nextOption = options[nextIndex];
+            if(nextOption){
+              nextOption.focus();
+            }
+          }
+        }else if(event.key === 'Home'){
+          event.preventDefault();
+          const first = (dropdown.options && dropdown.options[0]) || null;
+          if(first){
+            first.focus();
+          }
+        }else if(event.key === 'End'){
+          event.preventDefault();
+          const options = dropdown.options || [];
+          const last = options[options.length - 1];
+          if(last){
+            last.focus();
+          }
+        }else if(event.key === 'Escape'){
+          event.preventDefault();
+          closeDropdown(ref);
+          if(dropdown.toggle){
+            dropdown.toggle.focus();
+          }
+        }else if(event.key === 'Tab'){
+          closeDropdown(ref);
+        }
+      });
+
+      return option;
+    }
+
+    function handleDropdownSelection(ref, option){
+      if(!ref || !option){
+        return;
+      }
+      const dropdown = ref.dropdown;
+      if(!dropdown){
+        return;
+      }
+      dropdown.selectedOption = option;
+      updateDropdownSelectionState(ref);
+      const colors = getOptionColors(option);
+      const updated = updateCategoryField(ref, colors);
+      state.selectedColors[ref.key] = updated;
+      persistSelectedColors();
+      applySelectedColors();
+      closeDropdown(ref);
+      if(dropdown.toggle){
+        dropdown.toggle.focus();
+      }
+    }
+
     function setCategoryDisabled(ref, disabled){
       if(ref && ref.field){
         ref.field.dataset.disabled = disabled ? 'true' : 'false';
+      }
+      const dropdown = ref?.dropdown;
+      if(dropdown){
+        if(dropdown.toggle){
+          dropdown.toggle.disabled = !!disabled;
+          dropdown.toggle.setAttribute('aria-expanded', 'false');
+        }
+        if(dropdown.container){
+          dropdown.container.dataset.open = 'false';
+        }
+        if(dropdown.menu){
+          dropdown.menu.setAttribute('aria-hidden', 'true');
+        }
+      }
+      if(disabled){
+        closeDropdown(ref);
       }
     }
 
@@ -1138,14 +1448,15 @@
       if(!ref){
         return normalizeSelectionValue(null);
       }
-      const select = ref.select;
-      const option = select && select.options ? select.options[select.selectedIndex] : null;
+      const dropdown = ref.dropdown;
+      const option = dropdown ? dropdown.selectedOption : null;
       const normalizedOverride = normalizeSelectionValue(overrideColors);
       const hasOverride = !!createSchemeKey(normalizedOverride);
+      const optionValue = option && option.dataset ? option.dataset.value || '' : '';
       const colors = hasOverride
         ? normalizedOverride
-        : (option && option.value ? getOptionColors(option) : normalizeSelectionValue(null));
-      const hasValue = hasOverride || (option && option.value);
+        : (optionValue ? getOptionColors(option) : normalizeSelectionValue(null));
+      const hasValue = hasOverride || !!optionValue;
       if(ref.field){
         ref.field.dataset.empty = hasValue ? 'false' : 'true';
       }
@@ -1174,6 +1485,14 @@
       if(ref.previewText){
         ref.previewText.textContent = displayName || `Standard ${ref.label}`;
       }
+      if(dropdown){
+        if(dropdown.labelEl){
+          dropdown.labelEl.textContent = displayName || 'Standard';
+        }
+        if(dropdown.toggle){
+          dropdown.toggle.dataset.empty = hasValue ? 'false' : 'true';
+        }
+      }
       if(ref.values){
         if(ref.values.background){
           ref.values.background.textContent = colors.background || '—';
@@ -1201,39 +1520,47 @@
         state.selectedColors = normalizeSelections(state.selectedColors);
       }
       categoryRefs.forEach(ref => {
-        if(!ref.select){
+        const dropdown = ref.dropdown;
+        if(!dropdown || !dropdown.menu || !dropdown.toggle){
           return;
         }
+        dropdown.menu.innerHTML = '';
+        dropdown.options = [];
+        dropdown.selectedOption = null;
         const previousKey = createSchemeKey(state.selectedColors[ref.key]);
-        ref.select.innerHTML = '';
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Standard';
-        ref.select.appendChild(defaultOption);
+        const defaultOption = createDropdownOptionElement(ref, {
+          value: '',
+          label: 'Standard',
+          name: `Standard ${ref.label}`,
+          background: '',
+          text: '',
+          border: ''
+        }, { isDefault: true });
+        dropdown.menu.appendChild(defaultOption);
+        dropdown.options.push(defaultOption);
+        let matchedOption = null;
         options.forEach(optionData => {
-          const option = document.createElement('option');
-          option.value = optionData.value;
-          option.textContent = optionData.label;
-          option.dataset.background = optionData.background || '';
-          option.dataset.text = optionData.text || '';
-          option.dataset.border = optionData.border || '';
-          option.dataset.name = optionData.name || optionData.label || '';
-          ref.select.appendChild(option);
+          const option = createDropdownOptionElement(ref, optionData);
+          dropdown.menu.appendChild(option);
+          dropdown.options.push(option);
+          if(!matchedOption && optionData.value === previousKey){
+            matchedOption = option;
+          }
         });
         const hasOptions = allowOptions && options.length > 0;
-        ref.select.disabled = !hasOptions;
-        setCategoryDisabled(ref, ref.select.disabled);
+        setCategoryDisabled(ref, !hasOptions);
         let override = normalizeSelectionValue(state.selectedColors[ref.key]);
-        if(hasOptions && previousKey && options.some(option => option.value === previousKey)){
-          ref.select.value = previousKey;
+        if(hasOptions && matchedOption){
+          dropdown.selectedOption = matchedOption;
         }else{
-          ref.select.value = '';
+          dropdown.selectedOption = defaultOption;
           if(hasOptions){
             override = normalizeSelectionValue(null);
           }
         }
         const updated = updateCategoryField(ref, override);
         state.selectedColors[ref.key] = updated;
+        updateDropdownSelectionState(ref);
       });
       persistSelectedColors();
     }
@@ -1355,9 +1682,6 @@
         listEl.innerHTML = '';
       }
       categoryRefs.forEach(ref => {
-        if(ref.select){
-          ref.select.disabled = true;
-        }
         setCategoryDisabled(ref, true);
       });
       try{
@@ -1379,9 +1703,6 @@
         if(state.disposed || controller.signal.aborted) return;
         applyPaletteResult(result);
         categoryRefs.forEach(ref => {
-          if(ref.select){
-            ref.select.disabled = state.colorOptions.length === 0;
-          }
           setCategoryDisabled(ref, state.colorOptions.length === 0);
         });
         if(state.fileHandle){
@@ -1403,26 +1724,9 @@
           metaEl.removeAttribute('title');
         }
         categoryRefs.forEach(ref => {
-          if(ref.select){
-            ref.select.disabled = true;
-          }
           setCategoryDisabled(ref, true);
         });
       }
-    }
-
-    function handleColorChange(event){
-      const select = event?.currentTarget || event?.target;
-      if(!select) return;
-      const key = select.dataset ? select.dataset.flvColor : null;
-      const ref = key ? categoryRefMap.get(key) : null;
-      if(!ref) return;
-      const option = select.options ? select.options[select.selectedIndex] : null;
-      const colors = option && option.value ? getOptionColors(option) : normalizeSelectionValue(null);
-      const updated = updateCategoryField(ref, colors);
-      state.selectedColors[ref.key] = updated;
-      persistSelectedColors();
-      applySelectedColors();
     }
 
     function formatTimestamp(timestamp){
@@ -1625,12 +1929,50 @@
     }
 
     categoryRefs.forEach(ref => {
-      if(!ref.select) return;
-      ref.select.addEventListener('change', handleColorChange);
+      const dropdown = ref.dropdown;
+      if(!dropdown){
+        return;
+      }
+      if(dropdown.toggle){
+        dropdown.toggle.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopPropagation();
+          const wasOpen = isDropdownOpen(ref);
+          toggleDropdown(ref);
+          if(!wasOpen && isDropdownOpen(ref)){
+            focusDropdownSelection(ref);
+          }
+        });
+        dropdown.toggle.addEventListener('keydown', event => {
+          if(event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' '){
+            event.preventDefault();
+            openDropdown(ref);
+            focusDropdownSelection(ref);
+          }else if(event.key === 'Escape'){
+            event.preventDefault();
+            closeDropdown(ref);
+          }
+        });
+      }
+      if(ref.preview){
+        ref.preview.addEventListener('click', event => {
+          if(dropdown.toggle && dropdown.toggle.disabled){
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          const wasOpen = isDropdownOpen(ref);
+          toggleDropdown(ref);
+          if(!wasOpen && isDropdownOpen(ref)){
+            focusDropdownSelection(ref);
+          }
+        });
+      }
       const current = normalizeSelectionValue(state.selectedColors[ref.key]);
       const updated = updateCategoryField(ref, current);
       state.selectedColors[ref.key] = updated;
-      setCategoryDisabled(ref, ref.select.disabled);
+      setCategoryDisabled(ref, true);
+      updateDropdownSelectionState(ref);
     });
 
     if(filePickBtn){
