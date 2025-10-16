@@ -43,67 +43,46 @@
     if(document.getElementById(STYLE_ID)) return;
     const css = `
     .flv-root{height:100%;width:100%;box-sizing:border-box;}
-    .flv-surface{height:100%;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid var(--module-border,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
-    .flv-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;flex-wrap:wrap;padding:.85rem;border-radius:.9rem;background:var(--module-header-bg,transparent);border:1px solid var(--module-header-border,rgba(255,255,255,.08));color:var(--module-header-text,inherit);backdrop-filter:blur(2px);}
-    .flv-actions{display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap;justify-content:flex-end;width:100%;}
-    .flv-color-picker{display:flex;flex-direction:column;gap:.6rem;min-width:260px;}
-    .flv-color-title{font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.85;}
-    .flv-scheme-group{display:flex;flex-direction:column;gap:.75rem;}
-    .flv-scheme-field{position:relative;padding:.85rem .85rem 1rem;border-radius:.9rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);display:flex;flex-direction:column;gap:.6rem;}
-    .flv-scheme-heading{font-size:.82rem;font-weight:600;letter-spacing:.02em;opacity:.88;text-transform:uppercase;}
-    .flv-scheme-sample{display:flex;justify-content:center;}
-    .flv-sample-button{min-height:40px;min-width:180px;max-width:100%;padding:.45rem 1rem;border-radius:.7rem;border:2px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-weight:600;letter-spacing:.01em;box-shadow:0 6px 18px rgba(15,23,42,.35);transition:transform .12s ease,box-shadow .12s ease;background:rgba(15,23,42,.55);color:inherit;text-align:center;cursor:pointer;user-select:none;}
-    .flv-sample-button:hover{transform:translateY(-1px);}
-    .flv-sample-button[data-empty="true"]{border-style:dashed;border-color:rgba(148,163,184,.45);background:rgba(148,163,184,.12);box-shadow:none;color:rgba(248,250,252,.8);}
-    .flv-sample-button-text{pointer-events:none;}
-    .flv-sample-values{display:flex;flex-direction:column;gap:.3rem;font-family:var(--mono-font,"JetBrains Mono",Menlo,Consolas,monospace);font-size:.72rem;line-height:1.3;word-break:break-all;}
-    .flv-sample-values div{display:flex;justify-content:space-between;gap:.5rem;}
-    .flv-sample-values span:first-child{opacity:.72;text-transform:uppercase;letter-spacing:.08em;font-size:.66rem;}
-    .flv-scheme-field[data-empty="true"] .flv-sample-values{opacity:.65;}
-    .flv-scheme-field[data-disabled="true"]{opacity:.6;cursor:not-allowed;}
-    .flv-dropdown{position:relative;display:flex;flex-direction:column;gap:.4rem;}
-    .flv-dropdown-toggle{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.45rem .75rem;border-radius:.65rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.65);color:inherit;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .12s ease,box-shadow .12s ease,background .12s ease;}
-    .flv-dropdown-toggle::after{content:'';flex:0 0 auto;width:.65rem;height:.65rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.75;transition:transform .12s ease;}
-    .flv-dropdown[data-open="true"] .flv-dropdown-toggle::after{transform:rotate(-135deg);}
-    .flv-dropdown-toggle:focus-visible{outline:2px solid rgba(148,163,184,.55);outline-offset:2px;}
-    .flv-dropdown-toggle[disabled]{opacity:.5;cursor:not-allowed;}
-    .flv-dropdown-toggle[data-empty="true"]{color:rgba(226,232,240,.85);}
-    .flv-dropdown-menu{position:absolute;top:calc(100% + .4rem);left:0;right:0;display:none;flex-direction:column;gap:.35rem;padding:.6rem;border-radius:.8rem;background:rgba(15,23,42,.92);border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 32px rgba(15,23,42,.45);max-height:280px;overflow:auto;z-index:5;backdrop-filter:blur(12px);}
-    .flv-dropdown[data-open="true"] .flv-dropdown-menu{display:flex;}
-    .flv-dropdown-option{display:flex;flex-direction:column;gap:.45rem;padding:.6rem;border-radius:.65rem;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.68);color:inherit;font-weight:500;text-align:left;cursor:pointer;transition:border-color .12s ease,background .12s ease,transform .12s ease;}
-    .flv-dropdown-option:hover{border-color:rgba(148,163,184,.45);background:rgba(30,41,59,.88);transform:translateY(-1px);}
-    .flv-dropdown-option[data-selected="true"]{border-color:rgba(94,234,212,.55);box-shadow:0 0 0 1px rgba(94,234,212,.4);}
-    .flv-dropdown-option:focus-visible{outline:2px solid rgba(148,163,184,.55);outline-offset:2px;}
-    .flv-dropdown-option-preview{display:flex;justify-content:center;}
-    .flv-dropdown-option-button{min-width:160px;padding:.4rem .9rem;border-radius:.6rem;border:2px solid rgba(255,255,255,.16);box-shadow:0 6px 16px rgba(15,23,42,.35);display:flex;justify-content:center;align-items:center;font-weight:600;}
-    .flv-dropdown-option-button[data-empty="true"]{border-style:dashed;border-color:rgba(148,163,184,.45);background:rgba(148,163,184,.12);box-shadow:none;color:rgba(248,250,252,.8);}
-    .flv-dropdown-option-button-text{pointer-events:none;}
-    .flv-dropdown-option-details{display:flex;flex-direction:column;gap:.25rem;font-size:.76rem;line-height:1.35;}
-    .flv-title{font-size:1.1rem;font-weight:700;letter-spacing:.015em;}
-    .flv-meta{font-size:.82rem;opacity:.8;}
-    .flv-status{min-height:1.1rem;font-size:.85rem;opacity:.9;}
-    .flv-refresh{border:1px solid var(--module-button-border,rgba(255,255,255,.16));border-radius:.65rem;padding:.45rem .95rem;background:var(--module-button-bg,rgba(255,255,255,.14));color:var(--module-button-text,inherit);font-weight:600;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.25);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease,border-color .12s ease;}
-    .flv-refresh:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.2));}
-    .flv-refresh:active{transform:scale(.97);box-shadow:0 6px 18px rgba(15,23,42,.3);}
-    .flv-file{display:flex;flex-direction:column;gap:.35rem;min-width:220px;}
-    .flv-file-label{font-size:.9rem;font-weight:600;}
-    .flv-file-note{font-size:.78rem;opacity:.8;min-height:1rem;}
+    .flv-surface{height:100%;display:flex;flex-direction:column;gap:1rem;padding:1rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid var(--module-border,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
+    .flv-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:1rem;padding:.85rem;border-radius:.9rem;background:var(--module-header-bg,rgba(15,23,42,.35));border:1px solid var(--module-header-border,rgba(255,255,255,.08));color:var(--module-header-text,inherit);backdrop-filter:blur(6px);}
+    .flv-header-info{display:flex;flex-direction:column;gap:.35rem;min-width:200px;}
+    .flv-title{font-size:1.2rem;font-weight:700;letter-spacing:.015em;}
+    .flv-meta{font-size:.85rem;opacity:.85;}
+    .flv-file{display:flex;flex-direction:column;gap:.35rem;min-width:240px;}
+    .flv-file-label{font-size:.95rem;font-weight:600;}
+    .flv-file-note{font-size:.8rem;opacity:.8;min-height:1rem;}
     .flv-file-controls{display:flex;gap:.5rem;flex-wrap:wrap;}
-    .flv-file-btn{border:1px solid var(--module-button-border,rgba(255,255,255,.16));border-radius:.6rem;padding:.45rem .85rem;font-weight:600;cursor:pointer;background:var(--module-button-bg,rgba(255,255,255,.14));color:var(--module-button-text,inherit);box-shadow:0 6px 16px rgba(15,23,42,.18);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease,border-color .12s ease;}
-    .flv-file-btn:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.22));}
-    .flv-file-btn:active{transform:scale(.97);box-shadow:0 6px 16px rgba(15,23,42,.25);}
-    .flv-list{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem;overflow:auto;padding:.15rem;}
-    .flv-item{background:rgba(15,23,42,.45);border-radius:.95rem;padding:.75rem;display:flex;flex-direction:column;gap:.65rem;border:1px solid rgba(255,255,255,.06);box-shadow:0 12px 28px rgba(15,23,42,.35);}
-    .flv-item-header{display:flex;flex-direction:column;gap:.25rem;}
-    .flv-item-name{font-weight:700;font-size:1rem;letter-spacing:.01em;}
-    .flv-item-group{font-size:.75rem;opacity:.75;text-transform:uppercase;letter-spacing:.08em;}
-    .flv-preview{border-radius:.75rem;padding:.55rem .65rem;min-height:48px;display:flex;align-items:center;justify-content:center;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.16);border:2px solid transparent;text-align:center;transition:transform .12s ease;}
-    .flv-preview:hover{transform:translateY(-1px);}
-    .flv-values{display:flex;flex-direction:column;gap:.3rem;font-family:var(--mono-font,"JetBrains Mono",Menlo,Consolas,monospace);font-size:.78rem;line-height:1.3;word-break:break-all;}
-    .flv-values div{display:flex;justify-content:space-between;gap:.5rem;}
-    .flv-values span:first-child{opacity:.75;text-transform:uppercase;letter-spacing:.08em;}
-    .flv-empty{margin-top:1.5rem;text-align:center;opacity:.75;font-size:.9rem;}
-    .flv-error{color:#fecaca;}
+    .flv-file-btn,.flv-refresh,.flv-group-btn{border:1px solid var(--module-button-border,rgba(255,255,255,.16));border-radius:.65rem;padding:.45rem .95rem;font-weight:600;cursor:pointer;background:var(--module-button-bg,rgba(255,255,255,.12));color:var(--module-button-text,inherit);box-shadow:0 8px 18px rgba(15,23,42,.25);transition:transform .12s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease;}
+    .flv-file-btn:hover,.flv-refresh:hover,.flv-group-btn:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.18));}
+    .flv-file-btn:active,.flv-refresh:active,.flv-group-btn:active{transform:scale(.97);box-shadow:0 6px 16px rgba(15,23,42,.28);}
+    .flv-body{flex:1;display:flex;gap:1rem;min-height:0;}
+    .flv-left,.flv-right{flex:1;display:flex;flex-direction:column;gap:.75rem;min-height:0;}
+    .flv-left{flex:0 0 320px;max-width:360px;}
+    .flv-left-title,.flv-right-title{font-size:.9rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.82;}
+    .flv-layer-list{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.65rem;padding:.25rem;}
+    .flv-layer-card{position:relative;display:flex;flex-direction:column;gap:.45rem;padding:.85rem;border-radius:1rem;border:2px solid rgba(148,163,184,.35);box-shadow:0 10px 22px rgba(15,23,42,.35);cursor:grab;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;}
+    .flv-layer-card:hover{transform:translateY(-2px);box-shadow:0 16px 28px rgba(15,23,42,.45);}
+    .flv-layer-card:active{cursor:grabbing;}
+    .flv-layer-card[data-dragging="true"]{opacity:.75;transform:scale(.98);}
+    .flv-layer-title{font-size:1rem;font-weight:700;letter-spacing:.02em;}
+    .flv-layer-group{font-size:.78rem;opacity:.75;}
+    .flv-layer-empty{margin-top:1rem;text-align:center;opacity:.75;}
+    .flv-right{flex:1;min-width:0;}
+    .flv-dropzone-list{flex:1;display:flex;flex-direction:column;gap:.75rem;overflow:auto;padding:.25rem;}
+    .flv-dropzone{position:relative;border:2px dashed rgba(148,163,184,.45);border-radius:1rem;padding:1rem;display:flex;flex-direction:column;gap:.65rem;min-height:110px;transition:border-color .15s ease,box-shadow .15s ease,background-color .15s ease;}
+    .flv-dropzone[data-has-layer="true"]{border-style:solid;box-shadow:0 14px 28px rgba(15,23,42,.35);}
+    .flv-dropzone.is-dragover{border-color:rgba(94,234,212,.65);background:rgba(94,234,212,.08);}
+    .flv-dropzone-header{display:flex;justify-content:space-between;align-items:center;gap:.5rem;font-weight:600;}
+    .flv-dropzone-layer{font-size:.82rem;opacity:.75;}
+    .flv-dropzone-preview{flex:1;display:flex;align-items:center;justify-content:center;padding:.85rem;border-radius:.9rem;border:2px solid rgba(255,255,255,.16);background:rgba(15,23,42,.45);color:inherit;font-weight:600;transition:transform .12s ease;}
+    .flv-dropzone-preview[data-empty="true"]{border-style:dashed;opacity:.7;background:transparent;font-style:italic;}
+    .flv-dropzone-preview:hover{transform:translateY(-1px);}
+    .flv-group-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .flv-footer{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.85rem;border-radius:.9rem;background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.08);font-size:.85rem;}
+    .flv-footer-hint{opacity:.75;font-size:.8rem;}
+    .flv-status{min-height:1.1rem;}
+    .flv-dropzone.flash{animation:flash 1s ease;}
+    @keyframes flash{0%{box-shadow:0 0 0 3px rgba(255,255,255,.5);}100%{box-shadow:none;}}
     `;
     const style = document.createElement('style');
     style.id = STYLE_ID;
@@ -816,79 +795,50 @@
     return { data: DEFAULT_DEBUG_DATA, source: 'Standardwerte (Fallback)', path: null, lastModified: null };
   }
 
-  function renderItems(container, items){
+  function renderItems(container, items, options = {}){
     if(!container) return;
+    const onCard = typeof options.onCard === 'function' ? options.onCard : null;
     container.innerHTML = '';
-    if(!items.length){
+    if(!Array.isArray(items) || !items.length){
       const empty = document.createElement('div');
-      empty.className = 'flv-empty';
+      empty.className = 'flv-layer-empty';
       empty.textContent = 'Keine Farblayer gefunden.';
       container.appendChild(empty);
       return;
     }
     items.forEach(item => {
       const card = document.createElement('div');
-      card.className = 'flv-item';
-
-      const header = document.createElement('div');
-      header.className = 'flv-item-header';
-      const name = document.createElement('span');
-      name.className = 'flv-item-name';
-      name.textContent = item.name;
-      header.appendChild(name);
-      if(item.group){
-        const group = document.createElement('span');
-        group.className = 'flv-item-group';
-        group.textContent = item.group;
-        header.appendChild(group);
+      card.className = 'flv-layer-card';
+      card.draggable = true;
+      card.dataset.layer = item.name || '';
+      if(item.background){
+        card.style.background = item.background;
       }
-      card.appendChild(header);
-
-      const preview = document.createElement('div');
-      preview.className = 'flv-preview';
-      preview.style.background = item.background;
-      preview.style.color = item.text;
-      if(item.border){
-        preview.style.borderColor = item.border;
-      }
-      preview.textContent = 'Beispieltext';
-      card.appendChild(preview);
-
-      const values = document.createElement('div');
-      values.className = 'flv-values';
-
-      const backgroundRow = document.createElement('div');
-      const bgLabel = document.createElement('span');
-      bgLabel.textContent = 'Hintergrund';
-      const bgValue = document.createElement('span');
-      bgValue.textContent = item.background;
-      backgroundRow.appendChild(bgLabel);
-      backgroundRow.appendChild(bgValue);
-      values.appendChild(backgroundRow);
-
       if(item.text){
-        const textRow = document.createElement('div');
-        const textLabel = document.createElement('span');
-        textLabel.textContent = 'Text';
-        const textValue = document.createElement('span');
-        textValue.textContent = item.text;
-        textRow.appendChild(textLabel);
-        textRow.appendChild(textValue);
-        values.appendChild(textRow);
+        card.style.color = item.text;
       }
-
       if(item.border){
-        const borderRow = document.createElement('div');
-        const borderLabel = document.createElement('span');
-        borderLabel.textContent = 'Rahmen';
-        const borderValue = document.createElement('span');
-        borderValue.textContent = item.border;
-        borderRow.appendChild(borderLabel);
-        borderRow.appendChild(borderValue);
-        values.appendChild(borderRow);
+        card.style.borderColor = item.border;
       }
-
-      card.appendChild(values);
+      const title = document.createElement('div');
+      title.className = 'flv-layer-title';
+      title.textContent = item.name;
+      card.appendChild(title);
+      if(item.group){
+        const group = document.createElement('div');
+        group.className = 'flv-layer-group';
+        group.textContent = item.group;
+        card.appendChild(group);
+      }
+      const tooltipParts = [
+        `Hintergrund: ${item.background || '—'}`,
+        `Text: ${item.text || '—'}`,
+        `Rahmen: ${item.border || '—'}`
+      ];
+      card.title = tooltipParts.join('\n');
+      if(onCard){
+        onCard(card, item);
+      }
       container.appendChild(card);
     });
   }
@@ -897,714 +847,339 @@
     if(!root) return;
     ensureStyles();
     root.classList.add('flv-root');
-    const colorPickerMarkup = COLOR_CATEGORIES.map(category => `
-              <div class="flv-scheme-field" data-flv-schema-field="${category.key}" data-empty="true">
-                <div class="flv-scheme-heading">${category.label}</div>
-                <div class="flv-dropdown" data-flv-dropdown="${category.key}">
-                  <button type="button" class="flv-dropdown-toggle" data-flv-dropdown-toggle="${category.key}" aria-haspopup="listbox" aria-expanded="false" aria-controls="flv-dropdown-menu-${category.key}" data-empty="true">
-                    <span data-flv-dropdown-label="${category.key}">Standard</span>
-                  </button>
-                  <div class="flv-dropdown-menu" role="listbox" id="flv-dropdown-menu-${category.key}" data-flv-dropdown-menu="${category.key}" aria-hidden="true"></div>
-                </div>
-                <div class="flv-scheme-sample">
-                  <div class="flv-sample-button" data-flv-preview="${category.key}" data-empty="true">
-                    <span class="flv-sample-button-text" data-flv-preview-text="${category.key}">${category.label}</span>
-                  </div>
-                </div>
-                <div class="flv-sample-values">
-                  <div><span>Hauptfarbe</span><span data-flv-value-background="${category.key}">—</span></div>
-                  <div><span>Textfarbe</span><span data-flv-value-text="${category.key}">—</span></div>
-                  <div><span>Rahmenfarbe</span><span data-flv-value-border="${category.key}">—</span></div>
-                </div>
-              </div>
-    `).join('');
+    const BASE_GROUPS = ['Hauptoberfläche','Header','Aktionselemente','Textanzeigen'];
+    const GROUP_STORAGE_PREFIX = 'farblayerGroups:';
+    const MAPPING_STORAGE_PREFIX = 'farblayerMapping:';
     root.innerHTML = `
       <div class="flv-surface">
         <div class="flv-header">
-          <div>
+          <div class="flv-header-info">
             <div class="flv-title">Farblayer-Konfiguration</div>
             <div class="flv-meta" data-flv-meta>${CONFIG_PATH}</div>
           </div>
-          <div class="flv-actions">
-            <div class="flv-file">
-              <div class="flv-file-label" data-flv-file-label>Keine Datei verbunden</div>
-              <div class="flv-file-note" data-flv-file-note>Bitte Farblayer-Datei wählen.</div>
-              <div class="flv-file-controls">
-                <button class="flv-file-btn" type="button" data-flv-file-pick>Datei wählen</button>
-                <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
-              </div>
-            </div>
-            <div class="flv-color-picker">
-              <div class="flv-color-title">Modulfarben</div>
-              <div class="flv-scheme-group">
-                ${colorPickerMarkup}
-              </div>
+          <div class="flv-file">
+            <div class="flv-file-label" data-flv-file-label>Keine Datei verbunden</div>
+            <div class="flv-file-note" data-flv-file-note>Bitte Farblayer-Datei wählen.</div>
+            <div class="flv-file-controls">
+              <button class="flv-file-btn" type="button" data-flv-file-pick>Datei wählen</button>
+              <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
             </div>
           </div>
         </div>
-        <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
-        <div class="flv-list" data-flv-list></div>
+        <div class="flv-body">
+          <div class="flv-left">
+            <div class="flv-left-title">Layer-Bibliothek</div>
+            <div class="flv-layer-list" data-flv-list></div>
+          </div>
+          <div class="flv-right">
+            <div class="flv-right-title">Gruppen-Dropzonen</div>
+            <div class="flv-dropzone-list" data-flv-dropzones></div>
+            <div class="flv-group-actions">
+              <button class="flv-group-btn" type="button" data-flv-add-group>+ Gruppe hinzufügen</button>
+              <button class="flv-group-btn" type="button" data-flv-remove-group>– Gruppe entfernen</button>
+            </div>
+          </div>
+        </div>
+        <div class="flv-footer">
+          <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
+          <div class="flv-footer-hint">Tipp: Alt halten, um Layer auf alle Gruppen anzuwenden.</div>
+        </div>
       </div>
     `;
-
     const listEl = root.querySelector('[data-flv-list]');
+    const dropzoneContainer = root.querySelector('[data-flv-dropzones]');
     const statusEl = root.querySelector('[data-flv-status]');
     const refreshBtn = root.querySelector('[data-flv-refresh]');
     const metaEl = root.querySelector('[data-flv-meta]');
-    const categoryRefs = COLOR_CATEGORIES.map(category => ({
-      key: category.key,
-      label: category.label,
-      field: root.querySelector(`[data-flv-schema-field="${category.key}"]`),
-      dropdown: {
-        container: root.querySelector(`[data-flv-dropdown="${category.key}"]`),
-        toggle: root.querySelector(`[data-flv-dropdown-toggle="${category.key}"]`),
-        menu: root.querySelector(`[data-flv-dropdown-menu="${category.key}"]`),
-        labelEl: root.querySelector(`[data-flv-dropdown-label="${category.key}"]`),
-        options: [],
-        selectedOption: null
-      },
-      preview: root.querySelector(`[data-flv-preview="${category.key}"]`),
-      previewText: root.querySelector(`[data-flv-preview-text="${category.key}"]`),
-      values: {
-        background: root.querySelector(`[data-flv-value-background="${category.key}"]`),
-        text: root.querySelector(`[data-flv-value-text="${category.key}"]`),
-        border: root.querySelector(`[data-flv-value-border="${category.key}"]`)
-      }
-    }));
     const fileLabelEl = root.querySelector('[data-flv-file-label]');
     const fileNoteEl = root.querySelector('[data-flv-file-note]');
     const filePickBtn = root.querySelector('[data-flv-file-pick]');
+    const addGroupBtn = root.querySelector('[data-flv-add-group]');
+    const removeGroupBtn = root.querySelector('[data-flv-remove-group]');
 
     if(typeof root.__flvCleanup === 'function'){
       root.__flvCleanup();
     }
-
-    const storedSelection = readStoredSelection();
 
     const state = {
       controller: null,
       disposed: false,
       items: [],
       lastSource: null,
-      selectedColors: storedSelection || createEmptySelection(),
-      colorOptions: [],
       fileHandle: null,
       pollInterval: null,
       pollInProgress: false,
       lastModified: null,
       autoState: 'idle',
       autoMessage: '',
-      openDropdownKey: null,
-      documentClickHandler: null,
-      documentKeyHandler: null
+      dropzones: new Map(),
+      groups: BASE_GROUPS.slice(),
+      groupAssignments: {},
+      layerLookup: new Map(),
+      moduleName: 'Farblayer',
+      statusResetTimeout: null
     };
+
     root.__flvCleanup = () => {
       state.disposed = true;
       if(state.controller){
-        try{ state.controller.abort(); } catch{}
+        try{ state.controller.abort(); }catch{}
         state.controller = null;
       }
       if(state.pollInterval){
         clearInterval(state.pollInterval);
         state.pollInterval = null;
       }
-      if(typeof document !== 'undefined'){
-        if(state.documentClickHandler){
-          document.removeEventListener('click', state.documentClickHandler);
-          state.documentClickHandler = null;
-        }
-        if(state.documentKeyHandler){
-          document.removeEventListener('keydown', state.documentKeyHandler);
-          state.documentKeyHandler = null;
-        }
+      if(state.statusResetTimeout){
+        clearTimeout(state.statusResetTimeout);
+        state.statusResetTimeout = null;
       }
-      state.openDropdownKey = null;
+      persistMapping();
     };
 
-    applySelectedColors();
-
-    function createEmptySelection(){
-      const base = {};
-      COLOR_CATEGORIES.forEach(category => {
-        base[category.key] = { background: '', text: '', border: '', name: '' };
-      });
-      return base;
+    function getModuleKey(){
+      const name = typeof state.moduleName === 'string' && state.moduleName.trim() ? state.moduleName.trim() : 'Farblayer';
+      return name;
     }
 
-    function normalizeSelectionValue(value){
-      if(!value || typeof value !== 'object'){
-        return { background: '', text: '', border: '', name: '' };
-      }
-      const background = typeof value.background === 'string' && value.background.trim() ? value.background.trim() : '';
-      const rawText = typeof value.text === 'string' && value.text.trim()
-        ? value.text.trim()
-        : (typeof value.button === 'string' && value.button.trim() ? value.button.trim() : '');
-      const text = rawText;
-      const border = typeof value.border === 'string' && value.border.trim() ? value.border.trim() : '';
-      const name = typeof value.name === 'string' && value.name.trim() ? value.name.trim() : '';
-      return { background, text, border, name };
+    function getGroupsStorageKey(){
+      return `${GROUP_STORAGE_PREFIX}${getModuleKey()}`;
     }
 
-    function normalizeSelections(input){
-      const normalized = createEmptySelection();
-      if(!input || typeof input !== 'object'){
-        return normalized;
-      }
-      COLOR_CATEGORIES.forEach(category => {
-        normalized[category.key] = normalizeSelectionValue(input[category.key]);
-      });
-      return normalized;
+    function getMappingStorageKey(){
+      return `${MAPPING_STORAGE_PREFIX}${getModuleKey()}`;
     }
 
-    function readStoredSelection(){
+    function persistGroups(){
       try{
-        const raw = localStorage.getItem(COLOR_SELECTION_KEY);
-        if(!raw) return null;
-        const parsed = JSON.parse(raw);
-        if(!parsed || typeof parsed !== 'object'){
-          return null;
-        }
-        const hasCategoryEntries = COLOR_CATEGORIES.some(category => parsed && typeof parsed[category.key] === 'object');
-        if(hasCategoryEntries){
-          return normalizeSelections(parsed);
-        }
-        const fallback = normalizeSelectionValue(parsed);
-        if(fallback.background || fallback.text || fallback.border){
-          const next = createEmptySelection();
-          next.background = fallback;
-          return next;
-        }
-      }catch{}
-      return null;
-    }
-
-    function persistSelectedColors(){
-      try{
-        localStorage.setItem(COLOR_SELECTION_KEY, JSON.stringify(normalizeSelections(state.selectedColors)));
+        localStorage.setItem(getGroupsStorageKey(), JSON.stringify(state.groups));
       }catch{}
     }
 
-    function createSchemeKey(colors){
-      const normalized = normalizeSelectionValue(colors);
-      if(!normalized.background && !normalized.text && !normalized.border){
-        return '';
-      }
-      return `${normalized.background}|${normalized.text}|${normalized.border}`;
+    function loadStoredGroups(){
+      try{
+        const stored = localStorage.getItem(getGroupsStorageKey());
+        if(!stored) return BASE_GROUPS.slice();
+        const parsed = JSON.parse(stored);
+        if(Array.isArray(parsed)){
+          const unique = Array.from(new Set(parsed.map(value => typeof value === 'string' ? value.trim() : '').filter(Boolean)));
+          return unique.length ? unique : BASE_GROUPS.slice();
+        }
+      }catch{}
+      return BASE_GROUPS.slice();
     }
 
-    function getOptionColors(option){
-      if(!option){
-        return normalizeSelectionValue(null);
-      }
-      const dataset = option.dataset || {};
-      return normalizeSelectionValue({
-        background: dataset.background,
-        text: dataset.text,
-        border: dataset.border,
-        name: dataset.name || option.textContent || ''
+    function persistMapping(){
+      const payload = {};
+      state.groups.forEach(groupName => {
+        const layerName = state.groupAssignments[groupName];
+        if(layerName && state.layerLookup.has(layerName)){
+          payload[groupName] = layerName;
+        }
       });
+      try{
+        localStorage.setItem(getMappingStorageKey(), JSON.stringify(payload));
+      }catch{}
     }
 
-    function ensureDropdownEventBindings(){
-      if(typeof document === 'undefined'){ return; }
-      if(state.documentClickHandler){
-        return;
-      }
-      const handleDocumentClick = event => {
-        const target = event.target;
-        const inside = categoryRefs.some(ref => {
-          const dropdown = ref?.dropdown;
-          return dropdown?.container ? dropdown.container.contains(target) : false;
-        });
-        if(!inside){
-          closeAllDropdowns();
+    function loadStoredMapping(){
+      try{
+        const stored = localStorage.getItem(getMappingStorageKey());
+        if(!stored) return {};
+        const parsed = JSON.parse(stored);
+        if(parsed && typeof parsed === 'object'){
+          const mapping = {};
+          Object.entries(parsed).forEach(([groupName, layerName]) => {
+            if(state.groups.includes(groupName) && typeof layerName === 'string' && state.layerLookup.has(layerName)){
+              mapping[groupName] = layerName;
+            }
+          });
+          return mapping;
         }
-      };
-      const handleDocumentKeydown = event => {
-        if(event.key === 'Escape'){
-          closeAllDropdowns();
+      }catch{}
+      return {};
+    }
+
+    function getLayerByName(layerName){
+      if(!layerName) return null;
+      return state.layerLookup.get(layerName) || null;
+    }
+
+    function triggerDropzoneFlash(groupName){
+      const ref = state.dropzones.get(groupName);
+      if(!ref) return;
+      ref.zone.classList.remove('flash');
+      void ref.zone.offsetWidth;
+      ref.zone.classList.add('flash');
+      setTimeout(() => {
+        if(ref.zone){
+          ref.zone.classList.remove('flash');
         }
-      };
-      state.documentClickHandler = handleDocumentClick;
-      state.documentKeyHandler = handleDocumentKeydown;
-      document.addEventListener('click', handleDocumentClick);
-      document.addEventListener('keydown', handleDocumentKeydown);
+      }, 1000);
     }
 
-    function closeDropdown(ref){
-      const dropdown = ref?.dropdown;
-      if(!dropdown || !dropdown.container){
-        return;
-      }
-      dropdown.container.dataset.open = 'false';
-      if(dropdown.toggle){
-        dropdown.toggle.setAttribute('aria-expanded', 'false');
-      }
-      if(dropdown.menu){
-        dropdown.menu.setAttribute('aria-hidden', 'true');
-      }
-      if(state.openDropdownKey === ref.key){
-        state.openDropdownKey = null;
+    function applyLayerColors(groupName, layer){
+      if(!layer) return;
+      if(typeof window === 'undefined') return;
+      const base = window.FarblayerBase;
+      const applyColors = base && typeof base.applyColors === 'function' ? base.applyColors : null;
+      if(!applyColors) return;
+      const ref = state.dropzones.get(groupName);
+      const targets = ref ? [ref.preview] : [];
+      try{
+        applyColors(targets, layer);
+      }catch(err){
+        console.warn('[FarblayerViewer] applyColors fehlgeschlagen:', err);
       }
     }
 
-    function closeAllDropdowns(exceptRef){
-      categoryRefs.forEach(ref => {
-        if(exceptRef && ref === exceptRef){
-          return;
-        }
-        closeDropdown(ref);
-      });
-    }
-
-    function openDropdown(ref){
-      const dropdown = ref?.dropdown;
-      if(!dropdown || !dropdown.container || (dropdown.toggle && dropdown.toggle.disabled)){
-        return;
-      }
-      ensureDropdownEventBindings();
-      closeAllDropdowns(ref);
-      dropdown.container.dataset.open = 'true';
-      if(dropdown.toggle){
-        dropdown.toggle.setAttribute('aria-expanded', 'true');
-      }
-      if(dropdown.menu){
-        dropdown.menu.setAttribute('aria-hidden', 'false');
-      }
-      state.openDropdownKey = ref.key;
-    }
-
-    function toggleDropdown(ref){
-      const dropdown = ref?.dropdown;
-      if(!dropdown || !dropdown.container || (dropdown.toggle && dropdown.toggle.disabled)){
-        return;
-      }
-      const isOpen = dropdown.container.dataset.open === 'true';
-      if(isOpen){
-        closeDropdown(ref);
+    function updateDropzone(groupName, layer){
+      const ref = state.dropzones.get(groupName);
+      if(!ref) return;
+      if(layer){
+        ref.zone.dataset.hasLayer = 'true';
+        ref.layerLabel.textContent = layer.name;
+        ref.preview.dataset.empty = 'false';
+        ref.preview.textContent = layer.name;
+        ref.preview.style.background = layer.background || '';
+        ref.preview.style.color = layer.text || '';
+        ref.preview.style.borderColor = layer.border || 'rgba(255,255,255,.16)';
       }else{
-        openDropdown(ref);
+        delete ref.zone.dataset.hasLayer;
+        ref.layerLabel.textContent = 'Kein Layer';
+        ref.preview.dataset.empty = 'true';
+        ref.preview.textContent = 'Layer hierhin ziehen';
+        ref.preview.style.background = '';
+        ref.preview.style.color = '';
+        ref.preview.style.borderColor = '';
       }
     }
 
-    function isDropdownOpen(ref){
-      const dropdown = ref?.dropdown;
-      return !!(dropdown?.container && dropdown.container.dataset.open === 'true');
-    }
+    function createDropzone(groupName){
+      if(!dropzoneContainer) return null;
+      const zone = document.createElement('div');
+      zone.className = 'flv-dropzone';
+      zone.dataset.group = groupName;
 
-    function focusDropdownSelection(ref){
-      const dropdown = ref?.dropdown;
-      if(!dropdown){
-        return;
-      }
-      const target = dropdown.selectedOption || (dropdown.options && dropdown.options[0]) || null;
-      if(target){
-        target.focus();
-      }
-    }
+      const header = document.createElement('div');
+      header.className = 'flv-dropzone-header';
+      const title = document.createElement('span');
+      title.textContent = groupName;
+      header.appendChild(title);
+      const layerLabel = document.createElement('span');
+      layerLabel.className = 'flv-dropzone-layer';
+      layerLabel.textContent = 'Kein Layer';
+      header.appendChild(layerLabel);
+      zone.appendChild(header);
 
-    function updateDropdownSelectionState(ref){
-      const dropdown = ref?.dropdown;
-      if(!dropdown){
-        return;
-      }
-      const options = dropdown.options || [];
-      const selected = dropdown.selectedOption || null;
-      options.forEach(option => {
-        const isSelected = option === selected;
-        option.dataset.selected = isSelected ? 'true' : 'false';
-        option.setAttribute('aria-selected', isSelected ? 'true' : 'false');
-      });
-    }
+      const preview = document.createElement('div');
+      preview.className = 'flv-dropzone-preview';
+      preview.dataset.empty = 'true';
+      preview.textContent = 'Layer hierhin ziehen';
+      zone.appendChild(preview);
 
-    function createDropdownOptionElement(ref, optionData, { isDefault = false } = {}){
-      const option = document.createElement('button');
-      option.type = 'button';
-      option.className = 'flv-dropdown-option';
-      option.setAttribute('role', 'option');
-      option.tabIndex = -1;
-      option.dataset.value = optionData.value || '';
-      option.dataset.background = optionData.background || '';
-      option.dataset.text = optionData.text || '';
-      option.dataset.border = optionData.border || '';
-      option.dataset.name = optionData.name || optionData.label || '';
-      option.dataset.label = optionData.label || optionData.name || '';
-      if(isDefault){
-        option.dataset.default = 'true';
-      }
+      const removeDragClass = () => zone.classList.remove('is-dragover');
 
-      const previewWrapper = document.createElement('div');
-      previewWrapper.className = 'flv-dropdown-option-preview';
-      const previewButton = document.createElement('div');
-      previewButton.className = 'flv-dropdown-option-button';
-      if(optionData.background){
-        previewButton.style.background = optionData.background;
-      }
-      if(optionData.border){
-        previewButton.style.borderColor = optionData.border;
-      }
-      if(optionData.text){
-        previewButton.style.color = optionData.text;
-      }
-      if(!optionData.background && !optionData.text && !optionData.border){
-        previewButton.dataset.empty = 'true';
-      }
-      const previewText = document.createElement('span');
-      previewText.className = 'flv-dropdown-option-button-text';
-      previewText.textContent = optionData.name || optionData.label || ref.label;
-      previewButton.appendChild(previewText);
-      previewWrapper.appendChild(previewButton);
-      option.appendChild(previewWrapper);
-
-      if(!optionData.background && !optionData.text && !optionData.border){
-        const details = document.createElement('div');
-        details.className = 'flv-dropdown-option-details';
-        const span = document.createElement('span');
-        span.textContent = 'Standardfarben verwenden';
-        span.style.opacity = '.82';
-        details.appendChild(span);
-        option.appendChild(details);
-      }
-
-      option.addEventListener('click', event => {
+      zone.addEventListener('dragover', event => {
         event.preventDefault();
-        event.stopPropagation();
-        handleDropdownSelection(ref, option);
+        event.dataTransfer.dropEffect = 'copy';
       });
-
-      option.addEventListener('keydown', event => {
-        const dropdown = ref.dropdown;
-        if(!dropdown){
-          return;
+      zone.addEventListener('dragenter', event => {
+        event.preventDefault();
+        zone.classList.add('is-dragover');
+      });
+      zone.addEventListener('dragleave', event => {
+        if(!zone.contains(event.relatedTarget)){
+          removeDragClass();
         }
-        if(event.key === 'ArrowDown' || event.key === 'ArrowUp'){
-          event.preventDefault();
-          const options = dropdown.options || [];
-          const currentIndex = options.indexOf(option);
-          if(currentIndex >= 0){
-            const delta = event.key === 'ArrowDown' ? 1 : -1;
-            let nextIndex = currentIndex + delta;
-            if(nextIndex < 0){
-              nextIndex = options.length - 1;
-            }else if(nextIndex >= options.length){
-              nextIndex = 0;
-            }
-            const nextOption = options[nextIndex];
-            if(nextOption){
-              nextOption.focus();
-            }
-          }
-        }else if(event.key === 'Home'){
-          event.preventDefault();
-          const first = (dropdown.options && dropdown.options[0]) || null;
-          if(first){
-            first.focus();
-          }
-        }else if(event.key === 'End'){
-          event.preventDefault();
-          const options = dropdown.options || [];
-          const last = options[options.length - 1];
-          if(last){
-            last.focus();
-          }
-        }else if(event.key === 'Escape'){
-          event.preventDefault();
-          closeDropdown(ref);
-          if(dropdown.toggle){
-            dropdown.toggle.focus();
-          }
-        }else if(event.key === 'Tab'){
-          closeDropdown(ref);
+      });
+      zone.addEventListener('drop', event => {
+        event.preventDefault();
+        removeDragClass();
+        const layerName = event.dataTransfer.getData('text/plain');
+        if(!layerName) return;
+        if(event.altKey){
+          assignLayerToAll(layerName, { flashGroup: groupName });
+        }else{
+          assignLayerToGroup(groupName, layerName);
         }
       });
 
-      return option;
+      return { zone, layerLabel, preview };
     }
 
-    function handleDropdownSelection(ref, option){
-      if(!ref || !option){
+    function renderGroupZones(){
+      if(!dropzoneContainer) return;
+      dropzoneContainer.innerHTML = '';
+      state.dropzones.clear();
+      state.groups.forEach(groupName => {
+        const ref = createDropzone(groupName);
+        if(!ref) return;
+        dropzoneContainer.appendChild(ref.zone);
+        state.dropzones.set(groupName, ref);
+        const layerName = state.groupAssignments[groupName];
+        const layer = layerName ? getLayerByName(layerName) : null;
+        updateDropzone(groupName, layer);
+        if(layer){
+          applyLayerColors(groupName, layer);
+        }
+      });
+    }
+
+    function flashStatus(message, { temporary = false } = {}){
+      if(!statusEl) return;
+      statusEl.textContent = message || '';
+      if(state.statusResetTimeout){
+        clearTimeout(state.statusResetTimeout);
+        state.statusResetTimeout = null;
+      }
+      if(temporary){
+        state.statusResetTimeout = setTimeout(() => {
+          state.statusResetTimeout = null;
+          updateStatusMessage(state.lastSource, state.items.length);
+        }, 2500);
+      }
+    }
+
+    function assignLayerToGroup(groupName, layerName, options = {}){
+      const layer = getLayerByName(layerName);
+      if(!layer){
+        flashStatus(`Layer "${layerName}" nicht gefunden.`, { temporary: true });
         return;
       }
-      const dropdown = ref.dropdown;
-      if(!dropdown){
+      if(!state.groups.includes(groupName)){
+        flashStatus(`Gruppe "${groupName}" nicht vorhanden.`, { temporary: true });
         return;
       }
-      dropdown.selectedOption = option;
-      updateDropdownSelectionState(ref);
-      const colors = getOptionColors(option);
-      const updated = updateCategoryField(ref, colors);
-      state.selectedColors[ref.key] = updated;
-      persistSelectedColors();
-      applySelectedColors();
-      closeDropdown(ref);
-      if(dropdown.toggle){
-        dropdown.toggle.focus();
+      state.groupAssignments[groupName] = layer.name;
+      updateDropzone(groupName, layer);
+      applyLayerColors(groupName, layer);
+      if(options.flashZone !== false){
+        triggerDropzoneFlash(groupName);
+      }
+      if(options.persist !== false){
+        persistMapping();
+      }
+      if(options.announce !== false){
+        flashStatus(`"${layer.name}" → ${groupName}`, { temporary: true });
       }
     }
 
-    function setCategoryDisabled(ref, disabled){
-      if(ref && ref.field){
-        ref.field.dataset.disabled = disabled ? 'true' : 'false';
+    function assignLayerToAll(layerName, { flashGroup = null } = {}){
+      const layer = getLayerByName(layerName);
+      if(!layer){
+        flashStatus(`Layer "${layerName}" nicht gefunden.`, { temporary: true });
+        return;
       }
-      const dropdown = ref?.dropdown;
-      if(dropdown){
-        if(dropdown.toggle){
-          dropdown.toggle.disabled = !!disabled;
-          dropdown.toggle.setAttribute('aria-expanded', 'false');
-        }
-        if(dropdown.container){
-          dropdown.container.dataset.open = 'false';
-        }
-        if(dropdown.menu){
-          dropdown.menu.setAttribute('aria-hidden', 'true');
-        }
-      }
-      if(disabled){
-        closeDropdown(ref);
-      }
-    }
-
-    function collectColorOptions(items){
-      const entries = [];
-      const seen = new Set();
-      items.forEach(item => {
-        const baseLabel = typeof item?.name === 'string' && item.name.trim()
-          ? item.name.trim()
-          : (typeof item?.rawName === 'string' && item.rawName.trim() ? item.rawName.trim() : 'Layer');
-        const background = typeof item?.background === 'string' ? item.background.trim() : '';
-        const text = typeof item?.text === 'string' ? item.text.trim() : '';
-        const border = typeof item?.border === 'string' ? item.border.trim() : '';
-        if(!background && !text && !border){
-          return;
-        }
-        const key = `${background}|${text}|${border}|${baseLabel}`;
-        if(seen.has(key)){
-          return;
-        }
-        seen.add(key);
-        entries.push({
-          item,
-          label: baseLabel,
-          background,
-          text,
-          border
+      state.groups.forEach(groupName => {
+        assignLayerToGroup(groupName, layer.name, {
+          persist: false,
+          flashZone: flashGroup ? groupName === flashGroup : true,
+          announce: false
         });
       });
-
-      const labelCounts = entries.reduce((acc, entry) => {
-        const key = entry.label;
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-      }, Object.create(null));
-
-      return entries.map(entry => {
-        const normalized = normalizeSelectionValue({
-          background: entry.background,
-          text: entry.text,
-          border: entry.border,
-          name: entry.item && typeof entry.item.name === 'string' && entry.item.name.trim()
-            ? entry.item.name.trim()
-            : entry.label
-        });
-        const duplicate = labelCounts[entry.label] > 1;
-        const detail = [normalized.background, normalized.text, normalized.border].filter(Boolean).join(' • ');
-        const displayLabel = duplicate && detail ? `${entry.label} – ${detail}` : entry.label;
-        return {
-          value: createSchemeKey(normalized),
-          label: displayLabel,
-          background: normalized.background,
-          text: normalized.text,
-          border: normalized.border,
-          name: normalized.name || entry.label
-        };
-      });
-    }
-
-    function updateCategoryField(ref, overrideColors){
-      if(!ref){
-        return normalizeSelectionValue(null);
-      }
-      const dropdown = ref.dropdown;
-      const option = dropdown ? dropdown.selectedOption : null;
-      const normalizedOverride = normalizeSelectionValue(overrideColors);
-      const hasOverride = !!createSchemeKey(normalizedOverride);
-      const optionValue = option && option.dataset ? option.dataset.value || '' : '';
-      const colors = hasOverride
-        ? normalizedOverride
-        : (optionValue ? getOptionColors(option) : normalizeSelectionValue(null));
-      const hasValue = hasOverride || !!optionValue;
-      if(ref.field){
-        ref.field.dataset.empty = hasValue ? 'false' : 'true';
-      }
-      if(ref.preview){
-        ref.preview.dataset.empty = hasValue ? 'false' : 'true';
-        if(colors.background){
-          ref.preview.style.background = colors.background;
-        }else{
-          ref.preview.style.removeProperty('background');
-        }
-        if(colors.border){
-          ref.preview.style.borderColor = colors.border;
-        }else{
-          ref.preview.style.removeProperty('border-color');
-        }
-        if(colors.text){
-          ref.preview.style.color = colors.text;
-        }else{
-          ref.preview.style.removeProperty('color');
-        }
-      }
-      const optionName = option ? (option.dataset?.name || option.textContent || '') : '';
-      const displayName = hasValue
-        ? (normalizedOverride.name || optionName || ref.label)
-        : '';
-      if(ref.previewText){
-        ref.previewText.textContent = displayName || `Standard ${ref.label}`;
-      }
-      if(dropdown){
-        if(dropdown.labelEl){
-          dropdown.labelEl.textContent = displayName || 'Standard';
-        }
-        if(dropdown.toggle){
-          dropdown.toggle.dataset.empty = hasValue ? 'false' : 'true';
-        }
-      }
-      if(ref.values){
-        if(ref.values.background){
-          ref.values.background.textContent = colors.background || '—';
-        }
-        if(ref.values.text){
-          ref.values.text.textContent = colors.text || '—';
-        }
-        if(ref.values.border){
-          ref.values.border.textContent = colors.border || '—';
-        }
-      }
-      return normalizeSelectionValue({
-        ...colors,
-        name: hasValue ? (displayName || ref.label) : ''
-      });
-    }
-
-    function populateColorSelectors(items, allowOptions){
-      const options = allowOptions ? collectColorOptions(items) : [];
-      state.colorOptions = options;
-      const storedSelection = allowOptions ? readStoredSelection() : null;
-      if(storedSelection){
-        state.selectedColors = storedSelection;
-      }else{
-        state.selectedColors = normalizeSelections(state.selectedColors);
-      }
-      categoryRefs.forEach(ref => {
-        const dropdown = ref.dropdown;
-        if(!dropdown || !dropdown.menu || !dropdown.toggle){
-          return;
-        }
-        dropdown.menu.innerHTML = '';
-        dropdown.options = [];
-        dropdown.selectedOption = null;
-        const previousKey = createSchemeKey(state.selectedColors[ref.key]);
-        const defaultOption = createDropdownOptionElement(ref, {
-          value: '',
-          label: 'Standard',
-          name: `Standard ${ref.label}`,
-          background: '',
-          text: '',
-          border: ''
-        }, { isDefault: true });
-        dropdown.menu.appendChild(defaultOption);
-        dropdown.options.push(defaultOption);
-        let matchedOption = null;
-        options.forEach(optionData => {
-          const option = createDropdownOptionElement(ref, optionData);
-          dropdown.menu.appendChild(option);
-          dropdown.options.push(option);
-          if(!matchedOption && optionData.value === previousKey){
-            matchedOption = option;
-          }
-        });
-        const hasOptions = allowOptions && options.length > 0;
-        setCategoryDisabled(ref, !hasOptions);
-        let override = normalizeSelectionValue(state.selectedColors[ref.key]);
-        if(hasOptions && matchedOption){
-          dropdown.selectedOption = matchedOption;
-        }else{
-          dropdown.selectedOption = defaultOption;
-          if(hasOptions){
-            override = normalizeSelectionValue(null);
-          }
-        }
-        const updated = updateCategoryField(ref, override);
-        state.selectedColors[ref.key] = updated;
-        updateDropdownSelectionState(ref);
-      });
-      persistSelectedColors();
-    }
-
-    function applySelectedColors(){
-      const surface = root.querySelector('.flv-surface');
-      if(!surface) return;
-      const selections = normalizeSelections(state.selectedColors);
-      const backgroundSelection = normalizeSelectionValue(selections.background);
-      const headerSelection = normalizeSelectionValue(selections.header);
-      const buttonSelection = normalizeSelectionValue(selections.buttons);
-
-      const bg = backgroundSelection.background;
-      const text = backgroundSelection.text;
-      const border = backgroundSelection.border;
-
-      if(bg){
-        surface.style.setProperty('--module-bg', bg);
-      }else{
-        surface.style.removeProperty('--module-bg');
-      }
-      if(text){
-        surface.style.setProperty('--text-color', text);
-      }else{
-        surface.style.removeProperty('--text-color');
-      }
-      if(border){
-        surface.style.setProperty('--module-border', border);
-      }else{
-        surface.style.removeProperty('--module-border');
-      }
-
-      if(headerSelection.background){
-        surface.style.setProperty('--module-header-bg', headerSelection.background);
-      }else{
-        surface.style.removeProperty('--module-header-bg');
-      }
-      const headerText = headerSelection.text || text;
-      if(headerText){
-        surface.style.setProperty('--module-header-text', headerText);
-      }else{
-        surface.style.removeProperty('--module-header-text');
-      }
-      if(headerSelection.border){
-        surface.style.setProperty('--module-header-border', headerSelection.border);
-      }else{
-        surface.style.removeProperty('--module-header-border');
-      }
-
-      const buttonBg = buttonSelection.background || bg;
-      if(buttonBg){
-        surface.style.setProperty('--module-button-bg', buttonBg);
-        surface.style.setProperty('--module-button-bg-hover', buttonBg);
-      }else{
-        surface.style.removeProperty('--module-button-bg');
-        surface.style.removeProperty('--module-button-bg-hover');
-      }
-      const buttonText = buttonSelection.text || text;
-      if(buttonText){
-        surface.style.setProperty('--module-button-text', buttonText);
-      }else{
-        surface.style.removeProperty('--module-button-text');
-      }
-      if(buttonSelection.border){
-        surface.style.setProperty('--module-button-border', buttonSelection.border);
-      }else{
-        surface.style.removeProperty('--module-button-border');
-      }
+      persistMapping();
+      flashStatus(`"${layer.name}" auf alle Gruppen angewendet.`, { temporary: true });
     }
 
     function updateStatusMessage(source, totalCount){
@@ -1620,17 +1195,62 @@
       statusEl.textContent = message;
     }
 
+    function deriveModuleName(result, flattened){
+      if(result && typeof result.moduleName === 'string' && result.moduleName.trim()){
+        return result.moduleName.trim();
+      }
+      if(result && typeof result.path === 'string' && result.path.trim()){
+        const base = result.path.trim().split(/[\\/]/).pop() || '';
+        if(base){
+          return base.replace(/\.json$/i, '');
+        }
+      }
+      const firstGroup = flattened.find(entry => entry && typeof entry.group === 'string' && entry.group.trim());
+      if(firstGroup){
+        const parts = firstGroup.group.split('›').map(part => part.trim()).filter(Boolean);
+        if(parts.length){
+          return parts[0];
+        }
+      }
+      return 'Farblayer';
+    }
+
     function applyPaletteResult(result){
       if(!result) return;
       const flattened = flattenPalette(result.data);
-      const allowColorOptions = result.source !== 'Standardwerte (Fallback)';
-      state.items = allowColorOptions ? flattened : [];
+      state.items = flattened;
+      state.layerLookup = new Map(flattened.map(item => [item.name, item]));
       state.lastSource = result.source;
       state.lastModified = result.lastModified != null ? result.lastModified : state.lastModified;
-      populateColorSelectors(state.items, allowColorOptions && state.items.length > 0);
-      applySelectedColors();
-      renderItems(listEl, state.items);
-      updateStatusMessage(result.source, state.items.length);
+      state.moduleName = deriveModuleName(result, flattened);
+      state.groups = loadStoredGroups();
+      state.groupAssignments = loadStoredMapping();
+      renderGroupZones();
+      if(listEl){
+        renderItems(listEl, flattened, {
+          onCard(card, item){
+            card.addEventListener('dragstart', event => {
+              event.dataTransfer.setData('text/plain', item.name);
+              event.dataTransfer.effectAllowed = 'copy';
+              card.dataset.dragging = 'true';
+            });
+            card.addEventListener('dragend', () => {
+              delete card.dataset.dragging;
+            });
+          }
+        });
+      }
+      state.groups.forEach(groupName => {
+        const layerName = state.groupAssignments[groupName];
+        const layer = layerName ? getLayerByName(layerName) : null;
+        updateDropzone(groupName, layer);
+        if(layer){
+          applyLayerColors(groupName, layer);
+        }
+      });
+      persistGroups();
+      persistMapping();
+      updateStatusMessage(result.source, flattened.length);
       if(metaEl){
         const labelPath = result.path || CONFIG_PATH;
         metaEl.textContent = `${labelPath} • ${result.source}`;
@@ -1647,7 +1267,7 @@
     async function loadPalette(reason){
       if(state.disposed) return;
       if(state.controller){
-        try{ state.controller.abort(); } catch{}
+        try{ state.controller.abort(); }catch{}
       }
       const controller = new AbortController();
       state.controller = controller;
@@ -1657,9 +1277,6 @@
       if(listEl){
         listEl.innerHTML = '';
       }
-      categoryRefs.forEach(ref => {
-        setCategoryDisabled(ref, true);
-      });
       try{
         const result = await fetchPalette(controller.signal, {
           fileHandle: state.fileHandle,
@@ -1678,9 +1295,6 @@
         });
         if(state.disposed || controller.signal.aborted) return;
         applyPaletteResult(result);
-        categoryRefs.forEach(ref => {
-          setCategoryDisabled(ref, state.colorOptions.length === 0);
-        });
         if(state.fileHandle){
           state.autoState = 'active';
           state.autoMessage = '';
@@ -1690,8 +1304,13 @@
         if(state.disposed || controller.signal.aborted) return;
         console.warn('[FarblayerViewer] Konnte Farblayer nicht laden:', err);
         state.items = [];
-        renderItems(listEl, []);
-        populateColorSelectors([], false);
+        state.layerLookup = new Map();
+        state.groups = BASE_GROUPS.slice();
+        state.groupAssignments = {};
+        renderGroupZones();
+        if(listEl){
+          renderItems(listEl, []);
+        }
         if(statusEl){
           statusEl.textContent = 'Farblayer konnten nicht geladen werden.';
         }
@@ -1699,9 +1318,8 @@
           metaEl.textContent = `${CONFIG_PATH} • Keine Daten`;
           metaEl.removeAttribute('title');
         }
-        categoryRefs.forEach(ref => {
-          setCategoryDisabled(ref, true);
-        });
+      }finally{
+        state.controller = null;
       }
     }
 
@@ -1876,7 +1494,7 @@
     }
 
     async function pickConfigFile(){
-      if(typeof window === 'undefined'){ return; }
+      if(typeof window === 'undefined') return;
       if(typeof window.showOpenFilePicker === 'function'){
         try{
           const [handle] = await window.showOpenFilePicker({
@@ -1900,59 +1518,59 @@
       }
     }
 
-    if(refreshBtn){
-      refreshBtn.addEventListener('click', () => loadPalette('manual'));
-    }
-
-    categoryRefs.forEach(ref => {
-      const dropdown = ref.dropdown;
-      if(!dropdown){
+    function handleAddGroup(){
+      if(typeof window === 'undefined') return;
+      const name = window.prompt('Name der neuen Gruppe:','');
+      if(typeof name !== 'string') return;
+      const trimmed = name.trim();
+      if(!trimmed) return;
+      if(state.groups.includes(trimmed)){
+        flashStatus(`Gruppe "${trimmed}" existiert bereits.`, { temporary: true });
         return;
       }
-      if(dropdown.toggle){
-        dropdown.toggle.addEventListener('click', event => {
-          event.preventDefault();
-          event.stopPropagation();
-          const wasOpen = isDropdownOpen(ref);
-          toggleDropdown(ref);
-          if(!wasOpen && isDropdownOpen(ref)){
-            focusDropdownSelection(ref);
-          }
-        });
-        dropdown.toggle.addEventListener('keydown', event => {
-          if(event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' '){
-            event.preventDefault();
-            openDropdown(ref);
-            focusDropdownSelection(ref);
-          }else if(event.key === 'Escape'){
-            event.preventDefault();
-            closeDropdown(ref);
-          }
-        });
-      }
-      if(ref.preview){
-        ref.preview.addEventListener('click', event => {
-          if(dropdown.toggle && dropdown.toggle.disabled){
-            return;
-          }
-          event.preventDefault();
-          event.stopPropagation();
-          const wasOpen = isDropdownOpen(ref);
-          toggleDropdown(ref);
-          if(!wasOpen && isDropdownOpen(ref)){
-            focusDropdownSelection(ref);
-          }
-        });
-      }
-      const current = normalizeSelectionValue(state.selectedColors[ref.key]);
-      const updated = updateCategoryField(ref, current);
-      state.selectedColors[ref.key] = updated;
-      setCategoryDisabled(ref, true);
-      updateDropdownSelectionState(ref);
-    });
+      state.groups.push(trimmed);
+      persistGroups();
+      renderGroupZones();
+      persistMapping();
+      flashStatus(`Gruppe "${trimmed}" hinzugefügt.`, { temporary: true });
+    }
 
+    function handleRemoveGroup(){
+      if(!state.groups.length){
+        flashStatus('Keine Gruppen zum Entfernen vorhanden.', { temporary: true });
+        return;
+      }
+      if(typeof window === 'undefined') return;
+      const suggestion = state.groups[state.groups.length - 1];
+      const input = window.prompt('Welche Gruppe soll entfernt werden?', suggestion || '');
+      if(typeof input !== 'string') return;
+      const name = input.trim();
+      if(!name) return;
+      if(!state.groups.includes(name)){
+        flashStatus(`Gruppe "${name}" nicht gefunden.`, { temporary: true });
+        return;
+      }
+      state.groups = state.groups.filter(group => group !== name);
+      delete state.groupAssignments[name];
+      renderGroupZones();
+      persistGroups();
+      persistMapping();
+      flashStatus(`Gruppe "${name}" entfernt.`, { temporary: true });
+    }
+
+    renderGroupZones();
+
+    if(refreshBtn){
+      refreshBtn.addEventListener('click', () => { void loadPalette('manual'); });
+    }
     if(filePickBtn){
       filePickBtn.addEventListener('click', pickConfigFile);
+    }
+    if(addGroupBtn){
+      addGroupBtn.addEventListener('click', handleAddGroup);
+    }
+    if(removeGroupBtn){
+      removeGroupBtn.addEventListener('click', handleRemoveGroup);
     }
 
     void (async () => {
@@ -1965,4 +1583,5 @@
       }
     })();
   };
+
 })();
