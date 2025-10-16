@@ -49,20 +49,7 @@
     .flv-color-picker{display:flex;flex-direction:column;gap:.6rem;min-width:260px;}
     .flv-color-title{font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.85;}
     .flv-color-instructions{font-size:.78rem;opacity:.7;line-height:1.4;}
-    .flv-scheme-group{display:flex;flex-direction:column;gap:.75rem;}
-    .flv-scheme-field{position:relative;padding:.85rem .85rem 1rem;border-radius:.9rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);display:flex;flex-direction:column;gap:.6rem;}
-    .flv-scheme-heading{font-size:.82rem;font-weight:600;letter-spacing:.02em;opacity:.88;text-transform:uppercase;}
-    .flv-selection-display{border:1px dashed rgba(148,163,184,.45);border-radius:.65rem;padding:.4rem .7rem;font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;opacity:.85;background:rgba(148,163,184,.12);display:inline-flex;align-items:center;justify-content:center;min-height:36px;}
-    .flv-scheme-sample{display:flex;justify-content:center;}
-    .flv-sample-button{min-height:40px;min-width:180px;max-width:100%;padding:.45rem 1rem;border-radius:.7rem;border:2px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-weight:600;letter-spacing:.01em;box-shadow:0 6px 18px rgba(15,23,42,.35);transition:transform .12s ease,box-shadow .12s ease;background:rgba(15,23,42,.55);color:inherit;text-align:center;cursor:pointer;user-select:none;}
-    .flv-sample-button:hover{transform:translateY(-1px);}
-    .flv-sample-button[data-empty="true"]{border-style:dashed;border-color:rgba(148,163,184,.45);background:rgba(148,163,184,.12);box-shadow:none;color:rgba(248,250,252,.8);}
-    .flv-sample-button-text{pointer-events:none;}
-    .flv-sample-values{display:flex;flex-direction:column;gap:.3rem;font-family:var(--mono-font,"JetBrains Mono",Menlo,Consolas,monospace);font-size:.72rem;line-height:1.3;word-break:break-all;}
-    .flv-sample-values div{display:flex;justify-content:space-between;gap:.5rem;}
-    .flv-sample-values span:first-child{opacity:.72;text-transform:uppercase;letter-spacing:.08em;font-size:.66rem;}
-    .flv-scheme-field[data-empty="true"] .flv-sample-values{opacity:.65;}
-    .flv-scheme-field[data-disabled="true"]{opacity:.6;cursor:not-allowed;}
+    .flv-color-actions{display:flex;flex-wrap:wrap;gap:.6rem;}
     .flv-dropdown{position:relative;display:flex;flex-direction:column;gap:.4rem;}
     .flv-dropdown-toggle{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.45rem .75rem;border-radius:.65rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.65);color:inherit;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .12s ease,box-shadow .12s ease,background .12s ease;}
     .flv-dropdown-toggle::after{content:'';flex:0 0 auto;width:.65rem;height:.65rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.75;transition:transform .12s ease;}
@@ -84,9 +71,12 @@
     .flv-title{font-size:1.1rem;font-weight:700;letter-spacing:.015em;}
     .flv-meta{font-size:.82rem;opacity:.8;}
     .flv-status{min-height:1.1rem;font-size:.85rem;opacity:.9;}
-    .flv-refresh{border:1px solid var(--module-button-border,rgba(255,255,255,.16));border-radius:.65rem;padding:.45rem .95rem;background:var(--module-button-bg,rgba(255,255,255,.14));color:var(--module-button-text,inherit);font-weight:600;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.25);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease,border-color .12s ease;}
-    .flv-refresh:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.2));}
-    .flv-refresh:active{transform:scale(.97);box-shadow:0 6px 18px rgba(15,23,42,.3);}
+    .flv-refresh,
+    .flv-open-modal-btn{border:1px solid var(--module-button-border,rgba(255,255,255,.16));border-radius:.65rem;padding:.45rem .95rem;background:var(--module-button-bg,rgba(255,255,255,.14));color:var(--module-button-text,inherit);font-weight:600;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.25);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease,border-color .12s ease;}
+    .flv-refresh:hover,
+    .flv-open-modal-btn:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.2));}
+    .flv-refresh:active,
+    .flv-open-modal-btn:active{transform:scale(.97);box-shadow:0 6px 18px rgba(15,23,42,.3);}
     .flv-file{display:flex;flex-direction:column;gap:.35rem;min-width:220px;}
     .flv-file-label{font-size:.9rem;font-weight:600;}
     .flv-file-note{font-size:.78rem;opacity:.8;min-height:1rem;}
@@ -912,22 +902,6 @@
     if(!root) return;
     ensureStyles();
     root.classList.add('flv-root');
-    const colorPickerDisplayMarkup = COLOR_CATEGORIES.map(category => `
-              <div class="flv-scheme-field" data-flv-schema-field="${category.key}" data-empty="true">
-                <div class="flv-scheme-heading">${category.label}</div>
-                <div class="flv-selection-display" data-flv-selection-display="${category.key}">Standard</div>
-                <div class="flv-scheme-sample">
-                  <div class="flv-sample-button" data-flv-preview="${category.key}" data-empty="true">
-                    <span class="flv-sample-button-text" data-flv-preview-text="${category.key}">${category.label}</span>
-                  </div>
-                </div>
-                <div class="flv-sample-values">
-                  <div><span>Hauptfarbe</span><span data-flv-value-background="${category.key}">—</span></div>
-                  <div><span>Textfarbe</span><span data-flv-value-text="${category.key}">—</span></div>
-                  <div><span>Rahmenfarbe</span><span data-flv-value-border="${category.key}">—</span></div>
-                </div>
-              </div>
-    `).join('');
     const modalPickerMarkup = COLOR_CATEGORIES.map(category => `
             <div class="flv-modal-section" data-flv-modal-section="${category.key}">
               <div class="flv-modal-section-heading">${category.label}</div>
@@ -957,9 +931,9 @@
             </div>
             <div class="flv-color-picker">
               <div class="flv-color-title">Modulfarben</div>
-              <div class="flv-color-instructions">Farbschemata können über das Kontextmenü (Rechtsklick) angepasst werden.</div>
-              <div class="flv-scheme-group">
-                ${colorPickerDisplayMarkup}
+              <div class="flv-color-instructions">Farbschemata können über das Kontextmenü (Rechtsklick) oder den Button angepasst werden.</div>
+              <div class="flv-color-actions">
+                <button type="button" class="flv-open-modal-btn" data-flv-open-modal>Modulfarben bearbeiten</button>
               </div>
             </div>
           </div>
@@ -975,7 +949,7 @@
             <button type="button" class="flv-modal-close" data-flv-modal-close aria-label="Schließen">×</button>
           </div>
           <div class="flv-modal-body">
-            <p class="flv-modal-hint">Wähle für jede Kategorie einen Farblayer. Öffne dieses Menü jederzeit mit einem Rechtsklick auf die Moduloberfläche.</p>
+            <p class="flv-modal-hint">Wähle für jede Kategorie einen Farblayer. Öffne dieses Menü jederzeit mit einem Rechtsklick auf die Moduloberfläche oder über den Button &bdquo;Modulfarben bearbeiten&ldquo;.</p>
             ${modalPickerMarkup}
           </div>
         </div>
@@ -993,8 +967,6 @@
     const categoryRefs = COLOR_CATEGORIES.map(category => ({
       key: category.key,
       label: category.label,
-      field: root.querySelector(`[data-flv-schema-field="${category.key}"]`),
-      displayLabel: root.querySelector(`[data-flv-selection-display="${category.key}"]`),
       dropdown: {
         container: root.querySelector(`[data-flv-dropdown="${category.key}"]`),
         toggle: root.querySelector(`[data-flv-dropdown-toggle="${category.key}"]`),
@@ -1002,18 +974,12 @@
         labelEl: root.querySelector(`[data-flv-dropdown-label="${category.key}"]`),
         options: [],
         selectedOption: null
-      },
-      preview: root.querySelector(`[data-flv-preview="${category.key}"]`),
-      previewText: root.querySelector(`[data-flv-preview-text="${category.key}"]`),
-      values: {
-        background: root.querySelector(`[data-flv-value-background="${category.key}"]`),
-        text: root.querySelector(`[data-flv-value-text="${category.key}"]`),
-        border: root.querySelector(`[data-flv-value-border="${category.key}"]`)
       }
     }));
     const fileLabelEl = root.querySelector('[data-flv-file-label]');
     const fileNoteEl = root.querySelector('[data-flv-file-note]');
     const filePickBtn = root.querySelector('[data-flv-file-pick]');
+    const openModalBtn = root.querySelector('[data-flv-open-modal]');
 
     if(typeof root.__flvCleanup === 'function'){
       root.__flvCleanup();
@@ -1487,9 +1453,6 @@
     }
 
     function setCategoryDisabled(ref, disabled){
-      if(ref && ref.field){
-        ref.field.dataset.disabled = disabled ? 'true' : 'false';
-      }
       const dropdown = ref?.dropdown;
       if(dropdown){
         if(dropdown.toggle){
@@ -1577,54 +1540,16 @@
         ? normalizedOverride
         : (optionValue ? getOptionColors(option) : normalizeSelectionValue(null));
       const hasValue = hasOverride || !!optionValue;
-      if(ref.field){
-        ref.field.dataset.empty = hasValue ? 'false' : 'true';
-      }
-      if(ref.preview){
-        ref.preview.dataset.empty = hasValue ? 'false' : 'true';
-        if(colors.background){
-          ref.preview.style.background = colors.background;
-        }else{
-          ref.preview.style.removeProperty('background');
-        }
-        if(colors.border){
-          ref.preview.style.borderColor = colors.border;
-        }else{
-          ref.preview.style.removeProperty('border-color');
-        }
-        if(colors.text){
-          ref.preview.style.color = colors.text;
-        }else{
-          ref.preview.style.removeProperty('color');
-        }
-      }
       const optionName = option ? (option.dataset?.name || option.textContent || '') : '';
       const displayName = hasValue
         ? (normalizedOverride.name || optionName || ref.label)
         : '';
-      if(ref.previewText){
-        ref.previewText.textContent = displayName || `Standard ${ref.label}`;
-      }
-      if(ref.displayLabel){
-        ref.displayLabel.textContent = displayName || 'Standard';
-      }
       if(dropdown){
         if(dropdown.labelEl){
           dropdown.labelEl.textContent = displayName || 'Standard';
         }
         if(dropdown.toggle){
           dropdown.toggle.dataset.empty = hasValue ? 'false' : 'true';
-        }
-      }
-      if(ref.values){
-        if(ref.values.background){
-          ref.values.background.textContent = colors.background || '—';
-        }
-        if(ref.values.text){
-          ref.values.text.textContent = colors.text || '—';
-        }
-        if(ref.values.border){
-          ref.values.border.textContent = colors.border || '—';
         }
       }
       return normalizeSelectionValue({
@@ -2077,22 +2002,16 @@
           }
         });
       }
-      if(ref.preview){
-        ref.preview.addEventListener('click', event => {
-          if(dropdown.toggle && dropdown.toggle.disabled){
-            return;
-          }
-          event.preventDefault();
-          event.stopPropagation();
-          openModal(ref);
-        });
-      }
       const current = normalizeSelectionValue(state.selectedColors[ref.key]);
       const updated = updateCategoryField(ref, current);
       state.selectedColors[ref.key] = updated;
       setCategoryDisabled(ref, true);
       updateDropdownSelectionState(ref);
     });
+
+    if(openModalBtn){
+      openModalBtn.addEventListener('click', () => openModal());
+    }
 
     if(filePickBtn){
       filePickBtn.addEventListener('click', pickConfigFile);
