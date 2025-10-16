@@ -130,6 +130,57 @@
     return map;
   }
 
+  function createEmptyColorSelection(){
+    const selection = {};
+    COLOR_CATEGORIES.forEach(category => {
+      selection[category.key] = '';
+    });
+    return selection;
+  }
+
+  function loadStoredColorSelection(){
+    const selection = createEmptyColorSelection();
+    if(typeof localStorage === 'undefined') return selection;
+    try{
+      const stored = localStorage.getItem(COLOR_SELECTION_KEY);
+      if(!stored) return selection;
+      const parsed = JSON.parse(stored);
+      if(parsed && typeof parsed === 'object'){
+        COLOR_CATEGORIES.forEach(category => {
+          const value = parsed[category.key];
+          if(typeof value === 'string' && value.trim()){
+            selection[category.key] = value.trim();
+          }
+        });
+      }
+    }catch(err){
+      console.warn('[FarblayerViewer] Konnte Farbschema-Auswahl nicht laden:', err);
+    }
+    return selection;
+  }
+
+  function persistColorSelection(selection){
+    if(typeof localStorage === 'undefined') return;
+    try{
+      const payload = {};
+      COLOR_CATEGORIES.forEach(category => {
+        const value = selection && typeof selection[category.key] === 'string'
+          ? selection[category.key].trim()
+          : '';
+        if(value){
+          payload[category.key] = value;
+        }
+      });
+      if(Object.keys(payload).length){
+        localStorage.setItem(COLOR_SELECTION_KEY, JSON.stringify(payload));
+      }else{
+        localStorage.removeItem(COLOR_SELECTION_KEY);
+      }
+    }catch(err){
+      console.warn('[FarblayerViewer] Konnte Farbschema-Auswahl nicht speichern:', err);
+    }
+  }
+
   function startAssignMode(moduleName, groups){
     if(typeof document === 'undefined') return;
     const existingOverlay = document.getElementById('assign-ui-overlay');
@@ -421,15 +472,15 @@
     const css = `
     .flv-root{height:100%;width:100%;box-sizing:border-box;position:relative;}
     .flv-launch{display:flex;align-items:center;justify-content:center;height:100%;}
-    .flv-launch-btn{border:1px solid rgba(255,255,255,.18);border-radius:.85rem;padding:.85rem 1.4rem;font-weight:600;letter-spacing:.02em;background:rgba(15,23,42,.65);color:var(--module-button-text,inherit);box-shadow:0 12px 24px rgba(15,23,42,.45);cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;}
-    .flv-launch-btn:hover{transform:translateY(-1px);box-shadow:0 18px 32px rgba(15,23,42,.55);background:rgba(15,23,42,.72);}
+    .flv-launch-btn{border:1px solid var(--module-button-border,rgba(255,255,255,.18));border-radius:.85rem;padding:.85rem 1.4rem;font-weight:600;letter-spacing:.02em;background:var(--module-button-bg,rgba(15,23,42,.65));color:var(--module-button-text,inherit);box-shadow:0 12px 24px rgba(15,23,42,.45);cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;}
+    .flv-launch-btn:hover{transform:translateY(-1px);box-shadow:0 18px 32px rgba(15,23,42,.55);background:var(--module-button-bg-hover,rgba(15,23,42,.72));}
     .flv-launch-btn:active{transform:scale(.98);}
     .flv-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:2rem;opacity:0;pointer-events:none;transition:opacity .18s ease;}
     .flv-modal.is-open{opacity:1;pointer-events:auto;}
     .flv-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.72);backdrop-filter:blur(8px);}
     .flv-modal-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 3rem));height:min(90vh,880px);display:flex;flex-direction:column;animation:flv-fade-in .2s ease;}
-    .flv-modal-close{position:absolute;top:.85rem;right:.85rem;border:none;background:rgba(15,23,42,.55);color:#f8fafc;width:2.2rem;height:2.2rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:600;cursor:pointer;box-shadow:0 10px 20px rgba(15,23,42,.45);transition:transform .12s ease,background .12s ease;}
-    .flv-modal-close:hover{transform:scale(1.05);background:rgba(15,23,42,.7);}
+    .flv-modal-close{position:absolute;top:.85rem;right:.85rem;border:1px solid var(--module-header-border,rgba(255,255,255,.12));background:var(--module-header-bg,rgba(15,23,42,.55));color:var(--module-header-text,#f8fafc);width:2.2rem;height:2.2rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:600;cursor:pointer;box-shadow:0 10px 20px rgba(15,23,42,.45);transition:transform .12s ease,background .12s ease,border-color .12s ease;}
+    .flv-modal-close:hover{transform:scale(1.05);background:var(--module-header-bg-hover,rgba(15,23,42,.7));}
     .flv-modal-close:active{transform:scale(.95);}
     body.flv-modal-open{overflow:hidden;}
     .flv-surface{height:100%;display:flex;flex-direction:column;gap:1rem;padding:1.25rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid var(--module-border,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden;}
@@ -477,10 +528,10 @@
     .flv-action-btn:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.18));}
     .flv-action-btn:active{transform:scale(.97);box-shadow:0 6px 16px rgba(15,23,42,.28);}
     .flv-action-btn[data-active="true"]{border-color:rgba(94,234,212,.65);background:rgba(94,234,212,.12);}
-    .flv-test-ui{padding:1rem;border-radius:.9rem;border:1px solid rgba(255,255,255,.1);background:rgba(15,23,42,.45);box-shadow:0 10px 24px rgba(15,23,42,.32);display:flex;flex-direction:column;gap:.75rem;min-height:0;}
-    .flv-test-ui h2,.flv-test-ui h3{margin:0;}
+    .flv-test-ui{padding:1rem;border-radius:.9rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.1));background:color-mix(in srgb,var(--module-preview-bg,rgba(15,23,42,.45)) 86%, #0f172a 14%);box-shadow:0 10px 24px rgba(15,23,42,.32);display:flex;flex-direction:column;gap:.75rem;min-height:0;color:var(--module-preview-text,#e2e8f0);}
+    .flv-test-ui h2,.flv-test-ui h3{margin:0;color:var(--module-preview-text,#e2e8f0);}
     .flv-test-ui-buttons,.flv-test-ui-subbuttons{display:flex;gap:.5rem;flex-wrap:wrap;}
-    .flv-test-ui-surface{display:flex;flex-direction:column;gap:.75rem;}
+    .flv-test-ui-surface{display:flex;flex-direction:column;gap:.75rem;background:var(--module-preview-surface-bg,rgba(15,23,42,.45));border:1px solid var(--module-preview-surface-border,rgba(255,255,255,.1));border-radius:.9rem;padding:1rem;box-shadow:0 10px 24px rgba(15,23,42,.32);color:var(--module-preview-text,#e2e8f0);}
     .flv-dropzone.flash{animation:flash 1s ease;}
     @keyframes flash{0%{box-shadow:0 0 0 3px rgba(255,255,255,.5);}100%{box-shadow:none;}}
     @keyframes flash-success{0%{box-shadow:0 0 0 4px rgba(94,234,212,.5);}100%{box-shadow:none;}}
@@ -492,11 +543,24 @@
     .flv-pop label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
     .flv-pop select{padding:.35rem .5rem;border-radius:.45rem;border:1px solid rgba(255,255,255,.15);background:rgba(15,23,42,.8);color:#f8fafc;}
     .flv-pop button{align-self:flex-end;}
-    .flv-test-ui-surface button{background:#1e293b;border:1px solid rgba(255,255,255,.1);color:#f8fafc;padding:.4rem .8rem;border-radius:.4rem;font-size:.9rem;cursor:pointer;transition:background .2s;}
-    .flv-test-ui-surface button:hover{background:#334155;}
-    .flv-test-ui-surface h2,.flv-test-ui-surface h3{margin:0;color:#e2e8f0;}
-    .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.5);box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:#f8fafc;}
-    .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.8;}
+    .flv-test-ui-surface button{background:var(--module-button-bg,#1e293b);border:1px solid var(--module-button-border,rgba(255,255,255,.1));color:var(--module-button-text,#f8fafc);padding:.4rem .8rem;border-radius:.4rem;font-size:.9rem;cursor:pointer;transition:background .2s ease,transform .15s ease,box-shadow .15s ease;box-shadow:0 6px 16px rgba(15,23,42,.3);}
+    .flv-test-ui-surface button:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.18));transform:translateY(-1px);}
+    .flv-test-ui-surface button:active{transform:scale(.97);}
+    .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.08));background:var(--module-preview-bg,rgba(15,23,42,.5));box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:var(--module-preview-text,#f8fafc);}
+    .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.82;}
+    .flv-theme-panel{display:flex;flex-direction:column;gap:.75rem;padding:1rem;border-radius:.9rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.08));background:color-mix(in srgb,var(--module-preview-bg,rgba(15,23,42,.5)) 82%, #0f172a 18%);box-shadow:0 10px 26px rgba(15,23,42,.32);}
+    .flv-theme-panel-headline{display:flex;flex-direction:column;gap:.35rem;}
+    .flv-theme-panel h4{margin:0;font-size:.95rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.88;}
+    .flv-theme-panel p{margin:0;font-size:.8rem;opacity:.78;}
+    .flv-theme-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.65rem;}
+    .flv-theme-card{display:flex;flex-direction:column;gap:.45rem;padding:.6rem .7rem;border-radius:.75rem;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.45);box-shadow:0 8px 20px rgba(15,23,42,.32);}
+    .flv-theme-card label{display:flex;flex-direction:column;gap:.35rem;font-size:.8rem;font-weight:600;letter-spacing:.02em;opacity:.88;}
+    .flv-theme-select{width:100%;padding:.4rem .55rem;border-radius:.55rem;border:1px solid rgba(148,163,184,.45);background:rgba(15,23,42,.75);color:#e2e8f0;font-weight:600;cursor:pointer;transition:border-color .18s ease,background .18s ease;}
+    .flv-theme-select:hover{border-color:rgba(94,234,212,.55);}
+    .flv-theme-preview{display:flex;align-items:center;gap:.5rem;padding:.45rem .55rem;border-radius:.65rem;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.35);min-height:2.4rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
+    .flv-theme-swatch{width:1.5rem;height:1.5rem;border-radius:.45rem;border:2px solid rgba(148,163,184,.45);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:#0f172a;background:rgba(226,232,240,.85);}
+    .flv-theme-layer{font-size:.82rem;font-weight:600;letter-spacing:.01em;opacity:.92;}
+    .flv-theme-layer[data-empty="true"]{opacity:.6;font-style:italic;}
     #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.04));color:#0f172a;pointer-events:none;transition:background .2s ease;}
     #assign-ui-overlay.assign-dragging{background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(14,116,144,.02));}
     #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(-110%);opacity:0;}
@@ -1391,6 +1455,13 @@
   root.innerHTML = `
     <section class="flv-main-preview">
       <p class="flv-main-preview-note">Nutzen Sie die Testoberfläche, um Farblayer-Gruppen auf reale UI-Elemente zu ziehen und live zu erleben.</p>
+      <div class="flv-theme-panel" data-flv-theme-panel>
+        <div class="flv-theme-panel-headline">
+          <h4>Moduloberfläche einfärben</h4>
+          <p>Wählen Sie pro Bereich einen Layer, um den Konfigurator stimmig zu gestalten.</p>
+        </div>
+        <div class="flv-theme-grid" data-flv-theme-grid></div>
+      </div>
       <div class="flv-test-ui" data-flv-main-ui></div>
     </section>
     <div class="flv-launch">
@@ -1468,6 +1539,7 @@
   const assignModeBtn = root.querySelector('[data-flv-assign-toggle]');
   const assignHintEl = root.querySelector('[data-flv-assign-hint]');
   const footerActions = root.querySelector('.flv-footer-actions');
+  const themeGridEl = root.querySelector('[data-flv-theme-grid]');
 
   if(mainTestUIContainer){
     renderTestUI(mainTestUIContainer, {
@@ -1502,6 +1574,8 @@
     root.__flvCleanup();
   }
 
+  const storedThemeSelection = loadStoredColorSelection();
+
   const state = {
     controller: null,
     disposed: false,
@@ -1525,7 +1599,8 @@
     assignPopoverEl: null,
     assignPopoverTarget: null,
     elementAssignments: {},
-    assignableClickHandler: null
+    assignableClickHandler: null,
+    moduleTheme: { ...storedThemeSelection }
   };
 
   const instanceApi = {
@@ -1542,6 +1617,191 @@
       assignElementToGroupInternal(elementId, groupName);
     }
   };
+
+  const themeRefs = new Map();
+
+  function initializeThemeControls(){
+    if(!themeGridEl) return;
+    themeGridEl.innerHTML = '';
+    themeRefs.clear();
+    COLOR_CATEGORIES.forEach(category => {
+      const card = document.createElement('div');
+      card.className = 'flv-theme-card';
+
+      const label = document.createElement('label');
+      label.textContent = category.label;
+
+      const select = document.createElement('select');
+      select.className = 'flv-theme-select';
+      select.dataset.themeKey = category.key;
+      label.appendChild(select);
+
+      const preview = document.createElement('div');
+      preview.className = 'flv-theme-preview';
+      const swatch = document.createElement('span');
+      swatch.className = 'flv-theme-swatch';
+      swatch.textContent = 'Aa';
+      const layerLabel = document.createElement('span');
+      layerLabel.className = 'flv-theme-layer';
+      layerLabel.textContent = 'Keine Auswahl';
+      layerLabel.dataset.empty = 'true';
+      preview.appendChild(swatch);
+      preview.appendChild(layerLabel);
+
+      card.appendChild(label);
+      card.appendChild(preview);
+      themeGridEl.appendChild(card);
+
+      const handleChange = () => {
+        const value = select.value || '';
+        state.moduleTheme[category.key] = value;
+        updateThemePreview(category.key);
+        applyModuleTheme();
+        persistColorSelection(state.moduleTheme);
+      };
+
+      select.addEventListener('change', handleChange);
+      registerCleanup(() => select.removeEventListener('change', handleChange));
+
+      themeRefs.set(category.key, { card, select, swatch, layerLabel });
+    });
+    refreshThemeOptions({ persist: false });
+  }
+
+  function updateThemePreview(key){
+    const ref = themeRefs.get(key);
+    if(!ref) return;
+    const layerName = state.moduleTheme[key];
+    const layer = layerName ? getLayerByName(layerName) : null;
+    if(layer){
+      const textColor = getReadableTextColor(layer.background, layer.text);
+      ref.swatch.style.background = layer.background || 'rgba(226,232,240,.3)';
+      ref.swatch.style.color = textColor || '#0f172a';
+      ref.swatch.style.borderColor = layer.border || 'rgba(148,163,184,.45)';
+      ref.layerLabel.textContent = layer.name || layerName;
+      ref.layerLabel.dataset.empty = 'false';
+    }else{
+      ref.swatch.style.background = 'rgba(226,232,240,.3)';
+      ref.swatch.style.color = '#0f172a';
+      ref.swatch.style.borderColor = 'rgba(148,163,184,.35)';
+      ref.layerLabel.textContent = 'Keine Auswahl';
+      ref.layerLabel.dataset.empty = 'true';
+    }
+  }
+
+  function refreshThemeOptions({ persist = true } = {}){
+    if(!themeGridEl || !themeRefs.size) return;
+    let changed = false;
+    themeRefs.forEach((ref, key) => {
+      const fragment = document.createDocumentFragment();
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Keine Farbe';
+      fragment.appendChild(placeholder);
+      state.items.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.name;
+        option.textContent = item.name;
+        fragment.appendChild(option);
+      });
+      ref.select.innerHTML = '';
+      ref.select.appendChild(fragment);
+      const storedValue = state.moduleTheme[key] || '';
+      if(storedValue && state.layerLookup.has(storedValue)){
+        ref.select.value = storedValue;
+      }else{
+        if(storedValue && state.layerLookup.size){
+          state.moduleTheme[key] = '';
+          changed = true;
+        }
+        ref.select.value = '';
+      }
+      updateThemePreview(key);
+    });
+    applyModuleTheme();
+    if(changed && persist){
+      persistColorSelection(state.moduleTheme);
+    }
+  }
+
+  function computeButtonHover(background){
+    if(!background) return '';
+    return `color-mix(in srgb, ${background} 82%, white 18%)`;
+  }
+
+  function clearModuleThemeStyles(){
+    if(!root) return;
+    const keys = [
+      '--module-bg','--module-border','--text-color','--module-preview-bg',
+      '--module-preview-border','--module-preview-text','--module-preview-surface-bg',
+      '--module-preview-surface-border','--module-header-bg','--module-header-border',
+      '--module-header-text','--module-header-bg-hover','--module-button-bg',
+      '--module-button-border','--module-button-text','--module-button-bg-hover'
+    ];
+    keys.forEach(name => root.style.removeProperty(name));
+  }
+
+  function applyModuleTheme(){
+    if(!root) return;
+    const backgroundLayer = state.moduleTheme.background ? getLayerByName(state.moduleTheme.background) : null;
+    const headerLayer = state.moduleTheme.header ? getLayerByName(state.moduleTheme.header) : null;
+    const buttonLayer = state.moduleTheme.buttons ? getLayerByName(state.moduleTheme.buttons) : null;
+
+    const setVar = (name, value) => {
+      if(!name) return;
+      if(value){
+        root.style.setProperty(name, value);
+      }else{
+        root.style.removeProperty(name);
+      }
+    };
+
+    const applyLayerSet = (layer, mapping) => {
+      Object.entries(mapping).forEach(([prop, resolver]) => {
+        const value = typeof resolver === 'function' ? resolver(layer) : resolver;
+        setVar(prop, value || '');
+      });
+    };
+
+    if(backgroundLayer){
+      applyLayerSet(backgroundLayer, {
+        '--module-bg': layer => layer.background || '',
+        '--module-border': layer => layer.border || '',
+        '--text-color': layer => getReadableTextColor(layer.background, layer.text),
+        '--module-preview-bg': layer => layer.background || '',
+        '--module-preview-border': layer => layer.border || '',
+        '--module-preview-text': layer => getReadableTextColor(layer.background, layer.text),
+        '--module-preview-surface-bg': layer => layer.background ? `color-mix(in srgb, ${layer.background} 88%, #0f172a 12%)` : '',
+        '--module-preview-surface-border': layer => layer.border || ''
+      });
+    }else{
+      ['--module-bg','--module-border','--text-color','--module-preview-bg','--module-preview-border','--module-preview-text','--module-preview-surface-bg','--module-preview-surface-border'].forEach(name => root.style.removeProperty(name));
+    }
+
+    if(headerLayer){
+      applyLayerSet(headerLayer, {
+        '--module-header-bg': layer => layer.background || '',
+        '--module-header-border': layer => layer.border || '',
+        '--module-header-text': layer => getReadableTextColor(layer.background, layer.text),
+        '--module-header-bg-hover': layer => layer.background ? `color-mix(in srgb, ${layer.background} 80%, white 20%)` : ''
+      });
+    }else{
+      ['--module-header-bg','--module-header-border','--module-header-text','--module-header-bg-hover'].forEach(name => root.style.removeProperty(name));
+    }
+
+    if(buttonLayer){
+      applyLayerSet(buttonLayer, {
+        '--module-button-bg': layer => layer.background || '',
+        '--module-button-border': layer => layer.border || '',
+        '--module-button-text': layer => getReadableTextColor(layer.background, layer.text),
+        '--module-button-bg-hover': layer => computeButtonHover(layer.background || '')
+      });
+    }else{
+      ['--module-button-bg','--module-button-border','--module-button-text','--module-button-bg-hover'].forEach(name => root.style.removeProperty(name));
+    }
+  }
+
+  initializeThemeControls();
 
   let registeredModuleName = null;
   function refreshInstanceRegistration(){
@@ -1924,6 +2184,7 @@
       registeredModuleName = null;
     }
     document.body.classList.remove('flv-modal-open');
+    clearModuleThemeStyles();
   };
 
   function getLayerByName(layerName){
@@ -2184,6 +2445,7 @@
       applyLayerColors(groupName, layer);
     });
     applyAllElementAssignments();
+    refreshThemeOptions();
     persistGroupState();
     persistElementAssignments();
     updateStatusMessage(result.source, flattened.length);

@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.7.0] – 2025-10-18
+### Added
+- Farbpanel im Modul erlaubt es, Hintergrund, Header und Buttons der Oberfläche auf Basis vorhandener Layer auszuwählen.
+### Changed
+- Konfigurator-Oberfläche und Testoberflächen übernehmen die gewählten Layerfarben inklusive Hover- und Fokuszuständen.
+
 ## [1.6.0] – 2025-10-16
 ### Improved
 - Sidebar fährt beim Drag smooth ein/aus

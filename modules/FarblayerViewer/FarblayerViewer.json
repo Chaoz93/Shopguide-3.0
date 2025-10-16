@@ -8,6 +8,6 @@
   "h": 6,
   "settings": {},
   "moduleId": "FarblayerViewer",
-  "version": "1.6.0",
-  "changelog": "Smooth Sidebar-Transitions, Ziel-Highlight beim Drag, pulsierendes Feedback nach Drop"
+  "version": "1.7.0",
+  "changelog": "Smooth Sidebar-Transitions, Ziel-Highlight + modulweite Farbanpassung"
 }
