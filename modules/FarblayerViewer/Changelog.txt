@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.3.0] – 2025-10-16
+### Added
+- Drag-&-Drop-Farbkonfigurator ersetzt bisherige Dropdown-Menüs.
+- Live-Preview und Gruppenzuordnung pro Modul.
+
 ## [1.2.0] – 2025-10-15
 ### Added
 - Kombinierte Vorschau der Farbschemata direkt in der Dropdown-Auswahl inklusive Farbfelder für Hintergrund, Schrift und Rahmen.
