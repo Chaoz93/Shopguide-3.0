@@ -856,1071 +856,792 @@
   }
 
   window.renderFarblayerViewer = function renderFarblayerViewer(root){
-    if(!root) return;
-    ensureStyles();
-    root.classList.add('flv-root');
-    const BASE_GROUPS = ['Hauptoberfläche','Header','Aktionselemente','Textanzeigen'];
-    const GROUP_STORAGE_PREFIX = 'farblayerGroups:';
-    const MAPPING_STORAGE_PREFIX = 'farblayerMapping:';
-    root.innerHTML = `
-      <div class="flv-launch">
-        <button class="flv-launch-btn" type="button" data-flv-open-modal>Farblayer-Konfigurator öffnen</button>
-      </div>
-      <div class="flv-modal" data-flv-modal>
-        <div class="flv-modal-backdrop" data-flv-close-modal></div>
-        <div class="flv-modal-dialog" role="dialog" aria-modal="true" aria-label="Farblayer-Konfigurator" data-flv-dialog tabindex="-1">
-          <button class="flv-modal-close" type="button" aria-label="Konfigurator schließen" data-flv-close-modal>&times;</button>
-          <div class="flv-surface">
-            <div class="flv-header">
-              <div class="flv-header-info">
-                <div class="flv-title">Farblayer-Konfiguration</div>
-                <div class="flv-meta" data-flv-meta>${CONFIG_PATH}</div>
-              </div>
-              <div class="flv-file">
-                <div class="flv-file-label" data-flv-file-label>Keine Datei verbunden</div>
-                <div class="flv-file-note" data-flv-file-note>Bitte Farblayer-Datei wählen.</div>
-                <div class="flv-file-controls">
-                  <button class="flv-file-btn" type="button" data-flv-file-pick>Datei wählen</button>
-                  <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
-                </div>
+  if(!root) return;
+  ensureStyles();
+  root.classList.add('flv-root');
+  const BASE_GROUPS = ['Hauptoberfläche', 'Header', 'Aktionselemente', 'Textanzeigen'];
+  const GROUP_STORAGE_PREFIX = 'farblayerGroups:';
+  const MAPPING_STORAGE_PREFIX = 'farblayerMapping:';
+
+  root.innerHTML = `
+    <div class="flv-launch">
+      <button class="flv-launch-btn" type="button" data-flv-open-modal>Farblayer-Konfigurator öffnen</button>
+    </div>
+    <div class="flv-modal" data-flv-modal>
+      <div class="flv-modal-backdrop" data-flv-close-modal></div>
+      <div class="flv-modal-dialog" role="dialog" aria-modal="true" aria-label="Farblayer-Konfigurator" data-flv-dialog tabindex="-1">
+        <button class="flv-modal-close" type="button" aria-label="Konfigurator schließen" data-flv-close-modal>&times;</button>
+        <div class="flv-surface">
+          <div class="flv-header">
+            <div class="flv-header-info">
+              <div class="flv-title">Farblayer-Konfiguration</div>
+              <div class="flv-meta" data-flv-meta>${CONFIG_PATH}</div>
+            </div>
+            <div class="flv-file">
+              <div class="flv-file-label" data-flv-file-label>Keine Datei verbunden</div>
+              <div class="flv-file-note" data-flv-file-note>Bitte Farblayer-Datei wählen.</div>
+              <div class="flv-file-controls">
+                <button class="flv-file-btn" type="button" data-flv-file-pick>Datei wählen</button>
+                <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
               </div>
             </div>
-            <div class="flv-body">
-              <div class="flv-left">
-                <div class="flv-left-title">Layer-Bibliothek</div>
-                <div class="flv-layer-list" data-flv-list></div>
-              </div>
-              <div class="flv-right">
-                <div class="flv-right-title">Gruppen-Dropzonen</div>
-                <div class="flv-dropzone-list" data-flv-dropzones></div>
-                <div class="flv-group-actions">
-                  <button class="flv-group-btn" type="button" data-flv-add-group>+ Gruppe hinzufügen</button>
-                  <button class="flv-group-btn" type="button" data-flv-remove-group>– Gruppe entfernen</button>
-                </div>
+          </div>
+          <div class="flv-body">
+            <div class="flv-left">
+              <div class="flv-left-title">Layer-Bibliothek</div>
+              <div class="flv-layer-list" data-flv-list></div>
+            </div>
+            <div class="flv-right">
+              <div class="flv-right-title">Gruppen-Dropzonen</div>
+              <div class="flv-dropzone-list" data-flv-dropzones></div>
+              <div class="flv-group-actions">
+                <button class="flv-group-btn" type="button" data-flv-add-group>+ Gruppe hinzufügen</button>
+                <button class="flv-group-btn" type="button" data-flv-remove-group>– Gruppe entfernen</button>
               </div>
             </div>
-            <div class="flv-footer">
-              <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
-              <div class="flv-footer-hint">Tipp: Alt halten, um Layer auf alle Gruppen anzuwenden.</div>
-            </div>
+          </div>
+          <div class="flv-footer">
+            <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
+            <div class="flv-footer-hint">Tipp: Alt halten, um Layer auf alle Gruppen anzuwenden.</div>
           </div>
         </div>
       </div>
-      <div class="flv-modal" data-flv-modal aria-hidden="true">
-        <div class="flv-modal-backdrop" data-flv-modal-close></div>
-        <div class="flv-modal-dialog" data-flv-modal-dialog role="dialog" aria-modal="true" aria-labelledby="flv-modal-title">
-          <div class="flv-modal-header">
-            <div class="flv-modal-title" id="flv-modal-title">Modulfarben auswählen</div>
-            <button type="button" class="flv-modal-close" data-flv-modal-close aria-label="Schließen">×</button>
-          </div>
-          <div class="flv-modal-body">
-            <p class="flv-modal-hint">Wähle für jede Kategorie einen Farblayer. Öffne dieses Menü jederzeit mit einem Rechtsklick auf die Moduloberfläche oder über den Button &bdquo;Modulfarben bearbeiten&ldquo;.</p>
-            ${modalPickerMarkup}
-          </div>
-        </div>
-      </div>
-    `;
-    const cleanupCallbacks = [];
-    const modalEl = root.querySelector('[data-flv-modal]');
-    const modalDialogEl = root.querySelector('[data-flv-dialog]');
-    const openModalBtn = root.querySelector('[data-flv-open-modal]');
-    const closeModalTargets = root.querySelectorAll('[data-flv-close-modal]');
-    const listEl = root.querySelector('[data-flv-list]');
-    const dropzoneContainer = root.querySelector('[data-flv-dropzones]');
-    const statusEl = root.querySelector('[data-flv-status]');
-    const refreshBtn = root.querySelector('[data-flv-refresh]');
-    const metaEl = root.querySelector('[data-flv-meta]');
-    const categoryRefs = COLOR_CATEGORIES.map(category => ({
-      key: category.key,
-      label: category.label,
-      dropdown: {
-        container: root.querySelector(`[data-flv-dropdown="${category.key}"]`),
-        toggle: root.querySelector(`[data-flv-dropdown-toggle="${category.key}"]`),
-        menu: root.querySelector(`[data-flv-dropdown-menu="${category.key}"]`),
-        labelEl: root.querySelector(`[data-flv-dropdown-label="${category.key}"]`),
-        options: [],
-        selectedOption: null
-      }
-    }));
-    const fileLabelEl = root.querySelector('[data-flv-file-label]');
-    const fileNoteEl = root.querySelector('[data-flv-file-note]');
-    const filePickBtn = root.querySelector('[data-flv-file-pick]');
-    const openModalBtn = root.querySelector('[data-flv-open-modal]');
+    </div>
+  `;
 
-    if(typeof root.__flvCleanup === 'function'){
-      root.__flvCleanup();
-    }
+  const cleanupCallbacks = [];
+  const modalEl = root.querySelector('[data-flv-modal]');
+  const modalDialogEl = root.querySelector('[data-flv-dialog]');
+  const openModalBtn = root.querySelector('[data-flv-open-modal]');
+  const closeModalTargets = Array.from(root.querySelectorAll('[data-flv-close-modal]'));
+  const listEl = root.querySelector('[data-flv-list]');
+  const dropzoneContainer = root.querySelector('[data-flv-dropzones]');
+  const statusEl = root.querySelector('[data-flv-status]');
+  const refreshBtn = root.querySelector('[data-flv-refresh]');
+  const metaEl = root.querySelector('[data-flv-meta]');
+  const fileLabelEl = root.querySelector('[data-flv-file-label]');
+  const fileNoteEl = root.querySelector('[data-flv-file-note]');
+  const filePickBtn = root.querySelector('[data-flv-file-pick]');
+  const addGroupBtn = root.querySelector('[data-flv-add-group]');
+  const removeGroupBtn = root.querySelector('[data-flv-remove-group]');
 
-    const state = {
-      controller: null,
-      disposed: false,
-      items: [],
-      lastSource: null,
-      fileHandle: null,
-      pollInterval: null,
-      pollInProgress: false,
-      lastModified: null,
-      autoState: 'idle',
-      autoMessage: '',
-      dropzones: new Map(),
-      groups: BASE_GROUPS.slice(),
-      groupAssignments: {},
-      layerLookup: new Map(),
-      moduleName: 'Farblayer',
-      statusResetTimeout: null,
-      modalOpen: false,
-      lastFocus: null
-    };
+  if(typeof root.__flvCleanup === 'function'){
+    root.__flvCleanup();
+  }
 
-    function registerCleanup(fn){
-      if(typeof fn === 'function'){
-        cleanupCallbacks.push(fn);
-      }
-    }
+  const state = {
+    controller: null,
+    disposed: false,
+    items: [],
+    lastSource: null,
+    fileHandle: null,
+    pollInterval: null,
+    pollInProgress: false,
+    lastModified: null,
+    autoState: 'idle',
+    autoMessage: '',
+    dropzones: new Map(),
+    groups: BASE_GROUPS.slice(),
+    groupAssignments: {},
+    layerLookup: new Map(),
+    moduleName: 'Farblayer',
+    statusResetTimeout: null,
+    modalOpen: false,
+    lastFocus: null
+  };
 
-    function openModal(){
-      if(!modalEl || state.modalOpen) return;
-      state.lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      modalEl.classList.add('is-open');
-      document.body.classList.add('flv-modal-open');
-      state.modalOpen = true;
-      if(modalDialogEl && typeof modalDialogEl.focus === 'function'){
-        try{ modalDialogEl.focus({ preventScroll: true }); }catch{}
-      }
+  function registerCleanup(fn){
+    if(typeof fn === 'function'){
+      cleanupCallbacks.push(fn);
     }
+  }
 
-    function closeModal(options = {}){
-      if(!modalEl || !state.modalOpen) return;
-      modalEl.classList.remove('is-open');
-      document.body.classList.remove('flv-modal-open');
-      state.modalOpen = false;
-      if(options.persist !== false){
-        persistMapping();
-      }
-      if(!options.suppressFocus && state.lastFocus && typeof state.lastFocus.focus === 'function'){
-        try{ state.lastFocus.focus(); }catch{}
-      }
-      state.lastFocus = null;
-    }
+  function persistGroups(){
+    try{
+      localStorage.setItem(`${GROUP_STORAGE_PREFIX}${state.moduleName}`, JSON.stringify(state.groups));
+    }catch{}
+  }
 
-      openDropdownKey: null,
-      documentClickHandler: null,
-      documentKeyHandler: null,
-      modalElement: modalEl || null,
-      modalDialog: modalDialogEl || null,
-      modalOpen: false,
-      lastFocusElement: null,
-      surfaceContextHandler: null,
-      modalCloseHandlers: [],
-      modalContextHandler: null
-    };
-    if(surfaceEl){
-      const handleSurfaceContext = event => {
-        event.preventDefault();
-        if(state.disposed){
-          return;
-        }
-        openModal();
-      };
-      surfaceEl.addEventListener('contextmenu', handleSurfaceContext);
-      state.surfaceContextHandler = handleSurfaceContext;
-    }
-    if(state.modalElement){
-      const handleModalContext = event => {
-        event.stopPropagation();
-      };
-      state.modalElement.addEventListener('contextmenu', handleModalContext);
-      state.modalContextHandler = handleModalContext;
-    }
-    if(modalCloseEls.length){
-      state.modalCloseHandlers = modalCloseEls.map(element => {
-        const handler = event => {
-          event.preventDefault();
-          closeModal();
-        };
-        element.addEventListener('click', handler);
-        return { element, handler };
-      });
-    }
-    root.__flvCleanup = () => {
-      state.disposed = true;
-      if(state.controller){
-        try{ state.controller.abort(); }catch{}
-        state.controller = null;
+  function loadStoredGroups(){
+    try{
+      const stored = localStorage.getItem(`${GROUP_STORAGE_PREFIX}${state.moduleName}`);
+      if(!stored) return BASE_GROUPS.slice();
+      const parsed = JSON.parse(stored);
+      if(Array.isArray(parsed)){
+        const cleaned = parsed.map(value => typeof value === 'string' ? value.trim() : '').filter(Boolean);
+        const unique = Array.from(new Set(cleaned));
+        return unique.length ? unique : BASE_GROUPS.slice();
       }
-      if(state.pollInterval){
-        clearInterval(state.pollInterval);
-        state.pollInterval = null;
+    }catch{}
+    return BASE_GROUPS.slice();
+  }
+
+  function persistMapping(){
+    const payload = {};
+    state.groups.forEach(groupName => {
+      const layerName = state.groupAssignments[groupName];
+      if(layerName && state.layerLookup.has(layerName)){
+        payload[groupName] = layerName;
       }
-      if(state.statusResetTimeout){
-        clearTimeout(state.statusResetTimeout);
-        state.statusResetTimeout = null;
-      }
-      persistMapping();
-      closeModal({ persist: false, suppressFocus: true });
-      while(cleanupCallbacks.length){
-        const cb = cleanupCallbacks.pop();
-        try{ cb(); }catch{}
-      }
-      document.body.classList.remove('flv-modal-open');
-      if(surfaceEl && state.surfaceContextHandler){
-        surfaceEl.removeEventListener('contextmenu', state.surfaceContextHandler);
-        state.surfaceContextHandler = null;
-      }
-      if(state.modalElement && state.modalContextHandler){
-        state.modalElement.removeEventListener('contextmenu', state.modalContextHandler);
-        state.modalContextHandler = null;
-      }
-      if(state.modalCloseHandlers && state.modalCloseHandlers.length){
-        state.modalCloseHandlers.forEach(binding => {
-          if(binding && binding.element && binding.handler){
-            binding.element.removeEventListener('click', binding.handler);
+    });
+    try{
+      localStorage.setItem(`${MAPPING_STORAGE_PREFIX}${state.moduleName}`, JSON.stringify(payload));
+    }catch{}
+  }
+
+  function loadStoredMapping(){
+    try{
+      const stored = localStorage.getItem(`${MAPPING_STORAGE_PREFIX}${state.moduleName}`);
+      if(!stored) return {};
+      const parsed = JSON.parse(stored);
+      if(parsed && typeof parsed === 'object'){
+        const mapping = {};
+        Object.entries(parsed).forEach(([groupName, layerName]) => {
+          if(typeof groupName === 'string' && typeof layerName === 'string'){
+            mapping[groupName] = layerName;
           }
         });
-        state.modalCloseHandlers = [];
+        return mapping;
       }
-      closeModal();
-      state.openDropdownKey = null;
-    };
+    }catch{}
+    return {};
+  }
 
-    function getModuleKey(){
-      const name = typeof state.moduleName === 'string' && state.moduleName.trim() ? state.moduleName.trim() : 'Farblayer';
-      return name;
-    }
-
-    function getGroupsStorageKey(){
-      return `${GROUP_STORAGE_PREFIX}${getModuleKey()}`;
-    }
-
-    function getMappingStorageKey(){
-      return `${MAPPING_STORAGE_PREFIX}${getModuleKey()}`;
-    }
-
-    function persistGroups(){
-      try{
-        localStorage.setItem(getGroupsStorageKey(), JSON.stringify(state.groups));
-      }catch{}
-    }
-
-    function loadStoredGroups(){
-      try{
-        const stored = localStorage.getItem(getGroupsStorageKey());
-        if(!stored) return BASE_GROUPS.slice();
-        const parsed = JSON.parse(stored);
-        if(Array.isArray(parsed)){
-          const unique = Array.from(new Set(parsed.map(value => typeof value === 'string' ? value.trim() : '').filter(Boolean)));
-          return unique.length ? unique : BASE_GROUPS.slice();
-        }
-      }catch{}
-      return BASE_GROUPS.slice();
-    }
-
-    function persistMapping(){
-      const payload = {};
-      state.groups.forEach(groupName => {
-        const layerName = state.groupAssignments[groupName];
-        if(layerName && state.layerLookup.has(layerName)){
-          payload[groupName] = layerName;
-        }
-      });
-      try{
-        localStorage.setItem(getMappingStorageKey(), JSON.stringify(payload));
-      }catch{}
-    }
-
-    function loadStoredMapping(){
-      try{
-        const stored = localStorage.getItem(getMappingStorageKey());
-        if(!stored) return {};
-        const parsed = JSON.parse(stored);
-        if(parsed && typeof parsed === 'object'){
-          const mapping = {};
-          Object.entries(parsed).forEach(([groupName, layerName]) => {
-            if(state.groups.includes(groupName) && typeof layerName === 'string' && state.layerLookup.has(layerName)){
-              mapping[groupName] = layerName;
-            }
-          });
-          return mapping;
-    function ensureDropdownEventBindings(){
-      if(typeof document === 'undefined'){ return; }
-      if(state.documentClickHandler){
-        return;
-      }
-      const handleDocumentClick = event => {
-        const target = event.target;
-        const inside = categoryRefs.some(ref => {
-          const dropdown = ref?.dropdown;
-          return dropdown?.container ? dropdown.container.contains(target) : false;
-        });
-        if(!inside){
-          closeAllDropdowns();
-        }
-      };
-      const handleDocumentKeydown = event => {
-        if(event.key === 'Escape'){
-          if(state.modalOpen){
-            event.preventDefault();
-            closeModal();
-            return;
-          }
-          closeAllDropdowns();
-        }
-      }catch{}
-      return {};
-    }
-
-    function getLayerByName(layerName){
-      if(!layerName) return null;
-      return state.layerLookup.get(layerName) || null;
-    }
-
-    function triggerDropzoneFlash(groupName){
-      const ref = state.dropzones.get(groupName);
-      if(!ref) return;
-      ref.zone.classList.remove('flash');
-      void ref.zone.offsetWidth;
-      ref.zone.classList.add('flash');
+  function openModal(){
+    if(!modalEl || state.modalOpen) return;
+    state.lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    modalEl.classList.add('is-open');
+    document.body.classList.add('flv-modal-open');
+    state.modalOpen = true;
+    if(modalDialogEl && typeof modalDialogEl.focus === 'function'){
       setTimeout(() => {
-        if(ref.zone){
-          ref.zone.classList.remove('flash');
-        }
-      }, 1000);
+        try{ modalDialogEl.focus({ preventScroll: true }); }catch{}
+      }, 0);
     }
+  }
 
-    function applyLayerColors(groupName, layer){
-      if(!layer) return;
-      if(typeof window === 'undefined') return;
-      const base = window.FarblayerBase;
-      const applyColors = base && typeof base.applyColors === 'function' ? base.applyColors : null;
-      if(!applyColors) return;
-      const ref = state.dropzones.get(groupName);
-      const targets = ref ? [ref.preview] : [];
-      try{
-        applyColors(targets, layer);
-      }catch(err){
-        console.warn('[FarblayerViewer] applyColors fehlgeschlagen:', err);
-    function openModal(focusRef){
-      if(!state.modalElement){
-        return;
-      }
-      const alreadyOpen = state.modalOpen;
-      state.modalElement.dataset.open = 'true';
-      state.modalElement.setAttribute('aria-hidden', 'false');
-      state.modalOpen = true;
-      if(!alreadyOpen){
-        if(typeof document !== 'undefined'){
-          const active = document.activeElement;
-          state.lastFocusElement = active && typeof active.focus === 'function' ? active : null;
-        }else{
-          state.lastFocusElement = null;
-        }
-      }
-      closeAllDropdowns();
-      if(focusRef){
-        setTimeout(() => {
-          openDropdown(focusRef);
-          focusDropdownSelection(focusRef);
-        }, 0);
-      }else if(state.modalDialog && !alreadyOpen){
-        const focusTarget = state.modalDialog.querySelector('[data-flv-dropdown-toggle]:not([disabled])');
-        if(focusTarget && typeof focusTarget.focus === 'function'){
-          setTimeout(() => {
-            try{ focusTarget.focus(); }catch{}
-          }, 0);
-        }
-      }
+  function closeModal({ persist = true } = {}){
+    if(!modalEl || !state.modalOpen) return;
+    modalEl.classList.remove('is-open');
+    document.body.classList.remove('flv-modal-open');
+    state.modalOpen = false;
+    if(persist){
+      persistMapping();
     }
-
-    function closeModal(){
-      if(!state.modalElement){
-        return;
-      }
-      const wasOpen = state.modalOpen;
-      state.modalElement.dataset.open = 'false';
-      state.modalElement.setAttribute('aria-hidden', 'true');
-      state.modalOpen = false;
-      closeAllDropdowns();
-      if(wasOpen && state.lastFocusElement && typeof state.lastFocusElement.focus === 'function'){
-        try{ state.lastFocusElement.focus(); }catch{}
-      }
-      state.lastFocusElement = null;
+    if(state.lastFocus && typeof state.lastFocus.focus === 'function'){
+      try{ state.lastFocus.focus(); }catch{}
     }
+    state.lastFocus = null;
+  }
 
-    function openDropdown(ref){
-      const dropdown = ref?.dropdown;
-      if(!dropdown || !dropdown.container || (dropdown.toggle && dropdown.toggle.disabled)){
-        return;
-      }
-      ensureDropdownEventBindings();
-      closeAllDropdowns(ref);
-      dropdown.container.dataset.open = 'true';
-      if(dropdown.toggle){
-        dropdown.toggle.setAttribute('aria-expanded', 'true');
-      }
-      if(dropdown.menu){
-        dropdown.menu.setAttribute('aria-hidden', 'false');
-      }
+  root.__flvCleanup = () => {
+    state.disposed = true;
+    if(state.controller){
+      try{ state.controller.abort(); }catch{}
+      state.controller = null;
     }
-
-    function updateDropzone(groupName, layer){
-      const ref = state.dropzones.get(groupName);
-      if(!ref) return;
-      if(layer){
-        ref.zone.dataset.hasLayer = 'true';
-        ref.layerLabel.textContent = layer.name;
-        ref.preview.dataset.empty = 'false';
-        ref.preview.textContent = layer.name;
-        ref.preview.style.background = layer.background || '';
-        ref.preview.style.color = layer.text || '';
-        ref.preview.style.borderColor = layer.border || 'rgba(255,255,255,.16)';
-      }else{
-        delete ref.zone.dataset.hasLayer;
-        ref.layerLabel.textContent = 'Kein Layer';
-        ref.preview.dataset.empty = 'true';
-        ref.preview.textContent = 'Layer hierhin ziehen';
-        ref.preview.style.background = '';
-        ref.preview.style.color = '';
-        ref.preview.style.borderColor = '';
-      }
+    if(state.pollInterval){
+      clearInterval(state.pollInterval);
+      state.pollInterval = null;
     }
-
-    function createDropzone(groupName){
-      if(!dropzoneContainer) return null;
-      const zone = document.createElement('div');
-      zone.className = 'flv-dropzone';
-      zone.dataset.group = groupName;
-
-      const header = document.createElement('div');
-      header.className = 'flv-dropzone-header';
-      const title = document.createElement('span');
-      title.textContent = groupName;
-      header.appendChild(title);
-      const layerLabel = document.createElement('span');
-      layerLabel.className = 'flv-dropzone-layer';
-      layerLabel.textContent = 'Kein Layer';
-      header.appendChild(layerLabel);
-      zone.appendChild(header);
-
-      const preview = document.createElement('div');
-      preview.className = 'flv-dropzone-preview';
-      preview.dataset.empty = 'true';
-      preview.textContent = 'Layer hierhin ziehen';
-      zone.appendChild(preview);
-
-      const removeDragClass = () => zone.classList.remove('is-dragover');
-
-      zone.addEventListener('dragover', event => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'copy';
-      });
-      zone.addEventListener('dragenter', event => {
-        event.preventDefault();
-        zone.classList.add('is-dragover');
-      });
-      zone.addEventListener('dragleave', event => {
-        if(!zone.contains(event.relatedTarget)){
-          removeDragClass();
-
-      return option;
+    if(state.statusResetTimeout){
+      clearTimeout(state.statusResetTimeout);
+      state.statusResetTimeout = null;
     }
-
-    function handleDropdownSelection(ref, option){
-      if(!ref || !option){
-        return;
-      }
-      const dropdown = ref.dropdown;
-      if(!dropdown){
-        return;
-      }
-      dropdown.selectedOption = option;
-      updateDropdownSelectionState(ref);
-      const colors = getOptionColors(option);
-      const updated = updateCategoryField(ref, colors);
-      state.selectedColors[ref.key] = updated;
-      persistSelectedColors();
-      applySelectedColors();
-      closeDropdown(ref);
-      if(dropdown.toggle){
-        dropdown.toggle.focus();
-      }
+    closeModal({ persist: false });
+    while(cleanupCallbacks.length){
+      const cb = cleanupCallbacks.pop();
+      try{ cb(); }catch{}
     }
+    document.body.classList.remove('flv-modal-open');
+  };
 
-    function setCategoryDisabled(ref, disabled){
-      const dropdown = ref?.dropdown;
-      if(dropdown){
-        if(dropdown.toggle){
-          dropdown.toggle.disabled = !!disabled;
-          dropdown.toggle.setAttribute('aria-expanded', 'false');
-        }
-      });
-      zone.addEventListener('drop', event => {
-        event.preventDefault();
+  function getLayerByName(layerName){
+    if(!layerName) return null;
+    return state.layerLookup.get(layerName) || null;
+  }
+
+  function triggerDropzoneFlash(groupName){
+    const ref = state.dropzones.get(groupName);
+    if(!ref) return;
+    ref.zone.classList.remove('flash');
+    void ref.zone.offsetWidth;
+    ref.zone.classList.add('flash');
+    setTimeout(() => {
+      if(ref.zone){
+        ref.zone.classList.remove('flash');
+      }
+    }, 1000);
+  }
+
+  function applyLayerColors(groupName, layer){
+    if(!layer || typeof window === 'undefined') return;
+    const base = window.FarblayerBase;
+    const applyColors = base && typeof base.applyColors === 'function' ? base.applyColors : null;
+    if(!applyColors) return;
+    const ref = state.dropzones.get(groupName);
+    const targets = ref ? [ref.preview] : [];
+    try{
+      applyColors(targets, layer);
+    }catch(err){
+      console.warn('[FarblayerViewer] applyColors fehlgeschlagen:', err);
+    }
+  }
+
+  function updateDropzone(groupName, layer){
+    const ref = state.dropzones.get(groupName);
+    if(!ref) return;
+    if(layer){
+      ref.zone.dataset.hasLayer = 'true';
+      ref.layerLabel.textContent = layer.name;
+      ref.preview.dataset.empty = 'false';
+      ref.preview.textContent = layer.name;
+      ref.preview.style.background = layer.background || '';
+      ref.preview.style.color = layer.text || '';
+      ref.preview.style.borderColor = layer.border || 'rgba(255,255,255,.16)';
+    }else{
+      delete ref.zone.dataset.hasLayer;
+      ref.layerLabel.textContent = 'Kein Layer';
+      ref.preview.dataset.empty = 'true';
+      ref.preview.textContent = 'Layer hierhin ziehen';
+      ref.preview.style.background = '';
+      ref.preview.style.color = '';
+      ref.preview.style.borderColor = '';
+    }
+  }
+
+  function createDropzone(groupName){
+    if(!dropzoneContainer) return null;
+    const zone = document.createElement('div');
+    zone.className = 'flv-dropzone';
+    zone.dataset.group = groupName;
+
+    const header = document.createElement('div');
+    header.className = 'flv-dropzone-header';
+    const title = document.createElement('span');
+    title.textContent = groupName;
+    header.appendChild(title);
+    const layerLabel = document.createElement('span');
+    layerLabel.className = 'flv-dropzone-layer';
+    layerLabel.textContent = 'Kein Layer';
+    header.appendChild(layerLabel);
+    zone.appendChild(header);
+
+    const preview = document.createElement('div');
+    preview.className = 'flv-dropzone-preview';
+    preview.dataset.empty = 'true';
+    preview.textContent = 'Layer hierhin ziehen';
+    zone.appendChild(preview);
+
+    const removeDragClass = () => zone.classList.remove('is-dragover');
+
+    zone.addEventListener('dragover', event => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    });
+    zone.addEventListener('dragenter', event => {
+      event.preventDefault();
+      zone.classList.add('is-dragover');
+    });
+    zone.addEventListener('dragleave', event => {
+      if(!zone.contains(event.relatedTarget)){
         removeDragClass();
-        const layerName = event.dataTransfer.getData('text/plain');
-        if(!layerName) return;
-        if(event.altKey){
-          assignLayerToAll(layerName, { flashGroup: groupName });
-        }else{
-          assignLayerToGroup(groupName, layerName);
-        }
-    }
-
-    function updateCategoryField(ref, overrideColors){
-      if(!ref){
-        return normalizeSelectionValue(null);
       }
-      const dropdown = ref.dropdown;
-      const option = dropdown ? dropdown.selectedOption : null;
-      const normalizedOverride = normalizeSelectionValue(overrideColors);
-      const hasOverride = !!createSchemeKey(normalizedOverride);
-      const optionValue = option && option.dataset ? option.dataset.value || '' : '';
-      const colors = hasOverride
-        ? normalizedOverride
-        : (optionValue ? getOptionColors(option) : normalizeSelectionValue(null));
-      const hasValue = hasOverride || !!optionValue;
-      const optionName = option ? (option.dataset?.name || option.textContent || '') : '';
-      const displayName = hasValue
-        ? (normalizedOverride.name || optionName || ref.label)
-        : '';
-      if(dropdown){
-        if(dropdown.labelEl){
-          dropdown.labelEl.textContent = displayName || 'Standard';
-        }
-        if(dropdown.toggle){
-          dropdown.toggle.dataset.empty = hasValue ? 'false' : 'true';
-        }
-      }
-      return normalizeSelectionValue({
-        ...colors,
-        name: hasValue ? (displayName || ref.label) : ''
-      });
-
-      return { zone, layerLabel, preview };
-    }
-
-    function renderGroupZones(){
-      if(!dropzoneContainer) return;
-      dropzoneContainer.innerHTML = '';
-      state.dropzones.clear();
-      state.groups.forEach(groupName => {
-        const ref = createDropzone(groupName);
-        if(!ref) return;
-        dropzoneContainer.appendChild(ref.zone);
-        state.dropzones.set(groupName, ref);
-        const layerName = state.groupAssignments[groupName];
-        const layer = layerName ? getLayerByName(layerName) : null;
-        updateDropzone(groupName, layer);
-        if(layer){
-          applyLayerColors(groupName, layer);
-        }
-      });
-    }
-
-    function flashStatus(message, { temporary = false } = {}){
-      if(!statusEl) return;
-      statusEl.textContent = message || '';
-      if(state.statusResetTimeout){
-        clearTimeout(state.statusResetTimeout);
-        state.statusResetTimeout = null;
-      }
-      if(temporary){
-        state.statusResetTimeout = setTimeout(() => {
-          state.statusResetTimeout = null;
-          updateStatusMessage(state.lastSource, state.items.length);
-        }, 2500);
-      }
-    }
-
-    function assignLayerToGroup(groupName, layerName, options = {}){
-      const layer = getLayerByName(layerName);
-      if(!layer){
-        flashStatus(`Layer "${layerName}" nicht gefunden.`, { temporary: true });
-        return;
-      }
-      if(!state.groups.includes(groupName)){
-        flashStatus(`Gruppe "${groupName}" nicht vorhanden.`, { temporary: true });
-        return;
-      }
-      state.groupAssignments[groupName] = layer.name;
-      updateDropzone(groupName, layer);
-      applyLayerColors(groupName, layer);
-      if(options.flashZone !== false){
-        triggerDropzoneFlash(groupName);
-      }
-      if(options.persist !== false){
-        persistMapping();
-      }
-      if(options.announce !== false){
-        flashStatus(`"${layer.name}" → ${groupName}`, { temporary: true });
-      }
-    }
-
-    function assignLayerToAll(layerName, { flashGroup = null } = {}){
-      const layer = getLayerByName(layerName);
-      if(!layer){
-        flashStatus(`Layer "${layerName}" nicht gefunden.`, { temporary: true });
-        return;
-      }
-      state.groups.forEach(groupName => {
-        assignLayerToGroup(groupName, layer.name, {
-          persist: false,
-          flashZone: flashGroup ? groupName === flashGroup : true,
-          announce: false
-        });
-      });
-      persistMapping();
-      flashStatus(`"${layer.name}" auf alle Gruppen angewendet.`, { temporary: true });
-    }
-
-    function updateStatusMessage(source, totalCount){
-      if(!statusEl) return;
-      if(!source){
-        statusEl.textContent = '';
-        return;
-      }
-      let message = `${totalCount} Layer geladen (${source}).`;
-      if(source === 'Standardwerte (Fallback)'){
-        message += ' Bitte prüfen Sie den Zugriff auf die Farblayer-Datei.';
-      }
-      statusEl.textContent = message;
-    }
-
-    function deriveModuleName(result, flattened){
-      if(result && typeof result.moduleName === 'string' && result.moduleName.trim()){
-        return result.moduleName.trim();
-      }
-      if(result && typeof result.path === 'string' && result.path.trim()){
-        const base = result.path.trim().split(/[\\/]/).pop() || '';
-        if(base){
-          return base.replace(/\.json$/i, '');
-        }
-      }
-      const firstGroup = flattened.find(entry => entry && typeof entry.group === 'string' && entry.group.trim());
-      if(firstGroup){
-        const parts = firstGroup.group.split('›').map(part => part.trim()).filter(Boolean);
-        if(parts.length){
-          return parts[0];
-        }
-      }
-      return 'Farblayer';
-    }
-
-    function applyPaletteResult(result){
-      if(!result) return;
-      const flattened = flattenPalette(result.data);
-      state.items = flattened;
-      state.layerLookup = new Map(flattened.map(item => [item.name, item]));
-      state.lastSource = result.source;
-      state.lastModified = result.lastModified != null ? result.lastModified : state.lastModified;
-      state.moduleName = deriveModuleName(result, flattened);
-      state.groups = loadStoredGroups();
-      state.groupAssignments = loadStoredMapping();
-      renderGroupZones();
-      if(listEl){
-        renderItems(listEl, flattened, {
-          onCard(card, item){
-            card.addEventListener('dragstart', event => {
-              event.dataTransfer.setData('text/plain', item.name);
-              event.dataTransfer.effectAllowed = 'copy';
-              card.dataset.dragging = 'true';
-            });
-            card.addEventListener('dragend', () => {
-              delete card.dataset.dragging;
-            });
-          }
-        });
-      }
-      state.groups.forEach(groupName => {
-        const layerName = state.groupAssignments[groupName];
-        const layer = layerName ? getLayerByName(layerName) : null;
-        updateDropzone(groupName, layer);
-        if(layer){
-          applyLayerColors(groupName, layer);
-        }
-      });
-      persistGroups();
-      persistMapping();
-      updateStatusMessage(result.source, flattened.length);
-      if(metaEl){
-        const labelPath = result.path || CONFIG_PATH;
-        metaEl.textContent = `${labelPath} • ${result.source}`;
-        if(result.source === 'Standardwerte (Fallback)'){
-          metaEl.title = 'Debug-Fallback aktiv: Die Konfigurationsdatei konnte nicht gefunden werden.';
-        }else if(result.path){
-          metaEl.title = `Quelle: ${result.path}`;
-        }else{
-          metaEl.removeAttribute('title');
-        }
-      }
-    }
-
-    async function loadPalette(reason){
-      if(state.disposed) return;
-      if(state.controller){
-        try{ state.controller.abort(); }catch{}
-      }
-      const controller = new AbortController();
-      state.controller = controller;
-      if(statusEl){
-        statusEl.textContent = reason === 'manual' ? 'Aktualisiere Farblayer…' : 'Farblayer werden geladen…';
-      }
-      if(listEl){
-        listEl.innerHTML = '';
-      }
-      try{
-        const result = await fetchPalette(controller.signal, {
-          fileHandle: state.fileHandle,
-          onFileHandleDenied: async () => {
-            state.fileHandle = null;
-            await idbDel(HANDLE_STORAGE_KEY);
-            stopAutoUpdatePolling('error', 'Berechtigung erforderlich.');
-          },
-          onFileHandleError: () => {
-            stopAutoUpdatePolling('error', 'Datei konnte nicht gelesen werden.');
-          },
-          onFileHandleSuccess: handleResult => {
-            state.lastModified = handleResult.lastModified || null;
-            startAutoUpdatePolling();
-          }
-        });
-        if(state.disposed || controller.signal.aborted) return;
-        applyPaletteResult(result);
-        if(state.fileHandle){
-          state.autoState = 'active';
-          state.autoMessage = '';
-        }
-        updateFileDisplay();
-      }catch(err){
-        if(state.disposed || controller.signal.aborted) return;
-        console.warn('[FarblayerViewer] Konnte Farblayer nicht laden:', err);
-        state.items = [];
-        state.layerLookup = new Map();
-        state.groups = BASE_GROUPS.slice();
-        state.groupAssignments = {};
-        renderGroupZones();
-        if(listEl){
-          renderItems(listEl, []);
-        }
-        if(statusEl){
-          statusEl.textContent = 'Farblayer konnten nicht geladen werden.';
-        }
-        if(metaEl){
-          metaEl.textContent = `${CONFIG_PATH} • Keine Daten`;
-          metaEl.removeAttribute('title');
-        }
-      }finally{
-        state.controller = null;
-      }
-    }
-
-    function formatTimestamp(timestamp){
-      if(typeof timestamp !== 'number' || !Number.isFinite(timestamp)) return '';
-      const date = new Date(timestamp);
-      if(Number.isNaN(date.getTime())) return '';
-      return date.toLocaleString('de-DE', { hour12: false });
-    }
-
-    function updateFileDisplay(){
-      if(fileLabelEl){
-        if(state.fileHandle){
-          const name = state.fileHandle.name || 'FarblayerConfig.json';
-          fileLabelEl.textContent = `• ${name}`;
-        }else{
-          fileLabelEl.textContent = 'Keine Datei verbunden';
-        }
-      }
-      if(fileNoteEl){
-        let note = '';
-        if(state.fileHandle){
-          if(state.autoState === 'error'){
-            note = state.autoMessage ? `Automatisches Update gestoppt – ${state.autoMessage}` : 'Automatisches Update gestoppt.';
-          }else if(state.autoState === 'paused'){
-            note = 'Automatisches Update pausiert.';
-          }else{
-            const ts = formatTimestamp(state.lastModified);
-            note = ts ? `Automatisches Update aktiv – Stand ${ts}` : 'Automatisches Update aktiv.';
-          }
-        }else if(state.autoState === 'manual'){
-          const ts = formatTimestamp(state.lastModified);
-          note = ts ? `Manuell geladen – Stand ${ts}` : 'Manuell geladene Farblayer.';
-        }else if(state.autoState === 'error'){
-          note = state.autoMessage || 'Datei konnte nicht geladen werden.';
-        }else{
-          note = 'Bitte Farblayer-Datei wählen.';
-        }
-        fileNoteEl.textContent = note;
-      }
-    }
-
-    function clearPolling(){
-      if(state.pollInterval){
-        clearInterval(state.pollInterval);
-        state.pollInterval = null;
-      }
-      state.pollInProgress = false;
-    }
-
-    function stopAutoUpdatePolling(nextState = 'idle', message = ''){
-      clearPolling();
-      state.autoState = nextState;
-      state.autoMessage = message || '';
-      updateFileDisplay();
-    }
-
-    async function pollFileChangesOnce(){
-      if(state.pollInProgress || !state.fileHandle) return;
-      state.pollInProgress = true;
-      try{
-        const file = await state.fileHandle.getFile();
-        const modified = typeof file?.lastModified === 'number' ? file.lastModified : null;
-        if(modified != null){
-          if(state.lastModified == null){
-            state.lastModified = modified;
-            updateFileDisplay();
-          }else if(modified > state.lastModified){
-            state.lastModified = modified;
-            await loadPalette('auto');
-          }
-        }
-      }catch(err){
-        console.warn('[FarblayerViewer] Auto-Update fehlgeschlagen:', err);
-        stopAutoUpdatePolling('error', 'Kein Zugriff auf Farblayer-Datei.');
-      }finally{
-        state.pollInProgress = false;
-      }
-    }
-
-    function startAutoUpdatePolling(){
-      clearPolling();
-      if(!state.fileHandle){
-        stopAutoUpdatePolling('idle');
-        return;
-      }
-      state.autoState = 'active';
-      state.autoMessage = '';
-      state.pollInterval = setInterval(() => { void pollFileChangesOnce(); }, POLL_INTERVAL_MS);
-      void pollFileChangesOnce();
-      updateFileDisplay();
-    }
-
-    async function restoreStoredHandle(){
-      const storedHandle = await idbGet(HANDLE_STORAGE_KEY);
-      if(state.disposed) return;
-      if(!storedHandle){
-        updateFileDisplay();
-        return;
-      }
-      const hasPermission = await ensureReadPermission(storedHandle);
-      if(!hasPermission){
-        await idbDel(HANDLE_STORAGE_KEY);
-        state.fileHandle = null;
-        stopAutoUpdatePolling('idle');
-        return;
-      }
-      state.fileHandle = storedHandle;
-      state.autoState = 'active';
-      state.autoMessage = '';
-      updateFileDisplay();
-    }
-
-    async function bindFileHandle(handle){
-      if(!handle) return false;
-      const hasPermission = await ensureReadPermission(handle);
-      if(!hasPermission){
-        stopAutoUpdatePolling('error', 'Berechtigung erforderlich.');
-        return false;
-      }
-      state.fileHandle = handle;
-      await idbSet(HANDLE_STORAGE_KEY, handle);
-      state.autoState = 'active';
-      state.autoMessage = '';
-      state.lastModified = null;
-      updateFileDisplay();
-      await loadPalette('manual');
-      return true;
-    }
-
-    function pickConfigFileFallback(){
-      if(typeof document === 'undefined') return;
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json,application/json';
-      input.style.display = 'none';
-      input.addEventListener('change', async () => {
-        const file = input.files && input.files[0] ? input.files[0] : null;
-        if(file){
-          await handleManualFile(file);
-        }
-        input.remove();
-      });
-      document.body.appendChild(input);
-      input.click();
-    }
-
-    async function handleManualFile(file){
-      if(!file) return;
-      try{
-        const text = await file.text();
-        const data = JSON.parse(text);
-        state.fileHandle = null;
-        await idbDel(HANDLE_STORAGE_KEY);
-        state.lastModified = typeof file.lastModified === 'number' ? file.lastModified : null;
-        stopAutoUpdatePolling('manual');
-        writeCachedPalette(data, file.name || 'Manuell geladen');
-        const result = {
-          data,
-          source: 'Manuell geladen',
-          path: file.name || 'Datei',
-          lastModified: state.lastModified
-        };
-        applyPaletteResult(result);
-        state.autoState = 'manual';
-        state.autoMessage = '';
-        updateFileDisplay();
-      }catch(err){
-        console.warn('[FarblayerViewer] Manuelle Datei konnte nicht gelesen werden:', err);
-        stopAutoUpdatePolling('error', 'Datei konnte nicht gelesen werden.');
-      }
-    }
-
-    async function pickConfigFile(){
-      if(typeof window === 'undefined') return;
-      if(typeof window.showOpenFilePicker === 'function'){
-        try{
-          const [handle] = await window.showOpenFilePicker({
-            types: [{
-              description: 'Farblayer-Konfiguration',
-              accept: { 'application/json': ['.json'] }
-            }],
-            excludeAcceptAllOption: false,
-            multiple: false
-          });
-          if(handle){
-            await bindFileHandle(handle);
-          }
-        }catch(err){
-          if(err && err.name === 'AbortError') return;
-          console.warn('[FarblayerViewer] Dateiauswahl fehlgeschlagen:', err);
-          stopAutoUpdatePolling('error', 'Datei konnte nicht ausgewählt werden.');
-        }
+    });
+    zone.addEventListener('drop', event => {
+      event.preventDefault();
+      removeDragClass();
+      const layerName = event.dataTransfer.getData('text/plain');
+      if(!layerName) return;
+      if(event.altKey){
+        assignLayerToAll(layerName, { flashGroup: groupName });
       }else{
-        pickConfigFileFallback();
+        assignLayerToGroup(groupName, layerName);
       }
-    }
-
-    function handleAddGroup(){
-      if(typeof window === 'undefined') return;
-      const name = window.prompt('Name der neuen Gruppe:','');
-      if(typeof name !== 'string') return;
-      const trimmed = name.trim();
-      if(!trimmed) return;
-      if(state.groups.includes(trimmed)){
-        flashStatus(`Gruppe "${trimmed}" existiert bereits.`, { temporary: true });
-        return;
-      }
-      state.groups.push(trimmed);
-      persistGroups();
-      renderGroupZones();
-      persistMapping();
-      flashStatus(`Gruppe "${trimmed}" hinzugefügt.`, { temporary: true });
-    }
-
-    function handleRemoveGroup(){
-      if(!state.groups.length){
-        flashStatus('Keine Gruppen zum Entfernen vorhanden.', { temporary: true });
-        return;
-      }
-      if(typeof window === 'undefined') return;
-      const suggestion = state.groups[state.groups.length - 1];
-      const input = window.prompt('Welche Gruppe soll entfernt werden?', suggestion || '');
-      if(typeof input !== 'string') return;
-      const name = input.trim();
-      if(!name) return;
-      if(!state.groups.includes(name)){
-        flashStatus(`Gruppe "${name}" nicht gefunden.`, { temporary: true });
-        return;
-      }
-      state.groups = state.groups.filter(group => group !== name);
-      delete state.groupAssignments[name];
-      renderGroupZones();
-      persistGroups();
-      persistMapping();
-      flashStatus(`Gruppe "${name}" entfernt.`, { temporary: true });
-    }
-
-    renderGroupZones();
-
-    if(openModalBtn){
-      const handleOpen = () => openModal();
-      openModalBtn.addEventListener('click', handleOpen);
-      registerCleanup(() => openModalBtn.removeEventListener('click', handleOpen));
-    }
-
-    if(closeModalTargets && closeModalTargets.length){
-      closeModalTargets.forEach(target => {
-        const handleClose = event => {
-          event.preventDefault();
-          closeModal();
-        };
-        target.addEventListener('click', handleClose);
-        registerCleanup(() => target.removeEventListener('click', handleClose));
-      });
-    }
-
-    if(modalEl){
-      const escapeHandler = event => {
-        if(event.key === 'Escape' && state.modalOpen){
-          event.preventDefault();
-          closeModal();
-        }
-      };
-      window.addEventListener('keydown', escapeHandler);
-      registerCleanup(() => window.removeEventListener('keydown', escapeHandler));
-    }
-
-    if(refreshBtn){
-      const handleRefresh = () => { void loadPalette('manual'); };
-      refreshBtn.addEventListener('click', handleRefresh);
-      registerCleanup(() => refreshBtn.removeEventListener('click', handleRefresh));
-    }
-      const current = normalizeSelectionValue(state.selectedColors[ref.key]);
-      const updated = updateCategoryField(ref, current);
-      state.selectedColors[ref.key] = updated;
-      setCategoryDisabled(ref, true);
-      updateDropdownSelectionState(ref);
     });
 
-    if(openModalBtn){
-      openModalBtn.addEventListener('click', () => openModal());
-    }
+    preview.addEventListener('dblclick', () => {
+      delete state.groupAssignments[groupName];
+      updateDropzone(groupName, null);
+      persistMapping();
+    });
 
-    if(filePickBtn){
-      const handlePick = () => { void pickConfigFile(); };
-      filePickBtn.addEventListener('click', handlePick);
-      registerCleanup(() => filePickBtn.removeEventListener('click', handlePick));
-    }
-    if(addGroupBtn){
-      const handleAdd = () => handleAddGroup();
-      addGroupBtn.addEventListener('click', handleAdd);
-      registerCleanup(() => addGroupBtn.removeEventListener('click', handleAdd));
-    }
-    if(removeGroupBtn){
-      const handleRemove = () => handleRemoveGroup();
-      removeGroupBtn.addEventListener('click', handleRemove);
-      registerCleanup(() => removeGroupBtn.removeEventListener('click', handleRemove));
-    }
+    return { zone, layerLabel, preview };
+  }
 
-    openModal();
-
-    void (async () => {
-      await restoreStoredHandle();
-      await loadPalette();
-      if(state.fileHandle){
-        startAutoUpdatePolling();
-      }else{
-        updateFileDisplay();
+  function renderGroupZones(){
+    if(!dropzoneContainer) return;
+    dropzoneContainer.innerHTML = '';
+    state.dropzones.clear();
+    state.groups.forEach(groupName => {
+      const ref = createDropzone(groupName);
+      if(!ref) return;
+      dropzoneContainer.appendChild(ref.zone);
+      state.dropzones.set(groupName, ref);
+      const layerName = state.groupAssignments[groupName];
+      const layer = layerName ? getLayerByName(layerName) : null;
+      updateDropzone(groupName, layer);
+      if(layer){
+        applyLayerColors(groupName, layer);
       }
-    })();
-  };
+    });
+  }
+
+  function flashStatus(message, { temporary = false } = {}){
+    if(!statusEl) return;
+    statusEl.textContent = message || '';
+    if(state.statusResetTimeout){
+      clearTimeout(state.statusResetTimeout);
+      state.statusResetTimeout = null;
+    }
+    if(temporary){
+      state.statusResetTimeout = setTimeout(() => {
+        state.statusResetTimeout = null;
+        updateStatusMessage(state.lastSource, state.items.length);
+      }, 2500);
+    }
+  }
+
+  function assignLayerToGroup(groupName, layerName, options = {}){
+    const layer = getLayerByName(layerName);
+    if(!layer){
+      flashStatus(`Layer "${layerName}" nicht gefunden.`, { temporary: true });
+      return;
+    }
+    if(!state.groups.includes(groupName)){
+      flashStatus(`Gruppe "${groupName}" nicht vorhanden.`, { temporary: true });
+      return;
+    }
+    state.groupAssignments[groupName] = layer.name;
+    updateDropzone(groupName, layer);
+    applyLayerColors(groupName, layer);
+    if(options.flashZone !== false){
+      triggerDropzoneFlash(groupName);
+    }
+    if(options.persist !== false){
+      persistMapping();
+    }
+    if(options.announce !== false){
+      flashStatus(`"${layer.name}" → ${groupName}`, { temporary: true });
+    }
+  }
+
+  function assignLayerToAll(layerName, { flashGroup = null } = {}){
+    const layer = getLayerByName(layerName);
+    if(!layer){
+      flashStatus(`Layer "${layerName}" nicht gefunden.`, { temporary: true });
+      return;
+    }
+    state.groups.forEach(groupName => {
+      assignLayerToGroup(groupName, layer.name, {
+        persist: false,
+        flashZone: flashGroup ? groupName === flashGroup : true,
+        announce: false
+      });
+    });
+    persistMapping();
+    flashStatus(`"${layer.name}" auf alle Gruppen angewendet.`, { temporary: true });
+  }
+
+  function updateStatusMessage(source, totalCount){
+    if(!statusEl) return;
+    if(!source){
+      statusEl.textContent = '';
+      return;
+    }
+    let message = `${totalCount} Layer geladen (${source}).`;
+    if(source === 'Standardwerte (Fallback)'){
+      message += ' Bitte prüfen Sie den Zugriff auf die Farblayer-Datei.';
+    }
+    statusEl.textContent = message;
+  }
+
+  function deriveModuleName(result, flattened){
+    if(result && typeof result.moduleName === 'string' && result.moduleName.trim()){
+      return result.moduleName.trim();
+    }
+    if(result && typeof result.path === 'string' && result.path.trim()){
+      const base = result.path.trim().split(/[\\/]/).pop() || '';
+      if(base){
+        return base.replace(/\.json$/i, '');
+      }
+    }
+    const firstGroup = flattened.find(entry => entry && typeof entry.group === 'string' && entry.group.trim());
+    if(firstGroup){
+      const parts = firstGroup.group.split('›').map(part => part.trim()).filter(Boolean);
+      if(parts.length){
+        return parts[0];
+      }
+    }
+    return 'Farblayer';
+  }
+
+  function applyPaletteResult(result){
+    if(!result) return;
+    const flattened = flattenPalette(result.data);
+    state.items = flattened;
+    state.layerLookup = new Map(flattened.map(item => [item.name, item]));
+    state.lastSource = result.source;
+    state.lastModified = result.lastModified != null ? result.lastModified : state.lastModified;
+    state.moduleName = deriveModuleName(result, flattened);
+    state.groups = loadStoredGroups();
+    state.groupAssignments = loadStoredMapping();
+    renderGroupZones();
+    if(listEl){
+      renderItems(listEl, flattened, {
+        onCard(card, item){
+          card.addEventListener('dragstart', event => {
+            event.dataTransfer.setData('text/plain', item.name);
+            event.dataTransfer.effectAllowed = 'copy';
+            card.dataset.dragging = 'true';
+          });
+          card.addEventListener('dragend', () => {
+            delete card.dataset.dragging;
+          });
+        }
+      });
+    }
+    state.groups.forEach(groupName => {
+      const layerName = state.groupAssignments[groupName];
+      const layer = layerName ? getLayerByName(layerName) : null;
+      updateDropzone(groupName, layer);
+      if(layer){
+        applyLayerColors(groupName, layer);
+      }
+    });
+    persistGroups();
+    persistMapping();
+    updateStatusMessage(result.source, flattened.length);
+    if(metaEl){
+      const labelPath = result.path || CONFIG_PATH;
+      metaEl.textContent = `${labelPath} • ${result.source}`;
+      if(result.source === 'Standardwerte (Fallback)'){
+        metaEl.title = 'Debug-Fallback aktiv: Die Konfigurationsdatei konnte nicht gefunden werden.';
+      }else if(result.path){
+        metaEl.title = `Quelle: ${result.path}`;
+      }else{
+        metaEl.removeAttribute('title');
+      }
+    }
+  }
+
+  async function loadPalette(reason){
+    if(state.disposed) return;
+    if(state.controller){
+      try{ state.controller.abort(); }catch{}
+    }
+    const controller = new AbortController();
+    state.controller = controller;
+    if(statusEl){
+      statusEl.textContent = reason === 'manual' ? 'Aktualisiere Farblayer…' : 'Farblayer werden geladen…';
+    }
+    if(listEl){
+      listEl.innerHTML = '';
+    }
+    try{
+      const result = await fetchPalette(controller.signal, {
+        fileHandle: state.fileHandle,
+        onFileHandleDenied: async () => {
+          state.fileHandle = null;
+          await idbDel(HANDLE_STORAGE_KEY);
+          stopAutoUpdatePolling('error', 'Berechtigung erforderlich.');
+        },
+        onFileHandleError: () => {
+          stopAutoUpdatePolling('error', 'Datei konnte nicht gelesen werden.');
+        },
+        onFileHandleSuccess: handleResult => {
+          state.lastModified = handleResult.lastModified || null;
+          startAutoUpdatePolling();
+        }
+      });
+      if(state.disposed || controller.signal.aborted) return;
+      applyPaletteResult(result);
+      if(state.fileHandle){
+        state.autoState = 'active';
+        state.autoMessage = '';
+      }
+      updateFileDisplay();
+    }catch(err){
+      if(state.disposed || controller.signal.aborted) return;
+      console.warn('[FarblayerViewer] Konnte Farblayer nicht laden:', err);
+      state.items = [];
+      state.layerLookup = new Map();
+      state.groups = BASE_GROUPS.slice();
+      state.groupAssignments = {};
+      renderGroupZones();
+      if(listEl){
+        renderItems(listEl, []);
+      }
+      if(statusEl){
+        statusEl.textContent = 'Farblayer konnten nicht geladen werden.';
+      }
+      if(metaEl){
+        metaEl.textContent = `${CONFIG_PATH} • Keine Daten`;
+        metaEl.removeAttribute('title');
+      }
+    }finally{
+      state.controller = null;
+    }
+  }
+
+  function formatTimestamp(timestamp){
+    if(typeof timestamp !== 'number' || !Number.isFinite(timestamp)) return '';
+    const date = new Date(timestamp);
+    if(Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('de-DE', { hour12: false });
+  }
+
+  function updateFileDisplay(){
+    if(fileLabelEl){
+      if(state.fileHandle){
+        const name = state.fileHandle.name || 'FarblayerConfig.json';
+        fileLabelEl.textContent = `• ${name}`;
+      }else{
+        fileLabelEl.textContent = 'Keine Datei verbunden';
+      }
+    }
+    if(fileNoteEl){
+      let note = '';
+      if(state.fileHandle){
+        if(state.autoState === 'error'){
+          note = state.autoMessage ? `Automatisches Update gestoppt – ${state.autoMessage}` : 'Automatisches Update gestoppt.';
+        }else if(state.autoState === 'paused'){
+          note = 'Automatisches Update pausiert.';
+        }else{
+          const ts = formatTimestamp(state.lastModified);
+          note = ts ? `Automatisches Update aktiv – Stand ${ts}` : 'Automatisches Update aktiv.';
+        }
+      }else if(state.autoState === 'manual'){
+        const ts = formatTimestamp(state.lastModified);
+        note = ts ? `Manuell geladen – Stand ${ts}` : 'Manuell geladene Farblayer.';
+      }else if(state.autoState === 'error'){
+        note = state.autoMessage || 'Datei konnte nicht geladen werden.';
+      }else{
+        note = 'Bitte Farblayer-Datei wählen.';
+      }
+      fileNoteEl.textContent = note;
+    }
+  }
+
+  function clearPolling(){
+    if(state.pollInterval){
+      clearInterval(state.pollInterval);
+      state.pollInterval = null;
+    }
+    state.pollInProgress = false;
+  }
+
+  function stopAutoUpdatePolling(nextState = 'idle', message = ''){
+    clearPolling();
+    state.autoState = nextState;
+    state.autoMessage = message || '';
+    updateFileDisplay();
+  }
+
+  async function pollFileChangesOnce(){
+    if(state.pollInProgress || !state.fileHandle) return;
+    state.pollInProgress = true;
+    try{
+      const file = await state.fileHandle.getFile();
+      const modified = typeof file?.lastModified === 'number' ? file.lastModified : null;
+      if(modified != null){
+        if(state.lastModified == null){
+          state.lastModified = modified;
+          updateFileDisplay();
+        }else if(modified > state.lastModified){
+          state.lastModified = modified;
+          await loadPalette('auto');
+        }
+      }
+    }catch(err){
+      console.warn('[FarblayerViewer] Auto-Update fehlgeschlagen:', err);
+      stopAutoUpdatePolling('error', 'Kein Zugriff auf Farblayer-Datei.');
+    }finally{
+      state.pollInProgress = false;
+    }
+  }
+
+  function startAutoUpdatePolling(){
+    clearPolling();
+    if(!state.fileHandle){
+      stopAutoUpdatePolling('idle');
+      return;
+    }
+    state.autoState = 'active';
+    state.autoMessage = '';
+    state.pollInterval = setInterval(() => { void pollFileChangesOnce(); }, POLL_INTERVAL_MS);
+    void pollFileChangesOnce();
+    updateFileDisplay();
+  }
+
+  async function restoreStoredHandle(){
+    const storedHandle = await idbGet(HANDLE_STORAGE_KEY);
+    if(state.disposed) return;
+    if(!storedHandle){
+      updateFileDisplay();
+      return;
+    }
+    const hasPermission = await ensureReadPermission(storedHandle);
+    if(!hasPermission){
+      await idbDel(HANDLE_STORAGE_KEY);
+      state.fileHandle = null;
+      stopAutoUpdatePolling('idle');
+      return;
+    }
+    state.fileHandle = storedHandle;
+    state.autoState = 'active';
+    state.autoMessage = '';
+    updateFileDisplay();
+  }
+
+  async function bindFileHandle(handle){
+    if(!handle) return;
+    const hasPermission = await ensureReadPermission(handle);
+    if(!hasPermission){
+      flashStatus('Kein Zugriff auf ausgewählte Datei.', { temporary: true });
+      return;
+    }
+    state.fileHandle = handle;
+    state.autoState = 'active';
+    state.autoMessage = '';
+    try{
+      await idbSet(HANDLE_STORAGE_KEY, handle);
+    }catch{}
+    updateFileDisplay();
+    await loadPalette('manual');
+    startAutoUpdatePolling();
+  }
+
+  async function pickConfigFile(){
+    if(typeof window === 'undefined'){
+      flashStatus('Dateiauswahl nicht verfügbar.', { temporary: true });
+      return;
+    }
+    if(window.showOpenFilePicker){
+      try{
+        const handles = await window.showOpenFilePicker({
+          multiple: false,
+          excludeAcceptAllOption: true,
+          types: [{ description: 'Farblayer-Konfiguration', accept: { 'application/json': ['.json'] } }]
+        });
+        const handle = Array.isArray(handles) && handles.length ? handles[0] : null;
+        if(handle){
+          await bindFileHandle(handle);
+        }
+      }catch(err){
+        if(err && err.name === 'AbortError') return;
+        console.warn('[FarblayerViewer] Dateiauswahl fehlgeschlagen:', err);
+        stopAutoUpdatePolling('error', 'Datei konnte nicht ausgewählt werden.');
+      }
+    }else{
+      flashStatus('Dateiauswahl wird nicht unterstützt. Bitte Datei über Arbeitsordner bereitstellen.', { temporary: true });
+    }
+  }
+
+  function handleAddGroup(){
+    if(typeof window === 'undefined') return;
+    const name = window.prompt('Name der neuen Gruppe:', '');
+    if(typeof name !== 'string') return;
+    const trimmed = name.trim();
+    if(!trimmed) return;
+    if(state.groups.includes(trimmed)){
+      flashStatus(`Gruppe "${trimmed}" existiert bereits.`, { temporary: true });
+      return;
+    }
+    state.groups.push(trimmed);
+    persistGroups();
+    renderGroupZones();
+    persistMapping();
+    flashStatus(`Gruppe "${trimmed}" hinzugefügt.`, { temporary: true });
+  }
+
+  function handleRemoveGroup(){
+    if(!state.groups.length){
+      flashStatus('Keine Gruppen zum Entfernen vorhanden.', { temporary: true });
+      return;
+    }
+    if(typeof window === 'undefined') return;
+    const suggestion = state.groups[state.groups.length - 1];
+    const input = window.prompt('Welche Gruppe soll entfernt werden?', suggestion || '');
+    if(typeof input !== 'string') return;
+    const name = input.trim();
+    if(!name) return;
+    if(!state.groups.includes(name)){
+      flashStatus(`Gruppe "${name}" nicht gefunden.`, { temporary: true });
+      return;
+    }
+    state.groups = state.groups.filter(group => group !== name);
+    delete state.groupAssignments[name];
+    renderGroupZones();
+    persistGroups();
+    persistMapping();
+    flashStatus(`Gruppe "${name}" entfernt.`, { temporary: true });
+  }
+
+  renderGroupZones();
+  updateFileDisplay();
+
+  if(openModalBtn){
+    const handleOpen = () => openModal();
+    openModalBtn.addEventListener('click', handleOpen);
+    registerCleanup(() => openModalBtn.removeEventListener('click', handleOpen));
+  }
+
+  if(closeModalTargets.length){
+    closeModalTargets.forEach(target => {
+      const handleClose = event => {
+        event.preventDefault();
+        closeModal();
+      };
+      target.addEventListener('click', handleClose);
+      registerCleanup(() => target.removeEventListener('click', handleClose));
+    });
+  }
+
+  if(modalEl){
+    const escapeHandler = event => {
+      if(event.key === 'Escape' && state.modalOpen){
+        event.preventDefault();
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', escapeHandler);
+    registerCleanup(() => window.removeEventListener('keydown', escapeHandler));
+  }
+
+  if(refreshBtn){
+    const handleRefresh = () => { void loadPalette('manual'); };
+    refreshBtn.addEventListener('click', handleRefresh);
+    registerCleanup(() => refreshBtn.removeEventListener('click', handleRefresh));
+  }
+
+  if(filePickBtn){
+    const handlePick = () => { void pickConfigFile(); };
+    filePickBtn.addEventListener('click', handlePick);
+    registerCleanup(() => filePickBtn.removeEventListener('click', handlePick));
+  }
+
+  if(addGroupBtn){
+    const handleAdd = () => handleAddGroup();
+    addGroupBtn.addEventListener('click', handleAdd);
+    registerCleanup(() => addGroupBtn.removeEventListener('click', handleAdd));
+  }
+
+  if(removeGroupBtn){
+    const handleRemove = () => handleRemoveGroup();
+    removeGroupBtn.addEventListener('click', handleRemove);
+    registerCleanup(() => removeGroupBtn.removeEventListener('click', handleRemove));
+  }
+
+  void (async () => {
+    await restoreStoredHandle();
+    await loadPalette();
+    if(state.fileHandle){
+      startAutoUpdatePolling();
+    }else{
+      updateFileDisplay();
+    }
+  })();
+};
 
 })();
