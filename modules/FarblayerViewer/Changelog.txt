@@ -5,6 +5,22 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.1] – 2025-10-17
+### Added
+- Live-Indikatoren auf allen zuweisbaren Flächen zeigen die zugehörige Funktion inklusive Farbhinterlegung aus dem Farblayer.
+### Changed
+- Die Gruppen-Sidebar blendet sich beim Ziehen einer Kachel aus, damit die Moduloberfläche vollständig sichtbar bleibt.
+- Drag-&-Drop-Kacheln und zuweisbare Bereiche übernehmen direkt die gespeicherten Layer-Farben für bessere Lesbarkeit.
+### Fixed
+- Gruppen-Kacheln lassen sich wieder zuverlässig per Drag-&-Drop bewegen, inklusive verzögerter Sidebar-Animation für stabile Ziehvorgänge.
+
+## [1.5.0] – 2025-10-16
+### Added
+- Neuer zweiphasiger Zuweisungsmodus: Modal → Live-UI
+- Drag-&-Drop zwischen Farblayer-Gruppen und echten Modul-Elementen
+- Sofortige Farbübernahme und persistente Speicherung
+- Test-Hauptoberfläche mit zusätzlichen Überschriften und Buttons direkt im Modul
+
 ## [1.4.0] – 2025-10-16
 ### Added
 - Direktzuweisungsmodus (🧩) zum intuitiven Zuordnen von Buttons und Überschriften.

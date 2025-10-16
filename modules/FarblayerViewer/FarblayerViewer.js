@@ -39,6 +39,362 @@
     }
   };
 
+  const instanceRegistry = new Map();
+
+  function registerFarblayerInstance(moduleName, api){
+    if(!moduleName || !api) return;
+    instanceRegistry.set(moduleName, api);
+  }
+
+  function unregisterFarblayerInstance(moduleName, api){
+    if(!moduleName) return;
+    const current = instanceRegistry.get(moduleName);
+    if(current && (!api || api === current)){
+      instanceRegistry.delete(moduleName);
+    }
+  }
+
+  function getFarblayerInstance(moduleName){
+    if(moduleName && instanceRegistry.has(moduleName)){
+      return instanceRegistry.get(moduleName);
+    }
+    if(instanceRegistry.size === 1){
+      return Array.from(instanceRegistry.values())[0];
+    }
+    return null;
+  }
+
+  function normalizeGroupPayload(groups, instance){
+    const payload = {};
+    const sourceAssignments = instance && typeof instance.getGroupAssignments === 'function'
+      ? instance.getGroupAssignments()
+      : {};
+    if(groups && typeof groups === 'object' && !Array.isArray(groups)){
+      Object.keys(groups).forEach(groupName => {
+        const entry = groups[groupName] || {};
+        const layer = typeof entry === 'string' ? entry : entry.layer;
+        payload[groupName] = { layer: layer || sourceAssignments[groupName] || null };
+      });
+      return payload;
+    }
+    const names = Array.isArray(groups)
+      ? groups.slice()
+      : instance && typeof instance.getGroups === 'function'
+        ? instance.getGroups()
+        : [];
+    names.forEach(groupName => {
+      payload[groupName] = { layer: sourceAssignments[groupName] || null };
+    });
+    return payload;
+  }
+
+  function loadStoredAssignments(moduleName){
+    if(!moduleName || typeof localStorage === 'undefined') return {};
+    try{
+      const stored = localStorage.getItem(`flvElements:${moduleName}`);
+      if(!stored) return {};
+      const parsed = JSON.parse(stored);
+      if(parsed && typeof parsed === 'object'){
+        return parsed;
+      }
+    }catch(err){
+      console.warn('[FarblayerViewer] Konnte gespeicherte Zuweisungen nicht laden:', err);
+    }
+    return {};
+  }
+
+  function assignElementToGroup(moduleName, elementId, groupName){
+    if(!moduleName || !elementId || typeof localStorage === 'undefined') return;
+    let map = {};
+    try{
+      const stored = localStorage.getItem(`flvElements:${moduleName}`);
+      if(stored){
+        const parsed = JSON.parse(stored);
+        if(parsed && typeof parsed === 'object'){
+          map = parsed;
+        }
+      }
+    }catch(err){
+      console.warn('[FarblayerViewer] Konnte Farblayer-Zuordnung nicht lesen:', err);
+    }
+    if(groupName){
+      map[elementId] = groupName;
+    }else{
+      delete map[elementId];
+    }
+    try{
+      localStorage.setItem(`flvElements:${moduleName}`, JSON.stringify(map));
+    }catch(err){
+      console.warn('[FarblayerViewer] Konnte Farblayer-Zuordnung nicht speichern:', err);
+    }
+    return map;
+  }
+
+  function startAssignMode(moduleName, groups){
+    if(typeof document === 'undefined') return;
+    const existingOverlay = document.getElementById('assign-ui-overlay');
+    if(existingOverlay){
+      if(typeof existingOverlay.__cleanupAssignTargets === 'function'){
+        try{ existingOverlay.__cleanupAssignTargets(); }catch{}
+      }
+      existingOverlay.remove();
+    }
+
+    const instance = getFarblayerInstance(moduleName);
+    if(instance && typeof instance.closeModal === 'function'){
+      try{ instance.closeModal({ persist: true }); }catch{}
+    }else{
+      const openModal = document.querySelector('[data-flv-modal].is-open');
+      if(openModal){
+        openModal.classList.remove('is-open');
+      }
+      document.body.classList.remove('flv-modal-open');
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'assign-ui-overlay';
+
+    document.body.classList.add('flv-assign-mode-active');
+
+    const sidebar = document.createElement('div');
+    sidebar.className = 'assign-sidebar';
+
+    const title = document.createElement('h3');
+    title.textContent = 'Gruppen';
+    sidebar.appendChild(title);
+
+    const sidebarList = document.createElement('div');
+    sidebarList.className = 'assign-group-list';
+    sidebar.appendChild(sidebarList);
+
+    const exitBtn = document.createElement('button');
+    exitBtn.id = 'exit-assign';
+    exitBtn.textContent = 'Zurück';
+    sidebar.appendChild(exitBtn);
+
+    overlay.appendChild(sidebar);
+    document.body.appendChild(overlay);
+
+    const normalizedGroups = normalizeGroupPayload(groups, instance);
+    const base = typeof window !== 'undefined' ? window.FarblayerBase : null;
+    const getColorForGroup = groupName => {
+      const info = normalizedGroups[groupName];
+      if(!info || !info.layer || !base || typeof base.getLayerColor !== 'function') return null;
+      try{
+        return base.getLayerColor(info.layer);
+      }catch(err){
+        console.warn('[FarblayerViewer] getLayerColor fehlgeschlagen:', err);
+        return null;
+      }
+    };
+
+    Object.keys(normalizedGroups).forEach(groupName => {
+      const card = document.createElement('div');
+      card.className = 'assign-group';
+      card.draggable = true;
+      card.setAttribute('draggable', 'true');
+      card.dataset.group = groupName;
+
+      const swatch = document.createElement('span');
+      swatch.className = 'assign-group-swatch';
+
+      const label = document.createElement('span');
+      label.className = 'assign-group-label';
+      label.textContent = groupName;
+
+      const color = getColorForGroup(groupName);
+      if(color && typeof color === 'object'){
+        if(color.background){
+          card.style.setProperty('--assign-chip-bg', color.background);
+          swatch.style.background = color.background;
+        }
+        if(color.text){
+          card.style.setProperty('--assign-chip-text', color.text);
+        }
+        if(color.border){
+          card.style.setProperty('--assign-chip-border', color.border);
+          swatch.style.borderColor = color.border;
+        }else if(color.background){
+          card.style.setProperty('--assign-chip-border', color.background);
+          swatch.style.borderColor = color.background;
+        }
+        card.dataset.hasColor = 'true';
+      }
+      if(normalizedGroups[groupName] && normalizedGroups[groupName].layer){
+        card.title = `Layer: ${normalizedGroups[groupName].layer}`;
+      }
+
+      card.appendChild(swatch);
+      card.appendChild(label);
+
+      sidebarList.appendChild(card);
+      card.addEventListener('dragstart', event => {
+        if(!event.dataTransfer) return;
+        event.dataTransfer.setData('text/plain', groupName);
+        event.dataTransfer.effectAllowed = 'copyMove';
+        card.dataset.dragging = 'true';
+        requestAnimationFrame(() => {
+          overlay.classList.add('assign-dragging');
+          overlay.dataset.draggingGroup = groupName;
+        });
+      });
+      card.addEventListener('dragend', () => {
+        delete card.dataset.dragging;
+        delete overlay.dataset.draggingGroup;
+        overlay.classList.remove('assign-dragging');
+      });
+    });
+
+    const assignables = Array.from(document.querySelectorAll('[data-assignable]'));
+    const indicatorMap = new Map();
+
+    const applyColorToElement = (element, groupName) => {
+      const color = getColorForGroup(groupName);
+      if(!element) return null;
+      if(groupName){
+        element.dataset.assignedGroup = groupName;
+      }else{
+        delete element.dataset.assignedGroup;
+      }
+      const indicator = indicatorMap.get(element);
+      if(indicator){
+        indicator.textContent = groupName ? groupName : 'Keine Zuweisung';
+        indicator.dataset.active = groupName ? 'true' : 'false';
+      }
+      if(color && typeof color === 'object'){
+        if(color.background){
+          element.style.background = color.background;
+          element.style.setProperty('--assign-target-glow', color.background);
+        }
+        if(color.text){
+          element.style.color = color.text;
+        }
+        if(color.border){
+          element.style.borderColor = color.border;
+        }
+        if(indicator){
+          if(color.background){
+            indicator.style.background = color.background;
+          }
+          if(color.text){
+            indicator.style.color = color.text;
+          }
+          if(color.border){
+            indicator.style.borderColor = color.border;
+          }else if(color.background){
+            indicator.style.borderColor = color.background;
+          }
+        }
+      }else{
+        element.style.background = '';
+        element.style.color = '';
+        element.style.borderColor = '';
+        element.style.removeProperty('--assign-target-glow');
+        if(indicator){
+          indicator.style.background = '';
+          indicator.style.color = '';
+          indicator.style.borderColor = '';
+        }
+      }
+      return color;
+    };
+
+    const cleanupAssignTargets = () => {
+      assignables.forEach(el => {
+        el.classList.remove('assign-target');
+        el.ondragover = null;
+        el.ondrop = null;
+        const indicator = indicatorMap.get(el);
+        if(indicator){
+          indicator.remove();
+          indicatorMap.delete(el);
+        }
+      });
+    };
+
+    const finalizeAssignMode = () => {
+      cleanupAssignTargets();
+      document.body.classList.remove('flv-assign-mode-active');
+    };
+
+    assignables.forEach(el => {
+      el.classList.add('assign-target');
+      let indicator = el.querySelector(':scope > .assign-target-indicator');
+      if(!indicator){
+        indicator = document.createElement('span');
+        indicator.className = 'assign-target-indicator';
+        indicator.textContent = 'Keine Zuweisung';
+        indicator.dataset.active = 'false';
+        el.appendChild(indicator);
+      }
+      indicatorMap.set(el, indicator);
+      el.ondragover = event => {
+        event.preventDefault();
+      };
+      el.ondrop = event => {
+        event.preventDefault();
+        const groupName = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+        if(!groupName) return;
+        if(!el.id){
+          el.id = `flv-el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        }
+        assignElementToGroup(moduleName, el.id, groupName);
+        if(instance && typeof instance.applyExternalElementAssignment === 'function'){
+          instance.applyExternalElementAssignment(el.id, groupName);
+        }
+        applyColorToElement(el, groupName);
+        delete overlay.dataset.draggingGroup;
+        overlay.classList.remove('assign-dragging');
+      };
+    });
+
+    const savedAssignments = loadStoredAssignments(moduleName);
+    Object.entries(savedAssignments).forEach(([elementId, groupName]) => {
+      const element = document.getElementById(elementId);
+      if(element){
+        applyColorToElement(element, groupName);
+      }
+    });
+
+    const handleExit = () => {
+      finalizeAssignMode();
+      overlay.classList.remove('assign-dragging');
+      delete overlay.dataset.draggingGroup;
+      overlay.remove();
+      if(instance && typeof instance.reloadAssignments === 'function'){
+        instance.reloadAssignments();
+      }
+      if(typeof window !== 'undefined' && typeof window.openFarblayerViewer === 'function'){
+        window.openFarblayerViewer(moduleName);
+      }
+    };
+
+    exitBtn.onclick = handleExit;
+    overlay.__cleanupAssignTargets = finalizeAssignMode;
+  }
+
+  if(typeof window !== 'undefined'){
+    window.startAssignMode = startAssignMode;
+    window.assignElementToGroup = assignElementToGroup;
+    window.openFarblayerViewer = function(moduleName){
+      const existingOverlay = document.getElementById('assign-ui-overlay');
+      if(existingOverlay){
+        if(typeof existingOverlay.__cleanupAssignTargets === 'function'){
+          try{ existingOverlay.__cleanupAssignTargets(); }catch{}
+        }
+        existingOverlay.remove();
+      }
+      const instance = getFarblayerInstance(moduleName);
+      if(!instance) return;
+      if(typeof instance.reloadAssignments === 'function'){
+        instance.reloadAssignments();
+      }
+      if(typeof instance.openModal === 'function'){
+        instance.openModal();
+      }
+    };
+  }
+
   function ensureStyles(){
     if(document.getElementById(STYLE_ID)) return;
     const css = `
@@ -103,6 +459,7 @@
     .flv-test-ui{padding:1rem;border-radius:.9rem;border:1px solid rgba(255,255,255,.1);background:rgba(15,23,42,.45);box-shadow:0 10px 24px rgba(15,23,42,.32);display:flex;flex-direction:column;gap:.75rem;min-height:0;}
     .flv-test-ui h2,.flv-test-ui h3{margin:0;}
     .flv-test-ui-buttons,.flv-test-ui-subbuttons{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .flv-test-ui-surface{display:flex;flex-direction:column;gap:.75rem;}
     .flv-dropzone.flash{animation:flash 1s ease;}
     @keyframes flash{0%{box-shadow:0 0 0 3px rgba(255,255,255,.5);}100%{box-shadow:none;}}
     @keyframes flv-fade-in{from{transform:translateY(10px);opacity:0;}to{transform:translateY(0);opacity:1;}}
@@ -112,9 +469,36 @@
     .flv-pop label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
     .flv-pop select{padding:.35rem .5rem;border-radius:.45rem;border:1px solid rgba(255,255,255,.15);background:rgba(15,23,42,.8);color:#f8fafc;}
     .flv-pop button{align-self:flex-end;}
-    #test-module-ui button{background:#1e293b;border:1px solid rgba(255,255,255,.1);color:#f8fafc;padding:.4rem .8rem;border-radius:.4rem;font-size:.9rem;cursor:pointer;transition:background .2s;}
-    #test-module-ui button:hover{background:#334155;}
-    #test-module-ui h2,#test-module-ui h3{margin:0;color:#e2e8f0;}
+    .flv-test-ui-surface button{background:#1e293b;border:1px solid rgba(255,255,255,.1);color:#f8fafc;padding:.4rem .8rem;border-radius:.4rem;font-size:.9rem;cursor:pointer;transition:background .2s;}
+    .flv-test-ui-surface button:hover{background:#334155;}
+    .flv-test-ui-surface h2,.flv-test-ui-surface h3{margin:0;color:#e2e8f0;}
+    .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.5);box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:#f8fafc;}
+    .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.8;}
+    #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.04));color:#0f172a;pointer-events:none;transition:background .2s ease;}
+    #assign-ui-overlay.assign-dragging{background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(14,116,144,.02));}
+    #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(-110%);opacity:0;pointer-events:none;}
+    .assign-sidebar{width:260px;background:rgba(15,23,42,.88);padding:1.1rem 1rem;border-right:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.6rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 16px 40px rgba(15,23,42,.45);transition:transform .18s ease,opacity .18s ease;position:relative;z-index:1;}
+    .assign-sidebar h3{margin:0;font-size:1rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.9;}
+    .assign-group-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.45rem;padding-right:.15rem;}
+    .assign-group{--assign-chip-bg:#1e293b;--assign-chip-text:#f8fafc;--assign-chip-border:rgba(148,163,184,.45);display:flex;align-items:center;gap:.55rem;padding:.55rem .7rem;border:1px solid var(--assign-chip-border);border-radius:.65rem;background:var(--assign-chip-bg);color:var(--assign-chip-text);cursor:grab;box-shadow:0 12px 24px rgba(15,23,42,.35);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease,opacity .15s ease;user-select:none;}
+    .assign-group[data-has-color="true"]{border-color:var(--assign-chip-border);}
+    .assign-group:hover{transform:translateY(-1px);box-shadow:0 16px 32px rgba(15,23,42,.45);}
+    .assign-group:active{cursor:grabbing;transform:scale(.98);}
+    .assign-group[data-dragging="true"]{opacity:.35;}
+    .assign-group-swatch{width:1.4rem;height:1.4rem;border-radius:.45rem;border:2px solid rgba(255,255,255,.2);box-shadow:0 0 0 1px rgba(15,23,42,.4);flex-shrink:0;background:rgba(148,163,184,.35);}
+    .assign-group-label{flex:1;font-weight:600;letter-spacing:.015em;}
+    #exit-assign{margin-top:auto;border-radius:.65rem;border:1px solid rgba(94,234,212,.55);background:rgba(45,212,191,.18);color:#ecfeff;padding:.55rem .75rem;font-weight:600;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,background .15s ease;box-shadow:0 12px 28px rgba(13,148,136,.25);}
+    #exit-assign:hover{background:rgba(94,234,212,.25);transform:translateY(-1px);}
+    #exit-assign:active{transform:scale(.98);}
+    .assign-target{outline:2px dashed rgba(56,189,248,.85);outline-offset:2px;border-radius:.75rem;transition:background .2s,box-shadow .2s,transform .2s;box-shadow:0 0 0 4px rgba(56,189,248,.08);}
+    .assign-target{box-shadow:0 0 0 4px color-mix(in srgb,var(--assign-target-glow,rgba(56,189,248,.6)) 32%,transparent);}
+    .assign-target:hover{background:rgba(56,189,248,.12);transform:translateY(-1px);}
+    .assign-target-indicator{position:absolute;top:0;left:12px;transform:translateY(-60%);padding:.35rem .65rem;border-radius:.65rem;border:1px solid rgba(148,163,184,.55);background:rgba(15,23,42,.82);color:#e2e8f0;font-size:.75rem;font-weight:600;letter-spacing:.02em;box-shadow:0 10px 20px rgba(15,23,42,.35);pointer-events:none;opacity:.45;transition:opacity .18s ease,transform .18s ease,background .18s ease,color .18s ease,border-color .18s ease;text-transform:none;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+    .assign-target-indicator[data-active="true"]{opacity:1;transform:translateY(-90%);}
+    .assign-target-indicator[data-active="false"]{opacity:.4;}
+    body.flv-assign-mode-active [data-assignable]{position:relative;}
+    body.flv-assign-mode-active [data-assignable]::after{content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid rgba(148,163,184,.35);box-shadow:0 10px 24px rgba(15,23,42,.3);pointer-events:none;opacity:.4;transition:opacity .2s;}
+    body.flv-assign-mode-active [data-assignable]:hover::after{opacity:.8;}
     `;
     const style = document.createElement('style');
     style.id = STYLE_ID;
@@ -875,61 +1259,99 @@
     });
   }
 
-  function renderTestUI(container){
+  function renderTestUI(container, options = {}){
     if(!container) return;
-    container.innerHTML = '';
-    const wrapper = document.createElement('div');
-    wrapper.id = 'test-module-ui';
 
-    const title = document.createElement('h2');
-    title.id = 'module-title';
-    title.dataset.assignable = 'true';
-    title.textContent = '⚙️ Modul-Hauptoberfläche';
-    wrapper.appendChild(title);
-
-    const mainButtons = document.createElement('div');
-    mainButtons.className = 'flv-test-ui-buttons';
-    const buttons = [
+    const defaultMainButtons = [
       { id: 'btn-save', label: 'Speichern' },
       { id: 'btn-load', label: 'Laden' },
       { id: 'btn-reset', label: 'Zurücksetzen' }
     ];
-    buttons.forEach(entry => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.id = entry.id;
-      btn.dataset.assignable = 'true';
-      btn.textContent = entry.label;
-      mainButtons.appendChild(btn);
-    });
-    wrapper.appendChild(mainButtons);
-
-    const subtitle = document.createElement('h3');
-    subtitle.id = 'module-subsection';
-    subtitle.dataset.assignable = 'true';
-    subtitle.textContent = 'Unterbereich – Optionen';
-    wrapper.appendChild(subtitle);
-
-    const subButtons = document.createElement('div');
-    subButtons.className = 'flv-test-ui-subbuttons';
-    const subEntries = [
+    const defaultSubButtons = [
       { id: 'btn-option-a', label: 'Option A' },
       { id: 'btn-option-b', label: 'Option B' },
       { id: 'btn-option-c', label: 'Option C' }
     ];
-    subEntries.forEach(entry => {
+
+    const {
+      wrapperId = 'test-module-ui',
+      idPrefix = '',
+      titleText = '⚙️ Modul-Hauptoberfläche',
+      subtitleText = 'Unterbereich – Optionen',
+      statusText = 'Status: bereit',
+      mainButtons = defaultMainButtons,
+      subButtons = defaultSubButtons
+    } = options;
+
+    const resolvedMainButtons = Array.isArray(mainButtons) && mainButtons.length ? mainButtons : defaultMainButtons;
+    const resolvedSubButtons = Array.isArray(subButtons) && subButtons.length ? subButtons : defaultSubButtons;
+    const makeId = base => {
+      if(!base) return '';
+      return idPrefix ? `${idPrefix}-${base}` : base;
+    };
+
+    container.innerHTML = '';
+    const wrapper = document.createElement('div');
+    if(wrapperId){
+      wrapper.id = wrapperId;
+    }
+    wrapper.className = 'flv-test-ui-surface';
+
+    const title = document.createElement('h2');
+    const titleId = makeId('module-title');
+    if(titleId){
+      title.id = titleId;
+    }
+    title.dataset.assignable = 'true';
+    title.textContent = titleText;
+    wrapper.appendChild(title);
+
+    const mainButtonsEl = document.createElement('div');
+    mainButtonsEl.className = 'flv-test-ui-buttons';
+    resolvedMainButtons.forEach(entry => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.id = entry.id;
+      const btnId = makeId(entry && entry.id ? entry.id : '');
+      if(btnId){
+        btn.id = btnId;
+      }
       btn.dataset.assignable = 'true';
-      btn.textContent = entry.label;
-      subButtons.appendChild(btn);
+      btn.textContent = entry && entry.label ? entry.label : (entry && entry.id ? entry.id : 'Aktion');
+      mainButtonsEl.appendChild(btn);
     });
-    wrapper.appendChild(subButtons);
+    wrapper.appendChild(mainButtonsEl);
+
+    const subtitle = document.createElement('h3');
+    const subtitleId = makeId('module-subsection');
+    if(subtitleId){
+      subtitle.id = subtitleId;
+    }
+    subtitle.dataset.assignable = 'true';
+    subtitle.textContent = subtitleText;
+    wrapper.appendChild(subtitle);
+
+    const subButtonsEl = document.createElement('div');
+    subButtonsEl.className = 'flv-test-ui-subbuttons';
+    resolvedSubButtons.forEach(entry => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const btnId = makeId(entry && entry.id ? entry.id : '');
+      if(btnId){
+        btn.id = btnId;
+      }
+      btn.dataset.assignable = 'true';
+      btn.textContent = entry && entry.label ? entry.label : (entry && entry.id ? entry.id : 'Aktion');
+      subButtonsEl.appendChild(btn);
+    });
+    wrapper.appendChild(subButtonsEl);
 
     const status = document.createElement('p');
-    status.id = 'status-label';
-    status.textContent = 'Status: bereit';
+    const statusId = makeId('status-label');
+    if(statusId){
+      status.id = statusId;
+    }
+    status.dataset.assignable = 'true';
+    status.textContent = statusText;
     wrapper.appendChild(status);
 
     container.appendChild(wrapper);
@@ -944,6 +1366,10 @@
   const ELEMENT_STORAGE_PREFIX = 'flvElements:';
 
   root.innerHTML = `
+    <section class="flv-main-preview">
+      <p class="flv-main-preview-note">Nutzen Sie die Testoberfläche, um Farblayer-Gruppen auf reale UI-Elemente zu ziehen und live zu erleben.</p>
+      <div class="flv-test-ui" data-flv-main-ui></div>
+    </section>
     <div class="flv-launch">
       <button class="flv-launch-btn" type="button" data-flv-open-modal>Farblayer-Konfigurator öffnen</button>
     </div>
@@ -1012,11 +1438,34 @@
   const filePickBtn = root.querySelector('[data-flv-file-pick]');
   const addGroupBtn = root.querySelector('[data-flv-add-group]');
   const removeGroupBtn = root.querySelector('[data-flv-remove-group]');
+  const mainTestUIContainer = root.querySelector('[data-flv-main-ui]');
   const testUIContainer = root.querySelector('[data-flv-test-ui]');
   const saveBtn = root.querySelector('[data-flv-save]');
   const cancelBtn = root.querySelector('[data-flv-cancel]');
   const assignModeBtn = root.querySelector('[data-flv-assign-toggle]');
   const assignHintEl = root.querySelector('[data-flv-assign-hint]');
+  const footerActions = root.querySelector('.flv-footer-actions');
+
+  if(mainTestUIContainer){
+    renderTestUI(mainTestUIContainer, {
+      wrapperId: 'test-module-ui-main',
+      idPrefix: 'main',
+      titleText: '🧪 Test-Hauptoberfläche',
+      subtitleText: 'Aktionen & Schnellzugriffe',
+      statusText: 'Status: bereit für Live-Zuweisungen',
+      mainButtons: [
+        { id: 'btn-primary', label: 'Primäraktion' },
+        { id: 'btn-secondary', label: 'Sekundäraktion' },
+        { id: 'btn-ghost', label: 'Geistermodus' },
+        { id: 'btn-danger', label: 'Warnung' }
+      ],
+      subButtons: [
+        { id: 'btn-filter', label: 'Filter anwenden' },
+        { id: 'btn-export', label: 'Exportieren' },
+        { id: 'btn-help', label: 'Hilfe öffnen' }
+      ]
+    });
+  }
 
   if(testUIContainer){
     renderTestUI(testUIContainer);
@@ -1055,6 +1504,47 @@
     elementAssignments: {},
     assignableClickHandler: null
   };
+
+  const instanceApi = {
+    openModal: () => openModal(),
+    closeModal: options => closeModal(options || {}),
+    reloadAssignments: () => {
+      state.elementAssignments = loadElementAssignments();
+      pruneElementAssignments({ persist: false });
+      applyAllElementAssignments();
+    },
+    getGroups: () => state.groups.slice(),
+    getGroupAssignments: () => ({ ...state.groupAssignments }),
+    applyExternalElementAssignment: (elementId, groupName) => {
+      assignElementToGroupInternal(elementId, groupName);
+    }
+  };
+
+  let registeredModuleName = null;
+  function refreshInstanceRegistration(){
+    const key = state.moduleName || 'Farblayer';
+    if(registeredModuleName && registeredModuleName !== key){
+      unregisterFarblayerInstance(registeredModuleName, instanceApi);
+    }
+    registerFarblayerInstance(key, instanceApi);
+    registeredModuleName = key;
+  }
+
+  refreshInstanceRegistration();
+
+  if(footerActions){
+    const assignBtn = document.createElement('button');
+    assignBtn.type = 'button';
+    assignBtn.className = 'flv-action-btn';
+    assignBtn.textContent = '🧩 Zuweisungen bearbeiten';
+    const handleAssign = () => {
+      refreshInstanceRegistration();
+      startAssignMode(state.moduleName, instanceApi.getGroups());
+    };
+    assignBtn.addEventListener('click', handleAssign);
+    footerActions.appendChild(assignBtn);
+    registerCleanup(() => assignBtn.removeEventListener('click', handleAssign));
+  }
 
   function registerCleanup(fn){
     if(typeof fn === 'function'){
@@ -1175,13 +1665,27 @@
     if(!element) return;
     const layerName = state.groupAssignments[groupName];
     const layer = layerName ? getLayerByName(layerName) : null;
+    const base = typeof window !== 'undefined' ? window.FarblayerBase : null;
+    let applied = false;
     if(layer){
       element.style.background = layer.background || '';
       element.style.color = layer.text || '';
-      if(layer.border){
-        element.style.borderColor = layer.border;
+      element.style.borderColor = layer.border || '';
+      applied = true;
+    }else if(layerName && base && typeof base.getLayerColor === 'function'){
+      try{
+        const color = base.getLayerColor(layerName);
+        if(color && typeof color === 'object'){
+          element.style.background = color.background || '';
+          element.style.color = color.text || '';
+          element.style.borderColor = color.border || '';
+          applied = true;
+        }
+      }catch(err){
+        console.warn('[FarblayerViewer] Konnte Layerfarbe nicht abrufen:', err);
       }
-    }else{
+    }
+    if(!applied){
       element.style.background = '';
       element.style.color = '';
       element.style.borderColor = '';
@@ -1260,7 +1764,7 @@
     assignBtn.addEventListener('click', () => {
       const selectedGroup = select.value || '';
       const elementId = ensureElementId(target);
-      assignElementToGroup(elementId, selectedGroup);
+      assignElementToGroupInternal(elementId, selectedGroup);
       closeAssignPopover();
     });
     pop.appendChild(assignBtn);
@@ -1275,7 +1779,7 @@
     state.assignPopoverTarget = target;
   }
 
-  function assignElementToGroup(elementId, groupName){
+  function assignElementToGroupInternal(elementId, groupName){
     if(!elementId) return;
     if(!groupName){
       if(state.elementAssignments[elementId]){
@@ -1391,6 +1895,10 @@
     while(cleanupCallbacks.length){
       const cb = cleanupCallbacks.pop();
       try{ cb(); }catch{}
+    }
+    if(registeredModuleName){
+      unregisterFarblayerInstance(registeredModuleName, instanceApi);
+      registeredModuleName = null;
     }
     document.body.classList.remove('flv-modal-open');
   };
@@ -1625,6 +2133,7 @@
     state.lastSource = result.source;
     state.lastModified = result.lastModified != null ? result.lastModified : state.lastModified;
     state.moduleName = deriveModuleName(result, flattened);
+    refreshInstanceRegistration();
     const storedGroupState = loadStoredGroupState();
     state.groups = storedGroupState.groups;
     state.groupAssignments = storedGroupState.assignments;
