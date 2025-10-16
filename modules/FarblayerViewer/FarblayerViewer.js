@@ -1254,25 +1254,29 @@
       });
     }
 
-    function openModal(){
+    function openModal(focusRef){
       if(!state.modalElement){
         return;
       }
       const alreadyOpen = state.modalOpen;
       state.modalElement.dataset.open = 'true';
       state.modalElement.setAttribute('aria-hidden', 'false');
-      if(alreadyOpen){
-        return;
-      }
       state.modalOpen = true;
-      if(typeof document !== 'undefined'){
-        const active = document.activeElement;
-        state.lastFocusElement = active && typeof active.focus === 'function' ? active : null;
-      }else{
-        state.lastFocusElement = null;
+      if(!alreadyOpen){
+        if(typeof document !== 'undefined'){
+          const active = document.activeElement;
+          state.lastFocusElement = active && typeof active.focus === 'function' ? active : null;
+        }else{
+          state.lastFocusElement = null;
+        }
       }
       closeAllDropdowns();
-      if(state.modalDialog){
+      if(focusRef){
+        setTimeout(() => {
+          openDropdown(focusRef);
+          focusDropdownSelection(focusRef);
+        }, 0);
+      }else if(state.modalDialog && !alreadyOpen){
         const focusTarget = state.modalDialog.querySelector('[data-flv-dropdown-toggle]:not([disabled])');
         if(focusTarget && typeof focusTarget.focus === 'function'){
           setTimeout(() => {
@@ -2080,11 +2084,7 @@
           }
           event.preventDefault();
           event.stopPropagation();
-          const wasOpen = isDropdownOpen(ref);
-          toggleDropdown(ref);
-          if(!wasOpen && isDropdownOpen(ref)){
-            focusDropdownSelection(ref);
-          }
+          openModal(ref);
         });
       }
       const current = normalizeSelectionValue(state.selectedColors[ref.key]);
