@@ -5,6 +5,14 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.0] – 2025-10-16
+### Added
+- Direktzuweisungsmodus (🧩) zum intuitiven Zuordnen von Buttons und Überschriften.
+- Testoberfläche mit Buttons und Unterbereichen für visuelle Farblayer-Tests.
+- Drag-&-Drop-Konfigurator in modaler Ansicht.
+### Changed
+- FarblayerViewer in modales Layout überführt.
+
 ## [1.3.0] – 2025-10-16
 ### Added
 - Drag-&-Drop-Farbkonfigurator ersetzt bisherige Dropdown-Menüs.
