@@ -79,7 +79,6 @@
     .flv-dropdown-option-button[data-empty="true"]{border-style:dashed;border-color:rgba(148,163,184,.45);background:rgba(148,163,184,.12);box-shadow:none;color:rgba(248,250,252,.8);}
     .flv-dropdown-option-button-text{pointer-events:none;}
     .flv-dropdown-option-details{display:flex;flex-direction:column;gap:.25rem;font-size:.76rem;line-height:1.35;}
-    .flv-dropdown-option-name{font-weight:600;font-size:.82rem;letter-spacing:.01em;}
     .flv-title{font-size:1.1rem;font-weight:700;letter-spacing:.015em;}
     .flv-meta{font-size:.82rem;opacity:.8;}
     .flv-status{min-height:1.1rem;font-size:.85rem;opacity:.9;}
@@ -1257,19 +1256,15 @@
       previewWrapper.appendChild(previewButton);
       option.appendChild(previewWrapper);
 
-      const details = document.createElement('div');
-      details.className = 'flv-dropdown-option-details';
-      const nameRow = document.createElement('div');
-      nameRow.className = 'flv-dropdown-option-name';
-      nameRow.textContent = optionData.label || optionData.name || ref.label;
-      details.appendChild(nameRow);
       if(!optionData.background && !optionData.text && !optionData.border){
+        const details = document.createElement('div');
+        details.className = 'flv-dropdown-option-details';
         const span = document.createElement('span');
         span.textContent = 'Standardfarben verwenden';
         span.style.opacity = '.82';
         details.appendChild(span);
+        option.appendChild(details);
       }
-      option.appendChild(details);
 
       option.addEventListener('click', event => {
         event.preventDefault();
