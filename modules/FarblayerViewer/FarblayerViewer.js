@@ -80,7 +80,6 @@
     .flv-dropdown-option-button-text{pointer-events:none;}
     .flv-dropdown-option-details{display:flex;flex-direction:column;gap:.25rem;font-size:.76rem;line-height:1.35;}
     .flv-dropdown-option-name{font-weight:600;font-size:.82rem;letter-spacing:.01em;}
-    .flv-dropdown-option-values{display:flex;flex-wrap:wrap;gap:.35rem;opacity:.82;font-family:var(--mono-font,"JetBrains Mono",Menlo,Consolas,monospace);font-size:.7rem;}
     .flv-title{font-size:1.1rem;font-weight:700;letter-spacing:.015em;}
     .flv-meta{font-size:.82rem;opacity:.8;}
     .flv-status{min-height:1.1rem;font-size:.85rem;opacity:.9;}
@@ -1264,30 +1263,12 @@
       nameRow.className = 'flv-dropdown-option-name';
       nameRow.textContent = optionData.label || optionData.name || ref.label;
       details.appendChild(nameRow);
-      const valuesRow = document.createElement('div');
-      valuesRow.className = 'flv-dropdown-option-values';
-      const valueEntries = [];
-      if(optionData.background){
-        valueEntries.push(`Hauptfarbe: ${optionData.background}`);
-      }
-      if(optionData.text){
-        valueEntries.push(`Textfarbe: ${optionData.text}`);
-      }
-      if(optionData.border){
-        valueEntries.push(`Rahmenfarbe: ${optionData.border}`);
-      }
-      if(valueEntries.length === 0){
+      if(!optionData.background && !optionData.text && !optionData.border){
         const span = document.createElement('span');
         span.textContent = 'Standardfarben verwenden';
-        valuesRow.appendChild(span);
-      }else{
-        valueEntries.forEach(entry => {
-          const span = document.createElement('span');
-          span.textContent = entry;
-          valuesRow.appendChild(span);
-        });
+        span.style.opacity = '.82';
+        details.appendChild(span);
       }
-      details.appendChild(valuesRow);
       option.appendChild(details);
 
       option.addEventListener('click', event => {
