@@ -368,6 +368,7 @@
     .flv-test-ui{padding:1rem;border-radius:.9rem;border:1px solid rgba(255,255,255,.1);background:rgba(15,23,42,.45);box-shadow:0 10px 24px rgba(15,23,42,.32);display:flex;flex-direction:column;gap:.75rem;min-height:0;}
     .flv-test-ui h2,.flv-test-ui h3{margin:0;}
     .flv-test-ui-buttons,.flv-test-ui-subbuttons{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .flv-test-ui-surface{display:flex;flex-direction:column;gap:.75rem;}
     .flv-dropzone.flash{animation:flash 1s ease;}
     @keyframes flash{0%{box-shadow:0 0 0 3px rgba(255,255,255,.5);}100%{box-shadow:none;}}
     @keyframes flv-fade-in{from{transform:translateY(10px);opacity:0;}to{transform:translateY(0);opacity:1;}}
@@ -377,9 +378,11 @@
     .flv-pop label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
     .flv-pop select{padding:.35rem .5rem;border-radius:.45rem;border:1px solid rgba(255,255,255,.15);background:rgba(15,23,42,.8);color:#f8fafc;}
     .flv-pop button{align-self:flex-end;}
-    #test-module-ui button{background:#1e293b;border:1px solid rgba(255,255,255,.1);color:#f8fafc;padding:.4rem .8rem;border-radius:.4rem;font-size:.9rem;cursor:pointer;transition:background .2s;}
-    #test-module-ui button:hover{background:#334155;}
-    #test-module-ui h2,#test-module-ui h3{margin:0;color:#e2e8f0;}
+    .flv-test-ui-surface button{background:#1e293b;border:1px solid rgba(255,255,255,.1);color:#f8fafc;padding:.4rem .8rem;border-radius:.4rem;font-size:.9rem;cursor:pointer;transition:background .2s;}
+    .flv-test-ui-surface button:hover{background:#334155;}
+    .flv-test-ui-surface h2,.flv-test-ui-surface h3{margin:0;color:#e2e8f0;}
+    .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.5);box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:#f8fafc;}
+    .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.8;}
     #assign-ui-overlay{position:fixed;inset:0;background:rgba(15,23,42,.9);color:white;display:flex;z-index:9999;pointer-events:none;}
     .assign-sidebar{width:220px;background:rgba(30,41,59,.95);padding:1rem;border-right:1px solid #334155;display:flex;flex-direction:column;gap:.5rem;pointer-events:auto;}
     .assign-group-list{flex:1;overflow:auto;display:flex;flex-direction:column;}
@@ -1147,61 +1150,99 @@
     });
   }
 
-  function renderTestUI(container){
+  function renderTestUI(container, options = {}){
     if(!container) return;
-    container.innerHTML = '';
-    const wrapper = document.createElement('div');
-    wrapper.id = 'test-module-ui';
 
-    const title = document.createElement('h2');
-    title.id = 'module-title';
-    title.dataset.assignable = 'true';
-    title.textContent = '⚙️ Modul-Hauptoberfläche';
-    wrapper.appendChild(title);
-
-    const mainButtons = document.createElement('div');
-    mainButtons.className = 'flv-test-ui-buttons';
-    const buttons = [
+    const defaultMainButtons = [
       { id: 'btn-save', label: 'Speichern' },
       { id: 'btn-load', label: 'Laden' },
       { id: 'btn-reset', label: 'Zurücksetzen' }
     ];
-    buttons.forEach(entry => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.id = entry.id;
-      btn.dataset.assignable = 'true';
-      btn.textContent = entry.label;
-      mainButtons.appendChild(btn);
-    });
-    wrapper.appendChild(mainButtons);
-
-    const subtitle = document.createElement('h3');
-    subtitle.id = 'module-subsection';
-    subtitle.dataset.assignable = 'true';
-    subtitle.textContent = 'Unterbereich – Optionen';
-    wrapper.appendChild(subtitle);
-
-    const subButtons = document.createElement('div');
-    subButtons.className = 'flv-test-ui-subbuttons';
-    const subEntries = [
+    const defaultSubButtons = [
       { id: 'btn-option-a', label: 'Option A' },
       { id: 'btn-option-b', label: 'Option B' },
       { id: 'btn-option-c', label: 'Option C' }
     ];
-    subEntries.forEach(entry => {
+
+    const {
+      wrapperId = 'test-module-ui',
+      idPrefix = '',
+      titleText = '⚙️ Modul-Hauptoberfläche',
+      subtitleText = 'Unterbereich – Optionen',
+      statusText = 'Status: bereit',
+      mainButtons = defaultMainButtons,
+      subButtons = defaultSubButtons
+    } = options;
+
+    const resolvedMainButtons = Array.isArray(mainButtons) && mainButtons.length ? mainButtons : defaultMainButtons;
+    const resolvedSubButtons = Array.isArray(subButtons) && subButtons.length ? subButtons : defaultSubButtons;
+    const makeId = base => {
+      if(!base) return '';
+      return idPrefix ? `${idPrefix}-${base}` : base;
+    };
+
+    container.innerHTML = '';
+    const wrapper = document.createElement('div');
+    if(wrapperId){
+      wrapper.id = wrapperId;
+    }
+    wrapper.className = 'flv-test-ui-surface';
+
+    const title = document.createElement('h2');
+    const titleId = makeId('module-title');
+    if(titleId){
+      title.id = titleId;
+    }
+    title.dataset.assignable = 'true';
+    title.textContent = titleText;
+    wrapper.appendChild(title);
+
+    const mainButtonsEl = document.createElement('div');
+    mainButtonsEl.className = 'flv-test-ui-buttons';
+    resolvedMainButtons.forEach(entry => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.id = entry.id;
+      const btnId = makeId(entry && entry.id ? entry.id : '');
+      if(btnId){
+        btn.id = btnId;
+      }
       btn.dataset.assignable = 'true';
-      btn.textContent = entry.label;
-      subButtons.appendChild(btn);
+      btn.textContent = entry && entry.label ? entry.label : (entry && entry.id ? entry.id : 'Aktion');
+      mainButtonsEl.appendChild(btn);
     });
-    wrapper.appendChild(subButtons);
+    wrapper.appendChild(mainButtonsEl);
+
+    const subtitle = document.createElement('h3');
+    const subtitleId = makeId('module-subsection');
+    if(subtitleId){
+      subtitle.id = subtitleId;
+    }
+    subtitle.dataset.assignable = 'true';
+    subtitle.textContent = subtitleText;
+    wrapper.appendChild(subtitle);
+
+    const subButtonsEl = document.createElement('div');
+    subButtonsEl.className = 'flv-test-ui-subbuttons';
+    resolvedSubButtons.forEach(entry => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const btnId = makeId(entry && entry.id ? entry.id : '');
+      if(btnId){
+        btn.id = btnId;
+      }
+      btn.dataset.assignable = 'true';
+      btn.textContent = entry && entry.label ? entry.label : (entry && entry.id ? entry.id : 'Aktion');
+      subButtonsEl.appendChild(btn);
+    });
+    wrapper.appendChild(subButtonsEl);
 
     const status = document.createElement('p');
-    status.id = 'status-label';
-    status.textContent = 'Status: bereit';
+    const statusId = makeId('status-label');
+    if(statusId){
+      status.id = statusId;
+    }
+    status.dataset.assignable = 'true';
+    status.textContent = statusText;
     wrapper.appendChild(status);
 
     container.appendChild(wrapper);
@@ -1216,6 +1257,10 @@
   const ELEMENT_STORAGE_PREFIX = 'flvElements:';
 
   root.innerHTML = `
+    <section class="flv-main-preview">
+      <p class="flv-main-preview-note">Nutzen Sie die Testoberfläche, um Farblayer-Gruppen auf reale UI-Elemente zu ziehen und live zu erleben.</p>
+      <div class="flv-test-ui" data-flv-main-ui></div>
+    </section>
     <div class="flv-launch">
       <button class="flv-launch-btn" type="button" data-flv-open-modal>Farblayer-Konfigurator öffnen</button>
     </div>
@@ -1284,12 +1329,34 @@
   const filePickBtn = root.querySelector('[data-flv-file-pick]');
   const addGroupBtn = root.querySelector('[data-flv-add-group]');
   const removeGroupBtn = root.querySelector('[data-flv-remove-group]');
+  const mainTestUIContainer = root.querySelector('[data-flv-main-ui]');
   const testUIContainer = root.querySelector('[data-flv-test-ui]');
   const saveBtn = root.querySelector('[data-flv-save]');
   const cancelBtn = root.querySelector('[data-flv-cancel]');
   const assignModeBtn = root.querySelector('[data-flv-assign-toggle]');
   const assignHintEl = root.querySelector('[data-flv-assign-hint]');
   const footerActions = root.querySelector('.flv-footer-actions');
+
+  if(mainTestUIContainer){
+    renderTestUI(mainTestUIContainer, {
+      wrapperId: 'test-module-ui-main',
+      idPrefix: 'main',
+      titleText: '🧪 Test-Hauptoberfläche',
+      subtitleText: 'Aktionen & Schnellzugriffe',
+      statusText: 'Status: bereit für Live-Zuweisungen',
+      mainButtons: [
+        { id: 'btn-primary', label: 'Primäraktion' },
+        { id: 'btn-secondary', label: 'Sekundäraktion' },
+        { id: 'btn-ghost', label: 'Geistermodus' },
+        { id: 'btn-danger', label: 'Warnung' }
+      ],
+      subButtons: [
+        { id: 'btn-filter', label: 'Filter anwenden' },
+        { id: 'btn-export', label: 'Exportieren' },
+        { id: 'btn-help', label: 'Hilfe öffnen' }
+      ]
+    });
+  }
 
   if(testUIContainer){
     renderTestUI(testUIContainer);
