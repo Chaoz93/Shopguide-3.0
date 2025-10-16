@@ -1423,6 +1423,7 @@
                 <button class="flv-group-btn" type="button" data-flv-remove-group data-assignable="true">– Gruppe entfernen</button>
               </div>
               <div class="flv-test-ui" data-flv-test-ui data-assignable="true"></div>
+
             </div>
           </div>
           <div class="flv-footer">
@@ -1457,7 +1458,6 @@
   const addGroupBtn = root.querySelector('[data-flv-add-group]');
   const removeGroupBtn = root.querySelector('[data-flv-remove-group]');
   const mainTestUIContainer = root.querySelector('[data-flv-main-ui]');
-  const testUIContainer = root.querySelector('[data-flv-test-ui]');
   const saveBtn = root.querySelector('[data-flv-save]');
   const cancelBtn = root.querySelector('[data-flv-cancel]');
   const assignModeBtn = root.querySelector('[data-flv-assign-toggle]');
@@ -1483,10 +1483,6 @@
         { id: 'btn-help', label: 'Hilfe öffnen' }
       ]
     });
-  }
-
-  if(testUIContainer){
-    renderTestUI(testUIContainer);
   }
 
   if(assignModeBtn){
