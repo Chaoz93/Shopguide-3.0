@@ -154,6 +154,8 @@
     const overlay = document.createElement('div');
     overlay.id = 'assign-ui-overlay';
 
+    document.body.classList.add('flv-assign-mode-active');
+
     const sidebar = document.createElement('div');
     sidebar.className = 'assign-sidebar';
 
@@ -179,7 +181,39 @@
       card.className = 'assign-group';
       card.draggable = true;
       card.dataset.group = groupName;
-      card.textContent = groupName;
+
+      const swatch = document.createElement('span');
+      swatch.className = 'assign-group-swatch';
+
+      const label = document.createElement('span');
+      label.className = 'assign-group-label';
+      label.textContent = groupName;
+
+      const color = getColorForGroup(groupName);
+      if(color && typeof color === 'object'){
+        if(color.background){
+          card.style.setProperty('--assign-chip-bg', color.background);
+          swatch.style.background = color.background;
+        }
+        if(color.text){
+          card.style.setProperty('--assign-chip-text', color.text);
+        }
+        if(color.border){
+          card.style.setProperty('--assign-chip-border', color.border);
+          swatch.style.borderColor = color.border;
+        }else if(color.background){
+          card.style.setProperty('--assign-chip-border', color.background);
+          swatch.style.borderColor = color.background;
+        }
+        card.dataset.hasColor = 'true';
+      }
+      if(normalizedGroups[groupName] && normalizedGroups[groupName].layer){
+        card.title = `Layer: ${normalizedGroups[groupName].layer}`;
+      }
+
+      card.appendChild(swatch);
+      card.appendChild(label);
+
       sidebarList.appendChild(card);
       card.ondragstart = event => {
         if(!event.dataTransfer) return;
@@ -201,12 +235,45 @@
       }
     };
 
+    const applyColorToElement = (element, groupName) => {
+      const color = getColorForGroup(groupName);
+      if(!element) return null;
+      if(groupName){
+        element.dataset.assignedGroup = groupName;
+      }else{
+        delete element.dataset.assignedGroup;
+      }
+      if(color && typeof color === 'object'){
+        if(color.background){
+          element.style.background = color.background;
+          element.style.setProperty('--assign-target-glow', color.background);
+        }
+        if(color.text){
+          element.style.color = color.text;
+        }
+        if(color.border){
+          element.style.borderColor = color.border;
+        }
+      }else{
+        element.style.background = '';
+        element.style.color = '';
+        element.style.borderColor = '';
+        element.style.removeProperty('--assign-target-glow');
+      }
+      return color;
+    };
+
     const cleanupAssignTargets = () => {
       assignables.forEach(el => {
         el.classList.remove('assign-target');
         el.ondragover = null;
         el.ondrop = null;
       });
+    };
+
+    const finalizeAssignMode = () => {
+      cleanupAssignTargets();
+      document.body.classList.remove('flv-assign-mode-active');
     };
 
     assignables.forEach(el => {
@@ -225,50 +292,20 @@
         if(instance && typeof instance.applyExternalElementAssignment === 'function'){
           instance.applyExternalElementAssignment(el.id, groupName);
         }
-        const color = getColorForGroup(groupName);
-        if(color && typeof color === 'object'){
-          if(color.background){
-            el.style.background = color.background;
-          }
-          if(color.text){
-            el.style.color = color.text;
-          }
-          if(color.border){
-            el.style.borderColor = color.border;
-          }
-        }else{
-          el.style.background = '';
-          el.style.color = '';
-          el.style.borderColor = '';
-        }
+        applyColorToElement(el, groupName);
       };
     });
 
     const savedAssignments = loadStoredAssignments(moduleName);
     Object.entries(savedAssignments).forEach(([elementId, groupName]) => {
       const element = document.getElementById(elementId);
-      const color = getColorForGroup(groupName);
       if(element){
-        if(color && typeof color === 'object'){
-          if(color.background){
-            element.style.background = color.background;
-          }
-          if(color.text){
-            element.style.color = color.text;
-          }
-          if(color.border){
-            element.style.borderColor = color.border;
-          }
-        }else{
-          element.style.background = '';
-          element.style.color = '';
-          element.style.borderColor = '';
-        }
+        applyColorToElement(element, groupName);
       }
     });
 
     const handleExit = () => {
-      cleanupAssignTargets();
+      finalizeAssignMode();
       overlay.remove();
       if(instance && typeof instance.reloadAssignments === 'function'){
         instance.reloadAssignments();
@@ -279,7 +316,7 @@
     };
 
     exitBtn.onclick = handleExit;
-    overlay.__cleanupAssignTargets = cleanupAssignTargets;
+    overlay.__cleanupAssignTargets = finalizeAssignMode;
   }
 
   if(typeof window !== 'undefined'){
@@ -383,13 +420,25 @@
     .flv-test-ui-surface h2,.flv-test-ui-surface h3{margin:0;color:#e2e8f0;}
     .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.5);box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:#f8fafc;}
     .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.8;}
-    #assign-ui-overlay{position:fixed;inset:0;background:rgba(15,23,42,.9);color:white;display:flex;z-index:9999;pointer-events:none;}
-    .assign-sidebar{width:220px;background:rgba(30,41,59,.95);padding:1rem;border-right:1px solid #334155;display:flex;flex-direction:column;gap:.5rem;pointer-events:auto;}
-    .assign-group-list{flex:1;overflow:auto;display:flex;flex-direction:column;}
-    .assign-group{padding:.4rem .6rem;border:1px solid #475569;border-radius:.4rem;background:#1e293b;cursor:grab;margin-bottom:.3rem;transition:background .2s;}
-    .assign-group:hover{background:#334155;}
-    .assign-target{outline:2px dashed #7dd3fc;transition:background .2s;}
-    .assign-target:hover{background:rgba(125,211,252,.15);}
+    #assign-ui-overlay{position:fixed;inset:0;display:flex;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.4),rgba(14,116,144,.18));backdrop-filter:blur(6px);color:#0f172a;pointer-events:none;}
+    .assign-sidebar{width:260px;background:rgba(15,23,42,.88);padding:1.1rem 1rem;border-right:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.6rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 16px 40px rgba(15,23,42,.45);}
+    .assign-sidebar h3{margin:0;font-size:1rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.9;}
+    .assign-group-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.45rem;padding-right:.15rem;}
+    .assign-group{--assign-chip-bg:#1e293b;--assign-chip-text:#f8fafc;--assign-chip-border:rgba(148,163,184,.45);display:flex;align-items:center;gap:.55rem;padding:.55rem .7rem;border:1px solid var(--assign-chip-border);border-radius:.65rem;background:var(--assign-chip-bg);color:var(--assign-chip-text);cursor:grab;box-shadow:0 12px 24px rgba(15,23,42,.35);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease;}
+    .assign-group[data-has-color="true"]{border-color:var(--assign-chip-border);}
+    .assign-group:hover{transform:translateY(-1px);box-shadow:0 16px 32px rgba(15,23,42,.45);}
+    .assign-group:active{cursor:grabbing;transform:scale(.98);}
+    .assign-group-swatch{width:1.4rem;height:1.4rem;border-radius:.45rem;border:2px solid rgba(255,255,255,.2);box-shadow:0 0 0 1px rgba(15,23,42,.4);flex-shrink:0;background:rgba(148,163,184,.35);}
+    .assign-group-label{flex:1;font-weight:600;letter-spacing:.015em;}
+    #exit-assign{margin-top:auto;border-radius:.65rem;border:1px solid rgba(94,234,212,.55);background:rgba(45,212,191,.18);color:#ecfeff;padding:.55rem .75rem;font-weight:600;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,background .15s ease;box-shadow:0 12px 28px rgba(13,148,136,.25);}
+    #exit-assign:hover{background:rgba(94,234,212,.25);transform:translateY(-1px);}
+    #exit-assign:active{transform:scale(.98);}
+    .assign-target{outline:2px dashed rgba(56,189,248,.85);outline-offset:2px;border-radius:.75rem;transition:background .2s,box-shadow .2s,transform .2s;box-shadow:0 0 0 4px rgba(56,189,248,.08);}
+    .assign-target{box-shadow:0 0 0 4px color-mix(in srgb,var(--assign-target-glow,rgba(56,189,248,.6)) 32%,transparent);}
+    .assign-target:hover{background:rgba(56,189,248,.12);transform:translateY(-1px);}
+    body.flv-assign-mode-active [data-assignable]{position:relative;}
+    body.flv-assign-mode-active [data-assignable]::after{content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid rgba(148,163,184,.35);box-shadow:0 10px 24px rgba(15,23,42,.3);pointer-events:none;opacity:.4;transition:opacity .2s;}
+    body.flv-assign-mode-active [data-assignable]:hover::after{opacity:.8;}
     `;
     const style = document.createElement('style');
     style.id = STYLE_ID;
