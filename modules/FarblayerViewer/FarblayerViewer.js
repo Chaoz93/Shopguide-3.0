@@ -42,8 +42,20 @@
   function ensureStyles(){
     if(document.getElementById(STYLE_ID)) return;
     const css = `
-    .flv-root{height:100%;width:100%;box-sizing:border-box;}
-    .flv-surface{height:100%;display:flex;flex-direction:column;gap:1rem;padding:1rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid var(--module-border,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
+    .flv-root{height:100%;width:100%;box-sizing:border-box;position:relative;}
+    .flv-launch{display:flex;align-items:center;justify-content:center;height:100%;}
+    .flv-launch-btn{border:1px solid rgba(255,255,255,.18);border-radius:.85rem;padding:.85rem 1.4rem;font-weight:600;letter-spacing:.02em;background:rgba(15,23,42,.65);color:var(--module-button-text,inherit);box-shadow:0 12px 24px rgba(15,23,42,.45);cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;}
+    .flv-launch-btn:hover{transform:translateY(-1px);box-shadow:0 18px 32px rgba(15,23,42,.55);background:rgba(15,23,42,.72);}
+    .flv-launch-btn:active{transform:scale(.98);}
+    .flv-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:2rem;opacity:0;pointer-events:none;transition:opacity .18s ease;}    
+    .flv-modal.is-open{opacity:1;pointer-events:auto;}
+    .flv-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.72);backdrop-filter:blur(8px);}
+    .flv-modal-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 3rem));height:min(90vh,880px);display:flex;flex-direction:column;}
+    .flv-modal-close{position:absolute;top:.85rem;right:.85rem;border:none;background:rgba(15,23,42,.55);color:#f8fafc;width:2.2rem;height:2.2rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:600;cursor:pointer;box-shadow:0 10px 20px rgba(15,23,42,.45);transition:transform .12s ease,background .12s ease;}
+    .flv-modal-close:hover{transform:scale(1.05);background:rgba(15,23,42,.7);}
+    .flv-modal-close:active{transform:scale(.95);}
+    body.flv-modal-open{overflow:hidden;}
+    .flv-surface{height:100%;display:flex;flex-direction:column;gap:1rem;padding:1.25rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid var(--module-border,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden;}
     .flv-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:1rem;padding:.85rem;border-radius:.9rem;background:var(--module-header-bg,rgba(15,23,42,.35));border:1px solid var(--module-header-border,rgba(255,255,255,.08));color:var(--module-header-text,inherit);backdrop-filter:blur(6px);}
     .flv-header-info{display:flex;flex-direction:column;gap:.35rem;min-width:200px;}
     .flv-title{font-size:1.2rem;font-weight:700;letter-spacing:.015em;}
@@ -851,41 +863,55 @@
     const GROUP_STORAGE_PREFIX = 'farblayerGroups:';
     const MAPPING_STORAGE_PREFIX = 'farblayerMapping:';
     root.innerHTML = `
-      <div class="flv-surface">
-        <div class="flv-header">
-          <div class="flv-header-info">
-            <div class="flv-title">Farblayer-Konfiguration</div>
-            <div class="flv-meta" data-flv-meta>${CONFIG_PATH}</div>
-          </div>
-          <div class="flv-file">
-            <div class="flv-file-label" data-flv-file-label>Keine Datei verbunden</div>
-            <div class="flv-file-note" data-flv-file-note>Bitte Farblayer-Datei wählen.</div>
-            <div class="flv-file-controls">
-              <button class="flv-file-btn" type="button" data-flv-file-pick>Datei wählen</button>
-              <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
+      <div class="flv-launch">
+        <button class="flv-launch-btn" type="button" data-flv-open-modal>Farblayer-Konfigurator öffnen</button>
+      </div>
+      <div class="flv-modal" data-flv-modal>
+        <div class="flv-modal-backdrop" data-flv-close-modal></div>
+        <div class="flv-modal-dialog" role="dialog" aria-modal="true" aria-label="Farblayer-Konfigurator" data-flv-dialog tabindex="-1">
+          <button class="flv-modal-close" type="button" aria-label="Konfigurator schließen" data-flv-close-modal>&times;</button>
+          <div class="flv-surface">
+            <div class="flv-header">
+              <div class="flv-header-info">
+                <div class="flv-title">Farblayer-Konfiguration</div>
+                <div class="flv-meta" data-flv-meta>${CONFIG_PATH}</div>
+              </div>
+              <div class="flv-file">
+                <div class="flv-file-label" data-flv-file-label>Keine Datei verbunden</div>
+                <div class="flv-file-note" data-flv-file-note>Bitte Farblayer-Datei wählen.</div>
+                <div class="flv-file-controls">
+                  <button class="flv-file-btn" type="button" data-flv-file-pick>Datei wählen</button>
+                  <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
+                </div>
+              </div>
+            </div>
+            <div class="flv-body">
+              <div class="flv-left">
+                <div class="flv-left-title">Layer-Bibliothek</div>
+                <div class="flv-layer-list" data-flv-list></div>
+              </div>
+              <div class="flv-right">
+                <div class="flv-right-title">Gruppen-Dropzonen</div>
+                <div class="flv-dropzone-list" data-flv-dropzones></div>
+                <div class="flv-group-actions">
+                  <button class="flv-group-btn" type="button" data-flv-add-group>+ Gruppe hinzufügen</button>
+                  <button class="flv-group-btn" type="button" data-flv-remove-group>– Gruppe entfernen</button>
+                </div>
+              </div>
+            </div>
+            <div class="flv-footer">
+              <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
+              <div class="flv-footer-hint">Tipp: Alt halten, um Layer auf alle Gruppen anzuwenden.</div>
             </div>
           </div>
-        </div>
-        <div class="flv-body">
-          <div class="flv-left">
-            <div class="flv-left-title">Layer-Bibliothek</div>
-            <div class="flv-layer-list" data-flv-list></div>
-          </div>
-          <div class="flv-right">
-            <div class="flv-right-title">Gruppen-Dropzonen</div>
-            <div class="flv-dropzone-list" data-flv-dropzones></div>
-            <div class="flv-group-actions">
-              <button class="flv-group-btn" type="button" data-flv-add-group>+ Gruppe hinzufügen</button>
-              <button class="flv-group-btn" type="button" data-flv-remove-group>– Gruppe entfernen</button>
-            </div>
-          </div>
-        </div>
-        <div class="flv-footer">
-          <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
-          <div class="flv-footer-hint">Tipp: Alt halten, um Layer auf alle Gruppen anzuwenden.</div>
         </div>
       </div>
     `;
+    const cleanupCallbacks = [];
+    const modalEl = root.querySelector('[data-flv-modal]');
+    const modalDialogEl = root.querySelector('[data-flv-dialog]');
+    const openModalBtn = root.querySelector('[data-flv-open-modal]');
+    const closeModalTargets = root.querySelectorAll('[data-flv-close-modal]');
     const listEl = root.querySelector('[data-flv-list]');
     const dropzoneContainer = root.querySelector('[data-flv-dropzones]');
     const statusEl = root.querySelector('[data-flv-status]');
@@ -917,8 +943,41 @@
       groupAssignments: {},
       layerLookup: new Map(),
       moduleName: 'Farblayer',
-      statusResetTimeout: null
+      statusResetTimeout: null,
+      modalOpen: false,
+      lastFocus: null
     };
+
+    function registerCleanup(fn){
+      if(typeof fn === 'function'){
+        cleanupCallbacks.push(fn);
+      }
+    }
+
+    function openModal(){
+      if(!modalEl || state.modalOpen) return;
+      state.lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      modalEl.classList.add('is-open');
+      document.body.classList.add('flv-modal-open');
+      state.modalOpen = true;
+      if(modalDialogEl && typeof modalDialogEl.focus === 'function'){
+        try{ modalDialogEl.focus({ preventScroll: true }); }catch{}
+      }
+    }
+
+    function closeModal(options = {}){
+      if(!modalEl || !state.modalOpen) return;
+      modalEl.classList.remove('is-open');
+      document.body.classList.remove('flv-modal-open');
+      state.modalOpen = false;
+      if(options.persist !== false){
+        persistMapping();
+      }
+      if(!options.suppressFocus && state.lastFocus && typeof state.lastFocus.focus === 'function'){
+        try{ state.lastFocus.focus(); }catch{}
+      }
+      state.lastFocus = null;
+    }
 
     root.__flvCleanup = () => {
       state.disposed = true;
@@ -935,6 +994,12 @@
         state.statusResetTimeout = null;
       }
       persistMapping();
+      closeModal({ persist: false, suppressFocus: true });
+      while(cleanupCallbacks.length){
+        const cb = cleanupCallbacks.pop();
+        try{ cb(); }catch{}
+      }
+      document.body.classList.remove('flv-modal-open');
     };
 
     function getModuleKey(){
@@ -1560,18 +1625,56 @@
 
     renderGroupZones();
 
+    if(openModalBtn){
+      const handleOpen = () => openModal();
+      openModalBtn.addEventListener('click', handleOpen);
+      registerCleanup(() => openModalBtn.removeEventListener('click', handleOpen));
+    }
+
+    if(closeModalTargets && closeModalTargets.length){
+      closeModalTargets.forEach(target => {
+        const handleClose = event => {
+          event.preventDefault();
+          closeModal();
+        };
+        target.addEventListener('click', handleClose);
+        registerCleanup(() => target.removeEventListener('click', handleClose));
+      });
+    }
+
+    if(modalEl){
+      const escapeHandler = event => {
+        if(event.key === 'Escape' && state.modalOpen){
+          event.preventDefault();
+          closeModal();
+        }
+      };
+      window.addEventListener('keydown', escapeHandler);
+      registerCleanup(() => window.removeEventListener('keydown', escapeHandler));
+    }
+
     if(refreshBtn){
-      refreshBtn.addEventListener('click', () => { void loadPalette('manual'); });
+      const handleRefresh = () => { void loadPalette('manual'); };
+      refreshBtn.addEventListener('click', handleRefresh);
+      registerCleanup(() => refreshBtn.removeEventListener('click', handleRefresh));
     }
     if(filePickBtn){
-      filePickBtn.addEventListener('click', pickConfigFile);
+      const handlePick = () => { void pickConfigFile(); };
+      filePickBtn.addEventListener('click', handlePick);
+      registerCleanup(() => filePickBtn.removeEventListener('click', handlePick));
     }
     if(addGroupBtn){
-      addGroupBtn.addEventListener('click', handleAddGroup);
+      const handleAdd = () => handleAddGroup();
+      addGroupBtn.addEventListener('click', handleAdd);
+      registerCleanup(() => addGroupBtn.removeEventListener('click', handleAdd));
     }
     if(removeGroupBtn){
-      removeGroupBtn.addEventListener('click', handleRemoveGroup);
+      const handleRemove = () => handleRemoveGroup();
+      removeGroupBtn.addEventListener('click', handleRemove);
+      registerCleanup(() => removeGroupBtn.removeEventListener('click', handleRemove));
     }
+
+    openModal();
 
     void (async () => {
       await restoreStoredHandle();
