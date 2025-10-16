@@ -176,6 +176,18 @@
     document.body.appendChild(overlay);
 
     const normalizedGroups = normalizeGroupPayload(groups, instance);
+    const base = typeof window !== 'undefined' ? window.FarblayerBase : null;
+    const getColorForGroup = groupName => {
+      const info = normalizedGroups[groupName];
+      if(!info || !info.layer || !base || typeof base.getLayerColor !== 'function') return null;
+      try{
+        return base.getLayerColor(info.layer);
+      }catch(err){
+        console.warn('[FarblayerViewer] getLayerColor fehlgeschlagen:', err);
+        return null;
+      }
+    };
+
     Object.keys(normalizedGroups).forEach(groupName => {
       const card = document.createElement('div');
       card.className = 'assign-group';
@@ -223,17 +235,6 @@
     });
 
     const assignables = Array.from(document.querySelectorAll('[data-assignable]'));
-    const base = typeof window !== 'undefined' ? window.FarblayerBase : null;
-    const getColorForGroup = groupName => {
-      const info = normalizedGroups[groupName];
-      if(!info || !info.layer || !base || typeof base.getLayerColor !== 'function') return null;
-      try{
-        return base.getLayerColor(info.layer);
-      }catch(err){
-        console.warn('[FarblayerViewer] getLayerColor fehlgeschlagen:', err);
-        return null;
-      }
-    };
 
     const applyColorToElement = (element, groupName) => {
       const color = getColorForGroup(groupName);
@@ -420,7 +421,7 @@
     .flv-test-ui-surface h2,.flv-test-ui-surface h3{margin:0;color:#e2e8f0;}
     .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.5);box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:#f8fafc;}
     .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.8;}
-    #assign-ui-overlay{position:fixed;inset:0;display:flex;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.4),rgba(14,116,144,.18));backdrop-filter:blur(6px);color:#0f172a;pointer-events:none;}
+    #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.04));color:#0f172a;pointer-events:none;}
     .assign-sidebar{width:260px;background:rgba(15,23,42,.88);padding:1.1rem 1rem;border-right:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.6rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 16px 40px rgba(15,23,42,.45);}
     .assign-sidebar h3{margin:0;font-size:1rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.9;}
     .assign-group-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.45rem;padding-right:.15rem;}
