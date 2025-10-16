@@ -6161,14 +6161,18 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     return candidate;
   }
 
-  function formatColors(colors) {
+  function formatColors(colors, meta = null) {
     const background = hslaOrNull(colors.background) || 'n/a';
     const text = hslaOrNull(colors.text) || 'n/a';
     const border = hslaOrNull(colors.border) || 'n/a';
     if (background === 'n/a' && text === 'n/a' && border === 'n/a') {
       return null;
     }
-    return { background, text, border };
+    const descriptor = { background, text, border };
+    if (meta && typeof meta === 'object' && Object.keys(meta).length) {
+      descriptor.__meta = { ...meta };
+    }
+    return descriptor;
   }
 
   function collectAllLayers() {
@@ -6178,22 +6182,50 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
     const scope = document.querySelector('.module-layer-manager') || document.body;
     if (!scope) return { Standard: standard };
 
-    const registerColors = (rawName, colors, fallback) => {
-      const formatted = formatColors(colors);
+    const registerColors = (rawName, colors, fallback, meta = null) => {
+      const formatted = formatColors(colors, meta);
       if (!formatted) return;
       const uniqueName = ensureUniqueName(rawName, fallback, seenNames);
+      if (!formatted.__meta || typeof formatted.__meta !== 'object') {
+        formatted.__meta = {};
+      }
+      formatted.__meta = {
+        ...formatted.__meta,
+        uniqueName,
+        rawName: typeof rawName === 'string' ? rawName.trim() : '',
+        fallbackName: fallback || ''
+      };
       standard[uniqueName] = formatted;
     };
 
     const layerCards = scope.querySelectorAll('.module-color-layer');
     layerCards.forEach((layerEl, layerIndex) => {
+      const ordinal = layerIndex + 1;
+      const datasetId = typeof layerEl.dataset.id === 'string' ? layerEl.dataset.id.trim() : '';
+      const datasetVar = typeof layerEl.dataset.layerVar === 'string' ? layerEl.dataset.layerVar.trim() : '';
+      const datasetName = typeof layerEl.dataset.layerName === 'string' ? layerEl.dataset.layerName.trim() : '';
+      const layerIdentifier = datasetVar || datasetId || '';
+      const baseMeta = {
+        layerIndex: ordinal,
+        layerId: datasetId || layerIdentifier || '',
+        layerVar: datasetVar || layerIdentifier || '',
+        layerName: datasetName || ''
+      };
       const moduleGroup = layerEl.querySelector('.module-layer-group[data-group="module"]');
       if (moduleGroup) {
         const moduleName = moduleGroup.querySelector('.module-layer-group-title')?.textContent?.trim();
-        registerColors(moduleName, readColorLabels(moduleGroup), `Layer ${layerIndex + 1}`);
+        registerColors(moduleName, readColorLabels(moduleGroup), `Layer ${ordinal}`, {
+          ...baseMeta,
+          type: 'module-main',
+          source: 'module'
+        });
         moduleGroup.querySelectorAll('.module-layer-group--nested').forEach(nested => {
           const nestedName = nested.querySelector('.module-layer-group-title')?.textContent?.trim();
-          registerColors(nestedName, readColorLabels(nested), `Layer ${layerIndex + 1} Bereich`);
+          registerColors(nestedName, readColorLabels(nested), `Layer ${ordinal} Bereich`, {
+            ...baseMeta,
+            type: 'module-nested',
+            source: 'nested'
+          });
         });
       }
 
@@ -6203,7 +6235,12 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
         const fallbackName = subgroup.querySelector('.module-layer-subgroup-title')?.textContent?.trim()
           || `Unter-Layer ${subgroupIndex + 1}`;
         const resolvedName = getInputValue(nameField) || datasetName || fallbackName;
-        registerColors(resolvedName, readColorLabels(subgroup), fallbackName);
+        registerColors(resolvedName, readColorLabels(subgroup), fallbackName, {
+          ...baseMeta,
+          type: 'module-sub',
+          source: 'sub',
+          subIndex: subgroupIndex + 1
+        });
       });
     });
 
@@ -6211,7 +6248,7 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
       scope.querySelectorAll('.module-layer-group, .module-layer-subgroup').forEach(block => {
         const title = block.querySelector('.module-layer-group-title, .module-layer-subgroup-title');
         const name = title ? title.textContent.trim() : '';
-        registerColors(name, readColorLabels(block), 'Layer');
+        registerColors(name, readColorLabels(block), 'Layer', { type: 'generic', source: 'fallback' });
       });
     }
 
