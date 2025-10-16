@@ -8,12 +8,6 @@
   const IDB_STORE = 'fs-handles';
   const HANDLE_STORAGE_KEY = 'farblayerViewer:configHandle';
   const POLL_INTERVAL_MS = 60000;
-  const COLOR_SELECTION_KEY = 'farblayerViewer:colorSelection';
-  const COLOR_CATEGORIES = [
-    { key: 'background', label: 'Hintergrund' },
-    { key: 'header', label: 'Header' },
-    { key: 'buttons', label: 'Buttons' }
-  ];
   const DEFAULT_DEBUG_DATA = {
     'Debug-Standardwerte': {
       'Hauptmodul (Debug)': {
@@ -229,9 +223,10 @@
 
       sidebarList.appendChild(card);
       card.addEventListener('dragstart', event => {
-        if(!event.dataTransfer) return;
-        event.dataTransfer.setData('text/plain', groupName);
-        event.dataTransfer.effectAllowed = 'copyMove';
+        if(event.dataTransfer){
+          event.dataTransfer.setData('text/plain', groupName);
+          event.dataTransfer.effectAllowed = 'copyMove';
+        }
         card.dataset.dragging = 'true';
         requestAnimationFrame(() => {
           overlay.classList.add('assign-dragging');
@@ -302,7 +297,11 @@
     const cleanupAssignTargets = () => {
       assignables.forEach(el => {
         el.classList.remove('assign-target');
+        el.classList.remove('is-dragover');
+        el.classList.remove('flash-success');
         el.ondragover = null;
+        el.ondragenter = null;
+        el.ondragleave = null;
         el.ondrop = null;
         const indicator = indicatorMap.get(el);
         if(indicator){
@@ -331,10 +330,21 @@
       el.ondragover = event => {
         event.preventDefault();
       };
+      el.ondragenter = () => {
+        el.classList.add('is-dragover');
+      };
+      el.ondragleave = () => {
+        el.classList.remove('is-dragover');
+      };
       el.ondrop = event => {
         event.preventDefault();
+        el.classList.remove('is-dragover');
         const groupName = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
-        if(!groupName) return;
+        if(!groupName){
+          delete overlay.dataset.draggingGroup;
+          overlay.classList.remove('assign-dragging');
+          return;
+        }
         if(!el.id){
           el.id = `flv-el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
         }
@@ -342,9 +352,14 @@
         if(instance && typeof instance.applyExternalElementAssignment === 'function'){
           instance.applyExternalElementAssignment(el.id, groupName);
         }
-        applyColorToElement(el, groupName);
+        const appliedColor = applyColorToElement(el, groupName);
+        if(appliedColor && appliedColor.background){
+          el.style.background = appliedColor.background;
+        }
         delete overlay.dataset.draggingGroup;
         overlay.classList.remove('assign-dragging');
+        el.classList.add('flash-success');
+        setTimeout(() => el.classList.remove('flash-success'), 700);
       };
     });
 
@@ -400,15 +415,15 @@
     const css = `
     .flv-root{height:100%;width:100%;box-sizing:border-box;position:relative;}
     .flv-launch{display:flex;align-items:center;justify-content:center;height:100%;}
-    .flv-launch-btn{border:1px solid rgba(255,255,255,.18);border-radius:.85rem;padding:.85rem 1.4rem;font-weight:600;letter-spacing:.02em;background:rgba(15,23,42,.65);color:var(--module-button-text,inherit);box-shadow:0 12px 24px rgba(15,23,42,.45);cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;}
-    .flv-launch-btn:hover{transform:translateY(-1px);box-shadow:0 18px 32px rgba(15,23,42,.55);background:rgba(15,23,42,.72);}
+    .flv-launch-btn{border:1px solid var(--module-button-border,rgba(255,255,255,.18));border-radius:.85rem;padding:.85rem 1.4rem;font-weight:600;letter-spacing:.02em;background:var(--module-button-bg,rgba(15,23,42,.65));color:var(--module-button-text,inherit);box-shadow:0 12px 24px rgba(15,23,42,.45);cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;}
+    .flv-launch-btn:hover{transform:translateY(-1px);box-shadow:0 18px 32px rgba(15,23,42,.55);background:var(--module-button-bg-hover,rgba(15,23,42,.72));}
     .flv-launch-btn:active{transform:scale(.98);}
     .flv-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:2rem;opacity:0;pointer-events:none;transition:opacity .18s ease;}
     .flv-modal.is-open{opacity:1;pointer-events:auto;}
     .flv-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.72);backdrop-filter:blur(8px);}
     .flv-modal-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 3rem));height:min(90vh,880px);display:flex;flex-direction:column;animation:flv-fade-in .2s ease;}
-    .flv-modal-close{position:absolute;top:.85rem;right:.85rem;border:none;background:rgba(15,23,42,.55);color:#f8fafc;width:2.2rem;height:2.2rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:600;cursor:pointer;box-shadow:0 10px 20px rgba(15,23,42,.45);transition:transform .12s ease,background .12s ease;}
-    .flv-modal-close:hover{transform:scale(1.05);background:rgba(15,23,42,.7);}
+    .flv-modal-close{position:absolute;top:.85rem;right:.85rem;border:1px solid var(--module-header-border,rgba(255,255,255,.12));background:var(--module-header-bg,rgba(15,23,42,.55));color:var(--module-header-text,#f8fafc);width:2.2rem;height:2.2rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:600;cursor:pointer;box-shadow:0 10px 20px rgba(15,23,42,.45);transition:transform .12s ease,background .12s ease,border-color .12s ease;}
+    .flv-modal-close:hover{transform:scale(1.05);background:var(--module-header-bg-hover,rgba(15,23,42,.7));}
     .flv-modal-close:active{transform:scale(.95);}
     body.flv-modal-open{overflow:hidden;}
     .flv-surface{height:100%;display:flex;flex-direction:column;gap:1rem;padding:1.25rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid var(--module-border,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden;}
@@ -456,12 +471,14 @@
     .flv-action-btn:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.18));}
     .flv-action-btn:active{transform:scale(.97);box-shadow:0 6px 16px rgba(15,23,42,.28);}
     .flv-action-btn[data-active="true"]{border-color:rgba(94,234,212,.65);background:rgba(94,234,212,.12);}
-    .flv-test-ui{padding:1rem;border-radius:.9rem;border:1px solid rgba(255,255,255,.1);background:rgba(15,23,42,.45);box-shadow:0 10px 24px rgba(15,23,42,.32);display:flex;flex-direction:column;gap:.75rem;min-height:0;}
-    .flv-test-ui h2,.flv-test-ui h3{margin:0;}
+    .flv-test-ui{padding:1rem;border-radius:.9rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.1));background:color-mix(in srgb,var(--module-preview-bg,rgba(15,23,42,.45)) 86%, #0f172a 14%);box-shadow:0 10px 24px rgba(15,23,42,.32);display:flex;flex-direction:column;gap:.75rem;min-height:0;color:var(--module-preview-text,#e2e8f0);}
+    .flv-test-ui h2,.flv-test-ui h3{margin:0;color:var(--module-preview-text,#e2e8f0);}
     .flv-test-ui-buttons,.flv-test-ui-subbuttons{display:flex;gap:.5rem;flex-wrap:wrap;}
-    .flv-test-ui-surface{display:flex;flex-direction:column;gap:.75rem;}
+    .flv-test-ui-surface{display:flex;flex-direction:column;gap:.75rem;background:var(--module-preview-surface-bg,rgba(15,23,42,.45));border:1px solid var(--module-preview-surface-border,rgba(255,255,255,.1));border-radius:.9rem;padding:1rem;box-shadow:0 10px 24px rgba(15,23,42,.32);color:var(--module-preview-text,#e2e8f0);}
     .flv-dropzone.flash{animation:flash 1s ease;}
     @keyframes flash{0%{box-shadow:0 0 0 3px rgba(255,255,255,.5);}100%{box-shadow:none;}}
+    @keyframes flash-success{0%{box-shadow:0 0 0 4px rgba(94,234,212,.5);}100%{box-shadow:none;}}
+    .assign-target.flash-success{animation:flash-success .7s ease-out;}
     @keyframes flv-fade-in{from{transform:translateY(10px);opacity:0;}to{transform:translateY(0);opacity:1;}}
     .flv-assign-highlight{outline:2px dashed rgba(94,234,212,.8);cursor:crosshair;position:relative;}
     .flv-assign-highlight::after{content:'🧩';position:absolute;top:-8px;right:-8px;background:rgba(15,23,42,.7);color:#fff;border-radius:50%;width:18px;height:18px;text-align:center;font-size:12px;line-height:18px;}
@@ -469,20 +486,20 @@
     .flv-pop label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
     .flv-pop select{padding:.35rem .5rem;border-radius:.45rem;border:1px solid rgba(255,255,255,.15);background:rgba(15,23,42,.8);color:#f8fafc;}
     .flv-pop button{align-self:flex-end;}
-    .flv-test-ui-surface button{background:#1e293b;border:1px solid rgba(255,255,255,.1);color:#f8fafc;padding:.4rem .8rem;border-radius:.4rem;font-size:.9rem;cursor:pointer;transition:background .2s;}
-    .flv-test-ui-surface button:hover{background:#334155;}
-    .flv-test-ui-surface h2,.flv-test-ui-surface h3{margin:0;color:#e2e8f0;}
-    .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.5);box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:#f8fafc;}
-    .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.8;}
+    .flv-test-ui-surface button{background:var(--module-button-bg,#1e293b);border:1px solid var(--module-button-border,rgba(255,255,255,.1));color:var(--module-button-text,#f8fafc);padding:.4rem .8rem;border-radius:.4rem;font-size:.9rem;cursor:pointer;transition:background .2s ease,transform .15s ease,box-shadow .15s ease;box-shadow:0 6px 16px rgba(15,23,42,.3);}
+    .flv-test-ui-surface button:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.18));transform:translateY(-1px);}
+    .flv-test-ui-surface button:active{transform:scale(.97);}
+    .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.08));background:var(--module-preview-bg,rgba(15,23,42,.5));box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:var(--module-preview-text,#f8fafc);}
+    .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.82;}
     #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.04));color:#0f172a;pointer-events:none;transition:background .2s ease;}
     #assign-ui-overlay.assign-dragging{background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(14,116,144,.02));}
-    #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(-110%);opacity:0;pointer-events:none;}
-    .assign-sidebar{width:260px;background:rgba(15,23,42,.88);padding:1.1rem 1rem;border-right:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.6rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 16px 40px rgba(15,23,42,.45);transition:transform .18s ease,opacity .18s ease;position:relative;z-index:1;}
+    #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(-110%);opacity:0;}
+    .assign-sidebar{width:260px;background:rgba(15,23,42,.92);padding:1.1rem 1rem;border-right:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.6rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 16px 40px rgba(15,23,42,.45);transform:translateX(0);transition:transform .25s ease,opacity .25s ease;position:relative;z-index:1;}
     .assign-sidebar h3{margin:0;font-size:1rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.9;}
     .assign-group-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.45rem;padding-right:.15rem;}
-    .assign-group{--assign-chip-bg:#1e293b;--assign-chip-text:#f8fafc;--assign-chip-border:rgba(148,163,184,.45);display:flex;align-items:center;gap:.55rem;padding:.55rem .7rem;border:1px solid var(--assign-chip-border);border-radius:.65rem;background:var(--assign-chip-bg);color:var(--assign-chip-text);cursor:grab;box-shadow:0 12px 24px rgba(15,23,42,.35);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease,opacity .15s ease;user-select:none;}
+    .assign-group{--assign-chip-bg:#1e293b;--assign-chip-text:#f8fafc;--assign-chip-border:rgba(148,163,184,.45);display:flex;align-items:center;gap:.55rem;padding:.55rem .7rem;border:1px solid var(--assign-chip-border);border-radius:.65rem;background:var(--assign-chip-bg);color:var(--assign-chip-text);cursor:grab;box-shadow:0 12px 24px rgba(15,23,42,.35);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .2s ease,opacity .15s ease;user-select:none;}
     .assign-group[data-has-color="true"]{border-color:var(--assign-chip-border);}
-    .assign-group:hover{transform:translateY(-1px);box-shadow:0 16px 32px rgba(15,23,42,.45);}
+    .assign-group:hover{transform:translateX(3px);box-shadow:0 16px 32px rgba(15,23,42,.45);background:rgba(30,41,59,.85);}
     .assign-group:active{cursor:grabbing;transform:scale(.98);}
     .assign-group[data-dragging="true"]{opacity:.35;}
     .assign-group-swatch{width:1.4rem;height:1.4rem;border-radius:.45rem;border:2px solid rgba(255,255,255,.2);box-shadow:0 0 0 1px rgba(15,23,42,.4);flex-shrink:0;background:rgba(148,163,184,.35);}
@@ -490,8 +507,8 @@
     #exit-assign{margin-top:auto;border-radius:.65rem;border:1px solid rgba(94,234,212,.55);background:rgba(45,212,191,.18);color:#ecfeff;padding:.55rem .75rem;font-weight:600;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,background .15s ease;box-shadow:0 12px 28px rgba(13,148,136,.25);}
     #exit-assign:hover{background:rgba(94,234,212,.25);transform:translateY(-1px);}
     #exit-assign:active{transform:scale(.98);}
-    .assign-target{outline:2px dashed rgba(56,189,248,.85);outline-offset:2px;border-radius:.75rem;transition:background .2s,box-shadow .2s,transform .2s;box-shadow:0 0 0 4px rgba(56,189,248,.08);}
-    .assign-target{box-shadow:0 0 0 4px color-mix(in srgb,var(--assign-target-glow,rgba(56,189,248,.6)) 32%,transparent);}
+    .assign-target{outline:2px dashed rgba(56,189,248,.85);outline-offset:2px;border-radius:.75rem;transition:background .2s,box-shadow .2s,transform .2s;box-shadow:0 0 0 4px color-mix(in srgb,var(--assign-target-glow,rgba(56,189,248,.6)) 32%,transparent);}
+    .assign-target.is-dragover{box-shadow:0 0 0 6px color-mix(in srgb,var(--assign-target-glow,rgba(94,234,212,.8)) 50%,transparent);transform:scale(1.03);transition:transform .1s ease,box-shadow .1s ease;}
     .assign-target:hover{background:rgba(56,189,248,.12);transform:translateY(-1px);}
     .assign-target-indicator{position:absolute;top:0;left:12px;transform:translateY(-60%);padding:.35rem .65rem;border-radius:.65rem;border:1px solid rgba(148,163,184,.55);background:rgba(15,23,42,.82);color:#e2e8f0;font-size:.75rem;font-weight:600;letter-spacing:.02em;box-shadow:0 10px 20px rgba(15,23,42,.35);pointer-events:none;opacity:.45;transition:opacity .18s ease,transform .18s ease,background .18s ease,color .18s ease,border-color .18s ease;text-transform:none;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
     .assign-target-indicator[data-active="true"]{opacity:1;transform:translateY(-90%);}
@@ -1296,6 +1313,7 @@
       wrapper.id = wrapperId;
     }
     wrapper.className = 'flv-test-ui-surface';
+    wrapper.dataset.assignable = 'true';
 
     const title = document.createElement('h2');
     const titleId = makeId('module-title');
@@ -1358,27 +1376,27 @@
   }
 
   window.renderFarblayerViewer = function renderFarblayerViewer(root){
-  if(!root) return;
-  ensureStyles();
-  root.classList.add('flv-root');
-  const BASE_GROUPS = ['Hauptoberfläche', 'Header', 'Aktionselemente', 'Unterbereich'];
-  const GROUP_STORAGE_PREFIX = 'flvGroups:';
-  const ELEMENT_STORAGE_PREFIX = 'flvElements:';
+    if(!root) return;
+    ensureStyles();
+    root.classList.add('flv-root');
+    const BASE_GROUPS = ['Hauptoberfläche', 'Header', 'Aktionselemente', 'Unterbereich'];
+    const GROUP_STORAGE_PREFIX = 'flvGroups:';
+    const ELEMENT_STORAGE_PREFIX = 'flvElements:';
 
-  root.innerHTML = `
-    <section class="flv-main-preview">
+    root.innerHTML = `
+    <section class="flv-main-preview" data-assignable="true">
       <p class="flv-main-preview-note">Nutzen Sie die Testoberfläche, um Farblayer-Gruppen auf reale UI-Elemente zu ziehen und live zu erleben.</p>
-      <div class="flv-test-ui" data-flv-main-ui></div>
+      <div class="flv-test-ui" data-flv-main-ui data-assignable="true"></div>
     </section>
     <div class="flv-launch">
-      <button class="flv-launch-btn" type="button" data-flv-open-modal>Farblayer-Konfigurator öffnen</button>
+      <button class="flv-launch-btn" type="button" data-flv-open-modal data-assignable="true">Farblayer-Konfigurator öffnen</button>
     </div>
     <div class="flv-modal" data-flv-modal>
       <div class="flv-modal-backdrop" data-flv-close-modal></div>
       <div class="flv-modal-dialog" role="dialog" aria-modal="true" aria-label="Farblayer-Konfigurator" data-flv-dialog tabindex="-1">
-        <button class="flv-modal-close" type="button" aria-label="Konfigurator schließen" data-flv-close-modal>&times;</button>
-        <div class="flv-surface">
-          <div class="flv-header">
+        <button class="flv-modal-close" type="button" aria-label="Konfigurator schließen" data-flv-close-modal data-assignable="true">&times;</button>
+        <div class="flv-surface" data-assignable="true">
+          <div class="flv-header" data-assignable="true">
             <div class="flv-header-info">
               <div class="flv-title">Farblayer-Konfiguration</div>
               <div class="flv-meta" data-flv-meta>${CONFIG_PATH}</div>
@@ -1387,8 +1405,8 @@
               <div class="flv-file-label" data-flv-file-label>Keine Datei verbunden</div>
               <div class="flv-file-note" data-flv-file-note>Bitte Farblayer-Datei wählen.</div>
               <div class="flv-file-controls">
-                <button class="flv-file-btn" type="button" data-flv-file-pick>Datei wählen</button>
-                <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
+                <button class="flv-file-btn" type="button" data-flv-file-pick data-assignable="true">Datei wählen</button>
+                <button class="flv-refresh" type="button" data-flv-refresh data-assignable="true">Aktualisieren</button>
               </div>
             </div>
           </div>
@@ -1401,9 +1419,11 @@
               <div class="flv-right-title">Gruppen-Dropzonen</div>
               <div class="flv-dropzone-list" data-flv-dropzones></div>
               <div class="flv-group-actions">
-                <button class="flv-group-btn" type="button" data-flv-add-group>+ Gruppe hinzufügen</button>
-                <button class="flv-group-btn" type="button" data-flv-remove-group>– Gruppe entfernen</button>
+                <button class="flv-group-btn" type="button" data-flv-add-group data-assignable="true">+ Gruppe hinzufügen</button>
+                <button class="flv-group-btn" type="button" data-flv-remove-group data-assignable="true">– Gruppe entfernen</button>
               </div>
+              <div class="flv-test-ui" data-flv-test-ui data-assignable="true"></div>
+
             </div>
           </div>
           <div class="flv-footer">
@@ -1412,9 +1432,9 @@
               <div class="flv-footer-hint" data-flv-assign-hint>🧩 Zuweisungsmodus aktiv – klicken Sie auf ein UI-Element, um es einer Gruppe zuzuweisen.</div>
             </div>
             <div class="flv-footer-actions">
-              <button class="flv-action-btn" type="button" data-flv-save>Speichern</button>
-              <button class="flv-action-btn" type="button" data-flv-cancel>Abbrechen</button>
-              <button class="flv-action-btn" type="button" data-flv-assign-toggle>🧩 Zuweisungsmodus</button>
+              <button class="flv-action-btn" type="button" data-flv-save data-assignable="true">Speichern</button>
+              <button class="flv-action-btn" type="button" data-flv-cancel data-assignable="true">Abbrechen</button>
+              <button class="flv-action-btn" type="button" data-flv-assign-toggle data-assignable="true">🧩 Zuweisungsmodus</button>
             </div>
           </div>
         </div>

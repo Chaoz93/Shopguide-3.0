@@ -8,5 +8,6 @@
   "h": 6,
   "settings": {},
   "moduleId": "FarblayerViewer",
-  "version": "1.5.1"
+  "version": "1.7.1",
+  "changelog": "Modulelemente färben jetzt über den Sidebar-Zuweisungsmodus"
 }
