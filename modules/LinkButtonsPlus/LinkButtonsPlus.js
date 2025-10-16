@@ -393,7 +393,11 @@
     const explicitIndex = Number.isFinite(rawValue.index) && rawValue.index > 0 ? Math.floor(rawValue.index) : null;
     const inferredIndex = explicitIndex || inferLayerIndexFromName(identifier);
 
-    return {
+    const meta = rawValue.__meta && typeof rawValue.__meta === 'object'
+      ? { ...rawValue.__meta }
+      : null;
+
+    const entry = {
       name: identifier,
       title,
       displayName: displayName || fallbackName || title,
@@ -404,6 +408,16 @@
       order,
       index: Number.isFinite(inferredIndex) && inferredIndex > 0 ? inferredIndex : null
     };
+
+    if(meta){
+      entry.meta = {
+        ...meta,
+        layerId: meta.layerId || identifier,
+        layerName: meta.layerName || entry.displayName
+      };
+    }
+
+    return entry;
   }
 
   function flattenPaletteSource(source){
@@ -913,7 +927,10 @@
           return 0;
         });
 
-      entries.forEach((entry, idx) => {
+      const primaryEntries = entries.filter(entry => entry?.meta?.type === 'module-main');
+      const usableEntries = primaryEntries.length ? primaryEntries : entries;
+
+      usableEntries.forEach((entry, idx) => {
         const id = sanitizeId(entry?.name) || sanitizeId(entry?.id) || '';
         if(!id || seen.has(id)) return;
         seen.add(id);
@@ -946,6 +963,8 @@
         if(textColor){
           option.style.color = textColor;
         }
+        const borderColor = normalizeColorString(entry?.borderColor, entry?.meta?.borderColor);
+        option.style.border = borderColor ? `2px solid ${borderColor}` : '1px solid rgba(148,163,184,.35)';
         option.style.padding = '4px 8px';
         option.style.borderRadius = '4px';
         select.appendChild(option);
@@ -988,6 +1007,15 @@
         if(resolved.borderColor){
           option.dataset.layerBorder = resolved.borderColor;
         }
+        if(resolved.color){
+          option.style.background = resolved.color;
+        }
+        if(resolved.textColor){
+          option.style.color = resolved.textColor;
+        }
+        option.style.border = resolved.borderColor
+          ? `2px solid ${resolved.borderColor}`
+          : '1px solid rgba(148,163,184,.35)';
         select.appendChild(option);
         builtCount += 1;
       }
@@ -2949,12 +2977,13 @@
       }
 
       function getPreviewForArea(layer, area){
-        if(!layer) return { bg:'', text:'' };
+        if(!layer) return { bg:'', text:'', border:'' };
         const previewEntry = layer.preview?.[area];
         if(previewEntry){
           return {
             bg: previewEntry.bg || '',
-            text: previewEntry.text || ''
+            text: previewEntry.text || '',
+            border: previewEntry.border || layer.preview?.border || ''
           };
         }
         let colors = null;
@@ -2964,17 +2993,19 @@
         const merged = mergeLiveCssColors(layer, colors, area);
         return {
           bg: merged?.bg || '',
-          text: merged?.text || ''
+          text: merged?.text || '',
+          border: merged?.border || ''
         };
       }
 
       function getCssPreview(area, value){
         const index = layerIndexFromValue(value);
-        if(!index) return { bg:'', text:'' };
+        if(!index) return { bg:'', text:'', border:'' };
         const css = getCssColorsForLayer(index, area);
         return {
           bg: css?.bg || '',
-          text: css?.text || ''
+          text: css?.text || '',
+          border: css?.border || ''
         };
       }
 
@@ -2984,6 +3015,7 @@
         if(!normalized){
           option.style.background = '';
           option.style.color = '';
+          option.style.border = '';
           option.style.padding = '4px 8px';
           option.style.borderRadius = '4px';
           return;
@@ -2995,8 +3027,13 @@
         const textColor = preview.text
           || (typeof layer?.moduleText === 'string' && layer.moduleText)
           || (swatch ? '#fff' : '#0f172a');
+        const borderColor = preview.border
+          || (typeof layer?.moduleBorder === 'string' && layer.moduleBorder)
+          || (typeof layer?.borderColor === 'string' && layer.borderColor)
+          || '';
         option.style.background = swatch || '';
         option.style.color = textColor;
+        option.style.border = borderColor ? `2px solid ${borderColor}` : '1px solid rgba(148,163,184,.35)';
         option.style.padding = '4px 8px';
         option.style.borderRadius = '4px';
       }
@@ -3008,6 +3045,7 @@
         if(!value){
           select.style.background = '';
           select.style.color = '';
+          select.style.borderColor = '';
           return;
         }
         const layer = findLayerById(currentLayers, value);
@@ -3018,8 +3056,13 @@
         const textColor = preview.text
           || (typeof layer?.moduleText === 'string' && layer.moduleText)
           || (swatch ? '#fff' : '#0f172a');
+        const borderColor = preview.border
+          || (typeof layer?.moduleBorder === 'string' && layer.moduleBorder)
+          || (typeof layer?.borderColor === 'string' && layer.borderColor)
+          || '';
         select.style.background = swatch || '';
         select.style.color = textColor;
+        select.style.borderColor = borderColor || '';
       }
 
       function populateOptions(layers){
