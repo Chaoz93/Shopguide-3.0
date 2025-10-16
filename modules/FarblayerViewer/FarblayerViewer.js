@@ -906,6 +906,19 @@
           </div>
         </div>
       </div>
+      <div class="flv-modal" data-flv-modal aria-hidden="true">
+        <div class="flv-modal-backdrop" data-flv-modal-close></div>
+        <div class="flv-modal-dialog" data-flv-modal-dialog role="dialog" aria-modal="true" aria-labelledby="flv-modal-title">
+          <div class="flv-modal-header">
+            <div class="flv-modal-title" id="flv-modal-title">Modulfarben auswählen</div>
+            <button type="button" class="flv-modal-close" data-flv-modal-close aria-label="Schließen">×</button>
+          </div>
+          <div class="flv-modal-body">
+            <p class="flv-modal-hint">Wähle für jede Kategorie einen Farblayer. Öffne dieses Menü jederzeit mit einem Rechtsklick auf die Moduloberfläche oder über den Button &bdquo;Modulfarben bearbeiten&ldquo;.</p>
+            ${modalPickerMarkup}
+          </div>
+        </div>
+      </div>
     `;
     const cleanupCallbacks = [];
     const modalEl = root.querySelector('[data-flv-modal]');
@@ -917,11 +930,22 @@
     const statusEl = root.querySelector('[data-flv-status]');
     const refreshBtn = root.querySelector('[data-flv-refresh]');
     const metaEl = root.querySelector('[data-flv-meta]');
+    const categoryRefs = COLOR_CATEGORIES.map(category => ({
+      key: category.key,
+      label: category.label,
+      dropdown: {
+        container: root.querySelector(`[data-flv-dropdown="${category.key}"]`),
+        toggle: root.querySelector(`[data-flv-dropdown-toggle="${category.key}"]`),
+        menu: root.querySelector(`[data-flv-dropdown-menu="${category.key}"]`),
+        labelEl: root.querySelector(`[data-flv-dropdown-label="${category.key}"]`),
+        options: [],
+        selectedOption: null
+      }
+    }));
     const fileLabelEl = root.querySelector('[data-flv-file-label]');
     const fileNoteEl = root.querySelector('[data-flv-file-note]');
     const filePickBtn = root.querySelector('[data-flv-file-pick]');
-    const addGroupBtn = root.querySelector('[data-flv-add-group]');
-    const removeGroupBtn = root.querySelector('[data-flv-remove-group]');
+    const openModalBtn = root.querySelector('[data-flv-open-modal]');
 
     if(typeof root.__flvCleanup === 'function'){
       root.__flvCleanup();
@@ -979,6 +1003,45 @@
       state.lastFocus = null;
     }
 
+      openDropdownKey: null,
+      documentClickHandler: null,
+      documentKeyHandler: null,
+      modalElement: modalEl || null,
+      modalDialog: modalDialogEl || null,
+      modalOpen: false,
+      lastFocusElement: null,
+      surfaceContextHandler: null,
+      modalCloseHandlers: [],
+      modalContextHandler: null
+    };
+    if(surfaceEl){
+      const handleSurfaceContext = event => {
+        event.preventDefault();
+        if(state.disposed){
+          return;
+        }
+        openModal();
+      };
+      surfaceEl.addEventListener('contextmenu', handleSurfaceContext);
+      state.surfaceContextHandler = handleSurfaceContext;
+    }
+    if(state.modalElement){
+      const handleModalContext = event => {
+        event.stopPropagation();
+      };
+      state.modalElement.addEventListener('contextmenu', handleModalContext);
+      state.modalContextHandler = handleModalContext;
+    }
+    if(modalCloseEls.length){
+      state.modalCloseHandlers = modalCloseEls.map(element => {
+        const handler = event => {
+          event.preventDefault();
+          closeModal();
+        };
+        element.addEventListener('click', handler);
+        return { element, handler };
+      });
+    }
     root.__flvCleanup = () => {
       state.disposed = true;
       if(state.controller){
@@ -1000,6 +1063,24 @@
         try{ cb(); }catch{}
       }
       document.body.classList.remove('flv-modal-open');
+      if(surfaceEl && state.surfaceContextHandler){
+        surfaceEl.removeEventListener('contextmenu', state.surfaceContextHandler);
+        state.surfaceContextHandler = null;
+      }
+      if(state.modalElement && state.modalContextHandler){
+        state.modalElement.removeEventListener('contextmenu', state.modalContextHandler);
+        state.modalContextHandler = null;
+      }
+      if(state.modalCloseHandlers && state.modalCloseHandlers.length){
+        state.modalCloseHandlers.forEach(binding => {
+          if(binding && binding.element && binding.handler){
+            binding.element.removeEventListener('click', binding.handler);
+          }
+        });
+        state.modalCloseHandlers = [];
+      }
+      closeModal();
+      state.openDropdownKey = null;
     };
 
     function getModuleKey(){
@@ -1060,6 +1141,29 @@
             }
           });
           return mapping;
+    function ensureDropdownEventBindings(){
+      if(typeof document === 'undefined'){ return; }
+      if(state.documentClickHandler){
+        return;
+      }
+      const handleDocumentClick = event => {
+        const target = event.target;
+        const inside = categoryRefs.some(ref => {
+          const dropdown = ref?.dropdown;
+          return dropdown?.container ? dropdown.container.contains(target) : false;
+        });
+        if(!inside){
+          closeAllDropdowns();
+        }
+      };
+      const handleDocumentKeydown = event => {
+        if(event.key === 'Escape'){
+          if(state.modalOpen){
+            event.preventDefault();
+            closeModal();
+            return;
+          }
+          closeAllDropdowns();
         }
       }catch{}
       return {};
@@ -1095,6 +1199,66 @@
         applyColors(targets, layer);
       }catch(err){
         console.warn('[FarblayerViewer] applyColors fehlgeschlagen:', err);
+    function openModal(focusRef){
+      if(!state.modalElement){
+        return;
+      }
+      const alreadyOpen = state.modalOpen;
+      state.modalElement.dataset.open = 'true';
+      state.modalElement.setAttribute('aria-hidden', 'false');
+      state.modalOpen = true;
+      if(!alreadyOpen){
+        if(typeof document !== 'undefined'){
+          const active = document.activeElement;
+          state.lastFocusElement = active && typeof active.focus === 'function' ? active : null;
+        }else{
+          state.lastFocusElement = null;
+        }
+      }
+      closeAllDropdowns();
+      if(focusRef){
+        setTimeout(() => {
+          openDropdown(focusRef);
+          focusDropdownSelection(focusRef);
+        }, 0);
+      }else if(state.modalDialog && !alreadyOpen){
+        const focusTarget = state.modalDialog.querySelector('[data-flv-dropdown-toggle]:not([disabled])');
+        if(focusTarget && typeof focusTarget.focus === 'function'){
+          setTimeout(() => {
+            try{ focusTarget.focus(); }catch{}
+          }, 0);
+        }
+      }
+    }
+
+    function closeModal(){
+      if(!state.modalElement){
+        return;
+      }
+      const wasOpen = state.modalOpen;
+      state.modalElement.dataset.open = 'false';
+      state.modalElement.setAttribute('aria-hidden', 'true');
+      state.modalOpen = false;
+      closeAllDropdowns();
+      if(wasOpen && state.lastFocusElement && typeof state.lastFocusElement.focus === 'function'){
+        try{ state.lastFocusElement.focus(); }catch{}
+      }
+      state.lastFocusElement = null;
+    }
+
+    function openDropdown(ref){
+      const dropdown = ref?.dropdown;
+      if(!dropdown || !dropdown.container || (dropdown.toggle && dropdown.toggle.disabled)){
+        return;
+      }
+      ensureDropdownEventBindings();
+      closeAllDropdowns(ref);
+      dropdown.container.dataset.open = 'true';
+      if(dropdown.toggle){
+        dropdown.toggle.setAttribute('aria-expanded', 'true');
+      }
+      if(dropdown.menu){
+        dropdown.menu.setAttribute('aria-hidden', 'false');
       }
     }
 
@@ -1156,6 +1320,37 @@
       zone.addEventListener('dragleave', event => {
         if(!zone.contains(event.relatedTarget)){
           removeDragClass();
+
+      return option;
+    }
+
+    function handleDropdownSelection(ref, option){
+      if(!ref || !option){
+        return;
+      }
+      const dropdown = ref.dropdown;
+      if(!dropdown){
+        return;
+      }
+      dropdown.selectedOption = option;
+      updateDropdownSelectionState(ref);
+      const colors = getOptionColors(option);
+      const updated = updateCategoryField(ref, colors);
+      state.selectedColors[ref.key] = updated;
+      persistSelectedColors();
+      applySelectedColors();
+      closeDropdown(ref);
+      if(dropdown.toggle){
+        dropdown.toggle.focus();
+      }
+    }
+
+    function setCategoryDisabled(ref, disabled){
+      const dropdown = ref?.dropdown;
+      if(dropdown){
+        if(dropdown.toggle){
+          dropdown.toggle.disabled = !!disabled;
+          dropdown.toggle.setAttribute('aria-expanded', 'false');
         }
       });
       zone.addEventListener('drop', event => {
@@ -1168,6 +1363,36 @@
         }else{
           assignLayerToGroup(groupName, layerName);
         }
+    }
+
+    function updateCategoryField(ref, overrideColors){
+      if(!ref){
+        return normalizeSelectionValue(null);
+      }
+      const dropdown = ref.dropdown;
+      const option = dropdown ? dropdown.selectedOption : null;
+      const normalizedOverride = normalizeSelectionValue(overrideColors);
+      const hasOverride = !!createSchemeKey(normalizedOverride);
+      const optionValue = option && option.dataset ? option.dataset.value || '' : '';
+      const colors = hasOverride
+        ? normalizedOverride
+        : (optionValue ? getOptionColors(option) : normalizeSelectionValue(null));
+      const hasValue = hasOverride || !!optionValue;
+      const optionName = option ? (option.dataset?.name || option.textContent || '') : '';
+      const displayName = hasValue
+        ? (normalizedOverride.name || optionName || ref.label)
+        : '';
+      if(dropdown){
+        if(dropdown.labelEl){
+          dropdown.labelEl.textContent = displayName || 'Standard';
+        }
+        if(dropdown.toggle){
+          dropdown.toggle.dataset.empty = hasValue ? 'false' : 'true';
+        }
+      }
+      return normalizeSelectionValue({
+        ...colors,
+        name: hasValue ? (displayName || ref.label) : ''
       });
 
       return { zone, layerLabel, preview };
@@ -1658,6 +1883,17 @@
       refreshBtn.addEventListener('click', handleRefresh);
       registerCleanup(() => refreshBtn.removeEventListener('click', handleRefresh));
     }
+      const current = normalizeSelectionValue(state.selectedColors[ref.key]);
+      const updated = updateCategoryField(ref, current);
+      state.selectedColors[ref.key] = updated;
+      setCategoryDisabled(ref, true);
+      updateDropdownSelectionState(ref);
+    });
+
+    if(openModalBtn){
+      openModalBtn.addEventListener('click', () => openModal());
+    }
+
     if(filePickBtn){
       const handlePick = () => { void pickConfigFile(); };
       filePickBtn.addEventListener('click', handlePick);
