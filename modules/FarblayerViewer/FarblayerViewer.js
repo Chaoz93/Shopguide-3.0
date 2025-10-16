@@ -229,9 +229,10 @@
 
       sidebarList.appendChild(card);
       card.addEventListener('dragstart', event => {
-        if(!event.dataTransfer) return;
-        event.dataTransfer.setData('text/plain', groupName);
-        event.dataTransfer.effectAllowed = 'copyMove';
+        if(event.dataTransfer){
+          event.dataTransfer.setData('text/plain', groupName);
+          event.dataTransfer.effectAllowed = 'copyMove';
+        }
         card.dataset.dragging = 'true';
         requestAnimationFrame(() => {
           overlay.classList.add('assign-dragging');
@@ -302,7 +303,11 @@
     const cleanupAssignTargets = () => {
       assignables.forEach(el => {
         el.classList.remove('assign-target');
+        el.classList.remove('is-dragover');
+        el.classList.remove('flash-success');
         el.ondragover = null;
+        el.ondragenter = null;
+        el.ondragleave = null;
         el.ondrop = null;
         const indicator = indicatorMap.get(el);
         if(indicator){
@@ -331,10 +336,21 @@
       el.ondragover = event => {
         event.preventDefault();
       };
+      el.ondragenter = () => {
+        el.classList.add('is-dragover');
+      };
+      el.ondragleave = () => {
+        el.classList.remove('is-dragover');
+      };
       el.ondrop = event => {
         event.preventDefault();
+        el.classList.remove('is-dragover');
         const groupName = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
-        if(!groupName) return;
+        if(!groupName){
+          delete overlay.dataset.draggingGroup;
+          overlay.classList.remove('assign-dragging');
+          return;
+        }
         if(!el.id){
           el.id = `flv-el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
         }
@@ -342,9 +358,14 @@
         if(instance && typeof instance.applyExternalElementAssignment === 'function'){
           instance.applyExternalElementAssignment(el.id, groupName);
         }
-        applyColorToElement(el, groupName);
+        const appliedColor = applyColorToElement(el, groupName);
+        if(appliedColor && appliedColor.background){
+          el.style.background = appliedColor.background;
+        }
         delete overlay.dataset.draggingGroup;
         overlay.classList.remove('assign-dragging');
+        el.classList.add('flash-success');
+        setTimeout(() => el.classList.remove('flash-success'), 700);
       };
     });
 
@@ -462,6 +483,8 @@
     .flv-test-ui-surface{display:flex;flex-direction:column;gap:.75rem;}
     .flv-dropzone.flash{animation:flash 1s ease;}
     @keyframes flash{0%{box-shadow:0 0 0 3px rgba(255,255,255,.5);}100%{box-shadow:none;}}
+    @keyframes flash-success{0%{box-shadow:0 0 0 4px rgba(94,234,212,.5);}100%{box-shadow:none;}}
+    .assign-target.flash-success{animation:flash-success .7s ease-out;}
     @keyframes flv-fade-in{from{transform:translateY(10px);opacity:0;}to{transform:translateY(0);opacity:1;}}
     .flv-assign-highlight{outline:2px dashed rgba(94,234,212,.8);cursor:crosshair;position:relative;}
     .flv-assign-highlight::after{content:'🧩';position:absolute;top:-8px;right:-8px;background:rgba(15,23,42,.7);color:#fff;border-radius:50%;width:18px;height:18px;text-align:center;font-size:12px;line-height:18px;}
@@ -476,13 +499,13 @@
     .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.8;}
     #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.04));color:#0f172a;pointer-events:none;transition:background .2s ease;}
     #assign-ui-overlay.assign-dragging{background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(14,116,144,.02));}
-    #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(-110%);opacity:0;pointer-events:none;}
-    .assign-sidebar{width:260px;background:rgba(15,23,42,.88);padding:1.1rem 1rem;border-right:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.6rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 16px 40px rgba(15,23,42,.45);transition:transform .18s ease,opacity .18s ease;position:relative;z-index:1;}
+    #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(-110%);opacity:0;}
+    .assign-sidebar{width:260px;background:rgba(15,23,42,.92);padding:1.1rem 1rem;border-right:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.6rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 16px 40px rgba(15,23,42,.45);transform:translateX(0);transition:transform .25s ease,opacity .25s ease;position:relative;z-index:1;}
     .assign-sidebar h3{margin:0;font-size:1rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.9;}
     .assign-group-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.45rem;padding-right:.15rem;}
-    .assign-group{--assign-chip-bg:#1e293b;--assign-chip-text:#f8fafc;--assign-chip-border:rgba(148,163,184,.45);display:flex;align-items:center;gap:.55rem;padding:.55rem .7rem;border:1px solid var(--assign-chip-border);border-radius:.65rem;background:var(--assign-chip-bg);color:var(--assign-chip-text);cursor:grab;box-shadow:0 12px 24px rgba(15,23,42,.35);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease,opacity .15s ease;user-select:none;}
+    .assign-group{--assign-chip-bg:#1e293b;--assign-chip-text:#f8fafc;--assign-chip-border:rgba(148,163,184,.45);display:flex;align-items:center;gap:.55rem;padding:.55rem .7rem;border:1px solid var(--assign-chip-border);border-radius:.65rem;background:var(--assign-chip-bg);color:var(--assign-chip-text);cursor:grab;box-shadow:0 12px 24px rgba(15,23,42,.35);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .2s ease,opacity .15s ease;user-select:none;}
     .assign-group[data-has-color="true"]{border-color:var(--assign-chip-border);}
-    .assign-group:hover{transform:translateY(-1px);box-shadow:0 16px 32px rgba(15,23,42,.45);}
+    .assign-group:hover{transform:translateX(3px);box-shadow:0 16px 32px rgba(15,23,42,.45);background:rgba(30,41,59,.85);}
     .assign-group:active{cursor:grabbing;transform:scale(.98);}
     .assign-group[data-dragging="true"]{opacity:.35;}
     .assign-group-swatch{width:1.4rem;height:1.4rem;border-radius:.45rem;border:2px solid rgba(255,255,255,.2);box-shadow:0 0 0 1px rgba(15,23,42,.4);flex-shrink:0;background:rgba(148,163,184,.35);}
@@ -490,8 +513,8 @@
     #exit-assign{margin-top:auto;border-radius:.65rem;border:1px solid rgba(94,234,212,.55);background:rgba(45,212,191,.18);color:#ecfeff;padding:.55rem .75rem;font-weight:600;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,background .15s ease;box-shadow:0 12px 28px rgba(13,148,136,.25);}
     #exit-assign:hover{background:rgba(94,234,212,.25);transform:translateY(-1px);}
     #exit-assign:active{transform:scale(.98);}
-    .assign-target{outline:2px dashed rgba(56,189,248,.85);outline-offset:2px;border-radius:.75rem;transition:background .2s,box-shadow .2s,transform .2s;box-shadow:0 0 0 4px rgba(56,189,248,.08);}
-    .assign-target{box-shadow:0 0 0 4px color-mix(in srgb,var(--assign-target-glow,rgba(56,189,248,.6)) 32%,transparent);}
+    .assign-target{outline:2px dashed rgba(56,189,248,.85);outline-offset:2px;border-radius:.75rem;transition:background .2s,box-shadow .2s,transform .2s;box-shadow:0 0 0 4px color-mix(in srgb,var(--assign-target-glow,rgba(56,189,248,.6)) 32%,transparent);}
+    .assign-target.is-dragover{box-shadow:0 0 0 6px color-mix(in srgb,var(--assign-target-glow,rgba(94,234,212,.8)) 50%,transparent);transform:scale(1.03);transition:transform .1s ease,box-shadow .1s ease;}
     .assign-target:hover{background:rgba(56,189,248,.12);transform:translateY(-1px);}
     .assign-target-indicator{position:absolute;top:0;left:12px;transform:translateY(-60%);padding:.35rem .65rem;border-radius:.65rem;border:1px solid rgba(148,163,184,.55);background:rgba(15,23,42,.82);color:#e2e8f0;font-size:.75rem;font-weight:600;letter-spacing:.02em;box-shadow:0 10px 20px rgba(15,23,42,.35);pointer-events:none;opacity:.45;transition:opacity .18s ease,transform .18s ease,background .18s ease,color .18s ease,border-color .18s ease;text-transform:none;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
     .assign-target-indicator[data-active="true"]{opacity:1;transform:translateY(-90%);}

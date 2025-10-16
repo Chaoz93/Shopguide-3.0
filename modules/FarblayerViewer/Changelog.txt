@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.6.0] – 2025-10-16
+### Improved
+- Sidebar fährt beim Drag smooth ein/aus
+- Drop-Targets heben sich visuell hervor (leuchtender Rahmen)
+- Erfolgreiche Zuordnung pulsiert kurz grünlich
+
 ## [1.5.1] – 2025-10-17
 ### Added
 - Live-Indikatoren auf allen zuweisbaren Flächen zeigen die zugehörige Funktion inklusive Farbhinterlegung aus dem Farblayer.
