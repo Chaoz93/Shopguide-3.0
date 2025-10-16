@@ -9,6 +9,11 @@
   const HANDLE_STORAGE_KEY = 'farblayerViewer:configHandle';
   const POLL_INTERVAL_MS = 60000;
   const COLOR_SELECTION_KEY = 'farblayerViewer:colorSelection';
+  const COLOR_CATEGORIES = [
+    { key: 'background', label: 'Hintergrund' },
+    { key: 'header', label: 'Header' },
+    { key: 'buttons', label: 'Buttons' }
+  ];
   const DEFAULT_DEBUG_DATA = {
     'Debug-Standardwerte': {
       'Hauptmodul (Debug)': {
@@ -39,23 +44,24 @@
     const css = `
     .flv-root{height:100%;width:100%;box-sizing:border-box;}
     .flv-surface{height:100%;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;box-sizing:border-box;color:var(--text-color,#f8fafc);background:var(--module-bg,rgba(15,23,42,.6));border-radius:1.1rem;border:1px solid var(--module-border,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
-    .flv-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;flex-wrap:wrap;}
+    .flv-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;flex-wrap:wrap;padding:.85rem;border-radius:.9rem;background:var(--module-header-bg,transparent);border:1px solid var(--module-header-border,rgba(255,255,255,.08));color:var(--module-header-text,inherit);backdrop-filter:blur(2px);}
     .flv-actions{display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap;justify-content:flex-end;width:100%;}
     .flv-color-picker{display:flex;flex-direction:column;gap:.6rem;min-width:260px;}
     .flv-color-title{font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.85;}
-    .flv-scheme-group{display:flex;flex-direction:column;gap:.55rem;}
-    .flv-scheme-field{position:relative;padding:.65rem;border-radius:.75rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
+    .flv-scheme-group{display:flex;flex-direction:column;gap:.75rem;}
+    .flv-scheme-field{position:relative;padding:.85rem .85rem 1rem;border-radius:.9rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);display:flex;flex-direction:column;gap:.6rem;}
+    .flv-scheme-heading{font-size:.82rem;font-weight:600;letter-spacing:.02em;opacity:.88;text-transform:uppercase;}
     .flv-select-overlay{position:absolute;inset:0;margin:0;padding:0;border:none;opacity:0;cursor:pointer;background:transparent;z-index:2;}
-    .flv-select-overlay:focus-visible + .flv-scheme-preview,
-    .flv-select-overlay:focus-visible ~ .flv-scheme-name{outline:2px solid rgba(148,163,184,.55);outline-offset:4px;}
-    .flv-scheme-preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;}
-    .flv-scheme-column{display:flex;flex-direction:column;gap:.3rem;}
-    .flv-scheme-label{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;opacity:.75;}
-    .flv-scheme-swatch{height:38px;border-radius:.55rem;border:1px solid rgba(255,255,255,.12);background:rgba(148,163,184,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.18);}
-    .flv-scheme-value{font-family:var(--mono-font,"JetBrains Mono",Menlo,Consolas,monospace);font-size:.72rem;opacity:.85;word-break:break-all;}
-    .flv-scheme-name{margin-top:.45rem;font-size:.8rem;font-weight:600;opacity:.9;}
-    .flv-scheme-field[data-empty="true"] .flv-scheme-swatch{border-style:dashed;border-color:rgba(148,163,184,.4);background:rgba(148,163,184,.15);}
-    .flv-scheme-field[data-empty="true"] .flv-scheme-value{opacity:.6;}
+    .flv-select-overlay:focus-visible + .flv-scheme-sample .flv-sample-button{outline:2px solid rgba(148,163,184,.55);outline-offset:4px;}
+    .flv-scheme-sample{display:flex;justify-content:center;}
+    .flv-sample-button{min-height:40px;min-width:180px;max-width:100%;padding:.45rem 1rem;border-radius:.7rem;border:2px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-weight:600;letter-spacing:.01em;box-shadow:0 6px 18px rgba(15,23,42,.35);transition:transform .12s ease,box-shadow .12s ease;background:rgba(15,23,42,.55);color:inherit;text-align:center;}
+    .flv-sample-button:hover{transform:translateY(-1px);}
+    .flv-sample-button[data-empty="true"]{border-style:dashed;border-color:rgba(148,163,184,.45);background:rgba(148,163,184,.12);box-shadow:none;color:rgba(248,250,252,.8);}
+    .flv-sample-button-text{pointer-events:none;}
+    .flv-sample-values{display:flex;flex-direction:column;gap:.3rem;font-family:var(--mono-font,"JetBrains Mono",Menlo,Consolas,monospace);font-size:.72rem;line-height:1.3;word-break:break-all;}
+    .flv-sample-values div{display:flex;justify-content:space-between;gap:.5rem;}
+    .flv-sample-values span:first-child{opacity:.72;text-transform:uppercase;letter-spacing:.08em;font-size:.66rem;}
+    .flv-scheme-field[data-empty="true"] .flv-sample-values{opacity:.65;}
     .flv-scheme-field[data-disabled="true"]{opacity:.6;cursor:not-allowed;}
     .flv-scheme-field[data-disabled="true"] .flv-select-overlay{cursor:not-allowed;}
     .flv-select{min-width:0;width:100%;padding:.45rem .65rem;border-radius:.55rem;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.65);color:inherit;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:border-color .12s ease,box-shadow .12s ease;}
@@ -65,15 +71,15 @@
     .flv-title{font-size:1.1rem;font-weight:700;letter-spacing:.015em;}
     .flv-meta{font-size:.82rem;opacity:.8;}
     .flv-status{min-height:1.1rem;font-size:.85rem;opacity:.9;}
-    .flv-refresh{border:none;border-radius:.65rem;padding:.45rem .95rem;background:var(--module-button-bg,rgba(255,255,255,.14));color:inherit;font-weight:600;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.25);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease;}
+    .flv-refresh{border:1px solid var(--module-button-border,rgba(255,255,255,.16));border-radius:.65rem;padding:.45rem .95rem;background:var(--module-button-bg,rgba(255,255,255,.14));color:var(--module-button-text,inherit);font-weight:600;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.25);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease,border-color .12s ease;}
     .flv-refresh:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.2));}
     .flv-refresh:active{transform:scale(.97);box-shadow:0 6px 18px rgba(15,23,42,.3);}
     .flv-file{display:flex;flex-direction:column;gap:.35rem;min-width:220px;}
     .flv-file-label{font-size:.9rem;font-weight:600;}
     .flv-file-note{font-size:.78rem;opacity:.8;min-height:1rem;}
     .flv-file-controls{display:flex;gap:.5rem;flex-wrap:wrap;}
-    .flv-file-btn{border:none;border-radius:.6rem;padding:.45rem .85rem;font-weight:600;cursor:pointer;background:rgba(255,255,255,.14);color:inherit;box-shadow:0 6px 16px rgba(15,23,42,.18);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease;}
-    .flv-file-btn:hover{background:rgba(255,255,255,.22);}
+    .flv-file-btn{border:1px solid var(--module-button-border,rgba(255,255,255,.16));border-radius:.6rem;padding:.45rem .85rem;font-weight:600;cursor:pointer;background:var(--module-button-bg,rgba(255,255,255,.14));color:var(--module-button-text,inherit);box-shadow:0 6px 16px rgba(15,23,42,.18);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease,border-color .12s ease;}
+    .flv-file-btn:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.22));}
     .flv-file-btn:active{transform:scale(.97);box-shadow:0 6px 16px rgba(15,23,42,.25);}
     .flv-list{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem;overflow:auto;padding:.15rem;}
     .flv-item{background:rgba(15,23,42,.45);border-radius:.95rem;padding:.75rem;display:flex;flex-direction:column;gap:.65rem;border:1px solid rgba(255,255,255,.06);box-shadow:0 12px 28px rgba(15,23,42,.35);}
@@ -880,6 +886,24 @@
     if(!root) return;
     ensureStyles();
     root.classList.add('flv-root');
+    const colorPickerMarkup = COLOR_CATEGORIES.map(category => `
+              <div class="flv-scheme-field" data-flv-schema-field="${category.key}" data-empty="true">
+                <select class="flv-select flv-select-overlay" data-flv-color="${category.key}" aria-label="${category.label}">
+                  <option value="">Standard</option>
+                </select>
+                <div class="flv-scheme-heading">${category.label}</div>
+                <div class="flv-scheme-sample">
+                  <div class="flv-sample-button" data-flv-preview="${category.key}" data-empty="true">
+                    <span class="flv-sample-button-text" data-flv-preview-text="${category.key}">${category.label}</span>
+                  </div>
+                </div>
+                <div class="flv-sample-values">
+                  <div><span>Hauptfarbe</span><span data-flv-value-background="${category.key}">—</span></div>
+                  <div><span>Textfarbe</span><span data-flv-value-text="${category.key}">—</span></div>
+                  <div><span>Rahmenfarbe</span><span data-flv-value-border="${category.key}">—</span></div>
+                </div>
+              </div>
+    `).join('');
     root.innerHTML = `
       <div class="flv-surface">
         <div class="flv-header">
@@ -899,29 +923,7 @@
             <div class="flv-color-picker">
               <div class="flv-color-title">Modulfarben</div>
               <div class="flv-scheme-group">
-                <div class="flv-scheme-field" data-flv-schema-field data-empty="true">
-                  <select class="flv-select flv-select-overlay" data-flv-color="scheme">
-                    <option value="">Standard</option>
-                  </select>
-                  <div class="flv-scheme-preview" data-flv-scheme-preview>
-                    <div class="flv-scheme-column" data-role="background">
-                      <div class="flv-scheme-label">Hauptfarbe</div>
-                      <div class="flv-scheme-swatch" data-flv-swatch="background"></div>
-                      <div class="flv-scheme-value" data-flv-value="background">—</div>
-                    </div>
-                    <div class="flv-scheme-column" data-role="text">
-                      <div class="flv-scheme-label">Schriftfarbe</div>
-                      <div class="flv-scheme-swatch" data-flv-swatch="text"></div>
-                      <div class="flv-scheme-value" data-flv-value="text">—</div>
-                    </div>
-                    <div class="flv-scheme-column" data-role="border">
-                      <div class="flv-scheme-label">Rahmenfarbe</div>
-                      <div class="flv-scheme-swatch" data-flv-swatch="border"></div>
-                      <div class="flv-scheme-value" data-flv-value="border">—</div>
-                    </div>
-                  </div>
-                  <div class="flv-scheme-name" data-flv-scheme-name>Standard</div>
-                </div>
+                ${colorPickerMarkup}
               </div>
             </div>
           </div>
@@ -935,11 +937,21 @@
     const statusEl = root.querySelector('[data-flv-status]');
     const refreshBtn = root.querySelector('[data-flv-refresh]');
     const metaEl = root.querySelector('[data-flv-meta]');
-    const schemeFieldEl = root.querySelector('[data-flv-schema-field]');
-    const schemePreviewEl = root.querySelector('[data-flv-scheme-preview]');
-    const schemeNameEl = root.querySelector('[data-flv-scheme-name]');
-    const schemeSelect = root.querySelector('[data-flv-color="scheme"]');
-    const colorSelects = schemeSelect ? [schemeSelect] : [];
+    const categoryRefs = COLOR_CATEGORIES.map(category => ({
+      key: category.key,
+      label: category.label,
+      field: root.querySelector(`[data-flv-schema-field="${category.key}"]`),
+      select: root.querySelector(`[data-flv-color="${category.key}"]`),
+      preview: root.querySelector(`[data-flv-preview="${category.key}"]`),
+      previewText: root.querySelector(`[data-flv-preview-text="${category.key}"]`),
+      values: {
+        background: root.querySelector(`[data-flv-value-background="${category.key}"]`),
+        text: root.querySelector(`[data-flv-value-text="${category.key}"]`),
+        border: root.querySelector(`[data-flv-value-border="${category.key}"]`)
+      }
+    }));
+    const categoryRefMap = new Map();
+    categoryRefs.forEach(ref => { categoryRefMap.set(ref.key, ref); });
     const fileLabelEl = root.querySelector('[data-flv-file-label]');
     const fileNoteEl = root.querySelector('[data-flv-file-note]');
     const filePickBtn = root.querySelector('[data-flv-file-pick]');
@@ -955,7 +967,7 @@
       disposed: false,
       items: [],
       lastSource: null,
-      selectedColors: storedSelection || { background: '', text: '', border: '' },
+      selectedColors: storedSelection || createEmptySelection(),
       colorOptions: [],
       fileHandle: null,
       pollInterval: null,
@@ -978,25 +990,55 @@
 
     applySelectedColors();
 
+    function createEmptySelection(){
+      const base = {};
+      COLOR_CATEGORIES.forEach(category => {
+        base[category.key] = { background: '', text: '', border: '', name: '' };
+      });
+      return base;
+    }
+
+    function normalizeSelectionValue(value){
+      if(!value || typeof value !== 'object'){
+        return { background: '', text: '', border: '', name: '' };
+      }
+      const background = typeof value.background === 'string' && value.background.trim() ? value.background.trim() : '';
+      const rawText = typeof value.text === 'string' && value.text.trim()
+        ? value.text.trim()
+        : (typeof value.button === 'string' && value.button.trim() ? value.button.trim() : '');
+      const text = rawText;
+      const border = typeof value.border === 'string' && value.border.trim() ? value.border.trim() : '';
+      const name = typeof value.name === 'string' && value.name.trim() ? value.name.trim() : '';
+      return { background, text, border, name };
+    }
+
+    function normalizeSelections(input){
+      const normalized = createEmptySelection();
+      if(!input || typeof input !== 'object'){
+        return normalized;
+      }
+      COLOR_CATEGORIES.forEach(category => {
+        normalized[category.key] = normalizeSelectionValue(input[category.key]);
+      });
+      return normalized;
+    }
+
     function readStoredSelection(){
       try{
         const raw = localStorage.getItem(COLOR_SELECTION_KEY);
         if(!raw) return null;
         const parsed = JSON.parse(raw);
-        if(parsed && typeof parsed === 'object'){
-          const next = { background: '', text: '', border: '' };
-          if(typeof parsed.background === 'string' && parsed.background.trim()){
-            next.background = parsed.background.trim();
-          }
-          const textValue = typeof parsed.text === 'string' && parsed.text.trim()
-            ? parsed.text.trim()
-            : (typeof parsed.button === 'string' && parsed.button.trim() ? parsed.button.trim() : '');
-          if(textValue){
-            next.text = textValue;
-          }
-          if(typeof parsed.border === 'string' && parsed.border.trim()){
-            next.border = parsed.border.trim();
-          }
+        if(!parsed || typeof parsed !== 'object'){
+          return null;
+        }
+        const hasCategoryEntries = COLOR_CATEGORIES.some(category => parsed && typeof parsed[category.key] === 'object');
+        if(hasCategoryEntries){
+          return normalizeSelections(parsed);
+        }
+        const fallback = normalizeSelectionValue(parsed);
+        if(fallback.background || fallback.text || fallback.border){
+          const next = createEmptySelection();
+          next.background = fallback;
           return next;
         }
       }catch{}
@@ -1005,29 +1047,12 @@
 
     function persistSelectedColors(){
       try{
-        localStorage.setItem(COLOR_SELECTION_KEY, JSON.stringify(normalizeColors(state.selectedColors)));
+        localStorage.setItem(COLOR_SELECTION_KEY, JSON.stringify(normalizeSelections(state.selectedColors)));
       }catch{}
     }
 
-    function normalizeColors(input){
-      const result = { background: '', text: '', border: '' };
-      if(!input || typeof input !== 'object'){
-        return result;
-      }
-      if(typeof input.background === 'string' && input.background.trim()){
-        result.background = input.background.trim();
-      }
-      if(typeof input.text === 'string' && input.text.trim()){
-        result.text = input.text.trim();
-      }
-      if(typeof input.border === 'string' && input.border.trim()){
-        result.border = input.border.trim();
-      }
-      return result;
-    }
-
     function createSchemeKey(colors){
-      const normalized = normalizeColors(colors);
+      const normalized = normalizeSelectionValue(colors);
       if(!normalized.background && !normalized.text && !normalized.border){
         return '';
       }
@@ -1036,18 +1061,20 @@
 
     function getOptionColors(option){
       if(!option){
-        return { background: '', text: '', border: '' };
+        return normalizeSelectionValue(null);
       }
-      return normalizeColors({
-        background: option.dataset ? option.dataset.background : '',
-        text: option.dataset ? option.dataset.text : '',
-        border: option.dataset ? option.dataset.border : ''
+      const dataset = option.dataset || {};
+      return normalizeSelectionValue({
+        background: dataset.background,
+        text: dataset.text,
+        border: dataset.border,
+        name: dataset.name || option.textContent || ''
       });
     }
 
-    function setSchemeDisabled(disabled){
-      if(schemeFieldEl){
-        schemeFieldEl.dataset.disabled = disabled ? 'true' : 'false';
+    function setCategoryDisabled(ref, disabled){
+      if(ref && ref.field){
+        ref.field.dataset.disabled = disabled ? 'true' : 'false';
       }
     }
 
@@ -1070,6 +1097,7 @@
         }
         seen.add(key);
         entries.push({
+          item,
           label: baseLabel,
           background,
           text,
@@ -1084,7 +1112,14 @@
       }, Object.create(null));
 
       return entries.map(entry => {
-        const normalized = normalizeColors(entry);
+        const normalized = normalizeSelectionValue({
+          background: entry.background,
+          text: entry.text,
+          border: entry.border,
+          name: entry.item && typeof entry.item.name === 'string' && entry.item.name.trim()
+            ? entry.item.name.trim()
+            : entry.label
+        });
         const duplicate = labelCounts[entry.label] > 1;
         const detail = [normalized.background, normalized.text, normalized.border].filter(Boolean).join(' • ');
         const displayLabel = duplicate && detail ? `${entry.label} – ${detail}` : entry.label;
@@ -1093,134 +1128,132 @@
           label: displayLabel,
           background: normalized.background,
           text: normalized.text,
-          border: normalized.border
+          border: normalized.border,
+          name: normalized.name || entry.label
         };
       });
     }
 
-    function updateSchemeVisual(select, overrideColors){
-      if(!select){
-        return { background: '', text: '', border: '' };
+    function updateCategoryField(ref, overrideColors){
+      if(!ref){
+        return normalizeSelectionValue(null);
       }
-      const option = select.options ? select.options[select.selectedIndex] : null;
-      const normalizedOverride = normalizeColors(overrideColors);
+      const select = ref.select;
+      const option = select && select.options ? select.options[select.selectedIndex] : null;
+      const normalizedOverride = normalizeSelectionValue(overrideColors);
       const hasOverride = !!createSchemeKey(normalizedOverride);
       const colors = hasOverride
         ? normalizedOverride
-        : (option && option.value ? getOptionColors(option) : { background: '', text: '', border: '' });
+        : (option && option.value ? getOptionColors(option) : normalizeSelectionValue(null));
       const hasValue = hasOverride || (option && option.value);
-      if(schemeFieldEl){
-        schemeFieldEl.dataset.empty = hasValue ? 'false' : 'true';
+      if(ref.field){
+        ref.field.dataset.empty = hasValue ? 'false' : 'true';
       }
-      if(schemeNameEl){
-        if(hasOverride && !(option && option.value)){
-          schemeNameEl.textContent = 'Benutzerdefiniert';
+      if(ref.preview){
+        ref.preview.dataset.empty = hasValue ? 'false' : 'true';
+        if(colors.background){
+          ref.preview.style.background = colors.background;
         }else{
-          schemeNameEl.textContent = hasValue && option ? option.textContent : 'Standard';
+          ref.preview.style.removeProperty('background');
+        }
+        if(colors.border){
+          ref.preview.style.borderColor = colors.border;
+        }else{
+          ref.preview.style.removeProperty('border-color');
+        }
+        if(colors.text){
+          ref.preview.style.color = colors.text;
+        }else{
+          ref.preview.style.removeProperty('color');
         }
       }
-      if(schemePreviewEl){
-        const map = {
-          background: colors.background,
-          text: colors.text,
-          border: colors.border
-        };
-        Object.keys(map).forEach(key => {
-          const swatch = schemePreviewEl.querySelector(`[data-flv-swatch="${key}"]`);
-          const valueEl = schemePreviewEl.querySelector(`[data-flv-value="${key}"]`);
-          const value = map[key] || '';
-          if(swatch){
-            swatch.style.background = value || 'rgba(148,163,184,.18)';
-            swatch.style.borderColor = value ? 'rgba(255,255,255,.24)' : 'rgba(148,163,184,.4)';
-          }
-          if(valueEl){
-            valueEl.textContent = value || '—';
-          }
-        });
+      const optionName = option ? (option.dataset?.name || option.textContent || '') : '';
+      const displayName = hasValue
+        ? (normalizedOverride.name || optionName || ref.label)
+        : '';
+      if(ref.previewText){
+        ref.previewText.textContent = displayName || `Standard ${ref.label}`;
       }
-      return colors;
+      if(ref.values){
+        if(ref.values.background){
+          ref.values.background.textContent = colors.background || '—';
+        }
+        if(ref.values.text){
+          ref.values.text.textContent = colors.text || '—';
+        }
+        if(ref.values.border){
+          ref.values.border.textContent = colors.border || '—';
+        }
+      }
+      return normalizeSelectionValue({
+        ...colors,
+        name: hasValue ? (displayName || ref.label) : ''
+      });
     }
 
     function populateColorSelectors(items, allowOptions){
-      const select = schemeSelect;
-      if(!select){
-        return;
-      }
       const options = allowOptions ? collectColorOptions(items) : [];
-      const storedSelection = allowOptions ? readStoredSelection() : null;
       state.colorOptions = options;
-      const fragment = document.createDocumentFragment();
-      const defaultOption = document.createElement('option');
-      defaultOption.value = '';
-      defaultOption.textContent = 'Standard';
-      fragment.appendChild(defaultOption);
-      options.forEach(optionData => {
-        const option = document.createElement('option');
-        option.value = optionData.value;
-        option.textContent = optionData.label;
-        if(optionData.background){
-          option.dataset.background = optionData.background;
-        }
-        if(optionData.text){
-          option.dataset.text = optionData.text;
-        }
-        if(optionData.border){
-          option.dataset.border = optionData.border;
-        }
-        fragment.appendChild(option);
-      });
-      select.innerHTML = '';
-      select.appendChild(fragment);
-
-      const storedKey = createSchemeKey(storedSelection);
-      const currentKey = createSchemeKey(state.selectedColors);
-      const hasOptions = options.length > 0;
-      const hasCurrent = hasOptions && state.colorOptions.some(entry => entry.value === currentKey);
-      const hasStored = hasOptions && state.colorOptions.some(entry => entry.value === storedKey);
-
-      if(hasCurrent){
-        select.value = currentKey;
-      }else if(hasStored){
-        select.value = storedKey;
-        state.selectedColors = normalizeColors(storedSelection);
+      const storedSelection = allowOptions ? readStoredSelection() : null;
+      if(storedSelection){
+        state.selectedColors = storedSelection;
       }else{
-        select.value = '';
-        if(hasOptions){
-          state.selectedColors = { background: '', text: '', border: '' };
+        state.selectedColors = normalizeSelections(state.selectedColors);
+      }
+      categoryRefs.forEach(ref => {
+        if(!ref.select){
+          return;
         }
-      }
-
-      const appliedColors = hasOptions && select.value
-        ? getOptionColors(select.options[select.selectedIndex])
-        : state.selectedColors;
-      state.selectedColors = normalizeColors(updateSchemeVisual(select, appliedColors));
-      select.disabled = !hasOptions;
-      setSchemeDisabled(select.disabled);
-      if(!hasOptions){
-        updateSchemeVisual(select, state.selectedColors);
-      }
+        const previousKey = createSchemeKey(state.selectedColors[ref.key]);
+        ref.select.innerHTML = '';
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Standard';
+        ref.select.appendChild(defaultOption);
+        options.forEach(optionData => {
+          const option = document.createElement('option');
+          option.value = optionData.value;
+          option.textContent = optionData.label;
+          option.dataset.background = optionData.background || '';
+          option.dataset.text = optionData.text || '';
+          option.dataset.border = optionData.border || '';
+          option.dataset.name = optionData.name || optionData.label || '';
+          ref.select.appendChild(option);
+        });
+        const hasOptions = allowOptions && options.length > 0;
+        ref.select.disabled = !hasOptions;
+        setCategoryDisabled(ref, ref.select.disabled);
+        let override = normalizeSelectionValue(state.selectedColors[ref.key]);
+        if(hasOptions && previousKey && options.some(option => option.value === previousKey)){
+          ref.select.value = previousKey;
+        }else{
+          ref.select.value = '';
+          if(hasOptions){
+            override = normalizeSelectionValue(null);
+          }
+        }
+        const updated = updateCategoryField(ref, override);
+        state.selectedColors[ref.key] = updated;
+      });
       persistSelectedColors();
     }
 
     function applySelectedColors(){
       const surface = root.querySelector('.flv-surface');
       if(!surface) return;
-      const colors = normalizeColors(state.selectedColors);
-      const bg = colors.background;
-      const text = colors.text;
-      const border = colors.border;
+      const selections = normalizeSelections(state.selectedColors);
+      const backgroundSelection = normalizeSelectionValue(selections.background);
+      const headerSelection = normalizeSelectionValue(selections.header);
+      const buttonSelection = normalizeSelectionValue(selections.buttons);
+
+      const bg = backgroundSelection.background;
+      const text = backgroundSelection.text;
+      const border = backgroundSelection.border;
+
       if(bg){
         surface.style.setProperty('--module-bg', bg);
       }else{
         surface.style.removeProperty('--module-bg');
-      }
-      const buttonColor = bg;
-      if(buttonColor){
-        surface.style.setProperty('--module-button-bg', buttonColor);
-        surface.style.setProperty('--module-button-bg-hover', buttonColor);
-      }else{
-        surface.style.removeProperty('--module-button-bg');
-        surface.style.removeProperty('--module-button-bg-hover');
       }
       if(text){
         surface.style.setProperty('--text-color', text);
@@ -1231,6 +1264,43 @@
         surface.style.setProperty('--module-border', border);
       }else{
         surface.style.removeProperty('--module-border');
+      }
+
+      if(headerSelection.background){
+        surface.style.setProperty('--module-header-bg', headerSelection.background);
+      }else{
+        surface.style.removeProperty('--module-header-bg');
+      }
+      const headerText = headerSelection.text || text;
+      if(headerText){
+        surface.style.setProperty('--module-header-text', headerText);
+      }else{
+        surface.style.removeProperty('--module-header-text');
+      }
+      if(headerSelection.border){
+        surface.style.setProperty('--module-header-border', headerSelection.border);
+      }else{
+        surface.style.removeProperty('--module-header-border');
+      }
+
+      const buttonBg = buttonSelection.background || bg;
+      if(buttonBg){
+        surface.style.setProperty('--module-button-bg', buttonBg);
+        surface.style.setProperty('--module-button-bg-hover', buttonBg);
+      }else{
+        surface.style.removeProperty('--module-button-bg');
+        surface.style.removeProperty('--module-button-bg-hover');
+      }
+      const buttonText = buttonSelection.text || text;
+      if(buttonText){
+        surface.style.setProperty('--module-button-text', buttonText);
+      }else{
+        surface.style.removeProperty('--module-button-text');
+      }
+      if(buttonSelection.border){
+        surface.style.setProperty('--module-button-border', buttonSelection.border);
+      }else{
+        surface.style.removeProperty('--module-button-border');
       }
     }
 
@@ -1284,10 +1354,12 @@
       if(listEl){
         listEl.innerHTML = '';
       }
-      colorSelects.forEach(select => {
-        select.disabled = true;
+      categoryRefs.forEach(ref => {
+        if(ref.select){
+          ref.select.disabled = true;
+        }
+        setCategoryDisabled(ref, true);
       });
-      setSchemeDisabled(true);
       try{
         const result = await fetchPalette(controller.signal, {
           fileHandle: state.fileHandle,
@@ -1306,10 +1378,12 @@
         });
         if(state.disposed || controller.signal.aborted) return;
         applyPaletteResult(result);
-        colorSelects.forEach(select => {
-          select.disabled = state.colorOptions.length === 0;
+        categoryRefs.forEach(ref => {
+          if(ref.select){
+            ref.select.disabled = state.colorOptions.length === 0;
+          }
+          setCategoryDisabled(ref, state.colorOptions.length === 0);
         });
-        setSchemeDisabled(state.colorOptions.length === 0);
         if(state.fileHandle){
           state.autoState = 'active';
           state.autoMessage = '';
@@ -1328,21 +1402,26 @@
           metaEl.textContent = `${CONFIG_PATH} • Keine Daten`;
           metaEl.removeAttribute('title');
         }
-        colorSelects.forEach(select => {
-          select.disabled = true;
+        categoryRefs.forEach(ref => {
+          if(ref.select){
+            ref.select.disabled = true;
+          }
+          setCategoryDisabled(ref, true);
         });
-        setSchemeDisabled(true);
       }
     }
 
     function handleColorChange(event){
       const select = event?.currentTarget || event?.target;
       if(!select) return;
+      const key = select.dataset ? select.dataset.flvColor : null;
+      const ref = key ? categoryRefMap.get(key) : null;
+      if(!ref) return;
       const option = select.options ? select.options[select.selectedIndex] : null;
-      const colors = option && option.value ? getOptionColors(option) : { background: '', text: '', border: '' };
-      state.selectedColors = normalizeColors(colors);
+      const colors = option && option.value ? getOptionColors(option) : normalizeSelectionValue(null);
+      const updated = updateCategoryField(ref, colors);
+      state.selectedColors[ref.key] = updated;
       persistSelectedColors();
-      updateSchemeVisual(select, state.selectedColors);
       applySelectedColors();
     }
 
@@ -1545,10 +1624,13 @@
       refreshBtn.addEventListener('click', () => loadPalette('manual'));
     }
 
-    colorSelects.forEach(select => {
-      select.addEventListener('change', handleColorChange);
-      updateSchemeVisual(select, state.selectedColors);
-      setSchemeDisabled(select.disabled);
+    categoryRefs.forEach(ref => {
+      if(!ref.select) return;
+      ref.select.addEventListener('change', handleColorChange);
+      const current = normalizeSelectionValue(state.selectedColors[ref.key]);
+      const updated = updateCategoryField(ref, current);
+      state.selectedColors[ref.key] = updated;
+      setCategoryDisabled(ref, ref.select.disabled);
     });
 
     if(filePickBtn){
