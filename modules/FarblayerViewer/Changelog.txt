@@ -11,6 +11,8 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Changed
 - Die Gruppen-Sidebar blendet sich beim Ziehen einer Kachel aus, damit die Moduloberfläche vollständig sichtbar bleibt.
 - Drag-&-Drop-Kacheln und zuweisbare Bereiche übernehmen direkt die gespeicherten Layer-Farben für bessere Lesbarkeit.
+### Fixed
+- Gruppen-Kacheln lassen sich wieder zuverlässig per Drag-&-Drop bewegen, inklusive verzögerter Sidebar-Animation für stabile Ziehvorgänge.
 
 ## [1.5.0] – 2025-10-16
 ### Added
