@@ -8,12 +8,6 @@
   const IDB_STORE = 'fs-handles';
   const HANDLE_STORAGE_KEY = 'farblayerViewer:configHandle';
   const POLL_INTERVAL_MS = 60000;
-  const COLOR_SELECTION_KEY = 'farblayerViewer:colorSelection';
-  const COLOR_CATEGORIES = [
-    { key: 'background', label: 'Hintergrund' },
-    { key: 'header', label: 'Header' },
-    { key: 'buttons', label: 'Buttons' }
-  ];
   const DEFAULT_DEBUG_DATA = {
     'Debug-Standardwerte': {
       'Hauptmodul (Debug)': {
@@ -128,57 +122,6 @@
       console.warn('[FarblayerViewer] Konnte Farblayer-Zuordnung nicht speichern:', err);
     }
     return map;
-  }
-
-  function createEmptyColorSelection(){
-    const selection = {};
-    COLOR_CATEGORIES.forEach(category => {
-      selection[category.key] = '';
-    });
-    return selection;
-  }
-
-  function loadStoredColorSelection(){
-    const selection = createEmptyColorSelection();
-    if(typeof localStorage === 'undefined') return selection;
-    try{
-      const stored = localStorage.getItem(COLOR_SELECTION_KEY);
-      if(!stored) return selection;
-      const parsed = JSON.parse(stored);
-      if(parsed && typeof parsed === 'object'){
-        COLOR_CATEGORIES.forEach(category => {
-          const value = parsed[category.key];
-          if(typeof value === 'string' && value.trim()){
-            selection[category.key] = value.trim();
-          }
-        });
-      }
-    }catch(err){
-      console.warn('[FarblayerViewer] Konnte Farbschema-Auswahl nicht laden:', err);
-    }
-    return selection;
-  }
-
-  function persistColorSelection(selection){
-    if(typeof localStorage === 'undefined') return;
-    try{
-      const payload = {};
-      COLOR_CATEGORIES.forEach(category => {
-        const value = selection && typeof selection[category.key] === 'string'
-          ? selection[category.key].trim()
-          : '';
-        if(value){
-          payload[category.key] = value;
-        }
-      });
-      if(Object.keys(payload).length){
-        localStorage.setItem(COLOR_SELECTION_KEY, JSON.stringify(payload));
-      }else{
-        localStorage.removeItem(COLOR_SELECTION_KEY);
-      }
-    }catch(err){
-      console.warn('[FarblayerViewer] Konnte Farbschema-Auswahl nicht speichern:', err);
-    }
   }
 
   function startAssignMode(moduleName, groups){
@@ -548,19 +491,6 @@
     .flv-test-ui-surface button:active{transform:scale(.97);}
     .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.08));background:var(--module-preview-bg,rgba(15,23,42,.5));box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:var(--module-preview-text,#f8fafc);}
     .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.82;}
-    .flv-theme-panel{display:flex;flex-direction:column;gap:.75rem;padding:1rem;border-radius:.9rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.08));background:color-mix(in srgb,var(--module-preview-bg,rgba(15,23,42,.5)) 82%, #0f172a 18%);box-shadow:0 10px 26px rgba(15,23,42,.32);}
-    .flv-theme-panel-headline{display:flex;flex-direction:column;gap:.35rem;}
-    .flv-theme-panel h4{margin:0;font-size:.95rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.88;}
-    .flv-theme-panel p{margin:0;font-size:.8rem;opacity:.78;}
-    .flv-theme-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.65rem;}
-    .flv-theme-card{display:flex;flex-direction:column;gap:.45rem;padding:.6rem .7rem;border-radius:.75rem;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.45);box-shadow:0 8px 20px rgba(15,23,42,.32);}
-    .flv-theme-card label{display:flex;flex-direction:column;gap:.35rem;font-size:.8rem;font-weight:600;letter-spacing:.02em;opacity:.88;}
-    .flv-theme-select{width:100%;padding:.4rem .55rem;border-radius:.55rem;border:1px solid rgba(148,163,184,.45);background:rgba(15,23,42,.75);color:#e2e8f0;font-weight:600;cursor:pointer;transition:border-color .18s ease,background .18s ease;}
-    .flv-theme-select:hover{border-color:rgba(94,234,212,.55);}
-    .flv-theme-preview{display:flex;align-items:center;gap:.5rem;padding:.45rem .55rem;border-radius:.65rem;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.35);min-height:2.4rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
-    .flv-theme-swatch{width:1.5rem;height:1.5rem;border-radius:.45rem;border:2px solid rgba(148,163,184,.45);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:#0f172a;background:rgba(226,232,240,.85);}
-    .flv-theme-layer{font-size:.82rem;font-weight:600;letter-spacing:.01em;opacity:.92;}
-    .flv-theme-layer[data-empty="true"]{opacity:.6;font-style:italic;}
     #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.04));color:#0f172a;pointer-events:none;transition:background .2s ease;}
     #assign-ui-overlay.assign-dragging{background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(14,116,144,.02));}
     #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(-110%);opacity:0;}
@@ -1383,6 +1313,7 @@
       wrapper.id = wrapperId;
     }
     wrapper.className = 'flv-test-ui-surface';
+    wrapper.dataset.assignable = 'true';
 
     const title = document.createElement('h2');
     const titleId = makeId('module-title');
@@ -1445,34 +1376,27 @@
   }
 
   window.renderFarblayerViewer = function renderFarblayerViewer(root){
-  if(!root) return;
-  ensureStyles();
-  root.classList.add('flv-root');
-  const BASE_GROUPS = ['Hauptoberfläche', 'Header', 'Aktionselemente', 'Unterbereich'];
-  const GROUP_STORAGE_PREFIX = 'flvGroups:';
-  const ELEMENT_STORAGE_PREFIX = 'flvElements:';
+    if(!root) return;
+    ensureStyles();
+    root.classList.add('flv-root');
+    const BASE_GROUPS = ['Hauptoberfläche', 'Header', 'Aktionselemente', 'Unterbereich'];
+    const GROUP_STORAGE_PREFIX = 'flvGroups:';
+    const ELEMENT_STORAGE_PREFIX = 'flvElements:';
 
-  root.innerHTML = `
-    <section class="flv-main-preview">
+    root.innerHTML = `
+    <section class="flv-main-preview" data-assignable="true">
       <p class="flv-main-preview-note">Nutzen Sie die Testoberfläche, um Farblayer-Gruppen auf reale UI-Elemente zu ziehen und live zu erleben.</p>
-      <div class="flv-theme-panel" data-flv-theme-panel>
-        <div class="flv-theme-panel-headline">
-          <h4>Moduloberfläche einfärben</h4>
-          <p>Wählen Sie pro Bereich einen Layer, um den Konfigurator stimmig zu gestalten.</p>
-        </div>
-        <div class="flv-theme-grid" data-flv-theme-grid></div>
-      </div>
-      <div class="flv-test-ui" data-flv-main-ui></div>
+      <div class="flv-test-ui" data-flv-main-ui data-assignable="true"></div>
     </section>
     <div class="flv-launch">
-      <button class="flv-launch-btn" type="button" data-flv-open-modal>Farblayer-Konfigurator öffnen</button>
+      <button class="flv-launch-btn" type="button" data-flv-open-modal data-assignable="true">Farblayer-Konfigurator öffnen</button>
     </div>
     <div class="flv-modal" data-flv-modal>
       <div class="flv-modal-backdrop" data-flv-close-modal></div>
       <div class="flv-modal-dialog" role="dialog" aria-modal="true" aria-label="Farblayer-Konfigurator" data-flv-dialog tabindex="-1">
-        <button class="flv-modal-close" type="button" aria-label="Konfigurator schließen" data-flv-close-modal>&times;</button>
-        <div class="flv-surface">
-          <div class="flv-header">
+        <button class="flv-modal-close" type="button" aria-label="Konfigurator schließen" data-flv-close-modal data-assignable="true">&times;</button>
+        <div class="flv-surface" data-assignable="true">
+          <div class="flv-header" data-assignable="true">
             <div class="flv-header-info">
               <div class="flv-title">Farblayer-Konfiguration</div>
               <div class="flv-meta" data-flv-meta>${CONFIG_PATH}</div>
@@ -1481,8 +1405,8 @@
               <div class="flv-file-label" data-flv-file-label>Keine Datei verbunden</div>
               <div class="flv-file-note" data-flv-file-note>Bitte Farblayer-Datei wählen.</div>
               <div class="flv-file-controls">
-                <button class="flv-file-btn" type="button" data-flv-file-pick>Datei wählen</button>
-                <button class="flv-refresh" type="button" data-flv-refresh>Aktualisieren</button>
+                <button class="flv-file-btn" type="button" data-flv-file-pick data-assignable="true">Datei wählen</button>
+                <button class="flv-refresh" type="button" data-flv-refresh data-assignable="true">Aktualisieren</button>
               </div>
             </div>
           </div>
@@ -1495,10 +1419,10 @@
               <div class="flv-right-title">Gruppen-Dropzonen</div>
               <div class="flv-dropzone-list" data-flv-dropzones></div>
               <div class="flv-group-actions">
-                <button class="flv-group-btn" type="button" data-flv-add-group>+ Gruppe hinzufügen</button>
-                <button class="flv-group-btn" type="button" data-flv-remove-group>– Gruppe entfernen</button>
+                <button class="flv-group-btn" type="button" data-flv-add-group data-assignable="true">+ Gruppe hinzufügen</button>
+                <button class="flv-group-btn" type="button" data-flv-remove-group data-assignable="true">– Gruppe entfernen</button>
               </div>
-              <div class="flv-test-ui" data-flv-test-ui></div>
+              <div class="flv-test-ui" data-flv-test-ui data-assignable="true"></div>
             </div>
           </div>
           <div class="flv-footer">
@@ -1507,9 +1431,9 @@
               <div class="flv-footer-hint" data-flv-assign-hint>🧩 Zuweisungsmodus aktiv – klicken Sie auf ein UI-Element, um es einer Gruppe zuzuweisen.</div>
             </div>
             <div class="flv-footer-actions">
-              <button class="flv-action-btn" type="button" data-flv-save>Speichern</button>
-              <button class="flv-action-btn" type="button" data-flv-cancel>Abbrechen</button>
-              <button class="flv-action-btn" type="button" data-flv-assign-toggle>🧩 Zuweisungsmodus</button>
+              <button class="flv-action-btn" type="button" data-flv-save data-assignable="true">Speichern</button>
+              <button class="flv-action-btn" type="button" data-flv-cancel data-assignable="true">Abbrechen</button>
+              <button class="flv-action-btn" type="button" data-flv-assign-toggle data-assignable="true">🧩 Zuweisungsmodus</button>
             </div>
           </div>
         </div>
@@ -1539,7 +1463,6 @@
   const assignModeBtn = root.querySelector('[data-flv-assign-toggle]');
   const assignHintEl = root.querySelector('[data-flv-assign-hint]');
   const footerActions = root.querySelector('.flv-footer-actions');
-  const themeGridEl = root.querySelector('[data-flv-theme-grid]');
 
   if(mainTestUIContainer){
     renderTestUI(mainTestUIContainer, {
@@ -1574,8 +1497,6 @@
     root.__flvCleanup();
   }
 
-  const storedThemeSelection = loadStoredColorSelection();
-
   const state = {
     controller: null,
     disposed: false,
@@ -1599,8 +1520,7 @@
     assignPopoverEl: null,
     assignPopoverTarget: null,
     elementAssignments: {},
-    assignableClickHandler: null,
-    moduleTheme: { ...storedThemeSelection }
+    assignableClickHandler: null
   };
 
   const instanceApi = {
@@ -1617,191 +1537,6 @@
       assignElementToGroupInternal(elementId, groupName);
     }
   };
-
-  const themeRefs = new Map();
-
-  function initializeThemeControls(){
-    if(!themeGridEl) return;
-    themeGridEl.innerHTML = '';
-    themeRefs.clear();
-    COLOR_CATEGORIES.forEach(category => {
-      const card = document.createElement('div');
-      card.className = 'flv-theme-card';
-
-      const label = document.createElement('label');
-      label.textContent = category.label;
-
-      const select = document.createElement('select');
-      select.className = 'flv-theme-select';
-      select.dataset.themeKey = category.key;
-      label.appendChild(select);
-
-      const preview = document.createElement('div');
-      preview.className = 'flv-theme-preview';
-      const swatch = document.createElement('span');
-      swatch.className = 'flv-theme-swatch';
-      swatch.textContent = 'Aa';
-      const layerLabel = document.createElement('span');
-      layerLabel.className = 'flv-theme-layer';
-      layerLabel.textContent = 'Keine Auswahl';
-      layerLabel.dataset.empty = 'true';
-      preview.appendChild(swatch);
-      preview.appendChild(layerLabel);
-
-      card.appendChild(label);
-      card.appendChild(preview);
-      themeGridEl.appendChild(card);
-
-      const handleChange = () => {
-        const value = select.value || '';
-        state.moduleTheme[category.key] = value;
-        updateThemePreview(category.key);
-        applyModuleTheme();
-        persistColorSelection(state.moduleTheme);
-      };
-
-      select.addEventListener('change', handleChange);
-      registerCleanup(() => select.removeEventListener('change', handleChange));
-
-      themeRefs.set(category.key, { card, select, swatch, layerLabel });
-    });
-    refreshThemeOptions({ persist: false });
-  }
-
-  function updateThemePreview(key){
-    const ref = themeRefs.get(key);
-    if(!ref) return;
-    const layerName = state.moduleTheme[key];
-    const layer = layerName ? getLayerByName(layerName) : null;
-    if(layer){
-      const textColor = getReadableTextColor(layer.background, layer.text);
-      ref.swatch.style.background = layer.background || 'rgba(226,232,240,.3)';
-      ref.swatch.style.color = textColor || '#0f172a';
-      ref.swatch.style.borderColor = layer.border || 'rgba(148,163,184,.45)';
-      ref.layerLabel.textContent = layer.name || layerName;
-      ref.layerLabel.dataset.empty = 'false';
-    }else{
-      ref.swatch.style.background = 'rgba(226,232,240,.3)';
-      ref.swatch.style.color = '#0f172a';
-      ref.swatch.style.borderColor = 'rgba(148,163,184,.35)';
-      ref.layerLabel.textContent = 'Keine Auswahl';
-      ref.layerLabel.dataset.empty = 'true';
-    }
-  }
-
-  function refreshThemeOptions({ persist = true } = {}){
-    if(!themeGridEl || !themeRefs.size) return;
-    let changed = false;
-    themeRefs.forEach((ref, key) => {
-      const fragment = document.createDocumentFragment();
-      const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = 'Keine Farbe';
-      fragment.appendChild(placeholder);
-      state.items.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.name;
-        option.textContent = item.name;
-        fragment.appendChild(option);
-      });
-      ref.select.innerHTML = '';
-      ref.select.appendChild(fragment);
-      const storedValue = state.moduleTheme[key] || '';
-      if(storedValue && state.layerLookup.has(storedValue)){
-        ref.select.value = storedValue;
-      }else{
-        if(storedValue && state.layerLookup.size){
-          state.moduleTheme[key] = '';
-          changed = true;
-        }
-        ref.select.value = '';
-      }
-      updateThemePreview(key);
-    });
-    applyModuleTheme();
-    if(changed && persist){
-      persistColorSelection(state.moduleTheme);
-    }
-  }
-
-  function computeButtonHover(background){
-    if(!background) return '';
-    return `color-mix(in srgb, ${background} 82%, white 18%)`;
-  }
-
-  function clearModuleThemeStyles(){
-    if(!root) return;
-    const keys = [
-      '--module-bg','--module-border','--text-color','--module-preview-bg',
-      '--module-preview-border','--module-preview-text','--module-preview-surface-bg',
-      '--module-preview-surface-border','--module-header-bg','--module-header-border',
-      '--module-header-text','--module-header-bg-hover','--module-button-bg',
-      '--module-button-border','--module-button-text','--module-button-bg-hover'
-    ];
-    keys.forEach(name => root.style.removeProperty(name));
-  }
-
-  function applyModuleTheme(){
-    if(!root) return;
-    const backgroundLayer = state.moduleTheme.background ? getLayerByName(state.moduleTheme.background) : null;
-    const headerLayer = state.moduleTheme.header ? getLayerByName(state.moduleTheme.header) : null;
-    const buttonLayer = state.moduleTheme.buttons ? getLayerByName(state.moduleTheme.buttons) : null;
-
-    const setVar = (name, value) => {
-      if(!name) return;
-      if(value){
-        root.style.setProperty(name, value);
-      }else{
-        root.style.removeProperty(name);
-      }
-    };
-
-    const applyLayerSet = (layer, mapping) => {
-      Object.entries(mapping).forEach(([prop, resolver]) => {
-        const value = typeof resolver === 'function' ? resolver(layer) : resolver;
-        setVar(prop, value || '');
-      });
-    };
-
-    if(backgroundLayer){
-      applyLayerSet(backgroundLayer, {
-        '--module-bg': layer => layer.background || '',
-        '--module-border': layer => layer.border || '',
-        '--text-color': layer => getReadableTextColor(layer.background, layer.text),
-        '--module-preview-bg': layer => layer.background || '',
-        '--module-preview-border': layer => layer.border || '',
-        '--module-preview-text': layer => getReadableTextColor(layer.background, layer.text),
-        '--module-preview-surface-bg': layer => layer.background ? `color-mix(in srgb, ${layer.background} 88%, #0f172a 12%)` : '',
-        '--module-preview-surface-border': layer => layer.border || ''
-      });
-    }else{
-      ['--module-bg','--module-border','--text-color','--module-preview-bg','--module-preview-border','--module-preview-text','--module-preview-surface-bg','--module-preview-surface-border'].forEach(name => root.style.removeProperty(name));
-    }
-
-    if(headerLayer){
-      applyLayerSet(headerLayer, {
-        '--module-header-bg': layer => layer.background || '',
-        '--module-header-border': layer => layer.border || '',
-        '--module-header-text': layer => getReadableTextColor(layer.background, layer.text),
-        '--module-header-bg-hover': layer => layer.background ? `color-mix(in srgb, ${layer.background} 80%, white 20%)` : ''
-      });
-    }else{
-      ['--module-header-bg','--module-header-border','--module-header-text','--module-header-bg-hover'].forEach(name => root.style.removeProperty(name));
-    }
-
-    if(buttonLayer){
-      applyLayerSet(buttonLayer, {
-        '--module-button-bg': layer => layer.background || '',
-        '--module-button-border': layer => layer.border || '',
-        '--module-button-text': layer => getReadableTextColor(layer.background, layer.text),
-        '--module-button-bg-hover': layer => computeButtonHover(layer.background || '')
-      });
-    }else{
-      ['--module-button-bg','--module-button-border','--module-button-text','--module-button-bg-hover'].forEach(name => root.style.removeProperty(name));
-    }
-  }
-
-  initializeThemeControls();
 
   let registeredModuleName = null;
   function refreshInstanceRegistration(){
@@ -2184,7 +1919,6 @@
       registeredModuleName = null;
     }
     document.body.classList.remove('flv-modal-open');
-    clearModuleThemeStyles();
   };
 
   function getLayerByName(layerName){
@@ -2445,7 +2179,6 @@
       applyLayerColors(groupName, layer);
     });
     applyAllElementAssignments();
-    refreshThemeOptions();
     persistGroupState();
     persistElementAssignments();
     updateStatusMessage(result.source, flattened.length);

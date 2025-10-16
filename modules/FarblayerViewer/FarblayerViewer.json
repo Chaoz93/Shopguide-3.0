@@ -8,6 +8,6 @@
   "h": 6,
   "settings": {},
   "moduleId": "FarblayerViewer",
-  "version": "1.7.0",
-  "changelog": "Smooth Sidebar-Transitions, Ziel-Highlight + modulweite Farbanpassung"
+  "version": "1.7.1",
+  "changelog": "Modulelemente färben jetzt über den Sidebar-Zuweisungsmodus"
 }

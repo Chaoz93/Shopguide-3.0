@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.7.1] – 2025-10-18
+### Added
+- Zusätzliche Zuweisungsziele für Moduloberfläche, Header und Aktions-Buttons lassen sich jetzt über die Sidebar einfärben.
+### Changed
+- Entfernt das Dropdown-Panel auf der Oberfläche zugunsten des bestehenden Drag-&-Drop-Zuweisungsmodus.
+
 ## [1.7.0] – 2025-10-18
 ### Added
 - Farbpanel im Modul erlaubt es, Hintergrund, Header und Buttons der Oberfläche auf Basis vorhandener Layer auszuwählen.
