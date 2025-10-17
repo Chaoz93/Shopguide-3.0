@@ -258,6 +258,7 @@
 
     const assignables = Array.from(document.querySelectorAll('[data-assignable]'));
     const indicatorMap = new Map();
+    const targetListeners = new Map();
 
     const applyColorToElement = (element, groupName) => {
       const color = getColorForGroup(groupName);
@@ -315,10 +316,14 @@
         el.classList.remove('assign-target');
         el.classList.remove('is-dragover');
         el.classList.remove('flash-success');
-        el.ondragover = null;
-        el.ondragenter = null;
-        el.ondragleave = null;
-        el.ondrop = null;
+        const listeners = targetListeners.get(el);
+        if(listeners){
+          el.removeEventListener('dragover', listeners.dragover);
+          el.removeEventListener('dragenter', listeners.dragenter);
+          el.removeEventListener('dragleave', listeners.dragleave);
+          el.removeEventListener('drop', listeners.drop);
+          targetListeners.delete(el);
+        }
         const indicator = indicatorMap.get(el);
         if(indicator){
           indicator.remove();
@@ -347,40 +352,55 @@
         el.appendChild(indicator);
       }
       indicatorMap.set(el, indicator);
-      el.ondragover = event => {
-        event.preventDefault();
-      };
-      el.ondragenter = () => {
-        el.classList.add('is-dragover');
-      };
-      el.ondragleave = () => {
-        el.classList.remove('is-dragover');
-      };
-      el.ondrop = event => {
-        event.preventDefault();
-        el.classList.remove('is-dragover');
-        const groupName = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
-        if(!groupName){
+      const listeners = {
+        dragover(event){
+          event.preventDefault();
+          if(event.dataTransfer){
+            event.dataTransfer.dropEffect = 'copy';
+          }
+        },
+        dragenter(){
+          el.classList.add('is-dragover');
+        },
+        dragleave(event){
+          if(!event.relatedTarget || !el.contains(event.relatedTarget)){
+            el.classList.remove('is-dragover');
+          }
+        },
+        drop(event){
+          event.preventDefault();
+          event.stopPropagation();
+          el.classList.remove('is-dragover');
+          const groupName = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+          if(!groupName){
+            delete overlay.dataset.draggingGroup;
+            overlay.classList.remove('assign-dragging');
+            return;
+          }
+          if(!el.id){
+            el.id = `flv-el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+          }
+          assignElementToGroup(moduleName, el.id, groupName);
+          if(instance && typeof instance.applyExternalElementAssignment === 'function'){
+            instance.applyExternalElementAssignment(el.id, groupName);
+          }
+          const appliedColor = applyColorToElement(el, groupName);
+          if(appliedColor && appliedColor.background){
+            el.style.background = appliedColor.background;
+          }
           delete overlay.dataset.draggingGroup;
           overlay.classList.remove('assign-dragging');
-          return;
+          el.classList.add('flash-success');
+          setTimeout(() => el.classList.remove('flash-success'), 700);
         }
-        if(!el.id){
-          el.id = `flv-el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-        }
-        assignElementToGroup(moduleName, el.id, groupName);
-        if(instance && typeof instance.applyExternalElementAssignment === 'function'){
-          instance.applyExternalElementAssignment(el.id, groupName);
-        }
-        const appliedColor = applyColorToElement(el, groupName);
-        if(appliedColor && appliedColor.background){
-          el.style.background = appliedColor.background;
-        }
-        delete overlay.dataset.draggingGroup;
-        overlay.classList.remove('assign-dragging');
-        el.classList.add('flash-success');
-        setTimeout(() => el.classList.remove('flash-success'), 700);
       };
+
+      el.addEventListener('dragover', listeners.dragover);
+      el.addEventListener('dragenter', listeners.dragenter);
+      el.addEventListener('dragleave', listeners.dragleave);
+      el.addEventListener('drop', listeners.drop);
+
+      targetListeners.set(el, listeners);
     });
 
     const savedAssignments = loadStoredAssignments(moduleName);
@@ -533,8 +553,8 @@
     .assign-target-indicator{position:absolute;top:0;left:12px;transform:translateY(-60%);padding:.35rem .65rem;border-radius:.65rem;border:1px solid rgba(148,163,184,.55);background:rgba(15,23,42,.82);color:#e2e8f0;font-size:.75rem;font-weight:600;letter-spacing:.02em;box-shadow:0 10px 20px rgba(15,23,42,.35);pointer-events:none;opacity:.45;transition:opacity .18s ease,transform .18s ease,background .18s ease,color .18s ease,border-color .18s ease;text-transform:none;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
     .assign-target-indicator[data-active="true"]{opacity:1;transform:translateY(-90%);}
     .assign-target-indicator[data-active="false"]{opacity:.4;}
-    body.flv-assign-mode-active{--flv-assign-offset:max(200px,min(360px,min(24vw,calc(100vw - 220px))));}
-    body.flv-assign-mode-active .flv-assign-focus{position:fixed;top:50%;left:50%;transform:translate(calc(-50% + (var(--flv-assign-offset) * .5)),-50%) scale(1.04);transform-origin:center;width:min(1100px,calc(100vw - var(--flv-assign-offset)));max-height:min(92vh,900px);overflow:auto;z-index:10001;padding:clamp(1.2rem,1rem + .6vw,1.8rem);border-radius:1.25rem;box-shadow:0 36px 80px rgba(15,23,42,.58),0 0 0 1px rgba(148,163,184,.32);background:var(--module-bg,rgba(15,23,42,.6));pointer-events:auto;backdrop-filter:blur(6px);}
+    body.flv-assign-mode-active{--flv-assign-offset:max(220px,min(420px,min(20vw,calc(100vw - 320px))));}
+    body.flv-assign-mode-active .flv-assign-focus{position:fixed;top:50%;left:50%;transform:translate(calc(-50% + (var(--flv-assign-offset) * .5)),-50%) scale(1.08);transform-origin:center;width:min(1400px,calc(100vw - var(--flv-assign-offset)));max-width:calc(100vw - var(--flv-assign-offset));max-height:min(92vh,900px);overflow:auto;z-index:10001;padding:clamp(1.4rem,1.15rem + .8vw,2.1rem);border-radius:1.25rem;box-shadow:0 36px 80px rgba(15,23,42,.58),0 0 0 1px rgba(148,163,184,.32);background:var(--module-bg,rgba(15,23,42,.6));pointer-events:auto;backdrop-filter:blur(6px);font-size:clamp(1rem,.98rem + .35vw,1.18rem);line-height:1.55;}
     body.flv-assign-mode-active .flv-assign-focus .flv-modal{position:static;inset:auto;height:100%;pointer-events:auto;}
     body.flv-assign-mode-active .flv-assign-focus .flv-surface{height:auto;max-height:none;}
     body.flv-assign-mode-active .flv-assign-focus .flv-body{gap:1.25rem;}
@@ -559,9 +579,9 @@
     body.flv-assign-mode-active .flv-assign-focus .flv-test-ui h3{font-size:1.1rem;}
     body.flv-assign-mode-active .flv-assign-focus .flv-test-ui button{padding:.55rem 1.15rem;font-size:1.05rem;}
     body.flv-assign-mode-active .flv-assign-focus .flv-test-ui-subbuttons,body.flv-assign-mode-active .flv-assign-focus .flv-test-ui-buttons{gap:.75rem;}
-    body.flv-assign-mode-active #assign-ui-overlay{align-items:center;justify-content:flex-start;padding:2.5rem clamp(1.5rem,4vw,3rem);}
+    body.flv-assign-mode-active #assign-ui-overlay{align-items:center;justify-content:flex-start;padding:2.75rem clamp(1.75rem,4vw,3.5rem);}
     body.flv-assign-mode-active #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translate(-110%,-50%);opacity:0;}
-    body.flv-assign-mode-active .assign-sidebar{position:fixed;top:50%;left:clamp(1.25rem,3vw,3rem);transform:translateY(-50%);width:min(300px,calc(var(--flv-assign-offset) - clamp(36px,4vw,72px)));max-height:calc(100vh - 5rem);border-right:none;border-radius:1.1rem;backdrop-filter:blur(12px);}
+    body.flv-assign-mode-active .assign-sidebar{position:fixed;top:50%;left:clamp(1.25rem,3vw,3rem);transform:translateY(-50%);width:min(340px,calc(var(--flv-assign-offset) - clamp(32px,3vw,64px)));max-height:calc(100vh - 4.5rem);border-right:none;border-radius:1.2rem;backdrop-filter:blur(14px);padding:1.35rem 1.1rem;gap:.75rem;font-size:clamp(1rem,.96rem + .25vw,1.15rem);}
     body.flv-assign-mode-active .assign-sidebar h3{font-size:1.1rem;}
     body.flv-assign-mode-active .assign-group{padding:.7rem .85rem;font-size:clamp(.98rem,.94rem + .2vw,1.15rem);}
     body.flv-assign-mode-active .assign-group-swatch{width:1.55rem;height:1.55rem;}
