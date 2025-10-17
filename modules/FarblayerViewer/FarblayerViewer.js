@@ -126,6 +126,28 @@
     return map;
   }
 
+  // === Dropzone-Helfer: stellt sicher, dass dynamisch erzeugte Ziele im Assign-Modus erkannt werden ===
+  function markElementAssignable(element){
+    if(!(element instanceof Element)) return false;
+    if(element.hasAttribute('data-assignable')) return false;
+    element.setAttribute('data-assignable', 'true');
+    return true;
+  }
+
+  function enableAssignableDropzones(context){
+    if(typeof document === 'undefined') return [];
+    const scope = context instanceof Element ? context : document;
+    const selectors = ['.flv-dropzone', '.flv-layer-card', '.assign-target'];
+    const elements = Array.from(scope.querySelectorAll(selectors.join(',')));
+    const newlyTagged = [];
+    elements.forEach(element => {
+      if(markElementAssignable(element)){
+        newlyTagged.push(element);
+      }
+    });
+    return newlyTagged;
+  }
+
   function startAssignMode(moduleName, groups){
     if(typeof document === 'undefined') return;
     const existingOverlay = document.getElementById('assign-ui-overlay');
@@ -259,6 +281,9 @@
         overlay.classList.remove('assign-dragging');
       });
     });
+
+    // Markiere alle bekannten Dropzonen bevor wir sie im Assign-Modus einsammeln.
+    enableAssignableDropzones();
 
     const assignables = Array.from(document.querySelectorAll('[data-assignable]'));
     const indicatorMap = new Map();
@@ -458,6 +483,7 @@
           }
           delete overlay.dataset.draggingGroup;
           overlay.classList.remove('assign-dragging');
+          // Kurzer Erfolgsblitz als Feedback für die neue Gruppenzuweisung.
           el.classList.add('flash-success');
           setTimeout(() => el.classList.remove('flash-success'), 700);
         }
@@ -1389,6 +1415,8 @@
       card.className = 'flv-layer-card';
       card.draggable = true;
       card.dataset.layer = item.name || '';
+      // Layer-Karten als assignable markieren, damit Gruppen darauf abgelegt werden können.
+      markElementAssignable(card);
       if(item.background){
         card.style.background = item.background;
       }
@@ -1700,6 +1728,8 @@
     assignBtn.textContent = '🧩 Zuweisungen bearbeiten';
     const handleAssign = () => {
       refreshInstanceRegistration();
+      // Beim Öffnen des Assign-Modus Dropzonen markieren, falls seit dem letzten Durchgang neue Elemente hinzugekommen sind.
+      enableAssignableDropzones(root);
       startAssignMode(state.moduleName, instanceApi.getGroups());
     };
     assignBtn.addEventListener('click', handleAssign);
@@ -2132,6 +2162,8 @@
     const zone = document.createElement('div');
     zone.className = 'flv-dropzone';
     zone.dataset.group = groupName;
+    // Dropzone sofort als assignable markieren, damit sie im Assign-Modus gefunden wird.
+    markElementAssignable(zone);
 
     const header = document.createElement('div');
     header.className = 'flv-dropzone-header';
