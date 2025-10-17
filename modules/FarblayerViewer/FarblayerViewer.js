@@ -369,7 +369,6 @@
         },
         drop(event){
           event.preventDefault();
-          event.stopPropagation();
           el.classList.remove('is-dragover');
           const groupName = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
           if(!groupName){
