@@ -150,6 +150,22 @@
 
     document.body.classList.add('flv-assign-mode-active');
 
+    const assignRoot = instance && typeof instance.getRootElement === 'function'
+      ? (() => {
+          try{
+            return instance.getRootElement();
+          }catch(err){
+            console.warn('[FarblayerViewer] getRootElement fehlgeschlagen:', err);
+            return null;
+          }
+        })()
+      : null;
+
+    if(assignRoot instanceof HTMLElement){
+      assignRoot.classList.add('flv-assign-focus');
+      assignRoot.dataset.flvAssignActive = 'true';
+    }
+
     const sidebar = document.createElement('div');
     sidebar.className = 'assign-sidebar';
 
@@ -314,6 +330,10 @@
     const finalizeAssignMode = () => {
       cleanupAssignTargets();
       document.body.classList.remove('flv-assign-mode-active');
+      if(assignRoot instanceof HTMLElement){
+        assignRoot.classList.remove('flv-assign-focus');
+        delete assignRoot.dataset.flvAssignActive;
+      }
     };
 
     assignables.forEach(el => {
@@ -513,6 +533,42 @@
     .assign-target-indicator{position:absolute;top:0;left:12px;transform:translateY(-60%);padding:.35rem .65rem;border-radius:.65rem;border:1px solid rgba(148,163,184,.55);background:rgba(15,23,42,.82);color:#e2e8f0;font-size:.75rem;font-weight:600;letter-spacing:.02em;box-shadow:0 10px 20px rgba(15,23,42,.35);pointer-events:none;opacity:.45;transition:opacity .18s ease,transform .18s ease,background .18s ease,color .18s ease,border-color .18s ease;text-transform:none;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
     .assign-target-indicator[data-active="true"]{opacity:1;transform:translateY(-90%);}
     .assign-target-indicator[data-active="false"]{opacity:.4;}
+    body.flv-assign-mode-active{--flv-assign-offset:max(200px,min(360px,min(24vw,calc(100vw - 220px))));}
+    body.flv-assign-mode-active .flv-assign-focus{position:fixed;top:50%;left:50%;transform:translate(calc(-50% + (var(--flv-assign-offset) * .5)),-50%) scale(1.04);transform-origin:center;width:min(1100px,calc(100vw - var(--flv-assign-offset)));max-height:min(92vh,900px);overflow:auto;z-index:10001;padding:clamp(1.2rem,1rem + .6vw,1.8rem);border-radius:1.25rem;box-shadow:0 36px 80px rgba(15,23,42,.58),0 0 0 1px rgba(148,163,184,.32);background:var(--module-bg,rgba(15,23,42,.6));pointer-events:auto;backdrop-filter:blur(6px);}
+    body.flv-assign-mode-active .flv-assign-focus .flv-modal{position:static;inset:auto;height:100%;pointer-events:auto;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-surface{height:auto;max-height:none;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-body{gap:1.25rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-left{flex:0 0 clamp(320px,32vw,420px);}
+    body.flv-assign-mode-active .flv-assign-focus .flv-layer-card{padding:1.05rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-layer-title{font-size:1.12rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-layer-group{font-size:.9rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-dropzone{padding:1.2rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-dropzone-header{font-size:1.05rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-dropzone-preview{font-size:1.05rem;padding:1.1rem 1.2rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-title{font-size:clamp(1.4rem,1.2rem + .5vw,1.7rem);}
+    body.flv-assign-mode-active .flv-assign-focus .flv-meta{font-size:.95rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-file-label{font-size:1.1rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-file-note{font-size:.95rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-left-title,body.flv-assign-mode-active .flv-assign-focus .flv-right-title{font-size:1.05rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-action-btn,body.flv-assign-mode-active .flv-assign-focus .flv-group-btn,body.flv-assign-mode-active .flv-assign-focus .flv-file-btn,body.flv-assign-mode-active .flv-assign-focus .flv-refresh{padding:.6rem 1.25rem;font-size:clamp(1rem,.95rem + .24vw,1.18rem);}
+    body.flv-assign-mode-active .flv-assign-focus .flv-launch-btn{padding:1.1rem 1.8rem;font-size:clamp(1.1rem,1.05rem + .35vw,1.4rem);}
+    body.flv-assign-mode-active .flv-assign-focus .flv-footer-hint{font-size:.95rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-status{font-size:1rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui{padding:1.35rem;gap:1rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui h2{font-size:1.35rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui h3{font-size:1.1rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui button{padding:.55rem 1.15rem;font-size:1.05rem;}
+    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui-subbuttons,body.flv-assign-mode-active .flv-assign-focus .flv-test-ui-buttons{gap:.75rem;}
+    body.flv-assign-mode-active #assign-ui-overlay{align-items:center;justify-content:flex-start;padding:2.5rem clamp(1.5rem,4vw,3rem);}
+    body.flv-assign-mode-active #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translate(-110%,-50%);opacity:0;}
+    body.flv-assign-mode-active .assign-sidebar{position:fixed;top:50%;left:clamp(1.25rem,3vw,3rem);transform:translateY(-50%);width:min(300px,calc(var(--flv-assign-offset) - clamp(36px,4vw,72px)));max-height:calc(100vh - 5rem);border-right:none;border-radius:1.1rem;backdrop-filter:blur(12px);}
+    body.flv-assign-mode-active .assign-sidebar h3{font-size:1.1rem;}
+    body.flv-assign-mode-active .assign-group{padding:.7rem .85rem;font-size:clamp(.98rem,.94rem + .2vw,1.15rem);}
+    body.flv-assign-mode-active .assign-group-swatch{width:1.55rem;height:1.55rem;}
+    body.flv-assign-mode-active .assign-group-list{gap:.6rem;}
+    body.flv-assign-mode-active #exit-assign{font-size:clamp(1rem,.95rem + .25vw,1.18rem);padding:.65rem .95rem;}
+    body.flv-assign-mode-active .assign-target-indicator{font-size:.88rem;padding:.45rem .75rem;left:18px;}
+    body.flv-assign-mode-active .assign-target{outline-width:3px;box-shadow:0 0 0 6px color-mix(in srgb,var(--assign-target-glow,rgba(56,189,248,.6)) 28%,transparent);}
     body.flv-assign-mode-active [data-assignable]{position:relative;}
     body.flv-assign-mode-active [data-assignable]::after{content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid rgba(148,163,184,.35);box-shadow:0 10px 24px rgba(15,23,42,.3);pointer-events:none;opacity:.4;transition:opacity .2s;}
     body.flv-assign-mode-active [data-assignable]:hover::after{opacity:.8;}
@@ -1516,7 +1572,8 @@
     assignPopoverEl: null,
     assignPopoverTarget: null,
     elementAssignments: {},
-    assignableClickHandler: null
+    assignableClickHandler: null,
+    rootEl: root
   };
 
   const instanceApi = {
@@ -1531,7 +1588,8 @@
     getGroupAssignments: () => ({ ...state.groupAssignments }),
     applyExternalElementAssignment: (elementId, groupName) => {
       assignElementToGroupInternal(elementId, groupName);
-    }
+    },
+    getRootElement: () => state.rootEl
   };
 
   let registeredModuleName = null;
@@ -1915,6 +1973,12 @@
       registeredModuleName = null;
     }
     document.body.classList.remove('flv-modal-open');
+    if(root.classList.contains('flv-assign-focus')){
+      root.classList.remove('flv-assign-focus');
+      delete root.dataset.flvAssignActive;
+      document.body.classList.remove('flv-assign-mode-active');
+    }
+    state.rootEl = null;
   };
 
   function getLayerByName(layerName){
