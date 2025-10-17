@@ -248,10 +248,8 @@
           event.dataTransfer.effectAllowed = 'copyMove';
         }
         card.dataset.dragging = 'true';
-        requestAnimationFrame(() => {
-          overlay.classList.add('assign-dragging');
-          overlay.dataset.draggingGroup = groupName;
-        });
+        overlay.dataset.draggingGroup = groupName;
+        overlay.classList.add('assign-dragging');
       });
       card.addEventListener('dragend', () => {
         delete card.dataset.dragging;
@@ -420,11 +418,12 @@
       indicatorMap.set(el, indicator);
       const listeners = {
         dragover(event){
-          if(!isGroupDragEvent(event)) return;
+          const isGroupDrag = isGroupDragEvent(event);
           event.preventDefault();
           if(event.dataTransfer){
-            event.dataTransfer.dropEffect = 'copy';
+            event.dataTransfer.dropEffect = isGroupDrag ? 'copy' : 'none';
           }
+          if(!isGroupDrag) return;
         },
         dragenter(event){
           if(!isGroupDragEvent(event)) return;
