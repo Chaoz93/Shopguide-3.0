@@ -34,6 +34,8 @@
   };
 
   const instanceRegistry = new Map();
+  const GROUP_DRAG_MIME = 'application/x-farblayer-group';
+  const GROUP_DRAG_FALLBACK_MIME = 'text/x-farblayer-group';
 
   function registerFarblayerInstance(moduleName, api){
     if(!moduleName || !api) return;
@@ -241,6 +243,8 @@
       card.addEventListener('dragstart', event => {
         if(event.dataTransfer){
           event.dataTransfer.setData('text/plain', groupName);
+          event.dataTransfer.setData(GROUP_DRAG_MIME, groupName);
+          event.dataTransfer.setData(GROUP_DRAG_FALLBACK_MIME, groupName);
           event.dataTransfer.effectAllowed = 'copyMove';
         }
         card.dataset.dragging = 'true';
@@ -251,7 +255,9 @@
       });
       card.addEventListener('dragend', () => {
         delete card.dataset.dragging;
-        delete overlay.dataset.draggingGroup;
+        if(overlay.dataset.draggingGroup === groupName){
+          delete overlay.dataset.draggingGroup;
+        }
         overlay.classList.remove('assign-dragging');
       });
     });
@@ -260,6 +266,65 @@
     const indicatorMap = new Map();
     const targetListeners = new Map();
     const listenerCapture = true;
+    const knownGroupNames = new Set(Object.keys(normalizedGroups));
+
+    const extractDataTransferTypes = dt => {
+      if(!dt || !dt.types) return [];
+      const collected = [];
+      const { types } = dt;
+      if(typeof types.forEach === 'function'){
+        types.forEach(value => {
+          if(value) collected.push(value);
+        });
+        return collected;
+      }
+      const length = typeof types.length === 'number' ? types.length : 0;
+      for(let index = 0; index < length; index += 1){
+        const value = types[index];
+        if(value) collected.push(value);
+      }
+      return collected;
+    };
+
+    const isGroupDragEvent = event => {
+      if(!event) return false;
+      if(overlay.dataset.draggingGroup){
+        return true;
+      }
+      const dt = event.dataTransfer;
+      if(!dt) return false;
+      const types = extractDataTransferTypes(dt);
+      if(types.includes(GROUP_DRAG_MIME) || types.includes(GROUP_DRAG_FALLBACK_MIME)){
+        return true;
+      }
+      if(types.includes('text/plain')){
+        try{
+          const plain = dt.getData('text/plain');
+          return plain ? knownGroupNames.has(plain) : false;
+        }catch{
+          return false;
+        }
+      }
+      return false;
+    };
+
+    const getGroupNameFromEvent = event => {
+      const dt = event && event.dataTransfer ? event.dataTransfer : null;
+      let value = '';
+      if(dt){
+        try{ value = dt.getData(GROUP_DRAG_MIME); }catch{}
+        if(!value){
+          try{ value = dt.getData(GROUP_DRAG_FALLBACK_MIME); }catch{}
+        }
+        if(!value){
+          try{ value = dt.getData('text/plain'); }catch{}
+        }
+      }
+      if(!value && overlay.dataset.draggingGroup){
+        value = overlay.dataset.draggingGroup;
+      }
+      return value && knownGroupNames.has(value) ? value : '';
+    };
 
     const applyColorToElement = (element, groupName) => {
       const color = getColorForGroup(groupName);
@@ -355,23 +420,27 @@
       indicatorMap.set(el, indicator);
       const listeners = {
         dragover(event){
+          if(!isGroupDragEvent(event)) return;
           event.preventDefault();
           if(event.dataTransfer){
             event.dataTransfer.dropEffect = 'copy';
           }
         },
-        dragenter(){
+        dragenter(event){
+          if(!isGroupDragEvent(event)) return;
           el.classList.add('is-dragover');
         },
         dragleave(event){
+          if(!isGroupDragEvent(event)) return;
           if(!event.relatedTarget || !el.contains(event.relatedTarget)){
             el.classList.remove('is-dragover');
           }
         },
         drop(event){
+          if(!isGroupDragEvent(event)) return;
           event.preventDefault();
           el.classList.remove('is-dragover');
-          const groupName = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+          const groupName = getGroupNameFromEvent(event);
           if(!groupName){
             delete overlay.dataset.draggingGroup;
             overlay.classList.remove('assign-dragging');
@@ -531,7 +600,8 @@
     .flv-test-ui-surface button:active{transform:scale(.97);}
     .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.08));background:var(--module-preview-bg,rgba(15,23,42,.5));box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:var(--module-preview-text,#f8fafc);}
     .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.82;}
-    #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.04));color:#0f172a;pointer-events:none;transition:background .2s ease;}
+    #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.18),rgba(14,116,144,.08));color:#0f172a;pointer-events:none;transition:background .2s ease;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);overflow:hidden;}
+    #assign-ui-overlay::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at center,rgba(15,23,42,.35) 0%,rgba(15,23,42,.65) 55%,rgba(8,47,73,.78) 100%);opacity:.75;pointer-events:none;z-index:0;}
     #assign-ui-overlay.assign-dragging{background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(14,116,144,.02));}
     #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(-110%);opacity:0;}
     .assign-sidebar{width:260px;background:rgba(15,23,42,.92);padding:1.1rem 1rem;border-right:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.6rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 16px 40px rgba(15,23,42,.45);transform:translateX(0);transition:transform .25s ease,opacity .25s ease;position:relative;z-index:1;}
