@@ -259,6 +259,7 @@
     const assignables = Array.from(document.querySelectorAll('[data-assignable]'));
     const indicatorMap = new Map();
     const targetListeners = new Map();
+    const listenerCapture = true;
 
     const applyColorToElement = (element, groupName) => {
       const color = getColorForGroup(groupName);
@@ -318,10 +319,10 @@
         el.classList.remove('flash-success');
         const listeners = targetListeners.get(el);
         if(listeners){
-          el.removeEventListener('dragover', listeners.dragover);
-          el.removeEventListener('dragenter', listeners.dragenter);
-          el.removeEventListener('dragleave', listeners.dragleave);
-          el.removeEventListener('drop', listeners.drop);
+          el.removeEventListener('dragover', listeners.dragover, listenerCapture);
+          el.removeEventListener('dragenter', listeners.dragenter, listenerCapture);
+          el.removeEventListener('dragleave', listeners.dragleave, listenerCapture);
+          el.removeEventListener('drop', listeners.drop, listenerCapture);
           targetListeners.delete(el);
         }
         const indicator = indicatorMap.get(el);
@@ -394,10 +395,10 @@
         }
       };
 
-      el.addEventListener('dragover', listeners.dragover);
-      el.addEventListener('dragenter', listeners.dragenter);
-      el.addEventListener('dragleave', listeners.dragleave);
-      el.addEventListener('drop', listeners.drop);
+      el.addEventListener('dragover', listeners.dragover, listenerCapture);
+      el.addEventListener('dragenter', listeners.dragenter, listenerCapture);
+      el.addEventListener('dragleave', listeners.dragleave, listenerCapture);
+      el.addEventListener('drop', listeners.drop, listenerCapture);
 
       targetListeners.set(el, listeners);
     });
