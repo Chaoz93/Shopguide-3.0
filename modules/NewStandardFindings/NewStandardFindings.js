@@ -1409,6 +1409,24 @@
       .nsf-part-copy-icon{pointer-events:none;}
       .nsf-part-copy-feedback{font-size:0.7rem;opacity:0;transition:opacity 0.15s ease;}
       .nsf-part-copy-btn.copied .nsf-part-copy-feedback{opacity:1;}
+      .nsf-part-field--interactive .nsf-part-field-input{cursor:context-menu;}
+      .nsf-json-modal-overlay{position:fixed;inset:0;background:rgba(17,24,39,0.55);display:flex;align-items:center;justify-content:center;padding:2.5rem;z-index:9999;backdrop-filter:blur(2px);}
+      .nsf-json-modal{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:1rem;box-shadow:0 25px 60px rgba(15,23,42,0.45);max-width:min(960px,95vw);max-height:90vh;display:flex;flex-direction:column;width:100%;overflow:hidden;}
+      .nsf-json-modal-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid rgba(148,163,184,0.35);gap:1rem;}
+      .nsf-json-modal-title{font-size:1.1rem;font-weight:600;margin:0;}
+      .nsf-json-modal-close{background:none;border:none;color:inherit;font:inherit;font-size:1.5rem;cursor:pointer;line-height:1;padding:0.25rem;border-radius:0.5rem;}
+      .nsf-json-modal-close:hover{background:rgba(100,116,139,0.15);}
+      .nsf-json-modal-content{padding:1.25rem 1.5rem;overflow:auto;display:flex;flex-direction:column;gap:1rem;}
+      .nsf-json-modal-entry{background:rgba(148,163,184,0.12);border-radius:0.85rem;padding:1rem;display:flex;flex-direction:column;gap:0.75rem;}
+      .nsf-json-modal-entry-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;}
+      .nsf-json-modal-entry-title{margin:0;font-size:1rem;font-weight:600;}
+      .nsf-json-modal-entry-meta{font-size:0.85rem;color:rgba(71,85,105,0.95);}
+      .nsf-json-modal-code{margin:0;background:rgba(15,23,42,0.85);color:#f8fafc;font-size:0.8rem;line-height:1.5;border-radius:0.65rem;padding:1rem;overflow:auto;max-height:45vh;}
+      .nsf-json-modal-copy{flex:0 0 auto;background:rgba(255,255,255,0.16);border:none;border-radius:0.6rem;padding:0.35rem 0.65rem;color:inherit;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-json-modal-copy:disabled{opacity:0.45;cursor:not-allowed;transform:none;background:rgba(255,255,255,0.12);}
+      .nsf-json-modal-copy:hover:not(:disabled){background:rgba(255,255,255,0.28);transform:translateY(-1px);}
+      .nsf-json-modal-copy.copied{background:rgba(16,185,129,0.35);}
+      .nsf-json-modal-empty{font-size:0.95rem;color:rgba(71,85,105,0.95);}
     `;
     document.head.appendChild(tag);
   }
@@ -1678,21 +1696,43 @@
     const usedTitles=new Set();
     const groupsOutput=[];
     let rowCounter=0;
-    const makeRow=(pnValue,partValue,quantityValue)=>{
+    const dedupeSources=list=>{
+      if(!Array.isArray(list)) return [];
+      const unique=[];
+      const seen=new Set();
+      const signature=item=>{
+        if(!item||typeof item!=='object') return '';
+        const key=clean(item.key);
+        const label=clean(item.label);
+        const part=normalizePart(item.part||'');
+        return `${key}||${label}||${part}`;
+      };
+      list.forEach(item=>{
+        const sig=signature(item);
+        if(seen.has(sig)) return;
+        seen.add(sig);
+        unique.push(item);
+      });
+      return unique;
+    };
+    const makeRow=(pnValue,partValue,quantityValue,meta)=>{
       rowCounter+=1;
+      const sources=dedupeSources(meta&&meta.sources);
       return {
         pnLabel:`PN ${rowCounter}`,
         pnValue,
         partLabel:`Part ${rowCounter}`,
         partValue,
         quantityLabel:`Menge ${rowCounter}`,
-        quantityValue
+        quantityValue,
+        sources
       };
     };
     if(Array.isArray(groups)&&groups.length){
       groups.forEach(group=>{
         const titleText=clean(group&&group.title);
         const partsArray=Array.isArray(group&&group.parts)?group.parts:[];
+        const groupSources=dedupeSources(group&&group.sources);
         if(partsArray.length){
           const groupRows=[];
           partsArray.forEach((pair,index)=>{
@@ -1700,13 +1740,14 @@
             const quantityText=clean(pair.quantity);
             if(partText) partCopyLines.push(partText);
             const pnValue=index===0?titleText:'';
-            groupRows.push(makeRow(pnValue,partText,quantityText));
+            const pairSources=dedupeSources(pair&&pair.sources&&pair.sources.length?pair.sources:groupSources);
+            groupRows.push(makeRow(pnValue,partText,quantityText,{sources:pairSources}));
           });
           if(titleText) usedTitles.add(titleText.toLowerCase());
           groupsOutput.push({title:titleText,rows:groupRows});
         }else if(titleText){
           usedTitles.add(titleText.toLowerCase());
-          groupsOutput.push({title:titleText,rows:[makeRow(titleText,'','')]});
+          groupsOutput.push({title:titleText,rows:[makeRow(titleText,'','',{sources:groupSources})]});
         }
       });
     }
@@ -1714,7 +1755,7 @@
       const key=title.toLowerCase();
       if(usedTitles.has(key)) return;
       usedTitles.add(key);
-      groupsOutput.push({title,rows:[makeRow(title,'','')]});
+      groupsOutput.push({title,rows:[makeRow(title,'','',{sources:[]})]});
     });
     const text=partCopyLines.join('\n');
     return {text,rows:groupsOutput};
@@ -1954,6 +1995,26 @@
       result[key]=cloneDeep(val);
     }
     return result;
+  }
+
+  function safeJsonStringify(value,options){
+    const opts=options||{};
+    const skipKeys=new Set(Array.isArray(opts.skipKeys)?opts.skipKeys:[]);
+    const seen=new WeakSet();
+    try{
+      return JSON.stringify(value,(key,val)=>{
+        if(skipKeys.has(key)) return undefined;
+        if(typeof val==='function') return undefined;
+        if(val&&typeof val==='object'){
+          if(seen.has(val)) return undefined;
+          seen.add(val);
+        }
+        return val;
+      },2);
+    }catch(err){
+      console.warn('NSF: JSON konnte nicht serialisiert werden',err);
+      return '';
+    }
   }
 
   function extractRecordValue(map){
@@ -2376,7 +2437,8 @@
         nonroutineActionLower:nonroutineActionValue.toLowerCase(),
         partsLower:partsValue.toLowerCase(),
         timesLower:timesValue.toLowerCase(),
-        modsLower:modsValue.toLowerCase()
+        modsLower:modsValue.toLowerCase(),
+        raw:cloneDeep(raw)
       });
     }
     return result;
@@ -3295,6 +3357,9 @@
       this.findingsPollInProgress=false;
       this.findingsLastModified=null;
       this.legacyFindingsInput=null;
+      this.findingJsonOverlay=null;
+      this.findingJsonModalKeyHandler=null;
+      this.findingJsonBodyOverflow='';
     }
 
     scheduleRender(){
@@ -3454,7 +3519,8 @@
           parts:sel.parts||'',
           partsDetails:sel.partsDetails!=null?cloneDeep(sel.partsDetails):null,
           times:sel.times||'',
-          mods:sel.mods||''
+          mods:sel.mods||'',
+          raw:sel.raw!=null?cloneDeep(sel.raw):null
         };
       });
       this.selectionRows=[];
@@ -4603,7 +4669,7 @@
       };
       const bestellTitles=[];
       const bestellTitleKeys=new Set();
-      const partPairKeys=new Set();
+      const partPairSources=new Map();
       const partGroups=[];
       const timeEntries=[];
       const timeKeys=new Set();
@@ -4611,24 +4677,64 @@
       const modKeys=new Set();
       let primaryLabel='';
       const addBestellTitle=value=>pushUniqueLine(bestellTitles,bestellTitleKeys,value);
-      const addPartGroup=group=>{
+      const ensureSourceUnique=(list,source)=>{
+        if(!Array.isArray(list)||!source||typeof source!=='object') return;
+        const buildSignature=target=>{
+          if(!target||typeof target!=='object') return '';
+          const key=clean(target.key);
+          const label=clean(target.label);
+          const part=normalizePart(target.part||'');
+          return `${key}||${label}||${part}`;
+        };
+        const signature=buildSignature(source);
+        if(!signature) list.push(source);
+        else if(!list.some(item=>buildSignature(item)===signature)) list.push(source);
+      };
+      const createPartSource=(entry,selection)=>{
+        if(!entry||typeof entry!=='object') return null;
+        const key=typeof entry.key==='string'?entry.key:(selection&&typeof selection.key==='string'?selection.key:'');
+        const labelCandidate=clean(entry.label||selection?.label||entry.finding||selection?.finding||'');
+        const partValue=normalizePart(entry.part||selection?.part||'');
+        const rawValue=entry.raw!=null?entry.raw:(selection&&selection.raw!=null?selection.raw:null);
+        const findingValue=clean(entry.finding||selection?.finding||'');
+        const actionValue=clean(entry.action||selection?.action||'');
+        return {
+          key,
+          label:labelCandidate,
+          part:partValue,
+          raw:rawValue,
+          entry,
+          finding:findingValue,
+          action:actionValue
+        };
+      };
+      const addPartGroup=(group,sourceEntry)=>{
         if(!group||typeof group!=='object') return;
         const titleText=clean(group.title);
         if(titleText) addBestellTitle(titleText);
         const rawParts=Array.isArray(group.parts)?group.parts:[];
         const filteredParts=[];
+        const normalizedSource=sourceEntry&&typeof sourceEntry==='object'?sourceEntry:null;
         rawParts.forEach(pair=>{
           if(!pair||typeof pair!=='object') return;
           const partText=clean(pair.part);
           const quantityText=clean(pair.quantity);
           if(!partText&&!quantityText) return;
           const key=`${normalizePart(partText)}||${quantityText.toLowerCase()}`;
-          if(partPairKeys.has(key)) return;
-          partPairKeys.add(key);
-          filteredParts.push({part:partText,quantity:quantityText});
+          if(partPairSources.has(key)){
+            const existingSources=partPairSources.get(key);
+            if(normalizedSource) ensureSourceUnique(existingSources,normalizedSource);
+            return;
+          }
+          const pairSources=Array.isArray(pair.sources)?pair.sources.filter(src=>src&&typeof src==='object'):[];
+          if(normalizedSource) ensureSourceUnique(pairSources,normalizedSource);
+          partPairSources.set(key,pairSources);
+          filteredParts.push({part:partText,quantity:quantityText,sources:pairSources});
         });
         if(filteredParts.length||titleText){
-          partGroups.push({title:titleText,parts:filteredParts});
+          const groupSources=Array.isArray(group.sources)?group.sources.filter(src=>src&&typeof src==='object'):[];
+          if(normalizedSource&&!groupSources.length) groupSources.push(normalizedSource);
+          partGroups.push({title:titleText,parts:filteredParts,sources:groupSources});
         }
       };
       const pushLines=(field,value)=>{
@@ -4690,6 +4796,7 @@
       };
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
+        const partSource=createPartSource(resolved,selection);
         const findingText=resolved.finding||selection.finding||'';
         pushLines('findings',findingText);
         const actionText=resolved.action||selection.action||'';
@@ -4713,9 +4820,9 @@
           partsInfo.titles.forEach(addBestellTitle);
         }
         if(partsInfo&&Array.isArray(partsInfo.groups)&&partsInfo.groups.length){
-          partsInfo.groups.forEach(addPartGroup);
+          partsInfo.groups.forEach(group=>addPartGroup(group,partSource));
         }else if(partsInfo&&Array.isArray(partsInfo.pairs)&&partsInfo.pairs.length){
-          addPartGroup({title:'',parts:partsInfo.pairs});
+          addPartGroup({title:'',parts:partsInfo.pairs},partSource);
         }
         const nonroutineCandidates=[resolved.nonroutineFinding||'',resolved.nonroutine||''];
         nonroutineCandidates.forEach(text=>{
@@ -4840,7 +4947,7 @@
           quantityLabel:'Menge 1',quantityValue:''
         }]
       }];
-      const makeField=(labelText,value,placeholder)=>{
+      const makeField=(labelText,value,placeholder,options={})=>{
         const field=document.createElement('label');
         field.className='nsf-part-field';
         const label=document.createElement('span');
@@ -4881,6 +4988,13 @@
         wrapper.className='nsf-part-field-input-wrapper';
         wrapper.append(input,copyBtn);
         field.append(label,wrapper);
+        if(options&&typeof options.onContextMenu==='function'){
+          input.addEventListener('contextmenu',event=>{
+            event.preventDefault();
+            options.onContextMenu(event);
+          });
+          field.classList.add('nsf-part-field--interactive');
+        }
         return field;
       };
       items.forEach(group=>{
@@ -4895,8 +5009,18 @@
         groupRows.forEach(rowData=>{
           const row=document.createElement('div');
           row.className='nsf-part-row';
+          const sources=Array.isArray(rowData.sources)?rowData.sources:[];
+          const pnField=makeField(rowData.pnLabel,rowData.pnValue,'PN-Text',sources.length?{
+            onContextMenu:()=>{
+              this.openFindingJsonModal(sources,{
+                pnText:rowData.pnValue,
+                partText:rowData.partValue,
+                quantityText:rowData.quantityValue
+              });
+            }
+          }:undefined);
           row.append(
-            makeField(rowData.pnLabel,rowData.pnValue,'PN-Text'),
+            pnField,
             makeField(rowData.partLabel,rowData.partValue,'Teilenummer'),
             makeField(rowData.quantityLabel,rowData.quantityValue,'Menge')
           );
@@ -4904,6 +5028,157 @@
         });
         container.appendChild(groupWrapper);
       });
+    }
+
+    closeFindingJsonModal(){
+      if(this.findingJsonOverlay){
+        this.findingJsonOverlay.remove();
+        this.findingJsonOverlay=null;
+      }
+      if(this.findingJsonModalKeyHandler){
+        document.removeEventListener('keydown',this.findingJsonModalKeyHandler);
+        this.findingJsonModalKeyHandler=null;
+      }
+      if(this.findingJsonBodyOverflow!=null){
+        document.body.style.overflow=this.findingJsonBodyOverflow||'';
+        this.findingJsonBodyOverflow='';
+      }
+    }
+
+    openFindingJsonModal(sourceEntries,context={}){
+      if(this.destroyed) return;
+      const entries=Array.isArray(sourceEntries)?sourceEntries.filter(src=>src&&typeof src==='object'):[];
+      const normalized=[];
+      const seen=new Set();
+      const signature=item=>{
+        if(!item||typeof item!=='object') return '';
+        const key=clean(item.key);
+        const label=clean(item.label);
+        const part=normalizePart(item.part||'');
+        return `${key}||${label}||${part}`;
+      };
+      entries.forEach(entry=>{
+        const base={
+          key:clean(entry.key),
+          label:clean(entry.label||entry.finding||''),
+          part:normalizePart(entry.part||''),
+          raw:entry.raw!=null?entry.raw:null,
+          entry:entry.entry&&typeof entry.entry==='object'?entry.entry:null,
+          finding:clean(entry.finding),
+          action:clean(entry.action)
+        };
+        const sig=signature(base);
+        if(sig&&seen.has(sig)) return;
+        if(sig) seen.add(sig);
+        normalized.push(base);
+      });
+      this.closeFindingJsonModal();
+      const overlay=document.createElement('div');
+      overlay.className='nsf-json-modal-overlay';
+      overlay.tabIndex=-1;
+      const dialog=document.createElement('div');
+      dialog.className='nsf-json-modal';
+      overlay.appendChild(dialog);
+      const header=document.createElement('div');
+      header.className='nsf-json-modal-header';
+      const title=document.createElement('h2');
+      title.className='nsf-json-modal-title';
+      title.textContent='JSON-Daten des Findings';
+      header.appendChild(title);
+      const closeBtn=document.createElement('button');
+      closeBtn.type='button';
+      closeBtn.className='nsf-json-modal-close';
+      closeBtn.setAttribute('aria-label','Modal schließen');
+      closeBtn.textContent='×';
+      closeBtn.addEventListener('click',()=>this.closeFindingJsonModal());
+      header.appendChild(closeBtn);
+      dialog.appendChild(header);
+      const content=document.createElement('div');
+      content.className='nsf-json-modal-content';
+      const pnText=clean(context?.pnText);
+      const partText=clean(context?.partText);
+      const quantityText=clean(context?.quantityText);
+      const contextParts=[];
+      if(pnText) contextParts.push(`PN-Text: ${pnText}`);
+      if(partText) contextParts.push(`Teilenummer: ${partText}`);
+      if(quantityText) contextParts.push(`Menge: ${quantityText}`);
+      if(contextParts.length){
+        const contextInfo=document.createElement('div');
+        contextInfo.className='nsf-json-modal-entry-meta';
+        contextInfo.textContent=contextParts.join(' • ');
+        content.appendChild(contextInfo);
+      }
+      if(normalized.length){
+        normalized.forEach((entry,index)=>{
+          const block=document.createElement('article');
+          block.className='nsf-json-modal-entry';
+          const entryHeader=document.createElement('div');
+          entryHeader.className='nsf-json-modal-entry-header';
+          const entryTitle=document.createElement('h3');
+          entryTitle.className='nsf-json-modal-entry-title';
+          const fallbackTitle=entry.label||entry.finding||entry.part||'';
+          entryTitle.textContent=fallbackTitle||`Eintrag ${index+1}`;
+          entryHeader.appendChild(entryTitle);
+          const metaDetails=[];
+          if(entry.part) metaDetails.push(`Part: ${entry.part}`);
+          if(entry.key) metaDetails.push(`Key: ${entry.key}`);
+          if(metaDetails.length){
+            const meta=document.createElement('div');
+            meta.className='nsf-json-modal-entry-meta';
+            meta.textContent=metaDetails.join(' • ');
+            entryHeader.appendChild(meta);
+          }
+          const copyBtn=document.createElement('button');
+          copyBtn.type='button';
+          copyBtn.className='nsf-json-modal-copy';
+          copyBtn.textContent='JSON kopieren';
+          entryHeader.appendChild(copyBtn);
+          block.appendChild(entryHeader);
+          let jsonText='';
+          if(entry.raw!=null){
+            jsonText=safeJsonStringify(entry.raw);
+          }
+          if(!jsonText&&entry.entry){
+            jsonText=safeJsonStringify(entry.entry,{skipKeys:['raw']});
+          }
+          const pre=document.createElement('pre');
+          pre.className='nsf-json-modal-code';
+          pre.textContent=jsonText||'Keine JSON-Daten verfügbar.';
+          copyBtn.disabled=!jsonText;
+          copyBtn.addEventListener('click',()=>{
+            if(!jsonText) return;
+            copyText(jsonText).then(success=>{
+              if(!success) return;
+              copyBtn.classList.add('copied');
+              setTimeout(()=>copyBtn.classList.remove('copied'),1200);
+            });
+          });
+          block.appendChild(pre);
+          content.appendChild(block);
+        });
+      }else{
+        const empty=document.createElement('div');
+        empty.className='nsf-json-modal-empty';
+        empty.textContent='Keine JSON-Daten verfügbar.';
+        content.appendChild(empty);
+      }
+      dialog.appendChild(content);
+      overlay.addEventListener('click',event=>{
+        if(event.target===overlay) this.closeFindingJsonModal();
+      });
+      const keyHandler=event=>{
+        if(event.key==='Escape'||event.key==='Esc'){
+          event.preventDefault();
+          this.closeFindingJsonModal();
+        }
+      };
+      document.addEventListener('keydown',keyHandler);
+      this.findingJsonModalKeyHandler=keyHandler;
+      document.body.appendChild(overlay);
+      this.findingJsonBodyOverflow=document.body.style.overflow;
+      document.body.style.overflow='hidden';
+      this.findingJsonOverlay=overlay;
+      requestAnimationFrame(()=>overlay.focus());
     }
 
     ensureRoutineEditorState(tabKey){
