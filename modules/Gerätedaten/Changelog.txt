@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.7.0] – 2025-10-19
+### Changed
+- Modul nutzt jetzt die neuen CSS-Variablen der globalen Farblayer, wodurch aktuelle Farbkonfigurationen direkt übernommen werden.
+
 ## [1.6.1] – 2025-10-13
 ### Fixed
 - Automatisch ergänztes Standardfeld für „KV-Stunden“ entfernt, sodass nur noch explizit konfigurierte Zusatzfelder geladen werd
