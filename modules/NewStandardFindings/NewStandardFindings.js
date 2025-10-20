@@ -1946,6 +1946,16 @@
     return clean(value);
   }
 
+  function cloneDeep(value){
+    if(value==null||typeof value!=='object') return value;
+    if(Array.isArray(value)) return value.map(item=>cloneDeep(item));
+    const result={};
+    for(const [key,val] of Object.entries(value)){
+      result[key]=cloneDeep(val);
+    }
+    return result;
+  }
+
   function extractRecordValue(map){
     if(!map||typeof map!=='object') return '';
     for(const prop of FIELD_RECORD_VALUE_PROPS){
@@ -2035,6 +2045,56 @@
       }
     }
     return '';
+  }
+
+  function extractNestedFieldRaw(raw,aliases,visited){
+    if(!raw||typeof raw!=='object') return undefined;
+    const seen=visited||new Set();
+    if(seen.has(raw)) return undefined;
+    seen.add(raw);
+    const map=buildFieldMap(raw);
+    const objectMatches=[];
+    const aliasKeys=[];
+    for(const alias of aliases){
+      const key=canonicalKey(alias);
+      if(!key) continue;
+      aliasKeys.push(key);
+      if(Object.prototype.hasOwnProperty.call(map,key)){
+        const value=map[key];
+        if(value==null) continue;
+        if(typeof value==='object'){
+          objectMatches.push(value);
+        }else{
+          return value;
+        }
+      }
+    }
+    for(const key of aliasKeys){
+      const recordMatch=matchRecordByAlias(map,key);
+      if(recordMatch) return recordMatch;
+    }
+    for(const candidate of objectMatches){
+      const nested=extractNestedFieldRaw(candidate,aliases,seen);
+      if(nested!==undefined) return nested;
+      if(candidate&&typeof candidate==='object'){
+        return candidate;
+      }
+    }
+    for(const value of Object.values(raw)){
+      if(value==null) continue;
+      if(Array.isArray(value)){
+        for(const item of value){
+          const nested=extractNestedFieldRaw(item,aliases,seen);
+          if(nested!==undefined) return nested;
+        }
+        continue;
+      }
+      if(typeof value==='object'){
+        const nested=extractNestedFieldRaw(value,aliases,seen);
+        if(nested!==undefined) return nested;
+      }
+    }
+    return undefined;
   }
 
   function hasNestedField(raw,aliases){
@@ -2219,7 +2279,8 @@
       const nonroutineFinding=clean(extractNestedField(raw,NONROUTINE_FINDING_ALIASES));
       const nonroutineAction=clean(extractNestedField(raw,NONROUTINE_ACTION_ALIASES));
       const nonroutine=clean(extractNestedField(raw,FIELD_ALIASES.nonroutine));
-      const partsText=clean(extractNestedField(raw,FIELD_ALIASES.parts));
+      const partsRaw=extractNestedFieldRaw(raw,FIELD_ALIASES.parts);
+      const partsText=clean(valueToText(partsRaw));
       const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
       const mods=clean(extractNestedField(raw,FIELD_ALIASES.mods));
       const map=buildFieldMap(raw);
@@ -2299,6 +2360,7 @@
         nonroutineFinding:nonroutineFindingValue,
         nonroutineAction:nonroutineActionValue,
         parts:partsValue,
+        partsDetails:partsRaw&&typeof partsRaw==='object'?cloneDeep(partsRaw):partsRaw,
         times:timesValue,
         mods:modsValue,
         additional:extras,
@@ -3360,6 +3422,8 @@
         if(resolved){
           const storedPart=normalizePart(sel.part);
           const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
+          const resolvedPartsDetails=resolved.partsDetails!=null?cloneDeep(resolved.partsDetails)
+            :(sel.partsDetails!=null?cloneDeep(sel.partsDetails):null);
           return {
             ...resolved,
             routine:resolved.routine||sel.routine||'',
@@ -3369,6 +3433,7 @@
             nonroutineFinding:resolved.nonroutineFinding||resolved.nonroutineFindings||sel.nonroutineFinding||'',
             nonroutineAction:resolved.nonroutineAction||resolved.nonroutineActions||sel.nonroutineAction||'',
             parts:resolved.parts||sel.parts||'',
+            partsDetails:resolvedPartsDetails,
             times:resolved.times||sel.times||'',
             mods:resolved.mods||sel.mods||'',
             part:matchedPart||resolved.part
@@ -3387,6 +3452,7 @@
           nonroutineFinding:sel.nonroutineFinding||'',
           nonroutineAction:sel.nonroutineAction||'',
           parts:sel.parts||'',
+          partsDetails:sel.partsDetails!=null?cloneDeep(sel.partsDetails):null,
           times:sel.times||'',
           mods:sel.mods||''
         };
@@ -4641,7 +4707,8 @@
             if(normalizedPart&&!fallbackParts.includes(normalizedPart)) fallbackParts.push(normalizedPart);
           }
         }
-        const partsInfo=parsePartsDetails(resolved.parts||'',{fallbackParts});
+        const resolvedPartsSource=resolved.partsDetails!=null?resolved.partsDetails:resolved.parts;
+        const partsInfo=parsePartsDetails(resolvedPartsSource||'',{fallbackParts});
         if(partsInfo&&Array.isArray(partsInfo.titles)){
           partsInfo.titles.forEach(addBestellTitle);
         }
@@ -7905,6 +7972,7 @@
           nonroutineFinding:nonroutineFinding||'',
           nonroutineAction:nonroutineAction||'',
           parts:resolved.parts||'',
+          partsDetails:resolved.partsDetails!=null?cloneDeep(resolved.partsDetails):null,
           times:resolved.times||'',
           mods:resolved.mods||''
         });
