@@ -268,6 +268,8 @@
     buttons: 'Aktionselemente'
   };
   const FARBLAYER_STORAGE_KEY = `flvGroups:${FARBLAYER_MODULE_NAME}`;
+  const FARBLAYER_VIEWER_SCRIPT_URL = 'modules/FarblayerViewer/FarblayerViewer.js';
+  const FARBLAYER_VIEWER_HOST_ID = 'farblayer-viewer-host';
 
   function clampNumber(value, min, max){
     if (typeof value !== 'number' || Number.isNaN(value)) return min;
@@ -295,6 +297,63 @@
       groups: Object.values(FARBLAYER_GROUPS),
       assignments: {}
     };
+  }
+
+  function ensureFarblayerViewerReady(){
+    if(typeof window === 'undefined' || typeof document === 'undefined'){
+      return Promise.resolve(false);
+    }
+
+    const initializeInstance = () => {
+      try{
+        if(typeof window.renderFarblayerViewer === 'function'){
+          let host = document.getElementById(FARBLAYER_VIEWER_HOST_ID);
+          if(!host){
+            host = document.createElement('div');
+            host.id = FARBLAYER_VIEWER_HOST_ID;
+            host.style.display = 'none';
+            document.body.appendChild(host);
+          }
+          if(!host.dataset.initialized){
+            window.renderFarblayerViewer(host);
+            host.dataset.initialized = 'true';
+          }
+        }
+      }catch(err){
+        console.warn('[LinkButtonsPlus] Farblayer-Viewer konnte nicht initialisiert werden:', err);
+        return false;
+      }
+      return typeof window.openFarblayerViewer === 'function';
+    };
+
+    if(typeof window.openFarblayerViewer === 'function'){
+      return Promise.resolve(initializeInstance());
+    }
+
+    if(typeof window.renderFarblayerViewer === 'function'){
+      return Promise.resolve(initializeInstance());
+    }
+
+    return new Promise(resolve => {
+      const finalize = () => resolve(initializeInstance());
+      const fail = () => resolve(false);
+      let script = document.querySelector('script[data-farblayer-viewer]');
+      if(script){
+        script.addEventListener('load', finalize, { once:true });
+        script.addEventListener('error', fail, { once:true });
+        return;
+      }
+      script = document.createElement('script');
+      script.src = FARBLAYER_VIEWER_SCRIPT_URL;
+      script.async = false;
+      script.dataset.farblayerViewer = 'true';
+      script.addEventListener('load', finalize, { once:true });
+      script.addEventListener('error', () => {
+        console.warn('[LinkButtonsPlus] Farblayer-Viewer-Skript konnte nicht geladen werden.');
+        fail();
+      }, { once:true });
+      document.head.appendChild(script);
+    });
   }
 
   function loadFarblayerState(){
@@ -3264,9 +3323,9 @@
 
     const openFarblayerBtn = menu.querySelector('.ops-open-farblayer');
     if(openFarblayerBtn){
-      openFarblayerBtn.addEventListener('click', () => {
-        const canOpen = typeof window !== 'undefined' && typeof window.openFarblayerViewer === 'function';
-        if(!canOpen){
+      openFarblayerBtn.addEventListener('click', async () => {
+        const ready = await ensureFarblayerViewerReady();
+        if(!ready){
           alert('Farblayer-Viewer ist nicht verfügbar.');
           return;
         }
