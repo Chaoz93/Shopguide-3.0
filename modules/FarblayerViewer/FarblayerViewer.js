@@ -34,8 +34,6 @@
   };
 
   const instanceRegistry = new Map();
-  const GROUP_DRAG_MIME = 'application/x-farblayer-group';
-  const GROUP_DRAG_FALLBACK_MIME = 'text/x-farblayer-group';
 
   function registerFarblayerInstance(moduleName, api){
     if(!moduleName || !api) return;
@@ -126,28 +124,6 @@
     return map;
   }
 
-  // === Dropzone-Helfer: stellt sicher, dass dynamisch erzeugte Ziele im Assign-Modus erkannt werden ===
-  function markElementAssignable(element){
-    if(!(element instanceof Element)) return false;
-    if(element.hasAttribute('data-assignable')) return false;
-    element.setAttribute('data-assignable', 'true');
-    return true;
-  }
-
-  function enableAssignableDropzones(context){
-    if(typeof document === 'undefined') return [];
-    const scope = context instanceof Element ? context : document;
-    const selectors = ['.flv-dropzone', '.flv-layer-card', '.assign-target'];
-    const elements = Array.from(scope.querySelectorAll(selectors.join(',')));
-    const newlyTagged = [];
-    elements.forEach(element => {
-      if(markElementAssignable(element)){
-        newlyTagged.push(element);
-      }
-    });
-    return newlyTagged;
-  }
-
   function startAssignMode(moduleName, groups){
     if(typeof document === 'undefined') return;
     const existingOverlay = document.getElementById('assign-ui-overlay');
@@ -173,22 +149,6 @@
     overlay.id = 'assign-ui-overlay';
 
     document.body.classList.add('flv-assign-mode-active');
-
-    const assignRoot = instance && typeof instance.getRootElement === 'function'
-      ? (() => {
-          try{
-            return instance.getRootElement();
-          }catch(err){
-            console.warn('[FarblayerViewer] getRootElement fehlgeschlagen:', err);
-            return null;
-          }
-        })()
-      : null;
-
-    if(assignRoot instanceof HTMLElement){
-      assignRoot.classList.add('flv-assign-focus');
-      assignRoot.dataset.flvAssignActive = 'true';
-    }
 
     const sidebar = document.createElement('div');
     sidebar.className = 'assign-sidebar';
@@ -265,89 +225,23 @@
       card.addEventListener('dragstart', event => {
         if(event.dataTransfer){
           event.dataTransfer.setData('text/plain', groupName);
-          event.dataTransfer.setData(GROUP_DRAG_MIME, groupName);
-          event.dataTransfer.setData(GROUP_DRAG_FALLBACK_MIME, groupName);
           event.dataTransfer.effectAllowed = 'copyMove';
         }
         card.dataset.dragging = 'true';
-        overlay.dataset.draggingGroup = groupName;
-        overlay.classList.add('assign-dragging');
+        requestAnimationFrame(() => {
+          overlay.classList.add('assign-dragging');
+          overlay.dataset.draggingGroup = groupName;
+        });
       });
       card.addEventListener('dragend', () => {
         delete card.dataset.dragging;
-        if(overlay.dataset.draggingGroup === groupName){
-          delete overlay.dataset.draggingGroup;
-        }
+        delete overlay.dataset.draggingGroup;
         overlay.classList.remove('assign-dragging');
       });
     });
 
-    // Markiere alle bekannten Dropzonen bevor wir sie im Assign-Modus einsammeln.
-    enableAssignableDropzones();
-
     const assignables = Array.from(document.querySelectorAll('[data-assignable]'));
     const indicatorMap = new Map();
-    const targetListeners = new Map();
-    const listenerCapture = true;
-    const knownGroupNames = new Set(Object.keys(normalizedGroups));
-
-    const extractDataTransferTypes = dt => {
-      if(!dt || !dt.types) return [];
-      const collected = [];
-      const { types } = dt;
-      if(typeof types.forEach === 'function'){
-        types.forEach(value => {
-          if(value) collected.push(value);
-        });
-        return collected;
-      }
-      const length = typeof types.length === 'number' ? types.length : 0;
-      for(let index = 0; index < length; index += 1){
-        const value = types[index];
-        if(value) collected.push(value);
-      }
-      return collected;
-    };
-
-    const isGroupDragEvent = event => {
-      if(!event) return false;
-      if(overlay.dataset.draggingGroup){
-        return true;
-      }
-      const dt = event.dataTransfer;
-      if(!dt) return false;
-      const types = extractDataTransferTypes(dt);
-      if(types.includes(GROUP_DRAG_MIME) || types.includes(GROUP_DRAG_FALLBACK_MIME)){
-        return true;
-      }
-      if(types.includes('text/plain')){
-        try{
-          const plain = dt.getData('text/plain');
-          return plain ? knownGroupNames.has(plain) : false;
-        }catch{
-          return false;
-        }
-      }
-      return false;
-    };
-
-    const getGroupNameFromEvent = event => {
-      const dt = event && event.dataTransfer ? event.dataTransfer : null;
-      let value = '';
-      if(dt){
-        try{ value = dt.getData(GROUP_DRAG_MIME); }catch{}
-        if(!value){
-          try{ value = dt.getData(GROUP_DRAG_FALLBACK_MIME); }catch{}
-        }
-        if(!value){
-          try{ value = dt.getData('text/plain'); }catch{}
-        }
-      }
-      if(!value && overlay.dataset.draggingGroup){
-        value = overlay.dataset.draggingGroup;
-      }
-      return value && knownGroupNames.has(value) ? value : '';
-    };
 
     const applyColorToElement = (element, groupName) => {
       const color = getColorForGroup(groupName);
@@ -405,14 +299,10 @@
         el.classList.remove('assign-target');
         el.classList.remove('is-dragover');
         el.classList.remove('flash-success');
-        const listeners = targetListeners.get(el);
-        if(listeners){
-          el.removeEventListener('dragover', listeners.dragover, listenerCapture);
-          el.removeEventListener('dragenter', listeners.dragenter, listenerCapture);
-          el.removeEventListener('dragleave', listeners.dragleave, listenerCapture);
-          el.removeEventListener('drop', listeners.drop, listenerCapture);
-          targetListeners.delete(el);
-        }
+        el.ondragover = null;
+        el.ondragenter = null;
+        el.ondragleave = null;
+        el.ondrop = null;
         const indicator = indicatorMap.get(el);
         if(indicator){
           indicator.remove();
@@ -424,10 +314,6 @@
     const finalizeAssignMode = () => {
       cleanupAssignTargets();
       document.body.classList.remove('flv-assign-mode-active');
-      if(assignRoot instanceof HTMLElement){
-        assignRoot.classList.remove('flv-assign-focus');
-        delete assignRoot.dataset.flvAssignActive;
-      }
     };
 
     assignables.forEach(el => {
@@ -441,60 +327,40 @@
         el.appendChild(indicator);
       }
       indicatorMap.set(el, indicator);
-      const listeners = {
-        dragover(event){
-          const isGroupDrag = isGroupDragEvent(event);
-          event.preventDefault();
-          if(event.dataTransfer){
-            event.dataTransfer.dropEffect = isGroupDrag ? 'copy' : 'none';
-          }
-          if(!isGroupDrag) return;
-        },
-        dragenter(event){
-          if(!isGroupDragEvent(event)) return;
-          el.classList.add('is-dragover');
-        },
-        dragleave(event){
-          if(!isGroupDragEvent(event)) return;
-          if(!event.relatedTarget || !el.contains(event.relatedTarget)){
-            el.classList.remove('is-dragover');
-          }
-        },
-        drop(event){
-          if(!isGroupDragEvent(event)) return;
-          event.preventDefault();
-          el.classList.remove('is-dragover');
-          const groupName = getGroupNameFromEvent(event);
-          if(!groupName){
-            delete overlay.dataset.draggingGroup;
-            overlay.classList.remove('assign-dragging');
-            return;
-          }
-          if(!el.id){
-            el.id = `flv-el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-          }
-          assignElementToGroup(moduleName, el.id, groupName);
-          if(instance && typeof instance.applyExternalElementAssignment === 'function'){
-            instance.applyExternalElementAssignment(el.id, groupName);
-          }
-          const appliedColor = applyColorToElement(el, groupName);
-          if(appliedColor && appliedColor.background){
-            el.style.background = appliedColor.background;
-          }
+      el.ondragover = event => {
+        event.preventDefault();
+      };
+      el.ondragenter = () => {
+        el.classList.add('is-dragover');
+      };
+      el.ondragleave = () => {
+        el.classList.remove('is-dragover');
+      };
+      el.ondrop = event => {
+        event.preventDefault();
+        el.classList.remove('is-dragover');
+        const groupName = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+        if(!groupName){
           delete overlay.dataset.draggingGroup;
           overlay.classList.remove('assign-dragging');
-          // Kurzer Erfolgsblitz als Feedback für die neue Gruppenzuweisung.
-          el.classList.add('flash-success');
-          setTimeout(() => el.classList.remove('flash-success'), 700);
+          return;
         }
+        if(!el.id){
+          el.id = `flv-el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        }
+        assignElementToGroup(moduleName, el.id, groupName);
+        if(instance && typeof instance.applyExternalElementAssignment === 'function'){
+          instance.applyExternalElementAssignment(el.id, groupName);
+        }
+        const appliedColor = applyColorToElement(el, groupName);
+        if(appliedColor && appliedColor.background){
+          el.style.background = appliedColor.background;
+        }
+        delete overlay.dataset.draggingGroup;
+        overlay.classList.remove('assign-dragging');
+        el.classList.add('flash-success');
+        setTimeout(() => el.classList.remove('flash-success'), 700);
       };
-
-      el.addEventListener('dragover', listeners.dragover, listenerCapture);
-      el.addEventListener('dragenter', listeners.dragenter, listenerCapture);
-      el.addEventListener('dragleave', listeners.dragleave, listenerCapture);
-      el.addEventListener('drop', listeners.drop, listenerCapture);
-
-      targetListeners.set(el, listeners);
     });
 
     const savedAssignments = loadStoredAssignments(moduleName);
@@ -625,8 +491,7 @@
     .flv-test-ui-surface button:active{transform:scale(.97);}
     .flv-main-preview{margin-bottom:1.5rem;padding:1.25rem;border-radius:1.1rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.08));background:var(--module-preview-bg,rgba(15,23,42,.5));box-shadow:0 14px 30px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:1rem;color:var(--module-preview-text,#f8fafc);}
     .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.82;}
-    #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.18),rgba(14,116,144,.08));color:#0f172a;pointer-events:none;transition:background .2s ease;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);overflow:hidden;}
-    #assign-ui-overlay::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at center,rgba(15,23,42,.35) 0%,rgba(15,23,42,.65) 55%,rgba(8,47,73,.78) 100%);opacity:.75;pointer-events:none;z-index:0;}
+    #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:stretch;z-index:9999;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.04));color:#0f172a;pointer-events:none;transition:background .2s ease;}
     #assign-ui-overlay.assign-dragging{background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(14,116,144,.02));}
     #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(-110%);opacity:0;}
     .assign-sidebar{width:260px;background:rgba(15,23,42,.92);padding:1.1rem 1rem;border-right:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.6rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 16px 40px rgba(15,23,42,.45);transform:translateX(0);transition:transform .25s ease,opacity .25s ease;position:relative;z-index:1;}
@@ -648,42 +513,6 @@
     .assign-target-indicator{position:absolute;top:0;left:12px;transform:translateY(-60%);padding:.35rem .65rem;border-radius:.65rem;border:1px solid rgba(148,163,184,.55);background:rgba(15,23,42,.82);color:#e2e8f0;font-size:.75rem;font-weight:600;letter-spacing:.02em;box-shadow:0 10px 20px rgba(15,23,42,.35);pointer-events:none;opacity:.45;transition:opacity .18s ease,transform .18s ease,background .18s ease,color .18s ease,border-color .18s ease;text-transform:none;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
     .assign-target-indicator[data-active="true"]{opacity:1;transform:translateY(-90%);}
     .assign-target-indicator[data-active="false"]{opacity:.4;}
-    body.flv-assign-mode-active{--flv-assign-offset:max(220px,min(420px,min(20vw,calc(100vw - 320px))));}
-    body.flv-assign-mode-active .flv-assign-focus{position:fixed;top:50%;left:50%;transform:translate(calc(-50% + (var(--flv-assign-offset) * .5)),-50%) scale(1.08);transform-origin:center;width:min(1400px,calc(100vw - var(--flv-assign-offset)));max-width:calc(100vw - var(--flv-assign-offset));max-height:min(92vh,900px);overflow:auto;z-index:10001;padding:clamp(1.4rem,1.15rem + .8vw,2.1rem);border-radius:1.25rem;box-shadow:0 36px 80px rgba(15,23,42,.58),0 0 0 1px rgba(148,163,184,.32);background:var(--module-bg,rgba(15,23,42,.6));pointer-events:auto;backdrop-filter:blur(6px);font-size:clamp(1rem,.98rem + .35vw,1.18rem);line-height:1.55;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-modal{position:static;inset:auto;height:100%;pointer-events:auto;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-surface{height:auto;max-height:none;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-body{gap:1.25rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-left{flex:0 0 clamp(320px,32vw,420px);}
-    body.flv-assign-mode-active .flv-assign-focus .flv-layer-card{padding:1.05rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-layer-title{font-size:1.12rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-layer-group{font-size:.9rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-dropzone{padding:1.2rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-dropzone-header{font-size:1.05rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-dropzone-preview{font-size:1.05rem;padding:1.1rem 1.2rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-title{font-size:clamp(1.4rem,1.2rem + .5vw,1.7rem);}
-    body.flv-assign-mode-active .flv-assign-focus .flv-meta{font-size:.95rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-file-label{font-size:1.1rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-file-note{font-size:.95rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-left-title,body.flv-assign-mode-active .flv-assign-focus .flv-right-title{font-size:1.05rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-action-btn,body.flv-assign-mode-active .flv-assign-focus .flv-group-btn,body.flv-assign-mode-active .flv-assign-focus .flv-file-btn,body.flv-assign-mode-active .flv-assign-focus .flv-refresh{padding:.6rem 1.25rem;font-size:clamp(1rem,.95rem + .24vw,1.18rem);}
-    body.flv-assign-mode-active .flv-assign-focus .flv-launch-btn{padding:1.1rem 1.8rem;font-size:clamp(1.1rem,1.05rem + .35vw,1.4rem);}
-    body.flv-assign-mode-active .flv-assign-focus .flv-footer-hint{font-size:.95rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-status{font-size:1rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui{padding:1.35rem;gap:1rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui h2{font-size:1.35rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui h3{font-size:1.1rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui button{padding:.55rem 1.15rem;font-size:1.05rem;}
-    body.flv-assign-mode-active .flv-assign-focus .flv-test-ui-subbuttons,body.flv-assign-mode-active .flv-assign-focus .flv-test-ui-buttons{gap:.75rem;}
-    body.flv-assign-mode-active #assign-ui-overlay{align-items:center;justify-content:flex-start;padding:2.75rem clamp(1.75rem,4vw,3.5rem);}
-    body.flv-assign-mode-active #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translate(-110%,-50%);opacity:0;}
-    body.flv-assign-mode-active .assign-sidebar{position:fixed;top:50%;left:clamp(1.25rem,3vw,3rem);transform:translateY(-50%);width:min(340px,calc(var(--flv-assign-offset) - clamp(32px,3vw,64px)));max-height:calc(100vh - 4.5rem);border-right:none;border-radius:1.2rem;backdrop-filter:blur(14px);padding:1.35rem 1.1rem;gap:.75rem;font-size:clamp(1rem,.96rem + .25vw,1.15rem);}
-    body.flv-assign-mode-active .assign-sidebar h3{font-size:1.1rem;}
-    body.flv-assign-mode-active .assign-group{padding:.7rem .85rem;font-size:clamp(.98rem,.94rem + .2vw,1.15rem);}
-    body.flv-assign-mode-active .assign-group-swatch{width:1.55rem;height:1.55rem;}
-    body.flv-assign-mode-active .assign-group-list{gap:.6rem;}
-    body.flv-assign-mode-active #exit-assign{font-size:clamp(1rem,.95rem + .25vw,1.18rem);padding:.65rem .95rem;}
-    body.flv-assign-mode-active .assign-target-indicator{font-size:.88rem;padding:.45rem .75rem;left:18px;}
-    body.flv-assign-mode-active .assign-target{outline-width:3px;box-shadow:0 0 0 6px color-mix(in srgb,var(--assign-target-glow,rgba(56,189,248,.6)) 28%,transparent);}
     body.flv-assign-mode-active [data-assignable]{position:relative;}
     body.flv-assign-mode-active [data-assignable]::after{content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid rgba(148,163,184,.35);box-shadow:0 10px 24px rgba(15,23,42,.3);pointer-events:none;opacity:.4;transition:opacity .2s;}
     body.flv-assign-mode-active [data-assignable]:hover::after{opacity:.8;}
@@ -1415,8 +1244,6 @@
       card.className = 'flv-layer-card';
       card.draggable = true;
       card.dataset.layer = item.name || '';
-      // Layer-Karten als assignable markieren, damit Gruppen darauf abgelegt werden können.
-      markElementAssignable(card);
       if(item.background){
         card.style.background = item.background;
       }
@@ -1689,8 +1516,7 @@
     assignPopoverEl: null,
     assignPopoverTarget: null,
     elementAssignments: {},
-    assignableClickHandler: null,
-    rootEl: root
+    assignableClickHandler: null
   };
 
   const instanceApi = {
@@ -1705,8 +1531,7 @@
     getGroupAssignments: () => ({ ...state.groupAssignments }),
     applyExternalElementAssignment: (elementId, groupName) => {
       assignElementToGroupInternal(elementId, groupName);
-    },
-    getRootElement: () => state.rootEl
+    }
   };
 
   let registeredModuleName = null;
@@ -1728,8 +1553,6 @@
     assignBtn.textContent = '🧩 Zuweisungen bearbeiten';
     const handleAssign = () => {
       refreshInstanceRegistration();
-      // Beim Öffnen des Assign-Modus Dropzonen markieren, falls seit dem letzten Durchgang neue Elemente hinzugekommen sind.
-      enableAssignableDropzones(root);
       startAssignMode(state.moduleName, instanceApi.getGroups());
     };
     assignBtn.addEventListener('click', handleAssign);
@@ -2092,12 +1915,6 @@
       registeredModuleName = null;
     }
     document.body.classList.remove('flv-modal-open');
-    if(root.classList.contains('flv-assign-focus')){
-      root.classList.remove('flv-assign-focus');
-      delete root.dataset.flvAssignActive;
-      document.body.classList.remove('flv-assign-mode-active');
-    }
-    state.rootEl = null;
   };
 
   function getLayerByName(layerName){
@@ -2162,8 +1979,6 @@
     const zone = document.createElement('div');
     zone.className = 'flv-dropzone';
     zone.dataset.group = groupName;
-    // Dropzone sofort als assignable markieren, damit sie im Assign-Modus gefunden wird.
-    markElementAssignable(zone);
 
     const header = document.createElement('div');
     header.className = 'flv-dropzone-header';
