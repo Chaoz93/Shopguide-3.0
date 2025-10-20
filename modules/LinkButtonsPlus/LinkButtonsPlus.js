@@ -160,6 +160,8 @@
     .ops-color-empty{font-size:.85rem; opacity:.75; padding:.15rem .15rem 0;}
     .ops-file{padding:.35rem .65rem 0; font-size:.85rem; opacity:.82;}
     .ops-file-hint{padding:.15rem .65rem .1rem; font-size:.78rem; opacity:.72;}
+    .ops-color-file{padding:.35rem .65rem 0; font-size:.85rem; opacity:.82;}
+    .ops-color-file-hint{padding:.15rem .65rem .1rem; font-size:.78rem; opacity:.72;}
     .ops-action-button{display:inline-flex; align-items:center; justify-content:center; gap:.35rem; padding:.55rem .9rem;
       border-radius:.75rem; border:none; font-weight:600; cursor:pointer;
       background:var(--lbp-accent-bg, rgba(59,130,246,.92)); color:var(--lbp-accent-text,#fff);
@@ -762,9 +764,144 @@
 
   const DROPDOWN_DEFAULT_VALUE = 'standard';
   const PALETTE_URL = 'configs/FarblayerConfig.json';
+  const PALETTE_CACHE_KEY = 'linkbuttonsplus-palette-cache-v1';
+  const PALETTE_META_KEY = 'linkbuttonsplus-palette-meta-v1';
+  const PALETTE_HANDLE_KEY = 'linkbuttonsplus:paletteHandle';
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
   const paletteUpdateListeners = new Set();
+  let paletteFileHandle = null;
+  let paletteHandleLoaded = false;
+  let paletteFileLastModified = null;
+  let paletteFileSnapshot = null;
+  let paletteMetaCache = loadPaletteMeta();
+  let updatePaletteFileDisplayHook = () => {};
+
+  function loadPaletteMeta(){
+    if(typeof localStorage === 'undefined') return null;
+    try{
+      const raw = localStorage.getItem(PALETTE_META_KEY);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    }catch{return null;}
+  }
+
+  function persistPaletteMeta(meta){
+    paletteMetaCache = meta && typeof meta === 'object' ? { ...meta } : null;
+    if(typeof localStorage === 'undefined') return;
+    try{
+      if(paletteMetaCache){
+        localStorage.setItem(PALETTE_META_KEY, JSON.stringify(paletteMetaCache));
+      }else{
+        localStorage.removeItem(PALETTE_META_KEY);
+      }
+    }catch{}
+  }
+
+  function loadPaletteCache(){
+    if(typeof localStorage === 'undefined') return null;
+    const keys = [PALETTE_CACHE_KEY, PALETTE_URL];
+    for(const key of keys){
+      try{
+        const raw = localStorage.getItem(key);
+        if(!raw) continue;
+        const parsed = JSON.parse(raw);
+        if(parsed && typeof parsed === 'object') return parsed;
+      }catch{}
+    }
+    return null;
+  }
+
+  function savePaletteCache(data){
+    if(typeof localStorage === 'undefined') return;
+    try{
+      const serialized = JSON.stringify(data);
+      localStorage.setItem(PALETTE_CACHE_KEY, serialized);
+      localStorage.setItem(PALETTE_URL, serialized);
+    }catch{}
+  }
+
+  function setPaletteHandle(handle){
+    const nextHandle = handle || null;
+    const changed = nextHandle !== paletteFileHandle;
+    paletteFileHandle = nextHandle;
+    paletteHandleLoaded = true;
+    if(changed){
+      paletteFileLastModified = null;
+      paletteFileSnapshot = null;
+    }
+    if(!paletteFileHandle){
+      paletteFileLastModified = null;
+      paletteFileSnapshot = null;
+    }
+  }
+
+  async function loadPaletteHandleFromStorage(){
+    if(paletteHandleLoaded) return paletteFileHandle;
+    paletteHandleLoaded = true;
+    try{
+      const stored = await idbGet(PALETTE_HANDLE_KEY);
+      if(stored){
+        const hasPermission = await ensureReadPermission(stored);
+        if(hasPermission){
+          setPaletteHandle(stored);
+        }else{
+          await idbDel(PALETTE_HANDLE_KEY);
+          setPaletteHandle(null);
+          updatePaletteFileDisplayHook();
+        }
+      }
+    }catch{
+      setPaletteHandle(null);
+      updatePaletteFileDisplayHook();
+    }
+    return paletteFileHandle;
+  }
+
+  async function readPaletteFromHandle(handle, options = {}){
+    if(!handle) return null;
+    const hasPermission = await ensureReadPermission(handle);
+    if(!hasPermission){
+      return { error: new Error('Permission denied'), permissionDenied: true };
+    }
+    let file;
+    try{
+      file = await handle.getFile();
+    }catch(err){
+      return { error: err };
+    }
+    const lastModified = typeof file?.lastModified === 'number' ? file.lastModified : null;
+    if(!options.force && paletteFileSnapshot && paletteFileLastModified && lastModified && lastModified === paletteFileLastModified){
+      return {
+        data: paletteFileSnapshot,
+        path: handle.name || 'FarblayerConfig.json',
+        source: 'Dateiauswahl',
+        loadedAt: new Date().toISOString(),
+        lastModified
+      };
+    }
+    let text;
+    try{
+      text = await file.text();
+    }catch(err){
+      return { error: err };
+    }
+    try{
+      const data = JSON.parse(text);
+      paletteFileSnapshot = data;
+      paletteFileLastModified = lastModified;
+      return {
+        data,
+        path: handle.name || 'FarblayerConfig.json',
+        source: 'Dateiauswahl',
+        loadedAt: new Date().toISOString(),
+        lastModified
+      };
+    }catch(err){
+      return { error: err };
+    }
+  }
 
   const DEFAULT_LAYER_TITLES = {
     1: 'Hauptmodul (Rahmen & Hintergrund)',
@@ -968,12 +1105,15 @@
     try {
       window.__lbpPaletteMeta = meta;
     } catch {}
+    persistPaletteMeta(meta);
   }
 
   function getPaletteMetadata(){
-    if(typeof window === 'undefined') return null;
-    const meta = window.__lbpPaletteMeta;
-    return (meta && typeof meta === 'object') ? meta : null;
+    if(typeof window !== 'undefined'){
+      const meta = window.__lbpPaletteMeta;
+      if(meta && typeof meta === 'object') return meta;
+    }
+    return paletteMetaCache && typeof paletteMetaCache === 'object' ? paletteMetaCache : null;
   }
 
   function updateCachedPalette(layers, context){
@@ -984,14 +1124,6 @@
 
     const palette = flattenPaletteSource(layers);
     const serialized = JSON.stringify(palette);
-    if(serialized === cachedPaletteSignature){
-      return false;
-    }
-    cachedPaletteSignature = serialized;
-    window.__lbpPalette = palette;
-    try {
-      window.__lbpPaletteSource = layers;
-    } catch {}
     const entryCount = (() => {
       try {
         return Object.keys(palette).length;
@@ -1004,6 +1136,15 @@
       ...contextObject,
       layerCount: Number.isFinite(contextObject.layerCount) ? contextObject.layerCount : countPaletteItems(layers)
     }, entryCount);
+    if(serialized === cachedPaletteSignature){
+      return false;
+    }
+    cachedPaletteSignature = serialized;
+    window.__lbpPalette = palette;
+    try {
+      window.__lbpPaletteSource = layers;
+    } catch {}
+    savePaletteCache(layers);
     return true;
   }
 
@@ -1222,10 +1363,39 @@
     return syncDropdownsFromResolvedLayers();
   }
 
-  async function fetchPaletteFromConfig(){
+  async function fetchPaletteFromConfig(options = {}){
     if(typeof window === 'undefined') return null;
     let fetchError = null;
     const nowIso = () => new Date().toISOString();
+    try{
+      await loadPaletteHandleFromStorage();
+    }catch{}
+
+    if(paletteFileHandle){
+      try{
+        const result = await readPaletteFromHandle(paletteFileHandle, options);
+        if(result && result.data){
+          return {
+            data: result.data,
+            source: result.source || 'Dateiauswahl',
+            path: result.path || (paletteFileHandle.name || 'FarblayerConfig.json'),
+            loadedAt: result.loadedAt || nowIso(),
+            layerCount: countPaletteItems(result.data)
+          };
+        }
+        if(result && result.permissionDenied){
+          try{ await idbDel(PALETTE_HANDLE_KEY); }catch{}
+          setPaletteHandle(null);
+          updatePaletteFileDisplayHook();
+        }
+        if(result && result.error){
+          fetchError = result.error;
+        }
+      }catch(err){
+        fetchError = err;
+      }
+    }
+
     try {
       const response = await fetch(PALETTE_URL, { cache: 'no-store' });
       if(!response.ok){
@@ -1271,6 +1441,23 @@
       }
     }
 
+    const cached = loadPaletteCache();
+    if(cached){
+      const meta = paletteMetaCache && typeof paletteMetaCache === 'object' ? paletteMetaCache : null;
+      const fallbackPath = meta?.path || (paletteFileHandle ? (paletteFileHandle.name || 'FarblayerConfig.json') : PALETTE_URL);
+      const fallbackSource = meta?.source || (paletteFileHandle ? 'Dateiauswahl' : 'Zwischenspeicher');
+      if(fetchError){
+        console.warn('[LinkButtonsPlus] Nutze zwischengespeicherte Farbdatei:', fetchError);
+      }
+      return {
+        data: cached,
+        source: fallbackSource,
+        path: fallbackPath,
+        loadedAt: nowIso(),
+        layerCount: countPaletteItems(cached)
+      };
+    }
+
     if(fetchError){
       throw fetchError;
     }
@@ -1279,13 +1466,16 @@
 
   let lastPaletteFetchFailed = false;
 
-  async function refreshPaletteFromConfig(reason){
-    if(typeof window === 'undefined') return;
+  async function refreshPaletteFromConfig(reason, options = {}){
+    if(typeof window === 'undefined') return false;
     try {
-      const result = await fetchPaletteFromConfig();
+      const result = await fetchPaletteFromConfig(options);
       const layers = result?.data || result;
       lastPaletteFetchFailed = false;
-      if(!layers) return;
+      if(!layers){
+        updatePaletteFileDisplayHook();
+        return false;
+      }
       const context = {
         path: result?.path || PALETTE_URL,
         source: result?.source || 'Dateisystem',
@@ -1308,11 +1498,15 @@
         } catch {}
       }
       notifyPaletteListeners();
+      updatePaletteFileDisplayHook();
+      return true;
     } catch (err) {
       if(!lastPaletteFetchFailed){
         console.error('[LinkButtonsPlus] Failed to load palette:', err);
       }
       lastPaletteFetchFailed = true;
+      updatePaletteFileDisplayHook();
+      return false;
     }
   }
 
@@ -2957,7 +3151,9 @@
   function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open(IDB_NAME,1); r.onupgradeneeded=()=>r.result.createObjectStore(IDB_STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
   async function idbSet(k,v){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readwrite'); tx.objectStore(IDB_STORE).put(v,k); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
   async function idbGet(k){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readonly'); const rq=tx.objectStore(IDB_STORE).get(k); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); }); }
+  async function idbDel(k){ const db=await idbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readwrite'); const rq=tx.objectStore(IDB_STORE).delete(k); rq.onsuccess=()=>res(); rq.onerror=()=>rej(rq.error); }); }
   async function ensureRWPermission(handle){ if(!handle?.queryPermission) return true; const q=await handle.queryPermission({mode:'readwrite'}); if(q==='granted') return true; const r=await handle.requestPermission({mode:'readwrite'}); return r==='granted'; }
+  async function ensureReadPermission(handle){ if(!handle?.queryPermission) return true; const q=await handle.queryPermission({mode:'read'}); if(q==='granted') return true; if(typeof handle.requestPermission==='function'){ const r=await handle.requestPermission({mode:'read'}); return r==='granted'; } return false; }
 
   async function ensureXLSX(){
     if (window.XLSX) return;
@@ -3765,11 +3961,14 @@
             </div>
             <div class="ops-color-delegate">
               <p>Die Farbkonfiguration wird zentral im Farblayer-Viewer gepflegt. Öffnen Sie den Viewer, um Gruppen zuzuweisen oder Farben anzupassen.</p>
+              <div class="ops-color-file" data-color-file></div>
+              <div class="ops-color-file-hint" data-color-file-hint></div>
               <div class="ops-color-summary" data-color-summary></div>
               <div class="ops-color-actions">
+                <button type="button" class="ops-action-button ops-palette-pick">Farbdaten auswählen</button>
+                <button type="button" class="ops-secondary ops-action-button ops-sync-farblayer">Farben aktualisieren</button>
                 <button type="button" class="ops-secondary ops-action-button ops-assign-farblayer">Flächen zuweisen</button>
                 <button type="button" class="ops-action-button ops-open-farblayer">Farblayer-Viewer öffnen</button>
-                <button type="button" class="ops-secondary ops-action-button ops-sync-farblayer">Farben aktualisieren</button>
               </div>
             </div>
             <datalist id="ops-group-suggestions"></datalist>
@@ -3840,6 +4039,44 @@
 
     colorSummaryEl = menu.querySelector('[data-color-summary]');
     updateColorSummary();
+
+    const paletteFileLbl = menu.querySelector('[data-color-file]');
+    const paletteFileHint = menu.querySelector('[data-color-file-hint]');
+
+    function formatPaletteTimestamp(value){
+      if(!value) return '';
+      try{
+        const date = new Date(value);
+        if(Number.isNaN(date.getTime())) return '';
+        return date.toLocaleString('de-DE', { hour12:false });
+      }catch{
+        return '';
+      }
+    }
+
+    updatePaletteFileDisplayHook = () => {
+      if(!paletteFileLbl || !paletteFileHint) return;
+      const meta = getPaletteMetadata();
+      if(meta){
+        const path = meta.path || (paletteFileHandle ? (paletteFileHandle.name || 'Farbdaten') : PALETTE_URL);
+        paletteFileLbl.textContent = `Quelle: ${path}`;
+        const timestamp = formatPaletteTimestamp(meta.loadedAt);
+        const source = meta.source || '';
+        if(timestamp && source){
+          paletteFileHint.textContent = `Zuletzt geladen: ${timestamp} – ${source}`;
+        }else if(timestamp){
+          paletteFileHint.textContent = `Zuletzt geladen: ${timestamp}`;
+        }else if(source){
+          paletteFileHint.textContent = source;
+        }else{
+          paletteFileHint.textContent = '';
+        }
+      }else{
+        paletteFileLbl.textContent = 'Keine Farbdatei ausgewählt (Standard wird verwendet).';
+        paletteFileHint.textContent = 'Wählen Sie eine Farbdaten-Datei, um Farben automatisch zu übernehmen.';
+      }
+    };
+    updatePaletteFileDisplayHook();
 
     const groupSuggestionList = menu.querySelector('#ops-group-suggestions');
     const groupInputs = Array.from(menu.querySelectorAll('.ops-group-input'));
@@ -3929,6 +4166,46 @@
 
     syncGroupInputs();
 
+    const pickPaletteBtn = menu.querySelector('.ops-palette-pick');
+    if(pickPaletteBtn){
+      pickPaletteBtn.addEventListener('click', async () => {
+        if(typeof window === 'undefined' || typeof window.showOpenFilePicker !== 'function'){
+          alert('Dateiauswahl wird nicht unterstützt.');
+          return;
+        }
+        pickPaletteBtn.disabled = true;
+        try{
+          const handles = await window.showOpenFilePicker({
+            multiple:false,
+            excludeAcceptAllOption:false,
+            types:[{ description:'Farbdaten (JSON)', accept:{ 'application/json':['.json'] } }]
+          });
+          const handle = Array.isArray(handles) && handles.length ? handles[0] : null;
+          if(!handle){
+            return;
+          }
+          const hasPermission = await ensureReadPermission(handle);
+          if(!hasPermission){
+            alert('Kein Zugriff auf die ausgewählte Datei.');
+            return;
+          }
+          setPaletteHandle(handle);
+          try{ await idbSet(PALETTE_HANDLE_KEY, handle); }catch{}
+          const ok = await refreshPaletteFromConfig('selected file', { force:true });
+          if(!ok){
+            alert('Farbdaten konnten nicht geladen werden. Bitte prüfen Sie die Datei.');
+          }
+        }catch(err){
+          if(err && err.name === 'AbortError') return;
+          console.warn('[LinkButtonsPlus] Farbdaten-Auswahl fehlgeschlagen:', err);
+          alert('Farbdaten konnten nicht ausgewählt werden.');
+        }finally{
+          pickPaletteBtn.disabled = false;
+          updatePaletteFileDisplayHook();
+        }
+      });
+    }
+
     const openFarblayerBtn = menu.querySelector('.ops-open-farblayer');
     if(openFarblayerBtn){
       openFarblayerBtn.addEventListener('click', async () => {
@@ -3979,7 +4256,17 @@
 
     const syncFarblayerBtn = menu.querySelector('.ops-sync-farblayer');
     if(syncFarblayerBtn){
-      syncFarblayerBtn.addEventListener('click', () => {
+      syncFarblayerBtn.addEventListener('click', async () => {
+        syncFarblayerBtn.disabled = true;
+        try{
+          const ok = await refreshPaletteFromConfig('manual', { force:true });
+          if(!ok){
+            alert('Farbdaten konnten nicht aktualisiert werden.');
+          }
+        }finally{
+          syncFarblayerBtn.disabled = false;
+          updatePaletteFileDisplayHook();
+        }
         farblayerState = loadFarblayerState();
         reloadFarblayerElementAssignments();
         updateSelectedColorsFromFarblayer();

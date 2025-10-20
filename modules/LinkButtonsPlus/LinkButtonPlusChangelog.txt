@@ -3,7 +3,12 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.  
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
----
+
+## [1.7.0] – 2025-10-21
+### Added
+- Farbdatei kann jetzt direkt im Einstellungsdialog ausgewählt werden; das Modul liest die Palette aus der gewählten JSON-Datei und aktualisiert die Farbfelder automatisch.
+### Changed
+- "Farben aktualisieren" lädt die ausgewählte Datei neu ein und synchronisiert anschließend die Farblayer-Zuweisungen.
 
 ## [1.6.0] – 2025-10-20
 ### Added
