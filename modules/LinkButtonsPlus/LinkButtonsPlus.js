@@ -133,30 +133,18 @@
     .ops-input-row .ops-action-button{flex:0 0 auto; width:auto; white-space:nowrap; padding:.55rem 1.1rem;}
     .ops-title-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
     .ops-input-hint{margin:0; font-size:.78rem; opacity:.72;}
-    .ops-tab-colors{display:none; flex-direction:column; gap:.85rem; padding-top:.45rem;}
+    .ops-tab-colors{display:none; flex-direction:column; gap:1rem; padding-top:.45rem;}
     .ops-tab-colors.active{display:flex;}
-    .ops-tab-colors .ops-color-panel{display:flex; flex-direction:column; gap:.85rem;}
-    .ops-tab-colors .ops-color-source{display:flex; flex-direction:column; gap:.25rem; padding:.25rem .35rem .4rem; font-size:.78rem; color:rgba(226,232,240,.82);}
-    .ops-tab-colors .ops-color-source-path{font-family:'JetBrains Mono','Fira Code','Fira Mono',monospace; font-size:.72rem; color:rgba(148,163,184,.92); word-break:break-all;}
-    .ops-tab-colors .ops-color-source-status{font-size:.74rem; color:rgba(226,232,240,.7);}
-    .ops-tab-colors .ops-color-source-preview{margin:0; padding:.45rem .55rem; border-radius:.65rem; border:1px solid rgba(148,163,184,.25); background:rgba(15,23,42,.65); font-family:'JetBrains Mono','Fira Code','Fira Mono',monospace; font-size:.72rem; color:rgba(226,232,240,.86); max-height:120px; overflow:auto; white-space:pre-wrap;}
-    .ops-tab-colors .ops-color-body{background:rgba(15,23,42,.52); border:1px solid rgba(148,163,184,.22);
-      border-radius:.95rem; padding:1rem 1.1rem; display:flex; flex-direction:column; gap:1rem; color:inherit;}
-    .ops-tab-colors .ops-color-section{display:flex; flex-direction:column; gap:.4rem; padding:.75rem .85rem;
-      border-radius:.75rem; border:1px solid rgba(148,163,184,.18); background:rgba(15,23,42,.48);}
-    .ops-tab-colors .ops-color-hint{font-size:.78rem; color:rgba(226,232,240,.78);}
-    .ops-tab-colors .ops-color-select{width:100%; padding:.55rem .75rem; border-radius:.65rem;
-      border:1px solid rgba(148,163,184,.35); background:rgba(15,23,42,.65); color:inherit; font:inherit;}
-    .ops-tab-colors .ops-color-preview{display:flex; align-items:center; gap:.45rem; padding:.4rem .5rem;
-      border-radius:.65rem; background:rgba(148,163,184,.14); border:1px solid rgba(148,163,184,.26); font-size:.78rem; color:inherit;}
-    .ops-tab-colors .ops-color-chip{width:1.1rem; height:1.1rem; border-radius:50%; border:2px solid rgba(255,255,255,.68);
-      box-shadow:0 0 0 1px rgba(15,23,42,.35); background:transparent;}
-    .ops-tab-colors .ops-color-footer{display:flex; justify-content:flex-end;}
-    .ops-tab-colors .ops-color-reset{border:none; border-radius:.75rem; padding:.6rem 1.05rem; font-weight:600;
-      background:rgba(148,163,184,.22); color:inherit; cursor:pointer; box-shadow:0 12px 24px rgba(8,15,35,.32);
-      transition:filter .15s ease, transform .15s ease, box-shadow .15s ease;}
-    .ops-tab-colors .ops-color-reset:hover{filter:brightness(1.05); transform:translateY(-1px);}
-    .ops-tab-colors .ops-color-reset:active{transform:none; box-shadow:none;}
+    .ops-color-delegate{display:flex; flex-direction:column; gap:.75rem; padding:1rem 1.1rem; border-radius:.95rem; border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); color:inherit;}
+    .ops-color-delegate p{margin:0; font-size:.9rem; line-height:1.5; color:rgba(226,232,240,.88);}
+    .ops-color-summary{display:flex; flex-direction:column; gap:.6rem;}
+    .ops-color-summary-row{display:flex; align-items:center; gap:.6rem; padding:.55rem .7rem; border-radius:.75rem; border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.48); box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
+    .ops-color-summary-row .ops-color-chip{width:1.1rem; height:1.1rem; border-radius:50%; border:2px solid rgba(255,255,255,.68); box-shadow:0 0 0 1px rgba(15,23,42,.35); background:transparent;}
+    .ops-color-summary-text{display:flex; flex-direction:column; gap:.15rem; min-width:0;}
+    .ops-color-summary-label{font-size:.78rem; opacity:.72;}
+    .ops-color-summary-value{font-weight:600; font-size:.95rem; color:rgba(226,232,240,.92);}
+    .ops-color-actions{display:flex; gap:.65rem; flex-wrap:wrap;}
+    .ops-color-actions .ops-action-button{width:auto;}
     .ops-aspen-section{margin-top:1.2rem; padding:1rem 1.1rem; border-radius:.95rem; border:1px solid rgba(148,163,184,.22);
       background:rgba(15,23,42,.55); display:flex; flex-direction:column; gap:.55rem;}
     .ops-aspen-section .ops-action-button{width:auto; align-self:flex-start;}
@@ -273,6 +261,13 @@
   const WORKFORCE_FILTER_KEY = 'linkbuttonsplus-filters';
   const COLOR_CONFIG_KEY = 'linkbuttonsplus-colors-v1';
   const COLOR_AREAS = ['main','header','buttons'];
+  const FARBLAYER_MODULE_NAME = 'LinkButtonsPlus';
+  const FARBLAYER_GROUPS = {
+    main: 'Hauptoberfläche',
+    header: 'Header',
+    buttons: 'Aktionselemente'
+  };
+  const FARBLAYER_STORAGE_KEY = `flvGroups:${FARBLAYER_MODULE_NAME}`;
 
   function clampNumber(value, min, max){
     if (typeof value !== 'number' || Number.isNaN(value)) return min;
@@ -292,6 +287,103 @@
   function saveColorConfig(value){
     try{
       localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(value));
+    }catch{}
+  }
+
+  function getDefaultFarblayerState(){
+    return {
+      groups: Object.values(FARBLAYER_GROUPS),
+      assignments: {}
+    };
+  }
+
+  function loadFarblayerState(){
+    const fallback = getDefaultFarblayerState();
+    try{
+      const raw = localStorage.getItem(FARBLAYER_STORAGE_KEY);
+      if(!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      if(!parsed || typeof parsed !== 'object') return fallback;
+      const groups = Array.isArray(parsed.groups)
+        ? parsed.groups.map(value => typeof value === 'string' ? value.trim() : '').filter(Boolean)
+        : [];
+      const assignmentsRaw = parsed.assignments && typeof parsed.assignments === 'object'
+        ? parsed.assignments
+        : {};
+      const assignments = {};
+      Object.entries(assignmentsRaw).forEach(([groupName, layerName]) => {
+        if(typeof groupName === 'string' && groupName.trim() && typeof layerName === 'string' && layerName.trim()){
+          assignments[groupName.trim()] = layerName.trim();
+        }
+      });
+      return {
+        groups: groups.length ? groups : fallback.groups,
+        assignments
+      };
+    }catch{}
+    return fallback;
+  }
+
+  function saveFarblayerState(state){
+    const base = getDefaultFarblayerState();
+    const groups = Array.isArray(state?.groups) && state.groups.length ? state.groups : base.groups;
+    const assignments = state && typeof state.assignments === 'object' ? state.assignments : {};
+    const payload = {
+      groups: groups.map(value => typeof value === 'string' ? value : '').filter(Boolean),
+      assignments: {}
+    };
+    Object.entries(assignments).forEach(([groupName, layerName]) => {
+      if(typeof groupName === 'string' && groupName.trim() && typeof layerName === 'string' && layerName.trim()){
+        payload.assignments[groupName.trim()] = layerName.trim();
+      }
+    });
+    try{
+      localStorage.setItem(FARBLAYER_STORAGE_KEY, JSON.stringify(payload));
+    }catch{}
+    return {
+      groups: payload.groups.length ? payload.groups : base.groups,
+      assignments: { ...payload.assignments }
+    };
+  }
+
+  function broadcastFarblayerStateChange(state){
+    if(typeof window === 'undefined') return;
+    const detail = {
+      module: FARBLAYER_MODULE_NAME,
+      groups: Array.isArray(state?.groups) ? state.groups.slice() : [],
+      assignments: state?.assignments && typeof state.assignments === 'object'
+        ? { ...state.assignments }
+        : {}
+    };
+    try{
+      window.dispatchEvent(new CustomEvent('farblayer-groups-changed', { detail }));
+    }catch{}
+  }
+
+  function migrateLegacyColorSelection(instanceId){
+    const legacyStore = loadColorConfig();
+    const entry = legacyStore?.[instanceId];
+    if(!entry || typeof entry !== 'object') return;
+    const nextAssignments = {};
+    COLOR_AREAS.forEach(area => {
+      const legacyValue = normalizeDropdownValue(entry[area]);
+      const groupName = FARBLAYER_GROUPS[area];
+      if(groupName && legacyValue){
+        nextAssignments[groupName] = legacyValue;
+      }
+    });
+    if(Object.keys(nextAssignments).length){
+      const current = loadFarblayerState();
+      const merged = {
+        groups: current.groups,
+        assignments: { ...current.assignments, ...nextAssignments }
+      };
+      const persisted = saveFarblayerState(merged);
+      broadcastFarblayerStateChange(persisted);
+    }
+    try{
+      delete legacyStore[instanceId];
+      saveColorConfig(legacyStore);
     }catch{}
   }
 
@@ -2690,40 +2782,25 @@
     `;
     titleEl = root.querySelector('.ops-title');
     syncHeaderUI();
-    let colorConfigStore = loadColorConfig();
-    const storedSelection = (colorConfigStore && typeof colorConfigStore === 'object') ? colorConfigStore[instanceId] : null;
-    const selectedColors = {
-      main: normalizeDropdownValue(storedSelection?.main),
-      header: normalizeDropdownValue(storedSelection?.header),
-      buttons: normalizeDropdownValue(storedSelection?.buttons)
-    };
-    let colorPanel = null;
+    migrateLegacyColorSelection(instanceId);
+    let farblayerState = loadFarblayerState();
+    const selectedColors = { main:'', header:'', buttons:'' };
     let pendingLayerRefresh = null;
     let pendingLayerRefreshIsTimeout = false;
     let unsubscribePalette = null;
+    let colorSummaryEl = null;
 
-    function getSelectionSnapshot(){
-      const snapshot = {};
-      let hasValues = false;
-      for(const area of COLOR_AREAS){
-        const id = normalizeDropdownValue(selectedColors[area]);
-        snapshot[area] = id;
-        if(id) hasValues = true;
-      }
-      return { snapshot, hasValues };
+    function updateSelectedColorsFromFarblayer(){
+      const assignments = farblayerState?.assignments && typeof farblayerState.assignments === 'object'
+        ? farblayerState.assignments
+        : {};
+      COLOR_AREAS.forEach(area => {
+        const groupName = FARBLAYER_GROUPS[area];
+        selectedColors[area] = normalizeDropdownValue(assignments[groupName]);
+      });
     }
 
-    function persistColorSelection(){
-      const { snapshot, hasValues } = getSelectionSnapshot();
-      const nextStore = { ...colorConfigStore };
-      if(hasValues){
-        nextStore[instanceId] = snapshot;
-      } else {
-        delete nextStore[instanceId];
-      }
-      colorConfigStore = nextStore;
-      saveColorConfig(colorConfigStore);
-    }
+    updateSelectedColorsFromFarblayer();
 
     function applySelectedColors(){
       const layers = getColorLayers();
@@ -2735,7 +2812,22 @@
           removed = true;
         }
       }
-      if(removed) persistColorSelection();
+      if(removed){
+        const current = loadFarblayerState();
+        const nextAssignments = { ...current.assignments };
+        COLOR_AREAS.forEach(area => {
+          const groupName = FARBLAYER_GROUPS[area];
+          const value = normalizeDropdownValue(selectedColors[area]);
+          if(!groupName) return;
+          if(value){
+            nextAssignments[groupName] = value;
+          }else{
+            delete nextAssignments[groupName];
+          }
+        });
+        farblayerState = saveFarblayerState({ groups: current.groups, assignments: nextAssignments });
+        broadcastFarblayerStateChange(farblayerState);
+      }
 
       const mainLayer = findLayerById(layers, selectedColors.main);
       const headerLayer = selectedColors.header ? findLayerById(layers, selectedColors.header) : mainLayer;
@@ -2838,31 +2930,62 @@
         }
       }
 
-      if(colorPanel) {
-        colorPanel.setSelection(selectedColors);
-        colorPanel.updatePreviews();
-      }
+      updateColorSummary();
     }
 
-    function syncSelectionFromStorage(){
-      const fresh = loadColorConfig();
-      colorConfigStore = fresh;
-      const entry = (fresh && typeof fresh === 'object') ? fresh[instanceId] : null;
-      for (const area of COLOR_AREAS) {
-        selectedColors[area] = normalizeDropdownValue(entry?.[area]);
+    function updateColorSummary(){
+      if(!colorSummaryEl) return;
+      const layers = getColorLayers();
+      const rows = COLOR_AREAS.map(area => {
+        const label = area === 'header' ? 'Header' : (area === 'main' ? 'Hauptmodul' : 'Buttons');
+        const id = normalizeDropdownValue(selectedColors[area]);
+        const layer = id ? findLayerById(layers, id) : null;
+        const display = layer?.displayName || layer?.title || layer?.name || (id ? id : 'Standard');
+        const swatch = layer?.swatch || layer?.moduleBg || layer?.color || '';
+        return { label, display, swatch };
+      });
+      colorSummaryEl.innerHTML = rows.map(row => {
+        const swatchStyle = row.swatch ? `background:${row.swatch};` : '';
+        return `
+          <div class="ops-color-summary-row">
+            <span class="ops-color-chip" style="${swatchStyle}"></span>
+            <div class="ops-color-summary-text">
+              <span class="ops-color-summary-label">${row.label}</span>
+              <span class="ops-color-summary-value">${row.display}</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+    if(typeof window !== 'undefined'){
+      if(!window.FarblayerBase || typeof window.FarblayerBase !== 'object'){
+        window.FarblayerBase = {};
       }
-      applySelectedColors();
-      if(colorPanel) {
-        colorPanel.setSelection(selectedColors);
-        colorPanel.updatePreviews();
-      }
+      window.FarblayerBase.getLayerColor = function(layerName){
+        const id = normalizeDropdownValue(layerName);
+        if(!id) return null;
+        const layer = findLayerById(getColorLayers(), id);
+        if(!layer) return null;
+        const main = deriveMainColors(layer) || {};
+        return {
+          background: main.bg || '',
+          text: main.text || '',
+          border: main.border || ''
+        };
+      };
+      window.FarblayerBase.applyColors = function(targets, layer){
+        if(!Array.isArray(targets)) return;
+        targets.forEach(target => {
+          if(!target || !target.style) return;
+          const bg = layer?.background || layer?.bg || '';
+          const text = layer?.text || layer?.color || '';
+          const border = layer?.border || '';
+          target.style.background = bg || '';
+          target.style.color = text || '';
+          target.style.borderColor = border || '';
+        });
+      };
     }
 
-    const storageHandler = (event) => {
-      if(event && event.key && event.key !== COLOR_CONFIG_KEY) return;
-      syncSelectionFromStorage();
-    };
-    window.addEventListener('storage', storageHandler);
 
     const cancelPendingLayerRefresh = () => {
       if(pendingLayerRefresh === null) return;
@@ -2879,9 +3002,6 @@
       pendingLayerRefresh = null;
       pendingLayerRefreshIsTimeout = false;
       applySelectedColors();
-      if(colorPanel){
-        configureColorPanel();
-      }
     };
 
     const scheduleLayerRefresh = () => {
@@ -2908,399 +3028,6 @@
       scheduleLayerRefresh();
     };
     unsubscribePalette = onPaletteUpdated(layerBroadcastHandler);
-
-    function createColorPanel(rootEl, hostContent, containerEl){
-      if(!containerEl) return null;
-      const sectionMarkup = COLOR_AREAS.map(area => {
-        const label = area === 'header' ? 'Header' : (area === 'main' ? 'Hauptmodul' : 'Buttons');
-        const hint = area === 'header' ? 'Titelzeile & Status' : (area === 'main' ? 'Rahmen & Hintergrund' : 'Karten & Aktionen');
-        const selectId = `ops-color-select-${area}-${Math.random().toString(36).slice(2,8)}`;
-        return `
-          <section class="ops-color-section">
-            <label class="ops-color-label" for="${selectId}">${label}</label>
-            <div class="ops-color-hint">${hint}</div>
-            <select id="${selectId}" data-area="${area}" class="ops-color-select"></select>
-            <div class="ops-color-preview" data-preview="${area}">
-              <span class="ops-color-chip" data-chip="bg" aria-hidden="true"></span>
-              <span class="ops-color-chip" data-chip="text" aria-hidden="true"></span>
-              <span class="ops-color-chip" data-chip="border" aria-hidden="true"></span>
-              <span class="ops-color-preview-label">Standard (App)</span>
-            </div>
-          </section>`;
-      }).join('');
-
-      containerEl.innerHTML = `
-        <div class="ops-color-panel-inner">
-          <div class="ops-color-source">
-            <div class="ops-color-source-path" data-color-source-path>${PALETTE_URL}</div>
-            <div class="ops-color-source-status" data-color-source-status>FarblayerConfig wird geladen…</div>
-            <pre class="ops-color-source-preview" data-color-source-preview hidden></pre>
-          </div>
-          <div class="ops-color-empty" hidden>Keine Farbvarianten gefunden. Es werden Standardfarben verwendet.</div>
-          <div class="ops-color-body">${sectionMarkup}</div>
-          <div class="ops-color-footer">
-            <button type="button" class="ops-color-reset">Zurücksetzen</button>
-          </div>
-        </div>`;
-
-      const emptyEl = containerEl.querySelector('.ops-color-empty');
-      const selects = {};
-      const previews = {};
-      COLOR_AREAS.forEach(area => {
-        selects[area] = containerEl.querySelector(`select[data-area="${area}"]`);
-        previews[area] = containerEl.querySelector(`[data-preview="${area}"]`);
-      });
-      const sourcePathEl = containerEl.querySelector('[data-color-source-path]');
-      const sourceStatusEl = containerEl.querySelector('[data-color-source-status]');
-      const sourcePreviewEl = containerEl.querySelector('[data-color-source-preview]');
-
-      let callbacks = { onChange:null, onReset:null, getSelection:null };
-      let currentLayers = [];
-      let currentSelection = { main:'', header:'', buttons:'' };
-
-      function formatLabel(layer, area){
-        const preferredName = typeof layer?.displayName === 'string' && layer.displayName
-          ? layer.displayName
-          : (typeof layer?.name === 'string' && layer.name ? layer.name : '');
-        const name = preferredName
-          || (typeof layer?.label === 'string' && layer.label ? layer.label : 'Layer');
-        let colors;
-        if(area === 'header') colors = deriveHeaderColors(layer);
-        else if(area === 'buttons') colors = deriveButtonColors(layer);
-        else colors = deriveMainColors(layer);
-        colors = mergeLiveCssColors(layer, colors, area);
-        if(colors?.bg && colors?.text){
-          return `${name} (${colors.bg} · ${colors.text})`;
-        }
-        if(colors?.bg) return `${name} (${colors.bg})`;
-        return name;
-      }
-
-      function getPreviewForArea(layer, area){
-        if(!layer) return { bg:'', text:'', border:'' };
-        const previewEntry = layer.preview?.[area];
-        if(previewEntry){
-          return {
-            bg: previewEntry.bg || '',
-            text: previewEntry.text || '',
-            border: previewEntry.border || layer.preview?.border || ''
-          };
-        }
-        let colors = null;
-        if(area === 'header') colors = deriveHeaderColors(layer);
-        else if(area === 'buttons') colors = deriveButtonColors(layer);
-        else colors = deriveMainColors(layer);
-        const merged = mergeLiveCssColors(layer, colors, area);
-        return {
-          bg: merged?.bg || '',
-          text: merged?.text || '',
-          border: merged?.border || ''
-        };
-      }
-
-      function getCssPreview(area, value){
-        const index = layerIndexFromValue(value);
-        if(!index) return { bg:'', text:'', border:'' };
-        const css = getCssColorsForLayer(index, area);
-        return {
-          bg: css?.bg || '',
-          text: css?.text || '',
-          border: css?.border || ''
-        };
-      }
-
-      function styleOption(option, layer, area){
-        if(!option) return;
-        const normalized = normalizeDropdownValue(option.value);
-        if(!normalized){
-          option.style.background = '';
-          option.style.color = '';
-          option.style.border = '';
-          option.style.padding = '4px 8px';
-          option.style.borderRadius = '4px';
-          return;
-        }
-        const preview = layer ? getPreviewForArea(layer, area) : getCssPreview(area, normalized);
-        const swatch = (typeof layer?.swatch === 'string' && layer.swatch)
-          || preview.bg
-          || (typeof layer?.color === 'string' ? layer.color : '');
-        const textColor = preview.text
-          || (typeof layer?.moduleText === 'string' && layer.moduleText)
-          || (swatch ? '#fff' : '#0f172a');
-        const borderColor = preview.border
-          || (typeof layer?.moduleBorder === 'string' && layer.moduleBorder)
-          || (typeof layer?.borderColor === 'string' && layer.borderColor)
-          || '';
-        option.style.background = swatch || '';
-        option.style.color = textColor;
-        option.style.border = borderColor ? `2px solid ${borderColor}` : '1px solid rgba(148,163,184,.35)';
-        option.style.padding = '4px 8px';
-        option.style.borderRadius = '4px';
-      }
-
-      function updateSelectBackground(area){
-        const select = selects[area];
-        if(!select) return;
-        const value = normalizeDropdownValue(select.value);
-        if(!value){
-          select.style.background = '';
-          select.style.color = '';
-          select.style.borderColor = '';
-          return;
-        }
-        const layer = findLayerById(currentLayers, value);
-        const preview = layer ? getPreviewForArea(layer, area) : getCssPreview(area, value);
-        const swatch = (typeof layer?.swatch === 'string' && layer.swatch)
-          || preview.bg
-          || (typeof layer?.color === 'string' ? layer.color : '');
-        const textColor = preview.text
-          || (typeof layer?.moduleText === 'string' && layer.moduleText)
-          || (swatch ? '#fff' : '#0f172a');
-        const borderColor = preview.border
-          || (typeof layer?.moduleBorder === 'string' && layer.moduleBorder)
-          || (typeof layer?.borderColor === 'string' && layer.borderColor)
-          || '';
-        select.style.background = swatch || '';
-        select.style.color = textColor;
-        select.style.borderColor = borderColor || '';
-      }
-
-      function populateOptions(layers){
-        COLOR_AREAS.forEach(area => {
-          const select = selects[area];
-          if(!select) return;
-          const previous = normalizeDropdownValue(select.value);
-          buildDropdownFromResolvedLayers(select);
-          const options = Array.from(select.options);
-          options.forEach(option => {
-            const normalized = normalizeDropdownValue(option.value);
-            if(!normalized) return;
-            const layer = findLayerById(layers, normalized);
-            if(layer){
-              option.textContent = formatLabel(layer, area);
-            }
-            styleOption(option, layer || null, area);
-          });
-          select.value = dropdownValueForSelection(previous);
-          if(select.value !== dropdownValueForSelection(previous)){
-            select.value = DROPDOWN_DEFAULT_VALUE;
-          }
-          updateSelectBackground(area);
-        });
-      }
-
-      function setSelection(selection){
-        const snapshot = {};
-        COLOR_AREAS.forEach(area => {
-          const select = selects[area];
-          if(!select) return;
-          const wanted = normalizeDropdownValue(selection?.[area]);
-          select.value = dropdownValueForSelection(wanted);
-          if(select.value !== dropdownValueForSelection(wanted)){
-            select.value = DROPDOWN_DEFAULT_VALUE;
-          }
-          snapshot[area] = normalizeDropdownValue(select.value);
-          updateSelectBackground(area);
-        });
-        currentSelection = snapshot;
-      }
-
-      function updatePreviews(){
-        const mainStyle = hostContent ? getComputedStyle(hostContent) : null;
-        const headerEl = rootEl.querySelector('.ops-header');
-        const headerStyle = headerEl ? getComputedStyle(headerEl) : null;
-        const cardEl = rootEl.querySelector('.ops-card');
-        const cardStyle = cardEl ? getComputedStyle(cardEl) : null;
-        const styleMap = { main: mainStyle, header: headerStyle, buttons: cardStyle };
-        COLOR_AREAS.forEach(area => {
-          const preview = previews[area];
-          const style = styleMap[area];
-          if(!preview || !style) return;
-          let bg = '', text = '', border = '';
-          if(area === 'main'){
-            bg = style.getPropertyValue('--module-bg') || style.backgroundColor || '';
-            text = style.getPropertyValue('--text-color') || style.color || '';
-            border = style.getPropertyValue('--module-border-color') || style.borderTopColor || '';
-          } else {
-            bg = style.backgroundColor || '';
-            text = style.color || '';
-            border = style.borderTopColor || style.borderColor || '';
-          }
-          const chips = {
-            bg: preview.querySelector('[data-chip="bg"]'),
-            text: preview.querySelector('[data-chip="text"]'),
-            border: preview.querySelector('[data-chip="border"]')
-          };
-          const label = preview.querySelector('.ops-color-preview-label');
-          const clean = str => (typeof str === 'string' ? str.trim() : '');
-          const values = { bg: clean(bg), text: clean(text), border: clean(border) };
-          if(chips.bg) chips.bg.style.background = values.bg || 'transparent';
-          if(chips.text) chips.text.style.background = values.text || 'transparent';
-          if(chips.border) chips.border.style.background = values.border || 'transparent';
-          if(label){
-            const parts = [values.bg, values.text, values.border].filter(Boolean);
-            label.textContent = parts.length ? parts.join(' · ') : 'Standard (App)';
-            label.title = label.textContent;
-          }
-        });
-        COLOR_AREAS.forEach(area => updateSelectBackground(area));
-      }
-
-      function extractPaletteNames(data){
-        if(!data) return [];
-        if(Array.isArray(data)){
-          return data.map((layer, idx) => {
-            if(!layer || typeof layer !== 'object') return `Layer ${idx + 1}`;
-            const candidates = [layer.displayName, layer.label, layer.name, layer.id];
-            for(const candidate of candidates){
-              if(typeof candidate === 'string' && candidate.trim()){
-                return candidate.trim();
-              }
-            }
-            return `Layer ${idx + 1}`;
-          }).filter(Boolean);
-        }
-        if(typeof data === 'object'){
-          try {
-            return Object.keys(data);
-          } catch {
-            return [];
-          }
-        }
-        return [];
-      }
-
-      function formatMetaTimestamp(value){
-        if(!value) return '';
-        try {
-          const date = new Date(value);
-          if(Number.isNaN(date.getTime())) return '';
-          return date.toLocaleString?.('de-DE', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          }) || date.toLocaleString();
-        } catch {
-          return '';
-        }
-      }
-
-      function updateSourceInfo(){
-        const meta = getPaletteMetadata();
-        if(sourcePathEl){
-          const path = meta?.path || PALETTE_URL;
-          sourcePathEl.textContent = path;
-          sourcePathEl.title = path;
-        }
-        if(sourceStatusEl){
-          if(!meta){
-            sourceStatusEl.textContent = 'FarblayerConfig noch nicht geladen.';
-          } else {
-            const parts = [];
-            if(meta.source) parts.push(`Quelle: ${meta.source}`);
-            const count = Number.isFinite(meta.layerCount) ? meta.layerCount : Number(meta.entryCount) || 0;
-            if(count > 0) parts.push(`${count} Einträge`);
-            const timestamp = formatMetaTimestamp(meta.loadedAt);
-            if(timestamp) parts.push(`Stand ${timestamp}`);
-            sourceStatusEl.textContent = parts.length ? parts.join(' • ') : 'FarblayerConfig geladen.';
-          }
-        }
-        if(sourcePreviewEl){
-          const paletteSource = (typeof window !== 'undefined' && window.__lbpPaletteSource)
-            ? window.__lbpPaletteSource
-            : null;
-          const names = extractPaletteNames(paletteSource);
-          if(names.length){
-            const unique = Array.from(new Set(names)).slice(0, 20);
-            sourcePreviewEl.hidden = false;
-            sourcePreviewEl.textContent = unique.join('\n');
-            sourcePreviewEl.title = unique.join(', ');
-          } else {
-            sourcePreviewEl.hidden = true;
-            sourcePreviewEl.textContent = '';
-            sourcePreviewEl.title = '';
-          }
-        }
-      }
-
-      function updateVisibility(){
-        if(emptyEl){
-          emptyEl.hidden = currentLayers.length > 0;
-        }
-        updateSourceInfo();
-      }
-
-      const resetBtn = containerEl.querySelector('.ops-color-reset');
-      if(resetBtn){
-        resetBtn.addEventListener('click', () => {
-          let nextSelection = null;
-          if(typeof callbacks.onReset === 'function'){
-            nextSelection = callbacks.onReset();
-          }
-          if(nextSelection && typeof nextSelection === 'object'){
-            setSelection(nextSelection);
-          } else if (callbacks.getSelection) {
-            const latest = callbacks.getSelection();
-            if(latest && typeof latest === 'object') setSelection(latest);
-            else setSelection({});
-          } else {
-            setSelection({});
-          }
-          updatePreviews();
-        });
-      }
-
-      COLOR_AREAS.forEach(area => {
-        const select = selects[area];
-        if(!select) return;
-        select.addEventListener('change', () => {
-          const value = normalizeDropdownValue(select.value);
-          let nextSelection = null;
-          if(typeof callbacks.onChange === 'function'){
-            nextSelection = callbacks.onChange(area, value);
-          }
-          if(nextSelection && typeof nextSelection === 'object'){
-            setSelection(nextSelection);
-          } else {
-            currentSelection[area] = value;
-          }
-          updatePreviews();
-          updateSelectBackground(area);
-        });
-      });
-
-      function configure(options = {}){
-        currentLayers = Array.isArray(options.layers) ? options.layers : [];
-        callbacks = {
-          onChange: typeof options.onChange === 'function' ? options.onChange : null,
-          onReset: typeof options.onReset === 'function' ? options.onReset : null,
-          getSelection: typeof options.getSelection === 'function' ? options.getSelection : null
-        };
-        updateVisibility();
-        populateOptions(currentLayers);
-        if(options.selection && typeof options.selection === 'object'){
-          setSelection(options.selection);
-        } else {
-          setSelection(currentSelection);
-        }
-        updatePreviews();
-        updateSourceInfo();
-      }
-
-      function destroy(){
-        containerEl.innerHTML = '';
-      }
-
-      return {
-        configure,
-        setSelection,
-        updatePreviews,
-        destroy
-      };
-    }
 
     applySelectedColors();
     setTimeout(() => applySelectedColors(), 0);
@@ -3459,7 +3186,14 @@
             </div>
           </div>
           <div class="ops-tab ops-tab-colors" data-tab="colors">
-            <div class="ops-color-panel"></div>
+            <div class="ops-color-delegate">
+              <p>Die Farbkonfiguration wird zentral im Farblayer-Viewer gepflegt. Öffnen Sie den Viewer, um Gruppen zuzuweisen oder Farben anzupassen.</p>
+              <div class="ops-color-summary" data-color-summary></div>
+              <div class="ops-color-actions">
+                <button type="button" class="ops-action-button ops-open-farblayer">Farblayer-Viewer öffnen</button>
+                <button type="button" class="ops-secondary ops-action-button ops-sync-farblayer">Farben aktualisieren</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="ops-settings-footer">
@@ -3477,10 +3211,8 @@
     const tabs = menu.querySelectorAll('.ops-tab');
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
     const ownedSections = menu.querySelectorAll('[data-tab-owner]');
-    const colorPanelContainer = menu.querySelector('.ops-color-panel');
     headerInput = menu.querySelector('.ops-title-input');
     headerResetBtn = menu.querySelector('.ops-title-reset');
-    colorPanel = createColorPanel(root, hostEl, colorPanelContainer);
 
     if(headerInput){
       headerInput.value = headerOverride;
@@ -3527,29 +3259,27 @@
 
     syncOwnedSections('buttons');
 
-    function configureColorPanel(){
-      if(!colorPanel) return;
-      const layers = getColorLayers();
-      const snapshot = {};
-      COLOR_AREAS.forEach(area => { snapshot[area] = normalizeDropdownValue(selectedColors[area]); });
-      colorPanel.configure({
-        layers,
-        selection: snapshot,
-        onChange(area, value){
-          selectedColors[area] = normalizeDropdownValue(value);
-          persistColorSelection();
-          applySelectedColors();
-          return { ...selectedColors };
-        },
-        onReset(){
-          COLOR_AREAS.forEach(area => { selectedColors[area] = ''; });
-          persistColorSelection();
-          applySelectedColors();
-          return { ...selectedColors };
-        },
-        getSelection(){
-          return { ...selectedColors };
+    colorSummaryEl = menu.querySelector('[data-color-summary]');
+    updateColorSummary();
+
+    const openFarblayerBtn = menu.querySelector('.ops-open-farblayer');
+    if(openFarblayerBtn){
+      openFarblayerBtn.addEventListener('click', () => {
+        if(typeof window !== 'undefined' && typeof window.openFarblayerViewer === 'function'){
+          try{ window.openFarblayerViewer(FARBLAYER_MODULE_NAME); }
+          catch(err){ console.warn('[LinkButtonsPlus] Farblayer-Viewer konnte nicht geöffnet werden:', err); }
+        }else{
+          alert('Farblayer-Viewer ist nicht verfügbar.');
         }
+      });
+    }
+
+    const syncFarblayerBtn = menu.querySelector('.ops-sync-farblayer');
+    if(syncFarblayerBtn){
+      syncFarblayerBtn.addEventListener('click', () => {
+        farblayerState = loadFarblayerState();
+        updateSelectedColorsFromFarblayer();
+        scheduleLayerRefresh();
       });
     }
 
@@ -3560,11 +3290,34 @@
         tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === target));
         syncOwnedSections(target);
         if(target === 'colors'){
-          configureColorPanel();
+          updateColorSummary();
         }
       });
     });
-    configureColorPanel();
+    const farblayerListener = event => {
+      if(!event || !event.detail) return;
+      const detail = event.detail;
+      const moduleName = typeof detail.module === 'string' ? detail.module.trim() : '';
+      if(moduleName && moduleName !== FARBLAYER_MODULE_NAME) return;
+      const assignments = detail.assignments && typeof detail.assignments === 'object' ? detail.assignments : {};
+      const groups = Array.isArray(detail.groups) && detail.groups.length ? detail.groups : farblayerState.groups;
+      farblayerState = { groups, assignments: { ...assignments } };
+      updateSelectedColorsFromFarblayer();
+      scheduleLayerRefresh();
+    };
+    window.addEventListener('farblayer-groups-changed', farblayerListener);
+
+    window.addEventListener('visibilitychange', () => {
+      if(document.hidden) return;
+      const fresh = loadFarblayerState();
+      const currentSerialized = JSON.stringify(farblayerState.assignments || {});
+      const nextSerialized = JSON.stringify(fresh.assignments || {});
+      if(currentSerialized !== nextSerialized){
+        farblayerState = fresh;
+        updateSelectedColorsFromFarblayer();
+        scheduleLayerRefresh();
+      }
+    });
     if(closeButton){
       closeButton.addEventListener('click', () => closeModuleSettingsModal());
     }
@@ -3885,7 +3638,7 @@
       workforceFilters = loadWorkforceFilters();
       renderFilters();
       syncHeaderUI({ skipInput:false });
-      configureColorPanel();
+      updateColorSummary();
       tabButtons.forEach(btn => {
         const isButtons = btn.dataset.tab === 'buttons';
         btn.classList.toggle('active', isButtons);
@@ -4006,10 +3759,6 @@
         attrObserver.disconnect();
         clearAutoUpdateTimer();
         window.removeEventListener('storage', storageHandler);
-        if (colorPanel) {
-          colorPanel.destroy();
-          colorPanel = null;
-        }
         cancelPendingLayerRefresh();
         if(unsubscribePalette){
           try {
