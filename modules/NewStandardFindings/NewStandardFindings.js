@@ -139,10 +139,10 @@
     }
   }
 
+  const textareaAutoResizeObservers=new WeakMap();
+
   function autoSizeTextarea(textarea){
-    if(!textarea) return;
-    textarea.style.height='auto';
-    textarea.style.height=`${Math.max(textarea.scrollHeight,textarea.dataset.minHeight?Number(textarea.dataset.minHeight):0)}px`;
+    autoResizeTextarea(textarea);
   }
 
   const OUTPUT_KEYS=OUTPUT_DEFS.map(def=>def.key);
@@ -675,6 +675,7 @@
       const textarea=document.createElement('textarea');
       textarea.value=typeof currentBlock.value==='string'?currentBlock.value:'';
       textarea.placeholder='Text…';
+      textarea.dataset.minRows='1';
       textarea.addEventListener('input',()=>{
         const nextValue=textarea.value;
         currentBlock.value=nextValue;
@@ -694,6 +695,7 @@
           console.warn('NSF: Custom-Block konnte nicht gespeichert werden',err,currentBlock);
         }
       });
+      ensureTextareaAutoResize(textarea);
       wrapper.appendChild(label);
       wrapper.appendChild(textarea);
       console.log('[renderRoutineEditorBlock] rendered '+blockType+' block:',currentBlock);
@@ -2988,12 +2990,34 @@
     const borderBottom=parseFloat(computed.borderBottomWidth)||0;
     const minRowsValue=Number(textarea.dataset?.minRows);
     const minRows=Number.isFinite(minRowsValue)?minRowsValue:0;
+    const minHeightValue=Number(textarea.dataset?.minHeight);
+    const datasetMinHeight=Number.isFinite(minHeightValue)?minHeightValue:0;
     const rawValue=typeof textarea.value==='string'?textarea.value:'';
     const lineCount=Math.max(rawValue.split('\n').length,minRows||1);
     const baseHeight=lineCount*lineHeight+paddingTop+paddingBottom+borderTop+borderBottom;
-    const minHeight=Math.max(parseFloat(computed.minHeight)||0,baseHeight);
+    const minHeight=Math.max(parseFloat(computed.minHeight)||0,baseHeight,datasetMinHeight);
     const nextHeight=Math.max(textarea.scrollHeight,minHeight);
     textarea.style.height=`${nextHeight}px`;
+  }
+
+  function ensureTextareaAutoResize(textarea){
+    if(!(textarea instanceof HTMLTextAreaElement)) return;
+    requestAnimationFrame(()=>autoResizeTextarea(textarea));
+    if(typeof ResizeObserver==='undefined') return;
+    if(textareaAutoResizeObservers.has(textarea)) return;
+    try{
+      const observer=new ResizeObserver(entries=>{
+        for(const entry of entries){
+          if(entry?.target===textarea){
+            autoResizeTextarea(textarea);
+          }
+        }
+      });
+      observer.observe(textarea);
+      textareaAutoResizeObservers.set(textarea,observer);
+    }catch(err){
+      console.warn('NSF: ResizeObserver nicht verfügbar',err);
+    }
   }
 
   class ModuleInstance{
@@ -4085,6 +4109,7 @@
           textarea.dataset.minRows='1';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
+          ensureTextareaAutoResize(textarea);
           const partsContainer=document.createElement('div');
           partsContainer.className='nsf-parts-grid';
           this.partsFieldContainer=partsContainer;
@@ -4099,7 +4124,7 @@
           textarea.dataset.minRows='1';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
-          requestAnimationFrame(()=>autoResizeTextarea(textarea));
+          ensureTextareaAutoResize(textarea);
         }
         targetContainer.appendChild(box);
       });
@@ -4148,7 +4173,7 @@
         this.syncCustomSectionsToActiveState();
       });
       block.appendChild(textarea);
-      requestAnimationFrame(()=>autoResizeTextarea(textarea));
+      ensureTextareaAutoResize(textarea);
       const remove=document.createElement('button');
       remove.type='button';
       remove.className='nsf-custom-remove';
@@ -5356,14 +5381,14 @@
       textarea.id='freitext-editor';
       textarea.placeholder='Freitext eingeben…';
       textarea.value='';
+      textarea.dataset.minRows='5';
       textarea.addEventListener('input',()=>{
         const value=typeof textarea.value==='string'?textarea.value:'';
         this.commitFreitextDraft(value);
-        if(typeof autoResizeTextarea==='function'){
-          try{autoResizeTextarea(textarea);}catch{}
-        }
+        autoResizeTextarea(textarea);
       });
       inputColumn.appendChild(textarea);
+      ensureTextareaAutoResize(textarea);
       this.freitextTextarea=textarea;
       const keywordSidebar=document.createElement('aside');
       keywordSidebar.className='nsf-freitext-keyword-sidebar';
@@ -6757,6 +6782,7 @@
         textarea.className='nsf-editor-input';
         textarea.rows=1;
         textarea.dataset.minHeight='40';
+        textarea.dataset.minRows='1';
         const initialValue=typeof def.content==='string'
           ?def.content
           :Array.isArray(def.lines)&&def.lines.length?def.lines.join('\n'):'';
@@ -6776,7 +6802,7 @@
         wrapper.append(label,textarea);
         container.appendChild(wrapper);
         info.customTextInput=textarea;
-        requestAnimationFrame(()=>autoSizeTextarea(textarea));
+        ensureTextareaAutoResize(textarea);
         return;
       }
       const lines=this.getRoutineEditorLinesForBlock(key,editable);
@@ -6805,6 +6831,7 @@
       input.value=typeof value==='string'?value:'';
       input.rows=1;
       input.dataset.minHeight='40';
+      input.dataset.minRows='1';
       autoSizeTextarea(input);
       if(editable){
         input.placeholder='Text…';
@@ -6834,7 +6861,7 @@
         input.addEventListener('input',()=>autoSizeTextarea(input));
       }
       line.appendChild(input);
-      requestAnimationFrame(()=>autoSizeTextarea(input));
+      ensureTextareaAutoResize(input);
       if(editable){
         const remove=document.createElement('button');
         remove.type='button';
