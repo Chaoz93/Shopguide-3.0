@@ -675,7 +675,7 @@
       const textarea=document.createElement('textarea');
       textarea.value=typeof currentBlock.value==='string'?currentBlock.value:'';
       textarea.placeholder='Text…';
-      textarea.dataset.minRows='1';
+      textarea.dataset.minRows='2';
       textarea.addEventListener('input',()=>{
         const nextValue=textarea.value;
         currentBlock.value=nextValue;
@@ -4106,7 +4106,7 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
-          textarea.dataset.minRows='1';
+          textarea.dataset.minRows='2';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
           ensureTextareaAutoResize(textarea);
@@ -4121,7 +4121,7 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
-          textarea.dataset.minRows='1';
+          textarea.dataset.minRows='2';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
           ensureTextareaAutoResize(textarea);
@@ -4166,7 +4166,7 @@
       textarea.className='nsf-custom-textarea';
       textarea.placeholder='Eigener Text…';
       textarea.value=section.text||'';
-      textarea.dataset.minRows='1';
+      textarea.dataset.minRows='2';
       textarea.addEventListener('input',()=>{
         section.text=textarea.value;
         autoResizeTextarea(textarea);
@@ -6780,9 +6780,9 @@
         const textarea=document.createElement('textarea');
         textarea.id=fieldId;
         textarea.className='nsf-editor-input';
-        textarea.rows=1;
+        textarea.rows=2;
         textarea.dataset.minHeight='40';
-        textarea.dataset.minRows='1';
+        textarea.dataset.minRows='2';
         const initialValue=typeof def.content==='string'
           ?def.content
           :Array.isArray(def.lines)&&def.lines.length?def.lines.join('\n'):'';
@@ -6829,9 +6829,9 @@
       const input=document.createElement('textarea');
       input.className='nsf-editor-input';
       input.value=typeof value==='string'?value:'';
-      input.rows=1;
+      input.rows=2;
       input.dataset.minHeight='40';
-      input.dataset.minRows='1';
+      input.dataset.minRows='2';
       autoSizeTextarea(input);
       if(editable){
         input.placeholder='Text…';
