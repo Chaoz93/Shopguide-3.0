@@ -767,6 +767,7 @@
   const PALETTE_CACHE_KEY = 'linkbuttonsplus-palette-cache-v1';
   const PALETTE_META_KEY = 'linkbuttonsplus-palette-meta-v1';
   const PALETTE_HANDLE_KEY = 'linkbuttonsplus:paletteHandle';
+  let paletteFetchWarningIssued = false;
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
   let lastPrimedPaletteSignature = '';
@@ -823,6 +824,31 @@
       localStorage.setItem(PALETTE_CACHE_KEY, serialized);
       localStorage.setItem(PALETTE_URL, serialized);
     }catch{}
+  }
+
+  function shouldAttemptPaletteFetch(){
+    if(typeof fetch !== 'function') return false;
+    if(typeof window === 'undefined' || !window.location) return true;
+    try{
+      const protocol = (window.location.protocol || '').toLowerCase();
+      if(!protocol) return true;
+      if(protocol === 'http:' || protocol === 'https:' || protocol === 'chrome-extension:'){
+        return true;
+      }
+      if(!paletteFetchWarningIssued){
+        const reason = protocol === 'file:' ? 'Datei-Protokoll' : `Protokoll ${protocol}`;
+        try{
+          console.info(`[LinkButtonsPlus] Überspringe Netzwerkabruf für FarblayerConfig.json (${reason}).`);
+        }catch{}
+        paletteFetchWarningIssued = true;
+      }
+      return false;
+    }catch(err){
+      try{
+        console.warn('[LinkButtonsPlus] Konnte Protokoll für FarblayerConfig.json nicht bestimmen:', err);
+      }catch{}
+      return true;
+    }
   }
 
   function setPaletteHandle(handle){
@@ -1399,26 +1425,28 @@
       }
     }
 
-    try {
-      const response = await fetch(PALETTE_URL, { cache: 'no-store' });
-      if(!response.ok){
-        throw new Error(`${response.status} ${response.statusText}`);
+    if(typeof fetch === 'function' && shouldAttemptPaletteFetch()){
+      try {
+        const response = await fetch(PALETTE_URL, { cache: 'no-store' });
+        if(!response.ok){
+          throw new Error(`${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        if(data && typeof data === 'object'){
+          try {
+            localStorage.setItem(PALETTE_URL, JSON.stringify(data));
+          } catch {}
+          return {
+            data,
+            source: 'Dateisystem',
+            path: PALETTE_URL,
+            loadedAt: nowIso(),
+            layerCount: countPaletteItems(data)
+          };
+        }
+      } catch (err) {
+        fetchError = err;
       }
-      const data = await response.json();
-      if(data && typeof data === 'object'){
-        try {
-          localStorage.setItem(PALETTE_URL, JSON.stringify(data));
-        } catch {}
-        return {
-          data,
-          source: 'Dateisystem',
-          path: PALETTE_URL,
-          loadedAt: nowIso(),
-          layerCount: countPaletteItems(data)
-        };
-      }
-    } catch (err) {
-      fetchError = err;
     }
 
     try {
