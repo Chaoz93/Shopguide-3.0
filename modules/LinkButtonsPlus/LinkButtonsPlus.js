@@ -769,6 +769,7 @@
   const PALETTE_HANDLE_KEY = 'linkbuttonsplus:paletteHandle';
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
+  let cssVarPrimeSignature = '';
   const paletteUpdateListeners = new Set();
   let paletteFileHandle = null;
   let paletteHandleLoaded = false;
@@ -1414,8 +1415,6 @@
           layerCount: countPaletteItems(data)
         };
       }
-    } catch (err) {
-      fetchError = err;
     }
 
     try {
@@ -1697,6 +1696,9 @@
     const selects = window?.document?.querySelectorAll?.('.ops-color-select') || [];
     if(selects.length){
       selects.forEach(sel => buildDropdownFromResolvedLayers(sel));
+      return true;
+    }
+    if(primeCssVariablesFromPalette()){
       return true;
     }
     console.log('[LinkButtonsPlus] No dropdowns present for readable palette build');
