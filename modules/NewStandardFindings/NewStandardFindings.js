@@ -1383,7 +1383,7 @@
       .nsf-copy-btn.copied{background:rgba(16,185,129,0.35);}
       .nsf-copy-btn .nsf-copy-feedback{font-size:0.85rem;opacity:0;transition:opacity 0.15s ease;}
       .nsf-copy-btn.copied .nsf-copy-feedback{opacity:1;}
-      .nsf-textarea{flex:1;min-height:6.5rem;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow-x:hidden;overflow-y:hidden;}
+      .nsf-textarea{flex:1;min-height:6.5rem;max-height:28rem;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow-x:hidden;overflow-y:hidden;}
       .nsf-textarea:hover,.nsf-textarea:focus,.nsf-custom-textarea:hover,.nsf-custom-textarea:focus,.nsf-editor-input:hover,.nsf-editor-input:focus{overflow-y:auto;}
       .nsf-textarea:disabled{opacity:0.6;background:rgba(255,255,255,0.5);cursor:not-allowed;}
       .nsf-note{font-size:0.8rem;opacity:0.75;}
@@ -3000,6 +3000,14 @@
     const minHeightValue=Number(textarea.dataset?.minHeight);
     const datasetMinHeight=Number.isFinite(minHeightValue)&&minHeightValue>0?minHeightValue:0;
     const cssMinHeight=numeric(computed.minHeight);
+    let cssMaxHeight=Infinity;
+    const rawMaxHeight=computed.maxHeight;
+    if(rawMaxHeight&&rawMaxHeight!=='none'){
+      const parsedMax=parseFloat(rawMaxHeight);
+      if(Number.isFinite(parsedMax)&&parsedMax>0){
+        cssMaxHeight=parsedMax;
+      }
+    }
     const rowsMinHeight=minRows>0
       ?minRows*lineHeight+paddingTop+paddingBottom+(boxSizing==='border-box'?borderTop+borderBottom:0)
       :0;
@@ -3026,7 +3034,13 @@
       measured=Math.max(measured,fallback);
     }
     const nextHeight=Math.max(measured,datasetMinHeight,cssMinHeight,rowsMinHeight);
-    textarea.style.height=`${nextHeight}px`;
+    const appliedHeight=cssMaxHeight<Infinity?Math.min(nextHeight,cssMaxHeight):nextHeight;
+    textarea.style.height=`${appliedHeight}px`;
+    if(cssMaxHeight<Infinity&&nextHeight>cssMaxHeight){
+      textarea.dataset.autoResizeOverflow='1';
+    }else if(textarea.dataset.autoResizeOverflow){
+      delete textarea.dataset.autoResizeOverflow;
+    }
     if(previousOverflow) textarea.style.overflowY=previousOverflow;
   }
 
