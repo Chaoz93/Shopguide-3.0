@@ -5,6 +5,15 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.7.3] – 2025-10-18
+### Improved
+- Zuweisungsoberfläche wird mittig fokussiert und vergrößert, während der Rest der Seite weichgezeichnet wird.
+- Gruppen-Sidebar bleibt fixiert neben der Vorschau und passt sich auf kleineren Displays responsiv an.
+
+## [1.7.2] – 2025-10-18
+### Improved
+- Modulfeld im Zuweisungsmodus vergrößert, damit zuweisbare Bereiche leichter erreichbar sind.
+
 ## [1.7.1] – 2025-10-18
 ### Added
 - Zusätzliche Zuweisungsziele für Moduloberfläche, Header und Aktions-Buttons lassen sich jetzt über die Sidebar einfärben.
