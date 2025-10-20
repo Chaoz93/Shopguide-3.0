@@ -769,6 +769,8 @@
   const PALETTE_HANDLE_KEY = 'linkbuttonsplus:paletteHandle';
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
+  let lastPrimedPaletteSignature = '';
+  let lastPrimedPaletteCount = 0;
   let cssVarPrimeSignature = '';
   const paletteUpdateListeners = new Set();
   let paletteFileHandle = null;
@@ -1415,6 +1417,8 @@
           layerCount: countPaletteItems(data)
         };
       }
+    } catch (err) {
+      fetchError = err;
     }
 
     try {
@@ -1690,6 +1694,102 @@
       console.log('[LinkButtonsPlus] Dropdown rebuilt without palette entries');
     }
     return builtCount > 0;
+  }
+
+  function primeCssVariablesFromPalette(){
+    if(typeof window === 'undefined' || !window.document || !window.document.documentElement){
+      return false;
+    }
+
+    const palette = window.__lbpPalette && typeof window.__lbpPalette === 'object'
+      ? window.__lbpPalette
+      : null;
+    if(!palette){
+      lastPrimedPaletteCount = 0;
+      return false;
+    }
+
+    const entries = Object.values(palette)
+      .filter(entry => entry && typeof entry === 'object' && typeof entry.color === 'string' && entry.color.trim());
+    if(!entries.length){
+      lastPrimedPaletteCount = 0;
+      return false;
+    }
+
+    const sorted = entries.slice().sort((a, b) => {
+      const orderA = Number.isFinite(a?.order) ? a.order : 0;
+      const orderB = Number.isFinite(b?.order) ? b.order : 0;
+      if(orderA !== orderB) return orderA - orderB;
+      const indexA = Number.isFinite(a?.index) ? a.index : 0;
+      const indexB = Number.isFinite(b?.index) ? b.index : 0;
+      return indexA - indexB;
+    });
+
+    let signature = cachedPaletteSignature;
+    if(!signature){
+      try {
+        signature = JSON.stringify(sorted.map(entry => ([
+          entry?.name || '',
+          entry?.color || '',
+          entry?.textColor || '',
+          entry?.borderColor || '',
+          Number.isFinite(entry?.index) ? Math.floor(entry.index) : ''
+        ])));
+      } catch {
+        signature = '';
+      }
+    }
+    const normalizedSignature = signature || '__lbp_palette__fallback__';
+    if(lastPrimedPaletteSignature === normalizedSignature && lastPrimedPaletteCount > 0){
+      return true;
+    }
+
+    const root = window.document.documentElement;
+    const seenIndices = new Set();
+    let primedCount = 0;
+
+    for(const entry of sorted){
+      const color = typeof entry.color === 'string' ? entry.color.trim() : '';
+      if(!color) continue;
+
+      const resolvedIndex = resolveLayerIndex(entry) || inferLayerIndexFromName(entry?.name);
+      if(!Number.isFinite(resolvedIndex) || resolvedIndex <= 0) continue;
+
+      const idx = Math.floor(Math.abs(resolvedIndex));
+      if(seenIndices.has(idx)) continue;
+
+      const textColor = typeof entry.textColor === 'string' ? entry.textColor.trim() : '';
+      const borderColor = typeof entry.borderColor === 'string' ? entry.borderColor.trim() : '';
+
+      const finalText = ensureCssVarForIndex(idx, color, textColor);
+
+      setCssVar(root, `--module-layer-${idx}-module-border`, borderColor || '');
+      setCssVar(root, `--module-layer-${idx}-header-border`, borderColor || '');
+
+      const effectiveText = textColor || finalText || '';
+      setCssVar(root, `--module-layer-${idx}-buttons-bg`, color);
+      setCssVar(root, `--module-layer-${idx}-buttons-text`, effectiveText);
+      setCssVar(root, `--module-layer-${idx}-buttons-border`, borderColor || '');
+      setCssVar(root, `--module-layer-${idx}-sub-1-bg`, color);
+      setCssVar(root, `--module-layer-${idx}-sub-1-text`, effectiveText);
+      setCssVar(root, `--module-layer-${idx}-sub-1-border`, borderColor || '');
+
+      seenIndices.add(idx);
+      primedCount += 1;
+    }
+
+    if(!primedCount){
+      lastPrimedPaletteSignature = normalizedSignature;
+      lastPrimedPaletteCount = 0;
+      return false;
+    }
+
+    lastPrimedPaletteSignature = normalizedSignature;
+    lastPrimedPaletteCount = primedCount;
+    try {
+      console.log(`[LinkButtonsPlus] CSS-Variablen aus Palette vorinitialisiert (${primedCount})`);
+    } catch {}
+    return true;
   }
 
   function syncDropdownsFromResolvedLayers(){
