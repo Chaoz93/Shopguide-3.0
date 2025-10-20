@@ -268,6 +268,7 @@
     buttons: 'Aktionselemente'
   };
   const FARBLAYER_STORAGE_KEY = `flvGroups:${FARBLAYER_MODULE_NAME}`;
+  const FARBLAYER_ELEMENT_STORAGE_KEY = `flvElements:${FARBLAYER_MODULE_NAME}`;
   const FARBLAYER_VIEWER_SCRIPT_URL = 'modules/FarblayerViewer/FarblayerViewer.js';
   const FARBLAYER_VIEWER_HOST_ID = 'farblayer-viewer-host';
 
@@ -290,6 +291,54 @@
     try{
       localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(value));
     }catch{}
+  }
+
+  function normalizeGroupName(value){
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  function loadFarblayerElementAssignments(){
+    try{
+      const raw = localStorage.getItem(FARBLAYER_ELEMENT_STORAGE_KEY);
+      if(!raw) return {};
+      const parsed = JSON.parse(raw);
+      if(parsed && typeof parsed === 'object'){
+        const result = {};
+        Object.entries(parsed).forEach(([elementId, groupName]) => {
+          const id = typeof elementId === 'string' ? elementId.trim() : '';
+          const group = normalizeGroupName(groupName);
+          if(id && group){
+            result[id] = group;
+          }
+        });
+        return result;
+      }
+    }catch(err){
+      console.warn('[LinkButtonsPlus] Konnte Farblayer-Elementzuweisungen nicht laden:', err);
+    }
+    return {};
+  }
+
+  function installAssignElementHook(){
+    if(typeof window === 'undefined') return;
+    const original = window.assignElementToGroup;
+    if(typeof original !== 'function' || original.__lbpWrapped) return;
+    const wrapped = function(moduleName, elementId, groupName){
+      const result = original.apply(this, arguments);
+      try{
+        window.dispatchEvent(new CustomEvent('farblayer-element-assigned', {
+          detail: {
+            module: typeof moduleName === 'string' ? moduleName : '',
+            elementId: typeof elementId === 'string' ? elementId : '',
+            group: typeof groupName === 'string' ? groupName : ''
+          }
+        }));
+      }catch{}
+      return result;
+    };
+    wrapped.__lbpWrapped = true;
+    wrapped.__lbpOriginal = original;
+    window.assignElementToGroup = wrapped;
   }
 
   function getDefaultFarblayerState(){
@@ -318,6 +367,7 @@
             window.renderFarblayerViewer(host);
             host.dataset.initialized = 'true';
           }
+          installAssignElementHook();
         }
       }catch(err){
         console.warn('[LinkButtonsPlus] Farblayer-Viewer konnte nicht initialisiert werden:', err);
@@ -2756,6 +2806,11 @@
     let headerInput = null;
     let headerResetBtn = null;
 
+    let farblayerState = loadFarblayerState();
+    let farblayerElementAssignments = loadFarblayerElementAssignments();
+    const assignableElements = new Map();
+    const selectedColors = { main:'', header:'', buttons:'' };
+
     function getEffectiveHeaderTitle(){
       return headerOverride || defaultHeaderTitle;
     }
@@ -2839,15 +2894,120 @@
         </div>
       </div>
     `;
+    const outerEl = root.querySelector('.ops-outer');
+    const headerEl = root.querySelector('.ops-header');
+    const autoRefreshEl = root.querySelector('.ops-autorefresh');
+    const cardElements = Array.from(root.querySelectorAll('.ops-card'));
+    registerAssignable(hostEl, 'host', { defaultGroup: FARBLAYER_GROUPS.main, label: 'Modulfläche' });
+    registerAssignable(root, 'root', { defaultGroup: FARBLAYER_GROUPS.main, label: 'Modul-Inhalt' });
+    registerAssignable(outerEl, 'outer', { defaultGroup: FARBLAYER_GROUPS.main, label: 'Hauptbereich' });
+    registerAssignable(headerEl, 'header', { defaultGroup: FARBLAYER_GROUPS.header, label: 'Header' });
+    if(autoRefreshEl){
+      registerAssignable(autoRefreshEl, 'status', { defaultGroup: FARBLAYER_GROUPS.buttons, label: 'Auto-Update' });
+    }
+    cardElements.forEach((card, index) => {
+      const slot = card.dataset.slot || `slot-${index}`;
+      const label = (card.textContent || '').trim();
+      registerAssignable(card, `card-${slot}`, { defaultGroup: FARBLAYER_GROUPS.buttons, label: label || `Aktion ${index + 1}` });
+    });
+    reloadFarblayerElementAssignments();
     titleEl = root.querySelector('.ops-title');
     syncHeaderUI();
     migrateLegacyColorSelection(instanceId);
-    let farblayerState = loadFarblayerState();
-    const selectedColors = { main:'', header:'', buttons:'' };
     let pendingLayerRefresh = null;
     let pendingLayerRefreshIsTimeout = false;
     let unsubscribePalette = null;
     let colorSummaryEl = null;
+
+    if(typeof window !== 'undefined'){
+      installAssignElementHook();
+    }
+
+    function reloadFarblayerElementAssignments(){
+      const loaded = loadFarblayerElementAssignments();
+      if(assignableElements.size === 0){
+        farblayerElementAssignments = loaded;
+        return;
+      }
+      const filtered = {};
+      assignableElements.forEach((_, elementId) => {
+        const group = normalizeGroupName(loaded[elementId]);
+        if(group){
+          filtered[elementId] = group;
+        }
+      });
+      farblayerElementAssignments = filtered;
+    }
+
+    function ensureAssignableId(element, suffix){
+      if(!element) return '';
+      if(element.id) return element.id;
+      const base = `lbp-${instanceId}-${suffix}`;
+      let candidate = base;
+      let counter = 1;
+      while(candidate && document.getElementById(candidate)){
+        candidate = `${base}-${counter++}`;
+      }
+      if(candidate){
+        element.id = candidate;
+      }
+      return element.id || '';
+    }
+
+    function registerAssignable(element, key, { defaultGroup = '', label = '' } = {}){
+      if(!element) return;
+      const id = ensureAssignableId(element, key);
+      if(!id) return;
+      element.dataset.assignable = 'true';
+      if(defaultGroup){
+        element.dataset.assignDefaultGroup = defaultGroup;
+      }
+      if(label){
+        element.dataset.assignLabel = label;
+      }
+      assignableElements.set(id, { element, defaultGroup, label });
+    }
+
+    function getAssignedGroupForElement(elementId, defaultGroup){
+      const normalizedDefault = normalizeGroupName(defaultGroup);
+      const validGroups = Array.isArray(farblayerState.groups)
+        ? new Set(farblayerState.groups.map(normalizeGroupName).filter(Boolean))
+        : new Set();
+      const raw = normalizeGroupName(farblayerElementAssignments[elementId]);
+      if(raw && validGroups.has(raw)){
+        return raw;
+      }
+      if(normalizedDefault && validGroups.has(normalizedDefault)){
+        return normalizedDefault;
+      }
+      return normalizedDefault || '';
+    }
+
+    function applyColorsToAssignables(colorSets){
+      assignableElements.forEach((meta, elementId) => {
+        const element = meta.element;
+        if(!element) return;
+        const assignedGroup = getAssignedGroupForElement(elementId, meta.defaultGroup);
+        let colors = assignedGroup ? colorSets.get(assignedGroup) : null;
+        if(!colors && assignedGroup !== FARBLAYER_GROUPS.main){
+          colors = colorSets.get(FARBLAYER_GROUPS.main) || null;
+        }
+        if(assignedGroup){
+          element.dataset.assignedGroup = assignedGroup;
+        }else{
+          delete element.dataset.assignedGroup;
+        }
+        if(colors){
+          element.style.background = colors.bg || '';
+          element.style.color = colors.text || '';
+          element.style.borderColor = colors.border || '';
+        }else{
+          element.style.background = '';
+          element.style.color = '';
+          element.style.borderColor = '';
+        }
+      });
+    }
 
     function updateSelectedColorsFromFarblayer(){
       const assignments = farblayerState?.assignments && typeof farblayerState.assignments === 'object'
@@ -2896,6 +3056,21 @@
       const headerColors = headerLayer ? deriveHeaderColors(headerLayer) : null;
       const buttonColors = buttonLayer ? deriveButtonColors(buttonLayer) : null;
 
+      const colorSets = new Map();
+      if(mainColors){
+        colorSets.set(FARBLAYER_GROUPS.main, mainColors);
+      }
+      if(headerColors){
+        colorSets.set(FARBLAYER_GROUPS.header, headerColors);
+      }else if(mainColors && !colorSets.has(FARBLAYER_GROUPS.header)){
+        colorSets.set(FARBLAYER_GROUPS.header, mainColors);
+      }
+      if(buttonColors){
+        colorSets.set(FARBLAYER_GROUPS.buttons, buttonColors);
+      }else if(mainColors && !colorSets.has(FARBLAYER_GROUPS.buttons)){
+        colorSets.set(FARBLAYER_GROUPS.buttons, mainColors);
+      }
+
       if(hostEl){
         if(mainColors){
           setCssVar(hostEl, '--module-bg', mainColors.bg);
@@ -2933,7 +3108,6 @@
         headerEl.style.borderColor = headerColors?.border || '';
       }
 
-      const cards = Array.from(root.querySelectorAll('.ops-card'));
       if(buttonColors){
         setCssVar(root, '--lbp-card-bg', buttonColors.bg || '');
         setCssVar(root, '--lbp-card-text', buttonColors.text || '');
@@ -2948,7 +3122,7 @@
         const hoverShadowValue = hoverShadow ? `0 20px 40px ${hoverShadow}` : '';
         setCssVar(root, '--lbp-card-shadow', shadowValue);
         setCssVar(root, '--lbp-card-shadow-hover', hoverShadowValue);
-        cards.forEach(card => {
+        cardElements.forEach(card => {
           card.style.background = buttonColors.bg || '';
           card.style.color = buttonColors.text || '';
           card.style.borderColor = buttonColors.border || '';
@@ -2961,7 +3135,7 @@
         setCssVar(root, '--lbp-card-active-bg','');
         setCssVar(root, '--lbp-card-shadow','');
         setCssVar(root, '--lbp-card-shadow-hover','');
-        cards.forEach(card => {
+        cardElements.forEach(card => {
           card.style.background = '';
           card.style.color = '';
           card.style.borderColor = '';
@@ -2989,6 +3163,7 @@
         }
       }
 
+      applyColorsToAssignables(colorSets);
       updateColorSummary();
     }
 
@@ -3249,6 +3424,7 @@
               <p>Die Farbkonfiguration wird zentral im Farblayer-Viewer gepflegt. Öffnen Sie den Viewer, um Gruppen zuzuweisen oder Farben anzupassen.</p>
               <div class="ops-color-summary" data-color-summary></div>
               <div class="ops-color-actions">
+                <button type="button" class="ops-secondary ops-action-button ops-assign-farblayer">Flächen zuweisen</button>
                 <button type="button" class="ops-action-button ops-open-farblayer">Farblayer-Viewer öffnen</button>
                 <button type="button" class="ops-secondary ops-action-button ops-sync-farblayer">Farben aktualisieren</button>
               </div>
@@ -3346,10 +3522,32 @@
       });
     }
 
+    const assignFarblayerBtn = menu.querySelector('.ops-assign-farblayer');
+    if(assignFarblayerBtn){
+      assignFarblayerBtn.addEventListener('click', async () => {
+        const ready = await ensureFarblayerViewerReady();
+        if(!ready || typeof window.startAssignMode !== 'function'){
+          alert('Farblayer-Viewer ist nicht verfügbar.');
+          return;
+        }
+        closeModuleSettingsModal({ persist:true, restoreFocus:false });
+        const groups = Array.isArray(farblayerState.groups) && farblayerState.groups.length
+          ? farblayerState.groups.slice()
+          : Object.values(FARBLAYER_GROUPS);
+        try{
+          window.startAssignMode(FARBLAYER_MODULE_NAME, groups);
+        }catch(err){
+          console.warn('[LinkButtonsPlus] Farblayer-Zuweisung konnte nicht gestartet werden:', err);
+          alert('Farblayer-Viewer ist nicht verfügbar.');
+        }
+      });
+    }
+
     const syncFarblayerBtn = menu.querySelector('.ops-sync-farblayer');
     if(syncFarblayerBtn){
       syncFarblayerBtn.addEventListener('click', () => {
         farblayerState = loadFarblayerState();
+        reloadFarblayerElementAssignments();
         updateSelectedColorsFromFarblayer();
         scheduleLayerRefresh();
       });
@@ -3374,10 +3572,20 @@
       const assignments = detail.assignments && typeof detail.assignments === 'object' ? detail.assignments : {};
       const groups = Array.isArray(detail.groups) && detail.groups.length ? detail.groups : farblayerState.groups;
       farblayerState = { groups, assignments: { ...assignments } };
+      reloadFarblayerElementAssignments();
       updateSelectedColorsFromFarblayer();
       scheduleLayerRefresh();
     };
     window.addEventListener('farblayer-groups-changed', farblayerListener);
+
+    const farblayerElementListener = event => {
+      const detail = event?.detail || {};
+      const moduleName = typeof detail.module === 'string' ? detail.module.trim() : '';
+      if(moduleName && moduleName !== FARBLAYER_MODULE_NAME) return;
+      reloadFarblayerElementAssignments();
+      scheduleLayerRefresh();
+    };
+    window.addEventListener('farblayer-element-assigned', farblayerElementListener);
 
     window.addEventListener('visibilitychange', () => {
       if(document.hidden) return;
@@ -3386,6 +3594,7 @@
       const nextSerialized = JSON.stringify(fresh.assignments || {});
       if(currentSerialized !== nextSerialized){
         farblayerState = fresh;
+        reloadFarblayerElementAssignments();
         updateSelectedColorsFromFarblayer();
         scheduleLayerRefresh();
       }
@@ -3831,6 +4040,8 @@
         attrObserver.disconnect();
         clearAutoUpdateTimer();
         window.removeEventListener('storage', storageHandler);
+        window.removeEventListener('farblayer-groups-changed', farblayerListener);
+        window.removeEventListener('farblayer-element-assigned', farblayerElementListener);
         cancelPendingLayerRefresh();
         if(unsubscribePalette){
           try {
