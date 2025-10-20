@@ -166,6 +166,7 @@
       border-top:1px solid rgba(148,163,184,.18);}
     .ops-settings-footer .ops-action-button{width:auto; box-shadow:none;}
     body.ops-settings-open{overflow:hidden;}
+    body.lbp-farblayer-assign #assign-ui-backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(15,23,42,.35);}
     .ops-color-overlay{position:fixed; inset:0; padding:1.5rem; box-sizing:border-box; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.55); z-index:2500;}
     .ops-color-overlay.open{display:flex;}
     .ops-color-dialog{width:min(520px, 92vw); max-height:92vh; overflow:auto; background:var(--sidebar-module-card-bg,#fff); color:var(--sidebar-module-card-text,#111); border-radius:.95rem; box-shadow:0 24px 52px rgba(15,23,42,.32); display:flex; flex-direction:column;}
@@ -339,6 +340,68 @@
     wrapped.__lbpWrapped = true;
     wrapped.__lbpOriginal = original;
     window.assignElementToGroup = wrapped;
+  }
+
+  function activateLinkButtonsAssignMode(){
+    if(typeof document === 'undefined'){
+      return () => {};
+    }
+    const body = document.body;
+    if(!body){
+      return () => {};
+    }
+    body.classList.add('lbp-farblayer-assign');
+    let cleaned = false;
+    let overlaySeen = Boolean(document.getElementById('assign-ui-overlay'));
+    let classObserver = null;
+    let overlayObserver = null;
+    let startupTimer = null;
+    const cleanup = () => {
+      if(cleaned) return;
+      cleaned = true;
+      if(startupTimer){
+        clearTimeout(startupTimer);
+        startupTimer = null;
+      }
+      if(classObserver){
+        classObserver.disconnect();
+        classObserver = null;
+      }
+      if(overlayObserver){
+        overlayObserver.disconnect();
+        overlayObserver = null;
+      }
+      body.classList.remove('lbp-farblayer-assign');
+    };
+    if(typeof setTimeout === 'function'){
+      startupTimer = setTimeout(() => {
+        if(!body.classList.contains('flv-assign-mode-active')){
+          cleanup();
+        }
+      }, 600);
+    }
+    if(typeof MutationObserver === 'function'){
+      classObserver = new MutationObserver(() => {
+        if(!body.classList.contains('flv-assign-mode-active')){
+          cleanup();
+        }
+      });
+      try{
+        classObserver.observe(body, { attributes: true, attributeFilter: ['class'] });
+      }catch{}
+      overlayObserver = new MutationObserver(() => {
+        const overlay = document.getElementById('assign-ui-overlay');
+        if(overlay){
+          overlaySeen = true;
+        }else if(overlaySeen){
+          cleanup();
+        }
+      });
+      try{
+        overlayObserver.observe(document.body, { childList: true, subtree: true });
+      }catch{}
+    }
+    return cleanup;
   }
 
   function getDefaultFarblayerState(){
@@ -3534,9 +3597,12 @@
         const groups = Array.isArray(farblayerState.groups) && farblayerState.groups.length
           ? farblayerState.groups.slice()
           : Object.values(FARBLAYER_GROUPS);
+        let releaseAssignDecorations = () => {};
         try{
+          releaseAssignDecorations = activateLinkButtonsAssignMode();
           window.startAssignMode(FARBLAYER_MODULE_NAME, groups);
         }catch(err){
+          releaseAssignDecorations();
           console.warn('[LinkButtonsPlus] Farblayer-Zuweisung konnte nicht gestartet werden:', err);
           alert('Farblayer-Viewer ist nicht verfügbar.');
         }
