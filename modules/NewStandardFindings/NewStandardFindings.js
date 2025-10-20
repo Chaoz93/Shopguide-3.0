@@ -2981,23 +2981,52 @@
 
   function autoResizeTextarea(textarea){
     if(!(textarea instanceof HTMLTextAreaElement)) return;
-    textarea.style.height='auto';
     const computed=window.getComputedStyle(textarea);
-    const lineHeight=parseFloat(computed.lineHeight)||16;
-    const paddingTop=parseFloat(computed.paddingTop)||0;
-    const paddingBottom=parseFloat(computed.paddingBottom)||0;
-    const borderTop=parseFloat(computed.borderTopWidth)||0;
-    const borderBottom=parseFloat(computed.borderBottomWidth)||0;
+    const triesValue=Number(textarea.dataset?.autoResizeTries)||0;
+    const maxTries=8;
+    const numeric=value=>{
+      const parsed=parseFloat(value);
+      return Number.isFinite(parsed)?parsed:0;
+    };
+    const lineHeight=numeric(computed.lineHeight)||numeric(computed.fontSize)||16;
+    const paddingTop=numeric(computed.paddingTop);
+    const paddingBottom=numeric(computed.paddingBottom);
+    const borderTop=numeric(computed.borderTopWidth);
+    const borderBottom=numeric(computed.borderBottomWidth);
+    const boxSizing=(computed.boxSizing||'content-box').toLowerCase();
     const minRowsValue=Number(textarea.dataset?.minRows);
-    const minRows=Number.isFinite(minRowsValue)?minRowsValue:0;
+    const minRows=Number.isFinite(minRowsValue)&&minRowsValue>0?minRowsValue:0;
     const minHeightValue=Number(textarea.dataset?.minHeight);
-    const datasetMinHeight=Number.isFinite(minHeightValue)?minHeightValue:0;
-    const rawValue=typeof textarea.value==='string'?textarea.value:'';
-    const lineCount=Math.max(rawValue.split('\n').length,minRows||1);
-    const baseHeight=lineCount*lineHeight+paddingTop+paddingBottom+borderTop+borderBottom;
-    const minHeight=Math.max(parseFloat(computed.minHeight)||0,baseHeight,datasetMinHeight);
-    const nextHeight=Math.max(textarea.scrollHeight,minHeight);
+    const datasetMinHeight=Number.isFinite(minHeightValue)&&minHeightValue>0?minHeightValue:0;
+    const cssMinHeight=numeric(computed.minHeight);
+    const rowsMinHeight=minRows>0
+      ?minRows*lineHeight+paddingTop+paddingBottom+(boxSizing==='border-box'?borderTop+borderBottom:0)
+      :0;
+    const previousOverflow=textarea.style.overflowY;
+    textarea.style.overflowY='hidden';
+    textarea.style.height='0px';
+    let measured=textarea.scrollHeight;
+    if(boxSizing==='border-box'){
+      measured+=borderTop+borderBottom;
+    }
+    const width=numeric(computed.width);
+    if((width<=0||measured<=0)&&textarea.isConnected&&triesValue<maxTries){
+      textarea.dataset.autoResizeTries=String(triesValue+1);
+      requestAnimationFrame(()=>autoResizeTextarea(textarea));
+      textarea.style.height='';
+      textarea.style.overflowY=previousOverflow||'';
+      return;
+    }
+    textarea.dataset.autoResizeTries='0';
+    if(measured<=0){
+      const rawValue=typeof textarea.value==='string'?textarea.value:'';
+      const lineCount=Math.max(rawValue.split('\n').length,minRows||1);
+      const fallback=lineCount*lineHeight+paddingTop+paddingBottom+(boxSizing==='border-box'?borderTop+borderBottom:0);
+      measured=Math.max(measured,fallback);
+    }
+    const nextHeight=Math.max(measured,datasetMinHeight,cssMinHeight,rowsMinHeight);
     textarea.style.height=`${nextHeight}px`;
+    if(previousOverflow) textarea.style.overflowY=previousOverflow;
   }
 
   function ensureTextareaAutoResize(textarea){
