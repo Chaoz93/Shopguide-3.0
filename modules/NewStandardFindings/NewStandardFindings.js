@@ -1500,7 +1500,60 @@
     const fallbackParts=Array.isArray(opts.fallbackParts)?opts.fallbackParts:[];
     const fallbackPartSet=new Set(fallbackParts.map(normalizePart).filter(Boolean));
     if(!rawValue) return {titles,pairs,groups};
-    const lines=String(rawValue).split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
+    const collected=[];
+    const appendLine=(label,value)=>{
+      const text=clean(value);
+      if(!text) return;
+      if(label){
+        collected.push(`${label}: ${text}`);
+      }else{
+        collected.push(text);
+      }
+    };
+    const visit=(value,label)=>{
+      if(value==null) return;
+      const type=typeof value;
+      if(type==='string'||type==='number'||type==='boolean'){
+        appendLine(label,value);
+        return;
+      }
+      if(Array.isArray(value)){
+        value.forEach(item=>visit(item,label));
+        return;
+      }
+      if(type==='object'){
+        const entries=Object.entries(value);
+        if(!entries.length){
+          appendLine(label,value);
+          return;
+        }
+        entries.forEach(([key,val])=>{
+          const keyLabel=clean(key);
+          if(keyLabel){
+            visit(val,keyLabel);
+          }else{
+            visit(val,label);
+          }
+        });
+        return;
+      }
+      appendLine(label,value);
+    };
+    visit(rawValue,'');
+    let lines=[];
+    if(collected.length){
+      lines=collected
+        .flatMap(line=>String(line).split(/\r?\n/))
+        .map(line=>clean(line))
+        .filter(Boolean);
+    }else if(typeof rawValue==='string'||typeof rawValue==='number'||typeof rawValue==='boolean'){
+      lines=String(rawValue).split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
+    }else if(typeof rawValue==='object'){
+      try{
+        const serialized=JSON.stringify(rawValue);
+        if(serialized) lines=[serialized];
+      }catch{}
+    }
     if(!lines.length) return {titles,pairs,groups};
     const pairMap=new Map();
     const orderKeys=[];
