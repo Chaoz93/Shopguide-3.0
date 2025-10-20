@@ -9,8 +9,14 @@
   "settings": {
     "buttonLabel": "OneButton",
     "modalTitle": "Schnellzugriff",
-    "modalSubtitle": "Wähle einen Eintrag, um die Seite zu öffnen."
+    "modalSubtitle": "Wähle einen Eintrag, um die Seite zu öffnen.",
+    "viewerEnabled": true,
+    "viewerTitle": "HTTPS Viewer",
+    "viewerSubtitle": "Gib eine HTTPS-URL ein, um sie direkt im Modal zu laden.",
+    "viewerPlaceholder": "https://example.com",
+    "viewerDefaultUrl": "",
+    "viewerAutoOpen": false
   },
   "moduleId": "OneButtonLinks",
-  "version": "1.0.0"
+  "version": "1.1.0"
 }

@@ -1,2 +1,6 @@
+OneButton Links – Version 1.1.0
+- Neues HTTPS-Viewer-Panel im Modal zum direkten Laden von beliebigen HTTPS-Adressen.
+- Einstellungen für Standard-URL und automatisches Laden hinzugefügt.
+
 OneButton Links – Version 1.0.0
 - Erstveröffentlichung mit Modal-Schnellzugriff auf ZIAUF3, ZIKV, ZIQA und CMDS.
