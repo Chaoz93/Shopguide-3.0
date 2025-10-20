@@ -1570,6 +1570,20 @@
     return `${ELEMENT_STORAGE_PREFIX}${state.moduleName}`;
   }
 
+  function announceGroupState(payload){
+    if(typeof window === 'undefined') return;
+    const detail = {
+      module: state.moduleName,
+      groups: Array.isArray(payload?.groups) ? payload.groups.slice() : [],
+      assignments: payload?.assignments && typeof payload.assignments === 'object'
+        ? { ...payload.assignments }
+        : {}
+    };
+    try{
+      window.dispatchEvent(new CustomEvent('farblayer-groups-changed', { detail }));
+    }catch{}
+  }
+
   function persistGroupState(){
     const payload = {
       groups: state.groups.slice(),
@@ -1587,6 +1601,7 @@
     try{
       localStorage.setItem(getGroupStorageKey(), JSON.stringify(payload));
     }catch{}
+    announceGroupState(payload);
   }
 
   function loadStoredGroupState(){
@@ -2047,6 +2062,7 @@
     state.groups = storedGroupState.groups;
     state.groupAssignments = storedGroupState.assignments;
     state.elementAssignments = loadElementAssignments();
+    announceGroupState({ groups: state.groups, assignments: state.groupAssignments });
     pruneElementAssignments({ persist: false });
     renderGroupZones();
     if(listEl){
