@@ -4808,12 +4808,12 @@
         const fallbackParts=[];
         const primaryPart=normalizePart(selection.part||resolved.part||'');
         if(primaryPart) fallbackParts.push(primaryPart);
-        if(Array.isArray(resolved.partNumbers)){
-          for(const partNum of resolved.partNumbers){
-            const normalizedPart=normalizePart(partNum);
-            if(normalizedPart&&!fallbackParts.includes(normalizedPart)) fallbackParts.push(normalizedPart);
-          }
-        }
+        // NOTE: We intentionally do not use entry.partNumbers as fallback parts here.
+        // Some findings contain structured "Part X"/"Menge X" pairs whose part numbers
+        // also appear in the partNumbers array. Treating those values as fallbacks caused
+        // parsePartsDetails to skip the actual order rows, leaving the Bestellfelder empty.
+        // Keeping only the matched part prevents the duplicate suppression from hiding
+        // legitimate order information while still avoiding duplicates of the selected part.
         const resolvedPartsSource=resolved.partsDetails!=null?resolved.partsDetails:resolved.parts;
         const partsInfo=parsePartsDetails(resolvedPartsSource||'',{fallbackParts});
         if(partsInfo&&Array.isArray(partsInfo.titles)){
