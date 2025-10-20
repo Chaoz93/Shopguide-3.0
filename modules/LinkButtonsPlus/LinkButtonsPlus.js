@@ -1415,6 +1415,8 @@
           layerCount: countPaletteItems(data)
         };
       }
+    } catch (err) {
+      fetchError = err;
     }
 
     try {
