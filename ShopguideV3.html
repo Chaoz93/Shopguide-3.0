@@ -5844,6 +5844,33 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
   const CONFIG_DIR_SEGMENTS = configPathSegments;
 
   const hasFileSystemAccess = () => typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
+  let configFetchWarningIssued = false;
+  const shouldAttemptConfigFetch = () => {
+    if (typeof fetch !== 'function') {
+      return false;
+    }
+    if (typeof window === 'undefined' || !window.location) {
+      return true;
+    }
+    try {
+      const protocol = (window.location.protocol || '').toLowerCase();
+      if (!protocol) {
+        return true;
+      }
+      if (protocol === 'http:' || protocol === 'https:' || protocol === 'chrome-extension:') {
+        return true;
+      }
+      if (!configFetchWarningIssued) {
+        const reason = protocol === 'file:' ? 'Datei-Protokoll' : `Protokoll ${protocol}`;
+        console.info(`[ShopguideV3] Überspringe Netzwerkabruf für FarblayerConfig.json (${reason}).`);
+        configFetchWarningIssued = true;
+      }
+      return false;
+    } catch (err) {
+      console.warn('[ShopguideV3] Konnte Protokoll für FarblayerConfig.json nicht bestimmen:', err);
+      return true;
+    }
+  };
   let selectedFolderHandle = typeof window !== 'undefined' ? window.__farblayerSelectedFolderHandle || null : null;
   let folderSelectionPromise = null;
 
@@ -5899,7 +5926,7 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
         return;
       }
 
-      if (typeof fetch === 'function') {
+      if (typeof fetch === 'function' && shouldAttemptConfigFetch()) {
         try {
           const response = await fetch(CONFIG_PATH, { cache: 'no-store' });
           if (response.ok) {
@@ -6068,7 +6095,7 @@ function renderModuleColorLayerSubSections(wrapper, layer) {
       }
     }
 
-    if (typeof fetch !== 'function') {
+    if (typeof fetch !== 'function' || !shouldAttemptConfigFetch()) {
       updateConfigStatus('fallback', 'Automatischer Status nicht verfügbar. Änderungen werden lokal zwischengespeichert.');
       return;
     }
