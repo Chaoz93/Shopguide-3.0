@@ -464,13 +464,10 @@
     .flv-footer{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.85rem;border-radius:.9rem;background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.08);font-size:.85rem;flex-wrap:wrap;}
     .flv-footer-left{display:flex;flex-direction:column;gap:.35rem;min-width:240px;}
     .flv-footer-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;}
-    .flv-footer-hint{opacity:.75;font-size:.8rem;display:none;}
-    .flv-footer-hint[data-active="true"]{display:block;}
     .flv-status{min-height:1.1rem;}
     .flv-action-btn{border:1px solid var(--module-button-border,rgba(255,255,255,.16));border-radius:.65rem;padding:.45rem .95rem;font-weight:600;cursor:pointer;background:var(--module-button-bg,rgba(255,255,255,.12));color:var(--module-button-text,inherit);box-shadow:0 8px 18px rgba(15,23,42,.25);transition:transform .12s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease;}
     .flv-action-btn:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.18));}
     .flv-action-btn:active{transform:scale(.97);box-shadow:0 6px 16px rgba(15,23,42,.28);}
-    .flv-action-btn[data-active="true"]{border-color:rgba(94,234,212,.65);background:rgba(94,234,212,.12);}
     .flv-test-ui{padding:1rem;border-radius:.9rem;border:1px solid var(--module-preview-border,rgba(255,255,255,.1));background:color-mix(in srgb,var(--module-preview-bg,rgba(15,23,42,.45)) 86%, #0f172a 14%);box-shadow:0 10px 24px rgba(15,23,42,.32);display:flex;flex-direction:column;gap:.75rem;min-height:0;color:var(--module-preview-text,#e2e8f0);}
     .flv-test-ui h2,.flv-test-ui h3{margin:0;color:var(--module-preview-text,#e2e8f0);}
     .flv-test-ui-buttons,.flv-test-ui-subbuttons{display:flex;gap:.5rem;flex-wrap:wrap;}
@@ -480,12 +477,6 @@
     @keyframes flash-success{0%{box-shadow:0 0 0 4px rgba(94,234,212,.5);}100%{box-shadow:none;}}
     .assign-target.flash-success{animation:flash-success .7s ease-out;}
     @keyframes flv-fade-in{from{transform:translateY(10px);opacity:0;}to{transform:translateY(0);opacity:1;}}
-    .flv-assign-highlight{outline:2px dashed rgba(94,234,212,.8);cursor:crosshair;position:relative;}
-    .flv-assign-highlight::after{content:'🧩';position:absolute;top:-8px;right:-8px;background:rgba(15,23,42,.7);color:#fff;border-radius:50%;width:18px;height:18px;text-align:center;font-size:12px;line-height:18px;}
-    .flv-pop{position:absolute;background:rgba(15,23,42,.95);border:1px solid rgba(255,255,255,.15);border-radius:.65rem;padding:.75rem;z-index:9999;color:#fff;display:flex;flex-direction:column;gap:.5rem;box-shadow:0 10px 20px rgba(0,0,0,.4);min-width:220px;}
-    .flv-pop label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
-    .flv-pop select{padding:.35rem .5rem;border-radius:.45rem;border:1px solid rgba(255,255,255,.15);background:rgba(15,23,42,.8);color:#f8fafc;}
-    .flv-pop button{align-self:flex-end;}
     .flv-test-ui-surface button{background:var(--module-button-bg,#1e293b);border:1px solid var(--module-button-border,rgba(255,255,255,.1));color:var(--module-button-text,#f8fafc);padding:.4rem .8rem;border-radius:.4rem;font-size:.9rem;cursor:pointer;transition:background .2s ease,transform .15s ease,box-shadow .15s ease;box-shadow:0 6px 16px rgba(15,23,42,.3);}
     .flv-test-ui-surface button:hover{background:var(--module-button-bg-hover,rgba(255,255,255,.18));transform:translateY(-1px);}
     .flv-test-ui-surface button:active{transform:scale(.97);}
@@ -1429,12 +1420,10 @@
           <div class="flv-footer">
             <div class="flv-footer-left">
               <div class="flv-status" data-flv-status>Farblayer werden geladen…</div>
-              <div class="flv-footer-hint" data-flv-assign-hint>🧩 Zuweisungsmodus aktiv – klicken Sie auf ein UI-Element, um es einer Gruppe zuzuweisen.</div>
             </div>
             <div class="flv-footer-actions">
               <button class="flv-action-btn" type="button" data-flv-save data-assignable="true">Speichern</button>
               <button class="flv-action-btn" type="button" data-flv-cancel data-assignable="true">Abbrechen</button>
-              <button class="flv-action-btn" type="button" data-flv-assign-toggle data-assignable="true">🧩 Zuweisungsmodus</button>
             </div>
           </div>
         </div>
@@ -1460,8 +1449,6 @@
   const mainTestUIContainer = root.querySelector('[data-flv-main-ui]');
   const saveBtn = root.querySelector('[data-flv-save]');
   const cancelBtn = root.querySelector('[data-flv-cancel]');
-  const assignModeBtn = root.querySelector('[data-flv-assign-toggle]');
-  const assignHintEl = root.querySelector('[data-flv-assign-hint]');
   const footerActions = root.querySelector('.flv-footer-actions');
 
   if(mainTestUIContainer){
@@ -1483,10 +1470,6 @@
         { id: 'btn-help', label: 'Hilfe öffnen' }
       ]
     });
-  }
-
-  if(assignModeBtn){
-    assignModeBtn.setAttribute('aria-pressed', 'false');
   }
 
   if(typeof root.__flvCleanup === 'function'){
@@ -1512,11 +1495,7 @@
     statusResetTimeout: null,
     modalOpen: false,
     lastFocus: null,
-    assignMode: false,
-    assignPopoverEl: null,
-    assignPopoverTarget: null,
-    elementAssignments: {},
-    assignableClickHandler: null
+    elementAssignments: {}
   };
 
   const instanceApi = {
@@ -1725,74 +1704,6 @@
     });
   }
 
-  function closeAssignPopover(){
-    if(state.assignPopoverEl && state.assignPopoverEl.parentNode){
-      state.assignPopoverEl.parentNode.removeChild(state.assignPopoverEl);
-    }
-    state.assignPopoverEl = null;
-    state.assignPopoverTarget = null;
-  }
-
-  function highlightAssignableElements(active){
-    if(typeof document === 'undefined') return;
-    const elements = document.querySelectorAll('[data-assignable="true"]');
-    elements.forEach(el => {
-      if(active){
-        el.classList.add('flv-assign-highlight');
-      }else{
-        el.classList.remove('flv-assign-highlight');
-      }
-    });
-  }
-
-  function openAssignPopover(target, x, y){
-    if(!target || typeof document === 'undefined') return;
-    closeAssignPopover();
-    const pop = document.createElement('div');
-    pop.className = 'flv-pop';
-
-    const label = document.createElement('label');
-    label.textContent = 'Gruppe auswählen';
-    const select = document.createElement('select');
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = 'Keine Zuweisung';
-    select.appendChild(placeholder);
-    state.groups.forEach(groupName => {
-      const option = document.createElement('option');
-      option.value = groupName;
-      option.textContent = groupName;
-      select.appendChild(option);
-    });
-    const currentId = target.id;
-    if(currentId && state.elementAssignments[currentId]){
-      select.value = state.elementAssignments[currentId];
-    }
-    label.appendChild(select);
-    pop.appendChild(label);
-
-    const assignBtn = document.createElement('button');
-    assignBtn.type = 'button';
-    assignBtn.className = 'flv-action-btn';
-    assignBtn.textContent = 'Zuweisen';
-    assignBtn.addEventListener('click', () => {
-      const selectedGroup = select.value || '';
-      const elementId = ensureElementId(target);
-      assignElementToGroupInternal(elementId, selectedGroup);
-      closeAssignPopover();
-    });
-    pop.appendChild(assignBtn);
-
-    document.body.appendChild(pop);
-    const offsetX = 12;
-    const offsetY = 12;
-    pop.style.left = `${x + offsetX}px`;
-    pop.style.top = `${y + offsetY}px`;
-
-    state.assignPopoverEl = pop;
-    state.assignPopoverTarget = target;
-  }
-
   function assignElementToGroupInternal(elementId, groupName){
     if(!elementId) return;
     if(!groupName){
@@ -1820,48 +1731,6 @@
     }
   }
 
-  function toggleAssignMode(active){
-    const next = Boolean(active);
-    if(state.assignMode === next) return;
-    state.assignMode = next;
-    if(assignModeBtn){
-      assignModeBtn.dataset.active = next ? 'true' : 'false';
-      assignModeBtn.setAttribute('aria-pressed', next ? 'true' : 'false');
-    }
-    if(assignHintEl){
-      if(next){
-        assignHintEl.dataset.active = 'true';
-      }else{
-        delete assignHintEl.dataset.active;
-      }
-    }
-    highlightAssignableElements(next);
-    if(!next){
-      closeAssignPopover();
-      if(state.assignableClickHandler){
-        document.removeEventListener('click', state.assignableClickHandler, true);
-        state.assignableClickHandler = null;
-      }
-      return;
-    }
-
-    state.assignableClickHandler = event => {
-      if(!state.assignMode) return;
-      const target = event.target instanceof Element ? event.target.closest('[data-assignable="true"]') : null;
-      if(target){
-        event.preventDefault();
-        event.stopPropagation();
-        const rect = target.getBoundingClientRect();
-        const x = rect.right;
-        const y = rect.top;
-        openAssignPopover(target, x, y);
-      }else if(state.assignPopoverEl && !state.assignPopoverEl.contains(event.target)){ 
-        closeAssignPopover();
-      }
-    };
-    document.addEventListener('click', state.assignableClickHandler, true);
-  }
-
   function openModal(){
     if(!modalEl || state.modalOpen) return;
     state.lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -1880,7 +1749,6 @@
     modalEl.classList.remove('is-open');
     document.body.classList.remove('flv-modal-open');
     state.modalOpen = false;
-    toggleAssignMode(false);
     if(persist){
       persistGroupState();
       persistElementAssignments();
@@ -1906,6 +1774,16 @@
       state.statusResetTimeout = null;
     }
     closeModal({ persist: false });
+    if(typeof document !== 'undefined'){
+      const overlay = document.getElementById('assign-ui-overlay');
+      if(overlay){
+        if(typeof overlay.__cleanupAssignTargets === 'function'){
+          try{ overlay.__cleanupAssignTargets(); }catch{}
+        }
+        overlay.remove();
+        document.body.classList.remove('flv-assign-mode-active');
+      }
+    }
     while(cleanupCallbacks.length){
       const cb = cleanupCallbacks.pop();
       try{ cb(); }catch{}
@@ -2471,9 +2349,26 @@
   if(modalEl){
     const escapeHandler = event => {
       if(event.key === 'Escape'){
-        if(state.assignMode){
+        const overlay = typeof document !== 'undefined'
+          ? document.getElementById('assign-ui-overlay')
+          : null;
+        if(overlay){
           event.preventDefault();
-          toggleAssignMode(false);
+          const exitBtn = overlay.querySelector('#exit-assign');
+          if(exitBtn && typeof exitBtn.click === 'function'){
+            exitBtn.click();
+          }else{
+            if(typeof overlay.__cleanupAssignTargets === 'function'){
+              try{ overlay.__cleanupAssignTargets(); }catch{}
+            }
+            overlay.remove();
+            if(typeof document !== 'undefined'){
+              document.body.classList.remove('flv-assign-mode-active');
+            }
+            if(typeof window !== 'undefined' && typeof window.openFarblayerViewer === 'function'){
+              try{ window.openFarblayerViewer(); }catch{}
+            }
+          }
           return;
         }
         if(state.modalOpen){
@@ -2533,14 +2428,6 @@
     };
     cancelBtn.addEventListener('click', handleCancel);
     registerCleanup(() => cancelBtn.removeEventListener('click', handleCancel));
-  }
-
-  if(assignModeBtn){
-    const handleToggleAssign = () => {
-      toggleAssignMode(!state.assignMode);
-    };
-    assignModeBtn.addEventListener('click', handleToggleAssign);
-    registerCleanup(() => assignModeBtn.removeEventListener('click', handleToggleAssign));
   }
 
   void (async () => {
