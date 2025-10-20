@@ -1257,7 +1257,6 @@
       .nsf-editor-aspen-load:hover{background:rgba(255,255,255,0.25);}
       .nsf-editor-aspen-value{background:rgba(15,23,42,0.35);border-radius:0.75rem;padding:0.6rem 0.75rem;font:inherit;min-height:2.4rem;display:flex;align-items:flex-start;justify-content:flex-start;color:#e2e8f0;white-space:pre-wrap;width:100%;}
       .nsf-editor-aspen-empty{opacity:0.7;font-style:italic;}
-      .nsf-editor-actions{display:flex;justify-content:flex-end;gap:0.6rem;margin-top:auto;flex-wrap:wrap;}
       .nsf-freitext-container{display:flex;flex-direction:column;gap:0.75rem;}
       .nsf-freitext-editor-wrapper{display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start;}
       .nsf-freitext-input-column{flex:1 1 320px;display:flex;flex-direction:column;gap:0.6rem;min-width:0;}
@@ -1355,6 +1354,18 @@
     const text=clean(value);
     if(!text) return '';
     return text.replace(/^\s*non\s*routine\s*finding:\s*/i,'').trim();
+  }
+
+  function sanitizeNonRoutineOutput(value){
+    const text=clean(value);
+    if(!text) return '';
+    const lines=text.split(/\r?\n/);
+    const filtered=lines.filter(line=>{
+      const trimmed=line.trim();
+      if(!trimmed) return false;
+      return !/^(label|part)\s*[:=]/i.test(trimmed);
+    });
+    return filtered.join('\n').trim();
   }
   function pushUniqueLine(list,set,value){
     const text=clean(value);
@@ -4385,7 +4396,8 @@
         const nonroutineCandidates=[resolved.nonroutineFinding||'',resolved.nonroutine||''];
         nonroutineCandidates.forEach(text=>{
           const stripped=stripNonRoutineFindingPrefix(text);
-          pushLines('nonroutine',stripped);
+          const sanitized=sanitizeNonRoutineOutput(stripped);
+          pushLines('nonroutine',sanitized);
         });
         const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
@@ -5195,8 +5207,8 @@
       textarea.placeholder='Freitext eingeben…';
       textarea.value='';
       textarea.addEventListener('input',()=>{
-        this.freitextDraft=textarea.value;
-        this.refreshRoutineEditorPreview();
+        const value=typeof textarea.value==='string'?textarea.value:'';
+        this.commitFreitextDraft(value);
         if(typeof autoResizeTextarea==='function'){
           try{autoResizeTextarea(textarea);}catch{}
         }
@@ -5244,16 +5256,6 @@
       this.routineEditorInsertZones=[];
       this.routineEditorBlockShopItems=null;
       this.renderRoutineEditorOverlayContent();
-
-      const actions=document.createElement('div');
-      actions.className='nsf-editor-actions';
-      const saveButton=document.createElement('button');
-      saveButton.type='button';
-      saveButton.className='nsf-editor-save';
-      saveButton.textContent='💾 Freitext speichern';
-      saveButton.addEventListener('click',()=>this.handleRoutineEditorSave());
-      actions.appendChild(saveButton);
-      main.appendChild(actions);
 
       const sidebar=document.createElement('aside');
       sidebar.className='nsf-editor-sidebar';
@@ -6984,6 +6986,42 @@
       }
     }
 
+    updateFreitextPreviewWithExpanded(expanded){
+      const text=typeof expanded==='string'?expanded:'';
+      const hasContent=text.trim().length>0;
+      if(this.routineEditorPreviewContent){
+        this.routineEditorPreviewContent.textContent=hasContent?text:'Keine Routine-Daten vorhanden.';
+      }
+      if(this.routineEditorPreviewPanel){
+        this.routineEditorPreviewPanel.classList.toggle('is-empty',!hasContent);
+      }
+    }
+
+    commitFreitextDraft(value,options={}){
+      const rawText=typeof value==='string'?value:(typeof this.freitextDraft==='string'?this.freitextDraft:'');
+      this.freitextDraft=rawText;
+      if(this.freitextTextarea&&this.freitextTextarea.value!==rawText){
+        this.freitextTextarea.value=rawText;
+      }
+      const expanded=this.expandPlaceholders(rawText);
+      const routineTextarea=this.textareas&&this.textareas.routine;
+      if(routineTextarea&&routineTextarea.value!==expanded){
+        routineTextarea.value=expanded;
+        if(typeof autoResizeTextarea==='function'){
+          try{autoResizeTextarea(routineTextarea);}catch{}
+        }
+      }
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.freitextTemplate=rawText;
+        this.activeState.routine=expanded;
+      }
+      this.updateFreitextPreviewWithExpanded(expanded);
+      this.queueStateSave();
+      if(options&&options.closeOverlay){
+        this.closeRoutineEditorOverlay();
+      }
+    }
+
     insertFreitextPlaceholder(key){
       if(typeof key!=='string'||!key) return;
       const textarea=this.freitextTextarea;
@@ -7008,8 +7046,7 @@
       }
       const cursorPosition=prefix.length+token.length;
       try{textarea.setSelectionRange(cursorPosition,cursorPosition);}catch{}
-      this.freitextDraft=nextValue;
-      this.refreshRoutineEditorPreview();
+      this.commitFreitextDraft(nextValue);
       if(typeof autoResizeTextarea==='function'){
         try{autoResizeTextarea(textarea);}catch{}
       }
@@ -7165,22 +7202,7 @@
     }
 
     handleRoutineEditorSave(){
-      const rawText=typeof this.freitextDraft==='string'?this.freitextDraft:'';
-      const expanded=this.expandPlaceholders(rawText);
-      const textarea=this.textareas&&this.textareas.routine;
-      if(textarea){
-        textarea.value=expanded;
-        autoResizeTextarea(textarea);
-      }
-      if(this.activeState&&typeof this.activeState==='object'){
-        this.activeState.freitextTemplate=rawText;
-        this.activeState.routine=expanded;
-      }
-      console.log('Raw freitext:', rawText);
-      console.log('Expanded preview:', expanded);
-      this.queueStateSave();
-      this.refreshRoutineEditorPreview();
-      this.closeRoutineEditorOverlay();
+      this.commitFreitextDraft(undefined,{closeOverlay:true});
     }
 
     resolveEntry(entry){
