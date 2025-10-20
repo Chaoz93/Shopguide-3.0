@@ -3265,11 +3265,24 @@
     const openFarblayerBtn = menu.querySelector('.ops-open-farblayer');
     if(openFarblayerBtn){
       openFarblayerBtn.addEventListener('click', () => {
-        if(typeof window !== 'undefined' && typeof window.openFarblayerViewer === 'function'){
-          try{ window.openFarblayerViewer(FARBLAYER_MODULE_NAME); }
-          catch(err){ console.warn('[LinkButtonsPlus] Farblayer-Viewer konnte nicht geöffnet werden:', err); }
-        }else{
+        const canOpen = typeof window !== 'undefined' && typeof window.openFarblayerViewer === 'function';
+        if(!canOpen){
           alert('Farblayer-Viewer ist nicht verfügbar.');
+          return;
+        }
+        closeModuleSettingsModal({ persist:true, restoreFocus:false });
+        const openViewer = () => {
+          try{
+            window.openFarblayerViewer(FARBLAYER_MODULE_NAME);
+          }catch(err){
+            console.warn('[LinkButtonsPlus] Farblayer-Viewer konnte nicht geöffnet werden:', err);
+            alert('Farblayer-Viewer ist nicht verfügbar.');
+          }
+        };
+        if(typeof requestAnimationFrame === 'function'){
+          requestAnimationFrame(() => requestAnimationFrame(openViewer));
+        }else{
+          setTimeout(openViewer, 0);
         }
       });
     }
