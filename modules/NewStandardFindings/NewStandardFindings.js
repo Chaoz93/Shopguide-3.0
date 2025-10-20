@@ -1410,6 +1410,11 @@
       .nsf-part-copy-feedback{font-size:0.7rem;opacity:0;transition:opacity 0.15s ease;}
       .nsf-part-copy-btn.copied .nsf-part-copy-feedback{opacity:1;}
       .nsf-part-field--interactive .nsf-part-field-input{cursor:context-menu;}
+      .nsf-part-context-menu{position:fixed;z-index:420;background:rgba(15,23,42,0.95);border-radius:0.75rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 18px 36px rgba(15,23,42,0.55);padding:0.35rem;display:flex;flex-direction:column;min-width:220px;}
+      .nsf-part-context-menu-btn{background:transparent;border:none;border-radius:0.6rem;padding:0.5rem 0.75rem;font:inherit;color:#f8fafc;text-align:left;cursor:pointer;transition:background 0.15s ease;}
+      .nsf-part-context-menu-btn:hover{background:rgba(59,130,246,0.22);}
+      .nsf-part-context-menu-btn:disabled{opacity:0.45;cursor:not-allowed;}
+      .nsf-part-context-menu-divider{height:1px;background:rgba(148,163,184,0.25);margin:0.25rem 0;}
       .nsf-json-modal-overlay{position:fixed;inset:0;background:rgba(17,24,39,0.55);display:flex;align-items:center;justify-content:center;padding:2.5rem;z-index:9999;backdrop-filter:blur(2px);}
       .nsf-json-modal{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:1rem;box-shadow:0 25px 60px rgba(15,23,42,0.45);max-width:min(960px,95vw);max-height:90vh;display:flex;flex-direction:column;width:100%;overflow:hidden;}
       .nsf-json-modal-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid rgba(148,163,184,0.35);gap:1rem;}
@@ -1759,6 +1764,14 @@
     });
     const text=partCopyLines.join('\n');
     return {text,rows:groupsOutput};
+  }
+  function extractRowIndex(label){
+    const text=clean(label);
+    if(!text) return null;
+    const match=text.match(/(\d+)/);
+    if(!match) return null;
+    const num=parseInt(match[1],10);
+    return Number.isNaN(num)?null:num;
   }
   function normalizePart(value){
     const text=clean(value);
@@ -3345,6 +3358,8 @@
       this.selectionCollapsed=false;
       this.headerCollapsed=true;
       this.menuCleanup=null;
+      this.partsContextMenu=null;
+      this.partsContextMenuCleanup=null;
       this.preservedAspenState=null;
       this.restoredAspenState=false;
       this.findingsFileHandle=null;
@@ -3770,6 +3785,7 @@
         this.menuCleanup();
         this.menuCleanup=null;
       }
+      this.closePartsRowContextMenu();
 
       const contextSection=document.createElement('div');
       contextSection.className='nsf-section nsf-header-section';
@@ -4991,6 +5007,7 @@
         if(options&&typeof options.onContextMenu==='function'){
           input.addEventListener('contextmenu',event=>{
             event.preventDefault();
+            event.stopPropagation();
             options.onContextMenu(event);
           });
           field.classList.add('nsf-part-field--interactive');
@@ -5010,15 +5027,11 @@
           const row=document.createElement('div');
           row.className='nsf-part-row';
           const sources=Array.isArray(rowData.sources)?rowData.sources:[];
-          const pnField=makeField(rowData.pnLabel,rowData.pnValue,'PN-Text',sources.length?{
-            onContextMenu:()=>{
-              this.openFindingJsonModal(sources,{
-                pnText:rowData.pnValue,
-                partText:rowData.partValue,
-                quantityText:rowData.quantityValue
-              });
+          const pnField=makeField(rowData.pnLabel,rowData.pnValue,'PN-Text',{
+            onContextMenu:event=>{
+              this.openPartsRowContextMenu(event,rowData,sources);
             }
-          }:undefined);
+          });
           row.append(
             pnField,
             makeField(rowData.partLabel,rowData.partValue,'Teilenummer'),
@@ -5028,6 +5041,161 @@
         });
         container.appendChild(groupWrapper);
       });
+    }
+
+    buildPartsRowMapping(rowData){
+      if(!rowData||typeof rowData!=='object') return null;
+      const mapping={
+        index:extractRowIndex(rowData.pnLabel)||extractRowIndex(rowData.partLabel)||extractRowIndex(rowData.quantityLabel),
+        pnLabel:clean(rowData.pnLabel),
+        pnValue:clean(rowData.pnValue),
+        partLabel:clean(rowData.partLabel),
+        partValue:clean(rowData.partValue),
+        quantityLabel:clean(rowData.quantityLabel),
+        quantityValue:clean(rowData.quantityValue)
+      };
+      if(mapping.index==null) delete mapping.index;
+      const hasValue=(mapping.pnValue||mapping.partValue||mapping.quantityValue);
+      if(!hasValue) return null;
+      return mapping;
+    }
+
+    getPartsRowFindingMappingEntries(rowData,sources){
+      const mapping=this.buildPartsRowMapping(rowData);
+      if(!mapping) return [];
+      const normalizedSources=Array.isArray(sources)?sources.filter(src=>src&&typeof src==='object'):[];
+      if(!normalizedSources.length){
+        return [{mapping:{...mapping}}];
+      }
+      return normalizedSources.map(source=>{
+        const entry={
+          key:clean(source.key),
+          label:clean(source.label||source.finding||''),
+          finding:clean(source.finding),
+          action:clean(source.action),
+          part:clean(source.part),
+          mapping:{...mapping}
+        };
+        if(source.entry&&typeof source.entry==='object'){
+          entry.entry=cloneDeep(source.entry);
+        }
+        return entry;
+      });
+    }
+
+    serializePartsRowFindingMapping(entries){
+      if(!Array.isArray(entries)||!entries.length) return '';
+      const payload=entries.length===1?entries[0]:entries;
+      return safeJsonStringify(payload,{skipKeys:['raw']});
+    }
+
+    copyPartsRowFindingMapping(rowData,sources){
+      const entries=this.getPartsRowFindingMappingEntries(rowData,sources);
+      const text=this.serializePartsRowFindingMapping(entries);
+      if(!text) return;
+      copyText(text).then(success=>{
+        if(!success) console.warn('NSF: Mapping konnte nicht kopiert werden');
+      });
+    }
+
+    openPartsRowContextMenu(event,rowData,sources){
+      if(this.destroyed) return;
+      this.closePartsRowContextMenu();
+      const normalizedSources=Array.isArray(sources)?sources.filter(src=>src&&typeof src==='object'):[];
+      const clientX=event&&typeof event.clientX==='number'?event.clientX:0;
+      const clientY=event&&typeof event.clientY==='number'?event.clientY:0;
+      const entries=this.getPartsRowFindingMappingEntries(rowData,normalizedSources);
+      const mappingText=this.serializePartsRowFindingMapping(entries);
+      const hasMapping=Boolean(mappingText);
+      const menu=document.createElement('div');
+      menu.className='nsf-part-context-menu';
+      const context={
+        pnText:rowData?rowData.pnValue:'',
+        partText:rowData?rowData.partValue:'',
+        quantityText:rowData?rowData.quantityValue:''
+      };
+      const addButton=(label,handler,options)=>{
+        const btn=document.createElement('button');
+        btn.type='button';
+        btn.className='nsf-part-context-menu-btn';
+        btn.textContent=label;
+        if(options&&options.disabled) btn.disabled=true;
+        btn.addEventListener('click',()=>{
+          if(btn.disabled) return;
+          this.closePartsRowContextMenu();
+          handler();
+        });
+        menu.appendChild(btn);
+        return btn;
+      };
+      addButton('JSON-Daten anzeigen',()=>{
+        if(!normalizedSources.length){
+          return;
+        }
+        this.openFindingJsonModal(normalizedSources,context);
+      },{disabled:!normalizedSources.length});
+      if(hasMapping){
+        const divider=document.createElement('div');
+        divider.className='nsf-part-context-menu-divider';
+        menu.appendChild(divider);
+      }
+      addButton('Finding inkl. Mapping kopieren',()=>{
+        this.copyPartsRowFindingMapping(rowData,normalizedSources);
+      },{disabled:!hasMapping});
+      document.body.appendChild(menu);
+      const positionMenu=()=>{
+        const rect=menu.getBoundingClientRect();
+        const margin=8;
+        const maxLeft=Math.max(margin,window.innerWidth-rect.width-margin);
+        const maxTop=Math.max(margin,window.innerHeight-rect.height-margin);
+        const left=Math.min(Math.max(margin,clientX),maxLeft);
+        const top=Math.min(Math.max(margin,clientY),maxTop);
+        menu.style.left=`${left}px`;
+        menu.style.top=`${top}px`;
+      };
+      positionMenu();
+      const outsideHandler=ev=>{
+        if(menu.contains(ev.target)) return;
+        this.closePartsRowContextMenu();
+      };
+      const keyHandler=ev=>{
+        if(ev.key==='Escape'||ev.key==='Esc'){
+          ev.preventDefault();
+          this.closePartsRowContextMenu();
+        }
+      };
+      const scrollHandler=()=>this.closePartsRowContextMenu();
+      const resizeHandler=()=>{
+        positionMenu();
+      };
+      const blurHandler=()=>this.closePartsRowContextMenu();
+      window.addEventListener('pointerdown',outsideHandler,true);
+      window.addEventListener('keydown',keyHandler,true);
+      window.addEventListener('scroll',scrollHandler,true);
+      window.addEventListener('resize',resizeHandler,true);
+      window.addEventListener('blur',blurHandler);
+      menu.addEventListener('contextmenu',ev=>{
+        ev.preventDefault();
+      });
+      this.partsContextMenuCleanup=()=>{
+        window.removeEventListener('pointerdown',outsideHandler,true);
+        window.removeEventListener('keydown',keyHandler,true);
+        window.removeEventListener('scroll',scrollHandler,true);
+        window.removeEventListener('resize',resizeHandler,true);
+        window.removeEventListener('blur',blurHandler);
+      };
+      this.partsContextMenu=menu;
+    }
+
+    closePartsRowContextMenu(){
+      if(this.partsContextMenu&&this.partsContextMenu.parentNode){
+        this.partsContextMenu.parentNode.removeChild(this.partsContextMenu);
+      }
+      this.partsContextMenu=null;
+      if(this.partsContextMenuCleanup){
+        this.partsContextMenuCleanup();
+        this.partsContextMenuCleanup=null;
+      }
     }
 
     closeFindingJsonModal(){
