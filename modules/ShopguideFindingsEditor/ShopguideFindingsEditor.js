@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const MODULE_VERSION='1.4.0';
+  const MODULE_VERSION='1.5.0';
   const PATH_KEY='shopguide-findings-path';
   const GLOBAL_PATH_STORAGE_KEY='shopguide-findings-global-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
@@ -47,6 +47,16 @@
     ...FIELD_KEYS,
     ...TIMES_FIELD_DEFS.map(field=>`times.${field.key}`),
     ...MODS_FIELD_DEFS.map(field=>`mods.${field.key}`)
+  ];
+  const STRUCTURE_SORT_FIELDS=[
+    {key:'label',label:'Label'},
+    {key:'primaryPartNumber',label:'Primäre Partnummer'},
+    {key:'id',label:'ID'},
+    {key:'actions',label:'Aktionen'},
+    {key:'routineAction',label:'Routine Aktion'},
+    {key:'nonroutine',label:'Nonroutine'},
+    {key:'findings',label:'Findings'},
+    {key:'parts',label:'Bestelltext'}
   ];
 
   function supportsIndexedDB(){
@@ -289,10 +299,44 @@
       .sfe-subfield.show-suggestions .sfe-suggestions{display:flex;}
       .sfe-suggestion{padding:0.4rem 0.55rem;border-radius:0.55rem;cursor:pointer;transition:background 0.12s ease;}
       .sfe-suggestion:hover{background:rgba(59,130,246,0.18);}
-      .sfe-context-menu{position:fixed;z-index:1000;min-width:220px;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid var(--border-color,#e5e7eb);border-radius:0.75rem;box-shadow:0 14px 32px rgba(15,23,42,0.28);padding:0.35rem;display:none;flex-direction:column;}
-      .sfe-context-menu.open{display:flex;}
-      .sfe-context-btn{border:none;background:none;text-align:left;padding:0.55rem 0.75rem;border-radius:0.6rem;font:inherit;color:inherit;cursor:pointer;display:flex;align-items:center;gap:0.45rem;}
-      .sfe-context-btn:hover{background:rgba(59,130,246,0.12);}
+      .sfe-structure-overlay{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.72);padding:2rem 1.25rem;}
+      .sfe-structure-overlay.open{display:flex;}
+      .sfe-structure-modal{width:min(960px,100%);max-height:90vh;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:1rem;box-shadow:0 18px 48px rgba(15,23,42,0.35);display:flex;flex-direction:column;overflow:hidden;}
+      .sfe-structure-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:rgba(15,23,42,0.08);border-bottom:1px solid rgba(148,163,184,0.25);}
+      .sfe-structure-title{font-size:1.1rem;font-weight:600;}
+      .sfe-modal-close{border:none;background:none;font-size:1.4rem;line-height:1;color:inherit;cursor:pointer;padding:0.25rem;border-radius:0.5rem;}
+      .sfe-modal-close:hover{background:rgba(59,130,246,0.12);}
+      .sfe-structure-controls{display:flex;flex-direction:column;gap:0.75rem;padding:1rem 1.25rem;border-bottom:1px solid rgba(148,163,184,0.25);background:rgba(15,23,42,0.04);}
+      .sfe-structure-description{margin:0;font-size:0.82rem;opacity:0.75;}
+      .sfe-sort-order{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;}
+      .sfe-sort-order select{border-radius:0.55rem;border:1px solid rgba(148,163,184,0.35);padding:0.35rem 0.65rem;font:inherit;background:rgba(255,255,255,0.95);color:inherit;}
+      .sfe-sort-list{display:flex;flex-direction:column;gap:0.45rem;}
+      .sfe-sort-row{display:flex;align-items:center;justify-content:space-between;gap:0.65rem;padding:0.45rem 0.6rem;border-radius:0.65rem;background:rgba(15,23,42,0.1);}
+      .sfe-sort-row-disabled{opacity:0.55;}
+      .sfe-sort-row-info{display:flex;align-items:center;gap:0.45rem;}
+      .sfe-sort-row-label{display:flex;align-items:center;gap:0.35rem;cursor:pointer;font-weight:600;}
+      .sfe-sort-row-label input{margin:0;}
+      .sfe-sort-row-index{font-size:0.78rem;opacity:0.6;}
+      .sfe-sort-row-controls{display:flex;gap:0.35rem;}
+      .sfe-icon-btn{border:none;background:rgba(59,130,246,0.18);color:inherit;width:1.9rem;height:1.9rem;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.12s ease,transform 0.12s ease;}
+      .sfe-icon-btn:disabled{opacity:0.35;cursor:not-allowed;}
+      .sfe-icon-btn:not(:disabled):hover{background:rgba(59,130,246,0.3);transform:translateY(-1px);}
+      .sfe-structure-body{flex:1;overflow:auto;padding:1rem 1.25rem;background:rgba(15,23,42,0.02);}
+      .sfe-structure-tree{display:flex;flex-direction:column;gap:0.75rem;}
+      .sfe-structure-empty{padding:1.25rem;border-radius:0.75rem;background:rgba(15,23,42,0.12);text-align:center;font-size:0.9rem;}
+      .sfe-structure-item{background:rgba(15,23,42,0.08);border-radius:0.75rem;padding:0.4rem 0.6rem;}
+      .sfe-structure-item summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;cursor:pointer;font-weight:600;}
+      .sfe-structure-summary-title{flex:1;}
+      .sfe-structure-item summary::-webkit-details-marker{display:none;}
+      .sfe-structure-summary-meta{font-size:0.78rem;opacity:0.7;}
+      .sfe-structure-item[open]{background:rgba(59,130,246,0.12);box-shadow:0 10px 28px rgba(15,23,42,0.18);}
+      .sfe-structure-content{display:flex;flex-direction:column;gap:0.5rem;padding:0.6rem 0.1rem 0.4rem;}
+      .sfe-structure-field{display:flex;flex-direction:column;gap:0.2rem;border-radius:0.55rem;background:rgba(15,23,42,0.08);padding:0.45rem;}
+      .sfe-structure-field-label{font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;opacity:0.7;}
+      .sfe-structure-field-value{font-size:0.85rem;line-height:1.4;white-space:pre-wrap;word-break:break-word;}
+      .sfe-structure-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.75rem;padding:1rem 1.25rem;border-top:1px solid rgba(148,163,184,0.25);background:rgba(15,23,42,0.08);}
+      .sfe-structure-file{font-size:0.78rem;opacity:0.75;white-space:pre-line;}
+      .sfe-modal-action{align-self:flex-start;}
       .sfe-list-count{font-weight:600;}
       .sfe-error{color:#fecaca;font-size:0.8rem;}
       @media (max-width:960px){
@@ -772,6 +816,24 @@
     return numbers[0]||'';
   }
 
+  function getStructureSortValue(entry,key){
+    if(!entry) return '';
+    switch(key){
+      case 'primaryPartNumber':
+        return cleanString(getPrimaryPartNumber(entry));
+      case 'label':
+      case 'id':
+      case 'actions':
+      case 'routineAction':
+      case 'nonroutine':
+      case 'findings':
+      case 'parts':
+        return cleanString(entry[key]);
+      default:
+        return '';
+    }
+  }
+
   function arraysEqual(a,b){
     if(a===b) return true;
     if(!Array.isArray(a)||!Array.isArray(b)) return false;
@@ -1028,10 +1090,25 @@
       this.pendingSave=false;
       this.onWindowClick=null;
       this.onWindowResize=null;
+      this.onKeyDown=null;
       this.activeHistorySignature=null;
       this.sourceFormat='array-flat';
       this.rawById=new Map();
       this.partById=new Map();
+      this.structureSortSettings=STRUCTURE_SORT_FIELDS.map((field,index)=>({
+        key:field.key,
+        label:field.label,
+        enabled:index<2
+      }));
+      if(!this.structureSortSettings.some(setting=>setting.enabled)&&this.structureSortSettings.length){
+        this.structureSortSettings[0].enabled=true;
+      }
+      this.structureSortOrder='asc';
+      this.structureTreeEl=null;
+      this.sortListEl=null;
+      this.sortOrderSelect=null;
+      this.structureFileInfoEl=null;
+      this.previousActiveElement=null;
       this.updateStoredPath(this.filePath);
       this.init();
     }
@@ -1099,37 +1176,328 @@
     }
 
     setupContextMenu(module){
-      const menu=document.createElement('div');
-      menu.className='sfe-context-menu';
+      const overlay=document.createElement('div');
+      overlay.className='sfe-structure-overlay';
+      overlay.setAttribute('aria-hidden','true');
+      const modal=document.createElement('div');
+      modal.className='sfe-structure-modal';
+      overlay.appendChild(modal);
+
+      const header=document.createElement('div');
+      header.className='sfe-structure-header';
+      const title=document.createElement('div');
+      title.className='sfe-structure-title';
+      title.textContent='Dateistruktur & Sortierung';
+      header.appendChild(title);
+      const closeBtn=document.createElement('button');
+      closeBtn.type='button';
+      closeBtn.className='sfe-modal-close';
+      closeBtn.setAttribute('aria-label','Modal schließen');
+      closeBtn.textContent='×';
+      closeBtn.addEventListener('click',()=>this.hideContextMenu());
+      header.appendChild(closeBtn);
+      modal.appendChild(header);
+
+      const controls=document.createElement('div');
+      controls.className='sfe-structure-controls';
+      const description=document.createElement('p');
+      description.className='sfe-structure-description';
+      description.textContent='Aktiviere Sortierkriterien und ordne sie per Pfeil-Buttons, um die Findings-Dateienstruktur individuell zu sortieren.';
+      controls.appendChild(description);
+      const orderRow=document.createElement('div');
+      orderRow.className='sfe-sort-order';
+      const orderLabel=document.createElement('label');
+      orderLabel.textContent='Reihenfolge:';
+      const orderSelect=document.createElement('select');
+      const ascOption=document.createElement('option');
+      ascOption.value='asc';
+      ascOption.textContent='Aufsteigend';
+      const descOption=document.createElement('option');
+      descOption.value='desc';
+      descOption.textContent='Absteigend';
+      orderSelect.appendChild(ascOption);
+      orderSelect.appendChild(descOption);
+      orderSelect.value=this.structureSortOrder;
+      orderSelect.addEventListener('change',()=>{
+        this.structureSortOrder=orderSelect.value;
+        this.renderStructureTree();
+      });
+      orderLabel.appendChild(orderSelect);
+      orderRow.appendChild(orderLabel);
+      controls.appendChild(orderRow);
+      const sortList=document.createElement('div');
+      sortList.className='sfe-sort-list';
+      controls.appendChild(sortList);
+      modal.appendChild(controls);
+
+      const body=document.createElement('div');
+      body.className='sfe-structure-body';
+      const tree=document.createElement('div');
+      tree.className='sfe-structure-tree';
+      body.appendChild(tree);
+      modal.appendChild(body);
+
+      const footer=document.createElement('div');
+      footer.className='sfe-structure-footer';
+      const fileInfo=document.createElement('div');
+      fileInfo.className='sfe-structure-file';
+      footer.appendChild(fileInfo);
       const chooseBtn=document.createElement('button');
       chooseBtn.type='button';
-      chooseBtn.className='sfe-context-btn';
+      chooseBtn.className='sfe-btn sfe-modal-action';
       chooseBtn.textContent='Findings-Datei wählen';
       chooseBtn.addEventListener('click',()=>{this.hideContextMenu();this.chooseFile();});
-      menu.appendChild(chooseBtn);
-      document.body.appendChild(menu);
-      this.contextMenu=menu;
+      footer.appendChild(chooseBtn);
+      modal.appendChild(footer);
 
-      module.addEventListener('contextmenu',e=>{
-        e.preventDefault();
-        const {clientX:x,clientY:y}=e;
-        this.showContextMenu(x,y);
+      overlay.addEventListener('click',event=>{
+        if(event.target===overlay) this.hideContextMenu();
       });
-      this.onWindowClick=()=>this.hideContextMenu();
+      document.body.appendChild(overlay);
+
+      this.contextMenu=overlay;
+      this.sortListEl=sortList;
+      this.sortOrderSelect=orderSelect;
+      this.structureTreeEl=tree;
+      this.structureFileInfoEl=fileInfo;
+
+      module.addEventListener('contextmenu',event=>{
+        event.preventDefault();
+        this.showContextMenu();
+      });
       this.onWindowResize=()=>this.hideContextMenu();
-      window.addEventListener('click',this.onWindowClick);
       window.addEventListener('resize',this.onWindowResize);
+      this.onKeyDown=event=>{
+        if(event.key==='Escape'||event.key==='Esc') this.hideContextMenu();
+      };
+      window.addEventListener('keydown',this.onKeyDown);
+
+      this.renderSortConfig();
+      this.updateStructureFileInfo();
+      this.renderStructureTree();
     }
 
-    showContextMenu(x,y){
+    showContextMenu(){
       if(!this.contextMenu) return;
-      this.contextMenu.style.left=`${x}px`;
-      this.contextMenu.style.top=`${y}px`;
+      this.renderSortConfig();
+      this.updateStructureFileInfo();
+      this.renderStructureTree();
+      this.previousActiveElement=document.activeElement;
       this.contextMenu.classList.add('open');
+      this.contextMenu.setAttribute('aria-hidden','false');
+      if(this.sortOrderSelect) this.sortOrderSelect.value=this.structureSortOrder;
+      const focusTarget=this.contextMenu.querySelector('.sfe-modal-close');
+      if(focusTarget) focusTarget.focus();
     }
 
     hideContextMenu(){
-      if(this.contextMenu) this.contextMenu.classList.remove('open');
+      if(this.contextMenu){
+        this.contextMenu.classList.remove('open');
+        this.contextMenu.setAttribute('aria-hidden','true');
+      }
+      if(this.previousActiveElement&&typeof this.previousActiveElement.focus==='function'){
+        this.previousActiveElement.focus();
+      }
+      this.previousActiveElement=null;
+    }
+
+    renderSortConfig(){
+      if(!this.sortListEl) return;
+      this.sortListEl.innerHTML='';
+      this.structureSortSettings.forEach((item,index)=>{
+        const row=document.createElement('div');
+        row.className='sfe-sort-row'+(item.enabled?'':' sfe-sort-row-disabled');
+        const info=document.createElement('div');
+        info.className='sfe-sort-row-info';
+        const label=document.createElement('label');
+        label.className='sfe-sort-row-label';
+        const checkbox=document.createElement('input');
+        checkbox.type='checkbox';
+        checkbox.checked=item.enabled;
+        checkbox.addEventListener('change',()=>this.toggleSortField(item.key,checkbox.checked));
+        label.appendChild(checkbox);
+        const badge=document.createElement('span');
+        badge.className='sfe-sort-row-index';
+        badge.textContent=`${index+1}.`;
+        label.appendChild(badge);
+        const text=document.createElement('span');
+        text.textContent=item.label;
+        label.appendChild(text);
+        info.appendChild(label);
+        row.appendChild(info);
+        const controls=document.createElement('div');
+        controls.className='sfe-sort-row-controls';
+        const upBtn=this.createSortMoveButton('↑','Nach oben verschieben',index===0,()=>this.moveSortField(index,-1));
+        const downBtn=this.createSortMoveButton('↓','Nach unten verschieben',index===this.structureSortSettings.length-1,()=>this.moveSortField(index,1));
+        controls.appendChild(upBtn);
+        controls.appendChild(downBtn);
+        row.appendChild(controls);
+        this.sortListEl.appendChild(row);
+      });
+      if(this.sortOrderSelect) this.sortOrderSelect.value=this.structureSortOrder;
+    }
+
+    createSortMoveButton(symbol,label,disabled,handler){
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='sfe-icon-btn';
+      btn.textContent=symbol;
+      btn.setAttribute('aria-label',label);
+      btn.disabled=disabled;
+      if(!disabled){
+        btn.addEventListener('click',handler);
+      }
+      return btn;
+    }
+
+    toggleSortField(key,enabled){
+      const item=this.structureSortSettings.find(setting=>setting.key===key);
+      if(!item) return;
+      item.enabled=enabled;
+      if(!this.structureSortSettings.some(setting=>setting.enabled)){
+        item.enabled=true;
+      }
+      this.renderSortConfig();
+      this.renderStructureTree();
+    }
+
+    moveSortField(index,offset){
+      const target=index+offset;
+      if(target<0||target>=this.structureSortSettings.length) return;
+      const [item]=this.structureSortSettings.splice(index,1);
+      this.structureSortSettings.splice(target,0,item);
+      this.renderSortConfig();
+      this.renderStructureTree();
+    }
+
+    getActiveSortFields(){
+      const keys=this.structureSortSettings.filter(item=>item.enabled).map(item=>item.key);
+      if(!keys.includes('id')) keys.push('id');
+      return keys;
+    }
+
+    renderStructureTree(){
+      if(!this.structureTreeEl) return;
+      this.structureTreeEl.innerHTML='';
+      if(!Array.isArray(this.data)||!this.data.length){
+        const empty=document.createElement('div');
+        empty.className='sfe-structure-empty';
+        empty.textContent='Keine Findings geladen.';
+        this.structureTreeEl.appendChild(empty);
+        return;
+      }
+      const entries=[...this.data];
+      const direction=this.structureSortOrder==='desc'?-1:1;
+      const sortKeys=this.getActiveSortFields();
+      entries.sort((a,b)=>{
+        for(const key of sortKeys){
+          const valueA=getStructureSortValue(a,key);
+          const valueB=getStructureSortValue(b,key);
+          if(valueA===valueB) continue;
+          return valueA.localeCompare(valueB,'de',{numeric:true,sensitivity:'base'})*direction;
+        }
+        const idA=cleanString(a.id);
+        const idB=cleanString(b.id);
+        return idA.localeCompare(idB,'de',{numeric:true,sensitivity:'base'})*direction;
+      });
+      entries.forEach((entry,index)=>{
+        const details=document.createElement('details');
+        details.className='sfe-structure-item';
+        if(index===0) details.open=true;
+        const summary=document.createElement('summary');
+        summary.className='sfe-structure-summary';
+        const title=document.createElement('div');
+        title.className='sfe-structure-summary-title';
+        title.textContent=cleanString(entry.label)||'Ohne Label';
+        summary.appendChild(title);
+        const meta=document.createElement('div');
+        meta.className='sfe-structure-summary-meta';
+        const parts=getCleanPartNumbers(entry);
+        meta.textContent=parts.length?parts.join(', '):'Keine Partnummer';
+        summary.appendChild(meta);
+        details.appendChild(summary);
+        const content=document.createElement('div');
+        content.className='sfe-structure-content';
+        content.appendChild(this.buildStructureField('ID',entry.id));
+        content.appendChild(this.buildStructureField('Label',entry.label));
+        content.appendChild(this.buildStructureField('Partnummern',parts));
+        content.appendChild(this.buildStructureField('Findings',entry.findings,{preserveFormatting:true}));
+        content.appendChild(this.buildStructureField('Aktionen',entry.actions,{preserveFormatting:true}));
+        content.appendChild(this.buildStructureField('Routine',entry.routineAction,{preserveFormatting:true}));
+        content.appendChild(this.buildStructureField('Nonroutine',entry.nonroutine,{preserveFormatting:true}));
+        content.appendChild(this.buildStructureField('Bestelltext',entry.parts,{preserveFormatting:true}));
+        const pairs=this.ensurePartsPairs(entry).filter(pair=>cleanString(pair.part)||cleanString(pair.quantity));
+        if(pairs.length){
+          const lines=pairs.map((pair,idx)=>{
+            const part=cleanString(pair.part)||'–';
+            const qty=cleanString(pair.quantity)||'–';
+            return `${idx+1}. ${part} (Menge: ${qty})`;
+          }).join('\n');
+          content.appendChild(this.buildStructureField('Bestellteile',lines,{preserveFormatting:true}));
+        }
+        const times=normalizeTimes(entry);
+        const timeLines=TIMES_FIELD_DEFS.map(def=>{
+          const value=cleanString(times[def.key]);
+          return value?`${def.label}: ${value}`:null;
+        }).filter(Boolean);
+        if(timeLines.length){
+          content.appendChild(this.buildStructureField('Times',timeLines.join('\n'),{preserveFormatting:true}));
+        }
+        const modsList=normalizeModsList(entry);
+        const modLines=[];
+        modsList.forEach((mod,modIndex)=>{
+          const fields=MODS_FIELD_DEFS.map(def=>{
+            const value=cleanString(mod[def.key]);
+            return value?`${def.label}: ${value}`:null;
+          }).filter(Boolean);
+          if(!fields.length) return;
+          const heading=modsList.length>1?`Mod ${modIndex+1}`:'Mod';
+          modLines.push(heading);
+          fields.forEach(line=>modLines.push(`  ${line}`));
+        });
+        if(modLines.length){
+          content.appendChild(this.buildStructureField('Mods',modLines.join('\n'),{preserveFormatting:true}));
+        }
+        details.appendChild(content);
+        this.structureTreeEl.appendChild(details);
+      });
+    }
+
+    buildStructureField(label,value,{preserveFormatting=false}={}){
+      const field=document.createElement('div');
+      field.className='sfe-structure-field';
+      const name=document.createElement('div');
+      name.className='sfe-structure-field-label';
+      name.textContent=label;
+      field.appendChild(name);
+      const content=document.createElement('div');
+      content.className='sfe-structure-field-value';
+      if(Array.isArray(value)){
+        const cleaned=value.map(item=>cleanString(item)).filter(Boolean);
+        content.textContent=cleaned.length?cleaned.join(', '):'–';
+      }else if(preserveFormatting){
+        const raw=value==null?'':String(value);
+        content.textContent=/\S/.test(raw)?raw:'–';
+      }else{
+        const text=cleanString(value);
+        content.textContent=text||'–';
+      }
+      field.appendChild(content);
+      return field;
+    }
+
+    updateStructureFileInfo(){
+      if(!this.structureFileInfoEl) return;
+      const path=this.filePath||DEFAULT_FILE;
+      const entryCount=Array.isArray(this.data)?this.data.length:0;
+      const mode=this.fileHandle?(this.hasWriteAccess?'Schreibzugriff aktiv':'Lesemodus (kein Schreibrecht)'):'Lesemodus';
+      this.structureFileInfoEl.textContent=`Quelle: ${path}\nEinträge: ${entryCount}\nModus: ${mode}`;
+    }
+
+    refreshStructureView(){
+      if(!this.contextMenu||!this.contextMenu.classList.contains('open')) return;
+      this.updateStructureFileInfo();
+      this.renderStructureTree();
     }
 
     async detachHandle(){
@@ -1318,6 +1686,7 @@
         this.renderEditor();
         this.showError('Keine Daten gefunden. Bitte Datei auswählen.');
         this.renderFileInfo();
+        this.refreshStructureView();
       }
     }
 
@@ -1693,6 +2062,7 @@
       }
       this.updateHistoryButtons();
       this.renderFileInfo();
+      this.refreshStructureView();
     }
 
     shouldHighlightSearchTerm(term){
@@ -2260,6 +2630,7 @@
         }
       }
       this.updateSuggestions();
+      this.refreshStructureView();
     }
 
     updateEntry(id,key,value){
@@ -2430,6 +2801,7 @@
       if(this.searchInput) this.searchInput.value='';
       this.applySearch();
       this.updateSuggestions();
+      this.refreshStructureView();
     }
 
     duplicateEntry(id){
@@ -2462,6 +2834,7 @@
       }
       this.updateSuggestions();
       this.status('Eintrag dupliziert');
+      this.refreshStructureView();
     }
 
     deleteEntry(id){
@@ -2492,6 +2865,7 @@
       }
       this.updateSuggestions();
       this.status('Eintrag gelöscht');
+      this.refreshStructureView();
     }
 
     pushHistory(){
@@ -2511,6 +2885,7 @@
       this.applySearch();
       this.updateHistoryButtons();
       this.updateSuggestions();
+      this.refreshStructureView();
     }
 
     redo(){
@@ -2523,6 +2898,7 @@
       this.applySearch();
       this.updateHistoryButtons();
       this.updateSuggestions();
+      this.refreshStructureView();
     }
 
     updateHistoryButtons(){
@@ -2547,6 +2923,8 @@
       }
       if(this.onWindowClick) window.removeEventListener('click',this.onWindowClick);
       if(this.onWindowResize) window.removeEventListener('resize',this.onWindowResize);
+      if(this.onKeyDown) window.removeEventListener('keydown',this.onKeyDown);
+      this.contextMenu=null;
     }
   }
 
