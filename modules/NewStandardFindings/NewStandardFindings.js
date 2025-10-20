@@ -3012,8 +3012,9 @@
       ?minRows*lineHeight+paddingTop+paddingBottom+(boxSizing==='border-box'?borderTop+borderBottom:0)
       :0;
     const previousOverflow=textarea.style.overflowY;
+    const previousHeight=textarea.style.height;
     textarea.style.overflowY='hidden';
-    textarea.style.height='0px';
+    textarea.style.height='auto';
     let measured=textarea.scrollHeight;
     if(boxSizing==='border-box'){
       measured+=borderTop+borderBottom;
@@ -3022,7 +3023,7 @@
     if((width<=0||measured<=0)&&textarea.isConnected&&triesValue<maxTries){
       textarea.dataset.autoResizeTries=String(triesValue+1);
       requestAnimationFrame(()=>autoResizeTextarea(textarea));
-      textarea.style.height='';
+      textarea.style.height=previousHeight||'';
       textarea.style.overflowY=previousOverflow||'';
       return;
     }
@@ -3041,7 +3042,7 @@
     }else if(textarea.dataset.autoResizeOverflow){
       delete textarea.dataset.autoResizeOverflow;
     }
-    if(previousOverflow) textarea.style.overflowY=previousOverflow;
+    textarea.style.overflowY=previousOverflow||'';
   }
 
   function ensureTextareaAutoResize(textarea){
