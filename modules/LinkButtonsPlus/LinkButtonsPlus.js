@@ -563,6 +563,7 @@
   const PALETTE_URL = 'configs/FarblayerConfig.json';
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
+  let cssVarPrimeSignature = '';
   const paletteUpdateListeners = new Set();
   let paletteFetchWarningIssued = false;
 
@@ -808,6 +809,7 @@
     }
     cachedPaletteSignature = serialized;
     window.__lbpPalette = palette;
+    primeCssVariablesFromPalette(palette);
     try {
       window.__lbpPaletteSource = layers;
     } catch {}
@@ -1039,6 +1041,54 @@
 
   function syncDropdownsFromCachedPalette(){
     return syncDropdownsFromResolvedLayers();
+  }
+
+  function primeCssVariablesFromPalette(paletteArg){
+    if(typeof window === 'undefined' || !window.document){
+      return false;
+    }
+    const palette = (paletteArg && typeof paletteArg === 'object')
+      ? paletteArg
+      : (window.__lbpPalette && typeof window.__lbpPalette === 'object'
+        ? window.__lbpPalette
+        : null);
+    if(!palette){
+      return false;
+    }
+    const entries = Object.values(palette).filter(entry => entry && typeof entry === 'object');
+    if(!entries.length){
+      cssVarPrimeSignature = '';
+      return false;
+    }
+
+    const signaturePayload = entries.map(entry => {
+      const identifier = sanitizeId(entry?.name) || sanitizeId(entry?.id) || '';
+      const explicitIndex = Number.isFinite(entry?.index) && entry.index > 0 ? Math.floor(entry.index) : null;
+      const fallbackIndex = inferLayerIndexFromName(identifier);
+      const targetIndex = explicitIndex || fallbackIndex || null;
+      const swatch = (entry?.swatch || entry?.moduleBg || entry?.color || '').trim();
+      const preferredText = (entry?.moduleText || entry?.textColor || '').trim();
+      return [targetIndex, swatch, preferredText];
+    });
+    const signature = JSON.stringify(signaturePayload);
+    if(signature === cssVarPrimeSignature){
+      return true;
+    }
+
+    entries.forEach(entry => {
+      const identifier = sanitizeId(entry?.name) || sanitizeId(entry?.id) || '';
+      const explicitIndex = Number.isFinite(entry?.index) && entry.index > 0 ? Math.floor(entry.index) : null;
+      const fallbackIndex = inferLayerIndexFromName(identifier);
+      const targetIndex = explicitIndex || fallbackIndex || null;
+      const swatch = (entry?.swatch || entry?.moduleBg || entry?.color || '').trim();
+      const preferredText = (entry?.moduleText || entry?.textColor || '').trim();
+      if(Number.isFinite(targetIndex) && targetIndex > 0 && swatch){
+        ensureCssVarForIndex(targetIndex, swatch, preferredText);
+      }
+    });
+
+    cssVarPrimeSignature = signature;
+    return true;
   }
 
   async function fetchPaletteFromConfig(){
@@ -1324,6 +1374,9 @@
     const selects = window?.document?.querySelectorAll?.('.ops-color-select') || [];
     if(selects.length){
       selects.forEach(sel => buildDropdownFromResolvedLayers(sel));
+      return true;
+    }
+    if(primeCssVariablesFromPalette()){
       return true;
     }
     console.log('[LinkButtonsPlus] No dropdowns present for readable palette build');
