@@ -564,6 +564,26 @@
   const LBP_MAP_KEY = 'linkbuttonsplus-layer-map-v1';
   let cachedPaletteSignature = '';
   const paletteUpdateListeners = new Set();
+  let paletteFetchWarningIssued = false;
+
+  function shouldAttemptPaletteFetch(){
+    if(typeof fetch !== 'function'){ return false; }
+    if(typeof window === 'undefined' || !window.location){ return true; }
+    try {
+      const protocol = (window.location.protocol || '').toLowerCase();
+      if(!protocol){ return true; }
+      if(protocol === 'http:' || protocol === 'https:' || protocol === 'chrome-extension:'){ return true; }
+      if(!paletteFetchWarningIssued){
+        const reason = protocol === 'file:' ? 'Dateizugriff' : `Protokoll ${protocol}`;
+        console.info(`[LinkButtonsPlus] Überspringe Netzwerkabruf für FarblayerConfig.json (${reason}). Lokaler Zwischenspeicher wird genutzt.`);
+        paletteFetchWarningIssued = true;
+      }
+      return false;
+    } catch (err) {
+      console.warn('[LinkButtonsPlus] Konnte Protokoll für FarblayerConfig.json nicht ermitteln:', err);
+      return true;
+    }
+  }
 
   const DEFAULT_LAYER_TITLES = {
     1: 'Hauptmodul (Rahmen & Hintergrund)',
@@ -1025,26 +1045,28 @@
     if(typeof window === 'undefined') return null;
     let fetchError = null;
     const nowIso = () => new Date().toISOString();
-    try {
-      const response = await fetch(PALETTE_URL, { cache: 'no-store' });
-      if(!response.ok){
-        throw new Error(`${response.status} ${response.statusText}`);
+    if(shouldAttemptPaletteFetch()){
+      try {
+        const response = await fetch(PALETTE_URL, { cache: 'no-store' });
+        if(!response.ok){
+          throw new Error(`${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        if(data && typeof data === 'object'){
+          try {
+            localStorage.setItem(PALETTE_URL, JSON.stringify(data));
+          } catch {}
+          return {
+            data,
+            source: 'Dateisystem',
+            path: PALETTE_URL,
+            loadedAt: nowIso(),
+            layerCount: countPaletteItems(data)
+          };
+        }
+      } catch (err) {
+        fetchError = err;
       }
-      const data = await response.json();
-      if(data && typeof data === 'object'){
-        try {
-          localStorage.setItem(PALETTE_URL, JSON.stringify(data));
-        } catch {}
-        return {
-          data,
-          source: 'Dateisystem',
-          path: PALETTE_URL,
-          loadedAt: nowIso(),
-          layerCount: countPaletteItems(data)
-        };
-      }
-    } catch (err) {
-      fetchError = err;
     }
 
     try {
