@@ -139,10 +139,10 @@
     }
   }
 
+  const textareaAutoResizeObservers=new WeakMap();
+
   function autoSizeTextarea(textarea){
-    if(!textarea) return;
-    textarea.style.height='auto';
-    textarea.style.height=`${Math.max(textarea.scrollHeight,textarea.dataset.minHeight?Number(textarea.dataset.minHeight):0)}px`;
+    autoResizeTextarea(textarea);
   }
 
   const OUTPUT_KEYS=OUTPUT_DEFS.map(def=>def.key);
@@ -675,6 +675,7 @@
       const textarea=document.createElement('textarea');
       textarea.value=typeof currentBlock.value==='string'?currentBlock.value:'';
       textarea.placeholder='Text…';
+      textarea.dataset.minRows='2';
       textarea.addEventListener('input',()=>{
         const nextValue=textarea.value;
         currentBlock.value=nextValue;
@@ -694,6 +695,7 @@
           console.warn('NSF: Custom-Block konnte nicht gespeichert werden',err,currentBlock);
         }
       });
+      ensureTextareaAutoResize(textarea);
       wrapper.appendChild(label);
       wrapper.appendChild(textarea);
       console.log('[renderRoutineEditorBlock] rendered '+blockType+' block:',currentBlock);
@@ -1235,7 +1237,7 @@
       .nsf-custom-block.dragging{opacity:0.85;box-shadow:0 12px 28px rgba(15,23,42,0.45);}
       .nsf-custom-handle{align-self:flex-start;font-size:1.15rem;line-height:1;opacity:0.65;cursor:grab;user-select:none;}
       .nsf-custom-handle:active{cursor:grabbing;}
-      .nsf-custom-textarea{width:100%;border:none;border-radius:0.65rem;padding:0.6rem 0.75rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);resize:none;min-height:0;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.1);}
+      .nsf-custom-textarea{width:100%;border:none;border-radius:0.65rem;padding:0.6rem 0.75rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);resize:none;min-height:0;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.1);overflow-x:hidden;overflow-y:hidden;}
       .nsf-custom-textarea::placeholder{color:rgba(107,114,128,0.7);}
       .nsf-custom-remove{align-self:flex-end;background:rgba(248,113,113,0.25);border:none;border-radius:999px;width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;color:rgba(248,113,113,0.95);cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-custom-remove:hover{background:rgba(248,113,113,0.38);transform:scale(1.05);}
@@ -1324,7 +1326,7 @@
       .nsf-editor-field-label{font-weight:600;font-size:0.95rem;color:#1f2937;}
       .nsf-editor-aspenfield-input{width:100%;padding:0.45rem 0.6rem;border-radius:0.5rem;border:1px solid rgba(15,23,42,0.2);font-size:0.95rem;background:#fff;}
       .nsf-editor-aspenfield-input:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;border-color:rgba(59,130,246,0.65);}
-      .nsf-editor-input{flex:1;border:none;border-radius:0.6rem;padding:0.45rem 0.55rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);resize:none;min-height:2.4rem;line-height:1.4;overflow:hidden;}
+      .nsf-editor-input{flex:1;border:none;border-radius:0.6rem;padding:0.45rem 0.55rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);resize:none;min-height:2.4rem;line-height:1.4;overflow-x:hidden;overflow-y:hidden;}
       .nsf-editor-input::placeholder{color:rgba(107,114,128,0.65);}
       .nsf-editor-block[data-editable='0'] .nsf-editor-input{background:rgba(15,23,42,0.25);color:#cbd5f5;cursor:default;resize:none;}
       .nsf-editor-input:read-only{cursor:default;}
@@ -1381,7 +1383,8 @@
       .nsf-copy-btn.copied{background:rgba(16,185,129,0.35);}
       .nsf-copy-btn .nsf-copy-feedback{font-size:0.85rem;opacity:0;transition:opacity 0.15s ease;}
       .nsf-copy-btn.copied .nsf-copy-feedback{opacity:1;}
-      .nsf-textarea{flex:1;min-height:0;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow:hidden;}
+      .nsf-textarea{flex:1;min-height:6.5rem;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow-x:hidden;overflow-y:hidden;}
+      .nsf-textarea:hover,.nsf-textarea:focus,.nsf-custom-textarea:hover,.nsf-custom-textarea:focus,.nsf-editor-input:hover,.nsf-editor-input:focus{overflow-y:auto;}
       .nsf-textarea:disabled{opacity:0.6;background:rgba(255,255,255,0.5);cursor:not-allowed;}
       .nsf-note{font-size:0.8rem;opacity:0.75;}
       .nsf-alert{background:rgba(248,113,113,0.2);border-radius:0.75rem;padding:0.5rem 0.75rem;font-size:0.85rem;}
@@ -2979,21 +2982,72 @@
 
   function autoResizeTextarea(textarea){
     if(!(textarea instanceof HTMLTextAreaElement)) return;
-    textarea.style.height='auto';
     const computed=window.getComputedStyle(textarea);
-    const lineHeight=parseFloat(computed.lineHeight)||16;
-    const paddingTop=parseFloat(computed.paddingTop)||0;
-    const paddingBottom=parseFloat(computed.paddingBottom)||0;
-    const borderTop=parseFloat(computed.borderTopWidth)||0;
-    const borderBottom=parseFloat(computed.borderBottomWidth)||0;
+    const triesValue=Number(textarea.dataset?.autoResizeTries)||0;
+    const maxTries=8;
+    const numeric=value=>{
+      const parsed=parseFloat(value);
+      return Number.isFinite(parsed)?parsed:0;
+    };
+    const lineHeight=numeric(computed.lineHeight)||numeric(computed.fontSize)||16;
+    const paddingTop=numeric(computed.paddingTop);
+    const paddingBottom=numeric(computed.paddingBottom);
+    const borderTop=numeric(computed.borderTopWidth);
+    const borderBottom=numeric(computed.borderBottomWidth);
+    const boxSizing=(computed.boxSizing||'content-box').toLowerCase();
     const minRowsValue=Number(textarea.dataset?.minRows);
-    const minRows=Number.isFinite(minRowsValue)?minRowsValue:0;
-    const rawValue=typeof textarea.value==='string'?textarea.value:'';
-    const lineCount=Math.max(rawValue.split('\n').length,minRows||1);
-    const baseHeight=lineCount*lineHeight+paddingTop+paddingBottom+borderTop+borderBottom;
-    const minHeight=Math.max(parseFloat(computed.minHeight)||0,baseHeight);
-    const nextHeight=Math.max(textarea.scrollHeight,minHeight);
+    const minRows=Number.isFinite(minRowsValue)&&minRowsValue>0?minRowsValue:0;
+    const minHeightValue=Number(textarea.dataset?.minHeight);
+    const datasetMinHeight=Number.isFinite(minHeightValue)&&minHeightValue>0?minHeightValue:0;
+    const cssMinHeight=numeric(computed.minHeight);
+    const rowsMinHeight=minRows>0
+      ?minRows*lineHeight+paddingTop+paddingBottom+(boxSizing==='border-box'?borderTop+borderBottom:0)
+      :0;
+    const previousOverflow=textarea.style.overflowY;
+    textarea.style.overflowY='hidden';
+    textarea.style.height='0px';
+    let measured=textarea.scrollHeight;
+    if(boxSizing==='border-box'){
+      measured+=borderTop+borderBottom;
+    }
+    const width=numeric(computed.width);
+    if((width<=0||measured<=0)&&textarea.isConnected&&triesValue<maxTries){
+      textarea.dataset.autoResizeTries=String(triesValue+1);
+      requestAnimationFrame(()=>autoResizeTextarea(textarea));
+      textarea.style.height='';
+      textarea.style.overflowY=previousOverflow||'';
+      return;
+    }
+    textarea.dataset.autoResizeTries='0';
+    if(measured<=0){
+      const rawValue=typeof textarea.value==='string'?textarea.value:'';
+      const lineCount=Math.max(rawValue.split('\n').length,minRows||1);
+      const fallback=lineCount*lineHeight+paddingTop+paddingBottom+(boxSizing==='border-box'?borderTop+borderBottom:0);
+      measured=Math.max(measured,fallback);
+    }
+    const nextHeight=Math.max(measured,datasetMinHeight,cssMinHeight,rowsMinHeight);
     textarea.style.height=`${nextHeight}px`;
+    if(previousOverflow) textarea.style.overflowY=previousOverflow;
+  }
+
+  function ensureTextareaAutoResize(textarea){
+    if(!(textarea instanceof HTMLTextAreaElement)) return;
+    requestAnimationFrame(()=>autoResizeTextarea(textarea));
+    if(typeof ResizeObserver==='undefined') return;
+    if(textareaAutoResizeObservers.has(textarea)) return;
+    try{
+      const observer=new ResizeObserver(entries=>{
+        for(const entry of entries){
+          if(entry?.target===textarea){
+            autoResizeTextarea(textarea);
+          }
+        }
+      });
+      observer.observe(textarea);
+      textareaAutoResizeObservers.set(textarea,observer);
+    }catch(err){
+      console.warn('NSF: ResizeObserver nicht verfügbar',err);
+    }
   }
 
   class ModuleInstance{
@@ -4082,9 +4136,10 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
-          textarea.dataset.minRows='1';
+          textarea.dataset.minRows='4';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
+          ensureTextareaAutoResize(textarea);
           const partsContainer=document.createElement('div');
           partsContainer.className='nsf-parts-grid';
           this.partsFieldContainer=partsContainer;
@@ -4096,10 +4151,10 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
-          textarea.dataset.minRows='1';
+          textarea.dataset.minRows='4';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
-          requestAnimationFrame(()=>autoResizeTextarea(textarea));
+          ensureTextareaAutoResize(textarea);
         }
         targetContainer.appendChild(box);
       });
@@ -4141,14 +4196,14 @@
       textarea.className='nsf-custom-textarea';
       textarea.placeholder='Eigener Text…';
       textarea.value=section.text||'';
-      textarea.dataset.minRows='1';
+      textarea.dataset.minRows='2';
       textarea.addEventListener('input',()=>{
         section.text=textarea.value;
         autoResizeTextarea(textarea);
         this.syncCustomSectionsToActiveState();
       });
       block.appendChild(textarea);
-      requestAnimationFrame(()=>autoResizeTextarea(textarea));
+      ensureTextareaAutoResize(textarea);
       const remove=document.createElement('button');
       remove.type='button';
       remove.className='nsf-custom-remove';
@@ -5356,14 +5411,14 @@
       textarea.id='freitext-editor';
       textarea.placeholder='Freitext eingeben…';
       textarea.value='';
+      textarea.dataset.minRows='5';
       textarea.addEventListener('input',()=>{
         const value=typeof textarea.value==='string'?textarea.value:'';
         this.commitFreitextDraft(value);
-        if(typeof autoResizeTextarea==='function'){
-          try{autoResizeTextarea(textarea);}catch{}
-        }
+        autoResizeTextarea(textarea);
       });
       inputColumn.appendChild(textarea);
+      ensureTextareaAutoResize(textarea);
       this.freitextTextarea=textarea;
       const keywordSidebar=document.createElement('aside');
       keywordSidebar.className='nsf-freitext-keyword-sidebar';
@@ -6755,8 +6810,9 @@
         const textarea=document.createElement('textarea');
         textarea.id=fieldId;
         textarea.className='nsf-editor-input';
-        textarea.rows=1;
+        textarea.rows=2;
         textarea.dataset.minHeight='40';
+        textarea.dataset.minRows='2';
         const initialValue=typeof def.content==='string'
           ?def.content
           :Array.isArray(def.lines)&&def.lines.length?def.lines.join('\n'):'';
@@ -6776,7 +6832,7 @@
         wrapper.append(label,textarea);
         container.appendChild(wrapper);
         info.customTextInput=textarea;
-        requestAnimationFrame(()=>autoSizeTextarea(textarea));
+        ensureTextareaAutoResize(textarea);
         return;
       }
       const lines=this.getRoutineEditorLinesForBlock(key,editable);
@@ -6803,8 +6859,9 @@
       const input=document.createElement('textarea');
       input.className='nsf-editor-input';
       input.value=typeof value==='string'?value:'';
-      input.rows=1;
+      input.rows=2;
       input.dataset.minHeight='40';
+      input.dataset.minRows='2';
       autoSizeTextarea(input);
       if(editable){
         input.placeholder='Text…';
@@ -6834,7 +6891,7 @@
         input.addEventListener('input',()=>autoSizeTextarea(input));
       }
       line.appendChild(input);
-      requestAnimationFrame(()=>autoSizeTextarea(input));
+      ensureTextareaAutoResize(input);
       if(editable){
         const remove=document.createElement('button');
         remove.type='button';
