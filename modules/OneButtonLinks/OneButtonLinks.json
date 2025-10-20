@@ -1,0 +1,16 @@
+{
+  "name": "OneButton Links",
+  "icon": "🔘",
+  "script": "renderOneButtonLinks",
+  "minW": 1,
+  "minH": 1,
+  "w": 1,
+  "h": 2,
+  "settings": {
+    "buttonLabel": "OneButton",
+    "modalTitle": "Schnellzugriff",
+    "modalSubtitle": "Wähle einen Eintrag, um die Seite zu öffnen."
+  },
+  "moduleId": "OneButtonLinks",
+  "version": "1.0.0"
+}
