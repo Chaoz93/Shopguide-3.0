@@ -426,10 +426,6 @@
     if(document.getElementById(STYLE_ID)) return;
     const css = `
     .flv-root{height:100%;width:100%;box-sizing:border-box;position:relative;}
-    .flv-launch{display:flex;align-items:center;justify-content:center;height:100%;}
-    .flv-launch-btn{border:1px solid var(--module-button-border,rgba(255,255,255,.18));border-radius:.85rem;padding:.85rem 1.4rem;font-weight:600;letter-spacing:.02em;background:var(--module-button-bg,rgba(15,23,42,.65));color:var(--module-button-text,inherit);box-shadow:0 12px 24px rgba(15,23,42,.45);cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;}
-    .flv-launch-btn:hover{transform:translateY(-1px);box-shadow:0 18px 32px rgba(15,23,42,.55);background:var(--module-button-bg-hover,rgba(15,23,42,.72));}
-    .flv-launch-btn:active{transform:scale(.98);}
     .flv-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:2rem;opacity:0;pointer-events:none;transition:opacity .18s ease;}
     .flv-modal.is-open{opacity:1;pointer-events:auto;}
     .flv-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.72);backdrop-filter:blur(8px);}
@@ -1400,12 +1396,9 @@
 
     root.innerHTML = `
     <section class="flv-main-preview" data-assignable="true">
-      <p class="flv-main-preview-note">Nutzen Sie die Testoberfläche, um Farblayer-Gruppen auf reale UI-Elemente zu ziehen und live zu erleben.</p>
+      <p class="flv-main-preview-note">Nutzen Sie die Testoberfläche, um Farblayer-Gruppen auf reale UI-Elemente zu ziehen und live zu erleben. Öffnen Sie den Konfigurator per Rechtsklick.</p>
       <div class="flv-test-ui" data-flv-main-ui data-assignable="true"></div>
     </section>
-    <div class="flv-launch">
-      <button class="flv-launch-btn" type="button" data-flv-open-modal data-assignable="true">Farblayer-Konfigurator öffnen</button>
-    </div>
     <div class="flv-modal" data-flv-modal>
       <div class="flv-modal-backdrop" data-flv-close-modal></div>
       <div class="flv-modal-dialog" role="dialog" aria-modal="true" aria-label="Farblayer-Konfigurator" data-flv-dialog tabindex="-1">
@@ -1458,7 +1451,6 @@
   const cleanupCallbacks = [];
   const modalEl = root.querySelector('[data-flv-modal]');
   const modalDialogEl = root.querySelector('[data-flv-dialog]');
-  const openModalBtn = root.querySelector('[data-flv-open-modal]');
   const closeModalTargets = Array.from(root.querySelectorAll('[data-flv-close-modal]'));
   const listEl = root.querySelector('[data-flv-list]');
   const dropzoneContainer = root.querySelector('[data-flv-dropzones]');
@@ -1470,6 +1462,7 @@
   const filePickBtn = root.querySelector('[data-flv-file-pick]');
   const addGroupBtn = root.querySelector('[data-flv-add-group]');
   const removeGroupBtn = root.querySelector('[data-flv-remove-group]');
+  const mainPreviewSection = root.querySelector('.flv-main-preview');
   const mainTestUIContainer = root.querySelector('[data-flv-main-ui]');
   const saveBtn = root.querySelector('[data-flv-save]');
   const cancelBtn = root.querySelector('[data-flv-cancel]');
@@ -2353,10 +2346,14 @@
   renderGroupZones();
   updateFileDisplay();
 
-  if(openModalBtn){
-    const handleOpen = () => openModal();
-    openModalBtn.addEventListener('click', handleOpen);
-    registerCleanup(() => openModalBtn.removeEventListener('click', handleOpen));
+  if(mainPreviewSection){
+    const handleContextOpen = event => {
+      if(state.modalOpen) return;
+      event.preventDefault();
+      openModal();
+    };
+    mainPreviewSection.addEventListener('contextmenu', handleContextOpen);
+    registerCleanup(() => mainPreviewSection.removeEventListener('contextmenu', handleContextOpen));
   }
 
   if(closeModalTargets.length){
