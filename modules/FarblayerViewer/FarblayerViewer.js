@@ -496,11 +496,11 @@
     .flv-main-preview-note{margin:0;font-size:.85rem;opacity:.82;}
     #assign-ui-backdrop{position:fixed;inset:0;z-index:9996;background:rgba(15,23,42,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);pointer-events:none;opacity:0;transition:opacity .3s ease;}
     body.flv-assign-mode-active #assign-ui-backdrop{opacity:1;}
-    #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9998;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.06));color:#0f172a;pointer-events:none;transition:background .25s ease,opacity .25s ease;padding:0 clamp(1rem,4vw,2.5rem);}
+    #assign-ui-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-end;z-index:9998;background:linear-gradient(135deg,rgba(15,23,42,.12),rgba(14,116,144,.06));color:#0f172a;pointer-events:none;transition:background .25s ease,opacity .25s ease;padding:0 clamp(1rem,4vw,2.5rem);}
     #assign-ui-overlay.assign-dragging{background:linear-gradient(135deg,rgba(15,23,42,.16),rgba(14,116,144,.08));}
-    #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translate(-50%, -52%) scale(.97);opacity:.92;}
-    .assign-sidebar{width:min(340px,calc(100vw - 4rem));background:rgba(15,23,42,.94);padding:1.25rem 1.2rem;border:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.7rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 20px 48px rgba(15,23,42,.5);transition:transform .3s ease,opacity .3s ease,box-shadow .3s ease;position:relative;z-index:1;border-radius:1rem;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
-    body.flv-assign-mode-active .assign-sidebar{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-height:calc(100vh - 3rem);overflow:auto;}
+    #assign-ui-overlay.assign-dragging .assign-sidebar{transform:translateX(0) translateY(-52%) scale(.97);opacity:.92;}
+    .assign-sidebar{width:clamp(280px,22vw,360px);background:rgba(15,23,42,.94);padding:1.25rem 1.1rem;border:1px solid rgba(148,163,184,.35);display:flex;flex-direction:column;gap:.7rem;pointer-events:auto;color:#e2e8f0;box-shadow:0 20px 48px rgba(15,23,42,.5);transform:translateX(0);transition:transform .3s ease,opacity .3s ease,box-shadow .3s ease;position:relative;z-index:1;border-radius:1rem;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+    body.flv-assign-mode-active .assign-sidebar{position:fixed;top:50%;right:clamp(1.25rem,3.5vw,3.75rem);transform:translateY(-50%);max-height:calc(100vh - 3rem);overflow:auto;}
     .assign-sidebar h3{margin:0;font-size:1rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.9;}
     .assign-group-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.45rem;padding-right:.15rem;}
     .assign-group{--assign-chip-bg:#1e293b;--assign-chip-text:#f8fafc;--assign-chip-border:rgba(148,163,184,.45);display:flex;align-items:center;gap:.55rem;padding:.55rem .7rem;border:1px solid var(--assign-chip-border);border-radius:.65rem;background:var(--assign-chip-bg);color:var(--assign-chip-text);cursor:grab;box-shadow:0 12px 24px rgba(15,23,42,.35);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .2s ease,opacity .15s ease;user-select:none;}
@@ -520,14 +520,14 @@
     .assign-target-indicator[data-active="true"]{opacity:1;transform:translateY(-90%);}
     .assign-target-indicator[data-active="false"]{opacity:.4;}
     body.flv-assign-mode-active .flv-root{position:relative;z-index:9999;}
-    body.flv-assign-mode-active .flv-main-preview{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(1.06);transform-origin:center;max-width:min(72vw,960px);width:min(72vw,960px);max-height:calc(100vh - 5rem);overflow:auto;padding:1.75rem;border-radius:1.25rem;box-shadow:0 32px 68px rgba(15,23,42,.55);z-index:10000;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+    body.flv-assign-mode-active .flv-main-preview{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(1.1);transform-origin:center;max-width:min(78vw,1040px);width:min(78vw,1040px);max-height:calc(100vh - 5rem);overflow:auto;padding:1.85rem;border-radius:1.25rem;box-shadow:0 32px 68px rgba(15,23,42,.55);z-index:10000;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
     body.flv-assign-mode-active .flv-main-preview::-webkit-scrollbar{width:10px;}
     body.flv-assign-mode-active .flv-main-preview::-webkit-scrollbar-thumb{background:rgba(148,163,184,.55);border-radius:999px;}
     body.flv-assign-mode-active .flv-main-preview::-webkit-scrollbar-track{background:rgba(15,23,42,.35);border-radius:999px;}
     body.flv-assign-mode-active .flv-main-preview .flv-test-ui{transform:none;}
     @media (max-width:1280px){body.flv-assign-mode-active .flv-main-preview{max-width:min(80vw,900px);width:min(80vw,900px);}}
-    @media (max-width:1024px){body.flv-assign-mode-active .flv-main-preview{max-width:min(88vw,760px);width:min(88vw,760px);}body.flv-assign-mode-active .assign-sidebar{width:min(420px,82vw);}}
-    @media (max-width:860px){body.flv-assign-mode-active .assign-sidebar{top:auto;bottom:1.5rem;left:50%;transform:translate(-50%,0);width:min(90vw,380px);max-height:calc(55vh);box-shadow:0 18px 42px rgba(15,23,42,.48);}body.flv-assign-mode-active .flv-main-preview{top:45%;max-height:calc(100vh - 10rem);width:min(92vw,640px);max-width:min(92vw,640px);}}
+    @media (max-width:1024px){body.flv-assign-mode-active .flv-main-preview{max-width:min(90vw,820px);width:min(90vw,820px);}body.flv-assign-mode-active .assign-sidebar{right:clamp(.75rem,3vw,2rem);width:min(420px,82vw);}}
+    @media (max-width:860px){body.flv-assign-mode-active .assign-sidebar{top:auto;bottom:1.5rem;left:50%;right:auto;transform:translate(-50%,0);width:min(90vw,360px);max-height:calc(55vh);box-shadow:0 18px 42px rgba(15,23,42,.48);}body.flv-assign-mode-active .flv-main-preview{top:45%;max-height:calc(100vh - 10rem);width:min(92vw,660px);max-width:min(92vw,660px);}}
     body.flv-assign-mode-active [data-assignable]{position:relative;}
     body.flv-assign-mode-active [data-assignable]::after{content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid rgba(148,163,184,.35);box-shadow:0 10px 24px rgba(15,23,42,.3);pointer-events:none;opacity:.4;transition:opacity .2s;}
     body.flv-assign-mode-active [data-assignable]:hover::after{opacity:.8;}
