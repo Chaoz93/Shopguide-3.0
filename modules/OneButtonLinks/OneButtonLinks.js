@@ -16,7 +16,7 @@
     .obl-overlay.open{display:flex;}
     .obl-modal{width:min(720px,96vw);max-height:92vh;display:flex;flex-direction:column;gap:1.4rem;padding:1.6rem 1.8rem 1.8rem;
       border-radius:1.35rem;background:rgba(15,23,42,.92);color:var(--module-header-text,#f8fafc);
-      border:1px solid rgba(148,163,184,.32);box-shadow:0 32px 68px rgba(8,15,35,.58);}
+      border:1px solid rgba(148,163,184,.32);box-shadow:0 32px 68px rgba(8,15,35,.58);overflow:auto;}
     .obl-modal-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
     .obl-modal-title{margin:0;font-size:1.4rem;font-weight:700;letter-spacing:.4px;}
     .obl-modal-sub{margin:0;font-size:.9rem;opacity:.78;}
@@ -35,6 +35,24 @@
     .obl-link:active{transform:none;}
     .obl-link-title{font-size:1.05rem;font-weight:700;letter-spacing:.25px;}
     .obl-link-desc{font-size:.82rem;opacity:.8;line-height:1.4;}
+    .obl-viewer-section{display:flex;flex-direction:column;gap:.8rem;padding:1.1rem 1.2rem;border-radius:1.15rem;
+      background:rgba(15,32,56,.72);border:1px solid rgba(76,114,163,.32);box-shadow:0 18px 42px rgba(8,15,35,.45);}
+    .obl-viewer-header{display:flex;flex-direction:column;gap:.35rem;}
+    .obl-viewer-title{margin:0;font-size:1.05rem;font-weight:700;letter-spacing:.25px;}
+    .obl-viewer-sub{margin:0;font-size:.82rem;opacity:.78;line-height:1.4;}
+    .obl-viewer-form{display:flex;flex-direction:column;gap:.45rem;}
+    .obl-viewer-label{font-weight:600;font-size:.85rem;opacity:.92;}
+    .obl-viewer-controls{display:flex;gap:.55rem;flex-wrap:wrap;}
+    .obl-viewer-input{flex:1 1 240px;min-width:0;padding:.6rem .75rem;border-radius:.85rem;border:1px solid rgba(148,163,184,.35);
+      background:rgba(15,23,42,.6);color:inherit;font-size:.92rem;box-sizing:border-box;}
+    .obl-viewer-input:focus{outline:2px solid rgba(59,130,246,.55);outline-offset:2px;}
+    .obl-viewer-submit{flex:0 0 auto;padding:.62rem 1.1rem;border-radius:.85rem;border:none;background:rgba(59,130,246,.92);
+      color:#fff;font-weight:600;cursor:pointer;box-shadow:0 16px 32px rgba(8,15,35,.45);transition:filter .15s ease,transform .15s ease;}
+    .obl-viewer-submit:hover{filter:brightness(1.05);transform:translateY(-1px);}
+    .obl-viewer-submit:active{transform:none;}
+    .obl-viewer-frame{border-radius:1rem;overflow:hidden;border:1px solid rgba(76,114,163,.32);background:rgba(15,23,42,.8);
+      min-height:240px;display:flex;}
+    .obl-viewer-frame iframe{width:100%;min-height:240px;border:0;background:#0f172a;}
     @media (max-width:640px){
       .obl-root{padding:.6rem;}
       .obl-trigger{width:100%;padding:.9rem 1.2rem;}
@@ -133,12 +151,32 @@
     return false;
   }
 
+  function isValidHttps(url){
+    if (!url || typeof url !== 'string') return false;
+    const trimmed = url.trim();
+    if (!/^https:\/\//i.test(trimmed)) return false;
+    try {
+      new URL(trimmed);
+      return true;
+    }
+    catch {
+      return false;
+    }
+  }
+
   window.renderOneButtonLinks = function renderOneButtonLinks(root, ctx){
     if (!root) return;
     const settings = ctx?.moduleJson?.settings || {};
     const buttonLabel = settings.buttonLabel || 'OneButton';
     const modalTitle = settings.modalTitle || 'Schnellzugriff';
     const modalSubtitle = settings.modalSubtitle || 'Wähle einen Eintrag, um die Seite zu öffnen.';
+    const viewerEnabled = settings.viewerEnabled !== false;
+    const viewerTitle = settings.viewerTitle || 'HTTPS Viewer';
+    const viewerSubtitle = settings.viewerSubtitle || 'Gib eine HTTPS-URL ein, um die Seite im Modul zu laden.';
+    const viewerPlaceholder = settings.viewerPlaceholder || 'https://example.com';
+    const viewerDefaultUrl = typeof settings.viewerDefaultUrl === 'string' ? settings.viewerDefaultUrl.trim() : '';
+    const viewerAutoOpen = !!settings.viewerAutoOpen;
+    const viewerInputId = `obl-viewer-input-${Math.random().toString(36).slice(2, 10)}`;
 
     root.classList.add('obl-root');
     const links = (Array.isArray(settings.links) && settings.links.length)
@@ -159,6 +197,25 @@
       return `<li><button type="button" class="obl-link" data-obl-link="${link.key}"><span class="obl-link-title">${link.title}</span>${desc}</button></li>`;
     }).join('');
 
+    const viewerHtml = viewerEnabled ? `
+      <section class="obl-viewer-section" data-obl-viewer-section>
+        <div class="obl-viewer-header">
+          <h3 class="obl-viewer-title">${viewerTitle}</h3>
+          <p class="obl-viewer-sub">${viewerSubtitle}</p>
+        </div>
+        <form class="obl-viewer-form" data-obl-viewer-form>
+          <label class="obl-viewer-label" for="${viewerInputId}">HTTPS-URL</label>
+          <div class="obl-viewer-controls">
+            <input type="url" id="${viewerInputId}" class="obl-viewer-input" data-obl-viewer-input placeholder="${viewerPlaceholder}" pattern="https://.*" required autocomplete="off" inputmode="url" />
+            <button type="submit" class="obl-viewer-submit">Öffnen</button>
+          </div>
+        </form>
+        <div class="obl-viewer-frame" data-obl-viewer hidden>
+          <iframe src="about:blank" title="${viewerTitle}" loading="lazy" referrerpolicy="no-referrer"></iframe>
+        </div>
+      </section>
+    ` : '';
+
     root.innerHTML = `
       <button type="button" class="obl-trigger" data-obl-open>${buttonLabel}</button>
       <div class="obl-overlay" data-obl-overlay hidden>
@@ -171,6 +228,7 @@
             <button type="button" class="obl-close" data-obl-close aria-label="Schließen">×</button>
           </div>
           <ul class="obl-link-grid">${listHtml}</ul>
+          ${viewerHtml}
         </div>
       </div>
     `;
@@ -179,12 +237,58 @@
     const overlay = root.querySelector('[data-obl-overlay]');
     const closeBtn = root.querySelector('[data-obl-close]');
     const linkButtons = Array.from(root.querySelectorAll('[data-obl-link]'));
+    let viewerApi = null;
+
+    if (viewerEnabled) {
+      const form = root.querySelector('[data-obl-viewer-form]');
+      const input = root.querySelector('[data-obl-viewer-input]');
+      const frameWrapper = root.querySelector('[data-obl-viewer]');
+      const iframe = frameWrapper?.querySelector('iframe');
+      let viewerLoaded = false;
+
+      function resetViewer(){
+        if (iframe) iframe.src = 'about:blank';
+        if (frameWrapper) frameWrapper.setAttribute('hidden', '');
+        if (input) input.value = viewerDefaultUrl || '';
+        viewerLoaded = false;
+      }
+
+      function showViewer(url){
+        if (!iframe || !frameWrapper || !isValidHttps(url)) return false;
+        iframe.src = url;
+        frameWrapper.removeAttribute('hidden');
+        viewerLoaded = true;
+        return true;
+      }
+
+      if (form && input && frameWrapper && iframe) {
+        input.value = viewerDefaultUrl || '';
+        form.addEventListener('submit', (event)=>{
+          event.preventDefault();
+          const url = input.value ? input.value.trim() : '';
+          if (!isValidHttps(url)) {
+            alert('Bitte eine gültige HTTPS-URL eingeben (Format: https://...).');
+            return;
+          }
+          showViewer(url);
+        });
+        viewerApi = {
+          reset: resetViewer,
+          maybeAutoOpen(){
+            if (viewerAutoOpen && !viewerLoaded && isValidHttps(viewerDefaultUrl)) {
+              showViewer(viewerDefaultUrl);
+            }
+          }
+        };
+      }
+    }
 
     function close(){
       if (!overlay) return;
       overlay.classList.remove('open');
       overlay.setAttribute('hidden','');
       document.removeEventListener('keydown', onKeydown, true);
+      viewerApi?.reset?.();
       if (openBtn) openBtn.focus({ preventScroll: true });
     }
 
@@ -198,6 +302,7 @@
         try { first.focus({ preventScroll: true }); }
         catch { first.focus(); }
       }
+      viewerApi?.maybeAutoOpen?.();
     }
 
     function onKeydown(event){
