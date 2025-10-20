@@ -1264,9 +1264,6 @@
       .nsf-freitext-label{font-weight:600;font-size:0.9rem;opacity:0.85;}
       #freitext-editor{width:100%;min-height:200px;border-radius:0.75rem;border:1px solid rgba(148,163,184,0.35);padding:0.65rem;font:inherit;line-height:1.45;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);}
       #freitext-editor:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;border-color:rgba(59,130,246,0.65);}
-      #freitext-preview{min-height:160px;border-radius:0.75rem;padding:0.75rem;background:rgba(15,23,42,0.22);border:1px solid rgba(148,163,184,0.28);white-space:pre-wrap;color:inherit;}
-      #freitext-preview.is-empty{opacity:0.7;font-style:italic;}
-      .nsf-freitext-preview-title{font-weight:600;font-size:0.9rem;opacity:0.85;}
       .nsf-freitext-keyword-sidebar{flex:0 0 220px;display:flex;flex-direction:column;gap:0.6rem;padding:0.75rem;border-radius:0.75rem;border:1px solid rgba(148,163,184,0.35);background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);box-shadow:0 10px 18px rgba(15,23,42,0.08);}
       .nsf-freitext-keyword-title{font-weight:600;font-size:0.9rem;opacity:0.85;}
       .nsf-freitext-keyword-hint{font-size:0.8rem;line-height:1.3;opacity:0.75;}
@@ -2676,7 +2673,7 @@
   }
 
   function createEmptyActiveState(){
-    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',customSections:[]};
+    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',freitextTemplate:'',customSections:[]};
   }
 
   let customSectionIdCounter=0;
@@ -2702,6 +2699,7 @@
       routine:typeof state.routine==='string'?state.routine:'',
       nonroutine:typeof state.nonroutine==='string'?state.nonroutine:'',
       parts:typeof state.parts==='string'?state.parts:'',
+      freitextTemplate:typeof state.freitextTemplate==='string'?state.freitextTemplate:'',
       customSections:Array.isArray(state.customSections)
         ?state.customSections.map(cloneCustomSection)
         :[]
@@ -2956,7 +2954,6 @@
       this.currentLabel='';
       this.freitextDraft='';
       this.freitextTextarea=null;
-      this.freitextPreview=null;
       this.freitextPlaceholderDefinitions=FREITEXT_PLACEHOLDERS;
       this.routineEditorDragState=null;
       this.parameterFavorites=loadRoutineEditorParameterFavorites();
@@ -4434,8 +4431,25 @@
       const effectiveRows=opts.forceEmpty?[]:(Array.isArray(computed.partsRows)?computed.partsRows:[]);
       this.partsRows=effectiveRows;
       let changed=false;
+      const storedTemplate=typeof this.activeState?.freitextTemplate==='string'?this.activeState.freitextTemplate:'';
+      const legacyRoutine=typeof this.activeState?.routine==='string'?this.activeState.routine:'';
+      const computedRoutine=typeof computed.routine==='string'?computed.routine:'';
+      let effectiveTemplate=storedTemplate;
+      if(!effectiveTemplate&&!opts.forceEmpty){
+        if(legacyRoutine){
+          if(/\{[a-z]+\}/i.test(legacyRoutine)||legacyRoutine!==computedRoutine){
+            effectiveTemplate=legacyRoutine;
+            if(this.activeState&&typeof this.activeState==='object'){
+              this.activeState.freitextTemplate=legacyRoutine;
+            }
+          }
+        }
+      }
       for(const key of OUTPUT_KEYS){
-        const value=opts.forceEmpty?'' : computed[key]||'';
+        let value=opts.forceEmpty?'' : computed[key]||'';
+        if(key==='routine'&&!opts.forceEmpty&&effectiveTemplate){
+          value=this.expandPlaceholders(effectiveTemplate);
+        }
         if(this.activeState[key]!==value){
           this.activeState[key]=value;
           changed=true;
@@ -5189,18 +5203,6 @@
       });
       inputColumn.appendChild(textarea);
       this.freitextTextarea=textarea;
-      const inlinePreviewTitle=document.createElement('div');
-      inlinePreviewTitle.className='nsf-freitext-preview-title';
-      inlinePreviewTitle.textContent='Live-Vorschau';
-      inputColumn.appendChild(inlinePreviewTitle);
-      const inlinePreview=document.createElement('div');
-      inlinePreview.id='freitext-preview';
-      inlinePreview.setAttribute('aria-live','polite');
-      inlinePreview.className='nsf-freitext-preview';
-      inlinePreview.textContent='';
-      inlinePreview.classList.add('is-empty');
-      inputColumn.appendChild(inlinePreview);
-      this.freitextPreview=inlinePreview;
       const keywordSidebar=document.createElement('aside');
       keywordSidebar.className='nsf-freitext-keyword-sidebar';
       editorWrapper.appendChild(keywordSidebar);
@@ -5301,7 +5303,7 @@
       });
       this.routineEditorOverlay=overlay;
       this.refreshRoutineEditorDerivedLines();
-      const initialValue=typeof this.activeState?.routine==='string'?this.activeState.routine:'';
+      const initialValue=this.getActiveFreitextTemplate();
       this.setFreitextEditorValue(initialValue);
       if(typeof autoResizeTextarea==='function'&&this.freitextTextarea){
         try{autoResizeTextarea(this.freitextTextarea);}catch{}
@@ -5316,7 +5318,7 @@
       const overlay=this.ensureRoutineEditorOverlay();
       if(!overlay) return;
       this.refreshRoutineEditorDerivedLines();
-      const initialValue=typeof this.activeState?.routine==='string'?this.activeState.routine:'';
+      const initialValue=this.getActiveFreitextTemplate();
       this.setFreitextEditorValue(initialValue);
       overlay.classList.add('open');
       const focusTarget=this.freitextTextarea;
@@ -6974,10 +6976,6 @@
       const rawText=typeof this.freitextDraft==='string'?this.freitextDraft:'';
       const expanded=this.expandPlaceholders(rawText);
       const hasContent=expanded.trim().length>0;
-      if(this.freitextPreview){
-        this.freitextPreview.textContent=hasContent?expanded:'Keine Routine-Daten vorhanden.';
-        this.freitextPreview.classList.toggle('is-empty',!hasContent);
-      }
       if(this.routineEditorPreviewContent){
         this.routineEditorPreviewContent.textContent=hasContent?expanded:'Keine Routine-Daten vorhanden.';
       }
@@ -7015,6 +7013,13 @@
       if(typeof autoResizeTextarea==='function'){
         try{autoResizeTextarea(textarea);}catch{}
       }
+    }
+
+    getActiveFreitextTemplate(){
+      const stored=typeof this.activeState?.freitextTemplate==='string'?this.activeState.freitextTemplate:'';
+      if(stored) return stored;
+      const fallback=typeof this.activeState?.routine==='string'?this.activeState.routine:'';
+      return fallback||'';
     }
 
     setFreitextEditorValue(value){
@@ -7164,11 +7169,12 @@
       const expanded=this.expandPlaceholders(rawText);
       const textarea=this.textareas&&this.textareas.routine;
       if(textarea){
-        textarea.value=rawText;
+        textarea.value=expanded;
         autoResizeTextarea(textarea);
       }
       if(this.activeState&&typeof this.activeState==='object'){
-        this.activeState.routine=rawText;
+        this.activeState.freitextTemplate=rawText;
+        this.activeState.routine=expanded;
       }
       console.log('Raw freitext:', rawText);
       console.log('Expanded preview:', expanded);
