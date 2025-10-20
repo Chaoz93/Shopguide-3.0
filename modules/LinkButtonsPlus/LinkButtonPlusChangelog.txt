@@ -3,7 +3,18 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.  
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
----
+
+## [1.7.0] – 2025-10-21
+### Added
+- Farbdatei kann jetzt direkt im Einstellungsdialog ausgewählt werden; das Modul liest die Palette aus der gewählten JSON-Datei und aktualisiert die Farbfelder automatisch.
+### Changed
+- "Farben aktualisieren" lädt die ausgewählte Datei neu ein und synchronisiert anschließend die Farblayer-Zuweisungen.
+
+## [1.6.0] – 2025-10-20
+### Added
+- Farbgruppen-Konfigurator im Einstellungsdialog, um Hauptmodul, Header und Aktionselemente direkt Farblayer-Gruppen zuzuordnen – inklusive Vorschlagsliste und Reset auf die Standardgruppen.
+### Changed
+- Farblayer-Zuweisungen und Elementzuordnungen bleiben bei umbenannten Gruppen erhalten und synchronisieren sich mit den neuen Gruppennamen.
 
 ## [1.5.11] – 2025-10-13
 ### Changed
