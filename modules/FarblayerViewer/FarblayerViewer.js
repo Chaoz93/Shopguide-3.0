@@ -124,6 +124,27 @@
     return map;
   }
 
+  function markElementAssignable(element){
+    if(!(element instanceof Element)) return false;
+    if(element.hasAttribute('data-assignable')) return false;
+    element.setAttribute('data-assignable', 'true');
+    return true;
+  }
+
+  function enableAssignableDropzones(context){
+    if(typeof document === 'undefined') return [];
+    const scope = context instanceof Element ? context : document;
+    const selectors = ['.flv-dropzone', '.flv-layer-card', '.assign-target'];
+    const elements = Array.from(scope.querySelectorAll(selectors.join(',')));
+    const newlyTagged = [];
+    elements.forEach(element => {
+      if(markElementAssignable(element)){
+        newlyTagged.push(element);
+      }
+    });
+    return newlyTagged;
+  }
+
   function startAssignMode(moduleName, groups){
     if(typeof document === 'undefined') return;
     const existingOverlay = document.getElementById('assign-ui-overlay');
@@ -149,6 +170,8 @@
     overlay.id = 'assign-ui-overlay';
 
     document.body.classList.add('flv-assign-mode-active');
+
+    enableAssignableDropzones();
 
     const assignRoot = instance && typeof instance.getRootElement === 'function'
       ? (() => {
@@ -1631,6 +1654,7 @@
     assignBtn.textContent = '🧩 Zuweisungen bearbeiten';
     const handleAssign = () => {
       refreshInstanceRegistration();
+      enableAssignableDropzones(root);
       startAssignMode(state.moduleName, instanceApi.getGroups());
     };
     assignBtn.addEventListener('click', handleAssign);
