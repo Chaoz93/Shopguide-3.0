@@ -520,7 +520,7 @@
     .assign-target-indicator[data-active="true"]{opacity:1;transform:translateY(-90%);}
     .assign-target-indicator[data-active="false"]{opacity:.4;}
     body.flv-assign-mode-active .flv-root{position:relative;z-index:9999;}
-    body.flv-assign-mode-active .flv-main-preview{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(1.1);transform-origin:center;max-width:80vw;width:80vw;max-height:calc(100vh - 5rem);overflow:auto;padding:1.85rem;border-radius:1.25rem;box-shadow:0 32px 68px rgba(15,23,42,.55);z-index:10000;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+    body.flv-assign-mode-active .flv-main-preview{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);transform-origin:center;max-width:80vw;width:80vw;max-height:calc(100vh - 5rem);overflow:auto;padding:1.85rem;border-radius:1.25rem;box-shadow:0 32px 68px rgba(15,23,42,.55);z-index:10000;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
     body.flv-assign-mode-active .flv-main-preview::-webkit-scrollbar{width:10px;}
     body.flv-assign-mode-active .flv-main-preview::-webkit-scrollbar-thumb{background:rgba(148,163,184,.55);border-radius:999px;}
     body.flv-assign-mode-active .flv-main-preview::-webkit-scrollbar-track{background:rgba(15,23,42,.35);border-radius:999px;}
