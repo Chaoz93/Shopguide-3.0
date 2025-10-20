@@ -135,6 +135,15 @@
     .ops-input-hint{margin:0; font-size:.78rem; opacity:.72;}
     .ops-tab-colors{display:none; flex-direction:column; gap:1rem; padding-top:.45rem;}
     .ops-tab-colors.active{display:flex;}
+    .ops-color-groups{display:flex; flex-direction:column; gap:.75rem; padding:1rem 1.1rem; border-radius:.95rem; border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); color:inherit;}
+    .ops-color-groups h3{margin:0; font-size:1rem; font-weight:600; letter-spacing:.3px;}
+    .ops-color-groups p{margin:0; font-size:.85rem; opacity:.78; line-height:1.4;}
+    .ops-group-grid{display:grid; gap:.75rem; grid-template-columns:repeat(auto-fit, minmax(220px,1fr));}
+    .ops-group-field{display:flex; flex-direction:column; gap:.35rem;}
+    .ops-group-field label{font-weight:600; font-size:.9rem; letter-spacing:.2px;}
+    .ops-group-input{padding:.55rem .75rem; border-radius:.65rem; border:1px solid rgba(148,163,184,.35); background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
+    .ops-group-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
+    .ops-color-config-actions{display:flex; justify-content:flex-end; gap:.45rem; flex-wrap:wrap;}
     .ops-color-delegate{display:flex; flex-direction:column; gap:.75rem; padding:1rem 1.1rem; border-radius:.95rem; border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); color:inherit;}
     .ops-color-delegate p{margin:0; font-size:.9rem; line-height:1.5; color:rgba(226,232,240,.88);}
     .ops-color-summary{display:flex; flex-direction:column; gap:.6rem;}
@@ -262,6 +271,7 @@
   const WORKFORCE_FILTER_KEY = 'linkbuttonsplus-filters';
   const COLOR_CONFIG_KEY = 'linkbuttonsplus-colors-v1';
   const COLOR_AREAS = ['main','header','buttons'];
+  const FARBLAYER_GROUP_CONFIG_KEY = 'linkbuttonsplus-group-config-v1';
   const FARBLAYER_MODULE_NAME = 'LinkButtonsPlus';
   const FARBLAYER_GROUPS = {
     main: 'Hauptoberfläche',
@@ -298,6 +308,173 @@
     return typeof value === 'string' ? value.trim() : '';
   }
 
+  const groupConfigListeners = new Set();
+
+  function normalizeGroupConfig(input){
+    const result = {};
+    COLOR_AREAS.forEach(area => {
+      const fallback = normalizeGroupName(FARBLAYER_GROUPS[area]);
+      const raw = input && typeof input === 'object' ? normalizeGroupName(input[area]) : '';
+      result[area] = raw || fallback;
+    });
+    return result;
+  }
+
+  function loadFarblayerGroupConfig(){
+    try{
+      const raw = localStorage.getItem(FARBLAYER_GROUP_CONFIG_KEY);
+      if(!raw) return normalizeGroupConfig(null);
+      const parsed = JSON.parse(raw);
+      return normalizeGroupConfig(parsed);
+    }catch{
+      return normalizeGroupConfig(null);
+    }
+  }
+
+  let farblayerGroupConfig = loadFarblayerGroupConfig();
+
+  function getFarblayerGroupConfig(){
+    return { ...farblayerGroupConfig };
+  }
+
+  function saveFarblayerGroupConfig(config){
+    if(typeof localStorage === 'undefined') return;
+    try{
+      localStorage.setItem(FARBLAYER_GROUP_CONFIG_KEY, JSON.stringify(config));
+    }catch{}
+  }
+
+  function buildGroupAliasMap(previous, next){
+    const alias = {};
+    COLOR_AREAS.forEach(area => {
+      const before = normalizeGroupName(previous?.[area]);
+      const after = normalizeGroupName(next?.[area]);
+      if(before && after && before !== after){
+        alias[before] = after;
+      }
+    });
+    return alias;
+  }
+
+  function getConfiguredGroupName(area){
+    const configured = farblayerGroupConfig?.[area];
+    const normalized = normalizeGroupName(configured);
+    if(normalized) return normalized;
+    return normalizeGroupName(FARBLAYER_GROUPS[area]);
+  }
+
+  function getConfiguredGroupList(){
+    const seen = new Set();
+    const list = [];
+    COLOR_AREAS.forEach(area => {
+      const name = getConfiguredGroupName(area);
+      if(name && !seen.has(name)){
+        seen.add(name);
+        list.push(name);
+      }
+    });
+    return list;
+  }
+
+  function mergeConfiguredGroups(groups, aliasMap = {}){
+    const seen = new Set();
+    const merged = [];
+    getConfiguredGroupList().forEach(name => {
+      if(name && !seen.has(name)){
+        seen.add(name);
+        merged.push(name);
+      }
+    });
+    (Array.isArray(groups) ? groups : []).forEach(name => {
+      const normalized = normalizeGroupName(name);
+      if(!normalized) return;
+      const mapped = aliasMap[normalized] || normalized;
+      if(mapped && !seen.has(mapped)){
+        seen.add(mapped);
+        merged.push(mapped);
+      }
+    });
+    return merged;
+  }
+
+  function remapGroupAssignments(assignments, aliasMap = {}){
+    const result = {};
+    if(assignments && typeof assignments === 'object'){
+      Object.entries(assignments).forEach(([groupName, layerName]) => {
+        const normalizedGroup = normalizeGroupName(groupName);
+        const layer = typeof layerName === 'string' ? layerName.trim() : '';
+        if(!normalizedGroup || !layer) return;
+        const targetGroup = aliasMap[normalizedGroup] || normalizedGroup;
+        if(!Object.prototype.hasOwnProperty.call(result, targetGroup)){
+          result[targetGroup] = layer;
+        }
+      });
+    }
+    return result;
+  }
+
+  function remapElementAssignments(assignments, aliasMap = {}){
+    const result = {};
+    if(assignments && typeof assignments === 'object'){
+      Object.entries(assignments).forEach(([elementId, groupName]) => {
+        const id = typeof elementId === 'string' ? elementId.trim() : '';
+        const normalizedGroup = normalizeGroupName(groupName);
+        if(!id || !normalizedGroup) return;
+        const targetGroup = aliasMap[normalizedGroup] || normalizedGroup;
+        result[id] = targetGroup;
+      });
+    }
+    return result;
+  }
+
+  function areMapsEqual(a, b){
+    const keysA = Object.keys(a || {}).sort();
+    const keysB = Object.keys(b || {}).sort();
+    if(keysA.length !== keysB.length) return false;
+    for(let i = 0; i < keysA.length; i += 1){
+      if(keysA[i] !== keysB[i]) return false;
+      if((a || {})[keysA[i]] !== (b || {})[keysA[i]]) return false;
+    }
+    return true;
+  }
+
+  function setFarblayerGroupConfig(nextConfig, options = {}){
+    const normalized = normalizeGroupConfig(nextConfig);
+    const previous = getFarblayerGroupConfig();
+    const unchanged = COLOR_AREAS.every(area => previous[area] === normalized[area]);
+    if(unchanged){
+      if(options.persist !== false){
+        saveFarblayerGroupConfig(normalized);
+      }
+      return normalized;
+    }
+    farblayerGroupConfig = normalized;
+    if(options.persist !== false){
+      saveFarblayerGroupConfig(normalized);
+    }
+    const aliasMap = buildGroupAliasMap(previous, normalized);
+    groupConfigListeners.forEach(listener => {
+      try{
+        listener({ previous, next: { ...normalized }, aliasMap });
+      }catch(err){
+        console.error('[LinkButtonsPlus] Gruppen-Listener fehlgeschlagen:', err);
+      }
+    });
+    return normalized;
+  }
+
+  function onGroupConfigChange(listener){
+    if(typeof listener !== 'function') return () => {};
+    groupConfigListeners.add(listener);
+    return () => {
+      groupConfigListeners.delete(listener);
+    };
+  }
+
+  function resetFarblayerGroupConfig(){
+    return setFarblayerGroupConfig({ ...FARBLAYER_GROUPS });
+  }
+
   function loadFarblayerElementAssignments(){
     try{
       const raw = localStorage.getItem(FARBLAYER_ELEMENT_STORAGE_KEY);
@@ -318,6 +495,25 @@
       console.warn('[LinkButtonsPlus] Konnte Farblayer-Elementzuweisungen nicht laden:', err);
     }
     return {};
+  }
+
+  function persistFarblayerElementAssignments(assignments){
+    if(typeof localStorage === 'undefined') return;
+    const payload = {};
+    if(assignments && typeof assignments === 'object'){
+      Object.entries(assignments).forEach(([elementId, groupName]) => {
+        const id = typeof elementId === 'string' ? elementId.trim() : '';
+        const group = normalizeGroupName(groupName);
+        if(id && group){
+          payload[id] = group;
+        }
+      });
+    }
+    try{
+      localStorage.setItem(FARBLAYER_ELEMENT_STORAGE_KEY, JSON.stringify(payload));
+    }catch(err){
+      console.warn('[LinkButtonsPlus] Konnte Farblayer-Elementzuweisungen nicht speichern:', err);
+    }
   }
 
   function installAssignElementHook(){
@@ -406,7 +602,7 @@
 
   function getDefaultFarblayerState(){
     return {
-      groups: Object.values(FARBLAYER_GROUPS),
+      groups: getConfiguredGroupList(),
       assignments: {}
     };
   }
@@ -476,20 +672,22 @@
       if(!raw) return fallback;
       const parsed = JSON.parse(raw);
       if(!parsed || typeof parsed !== 'object') return fallback;
-      const groups = Array.isArray(parsed.groups)
-        ? parsed.groups.map(value => typeof value === 'string' ? value.trim() : '').filter(Boolean)
-        : [];
+      const groupsRaw = Array.isArray(parsed.groups) ? parsed.groups : [];
+      const mergedGroups = mergeConfiguredGroups(groupsRaw);
+      const validGroups = new Set(mergedGroups);
       const assignmentsRaw = parsed.assignments && typeof parsed.assignments === 'object'
         ? parsed.assignments
         : {};
       const assignments = {};
       Object.entries(assignmentsRaw).forEach(([groupName, layerName]) => {
-        if(typeof groupName === 'string' && groupName.trim() && typeof layerName === 'string' && layerName.trim()){
-          assignments[groupName.trim()] = layerName.trim();
+        const group = normalizeGroupName(groupName);
+        const layer = typeof layerName === 'string' ? layerName.trim() : '';
+        if(group && layer && (validGroups.size === 0 || validGroups.has(group))){
+          assignments[group] = layer;
         }
       });
       return {
-        groups: groups.length ? groups : fallback.groups,
+        groups: mergedGroups.length ? mergedGroups : fallback.groups,
         assignments
       };
     }catch{}
@@ -498,22 +696,25 @@
 
   function saveFarblayerState(state){
     const base = getDefaultFarblayerState();
-    const groups = Array.isArray(state?.groups) && state.groups.length ? state.groups : base.groups;
-    const assignments = state && typeof state.assignments === 'object' ? state.assignments : {};
-    const payload = {
-      groups: groups.map(value => typeof value === 'string' ? value : '').filter(Boolean),
-      assignments: {}
-    };
-    Object.entries(assignments).forEach(([groupName, layerName]) => {
-      if(typeof groupName === 'string' && groupName.trim() && typeof layerName === 'string' && layerName.trim()){
-        payload.assignments[groupName.trim()] = layerName.trim();
-      }
-    });
+    const mergedGroups = mergeConfiguredGroups(state?.groups);
+    const groups = mergedGroups.length ? mergedGroups : base.groups;
+    const validGroups = new Set(groups);
+    const assignments = {};
+    if(state && typeof state.assignments === 'object'){
+      Object.entries(state.assignments).forEach(([groupName, layerName]) => {
+        const group = normalizeGroupName(groupName);
+        const layer = typeof layerName === 'string' ? layerName.trim() : '';
+        if(group && layer && (validGroups.has(group) || validGroups.size === 0)){
+          assignments[group] = layer;
+        }
+      });
+    }
+    const payload = { groups, assignments };
     try{
       localStorage.setItem(FARBLAYER_STORAGE_KEY, JSON.stringify(payload));
     }catch{}
     return {
-      groups: payload.groups.length ? payload.groups : base.groups,
+      groups: payload.groups.slice(),
       assignments: { ...payload.assignments }
     };
   }
@@ -539,7 +740,7 @@
     const nextAssignments = {};
     COLOR_AREAS.forEach(area => {
       const legacyValue = normalizeDropdownValue(entry[area]);
-      const groupName = FARBLAYER_GROUPS[area];
+      const groupName = getConfiguredGroupName(area);
       if(groupName && legacyValue){
         nextAssignments[groupName] = legacyValue;
       }
@@ -2961,17 +3162,17 @@
     const headerEl = root.querySelector('.ops-header');
     const autoRefreshEl = root.querySelector('.ops-autorefresh');
     const cardElements = Array.from(root.querySelectorAll('.ops-card'));
-    registerAssignable(hostEl, 'host', { defaultGroup: FARBLAYER_GROUPS.main, label: 'Modulfläche' });
-    registerAssignable(root, 'root', { defaultGroup: FARBLAYER_GROUPS.main, label: 'Modul-Inhalt' });
-    registerAssignable(outerEl, 'outer', { defaultGroup: FARBLAYER_GROUPS.main, label: 'Hauptbereich' });
-    registerAssignable(headerEl, 'header', { defaultGroup: FARBLAYER_GROUPS.header, label: 'Header' });
+    registerAssignable(hostEl, 'host', { area: 'main', defaultGroup: getConfiguredGroupName('main'), label: 'Modulfläche' });
+    registerAssignable(root, 'root', { area: 'main', defaultGroup: getConfiguredGroupName('main'), label: 'Modul-Inhalt' });
+    registerAssignable(outerEl, 'outer', { area: 'main', defaultGroup: getConfiguredGroupName('main'), label: 'Hauptbereich' });
+    registerAssignable(headerEl, 'header', { area: 'header', defaultGroup: getConfiguredGroupName('header'), label: 'Header' });
     if(autoRefreshEl){
-      registerAssignable(autoRefreshEl, 'status', { defaultGroup: FARBLAYER_GROUPS.buttons, label: 'Auto-Update' });
+      registerAssignable(autoRefreshEl, 'status', { area: 'buttons', defaultGroup: getConfiguredGroupName('buttons'), label: 'Auto-Update' });
     }
     cardElements.forEach((card, index) => {
       const slot = card.dataset.slot || `slot-${index}`;
       const label = (card.textContent || '').trim();
-      registerAssignable(card, `card-${slot}`, { defaultGroup: FARBLAYER_GROUPS.buttons, label: label || `Aktion ${index + 1}` });
+      registerAssignable(card, `card-${slot}`, { area: 'buttons', defaultGroup: getConfiguredGroupName('buttons'), label: label || `Aktion ${index + 1}` });
     });
     reloadFarblayerElementAssignments();
     titleEl = root.querySelector('.ops-title');
@@ -3017,18 +3218,21 @@
       return element.id || '';
     }
 
-    function registerAssignable(element, key, { defaultGroup = '', label = '' } = {}){
+    function registerAssignable(element, key, { defaultGroup = '', label = '', area = '' } = {}){
       if(!element) return;
       const id = ensureAssignableId(element, key);
       if(!id) return;
       element.dataset.assignable = 'true';
-      if(defaultGroup){
-        element.dataset.assignDefaultGroup = defaultGroup;
+      const sanitizedGroup = normalizeGroupName(defaultGroup);
+      if(sanitizedGroup){
+        element.dataset.assignDefaultGroup = sanitizedGroup;
+      }else{
+        delete element.dataset.assignDefaultGroup;
       }
       if(label){
         element.dataset.assignLabel = label;
       }
-      assignableElements.set(id, { element, defaultGroup, label });
+      assignableElements.set(id, { element, defaultGroup: sanitizedGroup, label, area: area || '' });
     }
 
     function getAssignedGroupForElement(elementId, defaultGroup){
@@ -3047,13 +3251,14 @@
     }
 
     function applyColorsToAssignables(colorSets){
+      const fallbackGroup = getConfiguredGroupName('main');
       assignableElements.forEach((meta, elementId) => {
         const element = meta.element;
         if(!element) return;
         const assignedGroup = getAssignedGroupForElement(elementId, meta.defaultGroup);
         let colors = assignedGroup ? colorSets.get(assignedGroup) : null;
-        if(!colors && assignedGroup !== FARBLAYER_GROUPS.main){
-          colors = colorSets.get(FARBLAYER_GROUPS.main) || null;
+        if(!colors && fallbackGroup && assignedGroup !== fallbackGroup){
+          colors = colorSets.get(fallbackGroup) || null;
         }
         if(assignedGroup){
           element.dataset.assignedGroup = assignedGroup;
@@ -3077,8 +3282,8 @@
         ? farblayerState.assignments
         : {};
       COLOR_AREAS.forEach(area => {
-        const groupName = FARBLAYER_GROUPS[area];
-        selectedColors[area] = normalizeDropdownValue(assignments[groupName]);
+        const groupName = getConfiguredGroupName(area);
+        selectedColors[area] = groupName ? normalizeDropdownValue(assignments[groupName]) : '';
       });
     }
 
@@ -3098,7 +3303,7 @@
         const current = loadFarblayerState();
         const nextAssignments = { ...current.assignments };
         COLOR_AREAS.forEach(area => {
-          const groupName = FARBLAYER_GROUPS[area];
+          const groupName = getConfiguredGroupName(area);
           const value = normalizeDropdownValue(selectedColors[area]);
           if(!groupName) return;
           if(value){
@@ -3120,18 +3325,25 @@
       const buttonColors = buttonLayer ? deriveButtonColors(buttonLayer) : null;
 
       const colorSets = new Map();
-      if(mainColors){
-        colorSets.set(FARBLAYER_GROUPS.main, mainColors);
+      const mainGroupName = getConfiguredGroupName('main');
+      const headerGroupName = getConfiguredGroupName('header');
+      const buttonGroupName = getConfiguredGroupName('buttons');
+      if(mainColors && mainGroupName){
+        colorSets.set(mainGroupName, mainColors);
       }
-      if(headerColors){
-        colorSets.set(FARBLAYER_GROUPS.header, headerColors);
-      }else if(mainColors && !colorSets.has(FARBLAYER_GROUPS.header)){
-        colorSets.set(FARBLAYER_GROUPS.header, mainColors);
+      if(headerGroupName){
+        if(headerColors){
+          colorSets.set(headerGroupName, headerColors);
+        }else if(mainColors && !colorSets.has(headerGroupName)){
+          colorSets.set(headerGroupName, mainColors);
+        }
       }
-      if(buttonColors){
-        colorSets.set(FARBLAYER_GROUPS.buttons, buttonColors);
-      }else if(mainColors && !colorSets.has(FARBLAYER_GROUPS.buttons)){
-        colorSets.set(FARBLAYER_GROUPS.buttons, mainColors);
+      if(buttonGroupName){
+        if(buttonColors){
+          colorSets.set(buttonGroupName, buttonColors);
+        }else if(mainColors && !colorSets.has(buttonGroupName)){
+          colorSets.set(buttonGroupName, mainColors);
+        }
       }
 
       if(hostEl){
@@ -3321,6 +3533,51 @@
       }
     };
 
+    function handleGroupConfigChange(change){
+      const aliasMap = change?.aliasMap || {};
+      assignableElements.forEach(meta => {
+        if(!meta || !meta.element) return;
+        if(meta.area){
+          const nextGroup = getConfiguredGroupName(meta.area);
+          meta.defaultGroup = nextGroup;
+          if(nextGroup){
+            meta.element.dataset.assignDefaultGroup = nextGroup;
+          }else{
+            delete meta.element.dataset.assignDefaultGroup;
+          }
+        }
+      });
+      const previousState = farblayerState;
+      const mergedGroups = mergeConfiguredGroups(previousState?.groups, aliasMap);
+      const remappedAssignments = remapGroupAssignments(previousState?.assignments, aliasMap);
+      const updatedState = saveFarblayerState({ groups: mergedGroups, assignments: remappedAssignments });
+      const groupsChanged = JSON.stringify(previousState?.groups || []) !== JSON.stringify(updatedState.groups || []);
+      const assignmentsChanged = !areMapsEqual(previousState?.assignments, updatedState.assignments);
+      farblayerState = updatedState;
+      if(groupsChanged || assignmentsChanged){
+        broadcastFarblayerStateChange(updatedState);
+      }
+      const remappedElements = remapElementAssignments(farblayerElementAssignments, aliasMap);
+      if(!areMapsEqual(farblayerElementAssignments, remappedElements)){
+        farblayerElementAssignments = remappedElements;
+        persistFarblayerElementAssignments(remappedElements);
+      }
+      updateSelectedColorsFromFarblayer();
+      scheduleLayerRefresh();
+      updateColorSummary();
+      syncGroupInputs();
+    }
+
+    const detachGroupConfigListener = onGroupConfigChange(handleGroupConfigChange);
+    if(root){
+      try{
+        if(typeof root.__lbpGroupConfigDetach === 'function'){
+          root.__lbpGroupConfigDetach();
+        }
+      }catch{}
+      root.__lbpGroupConfigDetach = detachGroupConfigListener;
+    }
+
     const layerBroadcastHandler = () => {
       scheduleLayerRefresh();
     };
@@ -3483,6 +3740,29 @@
             </div>
           </div>
           <div class="ops-tab ops-tab-colors" data-tab="colors">
+            <div class="ops-color-groups">
+              <div>
+                <h3>Farbgruppen</h3>
+                <p>Ordnen Sie die Modulbereiche den Farblayer-Gruppen zu. Die Vorschläge orientieren sich am Farblayer-Viewer.</p>
+              </div>
+              <div class="ops-group-grid">
+                <div class="ops-group-field">
+                  <label for="ops-group-main">Hauptmodul</label>
+                  <input type="text" id="ops-group-main" class="ops-group-input" data-group-area="main" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="ops-group-field">
+                  <label for="ops-group-header">Header</label>
+                  <input type="text" id="ops-group-header" class="ops-group-input" data-group-area="header" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="ops-group-field">
+                  <label for="ops-group-buttons">Aktionselemente</label>
+                  <input type="text" id="ops-group-buttons" class="ops-group-input" data-group-area="buttons" autocomplete="off" spellcheck="false">
+                </div>
+              </div>
+              <div class="ops-color-config-actions">
+                <button type="button" class="ops-secondary ops-action-button ops-groups-reset">Standardgruppen verwenden</button>
+              </div>
+            </div>
             <div class="ops-color-delegate">
               <p>Die Farbkonfiguration wird zentral im Farblayer-Viewer gepflegt. Öffnen Sie den Viewer, um Gruppen zuzuweisen oder Farben anzupassen.</p>
               <div class="ops-color-summary" data-color-summary></div>
@@ -3492,6 +3772,7 @@
                 <button type="button" class="ops-secondary ops-action-button ops-sync-farblayer">Farben aktualisieren</button>
               </div>
             </div>
+            <datalist id="ops-group-suggestions"></datalist>
           </div>
         </div>
         <div class="ops-settings-footer">
@@ -3560,6 +3841,94 @@
     colorSummaryEl = menu.querySelector('[data-color-summary]');
     updateColorSummary();
 
+    const groupSuggestionList = menu.querySelector('#ops-group-suggestions');
+    const groupInputs = Array.from(menu.querySelectorAll('.ops-group-input'));
+    const resetGroupsBtn = menu.querySelector('.ops-groups-reset');
+
+    function buildGroupSuggestionList(){
+      const suggestions = new Set();
+      getConfiguredGroupList().forEach(name => { if(name) suggestions.add(name); });
+      const existingGroups = Array.isArray(farblayerState.groups) ? farblayerState.groups : [];
+      existingGroups.forEach(name => {
+        const normalized = normalizeGroupName(name);
+        if(normalized) suggestions.add(normalized);
+      });
+      Object.values(farblayerElementAssignments || {}).forEach(name => {
+        const normalized = normalizeGroupName(name);
+        if(normalized) suggestions.add(normalized);
+      });
+      Object.values(FARBLAYER_GROUPS).forEach(name => {
+        const normalized = normalizeGroupName(name);
+        if(normalized) suggestions.add(normalized);
+      });
+      return Array.from(suggestions);
+    }
+
+    function refreshGroupSuggestions(){
+      if(!groupSuggestionList) return;
+      groupSuggestionList.innerHTML = '';
+      buildGroupSuggestionList().forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        groupSuggestionList.appendChild(option);
+      });
+    }
+
+    function syncGroupInputs(){
+      const config = getFarblayerGroupConfig();
+      groupInputs.forEach(input => {
+        const area = input?.dataset?.groupArea;
+        if(!area) return;
+        const fallback = FARBLAYER_GROUPS[area] || '';
+        const value = config?.[area] || fallback;
+        input.value = value || '';
+        input.placeholder = fallback || '';
+      });
+      refreshGroupSuggestions();
+    }
+
+    let suppressGroupCommit = false;
+
+    function commitGroupInput(event){
+      if(suppressGroupCommit) return;
+      const input = event?.target;
+      if(!input || !input.dataset?.groupArea) return;
+      const area = input.dataset.groupArea;
+      const config = getFarblayerGroupConfig();
+      const trimmed = normalizeGroupName(input.value);
+      const fallback = normalizeGroupName(FARBLAYER_GROUPS[area]);
+      const nextValue = trimmed || fallback;
+      if(config[area] === nextValue) return;
+      suppressGroupCommit = true;
+      try{
+        setFarblayerGroupConfig({ ...config, [area]: nextValue });
+      }finally{
+        suppressGroupCommit = false;
+      }
+    }
+
+    groupInputs.forEach(input => {
+      if(groupSuggestionList){
+        input.setAttribute('list', groupSuggestionList.id);
+      }
+      input.addEventListener('change', commitGroupInput);
+      input.addEventListener('blur', commitGroupInput);
+      input.addEventListener('keydown', event => {
+        if(event.key === 'Enter'){
+          event.preventDefault();
+          input.blur();
+        }
+      });
+    });
+
+    if(resetGroupsBtn){
+      resetGroupsBtn.addEventListener('click', () => {
+        setFarblayerGroupConfig({ ...FARBLAYER_GROUPS });
+      });
+    }
+
+    syncGroupInputs();
+
     const openFarblayerBtn = menu.querySelector('.ops-open-farblayer');
     if(openFarblayerBtn){
       openFarblayerBtn.addEventListener('click', async () => {
@@ -3594,9 +3963,8 @@
           return;
         }
         closeModuleSettingsModal({ persist:true, restoreFocus:false });
-        const groups = Array.isArray(farblayerState.groups) && farblayerState.groups.length
-          ? farblayerState.groups.slice()
-          : Object.values(FARBLAYER_GROUPS);
+        const configuredGroups = mergeConfiguredGroups(farblayerState.groups);
+        const groups = configuredGroups.length ? configuredGroups : getConfiguredGroupList();
         let releaseAssignDecorations = () => {};
         try{
           releaseAssignDecorations = activateLinkButtonsAssignMode();

@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.6.0] – 2025-10-20
+### Added
+- Farbgruppen-Konfigurator im Einstellungsdialog, um Hauptmodul, Header und Aktionselemente direkt Farblayer-Gruppen zuzuordnen – inklusive Vorschlagsliste und Reset auf die Standardgruppen.
+### Changed
+- Farblayer-Zuweisungen und Elementzuordnungen bleiben bei umbenannten Gruppen erhalten und synchronisieren sich mit den neuen Gruppennamen.
+
 ## [1.5.11] – 2025-10-13
 ### Changed
 - Farb-Layer-Dropdowns aus einer bereitgestellten Palette (`window.__lbpPalette`) aufgebaut, inklusive Sortierung, Farbvorschau
