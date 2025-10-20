@@ -2,6 +2,10 @@
 
 Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentiert.
 
+## Unreleased
+### Fixed
+- Zusätzliche Feld-Aliasse für Bestelltexte ergänzt, damit neue Shopguide-Findings-Dateien die korrekten Bestellinformationen übernehmen.
+
 ## 1.2.4 – 2025-09-26
 ### Changed
 - Die Kopierfunktion der Bestellliste liefert nur noch die identifizierten Teilenummern zurück, damit keine Mengenangaben mehr in andere Tools übertragen werden.

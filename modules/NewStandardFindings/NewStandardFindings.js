@@ -1792,7 +1792,11 @@
     action:['action','actions','maßnahme','massnahme','maßnahmen','massnahmen','recommendation','empfehlung','correctiveaction','corrective_action','korrekturmaßnahme','korrektur'],
     routine:['routine','routinetext','routine_text','routinebeschreibung'],
     nonroutine:['nonroutine','non_routine','nonroutinebeschreibung','non routine','non-routine'],
-    parts:['parts','ersatzteile','replacementparts','replacedparts','teile','bestellliste','spares','components'],
+    parts:[
+      'parts','ersatzteile','replacementparts','replacedparts','teile','bestellliste','spares','components',
+      'bestelltext','bestell_text','bestell-hinweis','bestellhinweis','pntext','pn_text','pn text','ordertext','order_text',
+      'order text','ordertitle','order_title','order title'
+    ],
     times:['times','time','zeit','zeiten','dauer','aufwand','arbeitszeit','stunden','timeestimate','time_estimate'],
     mods:['mods','mod','modification','modifications','modifikation','modifikationen','changes','change','änderungen','aenderungen','modnotes']
   };

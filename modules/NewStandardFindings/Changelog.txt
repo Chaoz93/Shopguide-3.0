@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [Unreleased]
+### Fixed
+- Zusätzliche Feld-Aliasse für Bestelltexte ergänzt, damit aktualisierte Shopguide-Findings-Dateien ihre Bestelllisten korrekt darstellen.
+
 ## [1.3.2] – 2025-10-03
 ### Added
 - Automatisches Polling überwacht die ausgewählte Findings-Datei alle fünf Sekunden und lädt aktualisierte Inhalte sofort nach.
