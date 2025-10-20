@@ -8,6 +8,6 @@
   "h": 6,
   "settings": {},
   "moduleId": "FarblayerViewer",
-  "version": "1.7.2",
-  "changelog": "Modulfeld vergrößert sich beim Zuweisen für bessere Treffgenauigkeit"
+  "version": "1.7.3",
+  "changelog": "Zuweisungsoberfläche wird mittig fokussiert und Umgebung weichgezeichnet"
 }
