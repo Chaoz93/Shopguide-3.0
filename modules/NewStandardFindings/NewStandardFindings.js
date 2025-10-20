@@ -1383,7 +1383,7 @@
       .nsf-copy-btn.copied{background:rgba(16,185,129,0.35);}
       .nsf-copy-btn .nsf-copy-feedback{font-size:0.85rem;opacity:0;transition:opacity 0.15s ease;}
       .nsf-copy-btn.copied .nsf-copy-feedback{opacity:1;}
-      .nsf-textarea{flex:1;min-height:0;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow:hidden;}
+      .nsf-textarea{flex:1;min-height:6.5rem;border:none;border-radius:0.75rem;padding:0.6rem 0.65rem;font:inherit;resize:vertical;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);overflow:hidden;}
       .nsf-textarea:disabled{opacity:0.6;background:rgba(255,255,255,0.5);cursor:not-allowed;}
       .nsf-note{font-size:0.8rem;opacity:0.75;}
       .nsf-alert{background:rgba(248,113,113,0.2);border-radius:0.75rem;padding:0.5rem 0.75rem;font-size:0.85rem;}
@@ -4106,7 +4106,7 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
-          textarea.dataset.minRows='2';
+          textarea.dataset.minRows='4';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
           ensureTextareaAutoResize(textarea);
@@ -4121,7 +4121,7 @@
           textarea.disabled=!this.meldung;
           textarea.readOnly=true;
           textarea.placeholder=this.meldung?`Text für ${def.label}…`:'Keine Meldung ausgewählt';
-          textarea.dataset.minRows='2';
+          textarea.dataset.minRows='4';
           this.textareas[def.key]=textarea;
           box.append(head,textarea);
           ensureTextareaAutoResize(textarea);
