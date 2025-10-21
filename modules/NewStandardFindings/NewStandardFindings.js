@@ -1497,6 +1497,57 @@
     set.add(key);
     list.push(text);
   }
+  // normalize parts (extended numbered key handling)
+  function normalizeNumberedParts(rawPartsObj){
+    if(!rawPartsObj||typeof rawPartsObj!=='object') return [];
+
+    const partMap=new Map();
+
+    // scan all keys and pair them by index number
+    Object.keys(rawPartsObj).forEach(key=>{
+      const value=rawPartsObj[key];
+      if(typeof key!=='string') return;
+
+      // detect `Part X`
+      const partMatch=key.match(/^Part\s+(\d+)$/i);
+      if(partMatch){
+        const idx=parseInt(partMatch[1],10);
+        if(!Number.isFinite(idx)) return;
+        if(!partMap.has(idx)) partMap.set(idx,{});
+        partMap.get(idx).pn=(typeof value==='string'?value.trim():'');
+        return;
+      }
+
+      // detect `Menge X`
+      const qtyMatch=key.match(/^Menge\s+(\d+)$/i);
+      if(qtyMatch){
+        const idx=parseInt(qtyMatch[1],10);
+        if(!Number.isFinite(idx)) return;
+        if(!partMap.has(idx)) partMap.set(idx,{});
+        partMap.get(idx).qty=(typeof value==='string'?value.trim():'');
+        return;
+      }
+    });
+
+    // convert map → array, sorted & compacted
+    const result=[];
+    Array.from(partMap.keys()).sort((a,b)=>a-b).forEach(idx=>{
+      const entry=partMap.get(idx);
+      if(!entry||!entry.pn) return; // ignore if pn empty
+
+      let qty=entry.qty;
+      if(!qty||qty==='0') qty='1';
+
+      // push compacted model
+      result.push({
+        pn:entry.pn,
+        qty:qty
+      });
+    });
+
+    return result;
+  }
+
   function parsePartsDetails(rawValue,options){
     const opts=options||{};
     const titles=[];
@@ -1523,6 +1574,33 @@
     const fallbackParts=Array.isArray(opts.fallbackParts)?opts.fallbackParts:[];
     const fallbackPartSet=new Set(fallbackParts.map(normalizePart).filter(Boolean));
     if(!rawValue) return {titles,pairs,groups};
+    if(rawValue&&typeof rawValue==='object'&&!Array.isArray(rawValue)){
+      const numberedParts=normalizeNumberedParts(rawValue);
+      if(numberedParts.length){
+        const defaultGroup={title:'',parts:[]};
+        numberedParts.forEach(entry=>{
+          if(!entry) return;
+          const partText=clean(entry.pn);
+          if(!partText) return;
+          const normalizedPart=normalizePart(partText);
+          if(normalizedPart&&fallbackPartSet.has(normalizedPart)) return;
+          const quantityText=clean(entry.qty);
+          const quantityKey=(quantityText||'').toLowerCase();
+          const key=`${normalizedPart}||${quantityKey}`;
+          if(pairKeys.has(key)) return;
+          pairKeys.add(key);
+          const pair={part:partText,quantity:quantityText};
+          pairs.push(pair);
+          defaultGroup.parts.push({part:pair.part,quantity:pair.quantity});
+        });
+        if(defaultGroup.parts.length){
+          return {titles,pairs,groups:[defaultGroup]};
+        }
+        if(pairs.length){
+          return {titles,pairs,groups:[]};
+        }
+      }
+    }
     const collected=[];
     const appendLine=(label,value)=>{
       const text=clean(value);
