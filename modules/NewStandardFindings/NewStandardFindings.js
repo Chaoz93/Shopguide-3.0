@@ -1472,6 +1472,46 @@
   }
 
   function clean(value){return value==null?'':String(value).trim();}
+
+  // === NSF DEBUG TOGGLE =========================================================
+  const NSF_DEBUG=(()=>{
+    try{
+      // enable via: localStorage.setItem('nsf-debug','1')
+      return typeof localStorage!=='undefined'&&localStorage.getItem('nsf-debug')==='1';
+    }catch{return false;}
+  })();
+
+  function nsfDebugLog(...args){
+    if(!NSF_DEBUG) return;
+    try{console.groupCollapsed('[NSF][debug]',...args);console.groupEnd();}
+    catch{/* ignore */}
+  }
+
+  function nsfDebugDir(label,obj){
+    if(!NSF_DEBUG) return;
+    try{
+      console.groupCollapsed('[NSF][debug]',label);
+      console.log('type:',typeof obj,Array.isArray(obj)?'(array)':'');
+      if(obj&&typeof obj==='object'){
+        const keys=Object.keys(obj);
+        console.log('keys:',keys);
+        console.log('preview:',JSON.stringify(obj,(k,v)=>(typeof v==='string'&&v.length>140?v.slice(0,140)+'…':v),2));
+      }else{
+        console.log('value:',obj);
+      }
+      console.groupEnd();
+    }catch{/* ignore */}
+  }
+
+  // quick helper to stringify short safely
+  function nsfShort(v){
+    try{
+      if(v==null) return String(v);
+      if(typeof v==='string') return v.length>120?v.slice(0,120)+'…':v;
+      if(typeof v==='object') return JSON.stringify(v).slice(0,140)+'…';
+      return String(v);
+    }catch{return '[unserializable]';}
+  }
   function stripNonRoutineFindingPrefix(value){
     const text=clean(value);
     if(!text) return '';
@@ -2460,6 +2500,17 @@
         ? structuredPartsDetails
         : (partsObject?cloneDeep(partsObject):partsRaw);
       const partsSourceValue=partsObject?cloneDeep(partsObject):null;
+      if(NSF_DEBUG){
+        console.groupCollapsed('[NSF] normalizeEntries: parts fields');
+        console.log('partsRaw typeof:',typeof partsRaw,'isArray?',Array.isArray(partsRaw));
+        nsfDebugDir('partsRaw',partsRaw);
+        nsfDebugDir('partsObject',partsObject);
+        console.log('partsText:',nsfShort(partsText));
+        nsfDebugDir('structuredPartsDetails',structuredPartsDetails);
+        nsfDebugDir('partsDetailsValue (chosen)',partsDetailsValue);
+        nsfDebugDir('partsSourceValue',partsSourceValue);
+        console.groupEnd();
+      }
       const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
       const mods=clean(extractNestedField(raw,FIELD_ALIASES.mods));
       const map=buildFieldMap(raw);
@@ -4940,6 +4991,17 @@
         const structured=extractStructuredNumberedParts(selectionPartsSource||resolvedPartsSourceCandidate||{});
         if(structured){
           resolved.partsDetails=structured;   // <-- real object for UI
+          if(NSF_DEBUG){
+            console.groupCollapsed('[NSF] selection → resolved (pre-parse)');
+            console.log('selection.key:',selection&&selection.key);
+            console.log('selection.part:',selection&&selection.part,'resolved.part:',resolved&&resolved.part);
+            nsfDebugDir('selection.parts',selection&&selection.parts);
+            nsfDebugDir('selection.partsDetails',selection&&selection.partsDetails);
+            nsfDebugDir('resolved.partsSource',resolved&&resolved.partsSource);
+            nsfDebugDir('resolved.partsDetails',resolved&&resolved.partsDetails);
+            console.log('hasStructuredNumberedParts(resolved.partsDetails):',!!(resolved&&hasStructuredNumberedParts(resolved.partsDetails)));
+            console.groupEnd();
+          }
         }
 
         const partSource=createPartSource(resolved,selection);
@@ -4965,7 +5027,25 @@
         // Keeping only the matched part prevents the duplicate suppression from hiding
         // legitimate order information while still avoiding duplicates of the selected part.
         const resolvedPartsSource=resolved.partsDetails!=null?resolved.partsDetails:resolved.parts;
+        if(NSF_DEBUG){
+          console.groupCollapsed('[NSF] parsePartsDetails call');
+          nsfDebugDir('resolvedPartsSource (final input)',resolvedPartsSource||'');
+          console.log('fallbackParts:',(fallbackParts||[]).join(', '));
+          console.groupEnd();
+        }
         const partsInfo=parsePartsDetails(resolvedPartsSource||'',{fallbackParts});
+        if(NSF_DEBUG){
+          console.groupCollapsed('[NSF] parsePartsDetails result');
+          if(partsInfo){
+            console.log('titles:',Array.isArray(partsInfo.titles)?partsInfo.titles.length:0);
+            console.log('pairs:',Array.isArray(partsInfo.pairs)?partsInfo.pairs.length:0);
+            console.log('groups:',Array.isArray(partsInfo.groups)?partsInfo.groups.length:0);
+            nsfDebugDir('partsInfo.sample',(partsInfo.groups&&partsInfo.groups[0])||(partsInfo.pairs&&partsInfo.pairs[0])||partsInfo);
+          }else{
+            console.log('partsInfo: null/undefined');
+          }
+          console.groupEnd();
+        }
         if(partsInfo&&Array.isArray(partsInfo.titles)){
           partsInfo.titles.forEach(addBestellTitle);
         }
@@ -8738,5 +8818,32 @@
     return instance;
   };
 
-  
+  if(typeof window!=='undefined'){
+    window.nsfDumpSelectedParts=()=>{
+      try{
+        if(!NSF_DEBUG){console.warn('Enable with localStorage.setItem("nsf-debug","1") and reload.');return;}
+        const instList=Array.from(instances||[]);
+        console.group('[NSF] Dump selectedEntries (instances:',instList.length,')');
+        instList.forEach((inst,idx)=>{
+          console.group('instance',idx);
+          const sel=Array.isArray(inst&&inst.selectedEntries)?inst.selectedEntries:[];
+          console.log('selectedEntries count:',sel.length);
+          sel.forEach((s,i)=>{
+            console.group('selection',i,s&&s.key);
+            console.log('part:',s&&s.part);
+            nsfDebugDir('selection.parts',s&&s.parts);
+            nsfDebugDir('selection.partsDetails',s&&s.partsDetails);
+            const r=typeof inst.resolveEntry==='function'?(inst.resolveEntry(s)||s):s;
+            nsfDebugDir('resolved.partsSource',r&&r.partsSource);
+            nsfDebugDir('resolved.partsDetails',r&&r.partsDetails);
+            console.groupEnd();
+          });
+          console.groupEnd();
+        });
+        console.groupEnd();
+      }catch(e){console.warn('[NSF] nsfDumpSelectedParts error',e);}
+    };
+  }
+
+
 })();
