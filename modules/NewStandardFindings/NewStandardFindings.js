@@ -1473,6 +1473,39 @@
 
   function clean(value){return value==null?'':String(value).trim();}
 
+  function nsfIsObj(v){return v&&typeof v==='object'&&!Array.isArray(v);}
+  function nsfKeepPartsBlock(src){
+    // returns a clean, protected copy of the parts block
+    const out={parts:'',partsDetails:null,partsSource:null};
+
+    // prefer structured object from partsDetails/partsSource if present
+    if(nsfIsObj(src.partsDetails)) out.partsDetails=src.partsDetails;
+    else if(nsfIsObj(src.partsSource)) out.partsDetails=src.partsSource;
+
+    // always carry partsSource if we have one
+    if(nsfIsObj(src.partsSource)) out.partsSource=src.partsSource;
+
+    // summary text stays in `parts`
+    if(typeof src.parts==='string') out.parts=src.parts;
+
+    // if nothing structured yet but src.partsDetails is a string, keep it only as last resort
+    if(!out.partsDetails&&typeof src.partsDetails==='string'&&src.partsDetails.trim()!==''){
+      // DO NOT parse or flatten here; just pass through as string fallback
+      out.partsDetails=src.partsDetails;
+    }
+
+    return out;
+  }
+
+  function nsfCompactPartsLine(pd){
+    if(!nsfIsObj(pd)) return `STRING("${String(pd)}")`;
+    try{
+      return '{'+Object.entries(pd)
+        .map(([k,v])=>`${k.replace(/\s+/g,'').replace('Part','P').replace('Menge','M')}:${String(v)}`)
+        .join(', ')+'}';
+    }catch{return '{?}';}
+  }
+
   // === NSF DEBUG TOGGLE =========================================================
   const NSF_DEBUG=(()=>{
     try{
@@ -5043,6 +5076,22 @@
       };
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
+        // --- BEGIN NSF PARTS BLOCK PROTECT ---
+        if(resolved&&typeof resolved==='object'){
+          const pb=nsfKeepPartsBlock(resolved);
+          // re-assign protected values back to resolved
+          if(typeof pb.parts==='string') resolved.parts=pb.parts;
+          resolved.partsSource=pb.partsSource||resolved.partsSource||null;
+
+          // NEVER downgrade an object to string:
+          if(nsfIsObj(pb.partsDetails)){
+            resolved.partsDetails=pb.partsDetails;
+          }else{
+            // only if no object exists anywhere, keep string fallback
+            resolved.partsDetails=pb.partsDetails!=null?pb.partsDetails:(resolved.partsDetails??'');
+          }
+        }
+        // --- END NSF PARTS BLOCK PROTECT ---
         const selectionPartsSource=(selection&&typeof selection.parts==='object'&&!Array.isArray(selection.parts))
           ? selection.parts
           : (selection&&typeof selection.partsDetails==='object'&&!Array.isArray(selection.partsDetails)
@@ -5078,13 +5127,15 @@
           }
         }
 
-        if(resolved.partsDetails&&typeof resolved.partsDetails==='object'){
+        if(nsfIsObj(resolved.partsDetails)){
           // structured details already present; keep as-is
-        }else{
+        }else if(!nsfIsObj(resolved.partsDetails)){
           const fallbackDetails=(resolved.partsDetails!=null?resolved.partsDetails:null)
             ||(resolved.parts!=null?resolved.parts:null)
             ||'';
-          resolved.partsDetails=fallbackDetails;
+          if(!nsfIsObj(fallbackDetails)){
+            resolved.partsDetails=fallbackDetails;
+          }
         }
 
         const partSource=createPartSource(resolved,selection);
@@ -5111,28 +5162,9 @@
         // legitimate order information while still avoiding duplicates of the selected part.
         const resolvedPartsSource=resolved.partsDetails!=null?resolved.partsDetails:resolved.parts;
         if(NSF_DEBUG){
-          try{
-            if(resolved.partsDetails&&typeof resolved.partsDetails==='object'){
-              const flat=Object.entries(resolved.partsDetails)
-                .map(([k,v])=>{
-                  const safeKey=k.replace(/\s+/g,'').replace('Part','P').replace('Menge','M');
-                  const safeValue=v==null?'':String(v).replace(/\s+/g,' ').trim();
-                  return `${safeKey}:${safeValue}`;
-                })
-                .join(', ');
-              console.log(`[NSF] partsDetails => {${flat}}`);
-            }else{
-              const stringValue=resolved.partsDetails==null
-                ?''
-                :String(resolved.partsDetails)
-                  .replace(/\s+/g,' ')
-                  .trim()
-                  .replace(/"/g,'\\"');
-              console.log(`[NSF] partsDetails => STRING("${stringValue}")`);
-            }
-          }catch(e){
-            console.warn('[NSF] partsDetails debug error',e);
-          }
+          console.log('[NSF] partsDetails => '+nsfCompactPartsLine(resolved.partsDetails));
+        }
+        if(NSF_DEBUG){
           console.groupCollapsed('[NSF] parsePartsDetails call');
           nsfDebugDir('resolvedPartsSource (final input)',resolvedPartsSource||'');
           console.log('fallbackParts:',(fallbackParts||[]).join(', '));
