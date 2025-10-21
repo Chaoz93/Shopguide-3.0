@@ -1497,6 +1497,11 @@
     set.add(key);
     list.push(text);
   }
+  function hasStructuredNumberedParts(partsDetails){
+    if(!partsDetails||typeof partsDetails!=='object') return false;
+    return Object.keys(partsDetails).some(k=>/^Part\s+\d+$/i.test(k));
+  }
+
   // normalize parts (extended numbered key handling)
   function normalizeNumberedParts(rawPartsObj){
     if(!rawPartsObj||typeof rawPartsObj!=='object') return [];
@@ -4901,7 +4906,11 @@
         }
         const fallbackParts=[];
         const primaryPart=normalizePart(selection.part||resolved.part||'');
-        if(primaryPart) fallbackParts.push(primaryPart);
+
+        // Only treat primary part as fallback when NO structured "Part X / Menge X" entries exist
+        if(primaryPart&&!hasStructuredNumberedParts(resolved.partsDetails)){
+          fallbackParts.push(primaryPart);
+        }
         // NOTE: We intentionally do not use entry.partNumbers as fallback parts here.
         // Some findings contain structured "Part X"/"Menge X" pairs whose part numbers
         // also appear in the partNumbers array. Treating those values as fallbacks caused
