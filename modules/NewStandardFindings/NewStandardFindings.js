@@ -1542,6 +1542,23 @@
     return Object.keys(partsDetails).some(k=>/^Part\s+\d+$/i.test(k));
   }
 
+  function nsfExtractStructuredPartsTolerant(rawParts){
+    if(!rawParts||typeof rawParts!=='object') return null;
+    const result={};
+    let found=false;
+    for(const key of Object.keys(rawParts)){
+      const norm=key.trim();
+      if(/^p\s*a\s*r\s*t\s*\d+$/i.test(norm)||/^m\s*e\s*n\s*g\s*e\s*\d+$/i.test(norm)){
+        const val=rawParts[key];
+        if(val!=null&&String(val).trim()!==''){
+          result[key]=String(val).trim();
+          found=true;
+        }
+      }
+    }
+    return found?result:null;
+  }
+
   function extractStructuredNumberedParts(partsObj){
     if(!partsObj||typeof partsObj!=='object') return null;
     const result={};
@@ -2494,11 +2511,18 @@
       const nonroutine=clean(extractNestedField(raw,FIELD_ALIASES.nonroutine));
       const partsRaw=extractNestedFieldRaw(raw,FIELD_ALIASES.parts);
       const partsObject=partsRaw&&typeof partsRaw==='object'?partsRaw:null;
+      let partsDetailsValue=null;
+      const tolerantStructured=nsfExtractStructuredPartsTolerant(partsObject);
+      if(tolerantStructured){
+        partsDetailsValue=tolerantStructured;
+      }
       const partsText=clean(valueToText(partsRaw));
       const structuredPartsDetails=extractStructuredNumberedParts(partsObject);
-      const partsDetailsValue=structuredPartsDetails
-        ? structuredPartsDetails
-        : (partsObject?cloneDeep(partsObject):partsRaw);
+      if(!partsDetailsValue){
+        partsDetailsValue=structuredPartsDetails
+          ? structuredPartsDetails
+          : (partsObject?cloneDeep(partsObject):partsRaw);
+      }
       const partsSourceValue=partsObject?cloneDeep(partsObject):null;
       if(NSF_DEBUG){
         console.groupCollapsed('[NSF] normalizeEntries: parts fields');
