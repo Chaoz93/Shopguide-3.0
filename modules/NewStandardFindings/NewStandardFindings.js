@@ -5078,6 +5078,15 @@
           }
         }
 
+        if(resolved.partsDetails&&typeof resolved.partsDetails==='object'){
+          // structured details already present; keep as-is
+        }else{
+          const fallbackDetails=(resolved.partsDetails!=null?resolved.partsDetails:null)
+            ||(resolved.parts!=null?resolved.parts:null)
+            ||'';
+          resolved.partsDetails=fallbackDetails;
+        }
+
         const partSource=createPartSource(resolved,selection);
         const findingText=resolved.finding||selection.finding||'';
         pushLines('findings',findingText);
@@ -5102,6 +5111,28 @@
         // legitimate order information while still avoiding duplicates of the selected part.
         const resolvedPartsSource=resolved.partsDetails!=null?resolved.partsDetails:resolved.parts;
         if(NSF_DEBUG){
+          try{
+            if(resolved.partsDetails&&typeof resolved.partsDetails==='object'){
+              const flat=Object.entries(resolved.partsDetails)
+                .map(([k,v])=>{
+                  const safeKey=k.replace(/\s+/g,'').replace('Part','P').replace('Menge','M');
+                  const safeValue=v==null?'':String(v).replace(/\s+/g,' ').trim();
+                  return `${safeKey}:${safeValue}`;
+                })
+                .join(', ');
+              console.log(`[NSF] partsDetails => {${flat}}`);
+            }else{
+              const stringValue=resolved.partsDetails==null
+                ?''
+                :String(resolved.partsDetails)
+                  .replace(/\s+/g,' ')
+                  .trim()
+                  .replace(/"/g,'\\"');
+              console.log(`[NSF] partsDetails => STRING("${stringValue}")`);
+            }
+          }catch(e){
+            console.warn('[NSF] partsDetails debug error',e);
+          }
           console.groupCollapsed('[NSF] parsePartsDetails call');
           nsfDebugDir('resolvedPartsSource (final input)',resolvedPartsSource||'');
           console.log('fallbackParts:',(fallbackParts||[]).join(', '));
