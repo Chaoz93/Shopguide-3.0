@@ -1497,6 +1497,27 @@
     set.add(key);
     list.push(text);
   }
+  function hasStructuredNumberedParts(partsDetails){
+    if(!partsDetails||typeof partsDetails!=='object') return false;
+    return Object.keys(partsDetails).some(k=>/^Part\s+\d+$/i.test(k));
+  }
+
+  function extractStructuredNumberedParts(partsObj){
+    if(!partsObj||typeof partsObj!=='object') return null;
+    const result={};
+    let found=false;
+    for(const key of Object.keys(partsObj)){
+      if(/^Part\s+\d+$/i.test(key)||/^Menge\s+\d+$/i.test(key)){
+        const value=partsObj[key];
+        if(value!=null&&String(value).trim()!==''){
+          result[key]=String(value).trim();
+          found=true;
+        }
+      }
+    }
+    return found?result:null;
+  }
+
   // normalize parts (extended numbered key handling)
   function normalizeNumberedParts(rawPartsObj){
     if(!rawPartsObj||typeof rawPartsObj!=='object') return [];
@@ -2432,7 +2453,13 @@
       const nonroutineAction=clean(extractNestedField(raw,NONROUTINE_ACTION_ALIASES));
       const nonroutine=clean(extractNestedField(raw,FIELD_ALIASES.nonroutine));
       const partsRaw=extractNestedFieldRaw(raw,FIELD_ALIASES.parts);
+      const partsObject=partsRaw&&typeof partsRaw==='object'?partsRaw:null;
       const partsText=clean(valueToText(partsRaw));
+      const structuredPartsDetails=extractStructuredNumberedParts(partsObject);
+      const partsDetailsValue=structuredPartsDetails
+        ? structuredPartsDetails
+        : (partsObject?cloneDeep(partsObject):partsRaw);
+      const partsSourceValue=partsObject?cloneDeep(partsObject):null;
       const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
       const mods=clean(extractNestedField(raw,FIELD_ALIASES.mods));
       const map=buildFieldMap(raw);
@@ -2512,7 +2539,8 @@
         nonroutineFinding:nonroutineFindingValue,
         nonroutineAction:nonroutineActionValue,
         parts:partsValue,
-        partsDetails:partsRaw&&typeof partsRaw==='object'?cloneDeep(partsRaw):partsRaw,
+        partsDetails:partsDetailsValue,
+        partsSource:partsSourceValue,
         times:timesValue,
         mods:modsValue,
         additional:extras,
@@ -4890,6 +4918,30 @@
       };
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
+        const selectionPartsSource=(selection&&typeof selection.parts==='object'&&!Array.isArray(selection.parts))
+          ? selection.parts
+          : (selection&&typeof selection.partsDetails==='object'&&!Array.isArray(selection.partsDetails)
+            ? selection.partsDetails
+            : null);
+        let resolvedPartsSourceCandidate=null;
+        if(resolved&&typeof resolved.partsSource==='object'&&!Array.isArray(resolved.partsSource)){
+          resolvedPartsSourceCandidate=resolved.partsSource;
+        }else if(resolved&&resolved.raw&&typeof resolved.raw==='object'){
+          const rawPartsCandidate=resolved.raw.Parts||resolved.raw.parts;
+          if(rawPartsCandidate&&typeof rawPartsCandidate==='object'&&!Array.isArray(rawPartsCandidate)){
+            resolvedPartsSourceCandidate=rawPartsCandidate;
+          }
+        }
+        if(!resolved.partsSource&&resolvedPartsSourceCandidate){
+          resolved.partsSource=resolvedPartsSourceCandidate;
+        }
+
+        // Try to extract structured PartX/MengeX first
+        const structured=extractStructuredNumberedParts(selectionPartsSource||resolvedPartsSourceCandidate||{});
+        if(structured){
+          resolved.partsDetails=structured;   // <-- real object for UI
+        }
+
         const partSource=createPartSource(resolved,selection);
         const findingText=resolved.finding||selection.finding||'';
         pushLines('findings',findingText);
@@ -4901,7 +4953,11 @@
         }
         const fallbackParts=[];
         const primaryPart=normalizePart(selection.part||resolved.part||'');
-        if(primaryPart) fallbackParts.push(primaryPart);
+
+        // Only treat primary part as fallback when NO structured "Part X / Menge X" entries exist
+        if(primaryPart&&!hasStructuredNumberedParts(resolved.partsDetails)){
+          fallbackParts.push(primaryPart);
+        }
         // NOTE: We intentionally do not use entry.partNumbers as fallback parts here.
         // Some findings contain structured "Part X"/"Menge X" pairs whose part numbers
         // also appear in the partNumbers array. Treating those values as fallbacks caused
