@@ -1542,13 +1542,14 @@
     return Object.keys(partsDetails).some(k=>/^Part\s+\d+$/i.test(k));
   }
 
+  // tolerant extractor for PartX / MengeX keys (with or without spaces, case-insensitive)
   function nsfExtractStructuredPartsTolerant(rawParts){
     if(!rawParts||typeof rawParts!=='object') return null;
     const result={};
     let found=false;
     for(const key of Object.keys(rawParts)){
-      const norm=key.trim();
-      if(/^p\s*a\s*r\s*t\s*\d+$/i.test(norm)||/^m\s*e\s*n\s*g\s*e\s*\d+$/i.test(norm)){
+      const k=String(key).trim();
+      if(/^p\s*a\s*r\s*t\s*\d+$/i.test(k)||/^m\s*e\s*n\s*g\s*e\s*\d+$/i.test(k)){
         const val=rawParts[key];
         if(val!=null&&String(val).trim()!==''){
           result[key]=String(val).trim();
@@ -1557,6 +1558,52 @@
       }
     }
     return found?result:null;
+  }
+
+  // auto-quantities from PNText (e.g., "2x Foo + 1x Bar", "Foo x2", "Foo ×2")
+  // Applies ONLY when Menge X is missing/empty. Keeps ordering by existing Part indices.
+  function nsfAutoQuantitiesFromPnText(structuredObj,pnText){
+    if(!structuredObj||typeof structuredObj!=='object') return structuredObj;
+    if(!pnText||typeof pnText!=='string') return structuredObj;
+
+    // Build a simple list of {idx, partKey, mengeKey, value}
+    const items=[];
+    const partIdxRegex=/^p\s*a\s*r\s*t\s*(\d+)$/i;
+    for(const key of Object.keys(structuredObj)){
+      const m=key.trim().match(partIdxRegex);
+      if(m){
+        const idx=m[1];
+        const mengeKey=Object.keys(structuredObj).find(k=>k.trim().toLowerCase()===(
+          `menge ${idx}`
+        ).toLowerCase());
+        items.push({idx,partKey:key,mengeKey:mengeKey||`Menge ${idx}`,value:structuredObj[key]});
+      }
+    }
+    if(!items.length) return structuredObj;
+
+    // Try to derive quantities per item from pnText by matching the sequence
+    // Strategy:
+    // 1) split pnText into tokens by + , / and 'und' to get segments
+    // 2) look for leading or trailing quantity markers (2x, x2, ×2) in each segment
+    const segments=pnText.split(/(?:\+|,|\/|\bund\b)/i).map(s=>s.trim()).filter(Boolean);
+
+    function parseQty(seg){
+      // 2x Foo  |  Foo x2  | Foo ×2
+      const lead=seg.match(/^\s*(\d+)\s*[x×]/i);
+      if(lead) return parseInt(lead[1],10);
+      const trail=seg.match(/[x×]\s*(\d+)\s*$/i);
+      if(trail) return parseInt(trail[1],10);
+      return null;
+    }
+
+    // naive mapping in order: segment i → item i (only if makes sense)
+    for(let i=0;i<items.length&&i<segments.length;i++){
+      const qty=parseQty(segments[i]);
+      if(qty!=null&&(!structuredObj[items[i].mengeKey]||String(structuredObj[items[i].mengeKey]).trim()==='')){
+        structuredObj[items[i].mengeKey]=String(qty);
+      }
+    }
+    return structuredObj;
   }
 
   function extractStructuredNumberedParts(partsObj){
@@ -2521,7 +2568,10 @@
       if(!partsDetailsValue){
         partsDetailsValue=structuredPartsDetails
           ? structuredPartsDetails
-          : (partsObject?cloneDeep(partsObject):partsRaw);
+          : (partsObject?cloneDeep(partsObject):null);
+      }
+      if(partsDetailsValue&&typeof partsDetailsValue==='object'&&partsText){
+        partsDetailsValue=nsfAutoQuantitiesFromPnText(partsDetailsValue,partsText);
       }
       const partsSourceValue=partsObject?cloneDeep(partsObject):null;
       if(NSF_DEBUG){
@@ -2614,7 +2664,7 @@
         nonroutineFinding:nonroutineFindingValue,
         nonroutineAction:nonroutineActionValue,
         parts:partsValue,
-        partsDetails:partsDetailsValue,
+        partsDetails:partsDetailsValue!=null?partsDetailsValue:(partsText||''),
         partsSource:partsSourceValue,
         times:timesValue,
         mods:modsValue,
