@@ -164,7 +164,7 @@
   // PATCH END — Parts Reader
   // ================================================================
 
-  const DATA_URL='Findings_Shopguide.json';
+  const DATA_URL='Shopguide_Findings.json';
   const DATA_KEY='sf-data';
   const FINDINGS_PATH_KEY='sf-findings-path';
   const STATE_KEY='sf-state';
@@ -2229,7 +2229,7 @@
           lastValues[FINDINGS_PATH_KEY]=DATA_URL;
         }
       }catch(err){
-        console.warn('NSF: Findings_Shopguide.json konnte nicht geladen werden',err);
+        console.warn('NSF: Shopguide_Findings.json konnte nicht geladen werden',err);
       }
     })();
     return ensureDataPromise;
@@ -4685,9 +4685,7 @@
       const pushLines=(field,value)=>{
         const text=clean(value);
         if(!text) return;
-        const lines=text.split(/
-?
-/).map(line=>clean(line)).filter(Boolean);
+        const lines=text.split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
         if(!lines.length) return;
         for(const line of lines){
           if(seen[field].has(line)) continue;
@@ -4715,9 +4713,7 @@
       const collectTimes=text=>{
         const raw=clean(text);
         if(!raw) return;
-        raw.split(/
-?
-/)
+        raw.split(/\r?\n/)
           .map(line=>clean(line))
           .filter(Boolean)
           .forEach(line=>{
@@ -4734,9 +4730,7 @@
       const collectMods=text=>{
         const raw=clean(text);
         if(!raw) return;
-        raw.split(/
-?
-/)
+        raw.split(/\r?\n/)
           .map(line=>clean(line))
           .filter(Boolean)
           .forEach(line=>{
