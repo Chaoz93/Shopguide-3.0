@@ -104,6 +104,7 @@
     list.innerHTML='';
 
     const pairs=normalizePartsPairs(entry);
+    const rowsData=Array.isArray(entry&&entry.rows)?entry.rows:[];
 
     if(!pairs.length){
       const info=document.createElement('div');
@@ -113,23 +114,27 @@
       return;
     }
 
-    pairs.forEach(it=>{
+    pairs.forEach((it,index)=>{
       const row=document.createElement('div');
       row.className='nsf-part-row';
+      const rowInfo=rowsData[index]&&typeof rowsData[index]==='object'?rowsData[index]:null;
+      if(rowInfo&&rowInfo.rowKey) row.dataset.rowKey=rowInfo.rowKey;
 
       const pnCol=document.createElement('div');
       pnCol.className='nsf-col nsf-col-pn';
-      pnCol.textContent='';
+      pnCol.textContent=String((rowInfo&&rowInfo.pnValue!=null)?rowInfo.pnValue:'');
       row.appendChild(pnCol);
 
       const partCol=document.createElement('div');
       partCol.className='nsf-col nsf-col-part';
-      partCol.textContent=String(it.part||'');
+      const partValue=rowInfo&&rowInfo.partValue!=null?rowInfo.partValue:it.part;
+      partCol.textContent=String(partValue||'');
       row.appendChild(partCol);
 
       const qtyCol=document.createElement('div');
       qtyCol.className='nsf-col nsf-col-qty';
-      qtyCol.textContent=String(it.quantity||'1');
+      const qtyValue=rowInfo&&rowInfo.quantityValue!=null?rowInfo.quantityValue:it.quantity;
+      qtyCol.textContent=String(qtyValue||'1');
       row.appendChild(qtyCol);
 
       list.appendChild(row);
@@ -150,6 +155,7 @@
     .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums}
     .nsf-parts-info{display:flex;gap:.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);padding:.5rem;border-radius:.375rem;font-size:.95rem}
     .nsf-info-icon{opacity:.8}
+    .nsf-mapping-modal{max-width:min(960px,95vw)}
   `;
     document.head.appendChild(st);
   })();
@@ -158,6 +164,84 @@
     if(!containerEl) return;
     renderPnTextHeader(containerEl,entry);
     renderBestellListe(containerEl,entry);
+  }
+
+  function extractPartsValueMap(raw){
+    const map=new Map();
+    const addFromObject=(obj)=>{
+      if(!obj||typeof obj!=='object') return;
+      for(const [key,value] of Object.entries(obj)){
+        const label=clean(key);
+        if(!label||map.has(label)) continue;
+        const text=valueToText(value);
+        if(!text) continue;
+        map.set(label,text);
+      }
+    };
+    if(!raw||typeof raw!=='object') return map;
+    addFromObject(raw.Parts);
+    addFromObject(raw.parts);
+    addFromObject(raw.partsDetails);
+    if(Array.isArray(raw.partsPairs)){
+      raw.partsPairs.forEach((item,index)=>{
+        if(!item||typeof item!=='object') return;
+        const partLabel=`Part ${index+1}`;
+        const qtyLabel=`Menge ${index+1}`;
+        const partValue=valueToText(item.part||item.PN||item.pn||'');
+        const qtyValue=valueToText(item.quantity||item.qty||item.Qty||item.Menge||'');
+        if(partValue&&!map.has(partLabel)) map.set(partLabel,partValue);
+        if(qtyValue&&!map.has(qtyLabel)) map.set(qtyLabel,qtyValue);
+      });
+    }
+    if(Array.isArray(raw.parts)){
+      raw.parts.forEach((item,index)=>{
+        if(!item||typeof item!=='object') return;
+        const partLabel=`Part ${index+1}`;
+        const qtyLabel=`Menge ${index+1}`;
+        const partValue=valueToText(item.part||item.PN||item.pn||'');
+        const qtyValue=valueToText(item.quantity||item.qty||item.Qty||item.Menge||'');
+        if(partValue&&!map.has(partLabel)) map.set(partLabel,partValue);
+        if(qtyValue&&!map.has(qtyLabel)) map.set(qtyLabel,qtyValue);
+      });
+    }
+    if(raw.PNText&&!map.has('PNText')){
+      const pnText=valueToText(raw.PNText);
+      if(pnText) map.set('PNText',pnText);
+    }
+    if(raw.pnText&&!map.has('pnText')){
+      const pnText=valueToText(raw.pnText);
+      if(pnText) map.set('pnText',pnText);
+    }
+    for(const [key,value] of Object.entries(raw)){
+      const label=clean(key);
+      if(!label||map.has(label)) continue;
+      if(/^(part|menge|qty|quantity|pn)/i.test(label)){
+        const text=valueToText(value);
+        if(text) map.set(label,text);
+      }
+    }
+    return map;
+  }
+
+  function buildPartsMappingOptions(valueMap){
+    const keys=Array.from(valueMap.keys()).sort((a,b)=>a.localeCompare(b,'de',{sensitivity:'base'}));
+    const uniqueKeys=[];
+    const seen=new Set();
+    keys.forEach(key=>{
+      if(seen.has(key)) return;
+      seen.add(key);
+      uniqueKeys.push(key);
+    });
+    const filterKeys=(predicate)=>uniqueKeys.filter(key=>predicate(key.toLowerCase()));
+    const quantity=filterKeys(label=>/(menge|qty|quantity)/.test(label));
+    const pn=filterKeys(label=>/(pn|pntext|part\s*nr|partnr|teilnr|teil-nr|teilnummer)/.test(label));
+    const part=filterKeys(label=>/(part|teil|component)/.test(label));
+    return {
+      all:uniqueKeys,
+      quantity:quantity.length?quantity:uniqueKeys,
+      pn:pn.length?pn:uniqueKeys,
+      part:part.length?part:uniqueKeys
+    };
   }
 
   // ================================================================
@@ -1589,6 +1673,20 @@
       .nsf-json-modal-copy:hover:not(:disabled){background:rgba(255,255,255,0.28);transform:translateY(-1px);}
       .nsf-json-modal-copy.copied{background:rgba(16,185,129,0.35);}
       .nsf-json-modal-empty{font-size:0.95rem;color:rgba(71,85,105,0.95);}
+      .nsf-mapping-modal{max-width:min(1080px,96vw);}
+      .nsf-mapping-content{display:flex;flex-wrap:wrap;gap:1.5rem;align-items:flex-start;}
+      .nsf-mapping-json{flex:1 1 320px;min-width:260px;display:flex;flex-direction:column;gap:0.75rem;}
+      .nsf-mapping-json pre{margin:0;background:rgba(15,23,42,0.85);color:#f8fafc;font-size:0.78rem;line-height:1.45;border-radius:0.65rem;padding:0.85rem;overflow:auto;max-height:45vh;}
+      .nsf-mapping-controls{flex:1 1 320px;min-width:260px;display:flex;flex-direction:column;gap:1rem;}
+      .nsf-mapping-empty{font-size:0.95rem;color:rgba(71,85,105,0.95);}
+      .nsf-mapping-row{border:1px solid rgba(148,163,184,0.4);border-radius:0.75rem;padding:0.85rem;display:flex;flex-direction:column;gap:0.65rem;background:rgba(148,163,184,0.1);}
+      .nsf-mapping-row-title{margin:0;font-weight:600;font-size:0.95rem;display:flex;flex-direction:column;gap:0.25rem;}
+      .nsf-mapping-row-values{font-size:0.85rem;color:rgba(71,85,105,0.95);white-space:pre-line;}
+      .nsf-mapping-field{display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-mapping-label{font-size:0.85rem;font-weight:600;color:rgba(30,41,59,0.95);}
+      .nsf-mapping-select{appearance:none;border:1px solid rgba(148,163,184,0.6);border-radius:0.6rem;padding:0.45rem 0.6rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);}
+      .nsf-mapping-select:focus{outline:2px solid rgba(59,130,246,0.35);outline-offset:2px;border-color:rgba(59,130,246,0.6);}
+      .nsf-mapping-value{font-size:0.8rem;color:rgba(71,85,105,0.95);}
     `;
     document.head.appendChild(tag);
   }
@@ -3276,6 +3374,13 @@
       this.textareas={};
       this.partsEntry=null;
       this.partsFieldContainer=null;
+      this.partsRowData=[];
+      this.partsRowLookup=new Map();
+      this.partsVariableMappings=new Map();
+      this.partsRowContextHandlers=new Map();
+      this.partsMappingOverlay=null;
+      this.partsMappingModalKeyHandler=null;
+      this.partsMappingBodyOverflow='';
       this.customSections=[];
       this.customSlots=[];
       this.customSlotSortables=[];
@@ -3798,6 +3903,7 @@
         this.menuCleanup=null;
       }
       this.closePartsRowContextMenu();
+      this.closePartsMappingModal();
 
       const contextSection=document.createElement('div');
       contextSection.className='nsf-section nsf-header-section';
@@ -4758,9 +4864,10 @@
             modEntries.push(line);
           });
       };
-      const aggregatedParts=[];
+      const partsRows=[];
       const pnTextSet=new Set();
       const pnTextList=[];
+      const rowLookup=new Map();
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
         const findingText=resolved.finding||selection.finding||'';
@@ -4791,35 +4898,99 @@
           }
         }
         const resolvedPairs=normalizePartsPairs(resolved);
+        const valueMap=extractPartsValueMap(resolved&&resolved.raw&&typeof resolved.raw==='object'?resolved.raw:resolved);
+        const sourceDescriptor={
+          key:resolved.key||selection.key||'',
+          label:resolved.label||selection.label||'',
+          finding:resolved.finding||selection.finding||'',
+          action:resolved.action||selection.action||'',
+          part:resolved.part||selection.part||'',
+          raw:resolved&&resolved.raw&&typeof resolved.raw==='object'?resolved.raw:null,
+          entry:resolved&&resolved.raw&&typeof resolved.raw==='object'?resolved.raw:resolved,
+          valueMap
+        };
         if(Array.isArray(resolvedPairs)&&resolvedPairs.length){
-          resolvedPairs.forEach(pair=>{
+          resolvedPairs.forEach((pair,pairIndex)=>{
             const partText=clean(pair.part);
             if(!partText) return;
             const quantityText=clean(pair.quantity)||'1';
-            aggregatedParts.push({part:partText,quantity:quantityText});
+            const rowKey=(sourceDescriptor.key?`${sourceDescriptor.key}::${pairIndex+1}`:`row-${partsRows.length+1}`);
+            const pnLabel=`PN ${pairIndex+1}`;
+            const partLabel=`Part ${pairIndex+1}`;
+            const quantityLabel=`Menge ${pairIndex+1}`;
+            const row={
+              rowIndex:partsRows.length,
+              rowKey,
+              sourceKey:sourceDescriptor.key||'',
+              pnLabel,
+              pnValue:'',
+              partLabel,
+              partValue:partText,
+              quantityLabel,
+              quantityValue:quantityText,
+              original:{
+                pnLabel,
+                pnValue:'',
+                partLabel,
+                partValue:partText,
+                quantityLabel,
+                quantityValue:quantityText
+              },
+              sources:[sourceDescriptor],
+              valueMap
+            };
+            if(this.partsVariableMappings instanceof Map){
+              const override=this.partsVariableMappings.get(rowKey);
+              if(override) this.applyPartsMappingOverrideToRow(row,override,valueMap);
+            }
+            partsRows.push(row);
+            rowLookup.set(rowKey,row);
           });
         }
       }
-      const normalizedPairs=aggregatedParts.map(pair=>({part:pair.part,quantity:pair.quantity}));
-      const partsLines=normalizedPairs
-        .map(pair=>{
-          const qty=pair.quantity||'';
-          const part=pair.part||'';
+      const partsLines=partsRows
+        .map(row=>{
+          const qty=clean(row.quantityValue);
+          const part=clean(row.partValue);
           if(qty&&part) return `${qty}x ${part}`;
           return part;
         })
         .filter(Boolean);
       const partsText=partsLines.join('\n');
       const pnTextHeader=pnTextList.join(' • ');
-      const partsEntry=(pnTextHeader||normalizedPairs.length)
-        ?{pnText:pnTextHeader,partsPairs:normalizedPairs.map(pair=>({part:pair.part,quantity:pair.quantity}))}
+      const partsEntry=(pnTextHeader||partsRows.length)
+        ?{
+            pnText:pnTextHeader,
+            partsPairs:partsRows.map(row=>({part:row.partValue,quantity:row.quantityValue})),
+            rows:partsRows.map(row=>({
+              rowKey:row.rowKey,
+              pnLabel:row.pnLabel,
+              pnValue:row.pnValue,
+              partLabel:row.partLabel,
+              partValue:row.partValue,
+              quantityLabel:row.quantityLabel,
+              quantityValue:row.quantityValue
+            }))
+          }
         :null;
-      const placeholderPairs=normalizedPairs.map(pair=>({
-        part:pair.part,
-        quantity:pair.quantity,
-        name:pair.part,
-        qty:pair.quantity
+      const placeholderPairs=partsRows.map(row=>({
+        part:row.partValue,
+        quantity:row.quantityValue,
+        name:row.partValue,
+        qty:row.quantityValue
       }));
+      if(!(this.partsRowLookup instanceof Map)){
+        this.partsRowLookup=new Map();
+      }
+      this.partsRowLookup.clear();
+      rowLookup.forEach((value,key)=>this.partsRowLookup.set(key,value));
+      this.partsRowData=partsRows;
+      if(this.partsVariableMappings instanceof Map){
+        const validKeys=new Set(partsRows.map(row=>row.rowKey));
+        Array.from(this.partsVariableMappings.keys()).forEach(key=>{
+          if(!validKeys.has(key)) this.partsVariableMappings.delete(key);
+        });
+      }
       this.rawFindings=lists.findings.slice();
       this.rawActions=lists.actions.slice();
       this.rawRoutine=lists.routine.slice();
@@ -4901,6 +5072,8 @@
     renderPartsRows(entry){
       const container=this.partsFieldContainer;
       if(!container) return;
+      this.teardownPartsRowInteractions();
+      this.closePartsRowContextMenu();
       container.innerHTML='';
       if(!this.meldung){
         const note=document.createElement('div');
@@ -4910,6 +5083,159 @@
         return;
       }
       renderFindingParts(container,entry||null);
+      this.setupPartsRowInteractions(entry||null);
+    }
+
+    teardownPartsRowInteractions(){
+      if(!(this.partsRowContextHandlers instanceof Map)){
+        this.partsRowContextHandlers=new Map();
+        return;
+      }
+      this.partsRowContextHandlers.forEach(({element,handler})=>{
+        if(element&&handler) element.removeEventListener('contextmenu',handler);
+      });
+      this.partsRowContextHandlers.clear();
+    }
+
+    setupPartsRowInteractions(entry){
+      const container=this.partsFieldContainer;
+      if(!container) return;
+      if(!(this.partsRowContextHandlers instanceof Map)){
+        this.partsRowContextHandlers=new Map();
+      }
+      const rows=Array.from(container.querySelectorAll('.nsf-part-row'));
+      rows.forEach((element,index)=>{
+        const handler=event=>{
+          event.preventDefault();
+          let rowData=null;
+          const rowKey=element&&element.dataset?element.dataset.rowKey:'';
+          if(rowKey&&this.partsRowLookup instanceof Map){
+            rowData=this.partsRowLookup.get(rowKey)||null;
+          }
+          if(!rowData&&Array.isArray(this.partsRowData)){
+            rowData=this.partsRowData[index]||null;
+          }
+          const sources=rowData&&Array.isArray(rowData.sources)?rowData.sources.slice():[];
+          this.openPartsRowContextMenu(event,rowData,sources);
+        };
+        element.addEventListener('contextmenu',handler);
+        this.partsRowContextHandlers.set(element,{element,handler});
+      });
+    }
+
+    getPartsRowsForSource(sourceKey){
+      const rows=Array.isArray(this.partsRowData)?this.partsRowData:[];
+      const key=clean(sourceKey);
+      if(!key) return rows.slice();
+      const filtered=rows.filter(row=>clean(row.sourceKey)===key);
+      return filtered.length?filtered:rows.slice();
+    }
+
+    applyPartsMappingOverrideToRow(row,override,valueMap){
+      if(!row||!override) return;
+      const map=valueMap instanceof Map?valueMap:extractPartsValueMap((row.sources&&row.sources[0]&&row.sources[0].raw)||{});
+      const applyField=(field,labelKey,valueKey)=>{
+        const selected=typeof override[labelKey]==='string'?override[labelKey]:'';
+        if(!selected){
+          if(row.original&&row.original[labelKey]!=null) row[labelKey]=row.original[labelKey];
+          if(row.original&&row.original[valueKey]!=null) row[valueKey]=row.original[valueKey];
+          return;
+        }
+        row[labelKey]=selected;
+        if(map&&map.has(selected)){
+          row[valueKey]=map.get(selected);
+        }
+      };
+      applyField('partLabel','partLabel','partValue');
+      applyField('quantityLabel','quantityLabel','quantityValue');
+      applyField('pnLabel','pnLabel','pnValue');
+    }
+
+    handlePartsMappingSelection(row,field,key,valueMap){
+      if(!row) return '';
+      if(!(this.partsVariableMappings instanceof Map)){
+        this.partsVariableMappings=new Map();
+      }
+      const map=this.partsVariableMappings;
+      const record=map.get(row.rowKey)||{};
+      const normalized=typeof key==='string'?key.trim():'';
+      const applySelection=(labelKey,valueKey)=>{
+        if(!normalized){
+          delete record[labelKey];
+          if(row.original&&row.original[labelKey]!=null) row[labelKey]=row.original[labelKey];
+          if(row.original&&row.original[valueKey]!=null) row[valueKey]=row.original[valueKey];
+          return row[valueKey]||'';
+        }
+        record[labelKey]=normalized;
+        row[labelKey]=normalized;
+        if(valueMap&&valueMap.has(normalized)){
+          row[valueKey]=valueMap.get(normalized);
+        }
+        return row[valueKey]||'';
+      };
+      let result='';
+      if(field==='pn'){
+        result=applySelection('pnLabel','pnValue');
+      }else if(field==='quantity'){
+        result=applySelection('quantityLabel','quantityValue');
+      }else{
+        result=applySelection('partLabel','partValue');
+      }
+      if(Object.keys(record).length){
+        map.set(row.rowKey,record);
+      }else{
+        map.delete(row.rowKey);
+      }
+      this.refreshPartsRowValues();
+      return result;
+    }
+
+    refreshPartsRowValues(){
+      const rows=Array.isArray(this.partsRowData)?this.partsRowData:[];
+      if(!this.partsEntry){
+        this.partsEntry={pnText:'',partsPairs:[],rows:[]};
+      }
+      this.partsEntry.partsPairs=rows.map(row=>({
+        part:row.partValue||'',
+        quantity:row.quantityValue||''
+      }));
+      this.partsEntry.rows=rows.map(row=>({
+        rowKey:row.rowKey,
+        pnLabel:row.pnLabel,
+        pnValue:row.pnValue,
+        partLabel:row.partLabel,
+        partValue:row.partValue,
+        quantityLabel:row.quantityLabel,
+        quantityValue:row.quantityValue
+      }));
+      this.rawParts=rows.map(row=>({
+        part:row.partValue,
+        quantity:row.quantityValue,
+        name:row.partValue,
+        qty:row.quantityValue
+      }));
+      const partsLines=rows.map(row=>{
+        const qty=clean(row.quantityValue);
+        const part=clean(row.partValue);
+        if(qty&&part) return `${qty}x ${part}`;
+        return part;
+      }).filter(Boolean);
+      if(this.textareas&&this.textareas.parts){
+        const partsText=partsLines.join('\n');
+        if(this.textareas.parts.value!==partsText){
+          this.textareas.parts.value=partsText;
+          if(typeof autoResizeTextarea==='function'){
+            try{autoResizeTextarea(this.textareas.parts);}catch{}
+          }
+        }
+      }
+      if(this.activeState&&typeof this.activeState==='object'){
+        const partsText=partsLines.join('\n');
+        this.activeState.parts=partsText;
+      }
+      this.closePartsRowContextMenu();
+      this.renderPartsRows(this.partsEntry);
+      this.queueStateSave();
     }
 
     buildPartsRowMapping(rowData){
@@ -4923,6 +5249,14 @@
         quantityLabel:clean(rowData.quantityLabel),
         quantityValue:clean(rowData.quantityValue)
       };
+      if(rowData&&rowData.rowKey&&this.partsVariableMappings instanceof Map){
+        const override=this.partsVariableMappings.get(rowData.rowKey);
+        if(override&&typeof override==='object'){
+          if(override.pnLabel) mapping.pnLabel=clean(override.pnLabel);
+          if(override.partLabel) mapping.partLabel=clean(override.partLabel);
+          if(override.quantityLabel) mapping.quantityLabel=clean(override.quantityLabel);
+        }
+      }
       if(mapping.index==null) delete mapping.index;
       // PATCH START: Ignore non-part info PN texts
       const pnLower=(mapping.pnValue||'').toLowerCase();
@@ -5008,6 +5342,9 @@
         }
         this.openFindingJsonModal(normalizedSources,context);
       },{disabled:!normalizedSources.length});
+      addButton('Variablen-Mapping anzeigen',()=>{
+        this.openPartsMappingModal(rowData,normalizedSources);
+      },{disabled:!normalizedSources.length});
       if(hasMapping){
         const divider=document.createElement('div');
         divider.className='nsf-part-context-menu-divider';
@@ -5084,6 +5421,21 @@
       if(this.findingJsonBodyOverflow!=null){
         document.body.style.overflow=this.findingJsonBodyOverflow||'';
         this.findingJsonBodyOverflow='';
+      }
+    }
+
+    closePartsMappingModal(){
+      if(this.partsMappingOverlay){
+        this.partsMappingOverlay.remove();
+        this.partsMappingOverlay=null;
+      }
+      if(this.partsMappingModalKeyHandler){
+        document.removeEventListener('keydown',this.partsMappingModalKeyHandler);
+        this.partsMappingModalKeyHandler=null;
+      }
+      if(this.partsMappingBodyOverflow!=null){
+        document.body.style.overflow=this.partsMappingBodyOverflow||'';
+        this.partsMappingBodyOverflow='';
       }
     }
 
@@ -5220,6 +5572,170 @@
       this.findingJsonBodyOverflow=document.body.style.overflow;
       document.body.style.overflow='hidden';
       this.findingJsonOverlay=overlay;
+      requestAnimationFrame(()=>overlay.focus());
+    }
+
+    openPartsMappingModal(rowData,sources){
+      if(this.destroyed) return;
+      const normalizedSources=Array.isArray(sources)?sources.filter(src=>src&&typeof src==='object'):[];
+      let primarySource=null;
+      if(normalizedSources.length){
+        primarySource=normalizedSources[0];
+      }else if(rowData&&Array.isArray(rowData.sources)&&rowData.sources.length){
+        primarySource=rowData.sources[0];
+      }
+      const sourceKey=primarySource&&primarySource.key?primarySource.key:(rowData&&rowData.sourceKey?rowData.sourceKey:'');
+      let valueMap=null;
+      if(rowData&&rowData.valueMap instanceof Map) valueMap=rowData.valueMap;
+      if(!valueMap&&primarySource&&primarySource.valueMap instanceof Map) valueMap=primarySource.valueMap;
+      const rawEntry=primarySource&&typeof primarySource.raw==='object'?primarySource.raw:(primarySource&&typeof primarySource.entry==='object'?primarySource.entry:null);
+      if(!valueMap) valueMap=extractPartsValueMap(rawEntry);
+      if(!(valueMap instanceof Map)) valueMap=new Map();
+      const rows=this.getPartsRowsForSource(sourceKey);
+      this.closePartsMappingModal();
+      const overlay=document.createElement('div');
+      overlay.className='nsf-json-modal-overlay';
+      overlay.tabIndex=-1;
+      const dialog=document.createElement('div');
+      dialog.className='nsf-json-modal nsf-mapping-modal';
+      overlay.appendChild(dialog);
+      const header=document.createElement('div');
+      header.className='nsf-json-modal-header';
+      const title=document.createElement('h2');
+      title.className='nsf-json-modal-title';
+      title.textContent='Variablen-Mapping';
+      header.appendChild(title);
+      const closeBtn=document.createElement('button');
+      closeBtn.type='button';
+      closeBtn.className='nsf-json-modal-close';
+      closeBtn.setAttribute('aria-label','Modal schließen');
+      closeBtn.textContent='×';
+      closeBtn.addEventListener('click',()=>this.closePartsMappingModal());
+      header.appendChild(closeBtn);
+      dialog.appendChild(header);
+      const content=document.createElement('div');
+      content.className='nsf-json-modal-content nsf-mapping-content';
+      dialog.appendChild(content);
+      const jsonColumn=document.createElement('div');
+      jsonColumn.className='nsf-mapping-json';
+      const jsonTitle=document.createElement('h3');
+      jsonTitle.className='nsf-json-modal-entry-title';
+      jsonTitle.textContent='JSON-Quelle';
+      jsonColumn.appendChild(jsonTitle);
+      if(primarySource){
+        const metaDetails=[];
+        if(primarySource.label) metaDetails.push(primarySource.label);
+        if(primarySource.part) metaDetails.push(`Part: ${primarySource.part}`);
+        if(primarySource.key) metaDetails.push(`Key: ${primarySource.key}`);
+        if(metaDetails.length){
+          const meta=document.createElement('div');
+          meta.className='nsf-json-modal-entry-meta';
+          meta.textContent=metaDetails.join(' • ');
+          jsonColumn.appendChild(meta);
+        }
+      }
+      const jsonPre=document.createElement('pre');
+      const jsonText=rawEntry?safeJsonStringify(rawEntry):'';
+      jsonPre.textContent=jsonText||'Keine JSON-Daten verfügbar.';
+      jsonColumn.appendChild(jsonPre);
+      content.appendChild(jsonColumn);
+      const controls=document.createElement('div');
+      controls.className='nsf-mapping-controls';
+      content.appendChild(controls);
+      if(!rows.length){
+        const empty=document.createElement('div');
+        empty.className='nsf-mapping-empty';
+        empty.textContent='Keine Bestellzeilen vorhanden.';
+        controls.appendChild(empty);
+      }else{
+        const optionGroups=buildPartsMappingOptions(valueMap);
+        const buildOptions=(keys)=>{
+          const arr=Array.isArray(keys)?keys:[];
+          if(arr.length) return arr;
+          return Array.from(valueMap.keys());
+        };
+        rows.forEach(row=>{
+          const block=document.createElement('div');
+          block.className='nsf-mapping-row';
+          const rowTitle=document.createElement('div');
+          rowTitle.className='nsf-mapping-row-title';
+          rowTitle.textContent=`Zeile ${row.rowIndex!=null?row.rowIndex+1:''}`.trim();
+          const summary=document.createElement('div');
+          summary.className='nsf-mapping-row-values';
+          const updateSummary=()=>{
+            const qty=clean(row.quantityValue);
+            const part=clean(row.partValue);
+            if(qty&&part) summary.textContent=`${qty}x ${part}`;
+            else if(part) summary.textContent=part;
+            else if(qty) summary.textContent=qty;
+            else summary.textContent='–';
+          };
+          updateSummary();
+          rowTitle.appendChild(summary);
+          block.appendChild(rowTitle);
+          const record=this.partsVariableMappings instanceof Map?this.partsVariableMappings.get(row.rowKey):null;
+          const createField=(label,fieldKey,optionKeys,valueKey)=>{
+            const field=document.createElement('div');
+            field.className='nsf-mapping-field';
+            const lbl=document.createElement('label');
+            lbl.className='nsf-mapping-label';
+            lbl.textContent=label;
+            const select=document.createElement('select');
+            select.className='nsf-mapping-select';
+            const options=buildOptions(optionKeys);
+            const defaultOption=document.createElement('option');
+            defaultOption.value='';
+            defaultOption.textContent='Automatisch';
+            select.appendChild(defaultOption);
+            options.forEach(keyValue=>{
+              const opt=document.createElement('option');
+              opt.value=keyValue;
+              const preview=valueMap.has(keyValue)?valueMap.get(keyValue):'';
+              const snippet=preview&&preview.length>60?`${preview.slice(0,60)}…`:preview;
+              opt.textContent=snippet?`${keyValue} – ${snippet}`:keyValue;
+              select.appendChild(opt);
+            });
+            const mappingKey=fieldKey==='part'?'partLabel':(fieldKey==='quantity'?'quantityLabel':'pnLabel');
+            const selectedKey=record&&record[mappingKey]?record[mappingKey]:'';
+            select.value=selectedKey;
+            const valueLabel=document.createElement('div');
+            valueLabel.className='nsf-mapping-value';
+            const updateValueLabel=value=>{
+              const text=clean(value||row[valueKey]);
+              valueLabel.textContent=`Aktueller Wert: ${text||'–'}`;
+            };
+            updateValueLabel(row[valueKey]);
+            select.addEventListener('change',()=>{
+              const newValue=this.handlePartsMappingSelection(row,fieldKey,select.value,valueMap);
+              updateValueLabel(newValue);
+              updateSummary();
+            });
+            field.appendChild(lbl);
+            field.appendChild(select);
+            field.appendChild(valueLabel);
+            block.appendChild(field);
+          };
+          createField('Teilefeld', 'part', optionGroups.part,'partValue');
+          createField('Menge', 'quantity', optionGroups.quantity,'quantityValue');
+          createField('PN-Feld', 'pn', optionGroups.pn,'pnValue');
+          controls.appendChild(block);
+        });
+      }
+      overlay.addEventListener('click',event=>{
+        if(event.target===overlay) this.closePartsMappingModal();
+      });
+      const keyHandler=event=>{
+        if(event.key==='Escape'||event.key==='Esc'){
+          event.preventDefault();
+          this.closePartsMappingModal();
+        }
+      };
+      document.addEventListener('keydown',keyHandler);
+      this.partsMappingModalKeyHandler=keyHandler;
+      document.body.appendChild(overlay);
+      this.partsMappingBodyOverflow=document.body.style.overflow;
+      document.body.style.overflow='hidden';
+      this.partsMappingOverlay=overlay;
       requestAnimationFrame(()=>overlay.focus());
     }
 
