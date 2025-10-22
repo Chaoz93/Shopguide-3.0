@@ -153,11 +153,19 @@
   }
 
   function openPartsMappingModal(entry){
-    if(!entry||typeof entry!=='object') return;
-    const parts=nsfNormalizeParts(entry);
-    const partNumber=clean(entry.partNumber||'');
-    const applies=nsfGetAppliesTo(entry).map(item=>clean(item)).filter(Boolean);
-    if(!parts.length&&!partNumber&&!applies.length) return;
+    if (!entry || typeof entry !== 'object') return;
+
+    // Store globally for mapping context (C = combined approach)
+    window.__lastFindingForMapping = entry;
+
+    // use new-format parts reader
+    const parts = nsfGetParts(entry);
+
+    const partNumber = clean(entry.partNumber || '');
+    const applies = nsfGetAppliesTo(entry).map(item => clean(item)).filter(Boolean);
+
+    // if no visible data at all, nothing to render
+    if (!parts.length && !partNumber && !applies.length) return;
 
     ensurePartsMappingModalStyles();
 
