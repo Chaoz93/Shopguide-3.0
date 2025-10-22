@@ -1,116 +1,78 @@
 (function(){
   'use strict';
 
-  // ================================================================
-  // Global Parts Mapping Helpers
-  // ================================================================
-
-  const NSF_PARTS_MAPPING_STORAGE_KEY='nsfPartsMapping';
-
-  function loadGlobalPartsMapping(){
-    try{
-      const raw=window.localStorage.getItem(NSF_PARTS_MAPPING_STORAGE_KEY);
-      if(!raw) return {};
-      const parsed=JSON.parse(raw);
-      return parsed&&typeof parsed==='object'?parsed:{};
-    }catch(e){
-      return {};
-    }
+  // ===== NSF READ HELPERS (BEGIN) =====
+  function nsfGetParts(entry) {
+    if (entry?.parts && Array.isArray(entry.parts)) return entry.parts;
+    return []; // legacy no longer supported
   }
 
-  function saveGlobalPartsMapping(mapping){
-    try{
-      if(!mapping||typeof mapping!=='object'){
-        window.localStorage.removeItem(NSF_PARTS_MAPPING_STORAGE_KEY);
-        return;
-      }
-      window.localStorage.setItem(NSF_PARTS_MAPPING_STORAGE_KEY,JSON.stringify(mapping));
-    }catch(e){/* noop */}
+  function nsfGetTimes(entry) {
+    if (entry?.times && typeof entry.times === 'object') return entry.times;
+    return {};
   }
 
-  function getNumberedPartKeys(partsObj){
-    if(!partsObj||typeof partsObj!=='object') return [];
-    const numbers=new Set();
-    Object.keys(partsObj).forEach(key=>{
-      const normalizedKey=typeof key==='string'?key.trim():'';
-      if(!normalizedKey||/pntext/i.test(normalizedKey)) return;
-      let match=/(?:^|\b)(?:part|pn|menge|qty|quantity)[\s_-]*(\d+)/i.exec(normalizedKey);
-      if(!match){
-        match=/(\d{1,3})$/.exec(normalizedKey);
-      }
-      if(match){
-        const num=Number(match[1]);
-        if(Number.isFinite(num)&&num>0&&num<=50) numbers.add(num);
-      }
-    });
-    return Array.from(numbers).sort((a,b)=>a-b);
+  function nsfGetRoutineAction(entry) {
+    return entry?.routineAction || "";
   }
 
-  function applyGlobalPartsMapping(partsObj,mappingOverride){
-    if(!partsObj||typeof partsObj!=='object') return [];
-    const mapping=mappingOverride&&typeof mappingOverride==='object'?mappingOverride:loadGlobalPartsMapping();
-    const lowerKeyMap={};
-    Object.keys(partsObj).forEach(key=>{
-      lowerKeyMap[key.toLowerCase()]=key;
-    });
+  function nsfGetAppliesTo(entry) {
+    return Array.isArray(entry?.appliesTo) ? entry.appliesTo : [];
+  }
 
-    function resolveValue(candidateKey){
-      if(!candidateKey||/pntext/i.test(candidateKey)) return '';
-      if(Object.prototype.hasOwnProperty.call(partsObj,candidateKey)){
-        return partsObj[candidateKey];
-      }
-      const mappedKey=lowerKeyMap[candidateKey.toLowerCase()];
-      if(mappedKey){
-        return partsObj[mappedKey];
-      }
-      return '';
-    }
+  function nsfGetMods(entry) {
+    return Array.isArray(entry?.mods) ? entry.mods : [];
+  }
+  // ===== NSF READ HELPERS (END) =====
 
-    function collectValue(prefix,num,defaults){
-      const mappingKey=`${prefix}_${num}`;
-      const candidates=[];
-      const mapped=typeof mapping[mappingKey]==='string'?mapping[mappingKey].trim():'';
-      if(mapped) candidates.push(mapped);
-      defaults.forEach(def=>{
-        const candidate=`${def} ${num}`;
-        if(!candidates.includes(candidate)) candidates.push(candidate);
-      });
-      for(let i=0;i<candidates.length;i+=1){
-        const candidate=candidates[i];
-        if(/pntext/i.test(candidate)) continue;
-        const value=resolveValue(candidate);
-        if(value!==undefined&&value!==null&&String(value).trim()){
-          return {value:String(value).trim(),key:candidate};
-        }
-      }
-      return {value:'',key:null};
-    }
-
-    const numbers=getNumberedPartKeys(partsObj);
-    const result=[];
-    numbers.forEach(num=>{
-      const partInfo=collectValue('part',num,['Part','PN']);
-      const partValue=partInfo.value;
-      if(!partValue) return;
-      const qtyInfo=collectValue('qty',num,['Menge','Qty','quantity']);
-      const qtyValue=qtyInfo.value;
-      result.push({part:partValue,quantity:qtyValue||'1'});
-    });
-    return result;
+  function nsfNormalizeParts(entry){
+    return nsfGetParts(entry)
+      .map(item=>{
+        const source=(item&&typeof item==='object')?item:{part:item};
+        const partValue=clean(source.part);
+        const quantityRaw=source.menge??source.quantity??source.qty;
+        const quantityValue=quantityRaw==null?'':clean(quantityRaw);
+        if(!partValue) return null;
+        return {
+          part:partValue,
+          quantity:quantityValue||'1'
+        };
+      })
+      .filter(Boolean);
   }
 
   function nsfRenderPnTextHeader(containerEl,entry){
     if(!containerEl) return;
     try{
-      const pnText=extractPnTextValue(entry);
-      if(!pnText) return;
+      const master=clean(entry&&entry.partNumber);
+      const applies=nsfGetAppliesTo(entry).map(item=>clean(item)).filter(Boolean);
+      const fallback=master||clean(entry&&entry.pnText);
+      if(!fallback&&!applies.length){
+        const existing=containerEl.querySelector('.nsf-pntext-header');
+        if(existing&&existing.parentNode){
+          existing.parentNode.removeChild(existing);
+        }
+        return;
+      }
       let header=containerEl.querySelector('.nsf-pntext-header');
       if(!header){
         header=document.createElement('div');
         header.className='nsf-pntext-header';
         containerEl.prepend(header);
       }
-      header.textContent=pnText;
+      header.innerHTML='';
+      if(fallback){
+        const masterLine=document.createElement('div');
+        masterLine.className='nsf-pntext-master';
+        masterLine.textContent=fallback;
+        header.appendChild(masterLine);
+      }
+      if(applies.length){
+        const appliesLine=document.createElement('div');
+        appliesLine.className='nsf-pntext-applies';
+        appliesLine.textContent=`Also applies to: ${applies.join(', ')}`;
+        header.appendChild(appliesLine);
+      }
     }catch(e){/* noop */}
   }
 
@@ -124,6 +86,7 @@
     .nsf-mapping-modal{background:#fff;color:#1a1a1a;max-width:520px;width:100%;border-radius:8px;box-shadow:0 24px 48px rgba(15,23,42,.25);padding:1.5rem;font-family:inherit}
     .nsf-mapping-modal h2{margin:0 0 1rem;font-size:1.25rem;font-weight:600}
     .nsf-mapping-modal p{margin:.25rem 0 1.25rem;color:#4b5563;font-size:.95rem}
+    .nsf-mapping-meta{margin-bottom:1rem;font-size:.95rem;display:flex;flex-direction:column;gap:.25rem}
     .nsf-mapping-table{width:100%;border-collapse:collapse;margin-bottom:1.25rem;font-size:.95rem}
     .nsf-mapping-table th{text-align:left;padding:.5rem .25rem;color:#374151;font-weight:600;border-bottom:1px solid rgba(148,163,184,.4)}
     .nsf-mapping-table td{padding:.5rem .25rem;border-bottom:1px solid rgba(148,163,184,.25)}
@@ -149,12 +112,12 @@
     if(!list.__nsfPartsMappingContext){
       list.addEventListener('contextmenu',evt=>{
         evt.preventDefault();
-        openPartsMappingModal(containerEl,containerEl.__nsfCurrentEntry||entry||null);
+        openPartsMappingModal(containerEl.__nsfCurrentEntry||entry||null);
       });
       list.__nsfPartsMappingContext=true;
     }
 
-    const pairs=normalizePartsPairs(entry);
+    const pairs=nsfNormalizeParts(entry);
 
     list.innerHTML='';
 
@@ -189,16 +152,15 @@
     });
   }
 
-  function openPartsMappingModal(containerEl,entry){
-    const containerInfo=getPartsContainer(entry);
-    if(!containerInfo||containerInfo.type!=='object') return;
-    const partsObj=containerInfo.data||{};
-    const numbers=getNumberedPartKeys(partsObj);
-    if(!numbers.length) return;
+  function openPartsMappingModal(entry){
+    if(!entry||typeof entry!=='object') return;
+    const parts=nsfNormalizeParts(entry);
+    const partNumber=clean(entry.partNumber||'');
+    const applies=nsfGetAppliesTo(entry).map(item=>clean(item)).filter(Boolean);
+    if(!parts.length&&!partNumber&&!applies.length) return;
 
     ensurePartsMappingModalStyles();
 
-    const availableKeys=Object.keys(partsObj).filter(key=>!key||!/pntext/i.test(key));
     const overlay=document.createElement('div');
     overlay.className='nsf-mapping-overlay';
     const modal=document.createElement('div');
@@ -206,140 +168,69 @@
     overlay.appendChild(modal);
 
     const title=document.createElement('h2');
-    title.textContent='Parts Mapping';
+    title.textContent='Teileübersicht';
     modal.appendChild(title);
 
     const description=document.createElement('p');
-    description.textContent='Ordne die JSON-Schlüssel den Parts-Spalten zu. Diese Einstellung gilt global.';
+    description.textContent='Aktuelle Teilezuordnung für das ausgewählte Finding.';
     modal.appendChild(description);
 
-    const table=document.createElement('table');
-    table.className='nsf-mapping-table';
-    const thead=document.createElement('thead');
-    const headRow=document.createElement('tr');
-    ['Position','Part-Key','Menge-Key'].forEach(label=>{
-      const th=document.createElement('th');
-      th.textContent=label;
-      headRow.appendChild(th);
-    });
-    thead.appendChild(headRow);
-    table.appendChild(thead);
-
-    const tbody=document.createElement('tbody');
-    table.appendChild(tbody);
-
-    const currentMapping=loadGlobalPartsMapping();
-    const partSelects={};
-    const qtySelects={};
-
-    function ensureOption(select,value,label){
-      if(!value) return;
-      let option=Array.from(select.options).find(opt=>opt.value===value);
-      if(!option){
-        option=document.createElement('option');
-        option.value=value;
-        option.textContent=label||value;
-        select.appendChild(option);
+    if(partNumber||applies.length){
+      const meta=document.createElement('div');
+      meta.className='nsf-mapping-meta';
+      if(partNumber){
+        const masterLine=document.createElement('div');
+        masterLine.textContent=`Master Part: ${partNumber}`;
+        meta.appendChild(masterLine);
       }
+      if(applies.length){
+        const appliesLine=document.createElement('div');
+        appliesLine.textContent=`Gilt auch für: ${applies.join(', ')}`;
+        meta.appendChild(appliesLine);
+      }
+      modal.appendChild(meta);
     }
 
-    numbers.forEach(num=>{
-      const row=document.createElement('tr');
-
-      const posCell=document.createElement('td');
-      posCell.textContent=String(num);
-      row.appendChild(posCell);
-
-      const partCell=document.createElement('td');
-      const partSelect=document.createElement('select');
-      const autoPartOption=document.createElement('option');
-      autoPartOption.value='';
-      autoPartOption.textContent=`Auto (Part ${num})`;
-      partSelect.appendChild(autoPartOption);
-      availableKeys.forEach(key=>{
-        const option=document.createElement('option');
-        option.value=key;
-        option.textContent=key;
-        partSelect.appendChild(option);
+    if(parts.length){
+      const table=document.createElement('table');
+      table.className='nsf-mapping-table';
+      const thead=document.createElement('thead');
+      const headRow=document.createElement('tr');
+      ['Position','Part','Menge'].forEach(label=>{
+        const th=document.createElement('th');
+        th.textContent=label;
+        headRow.appendChild(th);
       });
-      const savedPart=currentMapping[`part_${num}`];
-      if(savedPart&& !/pntext/i.test(savedPart)){
-        ensureOption(partSelect,savedPart,savedPart);
-        partSelect.value=savedPart;
-      }else{
-        partSelect.value='';
-      }
-      partCell.appendChild(partSelect);
-      partSelects[num]=partSelect;
-      row.appendChild(partCell);
+      thead.appendChild(headRow);
+      table.appendChild(thead);
 
-      const qtyCell=document.createElement('td');
-      const qtySelect=document.createElement('select');
-      const autoQtyOption=document.createElement('option');
-      autoQtyOption.value='';
-      autoQtyOption.textContent=`Auto (Menge ${num})`;
-      qtySelect.appendChild(autoQtyOption);
-      availableKeys.forEach(key=>{
-        const option=document.createElement('option');
-        option.value=key;
-        option.textContent=key;
-        qtySelect.appendChild(option);
+      const tbody=document.createElement('tbody');
+      parts.forEach((partEntry,index)=>{
+        const row=document.createElement('tr');
+        const posCell=document.createElement('td');
+        posCell.textContent=String(index+1);
+        row.appendChild(posCell);
+        const partCell=document.createElement('td');
+        partCell.textContent=clean(partEntry.part||'');
+        row.appendChild(partCell);
+        const qtyCell=document.createElement('td');
+        qtyCell.textContent=clean(partEntry.quantity||'');
+        row.appendChild(qtyCell);
+        tbody.appendChild(row);
       });
-      const savedQty=currentMapping[`qty_${num}`];
-      if(savedQty&& !/pntext/i.test(savedQty)){
-        ensureOption(qtySelect,savedQty,savedQty);
-        qtySelect.value=savedQty;
-      }else{
-        qtySelect.value='';
-      }
-      qtyCell.appendChild(qtySelect);
-      qtySelects[num]=qtySelect;
-      row.appendChild(qtyCell);
-
-      tbody.appendChild(row);
-    });
-
-    modal.appendChild(table);
+      table.appendChild(tbody);
+      modal.appendChild(table);
+    }
 
     const actions=document.createElement('div');
     actions.className='nsf-mapping-actions';
 
-    const cancelBtn=document.createElement('button');
-    cancelBtn.type='button';
-    cancelBtn.className='nsf-btn-cancel';
-    cancelBtn.textContent='Abbrechen';
-    cancelBtn.addEventListener('click',closeModal);
-    actions.appendChild(cancelBtn);
-
-    const saveBtn=document.createElement('button');
-    saveBtn.type='button';
-    saveBtn.className='nsf-btn-save';
-    saveBtn.textContent='Speichern';
-    saveBtn.addEventListener('click',()=>{
-      const updatedMapping=Object.assign({},loadGlobalPartsMapping());
-      numbers.forEach(num=>{
-        const partValue=partSelects[num].value&& !/pntext/i.test(partSelects[num].value)?partSelects[num].value.trim():'';
-        const qtyValue=qtySelects[num].value&& !/pntext/i.test(qtySelects[num].value)?qtySelects[num].value.trim():'';
-        const partKey=`part_${num}`;
-        const qtyKey=`qty_${num}`;
-        if(partValue){
-          updatedMapping[partKey]=partValue;
-        }else{
-          delete updatedMapping[partKey];
-        }
-        if(qtyValue){
-          updatedMapping[qtyKey]=qtyValue;
-        }else{
-          delete updatedMapping[qtyKey];
-        }
-      });
-      saveGlobalPartsMapping(updatedMapping);
-      closeModal();
-      if(containerEl){
-        containerEl.dispatchEvent(new CustomEvent('nsf-mapping-updated'));
-      }
-    });
-    actions.appendChild(saveBtn);
+    const closeBtn=document.createElement('button');
+    closeBtn.type='button';
+    closeBtn.className='nsf-btn-cancel';
+    closeBtn.textContent='Schließen';
+    closeBtn.addEventListener('click',closeModal);
+    actions.appendChild(closeBtn);
 
     modal.appendChild(actions);
 
@@ -360,7 +251,7 @@
     window.addEventListener('keydown',onKeyDown,true);
 
     document.body.appendChild(overlay);
-    saveBtn.focus();
+    closeBtn.focus();
   }
 
   function renderFindingPartsWithGlobalMapping(containerEl,entry){
@@ -380,93 +271,11 @@
   }
 
   // ================================================================
-  // PATCH START — Parts Reader (Editor-Logik portiert, ohne Bindung)
+  // NSF Parts Normalization
   // ================================================================
 
-  // Liefert die "Parts-Quelle" eines Findings-Objekts in ein einheitliches Format zurück.
-  // Unterstützt u.a.: entry.Parts (Objekt mit "Part 1"/"Menge 1"), entry.parts (Array),
-  // entry.partsPairs (Array aus {part, quantity}), alternative Schreibweisen "PN", "Qty".
-  function getPartsContainer(entry){
-    if(!entry||typeof entry!=='object') return null;
-
-    // 1) Moderne Arrays zuerst
-    if(Array.isArray(entry.partsPairs)&&entry.partsPairs.length) return {type:'pairs',data:entry.partsPairs};
-    if(Array.isArray(entry.parts)&&entry.parts.length) return {type:'pairs',data:entry.parts};
-
-    // 2) Klassischer Objektblock "Parts" (mit "Part 1" / "Menge 1" / "PN 1" / "Qty 1")
-    if(entry.Parts&&typeof entry.Parts==='object') return {type:'object',data:entry.Parts};
-
-    // 3) Manche speichern direkt "partsDetails" als Objekt (Legacy)
-    if(entry.partsDetails&&typeof entry.partsDetails==='object') return {type:'object',data:entry.partsDetails};
-
-    // 4) Nichts gefunden
-    return null;
-  }
-
-  // Extrahiert aus dem Container eine Normalform [{part, quantity}].
-  // Unterstützt Arrays (partsPairs/parts) und Objekt-Varianten ("Part 1"/"Menge 1", "PN 1"/"Qty 1").
-  function extractPartPairsFromContainer(container){
-    if(!container) return [];
-
-    // Array-Varianten (bereits halb-normalisiert)
-    if(container.type==='pairs'){
-      return container.data
-        .map(it=>({
-          part:String((it.part||it.PN||'')).trim(),
-          quantity:String((it.quantity||it.qty||it.Qty||it.Menge||'')).trim()||'1'
-        }))
-        .filter(it=>it.part);
-    }
-
-    // Objekt-Variante: "Part 1" / "Menge 1" / alternativ "PN 1" / "Qty 1"
-    if(container.type==='object'){
-      const obj=container.data||{};
-      const out=[];
-      for(let i=1;i<=50;i+=1){
-        const partKey1=`Part ${i}`;
-        const partKey2=`PN ${i}`;
-        const qtyKey1=`Menge ${i}`;
-        const qtyKey2=`Qty ${i}`;
-        const qtyKey3=`quantity ${i}`;
-        const p=String((obj[partKey1]??obj[partKey2]??'')).trim();
-        const q=String((obj[qtyKey1]??obj[qtyKey2]??obj[qtyKey3]??'')).trim()||(p?'1':'');
-        if(!p&&!q) continue;
-        if(!p) continue;
-        out.push({part:p,quantity:q||'1'});
-      }
-      return out;
-    }
-
-    return [];
-  }
-
-  // Kapselt die komplette Ermittlung: nimmt das gesamte Finding-Objekt,
-  // sucht die Parts-Quelle (egal in welcher Schreibweise) und liefert [{part, quantity}] sauber zurück.
   function normalizePartsPairs(entry){
-    const container=getPartsContainer(entry);
-    if(!container) return [];
-    let pairs=[];
-    if(container.type==='object'){
-      const mappedPairs=applyGlobalPartsMapping(container.data,loadGlobalPartsMapping());
-      if(mappedPairs&&mappedPairs.length){
-        pairs=mappedPairs;
-      }else{
-        pairs=extractPartPairsFromContainer(container);
-      }
-    }else{
-      pairs=extractPartPairsFromContainer(container);
-    }
-    return (pairs||[]).filter(it=>it&&it.part&&!/^keine\s+teile/i.test(String(it.part)));
-  }
-
-  function extractPnTextValue(entry){
-    if(!entry||typeof entry!=='object') return '';
-    const pnText=
-      entry&&entry.Parts&&entry.Parts.PNText?String(entry.Parts.PNText).trim():
-      entry&&entry.partsDetails&&entry.partsDetails.PNText?String(entry.partsDetails.PNText).trim():
-      entry&&entry.pnText?String(entry.pnText).trim():
-      '';
-    return pnText;
+    return nsfNormalizeParts(entry);
   }
 
   (function injectNsfStyles(){
@@ -476,6 +285,8 @@
     st.id=id;
     st.textContent=`
     .nsf-pntext-header{font-weight:600;margin-bottom:.25rem}
+    .nsf-pntext-header .nsf-pntext-master{font-weight:600}
+    .nsf-pntext-applies{font-size:.9rem;color:#4b5563;margin-top:.125rem}
     .nsf-bestellliste{display:flex;flex-direction:column;gap:.25rem}
     .nsf-part-row{display:grid;grid-template-columns:1fr 3fr 1fr;gap:.5rem;align-items:center;padding:.25rem 0;border-bottom:1px solid rgba(0,0,0,.06)}
     .nsf-part-row:last-child{border-bottom:none}
@@ -570,9 +381,9 @@
     {key:'nonroutine',label:'Nonroutine',getter:entry=>entry.nonroutine||''},
     {key:'nonroutineFinding',label:'Nonroutine Finding',getter:entry=>entry.nonroutineFinding||''},
     {key:'nonroutineAction',label:'Nonroutine Action',getter:entry=>entry.nonroutineAction||''},
-    {key:'parts',label:'Bestellhinweis',getter:entry=>entry.parts||''},
-    {key:'times',label:'Arbeitszeiten',getter:entry=>entry.times||''},
-    {key:'mods',label:'Modifikationen',getter:entry=>entry.mods||''}
+    {key:'parts',label:'Bestellhinweis',getter:entry=>entry.partsText||''},
+    {key:'times',label:'Arbeitszeiten',getter:entry=>entry.timesText||''},
+    {key:'mods',label:'Modifikationen',getter:entry=>entry.modsText||''}
   ];
 
   const OUTPUT_DEFS=[
@@ -2143,13 +1954,23 @@
     return false;
   }
   function getEntryPartNumbers(entry){
-    if(entry&&Array.isArray(entry.partNumbers)&&entry.partNumbers.length){
-      return entry.partNumbers;
+    const result=[];
+    const seen=new Set();
+    const pushValue=value=>{
+      const normalized=normalizePart(value);
+      if(!normalized||seen.has(normalized)) return;
+      seen.add(normalized);
+      result.push(normalized);
+    };
+    if(entry&&Array.isArray(entry.partNumbers)){
+      entry.partNumbers.forEach(pushValue);
     }
-    if(entry&&entry.part){
-      return [entry.part];
+    if(entry){
+      pushValue(entry.partNumber);
+      pushValue(entry.part);
+      nsfGetAppliesTo(entry).forEach(pushValue);
     }
-    return [];
+    return result;
   }
   function resolveMatchedPart(entry,currentPart){
     const normalizedCurrent=normalizePart(currentPart);
@@ -2683,14 +2504,73 @@
       const nonroutineAction=clean(extractNestedField(raw,NONROUTINE_ACTION_ALIASES));
       const nonroutine=clean(extractNestedField(raw,FIELD_ALIASES.nonroutine));
       const partsRaw=extractNestedFieldRaw(raw,FIELD_ALIASES.parts);
-      const partsText=clean(valueToText(partsRaw));
-      const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
-      const mods=clean(extractNestedField(raw,FIELD_ALIASES.mods));
+      let partsList=[];
+      if(Array.isArray(partsRaw)){
+        partsList=partsRaw
+          .map(item=>{
+            if(item&&typeof item==='object'){
+              const partText=clean(item.part);
+              if(!partText) return null;
+              const quantityText=clean(item.menge??item.quantity??item.qty);
+              const entryPart={part:partText};
+              if(quantityText) entryPart.menge=quantityText;
+              return entryPart;
+            }
+            const partText=clean(item);
+            if(!partText) return null;
+            return {part:partText};
+          })
+          .filter(Boolean);
+      }
+      const normalizedPartsData=nsfNormalizeParts({parts:partsList});
+      const partsArrayForEntry=normalizedPartsData.map(pair=>({part:pair.part,menge:pair.quantity}));
+      const partsText=normalizedPartsData.length
+        ? normalizedPartsData
+            .map(pair=>{
+              const qty=clean(pair.quantity);
+              const part=clean(pair.part);
+              if(qty&&qty!=='1') return `${qty}x ${part}`;
+              return part;
+            })
+            .filter(Boolean)
+            .join('\n')
+        :clean(valueToText(partsRaw));
+      const timesRaw=extractNestedFieldRaw(raw,FIELD_ALIASES.times);
+      let timesObject={};
+      if(timesRaw&&typeof timesRaw==='object'&&!Array.isArray(timesRaw)){
+        timesObject=Object.entries(timesRaw).reduce((acc,[key,val])=>{
+          const valueText=clean(val);
+          if(!valueText) return acc;
+          acc[key]=valueText;
+          return acc;
+        },{});
+      }
+      const timesText=Object.keys(timesObject).length
+        ? Object.entries(timesObject)
+            .map(([key,val])=>{
+              const label=clean(key).replace(/_/g,' ').trim();
+              return label?`${label}: ${val}`:val;
+            })
+            .filter(Boolean)
+            .join('\n')
+        :clean(valueToText(timesRaw));
+      const modsRaw=extractNestedFieldRaw(raw,FIELD_ALIASES.mods);
+      let modsList=[];
+      if(Array.isArray(modsRaw)){
+        modsList=modsRaw.map(item=>clean(item)).filter(Boolean);
+      }
+      const modsText=modsList.length?modsList.join('\n'):clean(valueToText(modsRaw));
       const map=buildFieldMap(raw);
+      const appliesToFromField=normalizePartNumbersList(map.appliesto||[]);
       const partNumbersFromField=normalizePartNumbersList(map.partnumbers);
       const partSet=new Set();
       if(part) partSet.add(part);
-      for(const candidate of partNumbersFromField){
+      const appliesCandidateSet=new Set(appliesToFromField);
+      nsfGetAppliesTo(raw).forEach(value=>{
+        const normalized=normalizePart(value);
+        if(normalized) appliesCandidateSet.add(normalized);
+      });
+      for(const candidate of [...partNumbersFromField,...appliesCandidateSet]){
         if(candidate) partSet.add(candidate);
       }
       if(!part&&partSet.size){
@@ -2709,6 +2589,7 @@
       if(!partSet.size) partSet.add(part);
       else if(part&&!partSet.has(part)) partSet.add(part);
       const partNumbers=Array.from(partSet);
+      const appliesTo=Array.from(appliesCandidateSet).filter(value=>value!==part);
       const extras=[];
       const extrasKeyParts=[];
       const extrasSeen=new Set();
@@ -2731,7 +2612,7 @@
         extrasKeyParts.push(text);
       }
       extras.sort((a,b)=>a.label.localeCompare(b.label,'de',{sensitivity:'base'}));
-      const baseKeyParts=[part,label,finding,action,routine,routineFinding,routineAction,nonroutine,nonroutineFinding,nonroutineAction,partsText,times,mods];
+      const baseKeyParts=[part,label,finding,action,routine,routineFinding,routineAction,nonroutine,nonroutineFinding,nonroutineAction,partsText,timesText,modsText];
       if(extrasKeyParts.length) baseKeyParts.push(...extrasKeyParts);
       const baseKey=baseKeyParts.join('||');
       const count=counts.get(baseKey)||0;
@@ -2747,12 +2628,13 @@
       const nonroutineFindingValue=nonroutineFinding||'';
       const nonroutineActionValue=nonroutineAction||'';
       const partsValue=partsText||'';
-      const timesValue=times||'';
-      const modsValue=mods||'';
+      const timesValue=timesText||'';
+      const modsValue=modsText||'';
       result.push({
         key,
         part,
         partNumbers,
+        appliesTo,
         label:labelValue,
         finding:findingValue,
         action:actionValue,
@@ -2762,9 +2644,12 @@
         nonroutine:nonroutineValue,
         nonroutineFinding:nonroutineFindingValue,
         nonroutineAction:nonroutineActionValue,
-        parts:partsValue,
-        times:timesValue,
-        mods:modsValue,
+        parts:partsArrayForEntry,
+        partsText:partsValue,
+        times:timesObject,
+        timesText:timesValue,
+        mods:modsList,
+        modsText:modsValue,
         additional:extras,
         additionalLower:extras.map(item=>item.valueLower),
         labelLower:labelValue.toLowerCase(),
@@ -3365,7 +3250,7 @@
       actions: typeof entry?.actions==='string'?entry.actions:'',
       routine: typeof entry?.routine==='string'?entry.routine:'',
       nonroutine: typeof entry?.nonroutine==='string'?entry.nonroutine:'',
-      parts: typeof entry?.parts==='string'?entry.parts:'',
+      parts: typeof entry?.partsText==='string'?entry.partsText:'',
       customSections: normalizeCustomSections(entry?.customSections)
     };
   }
@@ -3853,9 +3738,36 @@
             nonroutine:resolved.nonroutine||sel.nonroutine||'',
             nonroutineFinding:resolved.nonroutineFinding||resolved.nonroutineFindings||sel.nonroutineFinding||'',
             nonroutineAction:resolved.nonroutineAction||resolved.nonroutineActions||sel.nonroutineAction||'',
-            parts:resolved.parts||sel.parts||'',
-            times:resolved.times||sel.times||'',
-            mods:resolved.mods||sel.mods||'',
+            partsText:resolved.partsText||sel.partsText||'',
+            parts:Array.isArray(resolved.parts)
+              ? resolved.parts.map(item=>{
+                  const partValue=clean(item?.part||'');
+                  if(!partValue) return null;
+                  const quantityValue=clean(item?.menge??item?.quantity??'');
+                  const partEntry={part:partValue};
+                  if(quantityValue) partEntry.menge=quantityValue;
+                  return partEntry;
+                }).filter(Boolean)
+              : Array.isArray(sel.parts)
+                ? sel.parts.map(item=>{
+                    const partValue=clean(item?.part||'');
+                    if(!partValue) return null;
+                    const quantityValue=clean(item?.menge??item?.quantity??'');
+                    const partEntry={part:partValue};
+                    if(quantityValue) partEntry.menge=quantityValue;
+                    return partEntry;
+                  }).filter(Boolean)
+                : [],
+            timesText:resolved.timesText||sel.timesText||'',
+            times:(resolved.times&&typeof resolved.times==='object')
+              ? {...resolved.times}
+              : (sel.times&&typeof sel.times==='object'?{...sel.times}:{}),
+            modsText:resolved.modsText||sel.modsText||'',
+            mods:Array.isArray(resolved.mods)
+              ? resolved.mods.map(item=>clean(item)).filter(Boolean)
+              : Array.isArray(sel.mods)
+                ? sel.mods.map(item=>clean(item)).filter(Boolean)
+                : [],
             part:matchedPart||resolved.part
           };
         }
@@ -5056,10 +4968,23 @@
         timeKeys.add(key);
         timeEntries.push({label:labelText,value:valueText});
       };
-      const collectTimes=text=>{
-        const raw=clean(text);
-        if(!raw) return;
-        raw.split(/\r?\n/)
+      const collectTimes=entry=>{
+        const timesObj=nsfGetTimes(entry);
+        let handled=false;
+        if(timesObj&&typeof timesObj==='object'){
+          Object.entries(timesObj).forEach(([rawKey,rawValue])=>{
+            const valueText=clean(rawValue);
+            if(!valueText) return;
+            handled=true;
+            const labelBase=clean(rawKey).replace(/_/g,' ').trim();
+            const labelText=labelBase?labelBase.charAt(0).toUpperCase()+labelBase.slice(1):'';
+            addTimeEntry(labelText,valueText);
+          });
+        }
+        if(handled) return;
+        const legacyText=clean(entry&&entry.times);
+        if(!legacyText) return;
+        legacyText.split(/\r?\n/)
           .map(line=>clean(line))
           .filter(Boolean)
           .forEach(line=>{
@@ -5073,21 +4998,33 @@
             }
           });
       };
-      const collectMods=text=>{
-        const raw=clean(text);
+      const collectMods=entry=>{
+        const modsList=nsfGetMods(entry).map(item=>clean(item)).filter(Boolean);
+        if(modsList.length){
+          modsList.forEach(mod=>{
+            const key=mod.toLowerCase();
+            if(modKeys.has(key)) return;
+            modKeys.add(key);
+            modEntries.push(mod);
+          });
+          return;
+        }
+        const raw=clean(entry&&entry.mods);
         if(!raw) return;
         raw.split(/\r?\n/)
           .map(line=>clean(line))
           .filter(Boolean)
           .forEach(line=>{
-            if(modKeys.has(line)) return;
-            modKeys.add(line);
+            if(modKeys.has(line.toLowerCase())) return;
+            modKeys.add(line.toLowerCase());
             modEntries.push(line);
           });
       };
       const aggregatedParts=[];
-      const pnTextSet=new Set();
-      const pnTextList=[];
+      const partNumberDisplay=[];
+      const partNumberSeen=new Set();
+      const appliesDisplay=[];
+      const appliesSeen=new Set();
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
         const findingText=resolved.finding||selection.finding||'';
@@ -5106,17 +5043,35 @@
         });
         const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
-        collectTimes(resolved.times||'');
-        collectMods(resolved.mods||'');
-        const pnTextCandidate=extractPnTextValue(resolved);
-        const pnTextNormalized=clean(pnTextCandidate);
-        if(pnTextNormalized){
-          const pnKey=pnTextNormalized.toLowerCase();
-          if(!pnTextSet.has(pnKey)){
-            pnTextSet.add(pnKey);
-            pnTextList.push(pnTextNormalized);
-          }
-        }
+        collectTimes(resolved);
+        collectMods(resolved);
+        const masterCandidates=[
+          resolved.partNumber,
+          resolved.part,
+          selection.partNumber,
+          selection.part
+        ];
+        masterCandidates.forEach(candidate=>{
+          const display=clean(candidate);
+          if(!display) return;
+          const normalized=normalizePart(display);
+          if(!normalized||partNumberSeen.has(normalized)) return;
+          partNumberSeen.add(normalized);
+          partNumberDisplay.push(display);
+        });
+        const appliesCandidates=[
+          ...nsfGetAppliesTo(resolved),
+          ...nsfGetAppliesTo(selection)
+        ]
+          .map(value=>clean(value))
+          .filter(Boolean);
+        appliesCandidates.forEach(value=>{
+          const normalized=normalizePart(value);
+          if(!normalized) return;
+          if(partNumberSeen.has(normalized)||appliesSeen.has(normalized)) return;
+          appliesSeen.add(normalized);
+          appliesDisplay.push(value);
+        });
         const resolvedPairs=normalizePartsPairs(resolved);
         if(Array.isArray(resolvedPairs)&&resolvedPairs.length){
           resolvedPairs.forEach(pair=>{
@@ -5137,9 +5092,17 @@
         })
         .filter(Boolean);
       const partsText=partsLines.join('\n');
-      const pnTextHeader=pnTextList.join(' • ');
-      const partsEntry=(pnTextHeader||normalizedPairs.length)
-        ?{pnText:pnTextHeader,partsPairs:normalizedPairs.map(pair=>({part:pair.part,quantity:pair.quantity}))}
+      const partNumberHeader=partNumberDisplay.join(' • ');
+      const appliesList=appliesDisplay.slice();
+      const normalizedPartsForEntry=normalizedPairs.map(pair=>({part:pair.part,quantity:pair.quantity}));
+      const partsEntry=(partNumberHeader||appliesList.length||normalizedPartsForEntry.length)
+        ?{
+            partNumber:partNumberHeader,
+            partNumbers:partNumberDisplay.slice(),
+            appliesTo:appliesList,
+            parts:normalizedPartsForEntry,
+            partsPairs:normalizedPartsForEntry
+          }
         :null;
       const placeholderPairs=normalizedPairs.map(pair=>({
         part:pair.part,
@@ -8554,7 +8517,7 @@
       const nonroutineActionText=clean(entry.nonroutineAction||'');
       const routineFindingText=clean(entry.routineFinding||'');
       const routineActionText=clean(entry.routineAction||'');
-      const partsText=clean(entry.parts||'');
+      const partsText=clean(entry.partsText||'');
       const repairOrderValue=clean(this.repairOrder||'');
       state.entry={
         key:entry.key,
@@ -8603,9 +8566,42 @@
         const routineAction=resolved.routineAction||resolved.routineActions||'';
         const nonroutineFinding=resolved.nonroutineFinding||resolved.nonroutineFindings||'';
         const nonroutineAction=resolved.nonroutineAction||resolved.nonroutineActions||'';
-        const partsValue=typeof resolved.parts==='string'
-          ? resolved.parts
-          : (typeof entry.parts==='string'?entry.parts:'');
+        const partsValue=typeof resolved.partsText==='string'
+          ? resolved.partsText
+          : (typeof entry.partsText==='string'?entry.partsText:'');
+        const timesValue=typeof resolved.timesText==='string'
+          ? resolved.timesText
+          : (typeof entry.timesText==='string'?entry.timesText:'');
+        const modsValue=typeof resolved.modsText==='string'
+          ? resolved.modsText
+          : (typeof entry.modsText==='string'?entry.modsText:'');
+        const partsArray=Array.isArray(resolved.parts)
+          ? resolved.parts.map(item=>{
+              const partValue=clean(item?.part||'');
+              if(!partValue) return null;
+              const quantityValue=clean(item?.menge??item?.quantity??'');
+              const partEntry={part:partValue};
+              if(quantityValue) partEntry.menge=quantityValue;
+              return partEntry;
+            }).filter(Boolean)
+          : Array.isArray(entry.parts)
+            ? entry.parts.map(item=>{
+                const partValue=clean(item?.part||'');
+                if(!partValue) return null;
+                const quantityValue=clean(item?.menge??item?.quantity??'');
+                const partEntry={part:partValue};
+                if(quantityValue) partEntry.menge=quantityValue;
+                return partEntry;
+              }).filter(Boolean)
+            : [];
+        const timesObject=(resolved.times&&typeof resolved.times==='object')
+          ? {...resolved.times}
+          : (entry.times&&typeof entry.times==='object'?{...entry.times}:{});
+        const modsArray=Array.isArray(resolved.mods)
+          ? resolved.mods.map(item=>clean(item)).filter(Boolean)
+          : Array.isArray(entry.mods)
+            ? entry.mods.map(item=>clean(item)).filter(Boolean)
+            : [];
         const selection={
           key,
           finding:resolved.finding||entry.finding||'',
@@ -8618,9 +8614,12 @@
           nonroutine:resolved.nonroutine||'',
           nonroutineFinding:nonroutineFinding||'',
           nonroutineAction:nonroutineAction||'',
-          parts:partsValue||'',
-          times:resolved.times||'',
-          mods:resolved.mods||''
+          partsText:partsValue||'',
+          parts:partsArray,
+          timesText:timesValue||'',
+          times:timesObject,
+          modsText:modsValue||'',
+          mods:modsArray
         };
 
         this.selectedEntries.push(selection);
