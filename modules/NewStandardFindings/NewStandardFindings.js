@@ -5103,6 +5103,34 @@
       if(!(this.partsRowContextHandlers instanceof Map)){
         this.partsRowContextHandlers=new Map();
       }
+      const openModalForRow=rowData=>{
+        if(rowData){
+          const sources=Array.isArray(rowData.sources)?rowData.sources.slice():[];
+          this.openPartsMappingModal(rowData,sources);
+          return;
+        }
+        if(Array.isArray(this.partsRowData)&&this.partsRowData.length){
+          const aggregatedMap=new Map();
+          this.partsRowData.forEach(row=>{
+            if(!(row&&row.valueMap instanceof Map)) return;
+            row.valueMap.forEach((value,label)=>{
+              if(!aggregatedMap.has(label)){
+                aggregatedMap.set(label,value);
+              }
+            });
+          });
+          const aggregatedSource={
+            key:'',
+            label:'Alle Zeilen',
+            valueMap:aggregatedMap,
+            raw:{},
+            entry:{}
+          };
+          this.openPartsMappingModal(null,[aggregatedSource]);
+          return;
+        }
+        this.openPartsMappingModal(null,[]);
+      };
       const rows=Array.from(container.querySelectorAll('.nsf-part-row'));
       rows.forEach((element,index)=>{
         const handler=event=>{
@@ -5116,11 +5144,23 @@
             rowData=this.partsRowData[index]||null;
           }
           const sources=rowData&&Array.isArray(rowData.sources)?rowData.sources.slice():[];
-          this.openPartsRowContextMenu(event,rowData,sources);
+          if(event.shiftKey&&rowData){
+            this.openPartsRowContextMenu(event,rowData,sources);
+            return;
+          }
+          openModalForRow(rowData);
         };
         element.addEventListener('contextmenu',handler);
         this.partsRowContextHandlers.set(element,{element,handler});
       });
+      const containerHandler=event=>{
+        if(event.defaultPrevented) return;
+        if(event.target&&event.target.closest&&event.target.closest('.nsf-part-row')) return;
+        event.preventDefault();
+        openModalForRow(null);
+      };
+      container.addEventListener('contextmenu',containerHandler);
+      this.partsRowContextHandlers.set(container,{element:container,handler:containerHandler});
     }
 
     getPartsRowsForSource(sourceKey){
