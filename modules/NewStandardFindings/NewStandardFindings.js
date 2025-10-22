@@ -164,7 +164,12 @@
   // PATCH END — Parts Reader
   // ================================================================
 
-  const DATA_URL='Findings_Shopguide.json';
+  const DEFAULT_FINDINGS_FILES=[
+    'Shopguide_Findings.json',
+    'Findings_Shopguide.json',
+    'Findings_shopguide.json'
+  ];
+  const DATA_URL=DEFAULT_FINDINGS_FILES[0];
   const DATA_KEY='sf-data';
   const FINDINGS_PATH_KEY='sf-findings-path';
   const STATE_KEY='sf-state';
@@ -2212,24 +2217,38 @@
     if(ensureDataPromise) return ensureDataPromise;
     ensureDataPromise=(async()=>{
       try{
-        const resp=await fetch(DATA_URL,{cache:'no-store'});
-        if(!resp.ok) throw new Error('HTTP '+resp.status);
-        const parsed=await resp.json();
-        if(Array.isArray(parsed)){
-          const payload=JSON.stringify(parsed);
-          localStorage.setItem(DATA_KEY,payload);
-          lastValues[DATA_KEY]=payload;
-        }else if(parsed&&typeof parsed==='object'){
-          const payload=JSON.stringify(parsed);
-          localStorage.setItem(DATA_KEY,payload);
-          lastValues[DATA_KEY]=payload;
+        let stored=false;
+        let lastError=null;
+        for(const candidate of DEFAULT_FINDINGS_FILES){
+          try{
+            const resp=await fetch(candidate,{cache:'no-store'});
+            if(!resp.ok) throw new Error('HTTP '+resp.status);
+            const parsed=await resp.json();
+            if(Array.isArray(parsed)){
+              const payload=JSON.stringify(parsed);
+              localStorage.setItem(DATA_KEY,payload);
+              lastValues[DATA_KEY]=payload;
+            }else if(parsed&&typeof parsed==='object'){
+              const payload=JSON.stringify(parsed);
+              localStorage.setItem(DATA_KEY,payload);
+              lastValues[DATA_KEY]=payload;
+            }
+            if(!localStorage.getItem(FINDINGS_PATH_KEY)){
+              localStorage.setItem(FINDINGS_PATH_KEY,candidate);
+              lastValues[FINDINGS_PATH_KEY]=candidate;
+            }
+            stored=true;
+            break;
+          }catch(fetchErr){
+            lastError=fetchErr;
+          }
         }
-        if(!localStorage.getItem(FINDINGS_PATH_KEY)){
-          localStorage.setItem(FINDINGS_PATH_KEY,DATA_URL);
-          lastValues[FINDINGS_PATH_KEY]=DATA_URL;
+        if(!stored){
+          const tried=DEFAULT_FINDINGS_FILES.join(', ');
+          console.warn(`NSF: Standard-Findings konnten nicht geladen werden (${tried})`,lastError);
         }
       }catch(err){
-        console.warn('NSF: Findings_Shopguide.json konnte nicht geladen werden',err);
+        console.warn('NSF: Fehler beim Laden der Standard-Findings',err);
       }
     })();
     return ensureDataPromise;
@@ -4685,9 +4704,7 @@
       const pushLines=(field,value)=>{
         const text=clean(value);
         if(!text) return;
-        const lines=text.split(/
-?
-/).map(line=>clean(line)).filter(Boolean);
+        const lines=text.split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
         if(!lines.length) return;
         for(const line of lines){
           if(seen[field].has(line)) continue;
@@ -4715,9 +4732,7 @@
       const collectTimes=text=>{
         const raw=clean(text);
         if(!raw) return;
-        raw.split(/
-?
-/)
+        raw.split(/\r?\n/)
           .map(line=>clean(line))
           .filter(Boolean)
           .forEach(line=>{
@@ -4734,9 +4749,7 @@
       const collectMods=text=>{
         const raw=clean(text);
         if(!raw) return;
-        raw.split(/
-?
-/)
+        raw.split(/\r?\n/)
           .map(line=>clean(line))
           .filter(Boolean)
           .forEach(line=>{
