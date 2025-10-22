@@ -1475,6 +1475,63 @@
 
   function nsfIsObj(v){ return v && typeof v === 'object' && !Array.isArray(v); }
 
+  // PATCH START: NSF Local persistence helpers
+  function nsfStorageKeyForSelection(selection,resolved){
+    // stabil & robust gegen UI-Änderungen
+    const pn=(resolved&&resolved.part)||(selection&&selection.part)||'';
+    const lbl=(resolved&&resolved.label)||(selection&&selection.label)||'';
+    const fnd=(resolved&&resolved.finding)||(selection&&selection.finding)||'';
+    const key=['findingParts',String(pn).trim().toUpperCase(),String(lbl).trim().toLowerCase(),String(fnd).trim().toLowerCase()]
+      .map(s=>s.replace(/\s+/g,' ').trim())
+      .join(':');
+    return key;
+  }
+  function nsfLoadRowsFromLocal(key){
+    try{
+      if(typeof localStorage==='undefined') return null;
+      const raw=localStorage.getItem(key);
+      if(!raw) return null;
+      const parsed=JSON.parse(raw);
+      if(!parsed||!Array.isArray(parsed)) return null;
+      // mark as local origin
+      return parsed.map(r=>{
+        if(r&&typeof r==='object'&&Array.isArray(r.rows)){
+          const group={...r};
+          group.rows=r.rows.map(row=>Object.assign({},row,{_origin:'local'}));
+          return group;
+        }
+        if(r&&typeof r==='object') return Object.assign({},r,{_origin:'local'});
+        return r;
+      });
+    }catch{return null;}
+  }
+  function nsfSaveRowsToLocal(key,rows){
+    try{
+      if(typeof localStorage==='undefined') return;
+      if(!Array.isArray(rows)||!rows.length) return;
+      // store only the minimal row shape we render with
+      const compact=rows.map(r=>{
+        if(r&&typeof r==='object'&&Array.isArray(r.rows)){
+          return {
+            title:r.title,
+            rows:r.rows.map(row=>({
+              pnLabel:row.pnLabel,pnValue:row.pnValue,
+              partLabel:row.partLabel,partValue:row.partValue,
+              quantityLabel:row.quantityLabel,quantityValue:row.quantityValue
+            }))
+          };
+        }
+        return {
+          pnLabel:r.pnLabel,pnValue:r.pnValue,
+          partLabel:r.partLabel,partValue:r.partValue,
+          quantityLabel:r.quantityLabel,quantityValue:r.quantityValue
+        };
+      });
+      localStorage.setItem(key,JSON.stringify(compact));
+    }catch{/* ignore */}
+  }
+  // PATCH END
+
   // Extract a structured { "Part 1": "...", "Menge 1": "..." } object from a raw entry.
   // Accept both nested `Parts` and already-flattened shapes; keep original keys.
   function nsfExtractStructuredFromRaw(raw){
@@ -3700,6 +3757,21 @@
 
     async renderInternal(){
       injectStyles();
+      // PATCH START: minimal style (only if style injection exists in this file)
+      try{
+        const styleId='nsf-part-origin-style';
+        if(!document.getElementById(styleId)){
+          const st=document.createElement('style');
+          st.id=styleId;
+          st.textContent=`
+      .nsf-part-origin{margin-left:.5rem;font-size:1rem;cursor:default;user-select:none}
+      .nsf-part-row{align-items:center}
+      .nsf-part-field-input[readonly]{cursor:text}
+    `;
+          document.head.appendChild(st);
+        }
+      }catch{/* ignore */}
+      // PATCH END
       setupWatchers();
       await ensureData();
       await this.ensureFindingsHandleInitialized();
@@ -4991,6 +5063,8 @@
       const modEntries=[];
       const modKeys=new Set();
       let primaryLabel='';
+      let primarySelectionForStorage=null;
+      let primaryResolvedForStorage=null;
       const addBestellTitle=value=>pushUniqueLine(bestellTitles,bestellTitleKeys,value);
       const ensureSourceUnique=(list,source)=>{
         if(!Array.isArray(list)||!source||typeof source!=='object') return;
@@ -5111,6 +5185,8 @@
       };
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
+        if(!primarySelectionForStorage) primarySelectionForStorage=selection;
+        if(!primaryResolvedForStorage) primaryResolvedForStorage=resolved;
         // --- BEGIN NSF PARTS BLOCK PROTECT ---
         if(resolved&&typeof resolved==='object'){
           const pb=nsfKeepPartsBlock(resolved);
@@ -5237,7 +5313,63 @@
         collectTimes(resolved.times||'');
         collectMods(resolved.mods||'');
       }
+      // PATCH START: Bind partsData.rows to UI + Local fallback/persist
       const partsData=buildPartsData(bestellTitles,partGroups);
+
+      const selection=primarySelectionForStorage;
+      const resolved=primaryResolvedForStorage;
+
+      // Build a stable storage key for this finding selection
+      const storageKey=nsfStorageKeyForSelection(selection,resolved);
+
+      // Try to read any locally stored override rows
+      let localRows=nsfLoadRowsFromLocal(storageKey);
+
+      // Prefer existing structured numbered parts if present; else prefer local override; else use auto partsData
+      // (hasStructuredNumberedParts prüft auf vorhandene "Part X/Menge X" im structured Objekt)
+      let uiRows=[];
+      if(nsfIsObj(resolved&&resolved.partsDetails)&&hasStructuredNumberedParts(resolved.partsDetails)){
+        // UI rows bereits aus structured object generiert? Falls nicht, fallback auf partsData
+        uiRows=(partsData&&Array.isArray(partsData.rows)?partsData.rows:[]);
+      }else if(Array.isArray(localRows)&&localRows.length){
+        uiRows=localRows; // user override persists
+      }else{
+        uiRows=(partsData&&Array.isArray(partsData.rows)?partsData.rows:[]);
+        // erster Auto-Build: gleich persistieren, damit beim nächsten Öffnen vorhanden
+        if(uiRows&&uiRows.length){
+          nsfSaveRowsToLocal(storageKey,uiRows);
+        }
+      }
+
+      // Kennzeichne alle rows als "auto", sofern keine _origin gesetzt
+      const markOrigin=rows=>{
+        (rows||[]).forEach(group=>{
+          if(!group||typeof group!=='object') return;
+          const list=Array.isArray(group.rows)?group.rows:[];
+          list.forEach(r=>{
+            if(r&&typeof r==='object'&&!r._origin){
+              r._origin='auto';
+            }
+            // Wenn row.sources fehlt, sicher ein leeres Array
+            if(r&&typeof r==='object'&&!Array.isArray(r.sources)) r.sources=[];
+          });
+        });
+      };
+      markOrigin(uiRows);
+
+      // Übergib uiRows an das Rendering (ersetze vorhandene Variable, die in der Render-Funktion genutzt wird)
+      const rows=uiRows;
+      if(partsData&&Array.isArray(partsData.rows)) partsData.rows=rows;
+
+      // PATCH START: debug trace
+      if(NSF_DEBUG){
+        console.groupCollapsed('[NSF] Bestellliste rows (final)');
+        try{console.log('storageKey:',storageKey);}catch{}
+        nsfDebugDir('uiRows',uiRows);
+        console.groupEnd();
+      }
+      // PATCH END
+      // PATCH END
       const rawPartsList=[];
       const rawPartKeys=new Set();
       partGroups.forEach(group=>{
@@ -5266,7 +5398,7 @@
         routine:lists.routine.join('\n\n'),
         nonroutine:lists.nonroutine.join('\n'),
         parts:partsData.text,
-        partsRows:partsData.rows
+        partsRows:rows
       };
     }
 
@@ -5423,6 +5555,19 @@
             makeField(rowData.partLabel,rowData.partValue,'Teilenummer'),
             makeField(rowData.quantityLabel,rowData.quantityValue,'Menge')
           );
+          // PATCH START: Source badge + tooltip
+          const origin=(rowData&&rowData._origin)||'auto';
+          const badge=document.createElement('span');
+          badge.className='nsf-part-origin';
+          if(origin==='local'){
+            badge.textContent='🟡';
+            badge.title='Quelle: Local override (LocalStorage)';
+          }else{
+            badge.textContent='🟢';
+            badge.title='Quelle: Auto (from parsed partsDetails)';
+          }
+          row.appendChild(badge);
+          // PATCH END
           groupWrapper.appendChild(row);
         });
         container.appendChild(groupWrapper);
@@ -5441,6 +5586,11 @@
         quantityValue:clean(rowData.quantityValue)
       };
       if(mapping.index==null) delete mapping.index;
+      // PATCH START: Ignore non-part info PN texts
+      const pnLower=(mapping.pnValue||'').toLowerCase();
+      const looksLikeInfo=pnLower&&!/[0-9]/.test(pnLower)&&/keine teile|no parts|nicht zutreffend|n\/a/.test(pnLower);
+      if(looksLikeInfo) return null;
+      // PATCH END
       const hasValue=(mapping.pnValue||mapping.partValue||mapping.quantityValue);
       if(!hasValue) return null;
       return mapping;
