@@ -10,11 +10,20 @@
       border:1px solid var(--module-border-color,rgba(148,163,184,.22));
       color:var(--module-header-text,#e2e8f0);box-shadow:0 10px 24px rgba(8,15,35,.25);
     }
+    .tabnav-surface.tabnav-surface-compact{padding-top:.55rem;padding-bottom:.7rem;gap:.5rem;}
     .tabnav-surface:focus{outline:2px solid rgba(59,130,246,.45);outline-offset:3px;}
     .tabnav-header{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;}
     .tabnav-title-wrap{display:flex;flex-direction:column;gap:.25rem;min-width:0;}
     .tabnav-title{margin:0;font-size:clamp(.95rem,1vw + .3vh,1.15rem);font-weight:600;letter-spacing:.2px;}
     .tabnav-pattern-label{font-size:.78rem;opacity:.75;line-height:1.35;}
+    .tabnav-toggle-group{display:flex;flex-direction:column;gap:.45rem;margin-top:.6rem;}
+    .tabnav-toggle{display:flex;align-items:center;gap:.55rem;padding:.55rem .7rem;border-radius:.7rem;
+      background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.22);cursor:pointer;font-size:.85rem;font-weight:600;
+      transition:border-color .15s ease,background .15s ease,transform .12s ease;}
+    .tabnav-toggle:focus-within{border-color:rgba(59,130,246,.55);background:rgba(37,99,235,.18);}
+    .tabnav-toggle.active{border-color:rgba(59,130,246,.55);background:rgba(37,99,235,.18);}
+    .tabnav-toggle input{width:1.05rem;height:1.05rem;}
+    .tabnav-toggle span{flex:1;}
     .tabnav-buttons{flex:1;min-height:0;display:grid;gap:.5rem;align-content:flex-start;}
     .tabnav-buttons[data-pattern="grid"]{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}
     .tabnav-buttons[data-pattern="columns"]{grid-template-columns:repeat(2,minmax(0,1fr));}
@@ -126,7 +135,9 @@
       return {
         pattern: typeof parsed.pattern === 'string' ? parsed.pattern : undefined,
         mode: parsed.mode === 'custom' ? 'custom' : 'all',
-        selectedTabs: Array.isArray(parsed.selectedTabs) ? parsed.selectedTabs : []
+        selectedTabs: Array.isArray(parsed.selectedTabs) ? parsed.selectedTabs : [],
+        showTitle: typeof parsed.showTitle === 'boolean' ? parsed.showTitle : undefined,
+        showSubtitle: typeof parsed.showSubtitle === 'boolean' ? parsed.showSubtitle : undefined
       };
     } catch (err) {
       console.warn('TabNavigator: Konnte Zustand nicht laden', err);
@@ -142,7 +153,9 @@
       store.setItem(STORAGE_PREFIX + id, JSON.stringify({
         pattern: state.pattern,
         mode: state.mode,
-        selectedTabs: state.selectedTabs
+        selectedTabs: state.selectedTabs,
+        showTitle: state.showTitle,
+        showSubtitle: state.showSubtitle
       }));
     } catch (err) {
       console.warn('TabNavigator: Konnte Zustand nicht speichern', err);
@@ -233,7 +246,13 @@
     const state = {
       pattern: stored?.pattern || defaults.pattern || 'grid',
       mode: stored?.mode || defaults.mode || 'all',
-      selectedTabs: uniqueSelection(normalizeSelection(stored?.selectedTabs || defaults.selectedTabs || []))
+      selectedTabs: uniqueSelection(normalizeSelection(stored?.selectedTabs || defaults.selectedTabs || [])),
+      showTitle: typeof stored?.showTitle === 'boolean'
+        ? stored.showTitle
+        : (typeof defaults.showTitle === 'boolean' ? defaults.showTitle : true),
+      showSubtitle: typeof stored?.showSubtitle === 'boolean'
+        ? stored.showSubtitle
+        : (typeof defaults.showSubtitle === 'boolean' ? defaults.showSubtitle : true)
     };
 
     let currentTabs = readTabs();
@@ -269,6 +288,9 @@
     patternLabel.className = 'tabnav-pattern-label';
     titleWrap.appendChild(patternLabel);
 
+    applyPatternLabel();
+    applyHeaderVisibility();
+
     const buttonsWrap = document.createElement('div');
     buttonsWrap.className = 'tabnav-buttons';
     buttonsWrap.dataset.pattern = state.pattern;
@@ -293,6 +315,10 @@
     let overlayTabList = overlay.querySelector('[data-role="tab-list"]');
     let patternRadios = Array.from(overlay.querySelectorAll(`input[name="${patternRadioName}"]`));
     let modeRadios = Array.from(overlay.querySelectorAll(`input[name="${modeRadioName}"]`));
+    const displayToggleInputs = {
+      showTitle: overlay.querySelector('input[data-setting="showTitle"]'),
+      showSubtitle: overlay.querySelector('input[data-setting="showSubtitle"]')
+    };
 
     function buildOverlay(){
       const overlayEl = document.createElement('div');
@@ -316,6 +342,10 @@
             <section class="tabnav-section">
               <h3 class="tabnav-section-title">Darstellung</h3>
               <div class="tabnav-patterns" data-role="pattern-group">${patternChoices}</div>
+              <div class="tabnav-toggle-group" data-role="display-toggles">
+                <label class="tabnav-toggle"><input type="checkbox" data-setting="showTitle" /> <span>Modulname anzeigen</span></label>
+                <label class="tabnav-toggle"><input type="checkbox" data-setting="showSubtitle" /> <span>Hinweistext anzeigen</span></label>
+              </div>
             </section>
             <section class="tabnav-section">
               <h3 class="tabnav-section-title">Angezeigte Tabs</h3>
@@ -350,6 +380,7 @@
       document.body.classList.add('tabnav-modal-open');
       updatePatternRadios();
       updateModeRadios();
+      syncDisplayToggles();
       updateOverlayTabs();
       setTimeout(() => dialog.focus(), 0);
     }
@@ -377,8 +408,21 @@
 
     function applyPatternLabel(){
       const opt = PATTERN_OPTIONS.find(o => o.value === state.pattern);
-      const base = opt ? `Darstellung: ${opt.label}` : '';
-      patternLabel.textContent = base ? `${base} • Rechtsklick für Einstellungen` : 'Rechtsklick für Einstellungen';
+      const pieces = [];
+      if (opt) pieces.push(`Darstellung: ${opt.label}`);
+      pieces.push('Rechtsklick für Einstellungen');
+      patternLabel.textContent = state.showSubtitle ? pieces.join(' • ') : '';
+    }
+
+    function applyHeaderVisibility(){
+      const showTitle = !!state.showTitle;
+      const showSubtitle = !!state.showSubtitle;
+      if (title) title.style.display = showTitle ? '' : 'none';
+      if (patternLabel) patternLabel.style.display = showSubtitle ? '' : 'none';
+      const headerVisible = showTitle || showSubtitle;
+      if (header) header.style.display = headerVisible ? '' : 'none';
+      if (titleWrap) titleWrap.style.display = headerVisible ? '' : 'none';
+      surface.classList.toggle('tabnav-surface-compact', !headerVisible);
     }
 
     function updatePatternRadios(){
@@ -398,6 +442,18 @@
         if (label) label.classList.toggle('active', isChecked);
       });
     }
+
+    function syncDisplayToggles(){
+      Object.entries(displayToggleInputs).forEach(([key, input]) => {
+        if (!input) return;
+        const isChecked = !!state[key];
+        input.checked = isChecked;
+        const label = input.closest('.tabnav-toggle');
+        if (label) label.classList.toggle('active', isChecked);
+      });
+    }
+
+    syncDisplayToggles();
 
     function updateOverlayTabs(){
       if (!overlayTabList) return;
@@ -506,6 +562,8 @@
           : 'Keine Tabs verfügbar.';
       }
       applyPatternLabel();
+      applyHeaderVisibility();
+      syncDisplayToggles();
       updateOverlayTabs();
       updatePatternRadios();
       updateModeRadios();
@@ -530,6 +588,16 @@
 
     patternRadios.forEach(radio => radio.addEventListener('change', handlePatternChange));
     modeRadios.forEach(radio => radio.addEventListener('change', handleModeChange));
+    Object.entries(displayToggleInputs).forEach(([key, input]) => {
+      if (!input) return;
+      input.addEventListener('change', () => {
+        state[key] = !!input.checked;
+        persist();
+        applyPatternLabel();
+        applyHeaderVisibility();
+        syncDisplayToggles();
+      });
+    });
 
     if (selectAllBtn) {
       selectAllBtn.addEventListener('click', () => {
