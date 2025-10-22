@@ -88,11 +88,23 @@
     .tabnav-action:disabled{opacity:.55;cursor:not-allowed;}
     .tabnav-action-secondary{background:rgba(148,163,184,.18);color:inherit;box-shadow:none;}
     .tabnav-tab-list{display:flex;flex-direction:column;gap:.5rem;max-height:240px;overflow:auto;padding-right:.2rem;}
-    .tabnav-option{display:flex;align-items:center;gap:.55rem;padding:.5rem .6rem;border-radius:.7rem;
-      background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.2);font-size:.88rem;
+    .tabnav-option{display:flex;align-items:center;gap:.6rem;padding:.5rem .6rem;border-radius:.7rem;
+      background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.2);font-size:.88rem;transition:box-shadow .12s ease,background .12s ease,opacity .12s ease;
     }
-    .tabnav-option input{width:1rem;height:1rem;}
-    .tabnav-option span{flex:1;min-width:0;}
+    .tabnav-option.dragging{opacity:.85;box-shadow:0 14px 28px rgba(8,15,35,.45);}
+    .tabnav-option.drop-target-before{box-shadow:0 -2px 0 rgba(59,130,246,.65) inset;}
+    .tabnav-option.drop-target-after{box-shadow:0 2px 0 rgba(59,130,246,.65) inset;}
+    .tabnav-option[data-draggable="false"] .tabnav-option-handle{opacity:.35;cursor:not-allowed;}
+    .tabnav-option-label{display:flex;align-items:center;gap:.55rem;flex:1;min-width:0;}
+    .tabnav-option-label input{width:1rem;height:1rem;}
+    .tabnav-option-label span{flex:1;min-width:0;}
+    .tabnav-option-handle{width:1.8rem;height:1.8rem;display:inline-flex;align-items:center;justify-content:center;border-radius:.6rem;
+      background:rgba(148,163,184,.14);border:1px solid rgba(148,163,184,.22);cursor:grab;color:inherit;font-size:1.05rem;flex:0 0 auto;
+      transition:transform .12s ease,background .12s ease,border-color .12s ease;
+    }
+    .tabnav-option-handle:focus{outline:2px solid rgba(59,130,246,.55);outline-offset:3px;}
+    .tabnav-option-handle:active{cursor:grabbing;transform:scale(.95);}
+    .tabnav-option-handle:hover{background:rgba(37,99,235,.22);border-color:rgba(59,130,246,.45);}
     .tabnav-tab-list-empty{font-size:.82rem;opacity:.72;padding:.3rem 0;}
     .tabnav-dialog-footer{display:flex;justify-content:flex-end;padding:.9rem 1.25rem 1.15rem;border-top:1px solid rgba(148,163,184,.2);}
     .tabnav-footer-btn{appearance:none;border:none;border-radius:.75rem;padding:.55rem 1rem;font-weight:600;font-size:.9rem;
@@ -137,7 +149,8 @@
         mode: parsed.mode === 'custom' ? 'custom' : 'all',
         selectedTabs: Array.isArray(parsed.selectedTabs) ? parsed.selectedTabs : [],
         showTitle: typeof parsed.showTitle === 'boolean' ? parsed.showTitle : undefined,
-        showSubtitle: typeof parsed.showSubtitle === 'boolean' ? parsed.showSubtitle : undefined
+        showSubtitle: typeof parsed.showSubtitle === 'boolean' ? parsed.showSubtitle : undefined,
+        customOrder: Array.isArray(parsed.customOrder) ? parsed.customOrder : []
       };
     } catch (err) {
       console.warn('TabNavigator: Konnte Zustand nicht laden', err);
@@ -155,7 +168,8 @@
         mode: state.mode,
         selectedTabs: state.selectedTabs,
         showTitle: state.showTitle,
-        showSubtitle: state.showSubtitle
+        showSubtitle: state.showSubtitle,
+        customOrder: state.customOrder
       }));
     } catch (err) {
       console.warn('TabNavigator: Konnte Zustand nicht speichern', err);
@@ -182,6 +196,131 @@
       seen.add(key);
       return true;
     });
+  }
+
+  function toSelectionFromTab(tab){
+    return {
+      index: Number.isInteger(tab?.index) ? tab.index : null,
+      name: typeof tab?.name === 'string' ? tab.name : ''
+    };
+  }
+
+  function makeSelectionKey(entry){
+    const idx = Number.isInteger(entry?.index) ? entry.index : 'x';
+    const name = entry?.name ? String(entry.name) : '';
+    return `${idx}:::${name}`;
+  }
+
+  function decodeSelectionKey(key){
+    if (typeof key !== 'string') return { index: null, name: '' };
+    const [idxPart, ...nameParts] = key.split(':::');
+    const parsed = Number.parseInt(idxPart, 10);
+    return {
+      index: Number.isNaN(parsed) ? null : parsed,
+      name: nameParts.join(':::')
+    };
+  }
+
+  function selectionsEqual(a, b){
+    if (a === b) return true;
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (!a[i] || !b[i]) return false;
+      if (a[i].index !== b[i].index || a[i].name !== b[i].name) return false;
+    }
+    return true;
+  }
+
+  function buildDefaultOrderMap(tabs){
+    const map = new Map();
+    tabs.forEach((tab, idx) => {
+      const key = makeSelectionKey(toSelectionFromTab(tab));
+      if (!map.has(key)) map.set(key, idx);
+    });
+    return map;
+  }
+
+  function applyOrdering(tabs, customOrder, defaultOrderMap){
+    if (!Array.isArray(tabs) || !tabs.length) return [];
+    const orderMap = new Map();
+    if (Array.isArray(customOrder)) {
+      customOrder.forEach((entry, idx) => {
+        const key = makeSelectionKey(entry);
+        if (!orderMap.has(key)) orderMap.set(key, idx);
+      });
+    }
+    const fallbackMap = defaultOrderMap instanceof Map ? defaultOrderMap : new Map();
+    return tabs
+      .map(tab => ({ tab, key: makeSelectionKey(toSelectionFromTab(tab)) }))
+      .sort((a, b) => {
+        const rankA = orderMap.has(a.key) ? orderMap.get(a.key) : Number.POSITIVE_INFINITY;
+        const rankB = orderMap.has(b.key) ? orderMap.get(b.key) : Number.POSITIVE_INFINITY;
+        if (rankA !== rankB) return rankA - rankB;
+        const fallbackA = fallbackMap.has(a.key) ? fallbackMap.get(a.key) : Number.POSITIVE_INFINITY;
+        const fallbackB = fallbackMap.has(b.key) ? fallbackMap.get(b.key) : Number.POSITIVE_INFINITY;
+        if (fallbackA !== fallbackB) return fallbackA - fallbackB;
+        return a.tab.name.localeCompare(b.tab.name, 'de', { sensitivity: 'base' });
+      })
+      .map(entry => entry.tab);
+  }
+
+  function syncCustomOrderWithDisplayedTabs(displayedTabs){
+    if (!Array.isArray(displayedTabs)) return false;
+    if (!Array.isArray(state.customOrder)) {
+      state.customOrder = [];
+      return true;
+    }
+    if (!state.customOrder.length) return false;
+    const availableMap = new Map();
+    displayedTabs.forEach(tab => {
+      const selection = toSelectionFromTab(tab);
+      const key = makeSelectionKey(selection);
+      if (!availableMap.has(key)) {
+        availableMap.set(key, selection);
+      }
+    });
+    if (!availableMap.size) {
+      if (state.customOrder.length) {
+        state.customOrder = [];
+        return true;
+      }
+      return false;
+    }
+    const filtered = [];
+    const seen = new Set();
+    state.customOrder.forEach(entry => {
+      const key = makeSelectionKey(entry);
+      if (availableMap.has(key) && !seen.has(key)) {
+        filtered.push(availableMap.get(key));
+        seen.add(key);
+      }
+    });
+    availableMap.forEach((selection, key) => {
+      if (!seen.has(key)) {
+        filtered.push(selection);
+        seen.add(key);
+      }
+    });
+    if (!filtered.length) {
+      if (state.customOrder.length) {
+        state.customOrder = [];
+        return true;
+      }
+      return false;
+    }
+    if (!selectionsEqual(filtered, state.customOrder)) {
+      state.customOrder = filtered;
+      return true;
+    }
+    return false;
+  }
+
+  function getDefaultSelectionOrder(){
+    const tabs = currentTabs.slice();
+    const isAllMode = state.mode !== 'custom';
+    const selected = tabs.filter(tab => isAllMode || state.selectedTabs.some(sel => matchesSelection(sel, tab)));
+    return selected.map(toSelectionFromTab);
   }
 
   function readTabs(){
@@ -253,7 +392,8 @@
         : (typeof defaults.showTitle === 'boolean' ? defaults.showTitle : true),
       showSubtitle: typeof stored?.showSubtitle === 'boolean'
         ? stored.showSubtitle
-        : (typeof defaults.showSubtitle === 'boolean' ? defaults.showSubtitle : true)
+        : (typeof defaults.showSubtitle === 'boolean' ? defaults.showSubtitle : true),
+      customOrder: uniqueSelection(normalizeSelection(stored?.customOrder || defaults.customOrder || []))
     };
 
     let currentTabs = readTabs();
@@ -320,6 +460,11 @@
       showTitle: overlay.querySelector('input[data-setting="showTitle"]'),
       showSubtitle: overlay.querySelector('input[data-setting="showSubtitle"]')
     };
+    let dragHandlersBound = false;
+    let draggingKey = null;
+    let currentDropTarget = null;
+
+    setupDragAndDrop();
 
     function buildOverlay(){
       const overlayEl = document.createElement('div');
@@ -477,25 +622,63 @@
       if (showAllBtn) showAllBtn.disabled = false;
       if (clearBtn) clearBtn.disabled = false;
       const isAllMode = state.mode !== 'custom';
-      if (overlayHint) {
-        overlayHint.textContent = isAllMode
-          ? 'Alle Tabs werden angezeigt. Wähle „Ausgewählte Tabs“, um eine individuelle Auswahl festzulegen.'
-          : (state.selectedTabs.length
-              ? 'Aktiviere oder deaktiviere Tabs, um die Navigation anzupassen.'
-              : 'Es sind keine Tabs ausgewählt. Das Modul bleibt leer, bis du mindestens einen Tab aktivierst.');
+      const tabByKey = new Map();
+      tabs.forEach(tab => {
+        const key = makeSelectionKey(toSelectionFromTab(tab));
+        if (!tabByKey.has(key)) {
+          tabByKey.set(key, tab);
+        }
+      });
+      const orderedKeys = [];
+      const usedKeys = new Set();
+      if (Array.isArray(state.customOrder) && state.customOrder.length) {
+        state.customOrder.forEach(entry => {
+          const key = makeSelectionKey(entry);
+          if (usedKeys.has(key)) return;
+          if (tabByKey.has(key)) {
+            orderedKeys.push(key);
+            usedKeys.add(key);
+          }
+        });
       }
       tabs.forEach(tab => {
+        const key = makeSelectionKey(toSelectionFromTab(tab));
+        if (!usedKeys.has(key)) {
+          orderedKeys.push(key);
+          usedKeys.add(key);
+        }
+      });
+      const createdItems = [];
+      let selectedCount = 0;
+      orderedKeys.forEach(key => {
+        const tab = tabByKey.get(key);
+        if (!tab) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tabnav-option';
+        wrapper.dataset.tabKey = key;
+        const isSelected = isAllMode || state.selectedTabs.some(sel => matchesSelection(sel, tab));
+        wrapper.dataset.selected = isSelected ? 'true' : 'false';
+        if (isSelected) selectedCount += 1;
+
+        const handle = document.createElement('span');
+        handle.className = 'tabnav-option-handle';
+        handle.title = 'Ziehen, um die Reihenfolge zu ändern';
+        handle.setAttribute('aria-hidden', 'true');
+        handle.textContent = '☰';
+        wrapper.appendChild(handle);
+
         const label = document.createElement('label');
-        label.className = 'tabnav-option';
+        label.className = 'tabnav-option-label';
         const input = document.createElement('input');
         input.type = 'checkbox';
         input.value = String(tab.index);
-        const isSelected = isAllMode || state.selectedTabs.some(sel => matchesSelection(sel, tab));
         input.checked = isSelected;
         label.appendChild(input);
         const span = document.createElement('span');
         span.textContent = tab.name;
         label.appendChild(span);
+        wrapper.appendChild(label);
+
         input.addEventListener('change', () => {
           if (state.mode !== 'custom') {
             state.mode = 'custom';
@@ -517,24 +700,191 @@
           persist();
           renderButtons();
         });
-        overlayTabList.appendChild(label);
+
+        overlayTabList.appendChild(wrapper);
+        createdItems.push({ wrapper, handle, input, isSelected });
       });
+
+      const dragEnabled = selectedCount >= 2;
+      createdItems.forEach(item => {
+        const enabled = dragEnabled && item.isSelected;
+        item.handle.draggable = enabled;
+        item.wrapper.dataset.draggable = enabled ? 'true' : 'false';
+      });
+
+      if (overlayHint) {
+        const baseText = isAllMode
+          ? 'Alle Tabs werden angezeigt. Wähle „Ausgewählte Tabs“, um eine individuelle Auswahl festzulegen.'
+          : (state.selectedTabs.length
+              ? 'Aktiviere oder deaktiviere Tabs, um die Navigation anzupassen.'
+              : 'Es sind keine Tabs ausgewählt. Das Modul bleibt leer, bis du mindestens einen Tab aktivierst.');
+        const dragText = selectedCount >= 2
+          ? 'Tipp: Ziehe die markierten Einträge am Griff, um die Button-Reihenfolge anzupassen.'
+          : '';
+        overlayHint.textContent = [baseText, dragText].filter(Boolean).join(' ');
+      }
+      setupDragAndDrop();
+    }
+
+    function setupDragAndDrop(){
+      if (!overlayTabList || dragHandlersBound) return;
+      overlayTabList.addEventListener('dragstart', handleDragStart);
+      overlayTabList.addEventListener('dragover', handleDragOver);
+      overlayTabList.addEventListener('drop', handleDrop);
+      overlayTabList.addEventListener('dragend', handleDragEnd);
+      overlayTabList.addEventListener('dragleave', handleDragLeave);
+      dragHandlersBound = true;
+    }
+
+    function handleDragStart(event){
+      const handle = event.target.closest('.tabnav-option-handle');
+      if (!handle || !overlayTabList) return;
+      const item = handle.closest('.tabnav-option');
+      if (!item || item.dataset.draggable !== 'true') {
+        event.preventDefault();
+        return;
+      }
+      const checkbox = item.querySelector('input[type="checkbox"]');
+      if (!checkbox || !checkbox.checked) {
+        event.preventDefault();
+        return;
+      }
+      const selectedCount = overlayTabList.querySelectorAll('.tabnav-option input[type="checkbox"]:checked').length;
+      if (selectedCount < 2) {
+        event.preventDefault();
+        return;
+      }
+      draggingKey = item.dataset.tabKey || null;
+      if (!draggingKey) {
+        event.preventDefault();
+        return;
+      }
+      event.dataTransfer.effectAllowed = 'move';
+      try { event.dataTransfer.setData('text/plain', draggingKey); }
+      catch (err) { /* ignore */ }
+      item.classList.add('dragging');
+    }
+
+    function handleDragOver(event){
+      if (!overlayTabList || !draggingKey) return;
+      const draggingItem = overlayTabList.querySelector('.tabnav-option.dragging');
+      if (!draggingItem) return;
+      const target = event.target.closest('.tabnav-option');
+      if (!target || target === draggingItem) return;
+      event.preventDefault();
+      const rect = target.getBoundingClientRect();
+      const before = event.clientY - rect.top < rect.height / 2;
+      if (before) {
+        overlayTabList.insertBefore(draggingItem, target);
+        target.classList.add('drop-target-before');
+        target.classList.remove('drop-target-after');
+      } else {
+        overlayTabList.insertBefore(draggingItem, target.nextSibling);
+        target.classList.add('drop-target-after');
+        target.classList.remove('drop-target-before');
+      }
+      if (currentDropTarget && currentDropTarget !== target) {
+        currentDropTarget.classList.remove('drop-target-before', 'drop-target-after');
+      }
+      currentDropTarget = target;
+    }
+
+    function handleDrop(event){
+      if (!draggingKey) return;
+      event.preventDefault();
+    }
+
+    function handleDragLeave(event){
+      const target = event.target.closest('.tabnav-option');
+      if (!target || target !== currentDropTarget) return;
+      target.classList.remove('drop-target-before', 'drop-target-after');
+      currentDropTarget = null;
+    }
+
+    function handleDragEnd(){
+      if (!overlayTabList) return;
+      const draggingItem = overlayTabList.querySelector('.tabnav-option.dragging');
+      if (draggingItem) draggingItem.classList.remove('dragging');
+      clearDropIndicator();
+      if (!draggingKey) return;
+      draggingKey = null;
+      commitCustomOrderFromDom();
+    }
+
+    function clearDropIndicator(){
+      if (currentDropTarget) {
+        currentDropTarget.classList.remove('drop-target-before', 'drop-target-after');
+        currentDropTarget = null;
+      }
+    }
+
+    function commitCustomOrderFromDom(){
+      if (!overlayTabList) return;
+      const items = Array.from(overlayTabList.querySelectorAll('.tabnav-option'));
+      if (!items.length) return;
+      const order = items.reduce((acc, item) => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox && checkbox.checked) {
+          acc.push(decodeSelectionKey(item.dataset.tabKey || ''));
+        }
+        return acc;
+      }, []);
+      const normalizedOrder = uniqueSelection(normalizeSelection(order));
+      const defaultOrder = uniqueSelection(getDefaultSelectionOrder());
+      if (!normalizedOrder.length && defaultOrder.length) {
+        if (state.customOrder.length) {
+          state.customOrder = [];
+          persist();
+        }
+        renderButtons();
+        return;
+      }
+      if (selectionsEqual(normalizedOrder, defaultOrder)) {
+        if (state.customOrder.length) {
+          state.customOrder = [];
+          persist();
+        }
+        renderButtons();
+        return;
+      }
+      if (!selectionsEqual(normalizedOrder, state.customOrder)) {
+        state.customOrder = normalizedOrder;
+        persist();
+      }
+      renderButtons();
     }
 
     function renderButtons(){
       currentTabs = readTabs();
+      const defaultOrderMap = buildDefaultOrderMap(currentTabs);
       const { resolved, normalized } = resolveSelection(state.selectedTabs, currentTabs);
-      if (state.mode === 'custom' && JSON.stringify(normalized) !== JSON.stringify(state.selectedTabs)) {
-        state.selectedTabs = uniqueSelection(normalized);
-        persist();
+      let stateChanged = false;
+      if (!Array.isArray(state.customOrder)) {
+        state.customOrder = [];
+        stateChanged = true;
+      } else if (state.customOrder.length) {
+        const normalizedOrder = uniqueSelection(normalizeSelection(state.customOrder));
+        if (!selectionsEqual(normalizedOrder, state.customOrder)) {
+          state.customOrder = normalizedOrder;
+          stateChanged = true;
+        }
       }
-      const tabsToDisplay = state.mode === 'custom' ? resolved : currentTabs.slice();
+      if (state.mode === 'custom' && !selectionsEqual(normalized, state.selectedTabs)) {
+        state.selectedTabs = uniqueSelection(normalized);
+        stateChanged = true;
+      }
+      let tabsToDisplay = state.mode === 'custom' ? resolved.slice() : currentTabs.slice();
+      if (syncCustomOrderWithDisplayedTabs(tabsToDisplay)) {
+        stateChanged = true;
+      }
+      const orderedTabs = applyOrdering(tabsToDisplay, state.customOrder, defaultOrderMap);
+
       buttonsWrap.innerHTML = '';
       buttonsWrap.dataset.pattern = state.pattern;
-      if (tabsToDisplay.length) {
+      if (orderedTabs.length) {
         buttonsWrap.style.display = '';
         emptyState.style.display = 'none';
-        tabsToDisplay.forEach(tab => {
+        orderedTabs.forEach(tab => {
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'tabnav-button';
@@ -572,6 +922,7 @@
       updateOverlayTabs();
       updatePatternRadios();
       updateModeRadios();
+      if (stateChanged) persist();
     }
 
     function handlePatternChange(event){
