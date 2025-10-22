@@ -1586,6 +1586,47 @@
     } catch { return '{?}'; }
   }
 
+  // PATCH START: Parts helpers (structured + PNText parser)
+  function hasStructuredParts(partsObj){
+    if(!partsObj||typeof partsObj!=='object') return false;
+    return Object.keys(partsObj).some(k=>/^part\s*\d+$/i.test(k)&&String(partsObj[k]||'').trim());
+  }
+
+  function extractStructuredPartsGroup(partsObj){
+    if(!hasStructuredParts(partsObj)) return null;
+    const titleRaw=String(partsObj.PNText||'').trim();
+    const title=titleRaw.endsWith(':')?titleRaw.slice(0,-1).trim():titleRaw;
+    const items=[];
+    for(let i=1;i<=50;i++){
+      const p=String(partsObj[`Part ${i}`]||'').trim();
+      const q=String(partsObj[`Menge ${i}`]||'').trim();
+      if(!p&&!q) continue;
+      items.push({part:p,quantity:q||'1'});
+    }
+    return items.length?{title:title||'',parts:items}:null;
+  }
+
+  // Erlaubt: "2x", "2 x", "2×" als Multiplikator; Trenner: "+", ";", ",", Zeilenumbruch
+  function parsePnTextList(pnText){
+    const src=String(pnText||'').trim();
+    if(!src) return [];
+    const low=src.toLowerCase();
+    if(/keine teile|no parts|nicht zutreffend|not required/.test(low)) return [];
+    const chunks=src.split(/[\+\;\,\n]/).map(s=>s.trim()).filter(Boolean);
+    const items=[];
+    const rx=/^(\d+)\s*[x×]\s*(.+?)\s*$/i;
+    chunks.forEach(c=>{
+      const m=c.match(rx);
+      if(m){
+        const qty=m[1];
+        const part=m[2];
+        if(part) items.push({part:part.trim(),quantity:String(qty)});
+      }
+    });
+    return items;
+  }
+  // PATCH END
+
   function nsfKeepPartsBlock(src){
     // returns a clean, protected copy of the parts block
     const out={parts:'',partsDetails:null,partsSource:null};
@@ -2089,9 +2130,6 @@
           });
           if(titleText) usedTitles.add(titleText.toLowerCase());
           groupsOutput.push({title:titleText,rows:groupRows});
-        }else if(titleText){
-          usedTitles.add(titleText.toLowerCase());
-          groupsOutput.push({title:titleText,rows:[makeRow(titleText,'','',{sources:groupSources})]});
         }
       });
     }
@@ -5100,7 +5138,6 @@
       const addPartGroup=(group,sourceEntry)=>{
         if(!group||typeof group!=='object') return;
         const titleText=clean(group.title);
-        if(titleText) addBestellTitle(titleText);
         const rawParts=Array.isArray(group.parts)?group.parts:[];
         const filteredParts=[];
         const normalizedSource=sourceEntry&&typeof sourceEntry==='object'?sourceEntry:null;
@@ -5120,7 +5157,8 @@
           partPairSources.set(key,pairSources);
           filteredParts.push({part:partText,quantity:quantityText,sources:pairSources});
         });
-        if(filteredParts.length||titleText){
+        if(filteredParts.length){
+          if(titleText) addBestellTitle(titleText);
           const groupSources=Array.isArray(group.sources)?group.sources.filter(src=>src&&typeof src==='object'):[];
           if(normalizedSource&&!groupSources.length) groupSources.push(normalizedSource);
           partGroups.push({title:titleText,parts:filteredParts,sources:groupSources});
@@ -5187,6 +5225,15 @@
         const resolved=this.resolveEntry(selection)||selection;
         if(!primarySelectionForStorage) primarySelectionForStorage=selection;
         if(!primaryResolvedForStorage) primaryResolvedForStorage=resolved;
+        // PATCH START: Prefer structured Parts over PNText strings
+        let structuredBlock=(resolved&&typeof resolved.Parts==='object')?resolved.Parts:null;
+        if(!structuredBlock&&resolved&&typeof resolved.partsDetails==='object'){
+          structuredBlock=resolved.partsDetails;
+        }
+        if(structuredBlock&&hasStructuredParts(structuredBlock)){
+          resolved.partsDetails=structuredBlock;
+        }
+        // PATCH END
         // --- BEGIN NSF PARTS BLOCK PROTECT ---
         if(resolved&&typeof resolved==='object'){
           const pb=nsfKeepPartsBlock(resolved);
@@ -5248,19 +5295,6 @@
             resolved.partsDetails=fallbackDetails;
           }
         }
-
-        // PATCH START: Structured Parts detection (higher priority than PNText)
-        if(resolved&&resolved.Parts&&typeof resolved.Parts==='object'){
-          const hasStructured=
-            Object.keys(resolved.Parts).some(
-              k=>/^part\s*\d+$/i.test(k)&&resolved.Parts[k]?.trim()
-            );
-          if(hasStructured){
-            // structured parts override partsDetails STRING mode
-            resolved.partsDetails=resolved.Parts;
-          }
-        }
-        // PATCH END
 
         const partSource=createPartSource(resolved,selection);
         const findingText=resolved.finding||selection.finding||'';
@@ -5330,62 +5364,72 @@
       const resolved=primaryResolvedForStorage;
       let rawPartsList=Array.isArray(this.rawParts)?this.rawParts.slice():[];
 
-      // PATCH START: Auto-generate part groups from rawParts if no structured parts exist
-      if((!Array.isArray(partGroups)||!partGroups.length)&&Array.isArray(rawPartsList)&&rawPartsList.length){
-        // 1) Bestimme PNText aus resolved
-        let pnText='';
-        if(resolved&&resolved.partsDetails&&typeof resolved.partsDetails==='object'){
-          pnText=resolved.partsDetails.PNText||'';
-        }else if(resolved&&resolved.Parts&&typeof resolved.Parts==='object'){
-          pnText=resolved.Parts.PNText||'';
-        }
+      // PATCH START: Build partGroups in Priority Order (1=structured, 2=PNText list, 3=rawParts)
+      (function ensurePartGroups(){
+        const hasAnyGroup=Array.isArray(partGroups)&&partGroups.length>0;
+        if(hasAnyGroup) return; // schon vorhanden
 
-        // Fallback: falls PNText nicht vorhanden → Label nutzen
-        if(!pnText&&(resolved&&resolved.label)){
-          pnText=resolved.label;
-        }
-        pnText=(pnText||'').trim();
+        const pd=resolved&&resolved.partsDetails;
 
-        // "keine teile"-fälle überspringen
-        const pnLower=pnText.toLowerCase();
-        const noPartsMarker=
-          pnLower.includes('keine teile')||
-          pnLower.includes('no parts')||
-          pnLower.includes('keine teil')||
-          pnLower.includes('not required');
-
-        if(!noPartsMarker){
-          // Doppelpunkt entfernen (best practice)
-          if(pnText.endsWith(':')) pnText=pnText.slice(0,-1).trim();
-
-          // 2) rawPartsList in strukturierte gruppen transformieren
-          // smart merge: wenn mehrfach gleiche P/N, Menge addieren
-          const merged=new Map();
-          rawPartsList.forEach(item=>{
-            if(!item) return;
-            const p=(item.name||'').trim();
-            if(!p) return;
-            const qty=(item.qty||'').trim()||'1';
-            const key=p.toLowerCase();
-            if(merged.has(key)){
-              const existing=merged.get(key);
-              const newQty=String((parseFloat(existing.quantity)||0)+(parseFloat(qty)||0));
-              merged.set(key,{part:p,quantity:newQty});
-            }else{
-              merged.set(key,{part:p,quantity:qty});
-            }
-          });
-
-          // 3) Add to partGroups (matching buildPartsData format)
-          const groupParts=Array.from(merged.values());
-          if(groupParts.length){
-            partGroups.push({title:pnText,parts:groupParts});
+        // 1) Structured Parts
+        if(pd&&typeof pd==='object'&&hasStructuredParts(pd)){
+          const group=extractStructuredPartsGroup(pd);
+          if(group){
+            const title=group.title||String((resolved&&resolved.label)||'').trim();
+            partGroups.push({title,parts:group.parts});
+            return;
           }
         }
-      }
+
+        // 2) PNText-Liste → in Parts umwandeln
+        //    (nur, wenn pd ein STRING ist oder Objekt ohne echte Part-Felder)
+        let pnTextCandidate='';
+        if(typeof pd==='string'){
+          pnTextCandidate=pd;
+        }else if(pd&&typeof pd==='object'&&!hasStructuredParts(pd)){
+          pnTextCandidate=String(pd.PNText||'');
+        }else if(!pd&&resolved&&resolved.Parts&&typeof resolved.Parts==='object'){
+          pnTextCandidate=String(resolved.Parts.PNText||'');
+        }
+        const parsedFromPnText=parsePnTextList(pnTextCandidate);
+        if(parsedFromPnText.length){
+          let titleRaw=pnTextCandidate.trim();
+          if(titleRaw.endsWith(':')) titleRaw=titleRaw.slice(0,-1).trim();
+          const title=titleRaw||String((resolved&&resolved.label)||'').trim();
+          partGroups.push({title,parts:parsedFromPnText});
+          return;
+        }
+
+        // 3) rawParts Fallback (z. B. aus Vorstufen)
+        if(Array.isArray(rawPartsList)&&rawPartsList.length){
+          const merged=new Map();
+          rawPartsList.forEach(it=>{
+            if(!it) return;
+            const p=String(it.name||'').trim();
+            if(!p) return;
+            const q=String(it.qty||'').trim()||'1';
+            const key=p.toLowerCase();
+            if(merged.has(key)){
+              const ex=merged.get(key);
+              merged.set(key,{part:p,quantity:String((parseFloat(ex.quantity)||0)+(parseFloat(q)||0))});
+            }else{
+              merged.set(key,{part:p,quantity:q});
+            }
+          });
+          if(merged.size){
+            let title='';
+            if(pd&&typeof pd==='object'&&pd.PNText) title=String(pd.PNText).trim();
+            if(title.endsWith(':')) title=title.slice(0,-1).trim();
+            if(!title) title=String((resolved&&resolved.label)||'').trim();
+            const low=title.toLowerCase();
+            if(!/keine teile|no parts|nicht zutreffend|not required/.test(low)){
+              partGroups.push({title,parts:Array.from(merged.values())});
+            }
+          }
+        }
+      })();
       // PATCH END
 
-      // PATCH START: Bind partsData.rows to UI + Local fallback/persist
       const partsData=buildPartsData(bestellTitles,partGroups);
 
       // Build a stable storage key for this finding selection
