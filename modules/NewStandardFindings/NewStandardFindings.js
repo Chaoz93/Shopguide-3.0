@@ -1,6 +1,169 @@
 (function(){
   'use strict';
 
+  // ================================================================
+  // PATCH START — Parts Reader (Editor-Logik portiert, ohne Bindung)
+  // ================================================================
+
+  // Liefert die "Parts-Quelle" eines Findings-Objekts in ein einheitliches Format zurück.
+  // Unterstützt u.a.: entry.Parts (Objekt mit "Part 1"/"Menge 1"), entry.parts (Array),
+  // entry.partsPairs (Array aus {part, quantity}), alternative Schreibweisen "PN", "Qty".
+  function getPartsContainer(entry){
+    if(!entry||typeof entry!=='object') return null;
+
+    // 1) Moderne Arrays zuerst
+    if(Array.isArray(entry.partsPairs)&&entry.partsPairs.length) return {type:'pairs',data:entry.partsPairs};
+    if(Array.isArray(entry.parts)&&entry.parts.length) return {type:'pairs',data:entry.parts};
+
+    // 2) Klassischer Objektblock "Parts" (mit "Part 1" / "Menge 1" / "PN 1" / "Qty 1")
+    if(entry.Parts&&typeof entry.Parts==='object') return {type:'object',data:entry.Parts};
+
+    // 3) Manche speichern direkt "partsDetails" als Objekt (Legacy)
+    if(entry.partsDetails&&typeof entry.partsDetails==='object') return {type:'object',data:entry.partsDetails};
+
+    // 4) Nichts gefunden
+    return null;
+  }
+
+  // Extrahiert aus dem Container eine Normalform [{part, quantity}].
+  // Unterstützt Arrays (partsPairs/parts) und Objekt-Varianten ("Part 1"/"Menge 1", "PN 1"/"Qty 1").
+  function extractPartPairsFromContainer(container){
+    if(!container) return [];
+
+    // Array-Varianten (bereits halb-normalisiert)
+    if(container.type==='pairs'){
+      return container.data
+        .map(it=>({
+          part:String((it.part||it.PN||'')).trim(),
+          quantity:String((it.quantity||it.qty||it.Qty||it.Menge||'')).trim()||'1'
+        }))
+        .filter(it=>it.part);
+    }
+
+    // Objekt-Variante: "Part 1" / "Menge 1" / alternativ "PN 1" / "Qty 1"
+    if(container.type==='object'){
+      const obj=container.data||{};
+      const out=[];
+      for(let i=1;i<=50;i+=1){
+        const partKey1=`Part ${i}`;
+        const partKey2=`PN ${i}`;
+        const qtyKey1=`Menge ${i}`;
+        const qtyKey2=`Qty ${i}`;
+        const qtyKey3=`quantity ${i}`;
+        const p=String((obj[partKey1]??obj[partKey2]??'')).trim();
+        const q=String((obj[qtyKey1]??obj[qtyKey2]??obj[qtyKey3]??'')).trim()||(p?'1':'');
+        if(!p&&!q) continue;
+        if(!p) continue;
+        out.push({part:p,quantity:q||'1'});
+      }
+      return out;
+    }
+
+    return [];
+  }
+
+  // Kapselt die komplette Ermittlung: nimmt das gesamte Finding-Objekt,
+  // sucht die Parts-Quelle (egal in welcher Schreibweise) und liefert [{part, quantity}] sauber zurück.
+  function normalizePartsPairs(entry){
+    const container=getPartsContainer(entry);
+    const pairs=extractPartPairsFromContainer(container);
+    return pairs.filter(it=>!/^keine\s+teile/i.test(it.part));
+  }
+
+  function extractPnTextValue(entry){
+    if(!entry||typeof entry!=='object') return '';
+    const pnText=
+      entry&&entry.Parts&&entry.Parts.PNText?String(entry.Parts.PNText).trim():
+      entry&&entry.partsDetails&&entry.partsDetails.PNText?String(entry.partsDetails.PNText).trim():
+      entry&&entry.pnText?String(entry.pnText).trim():
+      '';
+    return pnText;
+  }
+
+  function renderPnTextHeader(container,entry){
+    try{
+      const pnText=extractPnTextValue(entry);
+      if(!pnText) return;
+      let hdr=container.querySelector('.nsf-pntext-header');
+      if(!hdr){
+        hdr=document.createElement('div');
+        hdr.className='nsf-pntext-header';
+        container.prepend(hdr);
+      }
+      hdr.textContent=pnText;
+    }catch(e){/* noop */}
+  }
+
+  function renderBestellListe(container,entry){
+    let list=container.querySelector('.nsf-bestellliste');
+    if(!list){
+      list=document.createElement('div');
+      list.className='nsf-bestellliste';
+      container.appendChild(list);
+    }
+    list.innerHTML='';
+
+    const pairs=normalizePartsPairs(entry);
+
+    if(!pairs.length){
+      const info=document.createElement('div');
+      info.className='nsf-parts-info';
+      info.innerHTML='<span class="nsf-info-icon" aria-hidden="true">ℹ️</span><span>Keine Teile erforderlich</span>';
+      list.appendChild(info);
+      return;
+    }
+
+    pairs.forEach(it=>{
+      const row=document.createElement('div');
+      row.className='nsf-part-row';
+
+      const pnCol=document.createElement('div');
+      pnCol.className='nsf-col nsf-col-pn';
+      pnCol.textContent='';
+      row.appendChild(pnCol);
+
+      const partCol=document.createElement('div');
+      partCol.className='nsf-col nsf-col-part';
+      partCol.textContent=String(it.part||'');
+      row.appendChild(partCol);
+
+      const qtyCol=document.createElement('div');
+      qtyCol.className='nsf-col nsf-col-qty';
+      qtyCol.textContent=String(it.quantity||'1');
+      row.appendChild(qtyCol);
+
+      list.appendChild(row);
+    });
+  }
+
+  (function injectNsfStyles(){
+    const id='nsf-parts-style';
+    if(document.getElementById(id)) return;
+    const st=document.createElement('style');
+    st.id=id;
+    st.textContent=`
+    .nsf-pntext-header{font-weight:600;margin-bottom:.25rem}
+    .nsf-bestellliste{display:flex;flex-direction:column;gap:.25rem}
+    .nsf-part-row{display:grid;grid-template-columns:1fr 3fr 1fr;gap:.5rem;align-items:center;padding:.25rem 0;border-bottom:1px solid rgba(0,0,0,.06)}
+    .nsf-part-row:last-child{border-bottom:none}
+    .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums}
+    .nsf-parts-info{display:flex;gap:.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);padding:.5rem;border-radius:.375rem;font-size:.95rem}
+    .nsf-info-icon{opacity:.8}
+  `;
+    document.head.appendChild(st);
+  })();
+
+  function renderFindingParts(containerEl,entry){
+    if(!containerEl) return;
+    renderPnTextHeader(containerEl,entry);
+    renderBestellListe(containerEl,entry);
+  }
+
+  // ================================================================
+  // PATCH END — Parts Reader
+  // ================================================================
+
   const DATA_URL='Findings_Shopguide.json';
   const DATA_KEY='sf-data';
   const FINDINGS_PATH_KEY='sf-findings-path';
@@ -1390,26 +1553,15 @@
       .nsf-alert{background:rgba(248,113,113,0.2);border-radius:0.75rem;padding:0.5rem 0.75rem;font-size:0.85rem;}
       .nsf-inline-info{font-size:0.8rem;opacity:0.7;}
       .nsf-hidden{display:none !important;}
-      .nsf-parts-grid{display:flex;flex-direction:column;gap:0.6rem;}
-      .nsf-part-group{display:flex;flex-direction:column;gap:0.45rem;background:rgba(15,23,42,0.22);border-radius:0.95rem;padding:0.6rem;border:1px solid rgba(148,163,184,0.18);}
-      .nsf-part-group+.nsf-part-group{margin-top:0.35rem;}
-      .nsf-part-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.55rem;}
-      .nsf-part-row+.nsf-part-row{border-top:1px solid rgba(148,163,184,0.18);padding-top:0.45rem;margin-top:0.45rem;}
-      .nsf-part-field{display:flex;flex-direction:column;gap:0.35rem;}
-      .nsf-part-field-label{font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.7;}
-      .nsf-part-field-input-wrapper{display:flex;align-items:center;gap:0.35rem;}
-      .nsf-part-field-input{flex:1;min-width:0;border:none;border-radius:0.65rem;padding:0.55rem 0.65rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
-      .nsf-part-field-input:focus{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
-      .nsf-part-field-input::placeholder{color:rgba(107,114,128,0.75);}
-      .nsf-part-copy-btn{flex:0 0 auto;background:rgba(255,255,255,0.16);border:none;border-radius:0.6rem;padding:0.35rem 0.5rem;color:inherit;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:0.25rem;transition:background 0.15s ease,transform 0.15s ease;}
-      .nsf-part-copy-btn:hover{background:rgba(255,255,255,0.28);transform:translateY(-1px);}
-      .nsf-part-copy-btn:active{transform:translateY(0);}
-      .nsf-part-copy-btn:disabled{opacity:0.45;cursor:not-allowed;transform:none;background:rgba(255,255,255,0.12);}
-      .nsf-part-copy-btn.copied{background:rgba(16,185,129,0.35);}
-      .nsf-part-copy-icon{pointer-events:none;}
-      .nsf-part-copy-feedback{font-size:0.7rem;opacity:0;transition:opacity 0.15s ease;}
-      .nsf-part-copy-btn.copied .nsf-part-copy-feedback{opacity:1;}
-      .nsf-part-field--interactive .nsf-part-field-input{cursor:context-menu;}
+      .nsf-parts-container{display:flex;flex-direction:column;gap:0.6rem;}
+      .nsf-pntext-header{font-weight:600;margin-bottom:0.25rem;}
+      .nsf-bestellliste{display:flex;flex-direction:column;gap:0.25rem;}
+      .nsf-part-row{display:grid;grid-template-columns:1fr 3fr 1fr;gap:0.5rem;align-items:center;padding:0.25rem 0;border-bottom:1px solid rgba(0,0,0,0.06);}
+      .nsf-part-row:last-child{border-bottom:none;}
+      .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums;}
+      .nsf-parts-info{display:flex;gap:0.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.08);padding:0.5rem;border-radius:0.375rem;font-size:0.95rem;}
+      .nsf-info-icon{opacity:0.8;}
       .nsf-part-context-menu{position:fixed;z-index:420;background:rgba(15,23,42,0.95);border-radius:0.75rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 18px 36px rgba(15,23,42,0.55);padding:0.35rem;display:flex;flex-direction:column;min-width:220px;}
       .nsf-part-context-menu-btn{background:transparent;border:none;border-radius:0.6rem;padding:0.5rem 0.75rem;font:inherit;color:#f8fafc;text-align:left;cursor:pointer;transition:background 0.15s ease;}
       .nsf-part-context-menu-btn:hover{background:rgba(59,130,246,0.22);}
@@ -3103,7 +3255,7 @@
       this.availableEntries=[];
       this.inputsContainer=null;
       this.textareas={};
-      this.partsRows=[];
+      this.partsEntry=null;
       this.partsFieldContainer=null;
       this.customSections=[];
       this.customSlots=[];
@@ -4202,7 +4354,7 @@
           box.append(head,textarea);
           ensureTextareaAutoResize(textarea);
           const partsContainer=document.createElement('div');
-          partsContainer.className='nsf-parts-grid';
+          partsContainer.className='nsf-parts-container';
           this.partsFieldContainer=partsContainer;
           box.appendChild(partsContainer);
         }else{
@@ -4510,7 +4662,8 @@
         this.rawTimes=[];
         this.rawMods=[];
         this.currentLabel='';
-        return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',partsRows:[]};
+        this.partsEntry=null;
+        return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',partsEntry:null};
       }
       const lists={
         findings:[],
@@ -4592,6 +4745,9 @@
             modEntries.push(line);
           });
       };
+      const aggregatedParts=[];
+      const pnTextSet=new Set();
+      const pnTextList=[];
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
         const findingText=resolved.finding||selection.finding||'';
@@ -4612,33 +4768,69 @@
         pushBlock('routine',routineText);
         collectTimes(resolved.times||'');
         collectMods(resolved.mods||'');
+        const pnTextCandidate=extractPnTextValue(resolved);
+        const pnTextNormalized=clean(pnTextCandidate);
+        if(pnTextNormalized){
+          const pnKey=pnTextNormalized.toLowerCase();
+          if(!pnTextSet.has(pnKey)){
+            pnTextSet.add(pnKey);
+            pnTextList.push(pnTextNormalized);
+          }
+        }
+        const resolvedPairs=normalizePartsPairs(resolved);
+        if(Array.isArray(resolvedPairs)&&resolvedPairs.length){
+          resolvedPairs.forEach(pair=>{
+            const partText=clean(pair.part);
+            if(!partText) return;
+            const quantityText=clean(pair.quantity)||'1';
+            aggregatedParts.push({part:partText,quantity:quantityText});
+          });
+        }
       }
-      // parts will be supplied by normalizePartsPairs later
-      const partsPairs=[];
-      const partsRows=[];
+      const normalizedPairs=aggregatedParts.map(pair=>({part:pair.part,quantity:pair.quantity}));
+      const partsLines=normalizedPairs
+        .map(pair=>{
+          const qty=pair.quantity||'';
+          const part=pair.part||'';
+          if(qty&&part) return `${qty}x ${part}`;
+          return part;
+        })
+        .filter(Boolean);
+      const partsText=partsLines.join('\n');
+      const pnTextHeader=pnTextList.join(' • ');
+      const partsEntry=(pnTextHeader||normalizedPairs.length)
+        ?{pnText:pnTextHeader,partsPairs:normalizedPairs.map(pair=>({part:pair.part,quantity:pair.quantity}))}
+        :null;
+      const placeholderPairs=normalizedPairs.map(pair=>({
+        part:pair.part,
+        quantity:pair.quantity,
+        name:pair.part,
+        qty:pair.quantity
+      }));
       this.rawFindings=lists.findings.slice();
       this.rawActions=lists.actions.slice();
       this.rawRoutine=lists.routine.slice();
       this.rawNonroutineFindings=lists.nonroutine.slice();
-      this.rawParts=partsPairs.slice();
+      this.rawParts=placeholderPairs;
       this.rawTimes=timeEntries.slice();
       this.rawMods=modEntries.slice();
       this.currentLabel=primaryLabel;
+      this.partsEntry=partsEntry;
       return {
         findings:lists.findings.join('\n'),
         actions:lists.actions.join('\n'),
         routine:lists.routine.join('\n\n'),
         nonroutine:lists.nonroutine.join('\n'),
-        parts:'',
-        partsRows
+        parts:partsText,
+        partsEntry:partsEntry
       };
     }
 
     syncOutputsWithSelections(options){
       const opts=options||{};
       const computed=this.buildOutputsFromSelections();
-      const effectiveRows=opts.forceEmpty?[]:(Array.isArray(computed.partsRows)?computed.partsRows:[]);
-      this.partsRows=effectiveRows;
+      const effectiveEntry=opts.forceEmpty?null:(computed.partsEntry||null);
+      this.partsEntry=effectiveEntry;
       let changed=false;
       const storedTemplate=typeof this.activeState?.freitextTemplate==='string'?this.activeState.freitextTemplate:'';
       const legacyRoutine=typeof this.activeState?.routine==='string'?this.activeState.routine:'';
@@ -4686,14 +4878,14 @@
           }
         }
       }
-      this.renderPartsRows(this.partsRows);
+      this.renderPartsRows(this.partsEntry);
       this.refreshRoutineEditorDerivedLines(computed);
       if(changed&&opts.persist!==false){
         this.queueStateSave();
       }
     }
 
-    renderPartsRows(rows){
+    renderPartsRows(entry){
       const container=this.partsFieldContainer;
       if(!container) return;
       container.innerHTML='';
@@ -4704,106 +4896,7 @@
         container.appendChild(note);
         return;
       }
-      const groups=Array.isArray(rows)?rows.filter(group=>group&&typeof group==='object'):[];
-      const items=groups.length?groups:[{
-        title:'',
-        rows:[{
-          pnLabel:'PN 1',pnValue:'',
-          partLabel:'Part 1',partValue:'',
-          quantityLabel:'Menge 1',quantityValue:''
-        }]
-      }];
-      const makeField=(labelText,value,placeholder,options={})=>{
-        const field=document.createElement('label');
-        field.className='nsf-part-field';
-        const label=document.createElement('span');
-        label.className='nsf-part-field-label';
-        label.textContent=labelText||'';
-        const input=document.createElement('input');
-        input.type='text';
-        input.className='nsf-part-field-input';
-        const displayValue=clean(value);
-        input.value=displayValue;
-        input.placeholder=placeholder||'';
-        input.title=displayValue||placeholder||'';
-        input.readOnly=true;
-        input.addEventListener('focus',()=>{input.select();});
-        input.addEventListener('click',()=>{input.select();});
-        const copyBtn=document.createElement('button');
-        copyBtn.type='button';
-        copyBtn.className='nsf-part-copy-btn';
-        copyBtn.title=`${labelText||'Feld'} kopieren`;
-        copyBtn.setAttribute('aria-label',copyBtn.title);
-        const icon=document.createElement('span');
-        icon.className='nsf-part-copy-icon';
-        icon.textContent='📋';
-        const feedback=document.createElement('span');
-        feedback.className='nsf-part-copy-feedback';
-        feedback.textContent='✅';
-        copyBtn.append(icon,feedback);
-        copyBtn.disabled=!displayValue;
-        copyBtn.addEventListener('click',()=>{
-          input.select();
-          copyText(input.value).then(success=>{
-            if(!success) return;
-            copyBtn.classList.add('copied');
-            setTimeout(()=>copyBtn.classList.remove('copied'),1200);
-          });
-        });
-        const wrapper=document.createElement('div');
-        wrapper.className='nsf-part-field-input-wrapper';
-        wrapper.append(input,copyBtn);
-        field.append(label,wrapper);
-        if(options&&typeof options.onContextMenu==='function'){
-          input.addEventListener('contextmenu',event=>{
-            event.preventDefault();
-            event.stopPropagation();
-            options.onContextMenu(event);
-          });
-          field.classList.add('nsf-part-field--interactive');
-        }
-        return field;
-      };
-      items.forEach(group=>{
-        const groupWrapper=document.createElement('div');
-        groupWrapper.className='nsf-part-group';
-        const rowsList=Array.isArray(group.rows)?group.rows.filter(row=>row&&typeof row==='object'):[];
-        const groupRows=rowsList.length?rowsList:[{
-          pnLabel:'PN 1',pnValue:'',
-          partLabel:'Part 1',partValue:'',
-          quantityLabel:'Menge 1',quantityValue:''
-        }];
-        groupRows.forEach(rowData=>{
-          const row=document.createElement('div');
-          row.className='nsf-part-row';
-          const sources=Array.isArray(rowData.sources)?rowData.sources:[];
-          const pnField=makeField(rowData.pnLabel,rowData.pnValue,'PN-Text',{
-            onContextMenu:event=>{
-              this.openPartsRowContextMenu(event,rowData,sources);
-            }
-          });
-          row.append(
-            pnField,
-            makeField(rowData.partLabel,rowData.partValue,'Teilenummer'),
-            makeField(rowData.quantityLabel,rowData.quantityValue,'Menge')
-          );
-          // PATCH START: Source badge + tooltip
-          const origin=(rowData&&rowData._origin)||'auto';
-          const badge=document.createElement('span');
-          badge.className='nsf-part-origin';
-          if(origin==='local'){
-            badge.textContent='🟡';
-            badge.title='Quelle: Local override (LocalStorage)';
-          }else{
-            badge.textContent='🟢';
-            badge.title='Quelle: Auto';
-          }
-          row.appendChild(badge);
-          // PATCH END
-          groupWrapper.appendChild(row);
-        });
-        container.appendChild(groupWrapper);
-      });
+      renderFindingParts(container,entry||null);
     }
 
     buildPartsRowMapping(rowData){
@@ -7485,8 +7578,8 @@
         ? this.rawParts
             .map(entry=>{
               if(!entry||typeof entry!=='object') return '';
-              const qty=clean(entry.qty);
-              const name=clean(entry.name);
+              const qty=clean(entry.qty!=null?entry.qty:entry.quantity);
+              const name=clean(entry.name!=null?entry.name:entry.part);
               if(qty&&name) return `${qty}x ${name}`;
               if(qty) return `${qty}x`;
               return name;
