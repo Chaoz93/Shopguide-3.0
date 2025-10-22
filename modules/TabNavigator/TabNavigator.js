@@ -32,6 +32,8 @@
       box-shadow:0 6px 16px rgba(8,15,35,.25);transition:transform .12s ease,box-shadow .12s ease,background .12s ease;
     }
     .tabnav-button:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(8,15,35,.32);background:rgba(37,99,235,.18);}
+    .tabnav-button.tabnav-button-active,
+    .tabnav-button.tabnav-button-active:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(8,15,35,.32);background:rgba(37,99,235,.18);}
     .tabnav-button:active{transform:none;box-shadow:0 4px 12px rgba(8,15,35,.2);}
     .tabnav-empty{margin:0;font-size:.88rem;opacity:.75;text-align:center;padding:1.4rem 1rem;border-radius:.75rem;
       background:rgba(15,23,42,.55);border:1px dashed rgba(148,163,184,.24);
@@ -192,7 +194,8 @@
       const rawIdx = item.dataset.tabIndex;
       const parsed = rawIdx === undefined ? NaN : Number.parseInt(rawIdx, 10);
       const index = Number.isNaN(parsed) ? fallbackIndex : parsed;
-      return { index, name: label };
+      const isActive = item.classList.contains('tab-active');
+      return { index, name: label, isActive };
     }).sort((a, b) => {
       if (a.index !== b.index) return a.index - b.index;
       return a.name.localeCompare(b.name, 'de', { sensitivity: 'base' });
@@ -537,6 +540,10 @@
           btn.className = 'tabnav-button';
           btn.dataset.tabIndex = String(tab.index);
           btn.textContent = tab.name;
+          if (tab.isActive) {
+            btn.classList.add('tabnav-button-active');
+            btn.setAttribute('aria-current', 'page');
+          }
           btn.addEventListener('click', () => {
             try {
               if (typeof window.activateTab === 'function') {
@@ -662,7 +669,7 @@
       observer = new MutationObserver(() => {
         renderButtons();
       });
-      observer.observe(containerEl, { childList: true, subtree: true, characterData: true });
+      observer.observe(containerEl, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] });
     }
 
     if (document.readyState === 'loading') {
