@@ -2,6 +2,384 @@
   'use strict';
 
   // ================================================================
+  // Global Parts Mapping Helpers
+  // ================================================================
+
+  const NSF_PARTS_MAPPING_STORAGE_KEY='nsfPartsMapping';
+
+  function loadGlobalPartsMapping(){
+    try{
+      const raw=window.localStorage.getItem(NSF_PARTS_MAPPING_STORAGE_KEY);
+      if(!raw) return {};
+      const parsed=JSON.parse(raw);
+      return parsed&&typeof parsed==='object'?parsed:{};
+    }catch(e){
+      return {};
+    }
+  }
+
+  function saveGlobalPartsMapping(mapping){
+    try{
+      if(!mapping||typeof mapping!=='object'){
+        window.localStorage.removeItem(NSF_PARTS_MAPPING_STORAGE_KEY);
+        return;
+      }
+      window.localStorage.setItem(NSF_PARTS_MAPPING_STORAGE_KEY,JSON.stringify(mapping));
+    }catch(e){/* noop */}
+  }
+
+  function getNumberedPartKeys(partsObj){
+    if(!partsObj||typeof partsObj!=='object') return [];
+    const numbers=new Set();
+    Object.keys(partsObj).forEach(key=>{
+      const normalizedKey=typeof key==='string'?key.trim():'';
+      if(!normalizedKey||/pntext/i.test(normalizedKey)) return;
+      let match=/(?:^|\b)(?:part|pn|menge|qty|quantity)[\s_-]*(\d+)/i.exec(normalizedKey);
+      if(!match){
+        match=/(\d{1,3})$/.exec(normalizedKey);
+      }
+      if(match){
+        const num=Number(match[1]);
+        if(Number.isFinite(num)&&num>0&&num<=50) numbers.add(num);
+      }
+    });
+    return Array.from(numbers).sort((a,b)=>a-b);
+  }
+
+  function applyGlobalPartsMapping(partsObj,mappingOverride){
+    if(!partsObj||typeof partsObj!=='object') return [];
+    const mapping=mappingOverride&&typeof mappingOverride==='object'?mappingOverride:loadGlobalPartsMapping();
+    const lowerKeyMap={};
+    Object.keys(partsObj).forEach(key=>{
+      lowerKeyMap[key.toLowerCase()]=key;
+    });
+
+    function resolveValue(candidateKey){
+      if(!candidateKey||/pntext/i.test(candidateKey)) return '';
+      if(Object.prototype.hasOwnProperty.call(partsObj,candidateKey)){
+        return partsObj[candidateKey];
+      }
+      const mappedKey=lowerKeyMap[candidateKey.toLowerCase()];
+      if(mappedKey){
+        return partsObj[mappedKey];
+      }
+      return '';
+    }
+
+    function collectValue(prefix,num,defaults){
+      const mappingKey=`${prefix}_${num}`;
+      const candidates=[];
+      const mapped=typeof mapping[mappingKey]==='string'?mapping[mappingKey].trim():'';
+      if(mapped) candidates.push(mapped);
+      defaults.forEach(def=>{
+        const candidate=`${def} ${num}`;
+        if(!candidates.includes(candidate)) candidates.push(candidate);
+      });
+      for(let i=0;i<candidates.length;i+=1){
+        const candidate=candidates[i];
+        if(/pntext/i.test(candidate)) continue;
+        const value=resolveValue(candidate);
+        if(value!==undefined&&value!==null&&String(value).trim()){
+          return {value:String(value).trim(),key:candidate};
+        }
+      }
+      return {value:'',key:null};
+    }
+
+    const numbers=getNumberedPartKeys(partsObj);
+    const result=[];
+    numbers.forEach(num=>{
+      const partInfo=collectValue('part',num,['Part','PN']);
+      const partValue=partInfo.value;
+      if(!partValue) return;
+      const qtyInfo=collectValue('qty',num,['Menge','Qty','quantity']);
+      const qtyValue=qtyInfo.value;
+      result.push({part:partValue,quantity:qtyValue||'1'});
+    });
+    return result;
+  }
+
+  function nsfRenderPnTextHeader(containerEl,entry){
+    if(!containerEl) return;
+    try{
+      const pnText=extractPnTextValue(entry);
+      if(!pnText) return;
+      let header=containerEl.querySelector('.nsf-pntext-header');
+      if(!header){
+        header=document.createElement('div');
+        header.className='nsf-pntext-header';
+        containerEl.prepend(header);
+      }
+      header.textContent=pnText;
+    }catch(e){/* noop */}
+  }
+
+  function ensurePartsMappingModalStyles(){
+    const id='nsf-parts-mapping-style';
+    if(document.getElementById(id)) return;
+    const st=document.createElement('style');
+    st.id=id;
+    st.textContent=`
+    .nsf-mapping-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:9999}
+    .nsf-mapping-modal{background:#fff;color:#1a1a1a;max-width:520px;width:100%;border-radius:8px;box-shadow:0 24px 48px rgba(15,23,42,.25);padding:1.5rem;font-family:inherit}
+    .nsf-mapping-modal h2{margin:0 0 1rem;font-size:1.25rem;font-weight:600}
+    .nsf-mapping-modal p{margin:.25rem 0 1.25rem;color:#4b5563;font-size:.95rem}
+    .nsf-mapping-table{width:100%;border-collapse:collapse;margin-bottom:1.25rem;font-size:.95rem}
+    .nsf-mapping-table th{text-align:left;padding:.5rem .25rem;color:#374151;font-weight:600;border-bottom:1px solid rgba(148,163,184,.4)}
+    .nsf-mapping-table td{padding:.5rem .25rem;border-bottom:1px solid rgba(148,163,184,.25)}
+    .nsf-mapping-table tr:last-child td{border-bottom:none}
+    .nsf-mapping-table select{width:100%;padding:.35rem .5rem;border:1px solid rgba(148,163,184,.8);border-radius:6px;background:#f9fafb;color:#111827;font-size:.9rem}
+    .nsf-mapping-actions{display:flex;justify-content:flex-end;gap:.75rem}
+    .nsf-mapping-actions button{min-width:96px;padding:.45rem .9rem;border-radius:6px;border:1px solid transparent;font-weight:600;font-size:.95rem;cursor:pointer;font-family:inherit}
+    .nsf-mapping-actions button.nsf-btn-cancel{background:#fff;color:#1f2937;border-color:rgba(148,163,184,.6)}
+    .nsf-mapping-actions button.nsf-btn-save{background:#2563eb;color:#fff}
+    .nsf-mapping-actions button:focus{outline:2px solid #3b82f6;outline-offset:2px}
+    `;
+    document.head.appendChild(st);
+  }
+
+  function nsfRenderBestellListe(containerEl,entry){
+    if(!containerEl) return;
+    let list=containerEl.querySelector('.nsf-bestellliste');
+    if(!list){
+      list=document.createElement('div');
+      list.className='nsf-bestellliste';
+      containerEl.appendChild(list);
+    }
+    if(!list.__nsfPartsMappingContext){
+      list.addEventListener('contextmenu',evt=>{
+        evt.preventDefault();
+        openPartsMappingModal(containerEl,containerEl.__nsfCurrentEntry||entry||null);
+      });
+      list.__nsfPartsMappingContext=true;
+    }
+
+    const pairs=normalizePartsPairs(entry);
+
+    list.innerHTML='';
+
+    if(!pairs.length){
+      const info=document.createElement('div');
+      info.className='nsf-parts-info';
+      info.innerHTML='<span class="nsf-info-icon" aria-hidden="true">ℹ️</span><span>Keine Teile erforderlich</span>';
+      list.appendChild(info);
+      return;
+    }
+
+    pairs.forEach(pair=>{
+      const row=document.createElement('div');
+      row.className='nsf-part-row';
+
+      const pnCol=document.createElement('div');
+      pnCol.className='nsf-col nsf-col-pn';
+      pnCol.textContent='';
+      row.appendChild(pnCol);
+
+      const partCol=document.createElement('div');
+      partCol.className='nsf-col nsf-col-part';
+      partCol.textContent=String(pair.part||'');
+      row.appendChild(partCol);
+
+      const qtyCol=document.createElement('div');
+      qtyCol.className='nsf-col nsf-col-qty';
+      qtyCol.textContent=String(pair.quantity||'1');
+      row.appendChild(qtyCol);
+
+      list.appendChild(row);
+    });
+  }
+
+  function openPartsMappingModal(containerEl,entry){
+    const containerInfo=getPartsContainer(entry);
+    if(!containerInfo||containerInfo.type!=='object') return;
+    const partsObj=containerInfo.data||{};
+    const numbers=getNumberedPartKeys(partsObj);
+    if(!numbers.length) return;
+
+    ensurePartsMappingModalStyles();
+
+    const availableKeys=Object.keys(partsObj).filter(key=>!key||!/pntext/i.test(key));
+    const overlay=document.createElement('div');
+    overlay.className='nsf-mapping-overlay';
+    const modal=document.createElement('div');
+    modal.className='nsf-mapping-modal';
+    overlay.appendChild(modal);
+
+    const title=document.createElement('h2');
+    title.textContent='Parts Mapping';
+    modal.appendChild(title);
+
+    const description=document.createElement('p');
+    description.textContent='Ordne die JSON-Schlüssel den Parts-Spalten zu. Diese Einstellung gilt global.';
+    modal.appendChild(description);
+
+    const table=document.createElement('table');
+    table.className='nsf-mapping-table';
+    const thead=document.createElement('thead');
+    const headRow=document.createElement('tr');
+    ['Position','Part-Key','Menge-Key'].forEach(label=>{
+      const th=document.createElement('th');
+      th.textContent=label;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody=document.createElement('tbody');
+    table.appendChild(tbody);
+
+    const currentMapping=loadGlobalPartsMapping();
+    const partSelects={};
+    const qtySelects={};
+
+    function ensureOption(select,value,label){
+      if(!value) return;
+      let option=Array.from(select.options).find(opt=>opt.value===value);
+      if(!option){
+        option=document.createElement('option');
+        option.value=value;
+        option.textContent=label||value;
+        select.appendChild(option);
+      }
+    }
+
+    numbers.forEach(num=>{
+      const row=document.createElement('tr');
+
+      const posCell=document.createElement('td');
+      posCell.textContent=String(num);
+      row.appendChild(posCell);
+
+      const partCell=document.createElement('td');
+      const partSelect=document.createElement('select');
+      const autoPartOption=document.createElement('option');
+      autoPartOption.value='';
+      autoPartOption.textContent=`Auto (Part ${num})`;
+      partSelect.appendChild(autoPartOption);
+      availableKeys.forEach(key=>{
+        const option=document.createElement('option');
+        option.value=key;
+        option.textContent=key;
+        partSelect.appendChild(option);
+      });
+      const savedPart=currentMapping[`part_${num}`];
+      if(savedPart&& !/pntext/i.test(savedPart)){
+        ensureOption(partSelect,savedPart,savedPart);
+        partSelect.value=savedPart;
+      }else{
+        partSelect.value='';
+      }
+      partCell.appendChild(partSelect);
+      partSelects[num]=partSelect;
+      row.appendChild(partCell);
+
+      const qtyCell=document.createElement('td');
+      const qtySelect=document.createElement('select');
+      const autoQtyOption=document.createElement('option');
+      autoQtyOption.value='';
+      autoQtyOption.textContent=`Auto (Menge ${num})`;
+      qtySelect.appendChild(autoQtyOption);
+      availableKeys.forEach(key=>{
+        const option=document.createElement('option');
+        option.value=key;
+        option.textContent=key;
+        qtySelect.appendChild(option);
+      });
+      const savedQty=currentMapping[`qty_${num}`];
+      if(savedQty&& !/pntext/i.test(savedQty)){
+        ensureOption(qtySelect,savedQty,savedQty);
+        qtySelect.value=savedQty;
+      }else{
+        qtySelect.value='';
+      }
+      qtyCell.appendChild(qtySelect);
+      qtySelects[num]=qtySelect;
+      row.appendChild(qtyCell);
+
+      tbody.appendChild(row);
+    });
+
+    modal.appendChild(table);
+
+    const actions=document.createElement('div');
+    actions.className='nsf-mapping-actions';
+
+    const cancelBtn=document.createElement('button');
+    cancelBtn.type='button';
+    cancelBtn.className='nsf-btn-cancel';
+    cancelBtn.textContent='Abbrechen';
+    cancelBtn.addEventListener('click',closeModal);
+    actions.appendChild(cancelBtn);
+
+    const saveBtn=document.createElement('button');
+    saveBtn.type='button';
+    saveBtn.className='nsf-btn-save';
+    saveBtn.textContent='Speichern';
+    saveBtn.addEventListener('click',()=>{
+      const updatedMapping=Object.assign({},loadGlobalPartsMapping());
+      numbers.forEach(num=>{
+        const partValue=partSelects[num].value&& !/pntext/i.test(partSelects[num].value)?partSelects[num].value.trim():'';
+        const qtyValue=qtySelects[num].value&& !/pntext/i.test(qtySelects[num].value)?qtySelects[num].value.trim():'';
+        const partKey=`part_${num}`;
+        const qtyKey=`qty_${num}`;
+        if(partValue){
+          updatedMapping[partKey]=partValue;
+        }else{
+          delete updatedMapping[partKey];
+        }
+        if(qtyValue){
+          updatedMapping[qtyKey]=qtyValue;
+        }else{
+          delete updatedMapping[qtyKey];
+        }
+      });
+      saveGlobalPartsMapping(updatedMapping);
+      closeModal();
+      if(containerEl){
+        containerEl.dispatchEvent(new CustomEvent('nsf-mapping-updated'));
+      }
+    });
+    actions.appendChild(saveBtn);
+
+    modal.appendChild(actions);
+
+    function closeModal(){
+      window.removeEventListener('keydown',onKeyDown,true);
+      if(overlay&&overlay.parentNode){
+        overlay.parentNode.removeChild(overlay);
+      }
+    }
+
+    function onKeyDown(evt){
+      if(evt.key==='Escape'){closeModal();}
+    }
+
+    overlay.addEventListener('click',evt=>{
+      if(evt.target===overlay) closeModal();
+    });
+    window.addEventListener('keydown',onKeyDown,true);
+
+    document.body.appendChild(overlay);
+    saveBtn.focus();
+  }
+
+  function renderFindingPartsWithGlobalMapping(containerEl,entry){
+    if(!containerEl) return;
+    containerEl.__nsfCurrentEntry=entry||null;
+    if(!containerEl.__nsfMappingListener){
+      const handler=()=>{
+        const currentEntry=containerEl.__nsfCurrentEntry||entry||null;
+        nsfRenderPnTextHeader(containerEl,currentEntry);
+        nsfRenderBestellListe(containerEl,currentEntry);
+      };
+      containerEl.addEventListener('nsf-mapping-updated',handler);
+      containerEl.__nsfMappingListener=handler;
+    }
+    nsfRenderPnTextHeader(containerEl,entry);
+    nsfRenderBestellListe(containerEl,entry);
+  }
+
+  // ================================================================
   // PATCH START — Parts Reader (Editor-Logik portiert, ohne Bindung)
   // ================================================================
 
@@ -66,8 +444,19 @@
   // sucht die Parts-Quelle (egal in welcher Schreibweise) und liefert [{part, quantity}] sauber zurück.
   function normalizePartsPairs(entry){
     const container=getPartsContainer(entry);
-    const pairs=extractPartPairsFromContainer(container);
-    return pairs.filter(it=>!/^keine\s+teile/i.test(it.part));
+    if(!container) return [];
+    let pairs=[];
+    if(container.type==='object'){
+      const mappedPairs=applyGlobalPartsMapping(container.data,loadGlobalPartsMapping());
+      if(mappedPairs&&mappedPairs.length){
+        pairs=mappedPairs;
+      }else{
+        pairs=extractPartPairsFromContainer(container);
+      }
+    }else{
+      pairs=extractPartPairsFromContainer(container);
+    }
+    return (pairs||[]).filter(it=>it&&it.part&&!/^keine\s+teile/i.test(String(it.part)));
   }
 
   function extractPnTextValue(entry){
@@ -78,62 +467,6 @@
       entry&&entry.pnText?String(entry.pnText).trim():
       '';
     return pnText;
-  }
-
-  function renderPnTextHeader(container,entry){
-    try{
-      const pnText=extractPnTextValue(entry);
-      if(!pnText) return;
-      let hdr=container.querySelector('.nsf-pntext-header');
-      if(!hdr){
-        hdr=document.createElement('div');
-        hdr.className='nsf-pntext-header';
-        container.prepend(hdr);
-      }
-      hdr.textContent=pnText;
-    }catch(e){/* noop */}
-  }
-
-  function renderBestellListe(container,entry){
-    let list=container.querySelector('.nsf-bestellliste');
-    if(!list){
-      list=document.createElement('div');
-      list.className='nsf-bestellliste';
-      container.appendChild(list);
-    }
-    list.innerHTML='';
-
-    const pairs=normalizePartsPairs(entry);
-
-    if(!pairs.length){
-      const info=document.createElement('div');
-      info.className='nsf-parts-info';
-      info.innerHTML='<span class="nsf-info-icon" aria-hidden="true">ℹ️</span><span>Keine Teile erforderlich</span>';
-      list.appendChild(info);
-      return;
-    }
-
-    pairs.forEach(it=>{
-      const row=document.createElement('div');
-      row.className='nsf-part-row';
-
-      const pnCol=document.createElement('div');
-      pnCol.className='nsf-col nsf-col-pn';
-      pnCol.textContent='';
-      row.appendChild(pnCol);
-
-      const partCol=document.createElement('div');
-      partCol.className='nsf-col nsf-col-part';
-      partCol.textContent=String(it.part||'');
-      row.appendChild(partCol);
-
-      const qtyCol=document.createElement('div');
-      qtyCol.className='nsf-col nsf-col-qty';
-      qtyCol.textContent=String(it.quantity||'1');
-      row.appendChild(qtyCol);
-
-      list.appendChild(row);
-    });
   }
 
   (function injectNsfStyles(){
@@ -153,12 +486,6 @@
   `;
     document.head.appendChild(st);
   })();
-
-  function renderFindingParts(containerEl,entry){
-    if(!containerEl) return;
-    renderPnTextHeader(containerEl,entry);
-    renderBestellListe(containerEl,entry);
-  }
 
   // ================================================================
   // PATCH END — Parts Reader
@@ -4909,7 +5236,7 @@
         container.appendChild(note);
         return;
       }
-      renderFindingParts(container,entry||null);
+      renderFindingPartsWithGlobalMapping(container,entry||null);
     }
 
     buildPartsRowMapping(rowData){
