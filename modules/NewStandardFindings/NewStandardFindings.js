@@ -1473,7 +1473,62 @@
 
   function clean(value){return value==null?'':String(value).trim();}
 
-  function nsfIsObj(v){return v&&typeof v==='object'&&!Array.isArray(v);}
+  function nsfIsObj(v){ return v && typeof v === 'object' && !Array.isArray(v); }
+
+  // Extract a structured { "Part 1": "...", "Menge 1": "..." } object from a raw entry.
+  // Accept both nested `Parts` and already-flattened shapes; keep original keys.
+  function nsfExtractStructuredFromRaw(raw){
+    if(!raw||typeof raw!=='object') return null;
+
+    // prefer nested Parts object if present
+    const src=nsfIsObj(raw.Parts)?raw.Parts
+      :(nsfIsObj(raw.parts)?raw.parts:null);
+
+    // If a clearly structured object exists, return cleaned 1:1 copy with non-empty values.
+    const tryCopy=obj=>{
+      if(!nsfIsObj(obj)) return null;
+      const out={};
+      let found=false;
+      for(const k of Object.keys(obj)){
+        const v=obj[k];
+        if(v!=null&&String(v).trim()!==''){
+          out[k]=String(v).trim();
+          found=true;
+        }
+      }
+      return found?out:null;
+    };
+
+    // 1) Nested structured
+    let s=tryCopy(src);
+    if(s) return s;
+
+    // 2) Some sources already have numbered fields flattened at the top level of raw
+    const numberedKeys=Object.keys(raw).filter(k=>
+      /^Part\s*\d+$/i.test(k)||/^Menge\s*\d+$/i.test(k)
+    );
+    if(numberedKeys.length){
+      const out={};
+      for(const k of numberedKeys){
+        const v=raw[k];
+        if(v!=null&&String(v).trim()!=='') out[k]=String(v).trim();
+      }
+      return Object.keys(out).length?out:null;
+    }
+
+    return null;
+  }
+
+  // Compact one-liner for quick visibility when creating selections
+  function nsfCompactPartsLine(pd){
+    if(!nsfIsObj(pd)) return `STRING("${String(pd)}")`;
+    try {
+      return `{` + Object.entries(pd)
+        .map(([k,v]) => `${k.replace(/\s+/g,'').replace('Part','P').replace('Menge','M')}:${String(v)}`)
+        .join(', ') + `}`;
+    } catch { return '{?}'; }
+  }
+
   function nsfKeepPartsBlock(src){
     // returns a clean, protected copy of the parts block
     const out={parts:'',partsDetails:null,partsSource:null};
@@ -1495,15 +1550,6 @@
     }
 
     return out;
-  }
-
-  function nsfCompactPartsLine(pd){
-    if(!nsfIsObj(pd)) return `STRING("${String(pd)}")`;
-    try{
-      return '{'+Object.entries(pd)
-        .map(([k,v])=>`${k.replace(/\s+/g,'').replace('Part','P').replace('Menge','M')}:${String(v)}`)
-        .join(', ')+'}';
-    }catch{return '{?}';}
   }
 
   // === NSF DEBUG TOGGLE =========================================================
@@ -8753,7 +8799,7 @@
         const routineAction=resolved.routineAction||resolved.routineActions||'';
         const nonroutineFinding=resolved.nonroutineFinding||resolved.nonroutineFindings||'';
         const nonroutineAction=resolved.nonroutineAction||resolved.nonroutineActions||'';
-        this.selectedEntries.push({
+        const selection={
           key,
           finding:resolved.finding||entry.finding||'',
           action:resolved.action||entry.action||'',
@@ -8765,11 +8811,39 @@
           nonroutine:resolved.nonroutine||'',
           nonroutineFinding:nonroutineFinding||'',
           nonroutineAction:nonroutineAction||'',
-          parts:resolved.parts||'',
-          partsDetails:resolved.partsDetails!=null?cloneDeep(resolved.partsDetails):null,
+          parts:typeof resolved.parts==='string'?resolved.parts:(resolved.parts!=null?resolved.parts:''),
+          partsDetails:nsfIsObj(resolved.partsDetails)?cloneDeep(resolved.partsDetails)
+            :(resolved.partsDetails!=null?resolved.partsDetails:null),
+          partsSource:nsfIsObj(resolved.partsSource)?cloneDeep(resolved.partsSource)
+            :(resolved.partsSource!=null?resolved.partsSource:null),
           times:resolved.times||'',
           mods:resolved.mods||''
-        });
+        };
+
+        const raw=nsfIsObj(resolved)?resolved:(nsfIsObj(entry)?entry:null);
+        const pnText=(raw&&(raw.PNText||raw.PN||raw.parts||raw.partsText))
+          ?String(raw.PNText||raw.PN||raw.parts||raw.partsText)
+          :'';
+        const structured=nsfExtractStructuredFromRaw(raw);
+
+        selection.parts=typeof selection.parts==='string'?selection.parts:pnText;
+        if(nsfIsObj(structured)){
+          selection.partsDetails=structured;
+        }else if(!nsfIsObj(selection.partsDetails)){
+          selection.partsDetails=selection.partsDetails||pnText||'';
+        }
+
+        if(!selection.partsSource&&nsfIsObj(structured)){
+          selection.partsSource=structured;
+        }
+
+        if(typeof NSF_DEBUG!=='undefined'&&NSF_DEBUG){
+          try{
+            console.log('[NSF][SELECTION] partsDetails => '+nsfCompactPartsLine(selection.partsDetails));
+          }catch{}
+        }
+
+        this.selectedEntries.push(selection);
       }
     }
 
