@@ -5313,11 +5313,67 @@
         collectTimes(resolved.times||'');
         collectMods(resolved.mods||'');
       }
-      // PATCH START: Bind partsData.rows to UI + Local fallback/persist
-      const partsData=buildPartsData(bestellTitles,partGroups);
-
       const selection=primarySelectionForStorage;
       const resolved=primaryResolvedForStorage;
+      let rawPartsList=Array.isArray(this.rawParts)?this.rawParts.slice():[];
+
+      // PATCH START: Auto-generate part groups from rawParts if no structured parts exist
+      if((!Array.isArray(partGroups)||!partGroups.length)&&Array.isArray(rawPartsList)&&rawPartsList.length){
+        // 1) Bestimme PNText aus resolved
+        let pnText='';
+        if(resolved&&resolved.partsDetails&&typeof resolved.partsDetails==='object'){
+          pnText=resolved.partsDetails.PNText||'';
+        }else if(resolved&&resolved.Parts&&typeof resolved.Parts==='object'){
+          pnText=resolved.Parts.PNText||'';
+        }
+
+        // Fallback: falls PNText nicht vorhanden → Label nutzen
+        if(!pnText&&(resolved&&resolved.label)){
+          pnText=resolved.label;
+        }
+        pnText=(pnText||'').trim();
+
+        // "keine teile"-fälle überspringen
+        const pnLower=pnText.toLowerCase();
+        const noPartsMarker=
+          pnLower.includes('keine teile')||
+          pnLower.includes('no parts')||
+          pnLower.includes('keine teil')||
+          pnLower.includes('not required');
+
+        if(!noPartsMarker){
+          // Doppelpunkt entfernen (best practice)
+          if(pnText.endsWith(':')) pnText=pnText.slice(0,-1).trim();
+
+          // 2) rawPartsList in strukturierte gruppen transformieren
+          // smart merge: wenn mehrfach gleiche P/N, Menge addieren
+          const merged=new Map();
+          rawPartsList.forEach(item=>{
+            if(!item) return;
+            const p=(item.name||'').trim();
+            if(!p) return;
+            const qty=(item.qty||'').trim()||'1';
+            const key=p.toLowerCase();
+            if(merged.has(key)){
+              const existing=merged.get(key);
+              const newQty=String((parseFloat(existing.quantity)||0)+(parseFloat(qty)||0));
+              merged.set(key,{part:p,quantity:newQty});
+            }else{
+              merged.set(key,{part:p,quantity:qty});
+            }
+          });
+
+          // 3) Add to partGroups (matching buildPartsData format)
+          const groupParts=Array.from(merged.values());
+          if(groupParts.length){
+            partGroups.push({title:pnText,parts:groupParts});
+          }
+        }
+      }
+      // PATCH END
+
+      // PATCH START: Bind partsData.rows to UI + Local fallback/persist
+      const partsData=buildPartsData(bestellTitles,partGroups);
 
       // Build a stable storage key for this finding selection
       const storageKey=nsfStorageKeyForSelection(selection,resolved);
@@ -5370,7 +5426,7 @@
       }
       // PATCH END
       // PATCH END
-      const rawPartsList=[];
+      rawPartsList=[];
       const rawPartKeys=new Set();
       partGroups.forEach(group=>{
         const items=Array.isArray(group&&group.parts)?group.parts:[];
