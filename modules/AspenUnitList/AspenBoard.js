@@ -396,6 +396,7 @@
   const LS_DOC = 'module_data_v1';
   const LS_STATE = 'aspenUnitListState';
   const LS_STATE_VERSION = 2;
+  const MAX_STATE_INSTANCES = 8;
   const CUSTOM_BROADCAST = 'unitBoard:update';
   const HANDLE_DB_NAME = 'modulesApp';
   const HANDLE_STORE_NAME = 'fs-handles';
@@ -408,6 +409,42 @@
     const raw=typeof seed==='string'?seed.trim():'';
     if(!raw) return 'primary';
     return raw.toLowerCase().replace(/\s+/g,'_');
+  }
+
+  function sanitizeInstanceMap(raw){
+    const map={};
+    if(!raw||typeof raw!=='object') return map;
+    Object.keys(raw).forEach(key=>{
+      const normalized=normalizeStateKey(key);
+      if(!normalized) return;
+      const value=raw[key];
+      if(!value||typeof value!=='object') return;
+      map[normalized]=value;
+    });
+    return map;
+  }
+
+  function buildStateHistory(existingHistory,instances,currentKey){
+    const normalizedCurrent=normalizeStateKey(currentKey);
+    const seen=new Set();
+    const result=[];
+    const add=key=>{
+      const normalized=normalizeStateKey(key);
+      if(!normalized||seen.has(normalized)) return;
+      if(normalized!==normalizedCurrent && !instances[normalized]) return;
+      result.push(normalized);
+      seen.add(normalized);
+    };
+    add(normalizedCurrent);
+    if(Array.isArray(existingHistory)) existingHistory.forEach(add);
+    Object.keys(instances||{}).forEach(add);
+    return result.slice(0,MAX_STATE_INSTANCES);
+  }
+
+  function isQuotaError(error){
+    if(!error) return false;
+    const name=String(error.name||'');
+    return name==='QuotaExceededError'||name==='NS_ERROR_DOM_QUOTA_REACHED';
   }
 
   function parseStateBundle(raw){
@@ -446,6 +483,13 @@
       const last=bundle.instances[lastKey];
       if(last&&typeof last==='object') return last;
     }
+    const historyRaw=Array.isArray(meta.history)?meta.history:[];
+    for(const entry of historyRaw){
+      const historyKey=normalizeStateKey(entry);
+      if(historyKey===normalized) continue;
+      const candidate=bundle.instances[historyKey];
+      if(candidate&&typeof candidate==='object') return candidate;
+    }
     if(normalized!=='primary'){
       const primary=bundle.instances.primary;
       if(primary&&typeof primary==='object') return primary;
@@ -467,16 +511,40 @@
     const normalized=normalizeStateKey(seed);
     const bundle=loadStateBundle()||{meta:{},instances:{}};
     const meta=bundle.meta&&typeof bundle.meta==='object'?{...bundle.meta}:{};
-    const instances=bundle.instances&&typeof bundle.instances==='object'?{...bundle.instances}:{};
+    const instances=sanitizeInstanceMap(bundle.instances);
     instances[normalized]=payload;
     meta.v=LS_STATE_VERSION;
     meta.updatedAt=new Date().toISOString();
     meta.lastActiveSeed=normalized;
-    const serialized=JSON.stringify({__meta:meta,instances});
-    try{
+    const history=buildStateHistory(meta.history,instances,normalized);
+    const allowed=new Set(history);
+    Object.keys(instances).forEach(key=>{
+      if(!allowed.has(key)) delete instances[key];
+    });
+    meta.history=history;
+    const persist=()=>{
+      const serialized=JSON.stringify({__meta:meta,instances});
       localStorage.setItem(LS_STATE,serialized);
+    };
+    try{
+      persist();
       return true;
-    }catch{
+    }catch(error){
+      if(isQuotaError(error)){
+        const prunable=history.filter(key=>key!==normalized);
+        while(prunable.length){
+          const removeKey=prunable.pop();
+          delete instances[removeKey];
+          const reducedHistory=history.filter(key=>key===normalized||instances[key]);
+          meta.history=reducedHistory;
+          try{
+            persist();
+            return true;
+          }catch(innerError){
+            if(!isQuotaError(innerError)) return false;
+          }
+        }
+      }
       return false;
     }
   }
