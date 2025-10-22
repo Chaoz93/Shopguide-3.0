@@ -5,12 +5,10 @@
     style.id = STYLE_ID;
     style.textContent = `
     .tabnav-root{height:100%;width:100%;box-sizing:border-box;padding:.55rem;display:flex;flex-direction:column;gap:.5rem;}
-    .tabnav-surface{flex:1;display:flex;flex-direction:column;gap:.6rem;padding:.8rem;border-radius:var(--module-border-radius,.9rem);
-      background:var(--module-bg,#101826);
-      border:1px solid var(--module-border-color,rgba(148,163,184,.22));
-      color:var(--module-header-text,#e2e8f0);box-shadow:0 10px 24px rgba(8,15,35,.25);
+    .tabnav-surface{flex:1;display:flex;flex-direction:column;gap:.6rem;padding:0;border-radius:var(--module-border-radius,.9rem);
+      color:var(--module-header-text,#e2e8f0);
     }
-    .tabnav-surface.tabnav-surface-compact{padding-top:.55rem;padding-bottom:.7rem;gap:.5rem;}
+    .tabnav-surface.tabnav-surface-compact{gap:.5rem;}
     .tabnav-surface:focus{outline:2px solid rgba(59,130,246,.45);outline-offset:3px;}
     .tabnav-header{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;}
     .tabnav-title-wrap{display:flex;flex-direction:column;gap:.25rem;min-width:0;}
