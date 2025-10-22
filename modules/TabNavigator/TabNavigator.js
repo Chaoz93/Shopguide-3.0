@@ -265,13 +265,14 @@
       .map(entry => entry.tab);
   }
 
-  function syncCustomOrderWithDisplayedTabs(displayedTabs){
+  function syncCustomOrderWithDisplayedTabs(stateObj, displayedTabs){
+    if (!stateObj || typeof stateObj !== 'object') return false;
     if (!Array.isArray(displayedTabs)) return false;
-    if (!Array.isArray(state.customOrder)) {
-      state.customOrder = [];
+    if (!Array.isArray(stateObj.customOrder)) {
+      stateObj.customOrder = [];
       return true;
     }
-    if (!state.customOrder.length) return false;
+    if (!stateObj.customOrder.length) return false;
     const availableMap = new Map();
     displayedTabs.forEach(tab => {
       const selection = toSelectionFromTab(tab);
@@ -281,15 +282,15 @@
       }
     });
     if (!availableMap.size) {
-      if (state.customOrder.length) {
-        state.customOrder = [];
+      if (stateObj.customOrder.length) {
+        stateObj.customOrder = [];
         return true;
       }
       return false;
     }
     const filtered = [];
     const seen = new Set();
-    state.customOrder.forEach(entry => {
+    stateObj.customOrder.forEach(entry => {
       const key = makeSelectionKey(entry);
       if (availableMap.has(key) && !seen.has(key)) {
         filtered.push(availableMap.get(key));
@@ -303,24 +304,17 @@
       }
     });
     if (!filtered.length) {
-      if (state.customOrder.length) {
-        state.customOrder = [];
+      if (stateObj.customOrder.length) {
+        stateObj.customOrder = [];
         return true;
       }
       return false;
     }
-    if (!selectionsEqual(filtered, state.customOrder)) {
-      state.customOrder = filtered;
+    if (!selectionsEqual(filtered, stateObj.customOrder)) {
+      stateObj.customOrder = filtered;
       return true;
     }
     return false;
-  }
-
-  function getDefaultSelectionOrder(){
-    const tabs = currentTabs.slice();
-    const isAllMode = state.mode !== 'custom';
-    const selected = tabs.filter(tab => isAllMode || state.selectedTabs.some(sel => matchesSelection(sel, tab)));
-    return selected.map(toSelectionFromTab);
   }
 
   function readTabs(){
@@ -830,7 +824,11 @@
         return acc;
       }, []);
       const normalizedOrder = uniqueSelection(normalizeSelection(order));
-      const defaultOrder = uniqueSelection(getDefaultSelectionOrder());
+      const isAllMode = state.mode !== 'custom';
+      const defaultOrder = uniqueSelection(currentTabs
+        .slice()
+        .filter(tab => isAllMode || state.selectedTabs.some(sel => matchesSelection(sel, tab)))
+        .map(toSelectionFromTab));
       if (!normalizedOrder.length && defaultOrder.length) {
         if (state.customOrder.length) {
           state.customOrder = [];
@@ -874,7 +872,7 @@
         stateChanged = true;
       }
       let tabsToDisplay = state.mode === 'custom' ? resolved.slice() : currentTabs.slice();
-      if (syncCustomOrderWithDisplayedTabs(tabsToDisplay)) {
+      if (syncCustomOrderWithDisplayedTabs(state, tabsToDisplay)) {
         stateChanged = true;
       }
       const orderedTabs = applyOrdering(tabsToDisplay, state.customOrder, defaultOrderMap);
