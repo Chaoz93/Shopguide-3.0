@@ -26,6 +26,7 @@
       --sidebar-bg: #f3f4f6;
       --sidebar-text: #1f2937;
       --top-bar-bg: #ffffff;
+      --top-bar-height: 40px;
       --button-bg: #2563eb;
       --button-text: #ffffff;
       --border-color: #e5e7eb;
@@ -369,11 +370,50 @@
       border: 1px solid var(--sidebar-module-card-border);
     }
     /* Sidebar collapsed state */
-    #sidebar.collapsed { width: 2.5rem !important; min-width: 2.5rem !important; padding-left: 0; padding-right: 0; }
+    #sidebar.collapsed {
+      width: 2.25rem !important;
+      min-width: 2.25rem !important;
+      padding: 0.5rem 0;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.75rem;
+    }
     #sidebar.collapsed .list-content { display: none; }
-    #sidebar.collapsed .collapse-icon { transform: rotate(180deg); }
+    #sidebar.collapsed #sidebar-toggle {
+      position: static;
+      top: auto;
+      right: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 9999px;
+      transform: rotate(180deg);
+      font-size: 1.125rem;
+      padding: 0;
+      line-height: 1;
+    }
+    #sidebar.collapsed #sidebar-settings-button {
+      position: static;
+      top: auto;
+      right: auto;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: center;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      line-height: 1;
+    }
     #sidebar.collapsed .module-card { pointer-events: none; }
     #sidebar.collapsed #module-list { pointer-events: none; }
+    #sidebar:not(.collapsed) #sidebar-toggle { transform: none; }
     #module-search {
       background-color: var(--sidebar-module-card-bg);
       color: var(--sidebar-module-card-text);
@@ -1576,7 +1616,7 @@
 </head>
 <body>
   <!-- Top bar with tabs and buttons -->
-  <header id="top-bar" class="flex items-center gap-1 px-3 py-2 shadow" style="height:40px">
+  <header id="top-bar" class="flex items-center gap-1 px-3 py-2 shadow" style="height: var(--top-bar-height, 40px)">
     <div id="tabs-container" class="flex items-center gap-1 flex-wrap"></div>
     <button id="add-tab" title="Neuen Tab erstellen" class="text-xl px-2 py-1 leading-none hover:opacity-80">➕</button>
     <div class="ml-auto flex items-center gap-2">
@@ -1626,9 +1666,15 @@
       <span id="save-indicator" class="bg-green-500" title="Gespeichert"></span>
     </div>
   </header>
-  <div class="flex" style="height: calc(100% - 40px);">
+  <div class="flex" style="height: calc(100% - var(--top-bar-height, 40px));">
     <aside id="sidebar" class="w-72 min-h-full p-3 relative transition-all duration-300 ease-in-out">
       <button id="sidebar-toggle" class="absolute top-2 right-2 text-xl collapse-icon" title="Liste ein-/ausblenden">⬅️</button>
+      <button
+        id="sidebar-settings-button"
+        type="button"
+        title="Einstellungen"
+        class="absolute right-2 top-12 hidden flex h-9 w-9 items-center justify-center rounded-full bg-gray-300 text-gray-800 hover:bg-gray-400"
+      >⚙️</button>
       <h2 class="font-semibold mb-2 list-content">Module</h2>
       <div class="list-content mb-3">
         <div class="flex items-center gap-2">
@@ -1696,6 +1742,19 @@
               </div>
               <label for="setting-grid-auto-arrange" class="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" id="setting-grid-auto-arrange" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-300 rounded-full transition peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:bg-blue-600"></div>
+                <span class="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-5"></span>
+              </label>
+            </div>
+          </div>
+          <div class="form-field col-span-2">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label for="setting-hide-topbar-uptodate">Topbar automatisch ausblenden</label>
+                <p class="text-xs text-gray-500">Blendet die obere Leiste inklusive Tabs aus, wenn alle Module aktuell sind.</p>
+              </div>
+              <label for="setting-hide-topbar-uptodate" class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="setting-hide-topbar-uptodate" class="sr-only peer">
                 <div class="w-11 h-6 bg-gray-300 rounded-full transition peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:bg-blue-600"></div>
                 <span class="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-5"></span>
               </label>
@@ -2934,6 +2993,7 @@ let appSettings = {
   buttonText: '#ffffff',
   borderColor: '#e5e7eb',
   autoArrangeModules: true,
+  hideTopBarWhenUpToDate: false,
   moduleBorderRadius: '1.25rem',
   dangerBg: '#ef4444',
   dangerText: '#ffffff',
@@ -3180,6 +3240,7 @@ let currentUpgradeItems = [];
 let currentDowngradeItems = [];
 let updateStatusHasStableAppearance = false;
 let updateStatusShouldRemainHidden = false;
+let lastUpdateStatusLabel = null;
 let settingsSaveTimeoutId = null;
 let historyMenuOpen = false;
 let lastUpdateError = false;
@@ -3268,10 +3329,12 @@ const moduleSearchInput = document.getElementById('module-search');
 const moduleSearchClearBtn = document.getElementById('module-search-clear');
 const listEl = document.getElementById('module-list');
 const gridsContainer = document.getElementById('grids');
+const topBarEl = document.getElementById('top-bar');
 const tabsContainer = document.getElementById('tabs-container');
 const addTabBtn = document.getElementById('add-tab');
 const sidebarEl = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebar-toggle');
+const sidebarSettingsBtn = document.getElementById('sidebar-settings-button');
 const undoBtn = document.getElementById('undo-action');
 const redoBtn = document.getElementById('redo-action');
 const historyMenu = document.getElementById('history-menu');
@@ -3324,6 +3387,7 @@ const inputSidebarBg = document.getElementById('setting-sidebar-bg');
 const inputSidebarText = document.getElementById('setting-sidebar-text');
 const inputGridHint = document.getElementById('setting-grid-hint');
 const inputAutoArrange = document.getElementById('setting-grid-auto-arrange');
+const inputHideTopBarUpToDate = document.getElementById('setting-hide-topbar-uptodate');
 const inputBorderRadius = document.getElementById('setting-border-radius');
 const inputDangerBg = document.getElementById('setting-danger-bg');
 const inputDangerText = document.getElementById('setting-danger-text');
@@ -3383,6 +3447,7 @@ const DOWNGRADE_COLLAPSE_KEY = 'downgradeSectionCollapsed';
 const MAX_HISTORY_ENTRIES = 50;
 const UPDATE_POLL_INTERVAL_MS = 5 * 1000;
 const UPDATE_STATUS_BASE_CLASSES = 'text-sm px-3 py-1 rounded transition-colors duration-200 font-medium border border-transparent';
+const TOP_BAR_DEFAULT_HEIGHT = 40;
 const IGNORED_DOWNGRADES_STORAGE_KEY = 'ignoredDowngradeVersions';
 const MAX_IGNORED_DOWNGRADE_VERSIONS = 20;
 
@@ -4467,10 +4532,37 @@ if (changelogShowFullBtn) {
   });
 }
 
+function updateTopBarHiddenState(shouldHide) {
+  const hide = !!shouldHide && !!appSettings.hideTopBarWhenUpToDate;
+  if (document?.body) {
+    document.body.classList.toggle('topbar-hidden', hide);
+  }
+  if (topBarEl) {
+    topBarEl.classList.toggle('hidden', hide);
+    if (hide) {
+      topBarEl.setAttribute('aria-hidden', 'true');
+    } else {
+      topBarEl.removeAttribute('aria-hidden');
+    }
+  }
+  if (document?.documentElement) {
+    const targetHeight = hide ? '0px' : `${TOP_BAR_DEFAULT_HEIGHT}px`;
+    document.documentElement.style.setProperty('--top-bar-height', targetHeight);
+  }
+  if (sidebarSettingsBtn) {
+    sidebarSettingsBtn.classList.toggle('hidden', !hide);
+  }
+}
+
 function setUpdateStatusButton(state) {
-  if (!updateStatusBtn) return;
+  if (!updateStatusBtn) {
+    updateTopBarHiddenState(false);
+    lastUpdateStatusLabel = null;
+    return;
+  }
 
   if (state === 'checking') {
+    updateTopBarHiddenState(lastUpdateStatusLabel === 'up-to-date');
     if (appSettings.showUpdateStatusButton === false || updateStatusShouldRemainHidden) {
       return;
     }
@@ -4497,97 +4589,113 @@ function setUpdateStatusButton(state) {
   updateStatusHasStableAppearance = true;
   updateStatusShouldRemainHidden = false;
 
-  if (appSettings.showUpdateStatusButton === false) {
-    updateStatusShouldRemainHidden = true;
-    updateStatusHasStableAppearance = false;
+  let buttonHidden = false;
+  const hideButton = () => {
+    buttonHidden = true;
     updateStatusBtn.classList.add('hidden');
     updateStatusBtn.setAttribute('aria-hidden', 'true');
     updateStatusBtn.disabled = true;
     updateStatusBtn.textContent = '';
-    return;
+    updateStatusBtn.title = '';
+  };
+  const showButton = () => {
+    buttonHidden = false;
+    updateStatusBtn.classList.remove('hidden');
+    updateStatusBtn.removeAttribute('aria-hidden');
+  };
+
+  if (appSettings.showUpdateStatusButton === false) {
+    updateStatusShouldRemainHidden = true;
+    updateStatusHasStableAppearance = false;
+    hideButton();
+  } else {
+    showButton();
   }
 
-  updateStatusBtn.classList.remove('hidden');
-  updateStatusBtn.removeAttribute('aria-hidden');
+  let statusLabel = 'unknown';
 
   if (pendingRootPermission) {
-    updateStatusBtn.textContent = 'Arbeitsordner entsperren';
-    updateStatusBtn.disabled = true;
-    updateStatusBtn.classList.add('bg-yellow-500','text-gray-900','cursor-not-allowed');
-    return;
-  }
-
-  if (pendingUpdatePermission) {
-    updateStatusBtn.textContent = 'Update-Ordner entsperren';
-    updateStatusBtn.disabled = true;
-    updateStatusBtn.classList.add('bg-yellow-500','text-gray-900','cursor-not-allowed');
-    return;
-  }
-
-  if (!rootDirHandle) {
-    updateStatusBtn.textContent = 'Kein Arbeitsordner';
-    updateStatusBtn.disabled = true;
-    updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-not-allowed');
-    return;
-  }
-
-  if (!updateDirHandle) {
-    updateStatusBtn.textContent = 'Kein Update-Ordner';
-    updateStatusBtn.disabled = true;
-    updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-not-allowed');
-    return;
-  }
-
-  if (lastUpdateError) {
-    updateStatusBtn.textContent = 'Prüfung fehlgeschlagen';
-    updateStatusBtn.classList.add('bg-yellow-500','hover:bg-yellow-600','text-white');
-    return;
-  }
-
-  let upgradeCount = currentUpgradeItems.length;
-  let downgradeCount = currentDowngradeItems.length;
-
-  if (!upgradeCount && !downgradeCount && pendingUpdates.length) {
-    pendingUpdates.forEach(item => {
-      const comparison = compareVersions(item.currentVersion, item.newVersion);
-      if (comparison === 1) {
-        if (!isDowngradeIgnored(item)) downgradeCount += 1;
-      } else {
-        upgradeCount += 1;
-      }
-    });
-  }
-
-  if (upgradeCount) {
-    updateStatusBtn.textContent = 'Update available!';
-    if (downgradeCount) {
-      updateStatusBtn.title = `${upgradeCount} Upgrade${upgradeCount === 1 ? '' : 's'} und ${downgradeCount} Downgrade${downgradeCount === 1 ? '' : 's'} verfügbar.`;
-    } else if (upgradeCount > 1) {
-      updateStatusBtn.title = `${upgradeCount} Updates verfügbar.`;
-    }
-    updateStatusBtn.classList.add('bg-red-600','hover:bg-red-700','text-white');
-    return;
-  }
-
-  if (downgradeCount) {
-    if (appSettings.hideDowngradeStatusButton) {
-      updateStatusShouldRemainHidden = true;
-      updateStatusHasStableAppearance = false;
-      updateStatusBtn.classList.add('hidden');
-      updateStatusBtn.setAttribute('aria-hidden', 'true');
+    statusLabel = 'needs-action';
+    if (!buttonHidden) {
+      updateStatusBtn.textContent = 'Arbeitsordner entsperren';
       updateStatusBtn.disabled = true;
-      updateStatusBtn.textContent = '';
-      updateStatusBtn.title = '';
-      return;
+      updateStatusBtn.classList.add('bg-yellow-500','text-gray-900','cursor-not-allowed');
     }
-    updateStatusBtn.textContent = 'Nur Downgrades verfügbar';
-    updateStatusBtn.title = downgradeCount === 1 ? 'Ein Downgrade verfügbar.' : `${downgradeCount} Downgrades verfügbar.`;
-    updateStatusBtn.classList.add('bg-yellow-400','hover:bg-yellow-500','text-gray-900','border-yellow-500');
-    return;
+  } else if (pendingUpdatePermission) {
+    statusLabel = 'needs-action';
+    if (!buttonHidden) {
+      updateStatusBtn.textContent = 'Update-Ordner entsperren';
+      updateStatusBtn.disabled = true;
+      updateStatusBtn.classList.add('bg-yellow-500','text-gray-900','cursor-not-allowed');
+    }
+  } else if (!rootDirHandle) {
+    statusLabel = 'needs-action';
+    if (!buttonHidden) {
+      updateStatusBtn.textContent = 'Kein Arbeitsordner';
+      updateStatusBtn.disabled = true;
+      updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-not-allowed');
+    }
+  } else if (!updateDirHandle) {
+    statusLabel = 'needs-action';
+    if (!buttonHidden) {
+      updateStatusBtn.textContent = 'Kein Update-Ordner';
+      updateStatusBtn.disabled = true;
+      updateStatusBtn.classList.add('bg-gray-300','text-gray-700','cursor-not-allowed');
+    }
+  } else if (lastUpdateError) {
+    statusLabel = 'error';
+    if (!buttonHidden) {
+      updateStatusBtn.textContent = 'Prüfung fehlgeschlagen';
+      updateStatusBtn.classList.add('bg-yellow-500','hover:bg-yellow-600','text-white');
+    }
+  } else {
+    let upgradeCount = currentUpgradeItems.length;
+    let downgradeCount = currentDowngradeItems.length;
+
+    if (!upgradeCount && !downgradeCount && pendingUpdates.length) {
+      pendingUpdates.forEach(item => {
+        const comparison = compareVersions(item.currentVersion, item.newVersion);
+        if (comparison === 1) {
+          if (!isDowngradeIgnored(item)) downgradeCount += 1;
+        } else {
+          upgradeCount += 1;
+        }
+      });
+    }
+
+    if (upgradeCount) {
+      statusLabel = 'updates';
+      if (!buttonHidden) {
+        updateStatusBtn.textContent = 'Update available!';
+        if (downgradeCount) {
+          updateStatusBtn.title = `${upgradeCount} Upgrade${upgradeCount === 1 ? '' : 's'} und ${downgradeCount} Downgrade${downgradeCount === 1 ? '' : 's'} verfügbar.`;
+        } else if (upgradeCount > 1) {
+          updateStatusBtn.title = `${upgradeCount} Updates verfügbar.`;
+        }
+        updateStatusBtn.classList.add('bg-red-600','hover:bg-red-700','text-white');
+      }
+    } else if (downgradeCount) {
+      statusLabel = 'downgrades';
+      if (appSettings.hideDowngradeStatusButton) {
+        updateStatusShouldRemainHidden = true;
+        updateStatusHasStableAppearance = false;
+        hideButton();
+      } else if (!buttonHidden) {
+        updateStatusBtn.textContent = 'Nur Downgrades verfügbar';
+        updateStatusBtn.title = downgradeCount === 1 ? 'Ein Downgrade verfügbar.' : `${downgradeCount} Downgrades verfügbar.`;
+        updateStatusBtn.classList.add('bg-yellow-400','hover:bg-yellow-500','text-gray-900','border-yellow-500');
+      }
+    } else {
+      statusLabel = 'up-to-date';
+      if (!buttonHidden) {
+        updateStatusBtn.textContent = 'Up to date!';
+        updateStatusBtn.classList.add('bg-green-600','hover:bg-green-700','text-white');
+      }
+    }
   }
 
-  updateStatusBtn.textContent = 'Up to date!';
-  updateStatusBtn.classList.add('bg-green-600','hover:bg-green-700','text-white');
+  updateTopBarHiddenState(statusLabel === 'up-to-date');
+  lastUpdateStatusLabel = statusLabel;
 }
 
 function renderUpdateList() {
@@ -7573,6 +7681,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       openSettings('general');
     });
   }
+  if (sidebarSettingsBtn) {
+    sidebarSettingsBtn.addEventListener('click', () => {
+      openSettings('general');
+    });
+  }
   if (closeSettingsBtn) {
     closeSettingsBtn.addEventListener('click', () => {
       hideSettingsModal();
@@ -7664,6 +7777,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       scheduleSettingsSave();
     });
   }
+  if (inputHideTopBarUpToDate) {
+    inputHideTopBarUpToDate.addEventListener('change', () => {
+      appSettings.hideTopBarWhenUpToDate = inputHideTopBarUpToDate.checked;
+      setUpdateStatusButton();
+      scheduleSettingsSave();
+    });
+  }
   inputBorderRadius.addEventListener('input', () => {
     appSettings.moduleBorderRadius = ((parseFloat(inputBorderRadius.value)||0)/16) + 'rem';
     applySettings();
@@ -7716,6 +7836,7 @@ function populateInputsFromSettings() {
   if (inputShowUpdateButton) inputShowUpdateButton.checked = appSettings.showUpdateStatusButton !== false;
   if (inputUpdateAutoPoll) inputUpdateAutoPoll.checked = !!appSettings.autoUpdatePolling;
   if (inputHideDowngradeButton) inputHideDowngradeButton.checked = !!appSettings.hideDowngradeStatusButton;
+  if (inputHideTopBarUpToDate) inputHideTopBarUpToDate.checked = !!appSettings.hideTopBarWhenUpToDate;
 }
 
 /** Read inputs into appSettings */
@@ -7733,6 +7854,7 @@ function readInputsIntoSettings() {
   appSettings.sidebarText = getColorInputValue(inputSidebarText);
   appSettings.gridHint = getColorInputValue(inputGridHint);
   if (inputAutoArrange) appSettings.autoArrangeModules = inputAutoArrange.checked;
+  if (inputHideTopBarUpToDate) appSettings.hideTopBarWhenUpToDate = inputHideTopBarUpToDate.checked;
   appSettings.moduleBorderRadius = ((parseFloat(inputBorderRadius.value)||0)/16) + 'rem';
   appSettings.dangerBg = getColorInputValue(inputDangerBg);
   appSettings.dangerText = getColorInputValue(inputDangerText);
@@ -8202,7 +8324,7 @@ function createTab(name, layoutModules = []) {
   });
   const gridEl = document.createElement('div');
   gridEl.className = 'grid-stack p-4';
-  gridEl.style.minHeight = 'calc(100vh - 40px)';
+  gridEl.style.minHeight = 'calc(100vh - var(--top-bar-height, 40px))';
   gridEl.dataset.tabIndex = tabIndex;
   gridsContainer.appendChild(gridEl);
 
