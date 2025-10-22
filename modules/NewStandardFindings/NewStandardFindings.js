@@ -5249,6 +5249,19 @@
           }
         }
 
+        // PATCH START: Structured Parts detection (higher priority than PNText)
+        if(resolved&&resolved.Parts&&typeof resolved.Parts==='object'){
+          const hasStructured=
+            Object.keys(resolved.Parts).some(
+              k=>/^part\s*\d+$/i.test(k)&&resolved.Parts[k]?.trim()
+            );
+          if(hasStructured){
+            // structured parts override partsDetails STRING mode
+            resolved.partsDetails=resolved.Parts;
+          }
+        }
+        // PATCH END
+
         const partSource=createPartSource(resolved,selection);
         const findingText=resolved.finding||selection.finding||'';
         pushLines('findings',findingText);
