@@ -10,6 +10,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Zusätzliche Feld-Aliasse für Bestelltexte ergänzt, damit aktualisierte Shopguide-Findings-Dateien ihre Bestelllisten korrekt darstellen.
 - Falschen Standardpfad zur lokalen Beispieldatei `Shopguide_Findings.json` behoben, sodass das Modul wieder ohne manuelle Dateiauswahl startet.
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
+- Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
 ## [1.3.2] – 2025-10-03
 ### Added
