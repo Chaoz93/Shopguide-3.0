@@ -2,72 +2,44 @@
   'use strict';
 
   // ================================================================
-  // PATCH START — Parts Reader (Editor-Logik portiert, ohne Bindung)
+  // PATCH START — Parts Mapping Helpers
   // ================================================================
 
-  // Liefert die "Parts-Quelle" eines Findings-Objekts in ein einheitliches Format zurück.
-  // Unterstützt u.a.: entry.Parts (Objekt mit "Part 1"/"Menge 1"), entry.parts (Array),
-  // entry.partsPairs (Array aus {part, quantity}), alternative Schreibweisen "PN", "Qty".
-  function getPartsContainer(entry){
-    if(!entry||typeof entry!=='object') return null;
+  const NSF_PARTS_MAPPING_KEY='nsfPartsMapping';
 
-    // 1) Moderne Arrays zuerst
-    if(Array.isArray(entry.partsPairs)&&entry.partsPairs.length) return {type:'pairs',data:entry.partsPairs};
-    if(Array.isArray(entry.parts)&&entry.parts.length) return {type:'pairs',data:entry.parts};
-
-    // 2) Klassischer Objektblock "Parts" (mit "Part 1" / "Menge 1" / "PN 1" / "Qty 1")
-    if(entry.Parts&&typeof entry.Parts==='object') return {type:'object',data:entry.Parts};
-
-    // 3) Manche speichern direkt "partsDetails" als Objekt (Legacy)
-    if(entry.partsDetails&&typeof entry.partsDetails==='object') return {type:'object',data:entry.partsDetails};
-
-    // 4) Nichts gefunden
-    return null;
+  function loadGlobalPartsMapping(){
+    try{
+      if(typeof localStorage==='undefined') return {};
+      const raw=localStorage.getItem(NSF_PARTS_MAPPING_KEY);
+      if(!raw) return {};
+      const parsed=JSON.parse(raw);
+      return parsed&&typeof parsed==='object'?parsed:{};
+    }catch(err){
+      return {};
+    }
   }
 
-  // Extrahiert aus dem Container eine Normalform [{part, quantity}].
-  // Unterstützt Arrays (partsPairs/parts) und Objekt-Varianten ("Part 1"/"Menge 1", "PN 1"/"Qty 1").
-  function extractPartPairsFromContainer(container){
-    if(!container) return [];
+  function saveGlobalPartsMapping(mapping){
+    try{
+      if(typeof localStorage==='undefined') return;
+      const payload=JSON.stringify(mapping||{});
+      localStorage.setItem(NSF_PARTS_MAPPING_KEY,payload);
+    }catch(err){/* noop */}
+  }
 
-    // Array-Varianten (bereits halb-normalisiert)
-    if(container.type==='pairs'){
-      return container.data
-        .map(it=>({
-          part:String((it.part||it.PN||'')).trim(),
-          quantity:String((it.quantity||it.qty||it.Qty||it.Menge||'')).trim()||'1'
-        }))
-        .filter(it=>it.part);
-    }
-
-    // Objekt-Variante: "Part 1" / "Menge 1" / alternativ "PN 1" / "Qty 1"
-    if(container.type==='object'){
-      const obj=container.data||{};
-      const out=[];
-      for(let i=1;i<=50;i+=1){
-        const partKey1=`Part ${i}`;
-        const partKey2=`PN ${i}`;
-        const qtyKey1=`Menge ${i}`;
-        const qtyKey2=`Qty ${i}`;
-        const qtyKey3=`quantity ${i}`;
-        const p=String((obj[partKey1]??obj[partKey2]??'')).trim();
-        const q=String((obj[qtyKey1]??obj[qtyKey2]??obj[qtyKey3]??'')).trim()||(p?'1':'');
-        if(!p&&!q) continue;
-        if(!p) continue;
-        out.push({part:p,quantity:q||'1'});
+  function getNumberedPartKeys(entry){
+    const partsObj=entry&&entry.Parts&&typeof entry.Parts==='object'?entry.Parts:null;
+    if(!partsObj) return [];
+    const indices=new Set();
+    Object.keys(partsObj).forEach(key=>{
+      if(/^pntext$/i.test(key)) return;
+      const match=key&&key.match(/(\d+)/);
+      if(match){
+        const idx=parseInt(match[1],10);
+        if(Number.isFinite(idx)) indices.add(idx);
       }
-      return out;
-    }
-
-    return [];
-  }
-
-  // Kapselt die komplette Ermittlung: nimmt das gesamte Finding-Objekt,
-  // sucht die Parts-Quelle (egal in welcher Schreibweise) und liefert [{part, quantity}] sauber zurück.
-  function normalizePartsPairs(entry){
-    const container=getPartsContainer(entry);
-    const pairs=extractPartPairsFromContainer(container);
-    return pairs.filter(it=>!/^keine\s+teile/i.test(it.part));
+    });
+    return Array.from(indices).sort((a,b)=>a-b);
   }
 
   function extractPnTextValue(entry){
@@ -80,37 +52,77 @@
     return pnText;
   }
 
-  function renderPnTextHeader(container,entry){
+  function applyGlobalPartsMapping(entry){
+    const partsObj=entry&&entry.Parts&&typeof entry.Parts==='object'?entry.Parts:null;
+    if(!partsObj) return [];
+    const mapping=loadGlobalPartsMapping();
+    const indices=getNumberedPartKeys(entry);
+    const rows=[];
+    indices.forEach(index=>{
+      const mapKey=String(index);
+      const mappedRow=mapping[mapKey]||{};
+      const defaultPartKey=`Part ${index}`;
+      const defaultQtyCandidates=[`Menge ${index}`,`Qty ${index}`,`quantity ${index}`];
+      const partKeyRaw=mappedRow.partKey||defaultPartKey;
+      const partKey=/^pntext$/i.test(partKeyRaw)?'':partKeyRaw;
+      let qtyKeyRaw=mappedRow.qtyKey||'';
+      if(!qtyKeyRaw){
+        qtyKeyRaw=defaultQtyCandidates.find(candidate=>Object.prototype.hasOwnProperty.call(partsObj,candidate))||defaultQtyCandidates[0];
+      }
+      const qtyKey=/^pntext$/i.test(qtyKeyRaw)?'':qtyKeyRaw;
+      const partRaw=partKey&&Object.prototype.hasOwnProperty.call(partsObj,partKey)?partsObj[partKey]:undefined;
+      const qtyRaw=qtyKey&&Object.prototype.hasOwnProperty.call(partsObj,qtyKey)?partsObj[qtyKey]:undefined;
+      const partValue=partRaw==null?'':String(partRaw).trim();
+      const qtyValue=qtyRaw==null?'':String(qtyRaw).trim();
+      if(!partValue) return;
+      if(/^keine\s+teile/i.test(partValue)) return;
+      rows.push({part:partValue,quantity:qtyValue||'1'});
+    });
+    return rows;
+  }
+
+  function nsfRenderPnTextHeader(container,entry){
     try{
       const pnText=extractPnTextValue(entry);
-      if(!pnText) return;
       let hdr=container.querySelector('.nsf-pntext-header');
+      if(!pnText){
+        if(hdr) hdr.remove();
+        return;
+      }
       if(!hdr){
         hdr=document.createElement('div');
         hdr.className='nsf-pntext-header';
         container.prepend(hdr);
       }
       hdr.textContent=pnText;
-    }catch(e){/* noop */}
+    }catch(err){/* noop */}
   }
 
-  function renderBestellListe(container,entry){
+  function nsfRenderBestellListe(container,entry){
     let list=container.querySelector('.nsf-bestellliste');
     if(!list){
       list=document.createElement('div');
       list.className='nsf-bestellliste';
       container.appendChild(list);
     }
+    if(!list.__nsfContextMenuBound){
+      list.addEventListener('contextmenu',ev=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        openPartsMappingModal(container,container.__nsfMappingEntry||entry||null);
+      });
+      list.__nsfContextMenuBound=true;
+    }
     list.innerHTML='';
 
-    const pairs=normalizePartsPairs(entry);
+    const pairs=applyGlobalPartsMapping(entry);
 
     if(!pairs.length){
       const info=document.createElement('div');
       info.className='nsf-parts-info';
       info.innerHTML='<span class="nsf-info-icon" aria-hidden="true">ℹ️</span><span>Keine Teile erforderlich</span>';
       list.appendChild(info);
-      return;
+      return list;
     }
 
     pairs.forEach(it=>{
@@ -134,11 +146,161 @@
 
       list.appendChild(row);
     });
+
+    return list;
+  }
+
+  function openPartsMappingModal(containerEl,entry){
+    if(!containerEl||typeof document==='undefined') return;
+    const existing=document.querySelector('.nsf-mapping-overlay');
+    if(existing) existing.remove();
+
+    const partsObj=entry&&entry.Parts&&typeof entry.Parts==='object'?entry.Parts:null;
+    const indices=getNumberedPartKeys(entry);
+    const availableKeys=partsObj?Object.keys(partsObj).filter(key=>!/^pntext$/i.test(key)):[];
+    const globalMapping=loadGlobalPartsMapping();
+
+    const overlay=document.createElement('div');
+    overlay.className='nsf-mapping-overlay';
+
+    const modal=document.createElement('div');
+    modal.className='nsf-mapping-modal';
+    overlay.appendChild(modal);
+
+    const closeModal=()=>{
+      overlay.remove();
+      document.removeEventListener('keydown',handleKeydown);
+    };
+
+    const handleKeydown=ev=>{
+      if(ev.key==='Escape') closeModal();
+    };
+    document.addEventListener('keydown',handleKeydown);
+
+    overlay.addEventListener('click',ev=>{
+      if(ev.target===overlay) closeModal();
+    });
+
+    const header=document.createElement('div');
+    header.className='nsf-mapping-header';
+    header.textContent='Parts Mapping';
+    modal.appendChild(header);
+
+    const body=document.createElement('div');
+    body.className='nsf-mapping-body';
+    modal.appendChild(body);
+
+    if(!partsObj||!indices.length){
+      const empty=document.createElement('div');
+      empty.className='nsf-mapping-empty';
+      empty.textContent='Keine strukturierten Teile vorhanden.';
+      body.appendChild(empty);
+    }else{
+      indices.forEach(index=>{
+        const mapKey=String(index);
+        const mappingForIndex=globalMapping[mapKey]||{};
+        const row=document.createElement('div');
+        row.className='nsf-mapping-row';
+        row.dataset.index=mapKey;
+
+        const partLabel=document.createElement('div');
+        partLabel.className='nsf-mapping-label';
+        partLabel.textContent=`part_${index}`;
+        row.appendChild(partLabel);
+
+        const partSelect=document.createElement('select');
+        partSelect.className='nsf-mapping-select';
+        partSelect.dataset.role='part';
+        const partPlaceholder=document.createElement('option');
+        partPlaceholder.value='';
+        partPlaceholder.textContent='—';
+        partSelect.appendChild(partPlaceholder);
+        availableKeys.forEach(key=>{
+          const opt=document.createElement('option');
+          opt.value=key;
+          opt.textContent=key;
+          partSelect.appendChild(opt);
+        });
+        const defaultPartKey=mappingForIndex.partKey||`Part ${index}`;
+        partSelect.value=availableKeys.includes(defaultPartKey)?defaultPartKey:'';
+        row.appendChild(partSelect);
+
+        const qtyLabel=document.createElement('div');
+        qtyLabel.className='nsf-mapping-label';
+        qtyLabel.textContent=`qty_${index}`;
+        row.appendChild(qtyLabel);
+
+        const qtySelect=document.createElement('select');
+        qtySelect.className='nsf-mapping-select';
+        qtySelect.dataset.role='qty';
+        const qtyPlaceholder=document.createElement('option');
+        qtyPlaceholder.value='';
+        qtyPlaceholder.textContent='—';
+        qtySelect.appendChild(qtyPlaceholder);
+        availableKeys.forEach(key=>{
+          const opt=document.createElement('option');
+          opt.value=key;
+          opt.textContent=key;
+          qtySelect.appendChild(opt);
+        });
+        const defaultQtyCandidates=[mappingForIndex.qtyKey,`Menge ${index}`,`Qty ${index}`,`quantity ${index}`].filter(Boolean);
+        const defaultQtyKey=defaultQtyCandidates.find(key=>availableKeys.includes(key));
+        if(defaultQtyKey) qtySelect.value=defaultQtyKey;
+        row.appendChild(qtySelect);
+
+        body.appendChild(row);
+      });
+    }
+
+    const footer=document.createElement('div');
+    footer.className='nsf-mapping-footer';
+    modal.appendChild(footer);
+
+    const cancelBtn=document.createElement('button');
+    cancelBtn.type='button';
+    cancelBtn.className='nsf-mapping-btn';
+    cancelBtn.textContent='Abbrechen';
+    cancelBtn.addEventListener('click',()=>{
+      closeModal();
+    });
+    footer.appendChild(cancelBtn);
+
+    const saveBtn=document.createElement('button');
+    saveBtn.type='button';
+    saveBtn.className='nsf-mapping-btn nsf-mapping-btn-primary';
+    saveBtn.textContent='Speichern';
+    saveBtn.disabled=!partsObj||!indices.length;
+    saveBtn.addEventListener('click',()=>{
+      if(!partsObj) return;
+      const currentMapping=loadGlobalPartsMapping();
+      const updatedMapping=Object.assign({},currentMapping);
+      const rows=body.querySelectorAll('.nsf-mapping-row');
+      rows.forEach(row=>{
+        const index=row.dataset.index;
+        const partSelect=row.querySelector('select[data-role="part"]');
+        const qtySelect=row.querySelector('select[data-role="qty"]');
+        const partKey=partSelect&&partSelect.value?partSelect.value:'';
+        const qtyKey=qtySelect&&qtySelect.value?qtySelect.value:'';
+        if(partKey){
+          updatedMapping[index]={partKey,qtyKey};
+        }else{
+          delete updatedMapping[index];
+        }
+      });
+      saveGlobalPartsMapping(updatedMapping);
+      closeModal();
+      containerEl.dispatchEvent(new CustomEvent('nsf-mapping-updated'));
+    });
+    footer.appendChild(saveBtn);
+
+    modal.addEventListener('click',ev=>ev.stopPropagation());
+
+    document.body.appendChild(overlay);
   }
 
   (function injectNsfStyles(){
     const id='nsf-parts-style';
-    if(document.getElementById(id)) return;
+    if(typeof document==='undefined'||document.getElementById(id)) return;
     const st=document.createElement('style');
     st.id=id;
     st.textContent=`
@@ -150,18 +312,46 @@
     .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums}
     .nsf-parts-info{display:flex;gap:.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);padding:.5rem;border-radius:.375rem;font-size:.95rem}
     .nsf-info-icon{opacity:.8}
+    .nsf-mapping-overlay{position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:center;justify-content:center;z-index:2147483646;padding:1.5rem}
+    .nsf-mapping-modal{background:#fff;min-width:360px;max-width:520px;max-height:80vh;overflow:hidden;border-radius:12px;box-shadow:0 20px 40px rgba(15,23,42,.2);display:flex;flex-direction:column}
+    .nsf-mapping-header{font-weight:600;font-size:1.1rem;padding:1rem 1.25rem;border-bottom:1px solid rgba(0,0,0,.08)}
+    .nsf-mapping-body{padding:1rem 1.25rem;overflow:auto;display:flex;flex-direction:column;gap:.75rem}
+    .nsf-mapping-row{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:.75rem;row-gap:.35rem;align-items:center;background:rgba(0,0,0,.02);padding:.75rem;border-radius:.5rem}
+    .nsf-mapping-row .nsf-mapping-label:nth-of-type(1){grid-column:1;grid-row:1}
+    .nsf-mapping-row select[data-role="part"]{grid-column:2;grid-row:1}
+    .nsf-mapping-row .nsf-mapping-label:nth-of-type(2){grid-column:1;grid-row:2}
+    .nsf-mapping-row select[data-role="qty"]{grid-column:2;grid-row:2}
+    .nsf-mapping-label{font-size:.85rem;color:#374151;text-transform:uppercase;letter-spacing:.05em}
+    .nsf-mapping-select{width:100%;padding:.35rem .5rem;border:1px solid rgba(148,163,184,.6);border-radius:.45rem;background:#fff;font-size:.95rem}
+    .nsf-mapping-footer{display:flex;justify-content:flex-end;gap:.75rem;padding:1rem 1.25rem;border-top:1px solid rgba(0,0,0,.08)}
+    .nsf-mapping-btn{appearance:none;border:1px solid rgba(148,163,184,.6);background:#fff;color:#1f2937;padding:.5rem 1rem;border-radius:.5rem;font-weight:500;cursor:pointer;transition:background .2s,border-color .2s,color .2s}
+    .nsf-mapping-btn:hover{background:rgba(148,163,184,.1)}
+    .nsf-mapping-btn-primary{background:#2563eb;border-color:#2563eb;color:#fff}
+    .nsf-mapping-btn-primary:hover{background:#1d4ed8;border-color:#1d4ed8}
+    .nsf-mapping-empty{font-size:.95rem;color:#4b5563}
   `;
     document.head.appendChild(st);
   })();
 
-  function renderFindingParts(containerEl,entry){
+  function renderFindingPartsWithGlobalMapping(containerEl,entry){
     if(!containerEl) return;
-    renderPnTextHeader(containerEl,entry);
-    renderBestellListe(containerEl,entry);
+    containerEl.__nsfMappingEntry=entry||null;
+    if(!containerEl.__nsfMappingListener){
+      containerEl.addEventListener('nsf-mapping-updated',()=>{
+        renderFindingPartsWithGlobalMapping(containerEl,containerEl.__nsfMappingEntry);
+      });
+      containerEl.__nsfMappingListener=true;
+    }
+    nsfRenderPnTextHeader(containerEl,entry);
+    nsfRenderBestellListe(containerEl,entry);
+  }
+
+  function normalizePartsPairs(entry){
+    return applyGlobalPartsMapping(entry);
   }
 
   // ================================================================
-  // PATCH END — Parts Reader
+  // PATCH END — Parts Mapping Helpers
   // ================================================================
 
   const DEFAULT_FINDINGS_FILES=[
@@ -4909,7 +5099,7 @@
         container.appendChild(note);
         return;
       }
-      renderFindingParts(container,entry||null);
+      renderFindingPartsWithGlobalMapping(container,entry||null);
     }
 
     buildPartsRowMapping(rowData){
