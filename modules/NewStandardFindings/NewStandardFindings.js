@@ -1,11 +1,14 @@
 (function(){
   'use strict';
 
-  // ===== NSF READ HELPERS (BEGIN) =====
+  // ===== NSF READ HELPERS (ensure exists) =====
   function nsfGetParts(entry) {
-    if (entry?.parts && Array.isArray(entry.parts)) return entry.parts;
-    return []; // legacy no longer supported
+    return (entry && Array.isArray(entry.parts)) ? entry.parts : [];
   }
+  function nsfGetAppliesTo(entry) {
+    return (entry && Array.isArray(entry.appliesTo)) ? entry.appliesTo : [];
+  }
+  // ===== end =====
 
   function nsfGetTimes(entry) {
     if (entry?.times && typeof entry.times === 'object') return entry.times;
@@ -14,10 +17,6 @@
 
   function nsfGetRoutineAction(entry) {
     return entry?.routineAction || "";
-  }
-
-  function nsfGetAppliesTo(entry) {
-    return Array.isArray(entry?.appliesTo) ? entry.appliesTo : [];
   }
 
   function nsfGetMods(entry) {
@@ -33,9 +32,11 @@
         const quantityRaw=source.menge??source.quantity??source.qty;
         const quantityValue=quantityRaw==null?'':clean(quantityRaw);
         if(!partValue) return null;
+        const normalizedQuantity=quantityValue||'1';
         return {
           part:partValue,
-          quantity:quantityValue||'1'
+          quantity:normalizedQuantity,
+          menge:normalizedQuantity
         };
       })
       .filter(Boolean);
@@ -145,7 +146,9 @@
 
       const qtyCol=document.createElement('div');
       qtyCol.className='nsf-col nsf-col-qty';
-      qtyCol.textContent=String(pair.quantity||'1');
+      qtyCol.textContent=String(
+        (typeof pair.menge === 'number' ? pair.menge : (pair.menge ? Number(String(pair.menge).replace(',', '.')) : 1)) || 1
+      );
       row.appendChild(qtyCol);
 
       list.appendChild(row);
@@ -222,7 +225,17 @@
         partCell.textContent=clean(partEntry.part||'');
         row.appendChild(partCell);
         const qtyCell=document.createElement('td');
-        qtyCell.textContent=clean(partEntry.quantity||'');
+        const rawMenge=partEntry&&partEntry.menge;
+        let normalizedMenge='';
+        if(typeof rawMenge==='number'){
+          normalizedMenge=String(rawMenge);
+        }else if(rawMenge){
+          const parsedMenge=Number(String(rawMenge).replace(',','.'));
+          if(!Number.isNaN(parsedMenge)){
+            normalizedMenge=String(parsedMenge);
+          }
+        }
+        qtyCell.textContent=normalizedMenge||clean(partEntry.quantity||'');
         row.appendChild(qtyCell);
         tbody.appendChild(row);
       });
