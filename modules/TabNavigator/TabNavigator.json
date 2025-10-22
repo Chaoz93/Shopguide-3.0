@@ -1,0 +1,17 @@
+{
+  "name": "Tab Navigator",
+  "icon": "🗂️",
+  "script": "renderTabNavigator",
+  "minW": 3,
+  "minH": 4,
+  "w": 4,
+  "h": 4,
+  "settings": {
+    "title": "Tab-Navigation",
+    "pattern": "grid",
+    "mode": "all",
+    "selectedTabs": []
+  },
+  "moduleId": "TabNavigator",
+  "version": "1.0.0"
+}

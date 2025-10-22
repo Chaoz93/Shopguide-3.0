@@ -1,0 +1,4 @@
+# Tab Navigator – Änderungsverlauf
+
+## [1.0.0] – 2025-10-10
+- Erstveröffentlichung mit konfigurierbarer Tab-Auswahl und Musterlayouts für die Navigationsbuttons.
