@@ -22,9 +22,11 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
 
   if(!document.getElementById('az-styles')){
     const css = `
-      .az-row{display:flex;justify-content:space-between;padding:.25rem .5rem;background:rgba(255,255,255,.1);border-radius:.25rem;}
+      .az-host{color:var(--text-color,#ffffff);}
+      .az-host .az-surface{color:inherit;}
+      .az-row{display:flex;justify-content:space-between;padding:.25rem .5rem;background:var(--module-header-bg,rgba(255,255,255,.08));border-radius:.25rem;border:1px solid var(--module-header-border,rgba(255,255,255,.18));color:inherit;}
       .az-row.clickable{cursor:pointer;}
-      .az-row.clickable:hover{background:rgba(255,255,255,.2);}
+      .az-row.clickable:hover{background:var(--module-header-bg-hover,rgba(255,255,255,.18));}
       .az-menu{position:fixed;z-index:1000;display:none;min-width:150px;padding:.25rem;
         background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);
         border:1px solid var(--border-color,#e5e7eb);border-radius:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
@@ -33,11 +35,14 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
       .az-menu input{width:100%;margin-top:.25rem;}
       .az-control-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
       .az-control-row select{min-width:80px;}
-      .az-pause-indicator{display:inline-flex;align-items:center;padding:.125rem .5rem;border-radius:.5rem;transition:background-color .2s,color .2s;margin-top:.25rem;}
+      .az-surface input[type="time"],
+      .az-surface input[type="number"],
+      .az-surface select{background:#ffffff;color:#111827;border:1px solid var(--border-color,#d1d5db);}
+      .az-pause-indicator{display:inline-flex;align-items:center;padding:.125rem .5rem;border-radius:.5rem;transition:background-color .2s,color .2s;margin-top:.25rem;background:var(--module-header-bg,rgba(255,255,255,.08));color:var(--module-header-text,var(--text-color,#fff));border:1px solid var(--module-header-border,rgba(255,255,255,.12));}
       .az-pause-indicator.warn{background:rgba(250,204,21,.18);color:#facc15;}
       .az-pause-indicator.ok{background:rgba(34,197,94,.18);color:#4ade80;}
-      .az-btn{background:rgba(255,255,255,.1);color:inherit;padding:.25rem .75rem;border-radius:.375rem;border:1px solid rgba(255,255,255,.25);cursor:pointer;font-size:.75rem;white-space:nowrap;}
-      .az-btn:hover{background:rgba(255,255,255,.2);}
+      .az-btn{background:var(--module-header-bg,rgba(255,255,255,.08));color:var(--module-header-text,var(--text-color,#fff));padding:.25rem .75rem;border-radius:.375rem;border:1px solid var(--module-header-border,rgba(255,255,255,.18));cursor:pointer;font-size:.75rem;white-space:nowrap;}
+      .az-btn:hover{background:var(--module-header-bg-hover,rgba(255,255,255,.16));}
       .az-menu .section-title{display:block;margin-top:.75rem;font-size:.75rem;font-weight:600;opacity:.8;}
       .az-menu .storage-status{font-size:.75rem;opacity:.7;margin-top:.25rem;}
     `;
@@ -48,8 +53,9 @@ window.renderArbeitszeit = function(targetDiv, ctx = {}) {
   }
 
   // ---- UI ----
+  targetDiv.classList.add('az-host');
   targetDiv.innerHTML = `
-    <div class="p-2 space-y-3 text-white text-sm">
+    <div class="az-surface p-2 space-y-3 text-sm">
       <label class="block">
         <span class="opacity-90">Einstempelzeit</span>
         <input type="time" class="start w-full text-black p-1 rounded" />
