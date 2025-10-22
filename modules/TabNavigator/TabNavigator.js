@@ -4,104 +4,98 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-    .tabnav-root{height:100%;width:100%;box-sizing:border-box;padding:1rem;display:flex;flex-direction:column;}
-    .tabnav-surface{flex:1;display:flex;flex-direction:column;gap:.9rem;padding:1.1rem;border-radius:var(--module-border-radius,1.25rem);
-      background:linear-gradient(135deg,rgba(37,99,235,.08),rgba(15,23,42,.25)),var(--module-bg,#0f172a);
-      border:1px solid var(--module-border-color,rgba(148,163,184,.35));
-      color:var(--module-header-text,#f8fafc);box-shadow:0 22px 46px rgba(8,15,35,.35);
+    .tabnav-root{height:100%;width:100%;box-sizing:border-box;padding:.55rem;display:flex;flex-direction:column;gap:.5rem;}
+    .tabnav-surface{flex:1;display:flex;flex-direction:column;gap:.6rem;padding:.8rem;border-radius:var(--module-border-radius,.9rem);
+      background:var(--module-bg,#101826);
+      border:1px solid var(--module-border-color,rgba(148,163,184,.22));
+      color:var(--module-header-text,#e2e8f0);box-shadow:0 10px 24px rgba(8,15,35,.25);
     }
-    .tabnav-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;flex-wrap:wrap;}
-    .tabnav-title-wrap{display:flex;flex-direction:column;gap:.35rem;min-width:0;}
-    .tabnav-title{margin:0;font-size:clamp(1.05rem,1.2vw + .35vh,1.35rem);font-weight:700;letter-spacing:.3px;}
-    .tabnav-pattern-label{font-size:.82rem;opacity:.8;line-height:1.4;}
-    .tabnav-config-btn{appearance:none;border:none;background:rgba(148,163,184,.18);color:inherit;
-      border-radius:.85rem;padding:.55rem .8rem;display:inline-flex;align-items:center;justify-content:center;gap:.35rem;
-      font-weight:600;font-size:.9rem;cursor:pointer;box-shadow:0 12px 28px rgba(8,15,35,.35);
-      transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
-    }
-    .tabnav-config-btn:hover{transform:translateY(-1px);box-shadow:0 18px 36px rgba(8,15,35,.42);filter:brightness(1.05);}
-    .tabnav-config-btn:active{transform:none;filter:brightness(.96);}
-    .tabnav-buttons{flex:1;min-height:0;display:grid;gap:.65rem;align-content:flex-start;}
-    .tabnav-buttons[data-pattern="grid"]{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}
+    .tabnav-surface:focus{outline:2px solid rgba(59,130,246,.45);outline-offset:3px;}
+    .tabnav-header{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;}
+    .tabnav-title-wrap{display:flex;flex-direction:column;gap:.25rem;min-width:0;}
+    .tabnav-title{margin:0;font-size:clamp(.95rem,1vw + .3vh,1.15rem);font-weight:600;letter-spacing:.2px;}
+    .tabnav-pattern-label{font-size:.78rem;opacity:.75;line-height:1.35;}
+    .tabnav-buttons{flex:1;min-height:0;display:grid;gap:.5rem;align-content:flex-start;}
+    .tabnav-buttons[data-pattern="grid"]{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}
     .tabnav-buttons[data-pattern="columns"]{grid-template-columns:repeat(2,minmax(0,1fr));}
     .tabnav-buttons[data-pattern="list"]{display:flex;flex-direction:column;}
-    .tabnav-button{appearance:none;border:none;border-radius:1rem;padding:.85rem 1rem;text-align:center;cursor:pointer;
-      background:rgba(15,32,56,.78);border:1px solid rgba(148,163,184,.3);
-      color:inherit;font-size:clamp(.95rem,1vw + .25vh,1.1rem);font-weight:600;letter-spacing:.25px;
-      box-shadow:0 18px 40px rgba(8,15,35,.42);transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;
+    .tabnav-button{appearance:none;border:none;border-radius:.75rem;padding:.7rem .9rem;text-align:center;cursor:pointer;
+      background:rgba(15,23,42,.78);border:1px solid rgba(148,163,184,.22);
+      color:inherit;font-size:clamp(.9rem,.9vw + .2vh,1.05rem);font-weight:600;letter-spacing:.2px;
+      box-shadow:0 6px 16px rgba(8,15,35,.25);transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;
     }
-    .tabnav-button:hover{transform:translateY(-2px);box-shadow:0 24px 50px rgba(8,15,35,.48);border-color:rgba(59,130,246,.55);}
-    .tabnav-button:active{transform:none;box-shadow:0 12px 26px rgba(8,15,35,.38);}
-    .tabnav-empty{margin:0;font-size:.92rem;opacity:.82;text-align:center;padding:2rem 1rem;border-radius:1rem;
-      background:rgba(15,32,56,.6);border:1px dashed rgba(148,163,184,.3);
+    .tabnav-button:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(8,15,35,.32);border-color:rgba(59,130,246,.45);}
+    .tabnav-button:active{transform:none;box-shadow:0 4px 12px rgba(8,15,35,.2);}
+    .tabnav-empty{margin:0;font-size:.88rem;opacity:.75;text-align:center;padding:1.4rem 1rem;border-radius:.75rem;
+      background:rgba(15,23,42,.55);border:1px dashed rgba(148,163,184,.24);
     }
-    .tabnav-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:2rem;
-      background:rgba(15,23,42,.55);backdrop-filter:blur(18px);z-index:3600;
+    .tabnav-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:1.5rem;
+      background:rgba(15,23,42,.45);backdrop-filter:blur(14px);z-index:3600;
     }
     .tabnav-overlay.open{display:flex;}
-    .tabnav-dialog{width:min(720px,96vw);max-height:92vh;overflow:auto;border-radius:1.3rem;
-      background:rgba(15,23,42,.92);color:#f8fafc;border:1px solid rgba(148,163,184,.28);
-      box-shadow:0 32px 68px rgba(8,15,35,.58);display:flex;flex-direction:column;outline:none;
+    .tabnav-dialog{width:min(640px,96vw);max-height:90vh;overflow:auto;border-radius:1rem;
+      background:rgba(15,23,42,.9);color:#f8fafc;border:1px solid rgba(148,163,184,.25);
+      box-shadow:0 18px 36px rgba(8,15,35,.45);display:flex;flex-direction:column;outline:none;
     }
-    .tabnav-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.85rem;padding:1.3rem 1.6rem 1.1rem;}
-    .tabnav-dialog-title{margin:0;font-size:1.25rem;font-weight:700;letter-spacing:.35px;}
-    .tabnav-dialog-subtitle{margin:.2rem 0 0;font-size:.88rem;opacity:.78;line-height:1.5;}
-    .tabnav-dialog-close{appearance:none;border:none;background:rgba(148,163,184,.18);color:inherit;font-size:1.6rem;line-height:1;
-      border-radius:.9rem;width:2.6rem;height:2.6rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+    .tabnav-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;padding:1.1rem 1.25rem 1rem;}
+    .tabnav-dialog-title{margin:0;font-size:1.12rem;font-weight:600;letter-spacing:.25px;}
+    .tabnav-dialog-subtitle{margin:.15rem 0 0;font-size:.82rem;opacity:.78;line-height:1.45;}
+    .tabnav-dialog-close{appearance:none;border:none;background:rgba(148,163,184,.18);color:inherit;font-size:1.4rem;line-height:1;
+      border-radius:.75rem;width:2.3rem;height:2.3rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
       transition:transform .15s ease,background .15s ease;
     }
-    .tabnav-dialog-close:hover{transform:translateY(-2px);background:rgba(59,130,246,.35);}
+    .tabnav-dialog-close:hover{transform:translateY(-1px);background:rgba(59,130,246,.35);}
     .tabnav-dialog-close:active{transform:none;}
-    .tabnav-dialog-body{flex:1;min-height:0;padding:1.4rem 1.6rem 1.6rem;display:flex;flex-direction:column;gap:1.3rem;}
-    .tabnav-section{display:flex;flex-direction:column;gap:.8rem;background:rgba(15,32,56,.6);border-radius:1.05rem;
-      border:1px solid rgba(148,163,184,.24);padding:1.1rem 1.2rem;
+    .tabnav-dialog-body{flex:1;min-height:0;padding:1.1rem 1.25rem 1.25rem;display:flex;flex-direction:column;gap:1.1rem;}
+    .tabnav-section{display:flex;flex-direction:column;gap:.75rem;background:rgba(15,32,56,.55);border-radius:.9rem;
+      border:1px solid rgba(148,163,184,.22);padding:.9rem 1rem;
     }
-    .tabnav-section-title{margin:0;font-size:1rem;font-weight:600;letter-spacing:.25px;}
-    .tabnav-patterns{display:grid;gap:.65rem;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));}
-    .tabnav-choice{display:flex;flex-direction:column;gap:.3rem;padding:.75rem .85rem;border-radius:.85rem;
-      background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.24);cursor:pointer;transition:border-color .15s ease,background .15s ease;
+    .tabnav-section-title{margin:0;font-size:.95rem;font-weight:600;letter-spacing:.2px;}
+    .tabnav-patterns{display:grid;gap:.55rem;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));}
+    .tabnav-choice{display:flex;flex-direction:column;gap:.3rem;padding:.7rem .8rem;border-radius:.8rem;
+      background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.22);cursor:pointer;transition:border-color .15s ease,background .15s ease;
     }
     .tabnav-choice input{width:1rem;height:1rem;}
     .tabnav-choice-header{display:flex;align-items:center;gap:.55rem;}
-    .tabnav-choice-title{font-weight:600;font-size:.95rem;}
-    .tabnav-choice-desc{font-size:.82rem;opacity:.75;line-height:1.4;}
-    .tabnav-choice.active{border-color:rgba(59,130,246,.6);background:rgba(37,99,235,.25);}
+    .tabnav-choice-title{font-weight:600;font-size:.9rem;}
+    .tabnav-choice-desc{font-size:.8rem;opacity:.75;line-height:1.4;}
+    .tabnav-choice.active{border-color:rgba(59,130,246,.55);background:rgba(37,99,235,.22);}
     .tabnav-choice input{flex:0 0 auto;}
-    .tabnav-mode-group{display:flex;flex-wrap:wrap;gap:.6rem;}
-    .tabnav-mode-option{display:inline-flex;align-items:center;gap:.45rem;padding:.55rem .75rem;border-radius:.85rem;
-      background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.24);cursor:pointer;font-weight:600;font-size:.9rem;
+    .tabnav-mode-group{display:flex;flex-wrap:wrap;gap:.5rem;}
+    .tabnav-mode-option{display:inline-flex;align-items:center;gap:.45rem;padding:.5rem .7rem;border-radius:.75rem;
+      background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.22);cursor:pointer;font-weight:600;font-size:.86rem;
       transition:border-color .15s ease,background .15s ease;
     }
     .tabnav-mode-option input{width:1rem;height:1rem;}
-    .tabnav-mode-option.active{border-color:rgba(59,130,246,.6);background:rgba(37,99,235,.25);}
-    .tabnav-hint{margin:0;font-size:.82rem;opacity:.78;line-height:1.45;}
-    .tabnav-actions{display:flex;flex-wrap:wrap;gap:.55rem;}
-    .tabnav-action{appearance:none;border:none;border-radius:.8rem;padding:.55rem .95rem;font-weight:600;font-size:.88rem;
-      cursor:pointer;background:rgba(37,99,235,.85);color:#fff;box-shadow:0 14px 28px rgba(8,15,35,.38);
+    .tabnav-mode-option.active{border-color:rgba(59,130,246,.5);background:rgba(37,99,235,.2);}
+    .tabnav-hint{margin:0;font-size:.8rem;opacity:.78;line-height:1.4;}
+    .tabnav-actions{display:flex;flex-wrap:wrap;gap:.5rem;}
+    .tabnav-action{appearance:none;border:none;border-radius:.75rem;padding:.5rem .85rem;font-weight:600;font-size:.85rem;
+      cursor:pointer;background:rgba(37,99,235,.82);color:#fff;box-shadow:0 10px 22px rgba(8,15,35,.3);
       transition:transform .15s ease,filter .15s ease;
     }
-    .tabnav-action:hover{transform:translateY(-1px);filter:brightness(1.05);}
+    .tabnav-action:hover{transform:translateY(-1px);filter:brightness(1.04);}
     .tabnav-action:active{transform:none;}
     .tabnav-action:disabled{opacity:.55;cursor:not-allowed;}
-    .tabnav-action-secondary{background:rgba(148,163,184,.2);color:inherit;box-shadow:none;}
-    .tabnav-tab-list{display:flex;flex-direction:column;gap:.55rem;max-height:260px;overflow:auto;padding-right:.25rem;}
-    .tabnav-option{display:flex;align-items:center;gap:.6rem;padding:.55rem .65rem;border-radius:.75rem;
-      background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.22);font-size:.92rem;
+    .tabnav-action-secondary{background:rgba(148,163,184,.18);color:inherit;box-shadow:none;}
+    .tabnav-tab-list{display:flex;flex-direction:column;gap:.5rem;max-height:240px;overflow:auto;padding-right:.2rem;}
+    .tabnav-option{display:flex;align-items:center;gap:.55rem;padding:.5rem .6rem;border-radius:.7rem;
+      background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.2);font-size:.88rem;
     }
     .tabnav-option input{width:1rem;height:1rem;}
     .tabnav-option span{flex:1;min-width:0;}
-    .tabnav-tab-list-empty{font-size:.85rem;opacity:.75;padding:.35rem 0;}
-    .tabnav-dialog-footer{display:flex;justify-content:flex-end;padding:1rem 1.6rem 1.4rem;border-top:1px solid rgba(148,163,184,.22);}
-    .tabnav-footer-btn{appearance:none;border:none;border-radius:.9rem;padding:.65rem 1.15rem;font-weight:600;font-size:.95rem;
-      background:rgba(37,99,235,.9);color:#fff;cursor:pointer;box-shadow:0 14px 28px rgba(8,15,35,.32);
+    .tabnav-tab-list-empty{font-size:.82rem;opacity:.72;padding:.3rem 0;}
+    .tabnav-dialog-footer{display:flex;justify-content:flex-end;padding:.9rem 1.25rem 1.15rem;border-top:1px solid rgba(148,163,184,.2);}
+    .tabnav-footer-btn{appearance:none;border:none;border-radius:.75rem;padding:.55rem 1rem;font-weight:600;font-size:.9rem;
+      background:rgba(37,99,235,.85);color:#fff;cursor:pointer;box-shadow:0 10px 22px rgba(8,15,35,.28);
       transition:transform .15s ease,filter .15s ease;
     }
-    .tabnav-footer-btn:hover{transform:translateY(-1px);filter:brightness(1.05);}
+    .tabnav-footer-btn:hover{transform:translateY(-1px);filter:brightness(1.04);}
     .tabnav-footer-btn:active{transform:none;}
     body.tabnav-modal-open{overflow:hidden;}
     @media(max-width:640px){
-      .tabnav-root{padding:.75rem;}
-      .tabnav-surface{padding:.9rem;}
+      .tabnav-root{padding:.45rem;}
+      .tabnav-surface{padding:.65rem;}
       .tabnav-buttons[data-pattern="columns"]{grid-template-columns:repeat(1,minmax(0,1fr));}
     }
     `;
@@ -253,6 +247,8 @@
 
     const surface = document.createElement('div');
     surface.className = 'tabnav-surface';
+    surface.setAttribute('tabindex', '0');
+    surface.setAttribute('role', 'group');
     container.appendChild(surface);
 
     const header = document.createElement('div');
@@ -267,19 +263,11 @@
     title.className = 'tabnav-title';
     title.textContent = defaults.title || ctx?.moduleJson?.name || 'Tab Navigator';
     titleWrap.appendChild(title);
+    surface.setAttribute('aria-label', `${title.textContent} – Rechtsklick für Einstellungen`);
 
     const patternLabel = document.createElement('div');
     patternLabel.className = 'tabnav-pattern-label';
     titleWrap.appendChild(patternLabel);
-
-    const configBtn = document.createElement('button');
-    configBtn.type = 'button';
-    configBtn.className = 'tabnav-config-btn';
-    configBtn.setAttribute('aria-haspopup', 'dialog');
-    configBtn.setAttribute('aria-expanded', 'false');
-    configBtn.title = 'Tabs & Darstellung konfigurieren';
-    configBtn.innerHTML = '<span class="tabnav-config-icon">⚙️</span> Einstellungen';
-    header.appendChild(configBtn);
 
     const buttonsWrap = document.createElement('div');
     buttonsWrap.className = 'tabnav-buttons';
@@ -320,7 +308,7 @@
           <div class="tabnav-dialog-header">
             <div>
               <h2 class="tabnav-dialog-title">Tab-Navigation konfigurieren</h2>
-              <p class="tabnav-dialog-subtitle">Lege fest, welche Tabs angezeigt werden und wie die Buttons angeordnet sind.</p>
+              <p class="tabnav-dialog-subtitle">Lege fest, welche Tabs angezeigt werden und wie die Buttons angeordnet sind. Dieses Menü erreichst du per Rechtsklick im Modul.</p>
             </div>
             <button type="button" class="tabnav-dialog-close" data-action="close" aria-label="Schließen">×</button>
           </div>
@@ -352,11 +340,14 @@
       return overlayEl;
     }
 
-    function openOverlay(){
-      lastFocusedBeforeModal = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    function openOverlay(triggerEl){
+      if (triggerEl instanceof HTMLElement) {
+        lastFocusedBeforeModal = triggerEl;
+      } else {
+        lastFocusedBeforeModal = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      }
       overlay.classList.add('open');
       document.body.classList.add('tabnav-modal-open');
-      configBtn.setAttribute('aria-expanded', 'true');
       updatePatternRadios();
       updateModeRadios();
       updateOverlayTabs();
@@ -365,12 +356,17 @@
 
     function closeOverlay(){
       overlay.classList.remove('open');
-      configBtn.setAttribute('aria-expanded', 'false');
       if (!document.querySelector('.tabnav-overlay.open')) {
         document.body.classList.remove('tabnav-modal-open');
       }
       if (lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === 'function') {
-        lastFocusedBeforeModal.focus();
+        if (document.contains(lastFocusedBeforeModal)) {
+          lastFocusedBeforeModal.focus();
+          return;
+        }
+      }
+      if (typeof surface.focus === 'function') {
+        surface.focus();
       }
     }
 
@@ -381,7 +377,8 @@
 
     function applyPatternLabel(){
       const opt = PATTERN_OPTIONS.find(o => o.value === state.pattern);
-      patternLabel.textContent = opt ? `Darstellung: ${opt.label}` : '';
+      const base = opt ? `Darstellung: ${opt.label}` : '';
+      patternLabel.textContent = base ? `${base} • Rechtsklick für Einstellungen` : 'Rechtsklick für Einstellungen';
     }
 
     function updatePatternRadios(){
@@ -563,13 +560,23 @@
       });
     }
 
-    configBtn.addEventListener('click', () => {
-      if (overlay.classList.contains('open')) {
-        closeOverlay();
-      } else {
-        openOverlay();
+    function handleSurfaceContextMenu(event){
+      event.preventDefault();
+      const trigger = event.target instanceof HTMLElement ? event.target : surface;
+      openOverlay(trigger);
+    }
+
+    function handleSurfaceKey(event){
+      if (event.key === 'ContextMenu' || event.key === 'Apps' || (event.key === 'F10' && event.shiftKey)) {
+        event.preventDefault();
+        const trigger = event.target instanceof HTMLElement ? event.target : surface;
+        openOverlay(trigger);
       }
-    });
+    }
+
+    surface.title = 'Rechtsklick für Einstellungen';
+    surface.addEventListener('contextmenu', handleSurfaceContextMenu);
+    surface.addEventListener('keydown', handleSurfaceKey);
 
     if (closeBtn) closeBtn.addEventListener('click', closeOverlay);
     if (doneBtn) doneBtn.addEventListener('click', closeOverlay);
