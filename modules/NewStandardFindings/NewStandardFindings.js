@@ -1532,124 +1532,6 @@
   }
   // PATCH END
 
-  // Extract a structured { "Part 1": "...", "Menge 1": "..." } object from a raw entry.
-  // Accept both nested `Parts` and already-flattened shapes; keep original keys.
-  function nsfExtractStructuredFromRaw(raw){
-    if(!raw||typeof raw!=='object') return null;
-
-    // prefer nested Parts object if present
-    const src=nsfIsObj(raw.Parts)?raw.Parts
-      :(nsfIsObj(raw.parts)?raw.parts:null);
-
-    // If a clearly structured object exists, return cleaned 1:1 copy with non-empty values.
-    const tryCopy=obj=>{
-      if(!nsfIsObj(obj)) return null;
-      const out={};
-      let found=false;
-      for(const k of Object.keys(obj)){
-        const v=obj[k];
-        if(v!=null&&String(v).trim()!==''){
-          out[k]=String(v).trim();
-          found=true;
-        }
-      }
-      return found?out:null;
-    };
-
-    // 1) Nested structured
-    let s=tryCopy(src);
-    if(s) return s;
-
-    // 2) Some sources already have numbered fields flattened at the top level of raw
-    const numberedKeys=Object.keys(raw).filter(k=>
-      /^Part\s*\d+$/i.test(k)||/^Menge\s*\d+$/i.test(k)
-    );
-    if(numberedKeys.length){
-      const out={};
-      for(const k of numberedKeys){
-        const v=raw[k];
-        if(v!=null&&String(v).trim()!=='') out[k]=String(v).trim();
-      }
-      return Object.keys(out).length?out:null;
-    }
-
-    return null;
-  }
-
-  // Compact one-liner for quick visibility when creating selections
-  function nsfCompactPartsLine(pd){
-    if(!nsfIsObj(pd)) return `STRING("${String(pd)}")`;
-    try {
-      return `{` + Object.entries(pd)
-        .map(([k,v]) => `${k.replace(/\s+/g,'').replace('Part','P').replace('Menge','M')}:${String(v)}`)
-        .join(', ') + `}`;
-    } catch { return '{?}'; }
-  }
-
-  // PATCH START: Parts helpers (structured + PNText parser)
-  function hasStructuredParts(partsObj){
-    if(!partsObj||typeof partsObj!=='object') return false;
-    return Object.keys(partsObj).some(k=>/^part\s*\d+$/i.test(k)&&String(partsObj[k]||'').trim());
-  }
-
-  function extractStructuredPartsGroup(partsObj){
-    if(!hasStructuredParts(partsObj)) return null;
-    const titleRaw=String(partsObj.PNText||'').trim();
-    const title=titleRaw.endsWith(':')?titleRaw.slice(0,-1).trim():titleRaw;
-    const items=[];
-    for(let i=1;i<=50;i++){
-      const p=String(partsObj[`Part ${i}`]||'').trim();
-      const q=String(partsObj[`Menge ${i}`]||'').trim();
-      if(!p&&!q) continue;
-      items.push({part:p,quantity:q||'1'});
-    }
-    return items.length?{title:title||'',parts:items}:null;
-  }
-
-  // Erlaubt: "2x", "2 x", "2×" als Multiplikator; Trenner: "+", ";", ",", Zeilenumbruch
-  function parsePnTextList(pnText){
-    const src=String(pnText||'').trim();
-    if(!src) return [];
-    const low=src.toLowerCase();
-    if(/keine teile|no parts|nicht zutreffend|not required/.test(low)) return [];
-    const chunks=src.split(/[\+\;\,\n]/).map(s=>s.trim()).filter(Boolean);
-    const items=[];
-    const rx=/^(\d+)\s*[x×]\s*(.+?)\s*$/i;
-    chunks.forEach(c=>{
-      const m=c.match(rx);
-      if(m){
-        const qty=m[1];
-        const part=m[2];
-        if(part) items.push({part:part.trim(),quantity:String(qty)});
-      }
-    });
-    return items;
-  }
-  // PATCH END
-
-  function nsfKeepPartsBlock(src){
-    // returns a clean, protected copy of the parts block
-    const out={parts:'',partsDetails:null,partsSource:null};
-
-    // prefer structured object from partsDetails/partsSource if present
-    if(nsfIsObj(src.partsDetails)) out.partsDetails=src.partsDetails;
-    else if(nsfIsObj(src.partsSource)) out.partsDetails=src.partsSource;
-
-    // always carry partsSource if we have one
-    if(nsfIsObj(src.partsSource)) out.partsSource=src.partsSource;
-
-    // summary text stays in `parts`
-    if(typeof src.parts==='string') out.parts=src.parts;
-
-    // if nothing structured yet but src.partsDetails is a string, keep it only as last resort
-    if(!out.partsDetails&&typeof src.partsDetails==='string'&&src.partsDetails.trim()!==''){
-      // DO NOT parse or flatten here; just pass through as string fallback
-      out.partsDetails=src.partsDetails;
-    }
-
-    return out;
-  }
-
   // === NSF DEBUG TOGGLE =========================================================
   const NSF_DEBUG=(()=>{
     try{
@@ -1713,434 +1595,6 @@
     if(set.has(key)) return;
     set.add(key);
     list.push(text);
-  }
-  function hasStructuredNumberedParts(partsDetails){
-    if(!partsDetails||typeof partsDetails!=='object') return false;
-    return Object.keys(partsDetails).some(k=>/^Part\s+\d+$/i.test(k));
-  }
-
-  // tolerant extractor for PartX / MengeX keys (with or without spaces, case-insensitive)
-  function nsfExtractStructuredPartsTolerant(rawParts){
-    if(!rawParts||typeof rawParts!=='object') return null;
-    const result={};
-    let found=false;
-    for(const key of Object.keys(rawParts)){
-      const k=String(key).trim();
-      if(/^p\s*a\s*r\s*t\s*\d+$/i.test(k)||/^m\s*e\s*n\s*g\s*e\s*\d+$/i.test(k)){
-        const val=rawParts[key];
-        if(val!=null&&String(val).trim()!==''){
-          result[key]=String(val).trim();
-          found=true;
-        }
-      }
-    }
-    return found?result:null;
-  }
-
-  // auto-quantities from PNText (e.g., "2x Foo + 1x Bar", "Foo x2", "Foo ×2")
-  // Applies ONLY when Menge X is missing/empty. Keeps ordering by existing Part indices.
-  function nsfAutoQuantitiesFromPnText(structuredObj,pnText){
-    if(!structuredObj||typeof structuredObj!=='object') return structuredObj;
-    if(!pnText||typeof pnText!=='string') return structuredObj;
-
-    // Build a simple list of {idx, partKey, mengeKey, value}
-    const items=[];
-    const partIdxRegex=/^p\s*a\s*r\s*t\s*(\d+)$/i;
-    for(const key of Object.keys(structuredObj)){
-      const m=key.trim().match(partIdxRegex);
-      if(m){
-        const idx=m[1];
-        const mengeKey=Object.keys(structuredObj).find(k=>k.trim().toLowerCase()===(
-          `menge ${idx}`
-        ).toLowerCase());
-        items.push({idx,partKey:key,mengeKey:mengeKey||`Menge ${idx}`,value:structuredObj[key]});
-      }
-    }
-    if(!items.length) return structuredObj;
-
-    // Try to derive quantities per item from pnText by matching the sequence
-    // Strategy:
-    // 1) split pnText into tokens by + , / and 'und' to get segments
-    // 2) look for leading or trailing quantity markers (2x, x2, ×2) in each segment
-    const segments=pnText.split(/(?:\+|,|\/|\bund\b)/i).map(s=>s.trim()).filter(Boolean);
-
-    function parseQty(seg){
-      // 2x Foo  |  Foo x2  | Foo ×2
-      const lead=seg.match(/^\s*(\d+)\s*[x×]/i);
-      if(lead) return parseInt(lead[1],10);
-      const trail=seg.match(/[x×]\s*(\d+)\s*$/i);
-      if(trail) return parseInt(trail[1],10);
-      return null;
-    }
-
-    // naive mapping in order: segment i → item i (only if makes sense)
-    for(let i=0;i<items.length&&i<segments.length;i++){
-      const qty=parseQty(segments[i]);
-      if(qty!=null&&(!structuredObj[items[i].mengeKey]||String(structuredObj[items[i].mengeKey]).trim()==='')){
-        structuredObj[items[i].mengeKey]=String(qty);
-      }
-    }
-    return structuredObj;
-  }
-
-  function extractStructuredNumberedParts(partsObj){
-    if(!partsObj||typeof partsObj!=='object') return null;
-    const result={};
-    let found=false;
-    for(const key of Object.keys(partsObj)){
-      if(/^Part\s+\d+$/i.test(key)||/^Menge\s+\d+$/i.test(key)){
-        const value=partsObj[key];
-        if(value!=null&&String(value).trim()!==''){
-          result[key]=String(value).trim();
-          found=true;
-        }
-      }
-    }
-    return found?result:null;
-  }
-
-  // normalize parts (extended numbered key handling)
-  function normalizeNumberedParts(rawPartsObj){
-    if(!rawPartsObj||typeof rawPartsObj!=='object') return [];
-
-    const partMap=new Map();
-
-    // scan all keys and pair them by index number
-    Object.keys(rawPartsObj).forEach(key=>{
-      const value=rawPartsObj[key];
-      if(typeof key!=='string') return;
-
-      // detect `Part X`
-      const partMatch=key.match(/^Part\s+(\d+)$/i);
-      if(partMatch){
-        const idx=parseInt(partMatch[1],10);
-        if(!Number.isFinite(idx)) return;
-        if(!partMap.has(idx)) partMap.set(idx,{});
-        partMap.get(idx).pn=(typeof value==='string'?value.trim():'');
-        return;
-      }
-
-      // detect `Menge X`
-      const qtyMatch=key.match(/^Menge\s+(\d+)$/i);
-      if(qtyMatch){
-        const idx=parseInt(qtyMatch[1],10);
-        if(!Number.isFinite(idx)) return;
-        if(!partMap.has(idx)) partMap.set(idx,{});
-        partMap.get(idx).qty=(typeof value==='string'?value.trim():'');
-        return;
-      }
-    });
-
-    // convert map → array, sorted & compacted
-    const result=[];
-    Array.from(partMap.keys()).sort((a,b)=>a-b).forEach(idx=>{
-      const entry=partMap.get(idx);
-      if(!entry||!entry.pn) return; // ignore if pn empty
-
-      let qty=entry.qty;
-      if(!qty||qty==='0') qty='1';
-
-      // push compacted model
-      result.push({
-        pn:entry.pn,
-        qty:qty
-      });
-    });
-
-    return result;
-  }
-
-  function parsePartsDetails(rawValue,options){
-    const opts=options||{};
-    const titles=[];
-    const titleKeys=new Set();
-    const pairs=[];
-    const pairKeys=new Set();
-    const groups=[];
-    let currentGroupIndex=-1;
-    const ensureGroupIndex=()=>{
-      if(currentGroupIndex>-1) return currentGroupIndex;
-      const group={title:'',parts:[]};
-      currentGroupIndex=groups.length;
-      groups.push(group);
-      return currentGroupIndex;
-    };
-    const createGroup=(value)=>{
-      const title=clean(value);
-      const group={title,parts:[]};
-      currentGroupIndex=groups.length;
-      groups.push(group);
-      if(title) pushUniqueLine(titles,titleKeys,title);
-      return currentGroupIndex;
-    };
-    const fallbackParts=Array.isArray(opts.fallbackParts)?opts.fallbackParts:[];
-    const fallbackPartSet=new Set(fallbackParts.map(normalizePart).filter(Boolean));
-    if(!rawValue) return {titles,pairs,groups};
-    if(rawValue&&typeof rawValue==='object'&&!Array.isArray(rawValue)){
-      const numberedParts=normalizeNumberedParts(rawValue);
-      if(numberedParts.length){
-        const defaultGroup={title:'',parts:[]};
-        numberedParts.forEach(entry=>{
-          if(!entry) return;
-          const partText=clean(entry.pn);
-          if(!partText) return;
-          const normalizedPart=normalizePart(partText);
-          if(normalizedPart&&fallbackPartSet.has(normalizedPart)) return;
-          const quantityText=clean(entry.qty);
-          const quantityKey=(quantityText||'').toLowerCase();
-          const key=`${normalizedPart}||${quantityKey}`;
-          if(pairKeys.has(key)) return;
-          pairKeys.add(key);
-          const pair={part:partText,quantity:quantityText};
-          pairs.push(pair);
-          defaultGroup.parts.push({part:pair.part,quantity:pair.quantity});
-        });
-        if(defaultGroup.parts.length){
-          return {titles,pairs,groups:[defaultGroup]};
-        }
-        if(pairs.length){
-          return {titles,pairs,groups:[]};
-        }
-      }
-    }
-    const collected=[];
-    const appendLine=(label,value)=>{
-      const text=clean(value);
-      if(!text) return;
-      if(label){
-        collected.push(`${label}: ${text}`);
-      }else{
-        collected.push(text);
-      }
-    };
-    const visit=(value,label)=>{
-      if(value==null) return;
-      const type=typeof value;
-      if(type==='string'||type==='number'||type==='boolean'){
-        appendLine(label,value);
-        return;
-      }
-      if(Array.isArray(value)){
-        value.forEach(item=>visit(item,label));
-        return;
-      }
-      if(type==='object'){
-        const entries=Object.entries(value);
-        if(!entries.length){
-          appendLine(label,value);
-          return;
-        }
-        entries.forEach(([key,val])=>{
-          const keyLabel=clean(key);
-          if(keyLabel){
-            visit(val,keyLabel);
-          }else{
-            visit(val,label);
-          }
-        });
-        return;
-      }
-      appendLine(label,value);
-    };
-    visit(rawValue,'');
-    let lines=[];
-    if(collected.length){
-      lines=collected
-        .flatMap(line=>String(line).split(/\r?\n/))
-        .map(line=>clean(line))
-        .filter(Boolean);
-    }else if(typeof rawValue==='string'||typeof rawValue==='number'||typeof rawValue==='boolean'){
-      lines=String(rawValue).split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
-    }else if(typeof rawValue==='object'){
-      try{
-        const serialized=JSON.stringify(rawValue);
-        if(serialized) lines=[serialized];
-      }catch{}
-    }
-    if(!lines.length) return {titles,pairs,groups};
-    const pairMap=new Map();
-    const orderKeys=[];
-    const knownParts=new Set();
-    const ensurePair=(key)=>{
-      const resolvedKey=key==null?`auto-${orderKeys.length}`:key;
-      if(!pairMap.has(resolvedKey)){
-        const groupIndex=ensureGroupIndex();
-        pairMap.set(resolvedKey,{part:'',quantity:'',order:orderKeys.length,groupIndex});
-        orderKeys.push(resolvedKey);
-      }
-      return pairMap.get(resolvedKey);
-    };
-    let lastKey=null;
-    const skipByPartValue=value=>{
-      const normalized=normalizePart(value);
-      if(!normalized) return false;
-      if(fallbackPartSet.has(normalized)) return true;
-      if(knownParts.has(normalized)) return true;
-      return false;
-    };
-    const extractIndex=key=>{
-      if(!key) return null;
-      const compact=key.replace(/\s+/g,'');
-      const match=compact.match(/(\d+)/);
-      if(!match) return null;
-      const num=parseInt(match[1],10);
-      return Number.isNaN(num)?null:num;
-    };
-    lines.forEach(line=>{
-      const colonIndex=line.indexOf(':');
-      if(colonIndex> -1){
-        const rawKey=line.slice(0,colonIndex).trim();
-        let value=line.slice(colonIndex+1).trim();
-        if(!value) return;
-        const normalizedKey=rawKey.toLowerCase();
-        const normalizedCompact=normalizedKey.replace(/\s+/g,'');
-        if(/label|beschreibung|description|partnummer|part number|teilenummer/.test(normalizedKey)){
-          return;
-        }
-        if(/bestell|pntext|ordertext|ordertitle/.test(normalizedKey)){
-          createGroup(value);
-          lastKey=null;
-          return;
-        }
-        if(/^(part|pn|artikel)/.test(normalizedKey)){
-          const index=extractIndex(normalizedCompact);
-          if(index==null && skipByPartValue(value)){
-            lastKey=null;
-            return;
-          }
-          const key=index!=null?`index-${index}`:`auto-${orderKeys.length}`;
-          const pair=ensurePair(key);
-          pair.part=value;
-          const normalizedPart=normalizePart(value);
-          if(normalizedPart) knownParts.add(normalizedPart);
-          lastKey=key;
-          return;
-        }
-        if(/^(menge|qty|quantity|anzahl|stck|stück)/.test(normalizedKey)){
-          const index=extractIndex(normalizedCompact);
-          const key=index!=null?`index-${index}`:(lastKey||`auto-${orderKeys.length}`);
-          const pair=ensurePair(key);
-          pair.quantity=value;
-          lastKey=key;
-          return;
-        }
-        if(skipByPartValue(value)){
-          lastKey=null;
-          return;
-        }
-        createGroup(value);
-        lastKey=null;
-        return;
-      }
-      if(skipByPartValue(line)){
-        lastKey=null;
-        return;
-      }
-      createGroup(line);
-      lastKey=null;
-    });
-    const orderedPairs=Array.from(pairMap.values())
-      .sort((a,b)=>a.order-b.order)
-      .map(entry=>({
-        part:clean(entry.part),
-        quantity:clean(entry.quantity),
-        groupIndex:typeof entry.groupIndex==='number'?entry.groupIndex:-1
-      }))
-      .filter(entry=>entry.part||entry.quantity);
-    const groupParts=groups.map(group=>({
-      title:clean(group.title),
-      parts:[]
-    }));
-    orderedPairs.forEach(entry=>{
-      const partKey=normalizePart(entry.part);
-      const quantityKey=(entry.quantity||'').toLowerCase();
-      const key=`${partKey}||${quantityKey}`;
-      if(pairKeys.has(key)) return;
-      pairKeys.add(key);
-      pairs.push({part:entry.part,quantity:entry.quantity});
-      const idx=entry.groupIndex>=0&&entry.groupIndex<groupParts.length
-        ? entry.groupIndex
-        : (groupParts.length?groupParts.length-1:-1);
-      if(idx>=0){
-        groupParts[idx].parts.push({part:entry.part,quantity:entry.quantity});
-      }else{
-        groupParts.push({title:'',parts:[{part:entry.part,quantity:entry.quantity}]});
-      }
-    });
-    const filledGroups=groupParts.filter(group=>group.title||group.parts.length);
-    filledGroups.forEach(group=>{
-      if(group.title) pushUniqueLine(titles,titleKeys,group.title);
-    });
-    return {titles,pairs,groups:filledGroups};
-  }
-  function buildPartsData(titles,groups){
-    const normalizedTitles=Array.isArray(titles)
-      ? titles.map(title=>clean(title)).filter(Boolean)
-      : [];
-    const partCopyLines=[];
-    const usedTitles=new Set();
-    const groupsOutput=[];
-    let rowCounter=0;
-    const dedupeSources=list=>{
-      if(!Array.isArray(list)) return [];
-      const unique=[];
-      const seen=new Set();
-      const signature=item=>{
-        if(!item||typeof item!=='object') return '';
-        const key=clean(item.key);
-        const label=clean(item.label);
-        const part=normalizePart(item.part||'');
-        return `${key}||${label}||${part}`;
-      };
-      list.forEach(item=>{
-        const sig=signature(item);
-        if(seen.has(sig)) return;
-        seen.add(sig);
-        unique.push(item);
-      });
-      return unique;
-    };
-    const makeRow=(pnValue,partValue,quantityValue,meta)=>{
-      rowCounter+=1;
-      const sources=dedupeSources(meta&&meta.sources);
-      return {
-        pnLabel:`PN ${rowCounter}`,
-        pnValue,
-        partLabel:`Part ${rowCounter}`,
-        partValue,
-        quantityLabel:`Menge ${rowCounter}`,
-        quantityValue,
-        sources
-      };
-    };
-    if(Array.isArray(groups)&&groups.length){
-      groups.forEach(group=>{
-        const titleText=clean(group&&group.title);
-        const partsArray=Array.isArray(group&&group.parts)?group.parts:[];
-        const groupSources=dedupeSources(group&&group.sources);
-        if(partsArray.length){
-          const groupRows=[];
-          partsArray.forEach((pair,index)=>{
-            const partText=clean(pair.part);
-            const quantityText=clean(pair.quantity);
-            if(partText) partCopyLines.push(partText);
-            const pnValue=index===0?titleText:'';
-            const pairSources=dedupeSources(pair&&pair.sources&&pair.sources.length?pair.sources:groupSources);
-            groupRows.push(makeRow(pnValue,partText,quantityText,{sources:pairSources}));
-          });
-          if(titleText) usedTitles.add(titleText.toLowerCase());
-          groupsOutput.push({title:titleText,rows:groupRows});
-        }
-      });
-    }
-    normalizedTitles.forEach(title=>{
-      const key=title.toLowerCase();
-      if(usedTitles.has(key)) return;
-      usedTitles.add(key);
-      groupsOutput.push({title,rows:[makeRow(title,'','',{sources:[]})]});
-    });
-    const text=partCopyLines.join('\n');
-    return {text,rows:groupsOutput};
   }
   function extractRowIndex(label){
     const text=clean(label);
@@ -2731,23 +2185,7 @@
       const nonroutineAction=clean(extractNestedField(raw,NONROUTINE_ACTION_ALIASES));
       const nonroutine=clean(extractNestedField(raw,FIELD_ALIASES.nonroutine));
       const partsRaw=extractNestedFieldRaw(raw,FIELD_ALIASES.parts);
-      const partsObject=partsRaw&&typeof partsRaw==='object'?partsRaw:null;
-      let partsDetailsValue=null;
-      const tolerantStructured=nsfExtractStructuredPartsTolerant(partsObject);
-      if(tolerantStructured){
-        partsDetailsValue=tolerantStructured;
-      }
       const partsText=clean(valueToText(partsRaw));
-      const structuredPartsDetails=extractStructuredNumberedParts(partsObject);
-      if(!partsDetailsValue){
-        partsDetailsValue=structuredPartsDetails
-          ? structuredPartsDetails
-          : (partsObject?cloneDeep(partsObject):null);
-      }
-      if(partsDetailsValue&&typeof partsDetailsValue==='object'&&partsText){
-        partsDetailsValue=nsfAutoQuantitiesFromPnText(partsDetailsValue,partsText);
-      }
-      const partsSourceValue=partsObject?cloneDeep(partsObject):null;
       const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
       const mods=clean(extractNestedField(raw,FIELD_ALIASES.mods));
       const map=buildFieldMap(raw);
@@ -2827,8 +2265,6 @@
         nonroutineFinding:nonroutineFindingValue,
         nonroutineAction:nonroutineActionValue,
         parts:partsValue,
-        partsDetails:partsDetailsValue!=null?partsDetailsValue:(partsText||''),
-        partsSource:partsSourceValue,
         times:timesValue,
         mods:modsValue,
         additional:extras,
@@ -3911,8 +3347,6 @@
         if(resolved){
           const storedPart=normalizePart(sel.part);
           const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
-          const resolvedPartsDetails=resolved.partsDetails!=null?cloneDeep(resolved.partsDetails)
-            :(sel.partsDetails!=null?cloneDeep(sel.partsDetails):null);
           return {
             ...resolved,
             routine:resolved.routine||sel.routine||'',
@@ -3922,7 +3356,6 @@
             nonroutineFinding:resolved.nonroutineFinding||resolved.nonroutineFindings||sel.nonroutineFinding||'',
             nonroutineAction:resolved.nonroutineAction||resolved.nonroutineActions||sel.nonroutineAction||'',
             parts:resolved.parts||sel.parts||'',
-            partsDetails:resolvedPartsDetails,
             times:resolved.times||sel.times||'',
             mods:resolved.mods||sel.mods||'',
             part:matchedPart||resolved.part
@@ -3941,7 +3374,6 @@
           nonroutineFinding:sel.nonroutineFinding||'',
           nonroutineAction:sel.nonroutineAction||'',
           parts:sel.parts||'',
-          partsDetails:sel.partsDetails!=null?cloneDeep(sel.partsDetails):null,
           times:sel.times||'',
           mods:sel.mods||'',
           raw:sel.raw!=null?cloneDeep(sel.raw):null
@@ -5078,7 +4510,7 @@
         this.rawTimes=[];
         this.rawMods=[];
         this.currentLabel='';
-        return {findings:'',actions:'',routine:'',nonroutine:'',parts:''};
+        return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',partsRows:[]};
       }
       const lists={
         findings:[],
@@ -5092,82 +4524,17 @@
         routine:new Set(),
         nonroutine:new Set()
       };
-      const bestellTitles=[];
-      const bestellTitleKeys=new Set();
-      const partPairSources=new Map();
-      const partGroups=[];
       const timeEntries=[];
       const timeKeys=new Set();
       const modEntries=[];
       const modKeys=new Set();
       let primaryLabel='';
-      let primarySelectionForStorage=null;
-      let primaryResolvedForStorage=null;
-      const addBestellTitle=value=>pushUniqueLine(bestellTitles,bestellTitleKeys,value);
-      const ensureSourceUnique=(list,source)=>{
-        if(!Array.isArray(list)||!source||typeof source!=='object') return;
-        const buildSignature=target=>{
-          if(!target||typeof target!=='object') return '';
-          const key=clean(target.key);
-          const label=clean(target.label);
-          const part=normalizePart(target.part||'');
-          return `${key}||${label}||${part}`;
-        };
-        const signature=buildSignature(source);
-        if(!signature) list.push(source);
-        else if(!list.some(item=>buildSignature(item)===signature)) list.push(source);
-      };
-      const createPartSource=(entry,selection)=>{
-        if(!entry||typeof entry!=='object') return null;
-        const key=typeof entry.key==='string'?entry.key:(selection&&typeof selection.key==='string'?selection.key:'');
-        const labelCandidate=clean(entry.label||selection?.label||entry.finding||selection?.finding||'');
-        const partValue=normalizePart(entry.part||selection?.part||'');
-        const rawValue=entry.raw!=null?entry.raw:(selection&&selection.raw!=null?selection.raw:null);
-        const findingValue=clean(entry.finding||selection?.finding||'');
-        const actionValue=clean(entry.action||selection?.action||'');
-        return {
-          key,
-          label:labelCandidate,
-          part:partValue,
-          raw:rawValue,
-          entry,
-          finding:findingValue,
-          action:actionValue
-        };
-      };
-      const addPartGroup=(group,sourceEntry)=>{
-        if(!group||typeof group!=='object') return;
-        const titleText=clean(group.title);
-        const rawParts=Array.isArray(group.parts)?group.parts:[];
-        const filteredParts=[];
-        const normalizedSource=sourceEntry&&typeof sourceEntry==='object'?sourceEntry:null;
-        rawParts.forEach(pair=>{
-          if(!pair||typeof pair!=='object') return;
-          const partText=clean(pair.part);
-          const quantityText=clean(pair.quantity);
-          if(!partText&&!quantityText) return;
-          const key=`${normalizePart(partText)}||${quantityText.toLowerCase()}`;
-          if(partPairSources.has(key)){
-            const existingSources=partPairSources.get(key);
-            if(normalizedSource) ensureSourceUnique(existingSources,normalizedSource);
-            return;
-          }
-          const pairSources=Array.isArray(pair.sources)?pair.sources.filter(src=>src&&typeof src==='object'):[];
-          if(normalizedSource) ensureSourceUnique(pairSources,normalizedSource);
-          partPairSources.set(key,pairSources);
-          filteredParts.push({part:partText,quantity:quantityText,sources:pairSources});
-        });
-        if(filteredParts.length){
-          if(titleText) addBestellTitle(titleText);
-          const groupSources=Array.isArray(group.sources)?group.sources.filter(src=>src&&typeof src==='object'):[];
-          if(normalizedSource&&!groupSources.length) groupSources.push(normalizedSource);
-          partGroups.push({title:titleText,parts:filteredParts,sources:groupSources});
-        }
-      };
       const pushLines=(field,value)=>{
         const text=clean(value);
         if(!text) return;
-        const lines=text.split(/\r?\n/).map(line=>clean(line)).filter(Boolean);
+        const lines=text.split(/
+?
+/).map(line=>clean(line)).filter(Boolean);
         if(!lines.length) return;
         for(const line of lines){
           if(seen[field].has(line)) continue;
@@ -5195,7 +4562,9 @@
       const collectTimes=text=>{
         const raw=clean(text);
         if(!raw) return;
-        raw.split(/\r?\n/)
+        raw.split(/
+?
+/)
           .map(line=>clean(line))
           .filter(Boolean)
           .forEach(line=>{
@@ -5212,7 +4581,9 @@
       const collectMods=text=>{
         const raw=clean(text);
         if(!raw) return;
-        raw.split(/\r?\n/)
+        raw.split(/
+?
+/)
           .map(line=>clean(line))
           .filter(Boolean)
           .forEach(line=>{
@@ -5223,80 +4594,6 @@
       };
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
-        if(!primarySelectionForStorage) primarySelectionForStorage=selection;
-        if(!primaryResolvedForStorage) primaryResolvedForStorage=resolved;
-        // PATCH START: Prefer structured Parts over PNText strings
-        let structuredBlock=(resolved&&typeof resolved.Parts==='object')?resolved.Parts:null;
-        if(!structuredBlock&&resolved&&typeof resolved.partsDetails==='object'){
-          structuredBlock=resolved.partsDetails;
-        }
-        if(structuredBlock&&hasStructuredParts(structuredBlock)){
-          resolved.partsDetails=structuredBlock;
-        }
-        // PATCH END
-        // --- BEGIN NSF PARTS BLOCK PROTECT ---
-        if(resolved&&typeof resolved==='object'){
-          const pb=nsfKeepPartsBlock(resolved);
-          // re-assign protected values back to resolved
-          if(typeof pb.parts==='string') resolved.parts=pb.parts;
-          resolved.partsSource=pb.partsSource||resolved.partsSource||null;
-
-          // NEVER downgrade an object to string:
-          if(nsfIsObj(pb.partsDetails)){
-            resolved.partsDetails=pb.partsDetails;
-          }else{
-            // only if no object exists anywhere, keep string fallback
-            resolved.partsDetails=pb.partsDetails!=null?pb.partsDetails:(resolved.partsDetails??'');
-          }
-        }
-        // --- END NSF PARTS BLOCK PROTECT ---
-        const selectionPartsSource=(selection&&typeof selection.parts==='object'&&!Array.isArray(selection.parts))
-          ? selection.parts
-          : (selection&&typeof selection.partsDetails==='object'&&!Array.isArray(selection.partsDetails)
-            ? selection.partsDetails
-            : null);
-        let resolvedPartsSourceCandidate=null;
-        if(resolved&&typeof resolved.partsSource==='object'&&!Array.isArray(resolved.partsSource)){
-          resolvedPartsSourceCandidate=resolved.partsSource;
-        }else if(resolved&&resolved.raw&&typeof resolved.raw==='object'){
-          const rawPartsCandidate=resolved.raw.Parts||resolved.raw.parts;
-          if(rawPartsCandidate&&typeof rawPartsCandidate==='object'&&!Array.isArray(rawPartsCandidate)){
-            resolvedPartsSourceCandidate=rawPartsCandidate;
-          }
-        }
-        if(!resolved.partsSource&&resolvedPartsSourceCandidate){
-          resolved.partsSource=resolvedPartsSourceCandidate;
-        }
-
-        // Try to extract structured PartX/MengeX first
-        const structured=extractStructuredNumberedParts(selectionPartsSource||resolvedPartsSourceCandidate||{});
-        if(structured){
-          resolved.partsDetails=structured;   // <-- real object for UI
-          if(NSF_DEBUG){
-            console.groupCollapsed('[NSF] selection → resolved (pre-parse)');
-            console.log('selection.key:',selection&&selection.key);
-            console.log('selection.part:',selection&&selection.part,'resolved.part:',resolved&&resolved.part);
-            nsfDebugDir('selection.parts',selection&&selection.parts);
-            nsfDebugDir('selection.partsDetails',selection&&selection.partsDetails);
-            nsfDebugDir('resolved.partsSource',resolved&&resolved.partsSource);
-            nsfDebugDir('resolved.partsDetails',resolved&&resolved.partsDetails);
-            console.log('hasStructuredNumberedParts(resolved.partsDetails):',!!(resolved&&hasStructuredNumberedParts(resolved.partsDetails)));
-            console.groupEnd();
-          }
-        }
-
-        if(nsfIsObj(resolved.partsDetails)){
-          // structured details already present; keep as-is
-        }else if(!nsfIsObj(resolved.partsDetails)){
-          const fallbackDetails=(resolved.partsDetails!=null?resolved.partsDetails:null)
-            ||(resolved.parts!=null?resolved.parts:null)
-            ||'';
-          if(!nsfIsObj(fallbackDetails)){
-            resolved.partsDetails=fallbackDetails;
-          }
-        }
-
-        const partSource=createPartSource(resolved,selection);
         const findingText=resolved.finding||selection.finding||'';
         pushLines('findings',findingText);
         const actionText=resolved.action||selection.action||'';
@@ -5304,50 +4601,6 @@
         if(!primaryLabel){
           const labelCandidate=clean(resolved.label||selection.label||'');
           if(labelCandidate) primaryLabel=labelCandidate;
-        }
-        const fallbackParts=[];
-        const primaryPart=normalizePart(selection.part||resolved.part||'');
-
-        // Only treat primary part as fallback when NO structured "Part X / Menge X" entries exist
-        if(primaryPart&&!hasStructuredNumberedParts(resolved.partsDetails)){
-          fallbackParts.push(primaryPart);
-        }
-        // NOTE: We intentionally do not use entry.partNumbers as fallback parts here.
-        // Some findings contain structured "Part X"/"Menge X" pairs whose part numbers
-        // also appear in the partNumbers array. Treating those values as fallbacks caused
-        // parsePartsDetails to skip the actual order rows, leaving the Bestellfelder empty.
-        // Keeping only the matched part prevents the duplicate suppression from hiding
-        // legitimate order information while still avoiding duplicates of the selected part.
-        const resolvedPartsSource=resolved.partsDetails!=null?resolved.partsDetails:resolved.parts;
-        if(NSF_DEBUG){
-          console.log('[NSF] partsDetails => '+nsfCompactPartsLine(resolved.partsDetails));
-        }
-        if(NSF_DEBUG){
-          console.groupCollapsed('[NSF] parsePartsDetails call');
-          nsfDebugDir('resolvedPartsSource (final input)',resolvedPartsSource||'');
-          console.log('fallbackParts:',(fallbackParts||[]).join(', '));
-          console.groupEnd();
-        }
-        const partsInfo=parsePartsDetails(resolvedPartsSource||'',{fallbackParts});
-        if(NSF_DEBUG){
-          console.groupCollapsed('[NSF] parsePartsDetails result');
-          if(partsInfo){
-            console.log('titles:',Array.isArray(partsInfo.titles)?partsInfo.titles.length:0);
-            console.log('pairs:',Array.isArray(partsInfo.pairs)?partsInfo.pairs.length:0);
-            console.log('groups:',Array.isArray(partsInfo.groups)?partsInfo.groups.length:0);
-            nsfDebugDir('partsInfo.sample',(partsInfo.groups&&partsInfo.groups[0])||(partsInfo.pairs&&partsInfo.pairs[0])||partsInfo);
-          }else{
-            console.log('partsInfo: null/undefined');
-          }
-          console.groupEnd();
-        }
-        if(partsInfo&&Array.isArray(partsInfo.titles)){
-          partsInfo.titles.forEach(addBestellTitle);
-        }
-        if(partsInfo&&Array.isArray(partsInfo.groups)&&partsInfo.groups.length){
-          partsInfo.groups.forEach(group=>addPartGroup(group,partSource));
-        }else if(partsInfo&&Array.isArray(partsInfo.pairs)&&partsInfo.pairs.length){
-          addPartGroup({title:'',parts:partsInfo.pairs},partSource);
         }
         const nonroutineCandidates=[resolved.nonroutineFinding||'',resolved.nonroutine||''];
         nonroutineCandidates.forEach(text=>{
@@ -5360,148 +4613,14 @@
         collectTimes(resolved.times||'');
         collectMods(resolved.mods||'');
       }
-      const selection=primarySelectionForStorage;
-      const resolved=primaryResolvedForStorage;
-      let rawPartsList=Array.isArray(this.rawParts)?this.rawParts.slice():[];
-
-      // PATCH START: Build partGroups in Priority Order (1=structured, 2=PNText list, 3=rawParts)
-      (function ensurePartGroups(){
-        const hasAnyGroup=Array.isArray(partGroups)&&partGroups.length>0;
-        if(hasAnyGroup) return; // schon vorhanden
-
-        const pd=resolved&&resolved.partsDetails;
-
-        // 1) Structured Parts
-        if(pd&&typeof pd==='object'&&hasStructuredParts(pd)){
-          const group=extractStructuredPartsGroup(pd);
-          if(group){
-            const title=group.title||String((resolved&&resolved.label)||'').trim();
-            partGroups.push({title,parts:group.parts});
-            return;
-          }
-        }
-
-        // 2) PNText-Liste → in Parts umwandeln
-        //    (nur, wenn pd ein STRING ist oder Objekt ohne echte Part-Felder)
-        let pnTextCandidate='';
-        if(typeof pd==='string'){
-          pnTextCandidate=pd;
-        }else if(pd&&typeof pd==='object'&&!hasStructuredParts(pd)){
-          pnTextCandidate=String(pd.PNText||'');
-        }else if(!pd&&resolved&&resolved.Parts&&typeof resolved.Parts==='object'){
-          pnTextCandidate=String(resolved.Parts.PNText||'');
-        }
-        const parsedFromPnText=parsePnTextList(pnTextCandidate);
-        if(parsedFromPnText.length){
-          let titleRaw=pnTextCandidate.trim();
-          if(titleRaw.endsWith(':')) titleRaw=titleRaw.slice(0,-1).trim();
-          const title=titleRaw||String((resolved&&resolved.label)||'').trim();
-          partGroups.push({title,parts:parsedFromPnText});
-          return;
-        }
-
-        // 3) rawParts Fallback (z. B. aus Vorstufen)
-        if(Array.isArray(rawPartsList)&&rawPartsList.length){
-          const merged=new Map();
-          rawPartsList.forEach(it=>{
-            if(!it) return;
-            const p=String(it.name||'').trim();
-            if(!p) return;
-            const q=String(it.qty||'').trim()||'1';
-            const key=p.toLowerCase();
-            if(merged.has(key)){
-              const ex=merged.get(key);
-              merged.set(key,{part:p,quantity:String((parseFloat(ex.quantity)||0)+(parseFloat(q)||0))});
-            }else{
-              merged.set(key,{part:p,quantity:q});
-            }
-          });
-          if(merged.size){
-            let title='';
-            if(pd&&typeof pd==='object'&&pd.PNText) title=String(pd.PNText).trim();
-            if(title.endsWith(':')) title=title.slice(0,-1).trim();
-            if(!title) title=String((resolved&&resolved.label)||'').trim();
-            const low=title.toLowerCase();
-            if(!/keine teile|no parts|nicht zutreffend|not required/.test(low)){
-              partGroups.push({title,parts:Array.from(merged.values())});
-            }
-          }
-        }
-      })();
-      // PATCH END
-
-      const partsData=buildPartsData(bestellTitles,partGroups);
-
-      // Build a stable storage key for this finding selection
-      const storageKey=nsfStorageKeyForSelection(selection,resolved);
-
-      // Try to read any locally stored override rows
-      let localRows=nsfLoadRowsFromLocal(storageKey);
-
-      // Prefer existing structured numbered parts if present; else prefer local override; else use auto partsData
-      // (hasStructuredNumberedParts prüft auf vorhandene "Part X/Menge X" im structured Objekt)
-      let uiRows=[];
-      if(nsfIsObj(resolved&&resolved.partsDetails)&&hasStructuredNumberedParts(resolved.partsDetails)){
-        // UI rows bereits aus structured object generiert? Falls nicht, fallback auf partsData
-        uiRows=(partsData&&Array.isArray(partsData.rows)?partsData.rows:[]);
-      }else if(Array.isArray(localRows)&&localRows.length){
-        uiRows=localRows; // user override persists
-      }else{
-        uiRows=(partsData&&Array.isArray(partsData.rows)?partsData.rows:[]);
-        // erster Auto-Build: gleich persistieren, damit beim nächsten Öffnen vorhanden
-        if(uiRows&&uiRows.length){
-          nsfSaveRowsToLocal(storageKey,uiRows);
-        }
-      }
-
-      // Kennzeichne alle rows als "auto", sofern keine _origin gesetzt
-      const markOrigin=rows=>{
-        (rows||[]).forEach(group=>{
-          if(!group||typeof group!=='object') return;
-          const list=Array.isArray(group.rows)?group.rows:[];
-          list.forEach(r=>{
-            if(r&&typeof r==='object'&&!r._origin){
-              r._origin='auto';
-            }
-            // Wenn row.sources fehlt, sicher ein leeres Array
-            if(r&&typeof r==='object'&&!Array.isArray(r.sources)) r.sources=[];
-          });
-        });
-      };
-      markOrigin(uiRows);
-
-      // Übergib uiRows an das Rendering (ersetze vorhandene Variable, die in der Render-Funktion genutzt wird)
-      const rows=uiRows;
-      if(partsData&&Array.isArray(partsData.rows)) partsData.rows=rows;
-
-      // PATCH START: debug trace
-      if(NSF_DEBUG){
-        console.groupCollapsed('[NSF] Bestellliste rows (final)');
-        try{console.log('storageKey:',storageKey);}catch{}
-        nsfDebugDir('uiRows',uiRows);
-        console.groupEnd();
-      }
-      // PATCH END
-      // PATCH END
-      rawPartsList=[];
-      const rawPartKeys=new Set();
-      partGroups.forEach(group=>{
-        const items=Array.isArray(group&&group.parts)?group.parts:[];
-        items.forEach(pair=>{
-          const name=clean(pair&&pair.part);
-          const qty=clean(pair&&pair.quantity);
-          if(!name&&!qty) return;
-          const key=`${qty.toLowerCase()}||${name.toLowerCase()}`;
-          if(rawPartKeys.has(key)) return;
-          rawPartKeys.add(key);
-          rawPartsList.push({qty,name});
-        });
-      });
+      // parts will be supplied by normalizePartsPairs later
+      const partsPairs=[];
+      const partsRows=[];
       this.rawFindings=lists.findings.slice();
       this.rawActions=lists.actions.slice();
       this.rawRoutine=lists.routine.slice();
       this.rawNonroutineFindings=lists.nonroutine.slice();
-      this.rawParts=rawPartsList.slice();
+      this.rawParts=partsPairs.slice();
       this.rawTimes=timeEntries.slice();
       this.rawMods=modEntries.slice();
       this.currentLabel=primaryLabel;
@@ -5510,8 +4629,8 @@
         actions:lists.actions.join('\n'),
         routine:lists.routine.join('\n\n'),
         nonroutine:lists.nonroutine.join('\n'),
-        parts:partsData.text,
-        partsRows:rows
+        parts:'',
+        partsRows
       };
     }
 
@@ -5677,7 +4796,7 @@
             badge.title='Quelle: Local override (LocalStorage)';
           }else{
             badge.textContent='🟢';
-            badge.title='Quelle: Auto (from parsed partsDetails)';
+            badge.title='Quelle: Auto';
           }
           row.appendChild(badge);
           // PATCH END
@@ -9051,6 +8170,9 @@
         const routineAction=resolved.routineAction||resolved.routineActions||'';
         const nonroutineFinding=resolved.nonroutineFinding||resolved.nonroutineFindings||'';
         const nonroutineAction=resolved.nonroutineAction||resolved.nonroutineActions||'';
+        const partsValue=typeof resolved.parts==='string'
+          ? resolved.parts
+          : (typeof entry.parts==='string'?entry.parts:'');
         const selection={
           key,
           finding:resolved.finding||entry.finding||'',
@@ -9063,37 +8185,10 @@
           nonroutine:resolved.nonroutine||'',
           nonroutineFinding:nonroutineFinding||'',
           nonroutineAction:nonroutineAction||'',
-          parts:typeof resolved.parts==='string'?resolved.parts:(resolved.parts!=null?resolved.parts:''),
-          partsDetails:nsfIsObj(resolved.partsDetails)?cloneDeep(resolved.partsDetails)
-            :(resolved.partsDetails!=null?resolved.partsDetails:null),
-          partsSource:nsfIsObj(resolved.partsSource)?cloneDeep(resolved.partsSource)
-            :(resolved.partsSource!=null?resolved.partsSource:null),
+          parts:partsValue||'',
           times:resolved.times||'',
           mods:resolved.mods||''
         };
-
-        const raw=nsfIsObj(resolved)?resolved:(nsfIsObj(entry)?entry:null);
-        const pnText=(raw&&(raw.PNText||raw.PN||raw.parts||raw.partsText))
-          ?String(raw.PNText||raw.PN||raw.parts||raw.partsText)
-          :'';
-        const structured=nsfExtractStructuredFromRaw(raw);
-
-        selection.parts=typeof selection.parts==='string'?selection.parts:pnText;
-        if(nsfIsObj(structured)){
-          selection.partsDetails=structured;
-        }else if(!nsfIsObj(selection.partsDetails)){
-          selection.partsDetails=selection.partsDetails||pnText||'';
-        }
-
-        if(!selection.partsSource&&nsfIsObj(structured)){
-          selection.partsSource=structured;
-        }
-
-        if(typeof NSF_DEBUG!=='undefined'&&NSF_DEBUG){
-          try{
-            console.log('[NSF][SELECTION] partsDetails => '+nsfCompactPartsLine(selection.partsDetails));
-          }catch{}
-        }
 
         this.selectedEntries.push(selection);
       }
@@ -9295,10 +8390,8 @@
             console.group('selection',i,s&&s.key);
             console.log('part:',s&&s.part);
             nsfDebugDir('selection.parts',s&&s.parts);
-            nsfDebugDir('selection.partsDetails',s&&s.partsDetails);
             const r=typeof inst.resolveEntry==='function'?(inst.resolveEntry(s)||s):s;
             nsfDebugDir('resolved.partsSource',r&&r.partsSource);
-            nsfDebugDir('resolved.partsDetails',r&&r.partsDetails);
             console.groupEnd();
           });
           console.groupEnd();
