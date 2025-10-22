@@ -2653,17 +2653,6 @@
         partsDetailsValue=nsfAutoQuantitiesFromPnText(partsDetailsValue,partsText);
       }
       const partsSourceValue=partsObject?cloneDeep(partsObject):null;
-      if(NSF_DEBUG){
-        console.groupCollapsed('[NSF] normalizeEntries: parts fields');
-        console.log('partsRaw typeof:',typeof partsRaw,'isArray?',Array.isArray(partsRaw));
-        nsfDebugDir('partsRaw',partsRaw);
-        nsfDebugDir('partsObject',partsObject);
-        console.log('partsText:',nsfShort(partsText));
-        nsfDebugDir('structuredPartsDetails',structuredPartsDetails);
-        nsfDebugDir('partsDetailsValue (chosen)',partsDetailsValue);
-        nsfDebugDir('partsSourceValue',partsSourceValue);
-        console.groupEnd();
-      }
       const times=clean(extractNestedField(raw,FIELD_ALIASES.times));
       const mods=clean(extractNestedField(raw,FIELD_ALIASES.mods));
       const map=buildFieldMap(raw);
