@@ -370,11 +370,50 @@
       border: 1px solid var(--sidebar-module-card-border);
     }
     /* Sidebar collapsed state */
-    #sidebar.collapsed { width: 2.5rem !important; min-width: 2.5rem !important; padding-left: 0; padding-right: 0; }
+    #sidebar.collapsed {
+      width: 2.25rem !important;
+      min-width: 2.25rem !important;
+      padding: 0.5rem 0;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.75rem;
+    }
     #sidebar.collapsed .list-content { display: none; }
-    #sidebar.collapsed .collapse-icon { transform: rotate(180deg); }
+    #sidebar.collapsed #sidebar-toggle {
+      position: static;
+      top: auto;
+      right: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 9999px;
+      transform: rotate(180deg);
+      font-size: 1.125rem;
+      padding: 0;
+      line-height: 1;
+    }
+    #sidebar.collapsed #sidebar-settings-button {
+      position: static;
+      top: auto;
+      right: auto;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: center;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      line-height: 1;
+    }
     #sidebar.collapsed .module-card { pointer-events: none; }
     #sidebar.collapsed #module-list { pointer-events: none; }
+    #sidebar:not(.collapsed) #sidebar-toggle { transform: none; }
     #module-search {
       background-color: var(--sidebar-module-card-bg);
       color: var(--sidebar-module-card-text);
@@ -3201,6 +3240,7 @@ let currentUpgradeItems = [];
 let currentDowngradeItems = [];
 let updateStatusHasStableAppearance = false;
 let updateStatusShouldRemainHidden = false;
+let lastUpdateStatusLabel = null;
 let settingsSaveTimeoutId = null;
 let historyMenuOpen = false;
 let lastUpdateError = false;
@@ -4517,11 +4557,12 @@ function updateTopBarHiddenState(shouldHide) {
 function setUpdateStatusButton(state) {
   if (!updateStatusBtn) {
     updateTopBarHiddenState(false);
+    lastUpdateStatusLabel = null;
     return;
   }
 
   if (state === 'checking') {
-    updateTopBarHiddenState(false);
+    updateTopBarHiddenState(lastUpdateStatusLabel === 'up-to-date');
     if (appSettings.showUpdateStatusButton === false || updateStatusShouldRemainHidden) {
       return;
     }
@@ -4654,6 +4695,7 @@ function setUpdateStatusButton(state) {
   }
 
   updateTopBarHiddenState(statusLabel === 'up-to-date');
+  lastUpdateStatusLabel = statusLabel;
 }
 
 function renderUpdateList() {
