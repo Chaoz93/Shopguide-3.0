@@ -36,22 +36,13 @@
     .ops-autorefresh .ops-autorefresh-time{ font-size:.72rem; font-weight:500; opacity:.85; }
     .ops-grid{
       flex:1; min-height:0; box-sizing:border-box; display:grid;
-      grid-template-columns: 1fr 1fr; grid-template-rows: repeat(6, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-auto-rows: minmax(0, 1fr);
+      grid-auto-flow: row;
       gap:.6rem;
-      grid-template-areas:
-        "leftTop r0"
-        "leftTop r1"
-        "leftBot r2"
-        "leftBot r3"
-        "leftBot r4"
-        "leftBot r5";
     }
     .ops-compact .ops-grid{
-      grid-template-columns: repeat(4, 1fr);
-      grid-template-rows: repeat(2, 1fr);
-      grid-template-areas:
-        "leftTop r0 r2 r4"
-        "leftBot r1 r3 r5";
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     }
     .ops-card{
       width:100%; height:100%; box-sizing:border-box;
@@ -76,8 +67,6 @@
       filter:none;
       background: var(--lbp-card-active-bg, rgba(37,99,235,.32));
     }
-    .leftTop{ grid-area:leftTop; } .leftBot{ grid-area:leftBot; }
-    .r0{ grid-area:r0; } .r1{ grid-area:r1; } .r2{ grid-area:r2; } .r3{ grid-area:r3; } .r4{ grid-area:r4; } .r5{ grid-area:r5; }
     .ops-bounce{ animation: ops-bounce .25s ease; }
     @keyframes ops-bounce { 0%{transform:scale(1)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
 
@@ -115,6 +104,19 @@
     .ops-tab-buttons label:hover{border-color:var(--lbp-accent-bg, rgba(59,130,246,.65)); background:rgba(37,99,235,.22);}
     .ops-tab-buttons input{width:1.1rem; height:1.1rem;}
     .ops-tab-buttons .ops-action-button{margin-top:.45rem;}
+    .ops-button-list{display:flex; flex-direction:column; gap:.45rem; margin-top:.65rem;}
+    .ops-button-row{display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
+      border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap;}
+    .ops-button-index{font-size:.85rem; opacity:.7; min-width:1.5rem; text-align:right;}
+    .ops-button-label{flex:1; display:flex; align-items:center; gap:.5rem; font-size:.95rem;}
+    .ops-button-label input{width:1.1rem; height:1.1rem;}
+    .ops-button-order{display:flex; align-items:center; gap:.35rem;}
+    .ops-order-btn{width:2.2rem; height:2.2rem; border-radius:.6rem; border:none; background:rgba(148,163,184,.2);
+      color:inherit; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem;
+      transition:background .15s ease, transform .15s ease;}
+    .ops-order-btn:hover{background:rgba(59,130,246,.35); transform:translateY(-1px);}
+    .ops-order-btn:active{transform:none;}
+    .ops-order-btn:disabled{opacity:.4; cursor:not-allowed; transform:none; background:rgba(148,163,184,.15);}
     .ops-tab-filters{display:none; flex-direction:column; gap:.65rem; padding-top:.45rem;}
     .ops-tab-filters.active{display:flex;}
     .ops-filter-hint{font-size:.82rem; opacity:.75;}
@@ -271,6 +273,7 @@
     serial: ['serial','serialno','serialnumber','serialnr','serialnummer','sn','snr']
   };
   const WORKFORCE_FILTER_KEY = 'linkbuttonsplus-filters';
+  const BUTTON_ORDER_KEY = 'linkbuttonsplus-order';
   const COLOR_CONFIG_KEY = 'linkbuttonsplus-colors-v1';
   const COLOR_AREAS = ['main','header','buttons'];
   const FARBLAYER_GROUP_CONFIG_KEY = 'linkbuttonsplus-group-config-v1';
@@ -303,6 +306,22 @@
   function saveColorConfig(value){
     try{
       localStorage.setItem(COLOR_CONFIG_KEY, JSON.stringify(value));
+    }catch{}
+  }
+
+  function loadButtonOrders(){
+    try{
+      const raw = localStorage.getItem(BUTTON_ORDER_KEY);
+      if(!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    }catch{}
+    return {};
+  }
+
+  function saveButtonOrders(value){
+    try{
+      localStorage.setItem(BUTTON_ORDER_KEY, JSON.stringify(value));
     }catch{}
   }
 
@@ -3395,6 +3414,7 @@
     let settingsTitleEl = null;
     let headerInput = null;
     let headerResetBtn = null;
+    let buttonListEl = null;
 
     let farblayerState = loadFarblayerState();
     let farblayerElementAssignments = loadFarblayerElementAssignments();
@@ -3446,17 +3466,66 @@
       syncHeaderUI({ skipInput: !syncInput });
     }
 
-    const leftTop = s.leftTop || 'Event';
-    const leftBottom = s.leftBottom || 'CMDS';
-    let r = Array.isArray(s.rightLabels) && s.rightLabels.length
-      ? s.rightLabels.slice(0,6)
-      : ['ZIAUF3','ZILLK','ZIKV','ZIQA','REPORT','Workforce'];
-    const hasWorkforce = r.some(lbl => typeof lbl === 'string' && lbl.trim().toUpperCase() === 'WORKFORCE');
-    if (!hasWorkforce) {
-      if (r.length >= 6) r = r.slice(0,5);
-      r.push('Workforce');
+    const normalizeLabel = value => (typeof value === 'string' ? value.trim() : '');
+    const normalizeKey = value => normalizeLabel(value).toUpperCase();
+
+    const leftTop = normalizeLabel(s.leftTop) || 'Event';
+    const leftBottom = normalizeLabel(s.leftBottom) || 'CMDS';
+    let rightLabels = Array.isArray(s.rightLabels) && s.rightLabels.length
+      ? s.rightLabels.map(normalizeLabel).filter(Boolean)
+      : ['ZIAUF3','ZILLK','ZIKV','ZIQA','REPORT','ARES','Workforce'];
+
+    const ensureLabel = (list, label, { before } = {}) => {
+      const targetKey = normalizeKey(label);
+      if (list.some(item => normalizeKey(item) === targetKey)) return;
+      if (before) {
+        const beforeKey = normalizeKey(before);
+        const idx = list.findIndex(item => normalizeKey(item) === beforeKey);
+        if (idx >= 0) {
+          list.splice(idx, 0, label);
+          return;
+        }
+      }
+      list.push(label);
+    };
+
+    ensureLabel(rightLabels, 'Workforce');
+    ensureLabel(rightLabels, 'ARES', { before: 'Workforce' });
+
+    const combinedRaw = [leftTop, leftBottom, ...rightLabels];
+    const labelLookup = new Map();
+    const baseLabels = [];
+    combinedRaw.forEach(raw => {
+      const trimmed = normalizeLabel(raw);
+      if (!trimmed) return;
+      const key = normalizeKey(trimmed);
+      if (labelLookup.has(key)) return;
+      labelLookup.set(key, trimmed);
+      baseLabels.push(trimmed);
+    });
+
+    let buttonOrders = loadButtonOrders();
+    if (!buttonOrders || typeof buttonOrders !== 'object') buttonOrders = {};
+    const storedOrderRaw = Array.isArray(buttonOrders[instanceId]) ? buttonOrders[instanceId] : [];
+    const storedOrder = [];
+    storedOrderRaw.forEach(raw => {
+      const key = normalizeKey(raw);
+      if (!key) return;
+      if (!labelLookup.has(key)) return;
+      const resolved = labelLookup.get(key);
+      if (storedOrder.includes(resolved)) return;
+      storedOrder.push(resolved);
+    });
+    let buttonOrder = storedOrder.concat(baseLabels.filter(label => !storedOrder.includes(label)));
+    if (!buttonOrder.length) {
+      buttonOrder = baseLabels.slice();
     }
-    while (r.length < 6) r.push('');
+
+    const persistButtonOrder = order => {
+      const sanitized = Array.isArray(order) ? order.map(normalizeLabel).filter(Boolean) : [];
+      buttonOrders = { ...buttonOrders, [instanceId]: sanitized };
+      saveButtonOrders(buttonOrders);
+    };
 
     root.classList.add('ops-root');
 
@@ -3472,22 +3541,41 @@
             </div>
           </div>
         </div>
-        <div class="ops-grid">
-          <div class="ops-card leftTop" data-slot="left0">${leftTop}</div>
-          <div class="ops-card leftBot" data-slot="left1">${leftBottom}</div>
-          <div class="ops-card r0" data-slot="r0">${r[0] || ''}</div>
-          <div class="ops-card r1" data-slot="r1">${r[1] || ''}</div>
-          <div class="ops-card r2" data-slot="r2">${r[2] || ''}</div>
-          <div class="ops-card r3" data-slot="r3">${r[3] || ''}</div>
-          <div class="ops-card r4" data-slot="r4">${r[4] || ''}</div>
-          <div class="ops-card r5" data-slot="r5">${r[5] || ''}</div>
-        </div>
+        <div class="ops-grid" data-button-grid></div>
       </div>
     `;
     const outerEl = root.querySelector('.ops-outer');
     const headerEl = root.querySelector('.ops-header');
     const autoRefreshEl = root.querySelector('.ops-autorefresh');
-    const cardElements = Array.from(root.querySelectorAll('.ops-card'));
+    const gridEl = root.querySelector('[data-button-grid]');
+    const labelToCard = new Map();
+    const usedSlots = new Set();
+
+    const buildSlotName = (label, index) => {
+      const base = normalizeLabel(label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `slot-${index}`;
+      let candidate = base;
+      let counter = 1;
+      while (usedSlots.has(candidate)) {
+        candidate = `${base || 'slot'}-${counter++}`;
+      }
+      usedSlots.add(candidate);
+      return candidate;
+    };
+
+    buttonOrder.forEach((label, index) => {
+      const card = document.createElement('div');
+      card.className = 'ops-card';
+      const slotName = buildSlotName(label, index);
+      card.dataset.slot = slotName;
+      card.dataset.order = String(index);
+      card.textContent = label;
+      gridEl?.appendChild(card);
+      labelToCard.set(label, card);
+    });
+
+    persistButtonOrder(buttonOrder);
+
+    const cardElements = Array.from(gridEl?.querySelectorAll('.ops-card') || []);
     registerAssignable(hostEl, 'host', { area: 'main', defaultGroup: getConfiguredGroupName('main'), label: 'Modulfläche' });
     registerAssignable(root, 'root', { area: 'main', defaultGroup: getConfiguredGroupName('main'), label: 'Modul-Inhalt' });
     registerAssignable(outerEl, 'outer', { area: 'main', defaultGroup: getConfiguredGroupName('main'), label: 'Hauptbereich' });
@@ -3502,6 +3590,7 @@
     });
     reloadFarblayerElementAssignments();
     titleEl = root.querySelector('.ops-title');
+    renderButtonSettingsList();
     syncHeaderUI();
     migrateLegacyColorSelection(instanceId);
     let pendingLayerRefresh = null;
@@ -3920,6 +4009,7 @@
       ZIKV_BASE:   'https://sap-p04.lht.ham.dlh.de/sap/bc/gui/sap/its/webgui?sap-client=002&~transaction=*zikv+AUFK-AUFNR%3D',
       ZIQA_BASE:   'https://sap-p04.lht.ham.dlh.de/sap/bc/gui/sap/its/webgui?sap-client=002&~transaction=*ziqa+AUFK-AUFNR%3D',
       EDOC_BASE:   'https://lww.edoc-read.lht.ham.dlh.de/edoc/app/login.html?nextURL=',
+      ARES:        'https://lww.ares.ham.dlh.de/sap(bD1kZSZjPTAwMg==)/bc/bsp/sap/zares/ares_fs.htm',
       TRV_BASE:    'https://testreportviewer.apps.az.lhtcloud.com/?pn=',
       WORKFORCE_BASE: 'https://workforceplus-lht.lht.app.lufthansa.com/page/teamViewPage?scheduleGrid_expanded=true'
     };
@@ -3974,6 +4064,7 @@
         if (label === 'ZIKV')   { if (!aun) return; openNew(URLS.ZIKV_BASE   + encodeURIComponent(aun)); return; }
         if (label === 'ZIQA')   { if (!aun) return; openNew(URLS.ZIQA_BASE   + encodeURIComponent(aun)); return; }
         if (label === 'REPORT') { if (!part || !serial) return; openNew(URLS.TRV_BASE + encodeURIComponent(part) + '&sn=' + encodeURIComponent(serial)); return; }
+        if (label === 'ARES') { openNew(URLS.ARES); return; }
         if (label === 'WORKFORCE') {
           const { year, week } = getISOWeekInfo(new Date());
           const weekStr = `${year}-W${String(week).padStart(2,'0')}`;
@@ -3999,34 +4090,17 @@
     const disabled = loadDisabled();
     let workforceFilters = loadWorkforceFilters();
 
-    function reposition(){
-      const right = Array.from(root.querySelectorAll('[data-slot^="r"]'))
-        .filter(el => el.style.display !== 'none');
-      right.forEach((el, idx) => {
-        el.classList.remove('r0','r1','r2','r3','r4','r5');
-        el.classList.add('r'+idx);
-      });
-      const left = Array.from(root.querySelectorAll('[data-slot^="left"]'))
-        .filter(el => el.style.display !== 'none');
-      left.forEach((el, idx) => {
-        el.classList.remove('leftTop','leftBot');
-        el.classList.add(idx === 0 ? 'leftTop' : 'leftBot');
-      });
-    }
-
     function applyDisabled(){
-      root.querySelectorAll('.ops-card').forEach(el => {
+      cardElements.forEach(el => {
         const lbl = (el.textContent || '').trim();
         el.style.display = disabled[lbl] ? 'none' : '';
       });
-      reposition();
     }
     applyDisabled();
 
     const menu = document.createElement('div');
     menu.className = 'ops-settings-overlay';
     menu.id = 'module-settings-modal';
-    const allLabels = [leftTop, leftBottom, ...r].filter(Boolean);
     menu.innerHTML = `
       <div class="ops-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="ops-settings-title">
         <div class="ops-settings-header">
@@ -4051,7 +4125,7 @@
               </div>
               <p class="ops-input-hint">Leer lassen, um den Standardtitel zu verwenden.</p>
             </div>
-            ${allLabels.map(l => `<label><input type="checkbox" data-label="${l}"> ${l}</label>`).join('')}
+            <div class="ops-button-list" data-button-list></div>
             <div class="ops-aspen-section">
               <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
               <div class="ops-file"></div>
@@ -4121,6 +4195,7 @@
     const ownedSections = menu.querySelectorAll('[data-tab-owner]');
     headerInput = menu.querySelector('.ops-title-input');
     headerResetBtn = menu.querySelector('.ops-title-reset');
+    buttonListEl = menu.querySelector('[data-button-list]');
 
     if(headerInput){
       headerInput.value = headerOverride;
@@ -4154,6 +4229,84 @@
           headerInput.value = '';
           headerInput.focus();
         }
+      });
+    }
+
+    function renderButtonSettingsList(){
+      if(!buttonListEl) return;
+      buttonListEl.innerHTML = '';
+      if(!buttonOrder.length){
+        const empty = document.createElement('div');
+        empty.className = 'ops-filter-hint';
+        empty.textContent = 'Keine Buttons verfügbar.';
+        buttonListEl.appendChild(empty);
+        return;
+      }
+      buttonOrder.forEach((label, index) => {
+        const row = document.createElement('div');
+        row.className = 'ops-button-row';
+        row.dataset.label = label;
+        row.innerHTML = `
+          <span class="ops-button-index">${index + 1}.</span>
+          <label class="ops-button-label">
+            <input type="checkbox" data-label="${label}">
+            <span>${label}</span>
+          </label>
+          <div class="ops-button-order">
+            <button type="button" class="ops-order-btn" data-move="up" aria-label="${label} nach oben">↑</button>
+            <button type="button" class="ops-order-btn" data-move="down" aria-label="${label} nach unten">↓</button>
+          </div>
+        `;
+        const checkbox = row.querySelector('input[type="checkbox"]');
+        if(checkbox){
+          checkbox.checked = !disabled[label];
+        }
+        const controls = row.querySelectorAll('.ops-order-btn');
+        if(controls[0]) controls[0].disabled = index === 0;
+        if(controls[1]) controls[1].disabled = index === buttonOrder.length - 1;
+        buttonListEl.appendChild(row);
+      });
+    }
+
+    function moveLabel(label, delta){
+      const idx = buttonOrder.indexOf(label);
+      if(idx < 0) return;
+      const targetIdx = idx + delta;
+      if(targetIdx < 0 || targetIdx >= buttonOrder.length) return;
+      const nextOrder = buttonOrder.slice();
+      const [item] = nextOrder.splice(idx, 1);
+      nextOrder.splice(targetIdx, 0, item);
+      buttonOrder = nextOrder;
+      buttonOrder.forEach((lbl, index) => {
+        const card = labelToCard.get(lbl);
+        if(card){
+          card.dataset.order = String(index);
+          gridEl?.appendChild(card);
+        }
+      });
+      persistButtonOrder(buttonOrder);
+      renderButtonSettingsList();
+      applyDisabled();
+    }
+
+    if(buttonListEl){
+      buttonListEl.addEventListener('change', event => {
+        const target = event.target;
+        if(!(target instanceof HTMLInputElement) || target.type !== 'checkbox') return;
+        const lbl = target.dataset.label || '';
+        if(!lbl) return;
+        disabled[lbl] = !target.checked;
+        saveDisabled(disabled);
+        applyDisabled();
+      });
+      buttonListEl.addEventListener('click', event => {
+        const btn = event.target instanceof HTMLElement ? event.target.closest('.ops-order-btn') : null;
+        if(!btn) return;
+        const row = btn.closest('.ops-button-row');
+        const lbl = row?.dataset.label || '';
+        if(!lbl) return;
+        const direction = btn.dataset.move === 'up' ? -1 : 1;
+        moveLabel(lbl, direction);
       });
     }
 
@@ -4747,16 +4900,6 @@
       updateFileState();
     })();
 
-    menu.querySelectorAll('input[type="checkbox"]').forEach(chk => {
-      const lbl = chk.dataset.label;
-      chk.checked = !disabled[lbl];
-      chk.addEventListener('change', () => {
-        disabled[lbl] = !chk.checked;
-        saveDisabled(disabled);
-        applyDisabled();
-      });
-    });
-
     let lastFocusedElement = null;
     function openModuleSettingsModal(moduleId){
       const resolvedId = typeof moduleId === 'string' ? moduleId.trim() : '';
@@ -4769,6 +4912,7 @@
       }
       workforceFilters = loadWorkforceFilters();
       renderFilters();
+      renderButtonSettingsList();
       syncHeaderUI({ skipInput:false });
       updateColorSummary();
       tabButtons.forEach(btn => {
