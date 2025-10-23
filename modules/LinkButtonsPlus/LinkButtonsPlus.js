@@ -106,17 +106,30 @@
     .ops-tab-buttons .ops-action-button{margin-top:.45rem;}
     .ops-button-list{display:flex; flex-direction:column; gap:.45rem; margin-top:.65rem;}
     .ops-button-row{display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
-      border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap;}
+      border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap; position:relative;
+      transition:background .18s ease, border-color .18s ease, transform .18s ease; will-change:transform;}
     .ops-button-index{font-size:.85rem; opacity:.7; min-width:1.5rem; text-align:right;}
     .ops-button-label{flex:1; display:flex; align-items:center; gap:.5rem; font-size:.95rem;}
     .ops-button-label input{width:1.1rem; height:1.1rem;}
-    .ops-button-order{display:flex; align-items:center; gap:.35rem;}
-    .ops-order-btn{width:2.2rem; height:2.2rem; border-radius:.6rem; border:none; background:rgba(148,163,184,.2);
-      color:inherit; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem;
+    .ops-drag-handle{width:2.2rem; height:2.2rem; border-radius:.6rem; border:none; background:rgba(148,163,184,.2);
+      color:inherit; display:inline-flex; align-items:center; justify-content:center; cursor:grab; font-size:1.05rem;
       transition:background .15s ease, transform .15s ease;}
-    .ops-order-btn:hover{background:rgba(59,130,246,.35); transform:translateY(-1px);}
-    .ops-order-btn:active{transform:none;}
-    .ops-order-btn:disabled{opacity:.4; cursor:not-allowed; transform:none; background:rgba(148,163,184,.15);}
+    .ops-drag-handle:hover{background:rgba(59,130,246,.35); transform:translateY(-1px);}
+    .ops-drag-handle:active{transform:none; cursor:grabbing;}
+    .ops-button-row.dragging{opacity:.45;}
+    .ops-drop-preview{
+      display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
+      border:1px dashed var(--lbp-accent-bg, rgba(59,130,246,.7)); background:rgba(59,130,246,.18); color:var(--lbp-accent-text,#fff);
+      font-weight:600; font-size:.9rem; letter-spacing:.2px; box-shadow:inset 0 0 0 1px rgba(59,130,246,.25);
+      transition:opacity .14s ease, transform .14s ease; animation:ops-drop-preview-in .12s ease;
+    }
+    .ops-drop-preview .ops-drop-preview-icon{
+      width:2.2rem; height:2.2rem; border-radius:.6rem; display:inline-flex; align-items:center; justify-content:center;
+      background:rgba(59,130,246,.28); color:var(--lbp-accent-text,#fff); font-size:1.05rem;
+      box-shadow:inset 0 0 0 1px rgba(37,99,235,.38);
+    }
+    .ops-drop-preview .ops-drop-preview-text{flex:1;}
+    @keyframes ops-drop-preview-in{from{opacity:0; transform:translateY(-2px);} to{opacity:1; transform:translateY(0);}}
     .ops-tab-filters{display:none; flex-direction:column; gap:.65rem; padding-top:.45rem;}
     .ops-tab-filters.active{display:flex;}
     .ops-filter-hint{font-size:.82rem; opacity:.75;}
@@ -4197,6 +4210,210 @@
     headerResetBtn = menu.querySelector('.ops-title-reset');
     buttonListEl = menu.querySelector('[data-button-list]');
 
+    const dragState = {
+      activeLabel: '',
+      sourceRow: null,
+      indicatorRow: null,
+      indicatorPosition: null,
+      previewRow: null
+    };
+
+    function ensureDropPreview(){
+      if(dragState.previewRow) return dragState.previewRow;
+      const preview = document.createElement('div');
+      preview.className = 'ops-button-row ops-drop-preview';
+      preview.setAttribute('aria-hidden', 'true');
+      preview.innerHTML = `
+        <span class="ops-drop-preview-icon" aria-hidden="true">⬇</span>
+        <span class="ops-drop-preview-text">Hier ablegen</span>
+      `;
+      dragState.previewRow = preview;
+      return preview;
+    }
+
+    function getLastButtonRow(){
+      if(!buttonListEl) return null;
+      const rows = Array.from(buttonListEl.querySelectorAll('.ops-button-row'));
+      for(let index = rows.length - 1; index >= 0; index -= 1){
+        const candidate = rows[index];
+        if(candidate.classList.contains('ops-drop-preview')) continue;
+        return candidate;
+      }
+      return null;
+    }
+
+    function isLastButtonRow(row){
+      if(!row) return false;
+      const lastRow = getLastButtonRow();
+      return !!lastRow && lastRow === row;
+    }
+
+    function captureRowPositions(){
+      const positions = new Map();
+      if(!buttonListEl) return positions;
+      const rows = buttonListEl.querySelectorAll('.ops-button-row');
+      rows.forEach(candidate => {
+        if(candidate.classList.contains('ops-drop-preview')) return;
+        positions.set(candidate, candidate.getBoundingClientRect().top);
+      });
+      return positions;
+    }
+
+    function animateRowReflow(previousPositions){
+      if(!buttonListEl || !previousPositions || previousPositions.size === 0) return;
+      const rows = buttonListEl.querySelectorAll('.ops-button-row');
+      const animating = [];
+      rows.forEach(candidate => {
+        if(candidate.classList.contains('ops-drop-preview')) return;
+        if(candidate.classList.contains('dragging')) return;
+        const prevTop = previousPositions.get(candidate);
+        if(typeof prevTop !== 'number') return;
+        const nextTop = candidate.getBoundingClientRect().top;
+        const deltaY = prevTop - nextTop;
+        if(Math.abs(deltaY) < 1) return;
+        candidate.style.transition = 'none';
+        candidate.style.transform = `translateY(${deltaY}px)`;
+        animating.push(candidate);
+      });
+      if(animating.length === 0) return;
+      requestAnimationFrame(() => {
+        animating.forEach(candidate => {
+          candidate.style.transition = '';
+          candidate.style.transform = '';
+        });
+      });
+    }
+
+    function updateDropPreviewText(row, position){
+      const preview = ensureDropPreview();
+      const text = preview.querySelector('.ops-drop-preview-text');
+      if(!text) return;
+      const label = row && row.dataset ? row.dataset.label || '' : '';
+      if(label){
+        if(position === 'before'){
+          text.textContent = `Vor „${label}” ablegen`;
+        }else if(isLastButtonRow(row)){
+          text.textContent = 'Am Ende ablegen';
+        }else{
+          text.textContent = `Nach „${label}” ablegen`;
+        }
+      }else{
+        text.textContent = 'Am Ende ablegen';
+      }
+    }
+
+    function setDropIndicator(row, position){
+      if(!buttonListEl || !row || !position){
+        clearDropIndicator();
+        return;
+      }
+      const preview = ensureDropPreview();
+      const sameTarget = dragState.indicatorRow === row && dragState.indicatorPosition === position;
+      if(sameTarget && preview.parentNode === buttonListEl){
+        updateDropPreviewText(row, position);
+        return;
+      }
+      const previousPositions = captureRowPositions();
+      updateDropPreviewText(row, position);
+      let referenceNode = position === 'before' ? row : row.nextSibling;
+      if(referenceNode === preview){
+        referenceNode = preview.nextSibling;
+      }
+      buttonListEl.insertBefore(preview, referenceNode || null);
+      animateRowReflow(previousPositions);
+      dragState.indicatorRow = row;
+      dragState.indicatorPosition = position;
+    }
+
+    function clearDropIndicator(){
+      const preview = dragState.previewRow;
+      if(preview && preview.parentNode){
+        const previousPositions = captureRowPositions();
+        preview.parentNode.removeChild(preview);
+        animateRowReflow(previousPositions);
+      }
+      dragState.indicatorRow = null;
+      dragState.indicatorPosition = null;
+    }
+
+    function resetDragState(){
+      if(dragState.sourceRow){
+        dragState.sourceRow.classList.remove('dragging');
+      }
+      dragState.sourceRow = null;
+      dragState.activeLabel = '';
+      clearDropIndicator();
+    }
+
+    function setupButtonRow(row){
+      const handle = row.querySelector('.ops-drag-handle');
+      const dragHandle = handle || row;
+      if(!dragHandle) return;
+      dragHandle.setAttribute('draggable', 'true');
+      dragHandle.addEventListener('dragstart', event => {
+        const label = row.dataset.label || '';
+        if(!label){
+          event.preventDefault();
+          return;
+        }
+        dragState.activeLabel = label;
+        dragState.sourceRow = row;
+        row.classList.add('dragging');
+        if(event.dataTransfer){
+          event.dataTransfer.effectAllowed = 'move';
+          try{ event.dataTransfer.setData('text/plain', label); }catch{}
+        }
+      });
+      dragHandle.addEventListener('dragend', () => {
+        resetDragState();
+      });
+    }
+
+    function commitButtonOrder(nextOrder){
+      if(!Array.isArray(nextOrder)) return;
+      const changed = nextOrder.length !== buttonOrder.length || nextOrder.some((lbl, index) => lbl !== buttonOrder[index]);
+      if(!changed) return;
+      buttonOrder = nextOrder;
+      buttonOrder.forEach((lbl, index) => {
+        const card = labelToCard.get(lbl);
+        if(card){
+          card.dataset.order = String(index);
+          gridEl?.appendChild(card);
+        }
+      });
+      persistButtonOrder(buttonOrder);
+      renderButtonSettingsList();
+      applyDisabled();
+    }
+
+    function reorderLabel(label, targetIndex){
+      if(typeof targetIndex !== 'number' || Number.isNaN(targetIndex)){
+        targetIndex = buttonOrder.length;
+      }
+      const currentIndex = buttonOrder.indexOf(label);
+      if(currentIndex < 0) return;
+      const nextOrder = buttonOrder.slice();
+      const [item] = nextOrder.splice(currentIndex, 1);
+      if(targetIndex > currentIndex) targetIndex -= 1;
+      if(targetIndex < 0) targetIndex = 0;
+      if(targetIndex > nextOrder.length) targetIndex = nextOrder.length;
+      nextOrder.splice(targetIndex, 0, item);
+      commitButtonOrder(nextOrder);
+    }
+
+    function handleDropReorder(targetLabel, position){
+      const sourceLabel = dragState.activeLabel;
+      if(!sourceLabel) return;
+      if(targetLabel){
+        let insertIndex = buttonOrder.indexOf(targetLabel);
+        if(insertIndex < 0) return;
+        if(position === 'after') insertIndex += 1;
+        reorderLabel(sourceLabel, insertIndex);
+      }else{
+        reorderLabel(sourceLabel, buttonOrder.length);
+      }
+    }
+
     if(headerInput){
       headerInput.value = headerOverride;
       headerInput.placeholder = defaultHeaderTitle;
@@ -4234,6 +4451,7 @@
 
     function renderButtonSettingsList(){
       if(!buttonListEl) return;
+      clearDropIndicator();
       buttonListEl.innerHTML = '';
       if(!buttonOrder.length){
         const empty = document.createElement('div');
@@ -4252,41 +4470,17 @@
             <input type="checkbox" data-label="${label}">
             <span>${label}</span>
           </label>
-          <div class="ops-button-order">
-            <button type="button" class="ops-order-btn" data-move="up" aria-label="${label} nach oben">↑</button>
-            <button type="button" class="ops-order-btn" data-move="down" aria-label="${label} nach unten">↓</button>
-          </div>
+          <button type="button" class="ops-drag-handle" aria-label="${label} verschieben" title="Zum Umordnen ziehen">
+            <span aria-hidden="true">↕</span>
+          </button>
         `;
         const checkbox = row.querySelector('input[type="checkbox"]');
         if(checkbox){
           checkbox.checked = !disabled[label];
         }
-        const controls = row.querySelectorAll('.ops-order-btn');
-        if(controls[0]) controls[0].disabled = index === 0;
-        if(controls[1]) controls[1].disabled = index === buttonOrder.length - 1;
+        setupButtonRow(row);
         buttonListEl.appendChild(row);
       });
-    }
-
-    function moveLabel(label, delta){
-      const idx = buttonOrder.indexOf(label);
-      if(idx < 0) return;
-      const targetIdx = idx + delta;
-      if(targetIdx < 0 || targetIdx >= buttonOrder.length) return;
-      const nextOrder = buttonOrder.slice();
-      const [item] = nextOrder.splice(idx, 1);
-      nextOrder.splice(targetIdx, 0, item);
-      buttonOrder = nextOrder;
-      buttonOrder.forEach((lbl, index) => {
-        const card = labelToCard.get(lbl);
-        if(card){
-          card.dataset.order = String(index);
-          gridEl?.appendChild(card);
-        }
-      });
-      persistButtonOrder(buttonOrder);
-      renderButtonSettingsList();
-      applyDisabled();
     }
 
     if(buttonListEl){
@@ -4299,14 +4493,63 @@
         saveDisabled(disabled);
         applyDisabled();
       });
-      buttonListEl.addEventListener('click', event => {
-        const btn = event.target instanceof HTMLElement ? event.target.closest('.ops-order-btn') : null;
-        if(!btn) return;
-        const row = btn.closest('.ops-button-row');
-        const lbl = row?.dataset.label || '';
-        if(!lbl) return;
-        const direction = btn.dataset.move === 'up' ? -1 : 1;
-        moveLabel(lbl, direction);
+      buttonListEl.addEventListener('dragover', event => {
+        if(!dragState.activeLabel) return;
+        event.preventDefault();
+        if(event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+        let target = event.target instanceof HTMLElement ? event.target.closest('.ops-button-row') : null;
+        if(target && target.classList.contains('ops-drop-preview')){
+          if(dragState.indicatorRow && dragState.indicatorPosition){
+            setDropIndicator(dragState.indicatorRow, dragState.indicatorPosition);
+          }
+          return;
+        }
+        if(target){
+          const rect = target.getBoundingClientRect();
+          const midpoint = rect.top + rect.height / 2;
+          const position = event.clientY < midpoint ? 'before' : 'after';
+          setDropIndicator(target, position);
+        }else{
+          const lastRow = getLastButtonRow();
+          if(lastRow){
+            setDropIndicator(lastRow, 'after');
+          }else{
+            clearDropIndicator();
+          }
+        }
+      });
+      buttonListEl.addEventListener('drop', event => {
+        if(!dragState.activeLabel) return;
+        event.preventDefault();
+        let targetRow = dragState.indicatorRow;
+        let position = dragState.indicatorPosition;
+        if((!targetRow || !position) && event.target instanceof HTMLElement){
+          const fallback = event.target.closest('.ops-button-row');
+          if(fallback){
+            if(fallback.classList.contains('ops-drop-preview')){
+              targetRow = dragState.indicatorRow;
+              position = dragState.indicatorPosition;
+            }else{
+              targetRow = fallback;
+              const rect = fallback.getBoundingClientRect();
+              position = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+            }
+          }
+        }
+        if(targetRow && targetRow.dataset.label){
+          const targetLabel = targetRow.dataset.label;
+          const effectivePosition = position === 'before' ? 'before' : 'after';
+          handleDropReorder(targetLabel, effectivePosition);
+        }else{
+          handleDropReorder('', 'after');
+        }
+        resetDragState();
+      });
+      buttonListEl.addEventListener('dragleave', event => {
+        if(!dragState.activeLabel) return;
+        const related = event.relatedTarget;
+        if(related instanceof Node && buttonListEl.contains(related)) return;
+        clearDropIndicator();
       });
     }
 
