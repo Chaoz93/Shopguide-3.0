@@ -116,13 +116,19 @@
     .ops-drag-handle:hover{background:rgba(59,130,246,.35); transform:translateY(-1px);}
     .ops-drag-handle:active{transform:none; cursor:grabbing;}
     .ops-button-row.dragging{opacity:.45;}
-    .ops-button-row.drop-before::before,
-    .ops-button-row.drop-after::after{
-      content:''; position:absolute; left:.5rem; right:.5rem; border-top:2px solid var(--lbp-accent-bg, rgba(59,130,246,.95));
-      pointer-events:none;
+    .ops-drop-preview{
+      display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
+      border:1px dashed var(--lbp-accent-bg, rgba(59,130,246,.7)); background:rgba(59,130,246,.18); color:var(--lbp-accent-text,#fff);
+      font-weight:600; font-size:.9rem; letter-spacing:.2px; box-shadow:inset 0 0 0 1px rgba(59,130,246,.25);
+      transition:opacity .14s ease, transform .14s ease; animation:ops-drop-preview-in .12s ease;
     }
-    .ops-button-row.drop-before::before{top:-.2rem;}
-    .ops-button-row.drop-after::after{bottom:-.2rem;}
+    .ops-drop-preview .ops-drop-preview-icon{
+      width:2.2rem; height:2.2rem; border-radius:.6rem; display:inline-flex; align-items:center; justify-content:center;
+      background:rgba(59,130,246,.28); color:var(--lbp-accent-text,#fff); font-size:1.05rem;
+      box-shadow:inset 0 0 0 1px rgba(37,99,235,.38);
+    }
+    .ops-drop-preview .ops-drop-preview-text{flex:1;}
+    @keyframes ops-drop-preview-in{from{opacity:0; transform:translateY(-2px);} to{opacity:1; transform:translateY(0);}}
     .ops-tab-filters{display:none; flex-direction:column; gap:.65rem; padding-top:.45rem;}
     .ops-tab-filters.active{display:flex;}
     .ops-filter-hint{font-size:.82rem; opacity:.75;}
@@ -4207,23 +4213,78 @@
       activeLabel: '',
       sourceRow: null,
       indicatorRow: null,
-      indicatorPosition: null
+      indicatorPosition: null,
+      previewRow: null
     };
 
-    function setDropIndicator(row, position){
-      if(dragState.indicatorRow){
-        dragState.indicatorRow.classList.remove('ops-drop-before', 'ops-drop-after');
+    function ensureDropPreview(){
+      if(dragState.previewRow) return dragState.previewRow;
+      const preview = document.createElement('div');
+      preview.className = 'ops-button-row ops-drop-preview';
+      preview.setAttribute('aria-hidden', 'true');
+      preview.innerHTML = `
+        <span class="ops-drop-preview-icon" aria-hidden="true">⬇</span>
+        <span class="ops-drop-preview-text">Hier ablegen</span>
+      `;
+      dragState.previewRow = preview;
+      return preview;
+    }
+
+    function getLastButtonRow(){
+      if(!buttonListEl) return null;
+      const rows = Array.from(buttonListEl.querySelectorAll('.ops-button-row'));
+      for(let index = rows.length - 1; index >= 0; index -= 1){
+        const candidate = rows[index];
+        if(candidate.classList.contains('ops-drop-preview')) continue;
+        return candidate;
       }
-      dragState.indicatorRow = row || null;
-      dragState.indicatorPosition = row && position ? position : null;
-      if(dragState.indicatorRow && dragState.indicatorPosition){
-        dragState.indicatorRow.classList.add(dragState.indicatorPosition === 'before' ? 'ops-drop-before' : 'ops-drop-after');
+      return null;
+    }
+
+    function isLastButtonRow(row){
+      if(!row) return false;
+      const lastRow = getLastButtonRow();
+      return !!lastRow && lastRow === row;
+    }
+
+    function updateDropPreviewText(row, position){
+      const preview = ensureDropPreview();
+      const text = preview.querySelector('.ops-drop-preview-text');
+      if(!text) return;
+      const label = row && row.dataset ? row.dataset.label || '' : '';
+      if(label){
+        if(position === 'before'){
+          text.textContent = `Vor „${label}” ablegen`;
+        }else if(isLastButtonRow(row)){
+          text.textContent = 'Am Ende ablegen';
+        }else{
+          text.textContent = `Nach „${label}” ablegen`;
+        }
+      }else{
+        text.textContent = 'Am Ende ablegen';
       }
     }
 
+    function setDropIndicator(row, position){
+      if(!buttonListEl || !row || !position){
+        clearDropIndicator();
+        return;
+      }
+      const preview = ensureDropPreview();
+      updateDropPreviewText(row, position);
+      let referenceNode = position === 'before' ? row : row.nextSibling;
+      if(referenceNode === preview){
+        referenceNode = preview.nextSibling;
+      }
+      buttonListEl.insertBefore(preview, referenceNode || null);
+      dragState.indicatorRow = row;
+      dragState.indicatorPosition = position;
+    }
+
     function clearDropIndicator(){
-      if(dragState.indicatorRow){
-        dragState.indicatorRow.classList.remove('ops-drop-before', 'ops-drop-after');
+      const preview = dragState.previewRow;
+      if(preview && preview.parentNode){
+        preview.parentNode.removeChild(preview);
       }
       dragState.indicatorRow = null;
       dragState.indicatorPosition = null;
@@ -4390,14 +4451,20 @@
         if(!dragState.activeLabel) return;
         event.preventDefault();
         if(event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-        const target = event.target instanceof HTMLElement ? event.target.closest('.ops-button-row') : null;
+        let target = event.target instanceof HTMLElement ? event.target.closest('.ops-button-row') : null;
+        if(target && target.classList.contains('ops-drop-preview')){
+          if(dragState.indicatorRow && dragState.indicatorPosition){
+            setDropIndicator(dragState.indicatorRow, dragState.indicatorPosition);
+          }
+          return;
+        }
         if(target){
           const rect = target.getBoundingClientRect();
           const midpoint = rect.top + rect.height / 2;
           const position = event.clientY < midpoint ? 'before' : 'after';
           setDropIndicator(target, position);
         }else{
-          const lastRow = buttonListEl.querySelector('.ops-button-row:last-of-type');
+          const lastRow = getLastButtonRow();
           if(lastRow){
             setDropIndicator(lastRow, 'after');
           }else{
@@ -4413,9 +4480,14 @@
         if((!targetRow || !position) && event.target instanceof HTMLElement){
           const fallback = event.target.closest('.ops-button-row');
           if(fallback){
-            targetRow = fallback;
-            const rect = fallback.getBoundingClientRect();
-            position = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+            if(fallback.classList.contains('ops-drop-preview')){
+              targetRow = dragState.indicatorRow;
+              position = dragState.indicatorPosition;
+            }else{
+              targetRow = fallback;
+              const rect = fallback.getBoundingClientRect();
+              position = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+            }
           }
         }
         if(targetRow && targetRow.dataset.label){
