@@ -106,17 +106,23 @@
     .ops-tab-buttons .ops-action-button{margin-top:.45rem;}
     .ops-button-list{display:flex; flex-direction:column; gap:.45rem; margin-top:.65rem;}
     .ops-button-row{display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
-      border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap;}
+      border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap; position:relative;}
     .ops-button-index{font-size:.85rem; opacity:.7; min-width:1.5rem; text-align:right;}
     .ops-button-label{flex:1; display:flex; align-items:center; gap:.5rem; font-size:.95rem;}
     .ops-button-label input{width:1.1rem; height:1.1rem;}
-    .ops-button-order{display:flex; align-items:center; gap:.35rem;}
-    .ops-order-btn{width:2.2rem; height:2.2rem; border-radius:.6rem; border:none; background:rgba(148,163,184,.2);
-      color:inherit; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem;
+    .ops-drag-handle{width:2.2rem; height:2.2rem; border-radius:.6rem; border:none; background:rgba(148,163,184,.2);
+      color:inherit; display:inline-flex; align-items:center; justify-content:center; cursor:grab; font-size:1.05rem;
       transition:background .15s ease, transform .15s ease;}
-    .ops-order-btn:hover{background:rgba(59,130,246,.35); transform:translateY(-1px);}
-    .ops-order-btn:active{transform:none;}
-    .ops-order-btn:disabled{opacity:.4; cursor:not-allowed; transform:none; background:rgba(148,163,184,.15);}
+    .ops-drag-handle:hover{background:rgba(59,130,246,.35); transform:translateY(-1px);}
+    .ops-drag-handle:active{transform:none; cursor:grabbing;}
+    .ops-button-row.dragging{opacity:.45;}
+    .ops-button-row.drop-before::before,
+    .ops-button-row.drop-after::after{
+      content:''; position:absolute; left:.5rem; right:.5rem; border-top:2px solid var(--lbp-accent-bg, rgba(59,130,246,.95));
+      pointer-events:none;
+    }
+    .ops-button-row.drop-before::before{top:-.2rem;}
+    .ops-button-row.drop-after::after{bottom:-.2rem;}
     .ops-tab-filters{display:none; flex-direction:column; gap:.65rem; padding-top:.45rem;}
     .ops-tab-filters.active{display:flex;}
     .ops-filter-hint{font-size:.82rem; opacity:.75;}
@@ -4197,6 +4203,110 @@
     headerResetBtn = menu.querySelector('.ops-title-reset');
     buttonListEl = menu.querySelector('[data-button-list]');
 
+    const dragState = {
+      activeLabel: '',
+      sourceRow: null,
+      indicatorRow: null,
+      indicatorPosition: null
+    };
+
+    function setDropIndicator(row, position){
+      if(dragState.indicatorRow){
+        dragState.indicatorRow.classList.remove('ops-drop-before', 'ops-drop-after');
+      }
+      dragState.indicatorRow = row || null;
+      dragState.indicatorPosition = row && position ? position : null;
+      if(dragState.indicatorRow && dragState.indicatorPosition){
+        dragState.indicatorRow.classList.add(dragState.indicatorPosition === 'before' ? 'ops-drop-before' : 'ops-drop-after');
+      }
+    }
+
+    function clearDropIndicator(){
+      if(dragState.indicatorRow){
+        dragState.indicatorRow.classList.remove('ops-drop-before', 'ops-drop-after');
+      }
+      dragState.indicatorRow = null;
+      dragState.indicatorPosition = null;
+    }
+
+    function resetDragState(){
+      if(dragState.sourceRow){
+        dragState.sourceRow.classList.remove('dragging');
+      }
+      dragState.sourceRow = null;
+      dragState.activeLabel = '';
+      clearDropIndicator();
+    }
+
+    function setupButtonRow(row){
+      const handle = row.querySelector('.ops-drag-handle');
+      const dragHandle = handle || row;
+      if(!dragHandle) return;
+      dragHandle.setAttribute('draggable', 'true');
+      dragHandle.addEventListener('dragstart', event => {
+        const label = row.dataset.label || '';
+        if(!label){
+          event.preventDefault();
+          return;
+        }
+        dragState.activeLabel = label;
+        dragState.sourceRow = row;
+        row.classList.add('dragging');
+        if(event.dataTransfer){
+          event.dataTransfer.effectAllowed = 'move';
+          try{ event.dataTransfer.setData('text/plain', label); }catch{}
+        }
+      });
+      dragHandle.addEventListener('dragend', () => {
+        resetDragState();
+      });
+    }
+
+    function commitButtonOrder(nextOrder){
+      if(!Array.isArray(nextOrder)) return;
+      const changed = nextOrder.length !== buttonOrder.length || nextOrder.some((lbl, index) => lbl !== buttonOrder[index]);
+      if(!changed) return;
+      buttonOrder = nextOrder;
+      buttonOrder.forEach((lbl, index) => {
+        const card = labelToCard.get(lbl);
+        if(card){
+          card.dataset.order = String(index);
+          gridEl?.appendChild(card);
+        }
+      });
+      persistButtonOrder(buttonOrder);
+      renderButtonSettingsList();
+      applyDisabled();
+    }
+
+    function reorderLabel(label, targetIndex){
+      if(typeof targetIndex !== 'number' || Number.isNaN(targetIndex)){
+        targetIndex = buttonOrder.length;
+      }
+      const currentIndex = buttonOrder.indexOf(label);
+      if(currentIndex < 0) return;
+      const nextOrder = buttonOrder.slice();
+      const [item] = nextOrder.splice(currentIndex, 1);
+      if(targetIndex > currentIndex) targetIndex -= 1;
+      if(targetIndex < 0) targetIndex = 0;
+      if(targetIndex > nextOrder.length) targetIndex = nextOrder.length;
+      nextOrder.splice(targetIndex, 0, item);
+      commitButtonOrder(nextOrder);
+    }
+
+    function handleDropReorder(targetLabel, position){
+      const sourceLabel = dragState.activeLabel;
+      if(!sourceLabel) return;
+      if(targetLabel){
+        let insertIndex = buttonOrder.indexOf(targetLabel);
+        if(insertIndex < 0) return;
+        if(position === 'after') insertIndex += 1;
+        reorderLabel(sourceLabel, insertIndex);
+      }else{
+        reorderLabel(sourceLabel, buttonOrder.length);
+      }
+    }
+
     if(headerInput){
       headerInput.value = headerOverride;
       headerInput.placeholder = defaultHeaderTitle;
@@ -4234,6 +4344,7 @@
 
     function renderButtonSettingsList(){
       if(!buttonListEl) return;
+      clearDropIndicator();
       buttonListEl.innerHTML = '';
       if(!buttonOrder.length){
         const empty = document.createElement('div');
@@ -4252,41 +4363,17 @@
             <input type="checkbox" data-label="${label}">
             <span>${label}</span>
           </label>
-          <div class="ops-button-order">
-            <button type="button" class="ops-order-btn" data-move="up" aria-label="${label} nach oben">↑</button>
-            <button type="button" class="ops-order-btn" data-move="down" aria-label="${label} nach unten">↓</button>
-          </div>
+          <button type="button" class="ops-drag-handle" aria-label="${label} verschieben" title="Zum Umordnen ziehen">
+            <span aria-hidden="true">↕</span>
+          </button>
         `;
         const checkbox = row.querySelector('input[type="checkbox"]');
         if(checkbox){
           checkbox.checked = !disabled[label];
         }
-        const controls = row.querySelectorAll('.ops-order-btn');
-        if(controls[0]) controls[0].disabled = index === 0;
-        if(controls[1]) controls[1].disabled = index === buttonOrder.length - 1;
+        setupButtonRow(row);
         buttonListEl.appendChild(row);
       });
-    }
-
-    function moveLabel(label, delta){
-      const idx = buttonOrder.indexOf(label);
-      if(idx < 0) return;
-      const targetIdx = idx + delta;
-      if(targetIdx < 0 || targetIdx >= buttonOrder.length) return;
-      const nextOrder = buttonOrder.slice();
-      const [item] = nextOrder.splice(idx, 1);
-      nextOrder.splice(targetIdx, 0, item);
-      buttonOrder = nextOrder;
-      buttonOrder.forEach((lbl, index) => {
-        const card = labelToCard.get(lbl);
-        if(card){
-          card.dataset.order = String(index);
-          gridEl?.appendChild(card);
-        }
-      });
-      persistButtonOrder(buttonOrder);
-      renderButtonSettingsList();
-      applyDisabled();
     }
 
     if(buttonListEl){
@@ -4299,14 +4386,52 @@
         saveDisabled(disabled);
         applyDisabled();
       });
-      buttonListEl.addEventListener('click', event => {
-        const btn = event.target instanceof HTMLElement ? event.target.closest('.ops-order-btn') : null;
-        if(!btn) return;
-        const row = btn.closest('.ops-button-row');
-        const lbl = row?.dataset.label || '';
-        if(!lbl) return;
-        const direction = btn.dataset.move === 'up' ? -1 : 1;
-        moveLabel(lbl, direction);
+      buttonListEl.addEventListener('dragover', event => {
+        if(!dragState.activeLabel) return;
+        event.preventDefault();
+        if(event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+        const target = event.target instanceof HTMLElement ? event.target.closest('.ops-button-row') : null;
+        if(target){
+          const rect = target.getBoundingClientRect();
+          const midpoint = rect.top + rect.height / 2;
+          const position = event.clientY < midpoint ? 'before' : 'after';
+          setDropIndicator(target, position);
+        }else{
+          const lastRow = buttonListEl.querySelector('.ops-button-row:last-of-type');
+          if(lastRow){
+            setDropIndicator(lastRow, 'after');
+          }else{
+            clearDropIndicator();
+          }
+        }
+      });
+      buttonListEl.addEventListener('drop', event => {
+        if(!dragState.activeLabel) return;
+        event.preventDefault();
+        let targetRow = dragState.indicatorRow;
+        let position = dragState.indicatorPosition;
+        if((!targetRow || !position) && event.target instanceof HTMLElement){
+          const fallback = event.target.closest('.ops-button-row');
+          if(fallback){
+            targetRow = fallback;
+            const rect = fallback.getBoundingClientRect();
+            position = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+          }
+        }
+        if(targetRow && targetRow.dataset.label){
+          const targetLabel = targetRow.dataset.label;
+          const effectivePosition = position === 'before' ? 'before' : 'after';
+          handleDropReorder(targetLabel, effectivePosition);
+        }else{
+          handleDropReorder('', 'after');
+        }
+        resetDragState();
+      });
+      buttonListEl.addEventListener('dragleave', event => {
+        if(!dragState.activeLabel) return;
+        const related = event.relatedTarget;
+        if(related instanceof Node && buttonListEl.contains(related)) return;
+        clearDropIndicator();
       });
     }
 
