@@ -3414,6 +3414,7 @@
     let settingsTitleEl = null;
     let headerInput = null;
     let headerResetBtn = null;
+    let buttonListEl = null;
 
     let farblayerState = loadFarblayerState();
     let farblayerElementAssignments = loadFarblayerElementAssignments();
@@ -4194,7 +4195,7 @@
     const ownedSections = menu.querySelectorAll('[data-tab-owner]');
     headerInput = menu.querySelector('.ops-title-input');
     headerResetBtn = menu.querySelector('.ops-title-reset');
-    const buttonListEl = menu.querySelector('[data-button-list]');
+    buttonListEl = menu.querySelector('[data-button-list]');
 
     if(headerInput){
       headerInput.value = headerOverride;
