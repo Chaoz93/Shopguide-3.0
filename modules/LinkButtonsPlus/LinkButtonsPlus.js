@@ -106,7 +106,8 @@
     .ops-tab-buttons .ops-action-button{margin-top:.45rem;}
     .ops-button-list{display:flex; flex-direction:column; gap:.45rem; margin-top:.65rem;}
     .ops-button-row{display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
-      border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap; position:relative;}
+      border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap; position:relative;
+      transition:background .18s ease, border-color .18s ease, transform .18s ease; will-change:transform;}
     .ops-button-index{font-size:.85rem; opacity:.7; min-width:1.5rem; text-align:right;}
     .ops-button-label{flex:1; display:flex; align-items:center; gap:.5rem; font-size:.95rem;}
     .ops-button-label input{width:1.1rem; height:1.1rem;}
@@ -4247,6 +4248,42 @@
       return !!lastRow && lastRow === row;
     }
 
+    function captureRowPositions(){
+      const positions = new Map();
+      if(!buttonListEl) return positions;
+      const rows = buttonListEl.querySelectorAll('.ops-button-row');
+      rows.forEach(candidate => {
+        if(candidate.classList.contains('ops-drop-preview')) return;
+        positions.set(candidate, candidate.getBoundingClientRect().top);
+      });
+      return positions;
+    }
+
+    function animateRowReflow(previousPositions){
+      if(!buttonListEl || !previousPositions || previousPositions.size === 0) return;
+      const rows = buttonListEl.querySelectorAll('.ops-button-row');
+      const animating = [];
+      rows.forEach(candidate => {
+        if(candidate.classList.contains('ops-drop-preview')) return;
+        if(candidate.classList.contains('dragging')) return;
+        const prevTop = previousPositions.get(candidate);
+        if(typeof prevTop !== 'number') return;
+        const nextTop = candidate.getBoundingClientRect().top;
+        const deltaY = prevTop - nextTop;
+        if(Math.abs(deltaY) < 1) return;
+        candidate.style.transition = 'none';
+        candidate.style.transform = `translateY(${deltaY}px)`;
+        animating.push(candidate);
+      });
+      if(animating.length === 0) return;
+      requestAnimationFrame(() => {
+        animating.forEach(candidate => {
+          candidate.style.transition = '';
+          candidate.style.transform = '';
+        });
+      });
+    }
+
     function updateDropPreviewText(row, position){
       const preview = ensureDropPreview();
       const text = preview.querySelector('.ops-drop-preview-text');
@@ -4271,12 +4308,19 @@
         return;
       }
       const preview = ensureDropPreview();
+      const sameTarget = dragState.indicatorRow === row && dragState.indicatorPosition === position;
+      if(sameTarget && preview.parentNode === buttonListEl){
+        updateDropPreviewText(row, position);
+        return;
+      }
+      const previousPositions = captureRowPositions();
       updateDropPreviewText(row, position);
       let referenceNode = position === 'before' ? row : row.nextSibling;
       if(referenceNode === preview){
         referenceNode = preview.nextSibling;
       }
       buttonListEl.insertBefore(preview, referenceNode || null);
+      animateRowReflow(previousPositions);
       dragState.indicatorRow = row;
       dragState.indicatorPosition = position;
     }
@@ -4284,7 +4328,9 @@
     function clearDropIndicator(){
       const preview = dragState.previewRow;
       if(preview && preview.parentNode){
+        const previousPositions = captureRowPositions();
         preview.parentNode.removeChild(preview);
+        animateRowReflow(previousPositions);
       }
       dragState.indicatorRow = null;
       dragState.indicatorPosition = null;
