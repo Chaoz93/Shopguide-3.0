@@ -8,8 +8,10 @@
   "w": 2,
   "h": 14,
   "settings": {
-    "title": "Unit Comments"
+    "title": "Unit Comments",
+    "showTitle": true,
+    "collapseFilePanel": false
   },
   "moduleId": "AspenComments",
-  "version": "1.2.2"
+  "version": "1.3.0"
 }
