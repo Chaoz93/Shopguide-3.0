@@ -3486,7 +3486,7 @@
     const leftBottom = normalizeLabel(s.leftBottom) || 'CMDS';
     let rightLabels = Array.isArray(s.rightLabels) && s.rightLabels.length
       ? s.rightLabels.map(normalizeLabel).filter(Boolean)
-      : ['ZIAUF3','ZILLK','ZIKV','ZIQA','REPORT','ARES','Workforce'];
+      : ['ZIAUF3','ZILLK','ZIKV','ZIQA','PhotoDoc','REPORT','ARES','Workforce'];
 
     const ensureLabel = (list, label, { before } = {}) => {
       const targetKey = normalizeKey(label);
@@ -3504,6 +3504,7 @@
 
     ensureLabel(rightLabels, 'Workforce');
     ensureLabel(rightLabels, 'ARES', { before: 'Workforce' });
+    ensureLabel(rightLabels, 'PhotoDoc', { before: 'ARES' });
 
     const combinedRaw = [leftTop, leftBottom, ...rightLabels];
     const labelLookup = new Map();
@@ -4024,7 +4025,8 @@
       EDOC_BASE:   'https://lww.edoc-read.lht.ham.dlh.de/edoc/app/login.html?nextURL=',
       ARES:        'https://lww.ares.ham.dlh.de/sap(bD1kZSZjPTAwMg==)/bc/bsp/sap/zares/ares_fs.htm',
       TRV_BASE:    'https://testreportviewer.apps.az.lhtcloud.com/?pn=',
-      WORKFORCE_BASE: 'https://workforceplus-lht.lht.app.lufthansa.com/page/teamViewPage?scheduleGrid_expanded=true'
+      WORKFORCE_BASE: 'https://workforceplus-lht.lht.app.lufthansa.com/page/teamViewPage?scheduleGrid_expanded=true',
+      PHOTODOC:    'https://lww.portal.lht.ham.dlh.de/t/scan/app/photodoc/ScanPage'
     };
     const openNew = (url) => window.open(url, '_blank', 'noopener,noreferrer');
 
@@ -4078,6 +4080,7 @@
         if (label === 'ZIQA')   { if (!aun) return; openNew(URLS.ZIQA_BASE   + encodeURIComponent(aun)); return; }
         if (label === 'REPORT') { if (!part || !serial) return; openNew(URLS.TRV_BASE + encodeURIComponent(part) + '&sn=' + encodeURIComponent(serial)); return; }
         if (label === 'ARES') { openNew(URLS.ARES); return; }
+        if (label === 'PHOTODOC' || label === 'SCAN' || label === 'SCANPAGE') { openNew(URLS.PHOTODOC); return; }
         if (label === 'WORKFORCE') {
           const { year, week } = getISOWeekInfo(new Date());
           const weekStr = `${year}-W${String(week).padStart(2,'0')}`;

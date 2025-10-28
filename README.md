@@ -31,7 +31,7 @@ Jedes Modul wird durch ein JSON-Manifest beschrieben (name, icon, script, Standa
 - **Gerätedaten** (`Gerätedaten`) – Datenblatt, das in einer Excel-Arbeitsmappe gespeichert wird; pro Instanz werden Konfigurationen in `localStorage` und IndexedDB abgelegt.
 - **GeräteListe** (`GeräteListe`) – Excel-basierte Gerätetafel mit Drag-and-Drop und Farboptionen.
 - **Komplexes Modul** (`Komplexes Modul`) – JSON-definiertes Arbeitsauftragsformular mit konfigurierbaren Feldern und Aktionen.
-- **LinkButtons** (`LinkButtons`) – Bedienpanel, das Wartungslinks anhand von Excel-Suchdaten öffnet.
+- **LinkButtons Plus** (`LinkButtonsPlus`) – Bedienpanel mit Schnellzugriffen auf Wartungslinks, Farblayern und Deeplinks.
 - **MarkdownViewer** (`MarkdownViewer`) – lädt und zeigt eine ausgewählte Markdown-Datei an.
 - **Namensregeln** (`Namensregeln`) – Zuordnung von Präfixen zu Namen, verwaltet über Excel und `localStorage`.
 - **SavedEvents** (`SavedEvents`) – Hilfsmodul zum Navigieren in einer Saved-Events-Verzeichnisstruktur.
