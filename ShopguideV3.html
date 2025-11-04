@@ -1,4 +1,4 @@
-<!-- Version: 3.6.12 -->
+<!-- Version: 3.6.13 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -2055,6 +2055,42 @@ window.savePaths = { backups: null, modules: null, shared: null };
 
 const SAVE_PATH_NAME_KEY_PREFIX = 'savePath_';
 const SAVE_PATH_HANDLE_KEY_PREFIX = 'savePathHandle:';
+let storagePersistenceRequested = false;
+
+async function ensurePersistentStorage(){
+  if (storagePersistenceRequested) return;
+  storagePersistenceRequested = true;
+  if (!navigator?.storage) return;
+  try {
+    if (typeof navigator.storage.persisted === 'function') {
+      const alreadyPersisted = await navigator.storage.persisted();
+      if (alreadyPersisted) return;
+    }
+    if (typeof navigator.storage.persist === 'function') {
+      await navigator.storage.persist();
+    }
+  } catch (err) {
+    console.warn('⚠️ Persistenter Speicher konnte nicht angefordert werden:', err);
+  }
+}
+
+async function persistSavePathHandle(key, handle){
+  if (typeof idbSet !== 'function') return;
+  try {
+    await idbSet(`${SAVE_PATH_HANDLE_KEY_PREFIX}${key}`, handle);
+  } catch (dbErr) {
+    console.warn(`⚠️ Konnte Handle für ${key} nicht persistent speichern:`, dbErr);
+  }
+}
+
+async function clearPersistedSavePathHandle(key){
+  if (typeof idbDel !== 'function') return;
+  try {
+    await idbDel(`${SAVE_PATH_HANDLE_KEY_PREFIX}${key}`);
+  } catch (dbErr) {
+    console.warn(`⚠️ Konnte Handle für ${key} nicht entfernen:`, dbErr);
+  }
+}
 
 async function chooseFolder(key, labelEl) {
   if (typeof window.showDirectoryPicker !== 'function') {
@@ -2079,6 +2115,8 @@ async function chooseFolder(key, labelEl) {
 
     window.savePaths[key] = handle;
 
+    await ensurePersistentStorage();
+
     try {
       localStorage.setItem(`${SAVE_PATH_NAME_KEY_PREFIX}${key}_name`, handle.name);
       localStorage.setItem(`${SAVE_PATH_NAME_KEY_PREFIX}${key}_granted`, 'true');
@@ -2086,13 +2124,7 @@ async function chooseFolder(key, labelEl) {
       console.warn(`⚠️ Konnte localStorage für ${key} nicht aktualisieren:`, storageErr);
     }
 
-    if (typeof idbSet === 'function') {
-      try {
-        await idbSet(`${SAVE_PATH_HANDLE_KEY_PREFIX}${key}`, handle);
-      } catch (dbErr) {
-        console.warn(`⚠️ Konnte Handle für ${key} nicht persistent speichern:`, dbErr);
-      }
-    }
+    await persistSavePathHandle(key, handle);
 
     if (labelEl) {
       labelEl.textContent = `✅ Zugriff aktiv (${handle.name})`;
@@ -2109,13 +2141,7 @@ async function chooseFolder(key, labelEl) {
       console.warn(`⚠️ Konnte localStorage für ${key} nicht bereinigen:`, storageErr);
     }
 
-    if (typeof idbDel === 'function') {
-      try {
-        await idbDel(`${SAVE_PATH_HANDLE_KEY_PREFIX}${key}`);
-      } catch (dbErr) {
-        console.warn(`⚠️ Konnte Handle für ${key} nicht entfernen:`, dbErr);
-      }
-    }
+    await clearPersistedSavePathHandle(key);
 
     if (labelEl) {
       labelEl.textContent = '❌ Nicht gesetzt';
@@ -2204,32 +2230,52 @@ async function restoreSavePathStatus() {
       console.warn(`⚠️ Konnte Speicherstatus für ${key} nicht laden:`, storageErr);
     }
 
+    let restoredHandle = null;
     if (typeof idbGet === 'function') {
       try {
-        const handle = await idbGet(`${SAVE_PATH_HANDLE_KEY_PREFIX}${key}`);
-        if (handle) {
+        restoredHandle = await idbGet(`${SAVE_PATH_HANDLE_KEY_PREFIX}${key}`);
+        if (restoredHandle) {
           let granted = true;
           if (typeof ensureRWPermission === 'function') {
-            granted = await ensureRWPermission(handle, { mode: 'readwrite', request: false });
+            granted = await ensureRWPermission(restoredHandle, { mode: 'readwrite', request: false });
           }
 
           if (granted) {
-            window.savePaths[key] = handle;
+            window.savePaths[key] = restoredHandle;
             if (!storedName) {
-              storedName = handle.name || storedName;
+              storedName = restoredHandle.name || storedName;
             }
             hasStoredAccess = true;
+          } else {
+            hasStoredAccess = false;
           }
+        } else {
+          hasStoredAccess = false;
         }
       } catch (dbErr) {
         console.warn(`⚠️ Konnte Handle für ${key} nicht wiederherstellen:`, dbErr);
+        hasStoredAccess = false;
       }
     }
 
-    if (hasStoredAccess && label) {
-      label.textContent = storedName
-        ? `⚙️ Wiederhergestellt (${storedName})`
-        : '⚙️ Wiederhergestellt';
+    if (!hasStoredAccess) {
+      try {
+        localStorage.setItem(`${SAVE_PATH_NAME_KEY_PREFIX}${key}_granted`, 'false');
+      } catch (storageErr) {
+        console.warn(`⚠️ Konnte Berechtigungsstatus für ${key} nicht aktualisieren:`, storageErr);
+      }
+    }
+
+    if (label) {
+      if (hasStoredAccess) {
+        label.textContent = storedName
+          ? `⚙️ Wiederhergestellt (${storedName})`
+          : '⚙️ Wiederhergestellt';
+      } else if (storedName) {
+        label.textContent = `⚠️ Zugriff benötigt (${storedName})`;
+      } else {
+        label.textContent = '❌ Nicht gesetzt';
+      }
     }
   }
 }
@@ -3433,8 +3479,12 @@ const scheduleRestoreSavePathStatus = () => {
 };
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', scheduleRestoreSavePathStatus, { once: true });
+  document.addEventListener('DOMContentLoaded', () => {
+    ensurePersistentStorage().catch(err => console.warn('⚠️ Persistenzanforderung schlug fehl:', err));
+    scheduleRestoreSavePathStatus();
+  }, { once: true });
 } else {
+  ensurePersistentStorage().catch(err => console.warn('⚠️ Persistenzanforderung schlug fehl:', err));
   scheduleRestoreSavePathStatus();
 }
 
