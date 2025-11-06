@@ -2291,7 +2291,7 @@
         const sanitizedRules=preparedRules.filter(rule=>rule.field);
         state.config.titleRules=sanitizedRules;
         if(optionsOpen){
-          tempTitleRules=preparedRules.map(rule=>({...rule}));
+          tempTitleRules=preparedRules.map(rule=>({...rule,draftField:rule.field}));
         }
         state.config.colors={
           bg:elements.cBg?.value||state.config.colors.bg,
@@ -3653,18 +3653,20 @@
       }
       rules.forEach((rule,index)=>{
         const normalized=normalizeTitleRule(rule);
-        tempTitleRules[index]=normalized;
+        const draftField=typeof rule?.draftField==='string'?rule.draftField:normalized.field;
+        const workingRule={...normalized,draftField};
+        tempTitleRules[index]=workingRule;
         const row=document.createElement('div');
         row.className='db-rule-row';
 
         const fieldChoices=available.slice();
-        if(normalized.field && !fieldChoices.includes(normalized.field)) fieldChoices.push(normalized.field);
+        if(workingRule.field && !fieldChoices.includes(workingRule.field)) fieldChoices.push(workingRule.field);
         const fieldInput=document.createElement('input');
         fieldInput.type='text';
         fieldInput.className='db-rule-field';
         fieldInput.placeholder='Spalte wählen';
         fieldInput.autocomplete='off';
-        fieldInput.value=normalized.field||'';
+        fieldInput.value=workingRule.draftField||'';
         const dataList=document.createElement('datalist');
         const listId=`db-rule-options-${Date.now()}-${index}-${Math.floor(Math.random()*1000)}`;
         dataList.id=listId;
@@ -3675,7 +3677,11 @@
           const filtered=normalizedFilter?fieldChoices.filter(opt=>opt.toLowerCase().includes(normalizedFilter)):fieldChoices;
           dataList.innerHTML=filtered.map(opt=>`<option value="${opt}"></option>`).join('');
         };
-        const commitField=()=>{
+        let shouldAutocompleteOnCommit=false;
+        const commitField=(options={})=>{
+          const {preferAutocomplete}=options;
+          const useAutocomplete=typeof preferAutocomplete==='boolean'?preferAutocomplete:shouldAutocompleteOnCommit;
+          shouldAutocompleteOnCommit=false;
           const raw=(fieldInput.value||'').trim();
           const target=tempTitleRules[index];
           if(!target){
@@ -3692,47 +3698,54 @@
           const exact=fieldChoices.find(opt=>opt.toLowerCase()===lower);
           if(exact){
             target.field=exact;
+            target.draftField=exact;
             fieldInput.value=exact;
             renderFieldOptions();
             scheduleOptionPersist();
             return;
           }
           const partial=fieldChoices.find(opt=>opt.toLowerCase().includes(lower));
-          if(partial){
+          if(partial && useAutocomplete){
             target.field=partial;
+            target.draftField=partial;
             fieldInput.value=partial;
             renderFieldOptions();
             scheduleOptionPersist();
             return;
           }
           target.field=raw;
+          target.draftField=raw;
           fieldInput.value=raw;
           if(!fieldChoices.includes(raw)){
             fieldChoices.push(raw);
           }
-          renderFieldOptions();
+          renderFieldOptions(fieldInput.value);
           scheduleOptionPersist();
         };
-        renderFieldOptions();
+        renderFieldOptions(fieldInput.value);
         fieldInput.addEventListener('input',()=>{
           const target=tempTitleRules[index];
           if(!target){
             return;
           }
+          target.draftField=fieldInput.value;
           renderFieldOptions(fieldInput.value);
-          target.field=fieldInput.value;
-          scheduleOptionPersist();
         });
         fieldInput.addEventListener('focus',()=>{renderFieldOptions();});
-        fieldInput.addEventListener('change',commitField);
+        fieldInput.addEventListener('change',()=>commitField());
         fieldInput.addEventListener('keydown',event=>{
+          if(event.key==='Tab'){
+            shouldAutocompleteOnCommit=true;
+            return;
+          }
+          shouldAutocompleteOnCommit=false;
           if(event.key==='Enter'){
             event.preventDefault();
-            commitField();
+            commitField({preferAutocomplete:false});
             fieldInput.blur();
           }
         });
-        fieldInput.addEventListener('blur',()=>{setTimeout(commitField,0);});
+        fieldInput.addEventListener('blur',()=>{setTimeout(()=>commitField(),0);});
         row.appendChild(fieldInput);
         row.appendChild(dataList);
 
@@ -3831,7 +3844,10 @@
     function openOptions(){
       closePartSelectDropdown();
       tempSubFields=Array.isArray(state.config.subFields)?state.config.subFields.map(sub=>({...sub})):[];
-      tempTitleRules=Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[];
+      tempTitleRules=Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>{
+        const normalized=normalizeTitleRule(rule);
+        return {...normalized,draftField:normalized.field};
+      }):[];
       tempExtraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[];
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       tempActiveColumnEnabled=state.config.activeColumn?.enabled!==false;
@@ -3893,7 +3909,8 @@
       elements.addRuleBtn.addEventListener('click',()=>{
         const defaults=getAvailableFieldList(state,tempTitleRules.map(rule=>rule?.field).filter(Boolean));
         const defaultField=defaults[0]||'';
-        tempTitleRules.push(normalizeTitleRule({field:defaultField,operator:'=',value:'',text:''}));
+        const normalized=normalizeTitleRule({field:defaultField,operator:'=',value:'',text:''});
+        tempTitleRules.push({...normalized,draftField:normalized.field});
         renderRuleControls();
         scheduleOptionPersist();
       });
