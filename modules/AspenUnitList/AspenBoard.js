@@ -2287,8 +2287,9 @@
           value:typeof rule.value==='string'?rule.value.trim():(rule.value==null?'':String(rule.value).trim()),
           text:(rule.text||'').trim(),
           color:sanitizeHexColor(rule.color||'')
-        })).filter(rule=>rule.field);
-        state.config.titleRules=preparedRules;
+        }));
+        const sanitizedRules=preparedRules.filter(rule=>rule.field);
+        state.config.titleRules=sanitizedRules;
         if(optionsOpen){
           tempTitleRules=preparedRules.map(rule=>({...rule}));
         }
