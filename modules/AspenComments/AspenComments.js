@@ -80,6 +80,7 @@
   const IDB_STORE='fs-handles';
   const COMMENTS_SHEET='Comments';
   const WATCH_INTERVAL=500;
+  const ASPEN_POLL_INTERVAL=4000;
 
   const MELD_HEADER_PRIORITY=[
     'MELDUNGS_NO',
@@ -170,6 +171,35 @@
     return ensureLibrary('XLSX','__UNIT_COMMENTS_XLSX__',XLSX_URLS);
   }
 
+  function formatRelativeTime(timestamp){
+    const value=Number(timestamp);
+    if(!Number.isFinite(value)||value<=0)return'';
+    const diff=Math.max(0,Date.now()-value);
+    const seconds=Math.floor(diff/1000);
+    if(seconds<5)return'gerade eben';
+    if(seconds<60)return`vor ${seconds} ${seconds===1?'Sekunde':'Sekunden'}`;
+    const minutes=Math.floor(seconds/60);
+    if(minutes<60)return`vor ${minutes} ${minutes===1?'Minute':'Minuten'}`;
+    const hours=Math.floor(minutes/60);
+    if(hours<24)return`vor ${hours} ${hours===1?'Stunde':'Stunden'}`;
+    const days=Math.floor(hours/24);
+    if(days<7)return`vor ${days} ${days===1?'Tag':'Tagen'}`;
+    if(days<365){
+      const weeks=Math.max(1,Math.floor(days/7));
+      return`vor ${weeks} ${weeks===1?'Woche':'Wochen'}`;
+    }
+    const years=Math.max(1,Math.floor(days/365));
+    return`vor ${years} ${years===1?'Jahr':'Jahren'}`;
+  }
+
+  function formatDateTime(timestamp){
+    const value=Number(timestamp);
+    if(!Number.isFinite(value)||value<=0)return'';
+    try{
+      return new Date(value).toLocaleString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    }catch{return'';}
+  }
+
   function parseJSON(str,fb){
     if(!str) return fb;
     try{return JSON.parse(str)||fb;}catch{return fb;}
@@ -236,7 +266,9 @@
     const relativePath=typeof file?.webkitRelativePath==='string'?file.webkitRelativePath:'';
     const name=fileName||handleName||'';
     const path=(relativePath&&relativePath.trim())||name;
-    return {name,path};
+    const lastModified=typeof file?.lastModified==='number'?file.lastModified:0;
+    const size=typeof file?.size==='number'?file.size:0;
+    return {name,path,lastModified,size};
   }
 
   function readGeneralIdentifiers(){
@@ -638,17 +670,17 @@
     try{console.debug('UnitComments: Aspen-Header-Debug',debug);}catch{}
   }
 
-  async function readAspen(handle){
+  async function readAspen(handle,file=null){
     await ensureXLSX();
-    const file=await handle.getFile();
-    const meta=deriveFileMeta(handle,file);
+    const fileHandle=file||await handle.getFile();
+    const meta=deriveFileMeta(handle,fileHandle);
     const debug=createAspenDebug();
-    if(file.size===0){
+    if(fileHandle.size===0){
       debug.messages.push('Datei ist leer');
       logAspenDebug(debug);
       return {entries:[],debug,meta};
     }
-    const buffer=await file.arrayBuffer();
+    const buffer=await fileHandle.arrayBuffer();
     const workbook=XLSX.read(buffer,{type:'array'});
     debug.sheetNames=Array.isArray(workbook?.SheetNames)?[...workbook.SheetNames]:[];
     const selection=pickSheet(workbook,{requiredHeaderGroups:[MELD_HEADER_PRIORITY,PART_HEADER_PRIORITY,SERIAL_HEADER_PRIORITY]});
@@ -764,6 +796,12 @@
     return false;
   }
 
+  async function hasPermission(handle,mode='read'){
+    if(!handle?.queryPermission) return true;
+    const query=await handle.queryPermission({mode});
+    return query==='granted';
+  }
+
   function updateGeneralPartSerial(state,part,serial){
     const normalizedPart=part||'';
     const normalizedSerial=serial||'';
@@ -813,6 +851,8 @@
       aspenByKey:new Map(),
       aspenByMeldung:new Map(),
       aspenDebug:null,
+      aspenMeta:null,
+      aspenPollTimer:null,
       activeMeldung:'',
       activePart:'',
       activeSerial:'',
@@ -827,6 +867,9 @@
       baseNote:null,
       statusCollapsed:defaultCollapsed
     };
+
+    let aspenLoadPromise=null;
+    let aspenPollActive=false;
 
     const stored=loadLocalState(instanceId);
     if(stored){
@@ -950,6 +993,16 @@
       return updated;
     }
 
+    function rememberAspenMeta(meta){
+      if(meta&&(typeof meta.lastModified==='number'||typeof meta.size==='number')){
+        const lastModified=Number.isFinite(meta.lastModified)?meta.lastModified:0;
+        const size=Number.isFinite(meta.size)?meta.size:0;
+        state.aspenMeta={lastModified,size};
+      }else{
+        state.aspenMeta=null;
+      }
+    }
+
     function setAspenEntries(entries){
       state.aspenEntries=Array.isArray(entries)?entries:[];
       state.aspenOptions=state.aspenEntries;
@@ -1020,24 +1073,73 @@
       return state.aspenByMeldung?.get(key)||null;
     }
 
-    async function loadAspenHandle(handle,{updateName=true}={}){
-      if(!handle) return false;
-      state.aspenHandle=handle;
-      const allowed=await ensurePermission(handle,'read');
-      if(!allowed){
-        state.aspenDebug=createAspenDebug();
-        state.aspenDebug.messages.push('Keine Berechtigung für Aspen-Datei');
-        refreshBaseNote();
-        flashNote('Keine Berechtigung für Aspen-Datei','error',3000);
-        return false;
+    async function pollAspenFile(){
+      if(aspenPollActive) return;
+      if(!state.aspenHandle){
+        if(state.aspenMeta){rememberAspenMeta(null);refreshBaseNote();updateUnitInfo();}
+        return;
       }
+      if(aspenLoadPromise) return;
+      aspenPollActive=true;
       try{
-        const {entries,debug,meta}=await readAspen(handle);
-        state.aspenDebug=debug;
-        if(meta){
-          if(updateName){
-            state.aspenName=meta.name||state.aspenName||'';
-          }else if(!state.aspenName){
+        const allowed=await hasPermission(state.aspenHandle,'read');
+        if(!allowed){
+          if(state.aspenMeta){rememberAspenMeta(null);refreshBaseNote();updateUnitInfo();}
+          return;
+        }
+        let fileHandle;
+        try{
+          fileHandle=await state.aspenHandle.getFile();
+        }catch(err){
+          console.warn('UnitComments: Aspen-Poll getFile fehlgeschlagen',err);
+          return;
+        }
+        const meta={lastModified:typeof fileHandle.lastModified==='number'?fileHandle.lastModified:0,size:typeof fileHandle.size==='number'?fileHandle.size:0};
+        if(state.aspenMeta&&state.aspenMeta.lastModified===meta.lastModified&&state.aspenMeta.size===meta.size){updateUnitInfo();return;}
+        await loadAspenHandle(state.aspenHandle,{updateName:false,file:fileHandle,notify:false});
+      }catch(err){
+        console.warn('UnitComments: Aspen-Poll fehlgeschlagen',err);
+      }finally{
+        aspenPollActive=false;
+      }
+    }
+
+    function startAspenPolling(){
+      if(state.aspenPollTimer) return;
+      state.aspenPollTimer=setInterval(()=>{pollAspenFile().catch(err=>console.warn('UnitComments: Aspen-Poll-Fehler',err));},ASPEN_POLL_INTERVAL);
+    }
+
+    function stopAspenPolling(){
+      if(state.aspenPollTimer){
+        clearInterval(state.aspenPollTimer);
+        state.aspenPollTimer=null;
+      }
+    }
+
+    async function loadAspenHandle(handle,{updateName=true,file=null,notify=true}={}){
+      if(!handle) return false;
+      if(aspenLoadPromise){
+        try{return await aspenLoadPromise;}catch{return false;}
+      }
+      const runner=(async()=>{
+        state.aspenHandle=handle;
+        const allowed=await ensurePermission(handle,'read');
+        if(!allowed){
+          state.aspenDebug=createAspenDebug();
+          state.aspenDebug.messages.push('Keine Berechtigung für Aspen-Datei');
+          rememberAspenMeta(null);
+          refreshBaseNote();
+          updateUnitInfo();
+          if(notify)flashNote('Keine Berechtigung für Aspen-Datei','error',3000);
+          return false;
+        }
+        try{
+          const {entries,debug,meta}=await readAspen(handle,file);
+          state.aspenDebug=debug;
+          if(meta){
+            if(updateName){
+              state.aspenName=meta.name||state.aspenName||'';
+            }else if(!state.aspenName){
             state.aspenName=meta.name||state.aspenName||'';
           }
           if(meta.path){
@@ -1045,27 +1147,47 @@
           }else if(!state.aspenPath){
             state.aspenPath=state.aspenName||meta.name||'';
           }
+          rememberAspenMeta(meta);
         }else if(updateName){
           state.aspenName=handle.name||state.aspenName||'';
           if(!state.aspenPath){
             state.aspenPath=state.aspenName||handle.name||'';
           }
+          if(!state.aspenPath&&state.aspenName){
+            state.aspenPath=state.aspenName;
+          }
+          rememberAspenMeta(null);
+        }else{
+          if(!state.aspenPath&&state.aspenName){
+            state.aspenPath=state.aspenName;
+          }
+          rememberAspenMeta(null);
         }
-        if(!state.aspenPath && state.aspenName){
+        if(!state.aspenPath&&state.aspenName){
           state.aspenPath=state.aspenName;
         }
         setAspenEntries(entries);
         persistState();
         updateUnitInfo();
         refreshBaseNote();
+        startAspenPolling();
         return true;
       }catch(err){
         console.warn('UnitComments: Aspen-Datei konnte nicht gelesen werden',err);
         state.aspenDebug=createAspenDebug();
         state.aspenDebug.messages.push(`Lesefehler: ${err?.message||err}`);
+        rememberAspenMeta(null);
         refreshBaseNote();
-        flashNote('Aspen-Datei konnte nicht gelesen werden','error',3000);
+        updateUnitInfo();
+        if(notify)flashNote('Aspen-Datei konnte nicht gelesen werden','error',3000);
         return false;
+      }
+      })();
+      aspenLoadPromise=runner;
+      try{
+        return await runner;
+      }finally{
+        aspenLoadPromise=null;
       }
     }
 
@@ -1106,6 +1228,9 @@
       if(!elements.aspenLabel) return;
       const sourceName=state.aspenPath||state.aspenName||'';
       const hasFile=!!(state.aspenHandle||sourceName);
+      const ageRelative=formatRelativeTime(state.aspenMeta?.lastModified);
+      const ageLabel=ageRelative?`Stand: ${ageRelative}`:'';
+      const ageExact=formatDateTime(state.aspenMeta?.lastModified);
       let detail='';
       if(entry){
         detail=manualSelection?'Manuell verknüpft':'Automatisch';
@@ -1118,17 +1243,25 @@
       }else if(hasFile){
         detail='Keine Daten';
       }
-      let label=hasFile?(sourceName||'Aspen-Datei geladen'):'Keine Aspen-Datei';
-      if(hasFile&&detail){
-        label=`${label} · ${detail}`;
-      }
+      const baseLabel=hasFile?(sourceName||'Aspen-Datei geladen'):'Keine Aspen-Datei';
+      const labelParts=[baseLabel];
+      if(hasFile&&detail)labelParts.push(detail);
+      if(hasFile&&ageLabel)labelParts.push(ageLabel);
+      const label=labelParts.join(' · ');
+      const titleParts=[sourceName||state.aspenName||baseLabel];
+      if(detail)titleParts.push(detail);
+      if(ageLabel)titleParts.push(ageLabel);
+      if(ageExact)titleParts.push(ageExact);
       elements.aspenLabel.textContent=label;
-      elements.aspenLabel.title=label;
+      elements.aspenLabel.title=titleParts.join(' · ');
       elements.aspenLabel.classList.toggle('is-empty',!hasFile);
       if(elements.aspenSummary){
-        const summaryText=hasFile?(sourceName||state.aspenName||'Aspen-Datei geladen'):'Keine Aspen-Datei';
+        const summaryBase=sourceName||state.aspenName||'Aspen-Datei geladen';
+        const summaryParts=hasFile?[summaryBase]:[];
+        if(hasFile&&ageLabel)summaryParts.push(ageLabel);
+        const summaryText=hasFile?summaryParts.join(' · '):'Keine Aspen-Datei';
         elements.aspenSummary.textContent=summaryText;
-        elements.aspenSummary.title=label;
+        elements.aspenSummary.title=titleParts.join(' · ');
         elements.aspenSummary.classList.toggle('is-empty',!hasFile);
       }
     }
@@ -1532,6 +1665,9 @@
 
     const cleanup=()=>{
       clearInterval(intervalId);
+      stopAspenPolling();
+      aspenLoadPromise=null;
+      aspenPollActive=false;
       document.removeEventListener('keydown',handleKeydown);
       window.removeEventListener('storage',storageListener);
       window.removeEventListener('unitBoard:update',customListener);
@@ -1549,6 +1685,7 @@
     });
     mo.observe(document.body,{childList:true,subtree:true});
 
+    startAspenPolling();
     updateFileLabels();
     refreshActive(true);
 
