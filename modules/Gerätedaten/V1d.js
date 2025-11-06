@@ -670,6 +670,9 @@
     let aspenHeaderKeyMap=new Map();
     let aspenHeaderOriginalMap=new Map();
     let aspenData=[];
+    let aspenRefreshPromise=null;
+    let aspenFileMeta=null;
+    let aspenPollTimer=null;
     let ruleHandle=null;
     let history=[];
     let future=[];
@@ -803,10 +806,6 @@
       updateCustomButtonStates();
     }
     const copy=async val=>{try{await navigator.clipboard.writeText(val||'');setNote('Kopiert.');setTimeout(()=>setNote(''),800);}catch(err){setNote('Kopieren fehlgeschlagen');setDebugInfo('Clipboard-API nicht verfügbar.');console.warn('Clipboard copy failed',err);}};
-
-    let aspenRefreshPromise=null;
-    let aspenFileMeta=null;
-    let aspenPollTimer=null;
 
     function rememberAspenMeta(meta){if(meta&&(typeof meta.lastModified==='number'||typeof meta.size==='number')){const lastModified=Number.isFinite(meta.lastModified)?meta.lastModified:0;const size=Number.isFinite(meta.size)?meta.size:0;aspenFileMeta={lastModified,size};}else{aspenFileMeta=null;}}
 
