@@ -171,6 +171,35 @@
     return ensureLibrary('XLSX','__UNIT_COMMENTS_XLSX__',XLSX_URLS);
   }
 
+  function formatRelativeTime(timestamp){
+    const value=Number(timestamp);
+    if(!Number.isFinite(value)||value<=0)return'';
+    const diff=Math.max(0,Date.now()-value);
+    const seconds=Math.floor(diff/1000);
+    if(seconds<5)return'gerade eben';
+    if(seconds<60)return`vor ${seconds} ${seconds===1?'Sekunde':'Sekunden'}`;
+    const minutes=Math.floor(seconds/60);
+    if(minutes<60)return`vor ${minutes} ${minutes===1?'Minute':'Minuten'}`;
+    const hours=Math.floor(minutes/60);
+    if(hours<24)return`vor ${hours} ${hours===1?'Stunde':'Stunden'}`;
+    const days=Math.floor(hours/24);
+    if(days<7)return`vor ${days} ${days===1?'Tag':'Tagen'}`;
+    if(days<365){
+      const weeks=Math.max(1,Math.floor(days/7));
+      return`vor ${weeks} ${weeks===1?'Woche':'Wochen'}`;
+    }
+    const years=Math.max(1,Math.floor(days/365));
+    return`vor ${years} ${years===1?'Jahr':'Jahren'}`;
+  }
+
+  function formatDateTime(timestamp){
+    const value=Number(timestamp);
+    if(!Number.isFinite(value)||value<=0)return'';
+    try{
+      return new Date(value).toLocaleString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    }catch{return'';}
+  }
+
   function parseJSON(str,fb){
     if(!str) return fb;
     try{return JSON.parse(str)||fb;}catch{return fb;}
@@ -1047,7 +1076,7 @@
     async function pollAspenFile(){
       if(aspenPollActive) return;
       if(!state.aspenHandle){
-        if(state.aspenMeta){rememberAspenMeta(null);refreshBaseNote();}
+        if(state.aspenMeta){rememberAspenMeta(null);refreshBaseNote();updateUnitInfo();}
         return;
       }
       if(aspenLoadPromise) return;
@@ -1055,7 +1084,7 @@
       try{
         const allowed=await hasPermission(state.aspenHandle,'read');
         if(!allowed){
-          if(state.aspenMeta){rememberAspenMeta(null);refreshBaseNote();}
+          if(state.aspenMeta){rememberAspenMeta(null);refreshBaseNote();updateUnitInfo();}
           return;
         }
         let fileHandle;
@@ -1066,7 +1095,7 @@
           return;
         }
         const meta={lastModified:typeof fileHandle.lastModified==='number'?fileHandle.lastModified:0,size:typeof fileHandle.size==='number'?fileHandle.size:0};
-        if(state.aspenMeta&&state.aspenMeta.lastModified===meta.lastModified&&state.aspenMeta.size===meta.size)return;
+        if(state.aspenMeta&&state.aspenMeta.lastModified===meta.lastModified&&state.aspenMeta.size===meta.size){updateUnitInfo();return;}
         await loadAspenHandle(state.aspenHandle,{updateName:false,file:fileHandle,notify:false});
       }catch(err){
         console.warn('UnitComments: Aspen-Poll fehlgeschlagen',err);
@@ -1100,6 +1129,7 @@
           state.aspenDebug.messages.push('Keine Berechtigung für Aspen-Datei');
           rememberAspenMeta(null);
           refreshBaseNote();
+          updateUnitInfo();
           if(notify)flashNote('Keine Berechtigung für Aspen-Datei','error',3000);
           return false;
         }
@@ -1148,6 +1178,7 @@
         state.aspenDebug.messages.push(`Lesefehler: ${err?.message||err}`);
         rememberAspenMeta(null);
         refreshBaseNote();
+        updateUnitInfo();
         if(notify)flashNote('Aspen-Datei konnte nicht gelesen werden','error',3000);
         return false;
       }
@@ -1197,6 +1228,9 @@
       if(!elements.aspenLabel) return;
       const sourceName=state.aspenPath||state.aspenName||'';
       const hasFile=!!(state.aspenHandle||sourceName);
+      const ageRelative=formatRelativeTime(state.aspenMeta?.lastModified);
+      const ageLabel=ageRelative?`Stand: ${ageRelative}`:'';
+      const ageExact=formatDateTime(state.aspenMeta?.lastModified);
       let detail='';
       if(entry){
         detail=manualSelection?'Manuell verknüpft':'Automatisch';
@@ -1209,17 +1243,25 @@
       }else if(hasFile){
         detail='Keine Daten';
       }
-      let label=hasFile?(sourceName||'Aspen-Datei geladen'):'Keine Aspen-Datei';
-      if(hasFile&&detail){
-        label=`${label} · ${detail}`;
-      }
+      const baseLabel=hasFile?(sourceName||'Aspen-Datei geladen'):'Keine Aspen-Datei';
+      const labelParts=[baseLabel];
+      if(hasFile&&detail)labelParts.push(detail);
+      if(hasFile&&ageLabel)labelParts.push(ageLabel);
+      const label=labelParts.join(' · ');
+      const titleParts=[sourceName||state.aspenName||baseLabel];
+      if(detail)titleParts.push(detail);
+      if(ageLabel)titleParts.push(ageLabel);
+      if(ageExact)titleParts.push(ageExact);
       elements.aspenLabel.textContent=label;
-      elements.aspenLabel.title=label;
+      elements.aspenLabel.title=titleParts.join(' · ');
       elements.aspenLabel.classList.toggle('is-empty',!hasFile);
       if(elements.aspenSummary){
-        const summaryText=hasFile?(sourceName||state.aspenName||'Aspen-Datei geladen'):'Keine Aspen-Datei';
+        const summaryBase=sourceName||state.aspenName||'Aspen-Datei geladen';
+        const summaryParts=hasFile?[summaryBase]:[];
+        if(hasFile&&ageLabel)summaryParts.push(ageLabel);
+        const summaryText=hasFile?summaryParts.join(' · '):'Keine Aspen-Datei';
         elements.aspenSummary.textContent=summaryText;
-        elements.aspenSummary.title=label;
+        elements.aspenSummary.title=titleParts.join(' · ');
         elements.aspenSummary.classList.toggle('is-empty',!hasFile);
       }
     }
