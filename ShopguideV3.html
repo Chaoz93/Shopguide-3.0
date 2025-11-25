@@ -2840,9 +2840,14 @@ const MAX_MODULE_COLOR_LAYERS = 3;
 const DEFAULT_SUB_LAYER_COUNT = 0;
 const MAX_MODULE_SUB_LAYERS = 0;
 
+const MODULE_LAYER_PRESETS = [
+  { name: 'Main', moduleBg: '#005983', moduleText: '#ffffff', moduleBorder: '#0f6ab4', headerBg: '#0f6ab4', headerText: '#ffffff', headerBorder: '#0a487a' },
+  { name: 'Alternative', moduleBg: '#1d4ed8', moduleText: '#ffffff', moduleBorder: '#1e40af', headerBg: '#1e40af', headerText: '#ffffff', headerBorder: '#1c3fa0' },
+  { name: 'Accent', moduleBg: '#16a34a', moduleText: '#ffffff', moduleBorder: '#15803d', headerBg: '#15803d', headerText: '#ffffff', headerBorder: '#106530' }
+];
+
 function getPresetModuleLayerName(index) {
-  const presets = ['Main', 'Alternative', 'Accent'];
-  return presets[index] || `Layer ${index + 1}`;
+  return MODULE_LAYER_PRESETS[index]?.name || `Layer ${index + 1}`;
 }
 
 function generateLayerId() {
@@ -2934,73 +2939,80 @@ function createColorLayer(
 }
 
 function getDefaultModuleColorLayers() {
-  return [
-    createColorLayer('Main', '#005983', '#ffffff', '#0f6ab4', '#0f6ab4', '#ffffff', '#0a487a', '#07365b', '#ffffff', '#052b47'),
-    createColorLayer('Alternative', '#1d4ed8', '#ffffff', '#1e40af', '#1e40af', '#ffffff', '#1c3fa0', '#102a68', '#ffffff', '#0f265c'),
-    createColorLayer('Accent', '#16a34a', '#ffffff', '#15803d', '#15803d', '#ffffff', '#106530', '#0f3b1f', '#ffffff', '#0c301a')
-  ];
+  return MODULE_LAYER_PRESETS.map(preset => createColorLayer(
+    preset.name,
+    preset.moduleBg,
+    preset.moduleText,
+    preset.moduleBorder,
+    preset.headerBg,
+    preset.headerText,
+    preset.headerBorder,
+    preset.moduleBg,
+    preset.moduleText,
+    preset.moduleBorder
+  ));
 }
 
 function normalizeModuleColorLayers(layers, subLayerCount = DEFAULT_SUB_LAYER_COUNT) {
   const count = Math.min(Math.max(Number.isFinite(subLayerCount) ? Number(subLayerCount) : DEFAULT_SUB_LAYER_COUNT, 0), MAX_MODULE_SUB_LAYERS);
-  const source = Array.isArray(layers) && layers.length ? layers : getDefaultModuleColorLayers();
+  const source = Array.isArray(layers) ? layers.slice(0, MAX_MODULE_COLOR_LAYERS) : [];
+  const defaults = getDefaultModuleColorLayers();
   const layerRegistry = new Set();
-  return source
-    .slice(0, MAX_MODULE_COLOR_LAYERS)
-    .map((layer, index) => {
-      const moduleBg = typeof layer.moduleBg === 'string' && layer.moduleBg ? layer.moduleBg : '#005983';
-      const moduleText = typeof layer.moduleText === 'string' && layer.moduleText ? layer.moduleText : '#ffffff';
-      const moduleBorder = typeof layer.moduleBorder === 'string' && layer.moduleBorder
-        ? layer.moduleBorder
-        : (typeof layer.moduleText === 'string' && layer.moduleText ? layer.moduleText : '#ffffff');
-      const headerBg = typeof layer.headerBg === 'string' && layer.headerBg ? layer.headerBg : moduleBg;
-      const headerText = typeof layer.headerText === 'string' && layer.headerText ? layer.headerText : moduleText;
-      const headerBorder = typeof layer.headerBorder === 'string' && layer.headerBorder ? layer.headerBorder : headerBg;
-      const baseSubLayers = Array.isArray(layer.subLayers) && layer.subLayers.length
-        ? layer.subLayers
-        : [{
-            bg: typeof layer.subBg === 'string' && layer.subBg ? layer.subBg : moduleBg,
-            text: typeof layer.subText === 'string' && layer.subText ? layer.subText : moduleText,
-            border: typeof layer.subBorder === 'string' && layer.subBorder ? layer.subBorder : (typeof layer.subBg === 'string' && layer.subBg ? layer.subBg : moduleBg)
-          }];
-      const subLayers = normalizeSubLayerEntries(baseSubLayers, count, moduleBg, moduleText);
-      const subRegistry = new Set();
-      const enrichedSubLayers = subLayers.map((subLayer, subIndex) => {
-        const defaultSubName = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
-        const normalizedSubName = typeof subLayer?.name === 'string' && subLayer.name.trim()
-          ? subLayer.name.trim()
-          : defaultSubName;
-        const preferredSubId = resolvePreferredCssVariableId(subLayer?.variableId, normalizedSubName, defaultSubName);
-        const variableId = deriveCssVariableId(normalizedSubName, defaultSubName, subRegistry, preferredSubId);
-        return {
-          ...subLayer,
-          name: normalizedSubName,
-          variableId
-        };
-      });
-      const firstSubLayer = enrichedSubLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBg };
-      const fallbackLayerName = getPresetModuleLayerName(index);
-      const normalizedName = typeof layer.name === 'string' && layer.name.trim()
-        ? layer.name.trim()
-        : fallbackLayerName;
-      const preferredLayerId = resolvePreferredCssVariableId(layer.variableId, normalizedName, fallbackLayerName);
-      const variableId = deriveCssVariableId(normalizedName, fallbackLayerName, layerRegistry, preferredLayerId);
-      return {
-        id: typeof layer.id === 'string' && layer.id.trim() ? layer.id : generateLayerId(),
-        name: normalizedName,
-        variableId,
-        moduleBg,
-        moduleText,
-        moduleBorder,
-        headerBg,
-        headerText,
-        headerBorder,
-        subLayers: enrichedSubLayers,
-        subBg: firstSubLayer.bg,
-        subText: firstSubLayer.text,
-        subBorder: firstSubLayer.border
-      };
+
+  return Array.from({ length: MAX_MODULE_COLOR_LAYERS }).map((_, index) => {
+    const base = defaults[index] || defaults[defaults.length - 1];
+    const layer = source[index] || {};
+
+    const moduleBg = typeof layer.moduleBg === 'string' && layer.moduleBg ? layer.moduleBg : base.moduleBg;
+    const moduleText = typeof layer.moduleText === 'string' && layer.moduleText ? layer.moduleText : base.moduleText;
+    const moduleBorder = typeof layer.moduleBorder === 'string' && layer.moduleBorder
+      ? layer.moduleBorder
+      : (typeof base.moduleBorder === 'string' && base.moduleBorder ? base.moduleBorder : moduleText);
+    const headerBg = typeof layer.headerBg === 'string' && layer.headerBg ? layer.headerBg : base.headerBg || moduleBg;
+    const headerText = typeof layer.headerText === 'string' && layer.headerText ? layer.headerText : base.headerText || moduleText;
+    const headerBorder = typeof layer.headerBorder === 'string' && layer.headerBorder ? layer.headerBorder : base.headerBorder || headerBg;
+    const baseSubLayers = Array.isArray(layer.subLayers) && layer.subLayers.length
+      ? layer.subLayers
+      : (Array.isArray(base.subLayers) && base.subLayers.length ? base.subLayers : [{
+          bg: typeof layer.subBg === 'string' && layer.subBg ? layer.subBg : moduleBg,
+          text: typeof layer.subText === 'string' && layer.subText ? layer.subText : moduleText,
+          border: typeof layer.subBorder === 'string' && layer.subBorder ? layer.subBorder : moduleBg
+        }]);
+    const subLayers = normalizeSubLayerEntries(baseSubLayers, count, moduleBg, moduleText);
+    const subRegistry = new Set();
+    const enrichedSubLayers = subLayers.map((subLayer, subIndex) => {
+      const defaultSubName = subIndex === 0 ? 'Unter-Layer' : `Unter-Layer ${subIndex + 1}`;
+      const normalizedSubName = typeof subLayer?.name === 'string' && subLayer.name.trim()
+        ? subLayer.name.trim()
+        : defaultSubName;
+      const preferredSubVarId = resolvePreferredCssVariableId(subLayer.variableId, normalizedSubName, defaultSubName);
+      const subVariableId = deriveCssVariableId(normalizedSubName, defaultSubName, subRegistry, preferredSubVarId);
+      subRegistry.add(subVariableId);
+      return { ...subLayer, name: normalizedSubName, variableId: subVariableId };
     });
+    const defaultName = getPresetModuleLayerName(index);
+    const name = defaultName;
+    const preferredVarId = resolvePreferredCssVariableId(layer.variableId, name, defaultName);
+    const variableId = deriveCssVariableId(name, defaultName, layerRegistry, preferredVarId);
+    layerRegistry.add(variableId);
+    const id = typeof layer.id === 'string' && layer.id.trim() ? layer.id : (typeof base.id === 'string' && base.id.trim() ? base.id : generateLayerId());
+    const firstSub = enrichedSubLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBorder };
+    return {
+      id,
+      name,
+      moduleBg,
+      moduleText,
+      moduleBorder,
+      headerBg,
+      headerText,
+      headerBorder,
+      variableId,
+      subLayers: enrichedSubLayers,
+      subBg: firstSub.bg,
+      subText: firstSub.text,
+      subBorder: firstSub.border
+    };
+  });
 }
 
 /*

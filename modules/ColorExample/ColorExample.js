@@ -48,11 +48,9 @@
     const appLayers = readAppLayers();
 
     if(appLayers.length){
-      appLayers.forEach((layer, index) => {
+      appLayers.slice(0, presets.length).forEach((layer, index) => {
         const defaultName = presets[index] || `Layer ${index + 1}`;
         const name = (layer.name || '').trim() || defaultName;
-        const include = index === 0 || name !== defaultName || hasCustomColors(layer);
-        if(!include) return;
         layers.push({
           id: layer.id || (index === 0 ? 'primary' : String(index)),
           name,
