@@ -18,10 +18,6 @@
     return (styles?.getPropertyValue(prop) || '').trim();
   }
 
-  function readInline(root, prop){
-    return (root?.style?.getPropertyValue(prop) || '').trim();
-  }
-
   function loadLayers(){
     const root = document.documentElement;
     if(!root) return [];
@@ -40,20 +36,20 @@
 
     for(let i = 1; i <= MAX_LAYERS; i += 1){
       const prefix = `--module-layer-${i}`;
-      const inlineName = readInline(root, `${prefix}-name`) || readInline(root, `${prefix}-name-quoted`);
-      const inlineModuleBg = readInline(root, `${prefix}-module-bg`);
-      const inlineModuleText = readInline(root, `${prefix}-module-text`);
-      const inlineModuleBorder = readInline(root, `${prefix}-module-border`);
-      const hasInline = inlineName || inlineModuleBg || inlineModuleText || inlineModuleBorder;
-      if(!hasInline) continue;
+      const name = readValue(styles, `${prefix}-name`) || readValue(styles, `${prefix}-name-quoted`);
+      const moduleBg = readValue(styles, `${prefix}-module-bg`);
+      const moduleText = readValue(styles, `${prefix}-module-text`);
+      const moduleBorder = readValue(styles, `${prefix}-module-border`);
+      const hasValues = name || moduleBg || moduleText || moduleBorder;
+      if(!hasValues) continue;
 
       layers.push({
         id: String(i),
-        name: inlineName || readValue(styles, `${prefix}-name`) || `Unter-Layer ${i}`,
+        name: name || `Unter-Layer ${i}`,
         module: {
-          bg: readValue(styles, `${prefix}-module-bg`) || baseModuleBg,
-          text: readValue(styles, `${prefix}-module-text`) || baseModuleText,
-          border: readValue(styles, `${prefix}-module-border`) || baseModuleBorder
+          bg: moduleBg || baseModuleBg,
+          text: moduleText || baseModuleText,
+          border: moduleBorder || baseModuleBorder
         }
       });
     }
