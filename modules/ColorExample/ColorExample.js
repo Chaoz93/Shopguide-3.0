@@ -1,6 +1,5 @@
 (function(){
   const STYLE_ID = 'color-example-styles';
-  const MAX_LAYERS = 8;
 
   if(!document.getElementById(STYLE_ID)){
     const style = document.createElement('style');
@@ -18,6 +17,23 @@
     return (styles?.getPropertyValue(prop) || '').trim();
   }
 
+  function readAppLayers(){
+    const layers = Array.isArray(window?.appSettings?.moduleColorLayers)
+      ? window.appSettings.moduleColorLayers
+      : [];
+    return layers.map(layer => layer || {});
+  }
+
+  function hasCustomColors(layer){
+    if(!layer) return false;
+    const colorKeys = ['moduleBg','moduleText','moduleBorder','headerBg','headerText','headerBorder','subBg','subText','subBorder'];
+    if(colorKeys.some(key => (layer[key] || '').trim())) return true;
+    if(Array.isArray(layer.subLayers)){
+      return layer.subLayers.some(sub => ['bg','text','border'].some(k => (sub?.[k] || '').trim()));
+    }
+    return false;
+  }
+
   function loadLayers(){
     const root = document.documentElement;
     if(!root) return [];
@@ -28,29 +44,29 @@
     const baseModuleText = readValue(styles, '--module-layer-module-text') || readValue(styles, '--text-color');
     const baseModuleBorder = readValue(styles, '--module-layer-module-border') || readValue(styles, '--module-border-color');
 
-    layers.push({
-      id: 'primary',
-      name: readValue(styles, '--module-layer-name') || 'Standard',
-      module: { bg: baseModuleBg, text: baseModuleText, border: baseModuleBorder }
-    });
+    const appLayers = readAppLayers();
 
-    for(let i = 1; i <= MAX_LAYERS; i += 1){
-      const prefix = `--module-layer-${i}`;
-      const name = readValue(styles, `${prefix}-name`) || readValue(styles, `${prefix}-name-quoted`);
-      const moduleBg = readValue(styles, `${prefix}-module-bg`);
-      const moduleText = readValue(styles, `${prefix}-module-text`);
-      const moduleBorder = readValue(styles, `${prefix}-module-border`);
-      const hasValues = name || moduleBg || moduleText || moduleBorder;
-      if(!hasValues) continue;
-
+    if(appLayers.length){
+      appLayers.forEach((layer, index) => {
+        const defaultName = index === 0 ? 'Standard' : `Unter-Layer ${index + 1}`;
+        const name = (layer.name || '').trim() || defaultName;
+        const include = index === 0 || name !== defaultName || hasCustomColors(layer);
+        if(!include) return;
+        layers.push({
+          id: layer.id || (index === 0 ? 'primary' : String(index)),
+          name,
+          module: {
+            bg: (layer.moduleBg || '').trim() || baseModuleBg,
+            text: (layer.moduleText || '').trim() || baseModuleText,
+            border: (layer.moduleBorder || '').trim() || baseModuleBorder
+          }
+        });
+      });
+    } else {
       layers.push({
-        id: String(i),
-        name: name || `Unter-Layer ${i}`,
-        module: {
-          bg: moduleBg || baseModuleBg,
-          text: moduleText || baseModuleText,
-          border: moduleBorder || baseModuleBorder
-        }
+        id: 'primary',
+        name: readValue(styles, '--module-layer-name') || 'Standard',
+        module: { bg: baseModuleBg, text: baseModuleText, border: baseModuleBorder }
       });
     }
 
