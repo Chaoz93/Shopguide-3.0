@@ -44,11 +44,12 @@
     const baseModuleText = readValue(styles, '--module-layer-module-text') || readValue(styles, '--text-color');
     const baseModuleBorder = readValue(styles, '--module-layer-module-border') || readValue(styles, '--module-border-color');
 
+    const presets = ['Main', 'Alternative', 'Accent'];
     const appLayers = readAppLayers();
 
     if(appLayers.length){
       appLayers.forEach((layer, index) => {
-        const defaultName = index === 0 ? 'Standard' : `Unter-Layer ${index + 1}`;
+        const defaultName = presets[index] || `Layer ${index + 1}`;
         const name = (layer.name || '').trim() || defaultName;
         const include = index === 0 || name !== defaultName || hasCustomColors(layer);
         if(!include) return;
@@ -62,10 +63,36 @@
           }
         });
       });
-    } else {
+    }
+
+    if(!layers.length){
+      const cssLayers = [];
+      for(let i=1;i<=presets.length;i+=1){
+        const name = readValue(styles, `--module-layer-${i}-name`) || presets[i-1];
+        const bg = readValue(styles, `--module-layer-${i}-module-bg`);
+        const text = readValue(styles, `--module-layer-${i}-module-text`);
+        const border = readValue(styles, `--module-layer-${i}-module-border`);
+        if(name || bg || text || border){
+          cssLayers.push({
+            id: i === 1 ? 'primary' : String(i),
+            name,
+            module: {
+              bg: bg || baseModuleBg,
+              text: text || baseModuleText,
+              border: border || baseModuleBorder
+            }
+          });
+        }
+      }
+      if(cssLayers.length){
+        layers.push(...cssLayers);
+      }
+    }
+
+    if(!layers.length){
       layers.push({
         id: 'primary',
-        name: readValue(styles, '--module-layer-name') || 'Standard',
+        name: readValue(styles, '--module-layer-name') || presets[0],
         module: { bg: baseModuleBg, text: baseModuleText, border: baseModuleBorder }
       });
     }
