@@ -1,0 +1,12 @@
+{
+  "name": "ColorExample",
+  "icon": "🎨",
+  "script": "renderColorExample",
+  "minW": 2,
+  "minH": 8,
+  "w": 3,
+  "h": 12,
+  "settings": {},
+  "moduleId": "ColorExample",
+  "version": "1.0.0"
+}
