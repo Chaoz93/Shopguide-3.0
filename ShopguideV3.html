@@ -903,6 +903,37 @@
       align-items: center;
       margin-top: 0.25rem;
     }
+    .hsla-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin: 0.35rem 0 0.35rem;
+    }
+    .hsla-eyedropper {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.7rem;
+      border-radius: 0.65rem;
+      border: 1px solid rgba(15,23,42,0.08);
+      background: rgba(226,232,240,0.8);
+      color: #0f172a;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .hsla-eyedropper svg {
+      width: 1rem;
+      height: 1rem;
+    }
+    .hsla-eyedropper:hover:not(:disabled) {
+      background: rgba(209,213,219,0.95);
+      border-color: rgba(37,99,235,0.35);
+      box-shadow: 0 8px 20px rgba(15,23,42,0.12);
+    }
+    .hsla-eyedropper:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
     .hsla-inline-actions button {
       font-size: 0.75rem;
       padding: 0.35rem 0.65rem;
@@ -2613,6 +2644,25 @@ class HSLAColorPicker {
     sliderWrapper.className = 'hsla-sliders';
     this.popover.append(sliderWrapper);
 
+    const actionsRow = document.createElement('div');
+    actionsRow.className = 'hsla-actions';
+    this.eyeDropperButton = document.createElement('button');
+    this.eyeDropperButton.type = 'button';
+    this.eyeDropperButton.className = 'hsla-eyedropper';
+    this.eyeDropperButton.title = 'Farbe vom Bildschirm aufnehmen';
+    this.eyeDropperButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 7l6 6" /><path d="M3 21l6-6" /><path d="M14 4l6 6a2.828 2.828 0 0 1-4 4l-6-6a2.828 2.828 0 0 1 4-4z" /><path d="M7 17l-3 3" /><path d="M11 7l-4 4" /></svg><span>Pipette</span>';
+    if (!('EyeDropper' in window)) {
+      this.eyeDropperButton.disabled = true;
+      this.eyeDropperButton.title = 'EyeDropper wird von diesem Browser nicht unterstützt';
+    }
+    this.eyeDropperButton.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.pickWithEyeDropper();
+    });
+    actionsRow.append(this.eyeDropperButton);
+    this.popover.append(actionsRow);
+
     const sliderConfigs = [
       { key: 'h', label: 'Farbton', min: 0, max: 360, step: 1, unit: '°', className: 'hsla-slider-hue' },
       { key: 's', label: 'Saturation', min: 0, max: 100, step: 1, unit: '%'},
@@ -2814,6 +2864,22 @@ class HSLAColorPicker {
       this.sliders.a.style.backgroundSize = '100% 100%, 12px 12px, 12px 12px';
       this.sliders.a.style.backgroundPosition = 'center, 0 0, 6px 6px';
       this.sliders.a.style.backgroundRepeat = 'no-repeat, repeat, repeat';
+    }
+  }
+
+  async pickWithEyeDropper() {
+    if (!('EyeDropper' in window) || this.eyeDropperBusy) return;
+    this.eyeDropperBusy = true;
+    try {
+      const eyeDropper = new window.EyeDropper();
+      const result = await eyeDropper.open();
+      if (result?.sRGBHex) {
+        this.setValue(result.sRGBHex, { dispatch: 'both' });
+      }
+    } catch (error) {
+      console.warn('EyeDropper abgebrochen oder fehlgeschlagen', error);
+    } finally {
+      this.eyeDropperBusy = false;
     }
   }
 
