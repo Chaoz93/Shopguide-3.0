@@ -42,6 +42,7 @@
     .dlb-status{min-height:1.2rem;font-size:.82rem;opacity:.78;}
     .dlb-row{display:flex;align-items:flex-end;gap:.8rem;flex-wrap:wrap;}
     .dlb-row > *{flex:1 1 160px;min-width:0;}
+    .dlb-field{display:flex;flex-direction:column;gap:.35rem;}
     .dlb-root[data-mode="compact"] .dlb-row{gap:.6rem;}
     .dlb-label{display:flex;align-items:center;gap:.35rem;margin-bottom:.25rem;font-size:.82rem;opacity:.82;}
     .dlb-label small{opacity:.7;}
@@ -72,8 +73,6 @@
       background:var(--dlb-input-bg,rgba(15,23,42,.55));border:1px solid var(--dlb-border,rgba(148,163,184,.3));white-space:pre-wrap;}
     .dlb-root[data-mode="minimal"] .dlb-inline-info{display:block;}
     .dlb-root[data-mode="minimal"] .dlb-info-card{display:none;}
-    .dlb-tag{display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .55rem;border-radius:.65rem;font-size:.78rem;
-      background:var(--dlb-alt-bg,rgba(15,32,56,.6));border:1px solid var(--dlb-border,rgba(148,163,184,.28));}
     .dlb-empty{padding:.5rem 0;font-size:.82rem;opacity:.78;}
     .dlb-divider{border:none;border-top:1px solid var(--dlb-border,rgba(148,163,184,.22));margin:.55rem 0;}
     @media(max-width:640px){
@@ -195,6 +194,16 @@
       } catch { break; }
     }
     return s;
+  }
+
+  function escapeHtml(text){
+    return (text || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[c] || c));
   }
 
   function parseInfoPart(str){
@@ -323,9 +332,17 @@
     const urlCard = document.createElement('div');
     urlCard.className = 'dlb-card';
     const urlHeader = document.createElement('div'); urlHeader.className = 'dlb-row';
+    const urlLabelWrap = document.createElement('div'); urlLabelWrap.className = 'dlb-field';
     const urlLabel = document.createElement('label'); urlLabel.className = 'dlb-label'; urlLabel.textContent = 'Finale URL';
-    const tag = document.createElement('div'); tag.className = 'dlb-tag'; tag.textContent = 'Base64 + b64=t';
-    urlHeader.append(urlLabel, tag);
+    urlLabelWrap.append(urlLabel);
+
+    const linkTextWrap = document.createElement('div'); linkTextWrap.className = 'dlb-field';
+    const linkTextLabel = document.createElement('label'); linkTextLabel.className = 'dlb-label'; linkTextLabel.textContent = 'Link-Text (optional)';
+    const linkTextInput = document.createElement('input'); linkTextInput.className = 'dlb-input'; linkTextInput.type = 'text';
+    linkTextInput.placeholder = 'Angezeigter Text beim Kopieren';
+    linkTextWrap.append(linkTextLabel, linkTextInput);
+
+    urlHeader.append(urlLabelWrap, linkTextWrap);
     const urlDisplay = document.createElement('div'); urlDisplay.className = 'dlb-url';
 
     const inlineInfo = document.createElement('div'); inlineInfo.className = 'dlb-inline-info';
@@ -488,6 +505,7 @@
       addRow('DocumentType', '');
       addRow('Status', '');
       updateOutputs();
+      linkTextInput.value = '';
       setStatus('Zurückgesetzt.');
     }
 
@@ -498,8 +516,11 @@
     resetBtn.addEventListener('click', reset);
 
     copyBtn.addEventListener('click', async () => {
-      const text = urlDisplay.textContent || '';
-      try{
+      const url = urlDisplay.textContent || '';
+      const linkText = (linkTextInput.value || '').trim();
+      if(!url){ setStatus('Keine URL zum Kopieren.', 'error'); return; }
+
+      const fallbackCopyText = async (text) => {
         if(navigator?.clipboard?.writeText){
           await navigator.clipboard.writeText(text);
         }else{
@@ -507,9 +528,31 @@
           temp.value = text; temp.style.position = 'fixed'; temp.style.opacity = '0';
           document.body.appendChild(temp); temp.select(); document.execCommand('copy'); temp.remove();
         }
+      };
+
+      try{
+        if(linkText){
+          const safeUrl = escapeHtml(url);
+          const safeText = escapeHtml(linkText);
+          const html = `<a href="${safeUrl}">${safeText}</a>`;
+          const plain = `${linkText} (${url})`;
+
+          if(navigator?.clipboard?.write && window.ClipboardItem){
+            const item = new ClipboardItem({
+              'text/html': new Blob([html], { type: 'text/html' }),
+              'text/plain': new Blob([plain], { type: 'text/plain' })
+            });
+            await navigator.clipboard.write([item]);
+          } else {
+            await fallbackCopyText(html);
+          }
+          setStatus('Rich Link kopiert.', 'success');
+        } else {
+          await fallbackCopyText(url);
+          setStatus('URL kopiert.', 'success');
+        }
         copyBtn.textContent = 'Kopiert';
         setTimeout(() => { copyBtn.textContent = 'URL kopieren'; }, 900);
-        setStatus('URL kopiert.', 'success');
       }catch(_){
         setStatus('Konnte URL nicht kopieren.', 'error');
       }
