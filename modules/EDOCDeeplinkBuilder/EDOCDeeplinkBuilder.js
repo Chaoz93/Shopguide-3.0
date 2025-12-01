@@ -561,7 +561,7 @@
 
     function updateLayout(){
       const rect = container.getBoundingClientRect();
-      const mode = rect.width < 440 || rect.height < 360 ? 'minimal' : (rect.width < 720 || rect.height < 520 ? 'compact' : 'full');
+      const mode = rect.width < 520 || rect.height < 420 ? 'minimal' : (rect.width < 720 || rect.height < 520 ? 'compact' : 'full');
       container.dataset.mode = mode;
       modePill.textContent = `Layout: ${mode}`;
     }
