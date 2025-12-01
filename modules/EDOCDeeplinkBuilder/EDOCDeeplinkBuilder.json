@@ -1,5 +1,5 @@
 {
-  "name": "EDOC Deeplink Builder",
+  "name": "eDoc Deeplink Builder",
   "icon": "🧭",
   "script": "renderEDOCDeeplinkBuilder",
   "minW": 2,

@@ -40,16 +40,16 @@
     .dlb-pill{padding:.25rem .55rem;border-radius:999px;border:1px solid var(--dlb-border,rgba(148,163,184,.32));font-size:.78rem;
       background:var(--dlb-alt-bg,rgba(15,32,56,.65));color:inherit;display:inline-flex;align-items:center;gap:.35rem;}
     .dlb-status{min-height:1.2rem;font-size:.82rem;opacity:.78;}
-    .dlb-row{display:flex;align-items:flex-end;gap:.55rem;flex-wrap:wrap;}
+    .dlb-row{display:flex;align-items:flex-end;gap:.7rem;flex-wrap:wrap;}
     .dlb-row > *{flex:1 1 160px;min-width:0;}
-    .dlb-root[data-mode="compact"] .dlb-row{gap:.45rem;}
+    .dlb-root[data-mode="compact"] .dlb-row{gap:.6rem;}
     .dlb-label{display:flex;align-items:center;gap:.35rem;margin-bottom:.25rem;font-size:.82rem;opacity:.82;}
     .dlb-label small{opacity:.7;}
     .dlb-input,.dlb-select,.dlb-textarea{width:100%;padding:.6rem .65rem;border-radius:.75rem;border:1px solid var(--dlb-border,rgba(148,163,184,.3));
       background:var(--dlb-input-bg,rgba(15,23,42,.6));color:inherit;font:inherit;box-sizing:border-box;}
     .dlb-select{appearance:none;}
     .dlb-textarea{min-height:78px;resize:vertical;}
-    .dlb-buttons{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .dlb-buttons{display:flex;gap:.65rem;flex-wrap:wrap;}
     .dlb-btn{appearance:none;border:1px solid var(--dlb-border,rgba(148,163,184,.32));padding:.55rem .85rem;border-radius:.75rem;
       background:var(--dlb-btn-bg,rgba(15,32,56,.65));color:inherit;font-weight:600;cursor:pointer;transition:transform .12s ease,background .12s ease,border-color .12s ease;}
     .dlb-btn:hover{transform:translateY(-1px);border-color:var(--dlb-accent-border,rgba(59,130,246,.55));background:var(--dlb-btn-hover-bg,rgba(37,99,235,.12));}
@@ -58,7 +58,7 @@
     .dlb-btn-ghost{background:transparent;}
     .dlb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.6rem;align-items:start;}
     .dlb-root[data-mode="minimal"] .dlb-grid{grid-template-columns:1fr;}
-    .dlb-row.kv-row{display:grid;grid-template-columns:1fr 1.2fr auto;align-items:center;gap:.5rem;}
+    .dlb-row.kv-row{display:grid;grid-template-columns:1fr 1.2fr auto;align-items:center;gap:.65rem;}
     .dlb-root[data-mode="compact"] .dlb-row.kv-row{grid-template-columns:1fr 1fr auto;}
     .dlb-root[data-mode="minimal"] .dlb-row.kv-row{grid-template-columns:1fr 1fr;}
     .dlb-row.kv-row .dlb-delete{justify-self:end;}
@@ -241,7 +241,7 @@
     header.className = 'dlb-header';
     const title = document.createElement('h3');
     title.className = 'dlb-title';
-    title.textContent = 'EDOC Deeplink Builder';
+    title.textContent = 'eDoc Deeplink Builder';
     const modePill = document.createElement('div');
     modePill.className = 'dlb-pill';
     modePill.textContent = 'Layout: auto';
@@ -267,7 +267,7 @@
     importButtons.style.flex = '0 0 auto';
     const decodeBtn = document.createElement('button');
     decodeBtn.className = 'dlb-btn dlb-btn-accent';
-    decodeBtn.textContent = 'Decode & Laden';
+    decodeBtn.textContent = 'Dekodieren & Laden';
     importButtons.append(decodeBtn);
     importRow.append(importInput, importButtons);
     importCard.append(importLabel, importRow);
@@ -295,7 +295,7 @@
     actionWrap.style.flex = '0 0 auto';
     const actionLabel = document.createElement('label'); actionLabel.className = 'dlb-label'; actionLabel.innerHTML = '&nbsp;';
     const actionButtons = document.createElement('div'); actionButtons.className = 'dlb-buttons';
-    const addRowBtn = document.createElement('button'); addRowBtn.className = 'dlb-btn'; addRowBtn.textContent = '＋ Feld';
+    const addRowBtn = document.createElement('button'); addRowBtn.className = 'dlb-btn'; addRowBtn.textContent = '＋ Feld hinzufügen';
     const resetBtn = document.createElement('button'); resetBtn.className = 'dlb-btn dlb-btn-ghost'; resetBtn.textContent = 'Reset';
     actionButtons.append(addRowBtn, resetBtn);
     actionWrap.append(actionLabel, actionButtons);
@@ -328,7 +328,7 @@
     const inlineInfo = document.createElement('div'); inlineInfo.className = 'dlb-inline-info';
 
     const urlActions = document.createElement('div'); urlActions.className = 'dlb-buttons';
-    const copyBtn = document.createElement('button'); copyBtn.className = 'dlb-btn dlb-btn-accent'; copyBtn.textContent = 'Copy URL';
+    const copyBtn = document.createElement('button'); copyBtn.className = 'dlb-btn dlb-btn-accent'; copyBtn.textContent = 'URL kopieren';
     const openBtn = document.createElement('a'); openBtn.className = 'dlb-btn'; openBtn.textContent = 'Öffnen'; openBtn.target = '_blank'; openBtn.rel = 'noopener';
     urlActions.append(copyBtn, openBtn);
 
@@ -505,7 +505,7 @@
           document.body.appendChild(temp); temp.select(); document.execCommand('copy'); temp.remove();
         }
         copyBtn.textContent = 'Kopiert';
-        setTimeout(() => { copyBtn.textContent = 'Copy URL'; }, 900);
+        setTimeout(() => { copyBtn.textContent = 'URL kopieren'; }, 900);
         setStatus('URL kopiert.', 'success');
       }catch(_){
         setStatus('Konnte URL nicht kopieren.', 'error');
