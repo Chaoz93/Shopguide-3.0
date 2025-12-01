@@ -4,6 +4,10 @@ Alle relevanten Änderungen an der Hauptanwendung werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [3.6.13] – 2025-12-01
+### Changed
+- Farben sind in den Moduloptionen auf Main, Alternativ und Akzentfarbe begrenzt
+- Agents.md beschreibt das Ganze, damit Codex automatisch die neuen Farben in Modulen nutzt
 
 ## [3.6.12] – 2025-10-10
 ### Changed
