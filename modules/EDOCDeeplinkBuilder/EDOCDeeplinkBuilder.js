@@ -267,12 +267,11 @@
     importCard.className = 'dlb-card';
     const importRow = document.createElement('div');
     importRow.className = 'dlb-row';
-    const importLabel = document.createElement('label');
-    importLabel.className = 'dlb-label';
-    importLabel.textContent = 'Import-Link oder nextURL Payload';
     const importInput = document.createElement('input');
     importInput.type = 'text';
     importInput.className = 'dlb-input';
+    importInput.title = 'Link oder nextURL-Payload eingeben';
+    importInput.setAttribute('aria-label', 'Import-Link oder nextURL Payload');
     importInput.placeholder = 'https://...login.html?nextURL=...&b64=t  oder  eyJhPSIuLi4iIH0=';
     const importButtons = document.createElement('div');
     importButtons.className = 'dlb-buttons';
@@ -282,7 +281,7 @@
     decodeBtn.textContent = 'Dekodieren & Laden';
     importButtons.append(decodeBtn);
     importRow.append(importInput, importButtons);
-    importCard.append(importLabel, importRow);
+    importCard.append(importRow);
 
     /* Builder */
     const builderCard = document.createElement('div');
@@ -337,10 +336,11 @@
     urlLabelWrap.append(urlLabel);
 
     const linkTextWrap = document.createElement('div'); linkTextWrap.className = 'dlb-field';
-    const linkTextLabel = document.createElement('label'); linkTextLabel.className = 'dlb-label'; linkTextLabel.textContent = 'Link-Text (optional)';
     const linkTextInput = document.createElement('input'); linkTextInput.className = 'dlb-input'; linkTextInput.type = 'text';
+    linkTextInput.title = 'Optionaler Anzeigename beim Kopieren als Rich-Link';
+    linkTextInput.setAttribute('aria-label', 'Link-Text (optional)');
     linkTextInput.placeholder = 'Angezeigter Text beim Kopieren';
-    linkTextWrap.append(linkTextLabel, linkTextInput);
+    linkTextWrap.append(linkTextInput);
 
     urlHeader.append(urlLabelWrap, linkTextWrap);
     const urlDisplay = document.createElement('div'); urlDisplay.className = 'dlb-url';
@@ -364,6 +364,7 @@
       status.textContent = msg || '';
       status.style.opacity = msg ? 0.92 : 0.7;
       status.style.color = tone === 'error' ? '#fca5a5' : tone === 'success' ? '#bef264' : '';
+      status.style.display = msg ? '' : 'none';
     }
 
     function allowedKeysForCurrent(){
@@ -573,7 +574,7 @@
     addRow('DocumentType', '');
     addRow('Status', '');
     updateOutputs();
-    setStatus('Bereit. Importiere einen Link oder baue einen neuen.');
+    setStatus('');
     updateLayout();
   };
 })();
