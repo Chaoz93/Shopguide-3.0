@@ -1,4 +1,4 @@
-<!-- Version: 3.6.14 -->
+<!-- Version: 3.6.15 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -5524,10 +5524,30 @@ async function collectVersionDiffs(updateHandle, localHandle) {
 }
 
 async function ensureDirectoryChain(root, parts, { create = true } = {}) {
+  if (!root) return null;
   let current = root;
-  for (const part of parts) {
+  for (const part of parts || []) {
     if (!part) continue;
     current = await current.getDirectoryHandle(part, { create });
+  }
+  return current;
+}
+
+async function ensureDirectoryChainWithAddedLogging(root, parts) {
+  if (!root) return null;
+  let current = root;
+  const traversed = [];
+  for (const part of parts || []) {
+    if (!part) continue;
+    traversed.push(part);
+    try {
+      current = await current.getDirectoryHandle(part, { create: false });
+    } catch (err) {
+      if (err?.name !== 'NotFoundError') throw err;
+      const relPath = `${traversed.join('/')}/`;
+      await recordAddedPath(relPath);
+      current = await current.getDirectoryHandle(part, { create: true });
+    }
   }
   return current;
 }
@@ -5843,7 +5863,7 @@ async function applySingleUpdate(item, { skipRecheck = false } = {}) {
       const sourceSegments = ['modules', ...(item.sourceRelPath ? item.sourceRelPath.split('/') : [])];
       const targetSegments = ['modules', ...(item.targetRelPath ? item.targetRelPath.split('/') : [])];
       const sourceDir = await ensureDirectoryChain(updateDirHandle, sourceSegments, { create: false });
-      const targetDir = await ensureDirectoryChain(rootDirHandle, targetSegments, { create: true });
+      const targetDir = await ensureDirectoryChainWithAddedLogging(rootDirHandle, targetSegments);
       await syncDirectoryContents(sourceDir, targetDir, { basePath: targetSegments.join('/') });
     } else if (item.sourcePath) {
       if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
@@ -5852,7 +5872,7 @@ async function applySingleUpdate(item, { skipRecheck = false } = {}) {
       const fileName = segments.pop();
       const sourceDir = await ensureDirectoryChain(updateDirHandle, segments, { create: false });
       const updateFileHandle = await sourceDir.getFileHandle(fileName, { create: false });
-      const targetDir = await ensureDirectoryChain(rootDirHandle, segments, { create: true });
+      const targetDir = await ensureDirectoryChainWithAddedLogging(rootDirHandle, segments);
       const targetPath = relPath;
       const existedBefore = await targetFileExists(targetPath);
       if (existedBefore) {

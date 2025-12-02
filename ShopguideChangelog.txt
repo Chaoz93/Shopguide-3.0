@@ -3,7 +3,11 @@
 Alle relevanten Änderungen an der Hauptanwendung werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
----
+ ---
+## [3.6.15] – 2025-12-03
+### Fixed
+- Snapshot-Log ergänzt jetzt auch neu angelegte Ordner, damit Reverts keine leeren Verzeichnisse zurücklassen.
+
 ## [3.6.14] – 2025-12-02
 ### Added
 - Snapshot-Ordner und Update-Buttons ergänzen eine Sicherung für aktualisierte Dateien inklusive Protokoll neuer Dateien.
