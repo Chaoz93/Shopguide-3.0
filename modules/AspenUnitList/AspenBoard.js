@@ -400,9 +400,7 @@
   function deriveAccentBaseColor(){
     const layers=loadModuleColorLayers();
     const accent=layers[2]||layers[1]||layers[0]||{};
-    const bg=sanitizeHexColor(accent?.module?.bg);
-    const text=sanitizeHexColor(accent?.module?.text);
-    return bg||text||'#111111';
+    return accent?.module?.bg||accent?.module?.text||'';
   }
   const LS_DOC = 'module_data_v1';
   const LS_STATE = 'aspenUnitListState';
@@ -1821,7 +1819,7 @@
       layers.push({
         id:'primary',
         name:readCssVar(styles,'--module-layer-name')||COLOR_PRESETS[0],
-        module:{bg:baseModuleBg||'#ffffff',text:baseModuleText||'#111111',border:baseModuleBorder||'rgba(0,0,0,0.12)'}
+        module:{bg:baseModuleBg,text:baseModuleText,border:baseModuleBorder}
       });
     }
     return layers;
@@ -1867,29 +1865,31 @@
     const alternativeLayer=layers[1]||mainLayer;
     const accentLayer=layers[2]||alternativeLayer;
     const layer=layers.find(entry=>entry.id===palette.layerId)||mainLayer||{};
-    const baseBg=sanitizeHexColor(palette.bg)||sanitizeHexColor(layer?.module?.bg)||sanitizeHexColor(mainLayer?.module?.bg)||'#ffffff';
-    const baseText=sanitizeHexColor(palette.title)||sanitizeHexColor(layer?.module?.text)||idealTextColor(baseBg);
-    const borderRaw=palette.border||layer?.module?.border||mainLayer?.module?.border||'rgba(64,104,158,0.4)';
-    const borderColor=sanitizeHexColor(borderRaw)||borderRaw;
-    const altBg=sanitizeHexColor(alternativeLayer?.module?.bg)||shadeColor(baseBg,0.08)||baseBg;
-    const altText=sanitizeHexColor(alternativeLayer?.module?.text)||idealTextColor(altBg);
-    const altBorderRaw=alternativeLayer?.module?.border||borderRaw;
-    const altBorder=sanitizeHexColor(altBorderRaw)||altBorderRaw;
-    const cardBg=sanitizeHexColor(palette.item)||altBg;
-    const cardText=sanitizeHexColor(palette.title)||altText||baseText;
-    const muted=sanitizeHexColor(palette.sub)||formatRgba(cardText||baseText,0.78)||cardText||baseText;
-    const accentBase=sanitizeHexColor(palette.accent)||sanitizeHexColor(accentLayer?.module?.bg)||sanitizeHexColor(accentLayer?.module?.text)||sanitizeHexColor(alternativeLayer?.module?.bg)||sanitizeHexColor(alternativeLayer?.module?.text)||baseText||deriveAccentBaseColor();
-    const accentText=sanitizeHexColor(accentLayer?.module?.text)||idealTextColor(accentBase);
-    const accentBorderRaw=accentLayer?.module?.border||altBorder||borderColor;
-    const accentBorder=sanitizeHexColor(accentBorderRaw)||accentBorderRaw;
+
+    const baseBg=palette.bg||layer?.module?.bg||mainLayer?.module?.bg||'';
+    const baseText=palette.title||layer?.module?.text||mainLayer?.module?.text||(baseBg?idealTextColor(baseBg):'');
+    const borderColor=palette.border||layer?.module?.border||mainLayer?.module?.border||'';
+
+    const altBg=alternativeLayer?.module?.bg||baseBg;
+    const altText=alternativeLayer?.module?.text||baseText;
+    const altBorder=alternativeLayer?.module?.border||borderColor;
+
+    const cardBg=palette.item||altBg;
+    const cardText=palette.title||alternativeLayer?.module?.text||baseText;
+    const muted=palette.sub||cardText||baseText;
+
+    const accentBase=palette.accent||accentLayer?.module?.bg||accentLayer?.module?.text||'';
+    const accentText=accentLayer?.module?.text||baseText||(accentBase?idealTextColor(accentBase):'');
+    const accentBorder=accentLayer?.module?.border||altBorder||borderColor;
     const accentQuiet=formatRgba(accentBase,0.14)||accentBase;
     const accentSoft=formatRgba(accentBase,0.26)||accentBase;
     const accentGlow=formatRgba(accentBase,0.3)||accentBase;
-    let gradientFrom=sanitizeHexColor(palette.gradientFrom)||shadeColor(accentBase,-0.12);
-    let gradientTo=sanitizeHexColor(palette.gradientTo)||shadeColor(accentBase,0.12);
-    if(!gradientFrom) gradientFrom=accentBase;
-    if(!gradientTo) gradientTo=accentBase;
-    const activeColor=sanitizeHexColor(palette.active)||'#34d399';
+
+    const gradientFallback=accentBase||baseBg;
+    const gradientFrom=palette.gradientFrom||gradientFallback;
+    const gradientTo=palette.gradientTo||gradientFallback;
+    const activeColor=palette.active||accentBase||borderColor||baseText;
+
     root.style.setProperty('--dl-bg',baseBg);
     root.style.setProperty('--dl-item-bg',cardBg);
     root.style.setProperty('--dl-title',baseText);
@@ -1908,23 +1908,26 @@
     root.style.setProperty('--ab-accent-soft',accentSoft);
     root.style.setProperty('--ab-accent-quiet',accentQuiet);
     root.style.setProperty('--ab-accent-glow',accentGlow);
+
     const surface=formatRgba(baseBg,0.9)||baseBg;
     const surfaceQuiet=formatRgba(baseBg,0.72)||surface;
     const modalBg=formatRgba(baseBg,0.92)||surface;
-    const inputBg=formatRgba(cardBg,0.12)||formatRgba(baseBg,0.12)||cardBg;
-    const inputBorder=formatRgba(borderColor,0.85)||borderColor;
+    const inputBg=formatRgba(cardBg||baseBg,0.12)||(cardBg||baseBg);
+    const inputBorder=formatRgba(borderColor||accentBorder,0.85)||(borderColor||accentBorder);
     root.style.setProperty('--ab-surface',surface);
     root.style.setProperty('--ab-surface-quiet',surfaceQuiet);
     root.style.setProperty('--ab-modal',modalBg);
     root.style.setProperty('--ab-input-bg',inputBg);
     root.style.setProperty('--ab-input-border',inputBorder);
-    const shadowColor=formatRgba(baseBg,0.55)||'rgba(6,18,34,0.55)';
+
+    const shadowColor=formatRgba(baseBg,0.55)||formatRgba(borderColor,0.55)||'';
     root.style.setProperty('--ab-shadow',shadowColor);
-    const textColor=baseText||idealTextColor(baseBg);
+    const textColor=baseText||(baseBg?idealTextColor(baseBg):'');
     root.style.color=textColor;
     root.style.setProperty('--text-color',textColor);
     root.style.setProperty('--bg-color',baseBg);
     root.style.setProperty('--border-color',borderColor);
+
     root.style.setProperty('--accent-gradient-from',gradientFrom);
     root.style.setProperty('--accent-gradient-to',gradientTo);
     root.style.setProperty('--accent-gradient',`linear-gradient(135deg,${gradientFrom} 0%,${gradientTo} 100%)`);
@@ -1942,9 +1945,9 @@
       root.style.setProperty('--accent-border',`rgba(${r},${g},${b},0.55)`);
       root.style.setProperty('--accent-soft',`rgba(${r},${g},${b},0.22)`);
     }else{
-      root.style.setProperty('--accent-rgb','47,109,163');
-      root.style.setProperty('--accent-border','rgba(47,109,163,0.55)');
-      root.style.setProperty('--accent-soft','rgba(47,109,163,0.24)');
+      root.style.setProperty('--accent-rgb','');
+      root.style.setProperty('--accent-border','');
+      root.style.setProperty('--accent-soft','');
     }
   }
 
