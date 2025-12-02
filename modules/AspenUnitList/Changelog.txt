@@ -3,18 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
-## [1.1.21] – 2025-12-02
-### Changed
-- Entfernt die Farbschema-Auswahl aus dem Optionsdialog und nutzt stattdessen automatisch die Main/Alternative/Accent-Paletten aus den Moduleinstellungen für Panel-, Karten- und Akzentfarben.
-
-## [1.1.20] – 2025-12-03
-### Changed
-- Akzentpalette der Modul-Farbgruppen für Listen- und Menü-Buttons übernommen, während Haupt- und Alternativfarben die übrige Oberfläche prägen.
-- Akzent- und Hover-Farben werden jetzt aus den Nutzer-Voreinstellungen (Main/Alternative/Accent) anstelle fester Standardwerte berechnet.
-
 ## [1.1.19] – 2025-12-02
 ### Changed
-- Modul-Farbgruppen auf das neue Main/Alternative/Accent-System umgestellt.
+- Modul-Farbgruppen auf das neue Main/Alternative/Accent-System umgestellt und alle Oberflächenelemente an die drei Paletten gebunden (Main/Alternative für Flächen und Text, Accent für Hervorhebungen).
+- Feste Farbschemata und Picker aus dem Optionsdialog entfernt; alle Hintergründe, Buttons und Karten lesen ihre Farben direkt aus den Modulpaletten.
+- Schaltflächenzeile (z. B. „Aktive Geräte“) konsequent auf die Accent-Palette ausgerichtet, während Suche, Listen und Karten die Main/Alternative-Farben nutzen.
 
 ## [1.1.18] – 2025-10-13
 ### Changed
