@@ -5,13 +5,9 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ## [1.1.19] – 2025-12-02
 ### Changed
-- Modul-Farbgruppen auf das neue Main/Alternative/Accent-System umgestellt und alle Oberflächenelemente an die drei Paletten gebunden (Main/Alternative für Flächen und Text, Accent für Hervorhebungen).
-- Feste Farbschemata und Picker aus dem Optionsdialog entfernt; alle Hintergründe, Buttons und Karten lesen ihre Farben direkt aus den Modulpaletten.
-- Schaltflächenzeile (z. B. „Aktive Geräte“) konsequent auf die Accent-Palette ausgerichtet, während Suche, Listen und Karten die Main/Alternative-Farben nutzen.
-- Alle verbleibenden Hintergrund-, Text- und Akzentfarben auf die gelieferten Modul-Layer (wie im ColorExample-Modul) umgestellt, ohne dunkle/blau hinterlegte Fallbacks.
-- Farbwerte werden unverändert aus den drei Modulpaletten übernommen, ohne zusätzliche Hex-Sanitization oder Ersatz durch Standardweiß/-blau, damit exakt die in HTML definierten Main/Alternative/Accent-Werte greifen.
-- Alle Oberflächen (inklusive Scrollleisten, Umschalter, Berechtigungsdialog und Optionskarten) binden ihre Hintergründe, Rahmen und Texte direkt an die drei Paletten, sodass keine Altfarben oder verdeckte Weiß/Blau-Defaults mehr auftauchen.
-- Fallback-Farben werden jetzt knallrot gesetzt und fehlende CSS-Variablen für die drei Paletten lösen explizite Fehler aus, damit Abweichungen von den HTML-Themen sofort auffallen.
+- Modul-Farbgruppen strikt auf das Main/Alternative/Accent-System umgestellt: alle Hintergründe, Rahmen, Texte und Akzente lesen jetzt direkt die bereitgestellten CSS-Variablen der drei Layer.
+- Legacy-Farbmanagement (Sanitization, Fallback-Logik, Apply-Funktion und Picker) entfernt; die Oberfläche wird ausschließlich über die globalen Modulpaletten wie im ColorExample-Modul eingefärbt.
+- Scrollleisten, Karten, Dialoge und Steuerleisten referenzieren nur noch die drei Themen-Variablen, sodass keine versteckten Weiß-/Blau-Defaults mehr auftreten.
 
 ## [1.1.18] – 2025-10-13
 ### Changed

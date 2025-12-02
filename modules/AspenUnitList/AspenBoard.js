@@ -6,10 +6,49 @@
   const MAX_EXTRA_COLUMNS=6;
   const ACTIVE_COLUMN_ID='__active__';
   const DEFAULT_ACTIVE_COLUMN_LABEL='Aktive Geräte';
-  const COLOR_PRESETS=['Main','Alternative','Accent'];
-  const ERROR_COLOR='red';
 
   const CSS = `
+    .aspenboard{
+      --ab-panel: var(--module-layer-1-module-bg);
+      --ab-card: var(--module-layer-2-module-bg,var(--module-layer-1-module-bg));
+      --ab-card-text: var(--module-layer-2-module-text,var(--module-layer-1-module-text));
+      --ab-border: var(--module-layer-1-module-border);
+      --ab-accent-border: var(--module-layer-3-module-border,var(--module-layer-1-module-border));
+      --ab-text: var(--module-layer-1-module-text);
+      --ab-muted: var(--module-layer-2-module-text,var(--module-layer-1-module-text));
+      --ab-active: var(--module-layer-3-module-bg,var(--module-layer-1-module-text));
+      --ab-accent: var(--module-layer-3-module-bg,var(--module-layer-1-module-text));
+      --ab-accent-contrast: var(--module-layer-3-module-text,var(--module-layer-1-module-text));
+      --ab-accent-soft: color-mix(in srgb,var(--ab-accent) 74%,transparent);
+      --ab-accent-quiet: color-mix(in srgb,var(--ab-accent) 18%,transparent);
+      --ab-accent-glow: color-mix(in srgb,var(--ab-accent) 30%,transparent);
+      --ab-surface: color-mix(in srgb,var(--ab-panel) 90%,transparent);
+      --ab-surface-quiet: color-mix(in srgb,var(--ab-panel) 72%,transparent);
+      --ab-modal: color-mix(in srgb,var(--ab-panel) 92%,transparent);
+      --ab-overlay: color-mix(in srgb,var(--ab-panel) 45%,transparent);
+      --ab-input-bg: color-mix(in srgb,var(--ab-card,var(--ab-panel)) 12%,transparent);
+      --ab-input-border: color-mix(in srgb,var(--ab-border) 85%,transparent);
+      --ab-section: color-mix(in srgb,var(--ab-card,var(--ab-panel)) 10%,transparent);
+      --ab-section-border: color-mix(in srgb,var(--ab-border) 35%,transparent);
+      --ab-placeholder: color-mix(in srgb,var(--ab-muted,var(--ab-text)) 75%,transparent);
+      --ab-scroll-track: color-mix(in srgb,var(--ab-border,var(--ab-panel)) 35%,transparent);
+      --ab-scroll-thumb: color-mix(in srgb,var(--ab-accent,var(--ab-border)) 55%,transparent);
+      --ab-scroll-thumb-hover: color-mix(in srgb,var(--ab-accent,var(--ab-border)) 72%,transparent);
+      --ab-shadow-color: color-mix(in srgb,var(--ab-text,var(--ab-border,var(--ab-panel))) 25%,transparent);
+      --ab-shadow: 0 10px 24px var(--ab-shadow-color);
+      --ab-shadow-strong: 0 14px 32px var(--ab-shadow-color);
+      --dl-bg: var(--ab-panel);
+      --dl-item-bg: var(--ab-card);
+      --dl-title: var(--ab-text);
+      --dl-sub: var(--ab-muted);
+      --dl-active: var(--ab-accent);
+      --dl-border: var(--ab-border);
+      --text-color: var(--ab-text);
+      --bg-color: var(--ab-panel);
+      --border-color: var(--ab-border);
+      color: var(--ab-text);
+      background: var(--ab-panel);
+    }
     .db-root{height:100%;display:flex;flex-direction:column;}
     .aspenboard{overflow:auto;scrollbar-width:thin;scrollbar-color:var(--ab-scroll-thumb) var(--ab-scroll-track);scrollbar-gutter:stable both-edges;}
     .aspenboard::-webkit-scrollbar{width:10px;height:10px;}
@@ -211,25 +250,6 @@
       .db-config-main{flex:1.25;min-width:0;}
       .db-config-colors{max-width:280px;}
     }
-    .aspenboard{
-      --ab-panel:var(--dl-bg,var(--module-layer-module-bg));
-      --ab-card:var(--dl-item-bg,var(--dl-bg,var(--module-layer-module-bg)));
-      --ab-card-text:var(--dl-title,var(--module-layer-module-text));
-      --ab-border:var(--module-layer-module-border,var(--dl-border));
-      --ab-accent-border:var(--ab-border);
-      --ab-accent-glow:var(--ab-accent-soft,var(--ab-border));
-      --ab-shadow:var(--module-shadow);
-      --ab-accent:var(--dl-title);
-      --ab-accent-contrast:var(--dl-sub,var(--ab-text));
-      --ab-accent-soft:var(--ab-accent-quiet,var(--ab-accent));
-      --ab-accent-quiet:var(--ab-border);
-      --ab-text:var(--ab-card-text,var(--dl-title));
-      --ab-muted:var(--dl-sub,var(--ab-text));
-      --ab-active:var(--dl-active,var(--ab-accent));
-      --dl-active:var(--ab-active);
-      color:var(--ab-text);
-      background:var(--ab-panel);
-    }
     .aspenboard .db-modal{
       background:var(--ab-modal,var(--ab-panel));
       backdrop-filter:blur(12px);
@@ -394,9 +414,20 @@
   const MELDUNG_FIELD = 'MELDUNGS_NO';
   const DEFAULT_SUB_FIELD = 'AUFTRAGS_NO';
   function deriveAccentBaseColor(){
-    const layers=loadModuleColorLayers();
-    const accent=layers[2]||layers[1]||layers[0]||{};
-    return accent?.module?.bg||accent?.module?.text||'';
+    const root=document.documentElement;
+    if(!root) return '';
+    const styles=getComputedStyle(root);
+    const candidates=[
+      '--module-layer-3-module-bg',
+      '--module-layer-3-module-text',
+      '--module-layer-1-module-text',
+      '--module-layer-1-module-bg'
+    ];
+    for(const prop of candidates){
+      const value=(styles.getPropertyValue(prop)||'').trim();
+      if(value) return value;
+    }
+    return '';
   }
   const LS_DOC = 'module_data_v1';
   const LS_STATE = 'aspenUnitListState';
@@ -1232,7 +1263,6 @@
         subFields:[createSubFieldConfig(DEFAULT_SUB_FIELD)],
         partField:TITLE_FIELD,
         title:initialTitle,
-        colors:normalizeColorConfig({}),
         titleRules:[],
         extraColumns:[],
         activeColumn:sanitizeActiveColumn({}),
@@ -1523,7 +1553,6 @@
       try{
         if(Array.isArray(saved.fields)) state.fields=saved.fields.slice();
         if(saved.config){
-        const colors=normalizeColorConfig({...state.config.colors,...(saved.config.colors||{})});
         const savedRules=Array.isArray(saved.config.titleRules)?saved.config.titleRules.map(rule=>normalizeTitleRule(rule)):
           state.config.titleRules.slice();
         const fallbackSubField=saved.config.partField||saved.config.subField||state.config.partField||DEFAULT_SUB_FIELD;
@@ -1532,7 +1561,6 @@
           subFields:savedSubFields,
           partField:saved.config.partField||state.config.partField,
           title:typeof saved.config.title==='string'?saved.config.title:state.config.title,
-          colors,
           titleRules:savedRules,
           extraColumns:sanitizeExtraColumns(saved.config.extraColumns||state.config.extraColumns||[]),
           activeColumn:sanitizeActiveColumn(saved.config.activeColumn||{label:saved.config.activeColumnLabel||state.config.activeColumn?.label}),
@@ -1604,7 +1632,6 @@
         subFields:Array.isArray(state.config.subFields)?state.config.subFields.map(sub=>({...sub})):[],
         partField:state.config.partField,
         title:state.config.title,
-        colors:{...state.config.colors},
         titleRules:Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[],
         extraColumns:Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[],
         activeColumn:{...sanitizeActiveColumn(state.config.activeColumn)},
@@ -1629,7 +1656,6 @@
         config:{
           ...payload.config,
           subFields:payload.config.subFields.map(sub=>({...sub})),
-          colors:{...payload.config.colors},
           titleRules:payload.config.titleRules.map(rule=>({...rule})),
           extraColumns:payload.config.extraColumns.map(col=>({...col})),
           activeColumn:{...payload.config.activeColumn},
@@ -1765,89 +1791,6 @@
     return `#${hex.toString(16).slice(1)}`;
   }
 
-  function readCssVar(styles,prop){
-    return (styles?.getPropertyValue(prop)||'').trim();
-  }
-
-  function requireCssVar(styles,prop){
-    const value=readCssVar(styles,prop);
-    if(!value){
-      throw new Error(`AspenUnitList: missing required CSS variable ${prop}`);
-    }
-    return value;
-  }
-
-  function loadModuleColorLayers(){
-    const root=document.documentElement;
-    if(!root) return [];
-    const styles=getComputedStyle(root);
-    const baseModuleBg=readCssVar(styles,'--module-layer-module-bg')||readCssVar(styles,'--module-bg')||requireCssVar(styles,'--module-layer-module-bg');
-    const baseModuleText=readCssVar(styles,'--module-layer-module-text')||readCssVar(styles,'--text-color')||requireCssVar(styles,'--module-layer-module-text');
-    const baseModuleBorder=readCssVar(styles,'--module-layer-module-border')||readCssVar(styles,'--module-border-color')||requireCssVar(styles,'--module-layer-module-border');
-    const layers=[];
-    const appLayers=Array.isArray(window?.appSettings?.moduleColorLayers)?window.appSettings.moduleColorLayers:[];
-    if(appLayers.length){
-      appLayers.slice(0,COLOR_PRESETS.length).forEach((layer,index)=>{
-        const defaultName=COLOR_PRESETS[index]||`Layer ${index+1}`;
-        layers.push({
-          id:layer?.id||String(index||'primary'),
-          name:(layer?.name||'').trim()||defaultName,
-          module:{
-            bg:(layer?.moduleBg||'').trim()||baseModuleBg,
-            text:(layer?.moduleText||'').trim()||baseModuleText,
-            border:(layer?.moduleBorder||'').trim()||baseModuleBorder
-          }
-        });
-      });
-    }
-    if(!layers.length){
-      const cssLayers=[];
-      for(let i=1;i<=COLOR_PRESETS.length;i+=1){
-        const name=readCssVar(styles,`--module-layer-${i}-name`)||COLOR_PRESETS[i-1];
-        const bg=requireCssVar(styles,`--module-layer-${i}-module-bg`);
-        const text=requireCssVar(styles,`--module-layer-${i}-module-text`);
-        const border=requireCssVar(styles,`--module-layer-${i}-module-border`);
-        if(name || bg || text || border){
-          cssLayers.push({
-            id:i===1?'primary':String(i),
-            name,
-            module:{bg:bg||baseModuleBg,text:text||baseModuleText,border:border||baseModuleBorder}
-          });
-        }
-      }
-      if(cssLayers.length){
-        layers.push(...cssLayers);
-      }
-    }
-    if(!layers.length){
-      layers.push({
-        id:'primary',
-        name:readCssVar(styles,'--module-layer-name')||COLOR_PRESETS[0],
-        module:{bg:baseModuleBg,text:baseModuleText,border:baseModuleBorder}
-      });
-    }
-    return layers;
-  }
-
-  function normalizeColorConfig(raw){
-    const layers=loadModuleColorLayers();
-    const normalized={};
-    const preferred=typeof raw?.layerId==='string'?raw.layerId.trim():'';
-    if(preferred && layers.some(layer=>layer.id===preferred)){
-      normalized.layerId=preferred;
-    }
-    ['bg','item','title','sub','accent','gradientFrom','gradientTo','active','border'].forEach(key=>{
-      const value=typeof raw?.[key]==='string'?raw[key].trim():'';
-      if(value){
-        normalized[key]=value;
-      }
-    });
-    if(!normalized.layerId && layers.length){
-      normalized.layerId=layers[0].id;
-    }
-    return normalized;
-  }
-
   function formatChipStyle(color){
     const sanitized=sanitizeHexColor(color);
     if(!sanitized) return '';
@@ -1859,117 +1802,6 @@
     const lum=relativeLuminance(sanitized);
     const textColor=lum!=null && lum>0.75?'#111111':sanitized;
     return `background:${background};border:1px solid ${border};color:${textColor};`;
-  }
-
-  function applyColors(root,colors){
-    if(!root) return;
-    const palette=normalizeColorConfig(colors);
-    const layers=loadModuleColorLayers();
-    const emptyLayer={module:{bg:ERROR_COLOR,text:ERROR_COLOR,border:ERROR_COLOR}};
-    const mainLayer=layers[0]||emptyLayer;
-    const alternativeLayer=layers[1]||emptyLayer;
-    const accentLayer=layers[2]||emptyLayer;
-    const layer=layers.find(entry=>entry.id===palette.layerId)||mainLayer||emptyLayer;
-
-    const baseBg=palette.bg||layer?.module?.bg||mainLayer?.module?.bg||ERROR_COLOR;
-    const baseText=palette.title||layer?.module?.text||mainLayer?.module?.text||(baseBg?idealTextColor(baseBg):ERROR_COLOR);
-    const borderColor=palette.border||layer?.module?.border||mainLayer?.module?.border||ERROR_COLOR;
-
-    const altBg=alternativeLayer?.module?.bg||baseBg||ERROR_COLOR;
-    const altText=alternativeLayer?.module?.text||baseText||ERROR_COLOR;
-    const altBorder=alternativeLayer?.module?.border||borderColor||ERROR_COLOR;
-
-    const cardBg=palette.item||altBg||ERROR_COLOR;
-    const cardText=palette.title||alternativeLayer?.module?.text||baseText||ERROR_COLOR;
-    const muted=palette.sub||cardText||baseText||ERROR_COLOR;
-
-    const accentBase=palette.accent||accentLayer?.module?.bg||accentLayer?.module?.text||ERROR_COLOR;
-    const accentText=accentLayer?.module?.text||baseText||(accentBase?idealTextColor(accentBase):ERROR_COLOR);
-    const accentBorder=accentLayer?.module?.border||altBorder||borderColor||ERROR_COLOR;
-    const accentQuiet=formatRgba(accentBase,0.14)||accentBase;
-    const accentSoft=formatRgba(accentBase,0.26)||accentBase;
-    const accentGlow=formatRgba(accentBase,0.3)||accentBase;
-
-    const gradientFallback=accentBase||baseBg||ERROR_COLOR;
-    const gradientFrom=palette.gradientFrom||gradientFallback||ERROR_COLOR;
-    const gradientTo=palette.gradientTo||gradientFallback||ERROR_COLOR;
-    const activeColor=palette.active||accentBase||borderColor||baseText||ERROR_COLOR;
-
-    root.style.setProperty('--dl-bg',baseBg);
-    root.style.setProperty('--dl-item-bg',cardBg);
-    root.style.setProperty('--dl-title',baseText);
-    root.style.setProperty('--dl-sub',muted);
-    root.style.setProperty('--dl-active',activeColor);
-    root.style.setProperty('--ab-panel',baseBg);
-    root.style.setProperty('--ab-card',cardBg);
-    root.style.setProperty('--ab-card-text',cardText);
-    root.style.setProperty('--ab-border',borderColor);
-    root.style.setProperty('--ab-accent-border',accentBorder);
-    root.style.setProperty('--ab-text',baseText);
-    root.style.setProperty('--ab-muted',muted);
-    root.style.setProperty('--ab-active',activeColor);
-    root.style.setProperty('--ab-accent',accentBase);
-    root.style.setProperty('--ab-accent-contrast',accentText);
-    root.style.setProperty('--ab-accent-soft',accentSoft);
-    root.style.setProperty('--ab-accent-quiet',accentQuiet);
-    root.style.setProperty('--ab-accent-glow',accentGlow);
-
-    const surface=formatRgba(baseBg,0.9)||baseBg||ERROR_COLOR;
-    const surfaceQuiet=formatRgba(baseBg,0.72)||surface||ERROR_COLOR;
-    const modalBg=formatRgba(baseBg,0.92)||surface||ERROR_COLOR;
-    const overlay=formatRgba(baseBg||baseText,0.45)||ERROR_COLOR;
-    const inputBg=formatRgba(cardBg||baseBg,0.12)||(cardBg||baseBg)||ERROR_COLOR;
-    const inputBorder=formatRgba(borderColor||accentBorder,0.85)||(borderColor||accentBorder)||ERROR_COLOR;
-    const sectionBg=formatRgba(cardBg||baseBg,0.1)||inputBg||ERROR_COLOR;
-    const sectionBorder=formatRgba(borderColor||accentBorder,0.35)||(borderColor||accentBorder)||ERROR_COLOR;
-    const placeholder=formatRgba(muted||baseText,0.75)||muted||baseText||ERROR_COLOR;
-    const scrollTrack=formatRgba(borderColor||baseBg,0.35)||borderColor||baseBg||ERROR_COLOR;
-    const scrollThumb=formatRgba(accentBase||borderColor||baseText,0.55)||accentBase||borderColor||baseText||ERROR_COLOR;
-    const scrollThumbHover=formatRgba(accentBase||borderColor||baseText,0.72)||scrollThumb||ERROR_COLOR;
-    root.style.setProperty('--ab-surface',surface);
-    root.style.setProperty('--ab-surface-quiet',surfaceQuiet);
-    root.style.setProperty('--ab-modal',modalBg);
-    root.style.setProperty('--ab-overlay',overlay);
-    root.style.setProperty('--ab-input-bg',inputBg);
-    root.style.setProperty('--ab-input-border',inputBorder);
-    root.style.setProperty('--ab-section',sectionBg);
-    root.style.setProperty('--ab-section-border',sectionBorder);
-    root.style.setProperty('--ab-placeholder',placeholder);
-    root.style.setProperty('--ab-scroll-track',scrollTrack);
-    root.style.setProperty('--ab-scroll-thumb',scrollThumb);
-    root.style.setProperty('--ab-scroll-thumb-hover',scrollThumbHover);
-
-    const shadowColor=formatRgba(baseText||borderColor||baseBg,0.25)||'';
-    root.style.setProperty('--ab-shadow-color',shadowColor);
-    root.style.setProperty('--ab-shadow',`0 10px 24px ${shadowColor}`);
-    root.style.setProperty('--ab-shadow-strong',`0 14px 32px ${shadowColor}`);
-    const textColor=baseText||(baseBg?idealTextColor(baseBg):'');
-    root.style.color=textColor;
-    root.style.setProperty('--text-color',textColor);
-    root.style.setProperty('--bg-color',baseBg);
-    root.style.setProperty('--border-color',borderColor);
-
-    root.style.setProperty('--accent-gradient-from',gradientFrom);
-    root.style.setProperty('--accent-gradient-to',gradientTo);
-    root.style.setProperty('--accent-gradient',`linear-gradient(135deg,${gradientFrom} 0%,${gradientTo} 100%)`);
-    root.style.setProperty('--accent-color',gradientTo);
-    root.style.setProperty('--accent-strong',gradientFrom);
-    const gradientFromOverlay=formatRgba(gradientFrom,0.88)||gradientFrom;
-    const gradientToOverlay=formatRgba(gradientTo,0.92)||gradientTo;
-    const modalMid=formatRgba(baseBg,0.96)||gradientToOverlay;
-    const modalGradient=`linear-gradient(160deg,${gradientFromOverlay} 0%,${modalMid} 48%,${gradientToOverlay} 100%)`;
-    root.style.setProperty('--modal-gradient',modalGradient);
-    const gradientRgb=parseColorToRgb(gradientTo)||parseColorToRgb(accentBase)||parseColorToRgb(ERROR_COLOR);
-    if(gradientRgb){
-      const [r,g,b]=gradientRgb;
-      root.style.setProperty('--accent-rgb',`${r},${g},${b}`);
-      root.style.setProperty('--accent-border',`rgba(${r},${g},${b},0.55)`);
-      root.style.setProperty('--accent-soft',`rgba(${r},${g},${b},0.22)`);
-    }else{
-      root.style.setProperty('--accent-rgb','255,0,0');
-      root.style.setProperty('--accent-border','rgba(255,0,0,0.55)');
-      root.style.setProperty('--accent-soft','rgba(255,0,0,0.22)');
-    }
   }
 
   function formatLastModified(value){
@@ -2432,7 +2264,6 @@
         if(optionsOpen){
           tempTitleRules=preparedRules.map(rule=>({...rule,draftField:rule.field}));
         }
-        state.config.colors=normalizeColorConfig(state.config.colors);
         const activeLabelSource=optionsOpen
           ? tempActiveColumnLabel
           : state.config.activeColumn?.label;
@@ -2480,7 +2311,6 @@
           renderSearchFilterControls();
         }
         refreshTitleBar();
-        applyColors(elements.root,state.config.colors);
         if(partChanged){
           state.items.forEach(item=>{
             const raw=String(item.data?.[newPart]||'').trim();
@@ -2605,10 +2435,7 @@
 
     restoreState(state,instanceId,stateStorageKey);
 
-    state.config.colors=normalizeColorConfig(state.config.colors);
     elements.titleInput.value=state.config.title||'';
-
-    applyColors(elements.root,state.config.colors);
     refreshTitleBar();
 
     function stopPolling(){
@@ -3928,7 +3755,7 @@
         colorInput.className='db-rule-color';
         colorInput.title='Chip-Farbe auswählen (Rechtsklick setzt zurück)';
         colorInput.setAttribute('aria-label','Chip-Farbe auswählen');
-        const defaultChipColor=sanitizeHexColor(state.config?.colors?.title||'')||deriveAccentBaseColor();
+        const defaultChipColor=deriveAccentBaseColor();
         colorInput.value=normalized.color||defaultChipColor;
         const commitColor=value=>{
           const target=tempTitleRules[index];
