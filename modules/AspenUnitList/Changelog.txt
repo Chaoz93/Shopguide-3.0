@@ -3,6 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.19] – 2025-12-02
+### Changed
+- Modul-Farbgruppen auf das neue Main/Alternative/Accent-System umgestellt.
+
 ## [1.1.18] – 2025-10-13
 ### Changed
 - Modalbreite und Layout-Abstände für Einstellungen erweitert, sodass Filter, Zusatzspalten und Hauptbereich mehr Platz bekommen und Dropdowns nicht mehr gequetscht wirken.

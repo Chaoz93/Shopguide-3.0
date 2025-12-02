@@ -6,6 +6,7 @@
   const MAX_EXTRA_COLUMNS=6;
   const ACTIVE_COLUMN_ID='__active__';
   const DEFAULT_ACTIVE_COLUMN_LABEL='Aktive Geräte';
+  const COLOR_PRESETS=['Main','Alternative','Accent'];
 
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
@@ -192,8 +193,15 @@
     .db-color-card{flex:1;display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--border-color,#e5e7eb);background:rgba(255,255,255,.85);box-shadow:0 12px 28px rgba(15,23,42,.08);}
     .db-color-card-title{font-weight:600;font-size:.9rem;color:var(--dl-sub,#4b5563);}
     .db-color-card-body{display:flex;flex-direction:column;gap:.75rem;}
-    .db-color-field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:0;font-size:.85rem;}
-    .db-color-field span{font-weight:600;color:var(--dl-sub,#4b5563);}
+    .db-color-layer-list{display:flex;flex-direction:column;gap:.5rem;}
+    .db-color-help{margin:0;color:var(--dl-sub,#4b5563);font-size:.85rem;}
+    .db-color-layer{display:flex;align-items:center;gap:.65rem;justify-content:space-between;padding:.55rem .75rem;border:1px solid var(--border-color,#e5e7eb);border-radius:.65rem;background:rgba(255,255,255,.9);color:var(--dl-title,#1f2937);cursor:pointer;transition:border-color .2s ease,box-shadow .2s ease,transform .15s ease;}
+    .db-color-layer:hover{border-color:var(--dl-title,#1f2937);box-shadow:0 10px 22px rgba(15,23,42,.08);transform:translateY(-1px);}
+    .db-color-layer.is-active{border-color:var(--dl-title,#2563eb);box-shadow:0 0 0 3px rgba(37,99,235,.18),0 14px 28px rgba(15,23,42,.1);}
+    .db-color-layer-meta{display:flex;flex-direction:column;gap:.1rem;}
+    .db-color-layer-name{font-weight:700;}
+    .db-color-layer-tag{font-size:.78rem;font-weight:600;opacity:.7;}
+    .db-color-layer-swatch{flex:0 0 auto;width:52px;height:30px;border-radius:.55rem;border:2px solid var(--border-color,#e5e7eb);box-shadow:inset 0 0 0 1px rgba(148,163,184,.35);background:linear-gradient(135deg,var(--layer-bg,#0f172a),var(--layer-border,#e5e7eb));}
     @media(min-width:900px){
       .db-config-layout{flex-direction:row;align-items:flex-start;gap:1.75rem;}
       .db-config-filter{max-width:320px;}
@@ -374,7 +382,10 @@
     .aspenboard .db-extra-uc-switch-control{background:rgba(148,163,184,.35);}
     .aspenboard .db-extra-uc-switch input:checked~.db-extra-uc-switch-control{background:var(--ab-accent,#2f7edb);box-shadow:0 0 0 2px rgba(47,125,203,.32);}
     .aspenboard .db-color-card-title{color:var(--text-color);}
-    .aspenboard .db-color-field span{color:var(--text-color);}
+    .aspenboard .db-color-layer{background:rgba(12,28,47,.65);border:1px solid var(--border-color);color:var(--text-color);box-shadow:0 12px 28px var(--shadow-color);}    
+    .aspenboard .db-color-layer:hover{border-color:var(--accent-color);box-shadow:0 0 0 3px rgba(var(--accent-rgb,47,109,163),.25);}
+    .aspenboard .db-color-layer.is-active{border-color:var(--accent-color);box-shadow:0 0 0 3px rgba(var(--accent-rgb,47,109,163),.3),0 16px 36px var(--shadow-color);}
+    .aspenboard .db-color-layer-swatch{border-color:var(--border-color);box-shadow:inset 0 0 0 1px rgba(76,114,163,.35);}  
   `;
 
   const XLSX_URLS = [
@@ -1168,7 +1179,7 @@
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root aspenboard';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><div class="db-search-filter-group" aria-label="Such-Vorfilter"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><aside class="db-config-filter"><div class="db-quick-section"><div class="db-option-section"><label>Titel (optional)<input type="text" class="db-title-input"></label><div class="db-option-actions"><button type="button" class="db-menu-toggle db-action-pick" title="Aspen-Datei auswählen"><span class="db-menu-toggle-icon" aria-hidden="true">📂</span><span class="db-menu-toggle-label">Aspen.xlsx wählen</span></button><div class="db-menu-toggle-group" role="group" aria-label="Partfilter Schnellaktionen"><button type="button" class="db-menu-toggle db-action-enable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✓</span><span class="db-menu-toggle-label">Alles aktivieren</span></button><button type="button" class="db-menu-toggle db-action-disable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✕</span><span class="db-menu-toggle-label">Alle deaktivieren</span></button></div></div></div></div><div class="db-part-section"><div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div><div class="db-part-list"></div></div></aside><aside class="db-config-extras"><div class="db-extra-card"><div class="db-extra-card-title">Extraspalten</div><div class="db-extra-card-body"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div></div></aside><div class="db-config-main"><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row filters"><div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div><div class="db-filter-list"></div><button type="button" class="db-add-filter">Filter hinzufügen</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Farbschema</div><div class="db-color-card-body"><label class="db-color-field"><span>Hintergrund</span><input type="color" class="db-color db-c-bg" value="#f5f7fb"></label><label class="db-color-field"><span>Item Hintergrund</span><input type="color" class="db-color db-c-item" value="#ffffff"></label><label class="db-color-field"><span>Titelfarbe</span><input type="color" class="db-color db-c-title" value="#2563eb"></label><label class="db-color-field"><span>Untertitel-Farbe</span><input type="color" class="db-color db-c-sub" value="#4b5563"></label><label class="db-color-field"><span>Button-Farbe</span><input type="color" class="db-color db-c-accent" value="#245581"></label><label class="db-color-field"><span>Verlauf Start</span><input type="color" class="db-color db-c-gradient-from" value="#173752"></label><label class="db-color-field"><span>Verlauf Ende</span><input type="color" class="db-color db-c-gradient-to" value="#245581"></label><label class="db-color-field"><span>Aktiv-Highlight</span><input type="color" class="db-color db-c-active" value="#10b981"></label></div></div></aside></div></div></div>`;
+    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><div class="db-search-filter-group" aria-label="Such-Vorfilter"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><aside class="db-config-filter"><div class="db-quick-section"><div class="db-option-section"><label>Titel (optional)<input type="text" class="db-title-input"></label><div class="db-option-actions"><button type="button" class="db-menu-toggle db-action-pick" title="Aspen-Datei auswählen"><span class="db-menu-toggle-icon" aria-hidden="true">📂</span><span class="db-menu-toggle-label">Aspen.xlsx wählen</span></button><div class="db-menu-toggle-group" role="group" aria-label="Partfilter Schnellaktionen"><button type="button" class="db-menu-toggle db-action-enable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✓</span><span class="db-menu-toggle-label">Alles aktivieren</span></button><button type="button" class="db-menu-toggle db-action-disable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✕</span><span class="db-menu-toggle-label">Alle deaktivieren</span></button></div></div></div></div><div class="db-part-section"><div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div><div class="db-part-list"></div></div></aside><aside class="db-config-extras"><div class="db-extra-card"><div class="db-extra-card-title">Extraspalten</div><div class="db-extra-card-body"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div></div></aside><div class="db-config-main"><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row filters"><div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div><div class="db-filter-list"></div><button type="button" class="db-add-filter">Filter hinzufügen</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div><aside class="db-config-colors"><div class="db-color-card"><div class="db-color-card-title">Modul-Farbgruppen</div><div class="db-color-card-body"><p class="db-color-help">Main, Alternative oder Accent: Wähle die Modul-Farbgruppe für das Board.</p><div class="db-color-layer-list" aria-label="Modul-Farbgruppen"></div></div></div></aside></div></div></div>`;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -1210,14 +1221,7 @@
       partSelectWrap:root.querySelector('.db-part-select'),
       partSelectInput:root.querySelector('.db-part-select-input'),
       partSelectOptions:root.querySelector('.db-part-options'),
-      cBg:root.querySelector('.db-c-bg'),
-      cItem:root.querySelector('.db-c-item'),
-      cTitle:root.querySelector('.db-c-title'),
-      cSub:root.querySelector('.db-c-sub'),
-      cAccent:root.querySelector('.db-c-accent'),
-      cGradientFrom:root.querySelector('.db-c-gradient-from'),
-      cGradientTo:root.querySelector('.db-c-gradient-to'),
-      cActive:root.querySelector('.db-c-active'),
+      colorLayerList:root.querySelector('.db-color-layer-list'),
       extraCount:root.querySelector('.db-extra-count'),
       extraNameList:root.querySelector('.db-extra-name-list'),
       partList:root.querySelector('.db-part-list'),
@@ -1235,7 +1239,7 @@
         subFields:[createSubFieldConfig(DEFAULT_SUB_FIELD)],
         partField:TITLE_FIELD,
         title:initialTitle,
-        colors:{bg:'#10233a',item:'#1a3552',title:'#e2e8f0',sub:'#cbd5f5',accent:'#3b82f6',gradientFrom:'#173752',gradientTo:'#245581',active:'#38bdf8'},
+        colors:normalizeColorConfig({}),
         titleRules:[],
         extraColumns:[],
         activeColumn:sanitizeActiveColumn({}),
@@ -1522,11 +1526,11 @@
         }
       }
     }
-    if(!saved||typeof saved!=='object') return;
-    try{
-      if(Array.isArray(saved.fields)) state.fields=saved.fields.slice();
-      if(saved.config){
-        const colors={...state.config.colors,...(saved.config.colors||{})};
+      if(!saved||typeof saved!=='object') return;
+      try{
+        if(Array.isArray(saved.fields)) state.fields=saved.fields.slice();
+        if(saved.config){
+        const colors=normalizeColorConfig({...state.config.colors,...(saved.config.colors||{})});
         const savedRules=Array.isArray(saved.config.titleRules)?saved.config.titleRules.map(rule=>normalizeTitleRule(rule)):
           state.config.titleRules.slice();
         const fallbackSubField=saved.config.partField||saved.config.subField||state.config.partField||DEFAULT_SUB_FIELD;
@@ -1768,6 +1772,81 @@
     return `#${hex.toString(16).slice(1)}`;
   }
 
+  function readCssVar(styles,prop){
+    return (styles?.getPropertyValue(prop)||'').trim();
+  }
+
+  function loadModuleColorLayers(){
+    const root=document.documentElement;
+    if(!root) return [];
+    const styles=getComputedStyle(root);
+    const baseModuleBg=readCssVar(styles,'--module-layer-module-bg')||readCssVar(styles,'--module-bg');
+    const baseModuleText=readCssVar(styles,'--module-layer-module-text')||readCssVar(styles,'--text-color');
+    const baseModuleBorder=readCssVar(styles,'--module-layer-module-border')||readCssVar(styles,'--module-border-color');
+    const layers=[];
+    const appLayers=Array.isArray(window?.appSettings?.moduleColorLayers)?window.appSettings.moduleColorLayers:[];
+    if(appLayers.length){
+      appLayers.slice(0,COLOR_PRESETS.length).forEach((layer,index)=>{
+        const defaultName=COLOR_PRESETS[index]||`Layer ${index+1}`;
+        layers.push({
+          id:layer?.id||String(index||'primary'),
+          name:(layer?.name||'').trim()||defaultName,
+          module:{
+            bg:(layer?.moduleBg||'').trim()||baseModuleBg,
+            text:(layer?.moduleText||'').trim()||baseModuleText,
+            border:(layer?.moduleBorder||'').trim()||baseModuleBorder
+          }
+        });
+      });
+    }
+    if(!layers.length){
+      const cssLayers=[];
+      for(let i=1;i<=COLOR_PRESETS.length;i+=1){
+        const name=readCssVar(styles,`--module-layer-${i}-name`)||COLOR_PRESETS[i-1];
+        const bg=readCssVar(styles,`--module-layer-${i}-module-bg`);
+        const text=readCssVar(styles,`--module-layer-${i}-module-text`);
+        const border=readCssVar(styles,`--module-layer-${i}-module-border`);
+        if(name || bg || text || border){
+          cssLayers.push({
+            id:i===1?'primary':String(i),
+            name,
+            module:{bg:bg||baseModuleBg,text:text||baseModuleText,border:border||baseModuleBorder}
+          });
+        }
+      }
+      if(cssLayers.length){
+        layers.push(...cssLayers);
+      }
+    }
+    if(!layers.length){
+      layers.push({
+        id:'primary',
+        name:readCssVar(styles,'--module-layer-name')||COLOR_PRESETS[0],
+        module:{bg:baseModuleBg||'#0f172a',text:baseModuleText||'#e7f1ff',border:baseModuleBorder||'rgba(64,104,158,0.4)'}
+      });
+    }
+    return layers;
+  }
+
+  function normalizeColorConfig(raw){
+    const layers=loadModuleColorLayers();
+    const normalized={};
+    const preferred=typeof raw?.layerId==='string'?raw.layerId.trim():'';
+    if(preferred && layers.some(layer=>layer.id===preferred)){
+      normalized.layerId=preferred;
+    }
+    ['bg','item','title','sub','accent','gradientFrom','gradientTo','active','border'].forEach(key=>{
+      const value=typeof raw?.[key]==='string'?raw[key].trim():'';
+      if(value){
+        normalized[key]=value;
+      }
+    });
+    if(!normalized.layerId && layers.length){
+      normalized.layerId=layers[0].id;
+    }
+    return normalized;
+  }
+
   function formatChipStyle(color){
     const sanitized=sanitizeHexColor(color);
     if(!sanitized) return '';
@@ -1783,44 +1862,47 @@
 
   function applyColors(root,colors){
     if(!root) return;
-    const palette=colors&&typeof colors==='object'?colors:{};
-    const accentBase=sanitizeHexColor(palette.accent)||'#2f7edb';
-    let gradientFrom=sanitizeHexColor(palette.gradientFrom);
-    let gradientTo=sanitizeHexColor(palette.gradientTo);
-    const fallbackStrong=shadeColor(accentBase,-0.28);
-    const fallbackLight=shadeColor(accentBase,0.12);
-    gradientFrom=gradientFrom||fallbackStrong;
-    gradientTo=gradientTo||fallbackLight;
-    const sanitized={
-      bg:sanitizeHexColor(palette.bg)||'#f5f7fb',
-      item:sanitizeHexColor(palette.item)||'#ffffff',
-      title:sanitizeHexColor(palette.title)||'#2563eb',
-      sub:sanitizeHexColor(palette.sub)||'#4b5563',
-      accent:accentBase,
-      gradientFrom,
-      gradientTo,
-      active:sanitizeHexColor(palette.active)||'#10b981'
-    };
-    root.style.setProperty('--dl-bg',sanitized.bg);
-    root.style.setProperty('--dl-item-bg',sanitized.item);
-    root.style.setProperty('--dl-title',sanitized.title);
-    root.style.setProperty('--dl-sub',sanitized.sub);
-    root.style.setProperty('--dl-active',sanitized.active);
-    const docStyle=getComputedStyle(document.documentElement);
-    const configuredTextColor=docStyle.getPropertyValue('--text-color')?.trim();
-    const textColor=configuredTextColor||idealTextColor(sanitized.bg);
+    const palette=normalizeColorConfig(colors);
+    const layers=loadModuleColorLayers();
+    const layer=layers.find(entry=>entry.id===palette.layerId)||layers[0]||{};
+    const baseBg=sanitizeHexColor(palette.bg)||sanitizeHexColor(layer?.module?.bg)||'#102237';
+    const baseText=sanitizeHexColor(palette.title)||sanitizeHexColor(layer?.module?.text)||idealTextColor(baseBg);
+    const borderRaw=palette.border||layer?.module?.border||'rgba(64,104,158,0.4)';
+    const borderColor=sanitizeHexColor(borderRaw)||borderRaw;
+    const cardBg=sanitizeHexColor(palette.item)||shadeColor(baseBg,0.08)||baseBg;
+    const muted=sanitizeHexColor(palette.sub)||formatRgba(baseText,0.78)||baseText;
+    const accentBase=sanitizeHexColor(palette.accent)||baseText||'#2f7edb';
+    let gradientFrom=sanitizeHexColor(palette.gradientFrom)||shadeColor(accentBase,-0.25);
+    let gradientTo=sanitizeHexColor(palette.gradientTo)||shadeColor(accentBase,0.12);
+    const activeColor=sanitizeHexColor(palette.active)||'#34d399';
+    root.style.setProperty('--dl-bg',baseBg);
+    root.style.setProperty('--dl-item-bg',cardBg);
+    root.style.setProperty('--dl-title',baseText);
+    root.style.setProperty('--dl-sub',muted);
+    root.style.setProperty('--dl-active',activeColor);
+    root.style.setProperty('--ab-panel',baseBg);
+    root.style.setProperty('--ab-card',cardBg);
+    root.style.setProperty('--ab-border',borderColor);
+    root.style.setProperty('--ab-text',baseText);
+    root.style.setProperty('--ab-muted',muted);
+    root.style.setProperty('--ab-active',activeColor);
+    const shadowColor=formatRgba(baseBg,0.55)||'rgba(6,18,34,0.55)';
+    root.style.setProperty('--ab-shadow',shadowColor);
+    const textColor=baseText||idealTextColor(baseBg);
     root.style.color=textColor;
     root.style.setProperty('--text-color',textColor);
-    root.style.setProperty('--accent-gradient-from',sanitized.gradientFrom);
-    root.style.setProperty('--accent-gradient-to',sanitized.gradientTo);
-    root.style.setProperty('--accent-gradient',`linear-gradient(135deg,${sanitized.gradientFrom} 0%,${sanitized.gradientTo} 100%)`);
-    root.style.setProperty('--accent-color',sanitized.gradientTo);
-    root.style.setProperty('--accent-strong',sanitized.gradientFrom);
-    const gradientFromOverlay=formatRgba(sanitized.gradientFrom,0.88)||sanitized.gradientFrom;
-    const gradientToOverlay=formatRgba(sanitized.gradientTo,0.92)||sanitized.gradientTo;
+    root.style.setProperty('--bg-color',baseBg);
+    root.style.setProperty('--border-color',borderColor);
+    root.style.setProperty('--accent-gradient-from',gradientFrom);
+    root.style.setProperty('--accent-gradient-to',gradientTo);
+    root.style.setProperty('--accent-gradient',`linear-gradient(135deg,${gradientFrom} 0%,${gradientTo} 100%)`);
+    root.style.setProperty('--accent-color',gradientTo);
+    root.style.setProperty('--accent-strong',gradientFrom);
+    const gradientFromOverlay=formatRgba(gradientFrom,0.88)||gradientFrom;
+    const gradientToOverlay=formatRgba(gradientTo,0.92)||gradientTo;
     const modalGradient=`linear-gradient(160deg,${gradientFromOverlay} 0%,rgba(16,34,55,0.96) 48%,${gradientToOverlay} 100%)`;
     root.style.setProperty('--modal-gradient',modalGradient);
-    const gradientRgb=parseColorToRgb(sanitized.gradientTo)||parseColorToRgb(sanitized.accent);
+    const gradientRgb=parseColorToRgb(gradientTo)||parseColorToRgb(accentBase);
     if(gradientRgb){
       const [r,g,b]=gradientRgb;
       root.style.setProperty('--accent-rgb',`${r},${g},${b}`);
@@ -2234,6 +2316,7 @@
     let tempActiveColumnLabel='';
     let tempActiveColumnEnabled=true;
     let tempSearchFilters=[];
+    let selectedColorLayerId=state.config.colors.layerId;
     let partOptions=[];
     let filteredPartOptions=[];
     let partSelectOpen=false;
@@ -2244,6 +2327,53 @@
     const extraSortableInstances=new Map();
     let baseSortableConfig=null;
     let lastExtraSignature=null;
+
+    function renderColorLayerControls(){
+      const container=elements.colorLayerList;
+      if(!container) return;
+      const layers=loadModuleColorLayers();
+      container.innerHTML='';
+      if(!layers.length){
+        const empty=document.createElement('div');
+        empty.className='db-empty';
+        empty.textContent='Keine Modul-Farbgruppen verfügbar.';
+        container.appendChild(empty);
+        return;
+      }
+      const activeId=layers.some(layer=>layer.id===selectedColorLayerId)
+        ? selectedColorLayerId
+        : layers[0]?.id;
+      selectedColorLayerId=activeId;
+      layers.forEach((layer,index)=>{
+        const btn=document.createElement('button');
+        btn.type='button';
+        btn.className=`db-color-layer${layer.id===activeId?' is-active':''}`;
+        btn.dataset.layerId=layer.id||`layer-${index}`;
+        btn.style.setProperty('--layer-bg',layer.module?.bg||'#0f172a');
+        btn.style.setProperty('--layer-border',layer.module?.border||'rgba(64,104,158,0.4)');
+        const meta=document.createElement('div');
+        meta.className='db-color-layer-meta';
+        const name=document.createElement('span');
+        name.className='db-color-layer-name';
+        name.textContent=layer.name||`Layer ${index+1}`;
+        const tag=document.createElement('span');
+        tag.className='db-color-layer-tag';
+        tag.textContent=COLOR_PRESETS[index]||'Palette';
+        meta.append(name,tag);
+        const swatch=document.createElement('span');
+        swatch.className='db-color-layer-swatch';
+        swatch.setAttribute('aria-hidden','true');
+        btn.append(meta,swatch);
+        btn.addEventListener('click',()=>{
+          selectedColorLayerId=layer.id;
+          state.config.colors=normalizeColorConfig({layerId:layer.id});
+          applyColors(elements.root,state.config.colors);
+          renderColorLayerControls();
+          scheduleOptionPersist(true);
+        });
+        container.appendChild(btn);
+      });
+    }
 
     function applyOptionChanges(){
       if(applyingOptionChanges) return;
@@ -2293,16 +2423,10 @@
         if(optionsOpen){
           tempTitleRules=preparedRules.map(rule=>({...rule,draftField:rule.field}));
         }
-        state.config.colors={
-          bg:elements.cBg?.value||state.config.colors.bg,
-          item:elements.cItem?.value||state.config.colors.item,
-          title:elements.cTitle?.value||state.config.colors.title,
-          sub:elements.cSub?.value||state.config.colors.sub,
-          accent:elements.cAccent?.value||state.config.colors.accent,
-          gradientFrom:elements.cGradientFrom?.value||state.config.colors.gradientFrom,
-          gradientTo:elements.cGradientTo?.value||state.config.colors.gradientTo,
-          active:elements.cActive?.value||state.config.colors.active
-        };
+        const availableLayers=loadModuleColorLayers();
+        const chosenLayer=availableLayers.find(layer=>layer.id===selectedColorLayerId)||availableLayers[0];
+        const chosenLayerId=chosenLayer?.id||selectedColorLayerId||state.config.colors.layerId;
+        state.config.colors=normalizeColorConfig({layerId:chosenLayerId});
         const activeLabelSource=optionsOpen
           ? tempActiveColumnLabel
           : state.config.activeColumn?.label;
@@ -2475,16 +2599,11 @@
 
     restoreState(state,instanceId,stateStorageKey);
 
-    elements.cBg.value=state.config.colors.bg;
-    elements.cItem.value=state.config.colors.item;
-    elements.cTitle.value=state.config.colors.title;
-    elements.cSub.value=state.config.colors.sub;
-    elements.cAccent.value=state.config.colors.accent;
-    elements.cGradientFrom.value=state.config.colors.gradientFrom;
-    elements.cGradientTo.value=state.config.colors.gradientTo;
-    elements.cActive.value=state.config.colors.active;
+    state.config.colors=normalizeColorConfig(state.config.colors);
+    selectedColorLayerId=state.config.colors.layerId;
     elements.titleInput.value=state.config.title||'';
 
+    renderColorLayerControls();
     applyColors(elements.root,state.config.colors);
     refreshTitleBar();
 
@@ -3859,14 +3978,8 @@
       renderRuleControls();
       refreshPartControls(elements,state,render);
       elements.titleInput.value=state.config.title||'';
-      elements.cBg.value=state.config.colors.bg;
-      elements.cItem.value=state.config.colors.item;
-      elements.cTitle.value=state.config.colors.title;
-      elements.cSub.value=state.config.colors.sub;
-      elements.cAccent.value=state.config.colors.accent;
-      elements.cGradientFrom.value=state.config.colors.gradientFrom;
-      elements.cGradientTo.value=state.config.colors.gradientTo;
-      elements.cActive.value=state.config.colors.active;
+      selectedColorLayerId=state.config.colors.layerId;
+      renderColorLayerControls();
       elements.modal.classList.add('open');
       syncPartSelectInputValue();
     }
@@ -4011,12 +4124,6 @@
       elements.titleInput.addEventListener('input',()=>{scheduleOptionPersist();});
       elements.titleInput.addEventListener('change',()=>{scheduleOptionPersist(true);});
     }
-
-    [elements.cBg,elements.cItem,elements.cTitle,elements.cSub,elements.cAccent,elements.cGradientFrom,elements.cGradientTo,elements.cActive].forEach(input=>{
-      if(!input) return;
-      input.addEventListener('input',()=>{scheduleOptionPersist();});
-      input.addEventListener('change',()=>{scheduleOptionPersist(true);});
-    });
 
     elements.selPart.addEventListener('change',()=>{
       const newPart=elements.selPart.value;
