@@ -7,6 +7,7 @@
   const ACTIVE_COLUMN_ID='__active__';
   const DEFAULT_ACTIVE_COLUMN_LABEL='Aktive Geräte';
   const COLOR_PRESETS=['Main','Alternative','Accent'];
+  const ERROR_COLOR='red';
 
   const CSS = `
     .db-root{height:100%;display:flex;flex-direction:column;}
@@ -1768,13 +1769,21 @@
     return (styles?.getPropertyValue(prop)||'').trim();
   }
 
+  function requireCssVar(styles,prop){
+    const value=readCssVar(styles,prop);
+    if(!value){
+      throw new Error(`AspenUnitList: missing required CSS variable ${prop}`);
+    }
+    return value;
+  }
+
   function loadModuleColorLayers(){
     const root=document.documentElement;
     if(!root) return [];
     const styles=getComputedStyle(root);
-    const baseModuleBg=readCssVar(styles,'--module-layer-module-bg')||readCssVar(styles,'--module-bg');
-    const baseModuleText=readCssVar(styles,'--module-layer-module-text')||readCssVar(styles,'--text-color');
-    const baseModuleBorder=readCssVar(styles,'--module-layer-module-border')||readCssVar(styles,'--module-border-color');
+    const baseModuleBg=readCssVar(styles,'--module-layer-module-bg')||readCssVar(styles,'--module-bg')||requireCssVar(styles,'--module-layer-module-bg');
+    const baseModuleText=readCssVar(styles,'--module-layer-module-text')||readCssVar(styles,'--text-color')||requireCssVar(styles,'--module-layer-module-text');
+    const baseModuleBorder=readCssVar(styles,'--module-layer-module-border')||readCssVar(styles,'--module-border-color')||requireCssVar(styles,'--module-layer-module-border');
     const layers=[];
     const appLayers=Array.isArray(window?.appSettings?.moduleColorLayers)?window.appSettings.moduleColorLayers:[];
     if(appLayers.length){
@@ -1795,9 +1804,9 @@
       const cssLayers=[];
       for(let i=1;i<=COLOR_PRESETS.length;i+=1){
         const name=readCssVar(styles,`--module-layer-${i}-name`)||COLOR_PRESETS[i-1];
-        const bg=readCssVar(styles,`--module-layer-${i}-module-bg`);
-        const text=readCssVar(styles,`--module-layer-${i}-module-text`);
-        const border=readCssVar(styles,`--module-layer-${i}-module-border`);
+        const bg=requireCssVar(styles,`--module-layer-${i}-module-bg`);
+        const text=requireCssVar(styles,`--module-layer-${i}-module-text`);
+        const border=requireCssVar(styles,`--module-layer-${i}-module-border`);
         if(name || bg || text || border){
           cssLayers.push({
             id:i===1?'primary':String(i),
@@ -1856,34 +1865,35 @@
     if(!root) return;
     const palette=normalizeColorConfig(colors);
     const layers=loadModuleColorLayers();
-    const mainLayer=layers[0]||{};
-    const alternativeLayer=layers[1]||mainLayer;
-    const accentLayer=layers[2]||alternativeLayer;
-    const layer=layers.find(entry=>entry.id===palette.layerId)||mainLayer||{};
+    const emptyLayer={module:{bg:ERROR_COLOR,text:ERROR_COLOR,border:ERROR_COLOR}};
+    const mainLayer=layers[0]||emptyLayer;
+    const alternativeLayer=layers[1]||emptyLayer;
+    const accentLayer=layers[2]||emptyLayer;
+    const layer=layers.find(entry=>entry.id===palette.layerId)||mainLayer||emptyLayer;
 
-    const baseBg=palette.bg||layer?.module?.bg||mainLayer?.module?.bg||'';
-    const baseText=palette.title||layer?.module?.text||mainLayer?.module?.text||(baseBg?idealTextColor(baseBg):'');
-    const borderColor=palette.border||layer?.module?.border||mainLayer?.module?.border||'';
+    const baseBg=palette.bg||layer?.module?.bg||mainLayer?.module?.bg||ERROR_COLOR;
+    const baseText=palette.title||layer?.module?.text||mainLayer?.module?.text||(baseBg?idealTextColor(baseBg):ERROR_COLOR);
+    const borderColor=palette.border||layer?.module?.border||mainLayer?.module?.border||ERROR_COLOR;
 
-    const altBg=alternativeLayer?.module?.bg||baseBg;
-    const altText=alternativeLayer?.module?.text||baseText;
-    const altBorder=alternativeLayer?.module?.border||borderColor;
+    const altBg=alternativeLayer?.module?.bg||baseBg||ERROR_COLOR;
+    const altText=alternativeLayer?.module?.text||baseText||ERROR_COLOR;
+    const altBorder=alternativeLayer?.module?.border||borderColor||ERROR_COLOR;
 
-    const cardBg=palette.item||altBg;
-    const cardText=palette.title||alternativeLayer?.module?.text||baseText;
-    const muted=palette.sub||cardText||baseText;
+    const cardBg=palette.item||altBg||ERROR_COLOR;
+    const cardText=palette.title||alternativeLayer?.module?.text||baseText||ERROR_COLOR;
+    const muted=palette.sub||cardText||baseText||ERROR_COLOR;
 
-    const accentBase=palette.accent||accentLayer?.module?.bg||accentLayer?.module?.text||'';
-    const accentText=accentLayer?.module?.text||baseText||(accentBase?idealTextColor(accentBase):'');
-    const accentBorder=accentLayer?.module?.border||altBorder||borderColor;
+    const accentBase=palette.accent||accentLayer?.module?.bg||accentLayer?.module?.text||ERROR_COLOR;
+    const accentText=accentLayer?.module?.text||baseText||(accentBase?idealTextColor(accentBase):ERROR_COLOR);
+    const accentBorder=accentLayer?.module?.border||altBorder||borderColor||ERROR_COLOR;
     const accentQuiet=formatRgba(accentBase,0.14)||accentBase;
     const accentSoft=formatRgba(accentBase,0.26)||accentBase;
     const accentGlow=formatRgba(accentBase,0.3)||accentBase;
 
-    const gradientFallback=accentBase||baseBg;
-    const gradientFrom=palette.gradientFrom||gradientFallback;
-    const gradientTo=palette.gradientTo||gradientFallback;
-    const activeColor=palette.active||accentBase||borderColor||baseText;
+    const gradientFallback=accentBase||baseBg||ERROR_COLOR;
+    const gradientFrom=palette.gradientFrom||gradientFallback||ERROR_COLOR;
+    const gradientTo=palette.gradientTo||gradientFallback||ERROR_COLOR;
+    const activeColor=palette.active||accentBase||borderColor||baseText||ERROR_COLOR;
 
     root.style.setProperty('--dl-bg',baseBg);
     root.style.setProperty('--dl-item-bg',cardBg);
@@ -1904,18 +1914,18 @@
     root.style.setProperty('--ab-accent-quiet',accentQuiet);
     root.style.setProperty('--ab-accent-glow',accentGlow);
 
-    const surface=formatRgba(baseBg,0.9)||baseBg;
-    const surfaceQuiet=formatRgba(baseBg,0.72)||surface;
-    const modalBg=formatRgba(baseBg,0.92)||surface;
-    const overlay=formatRgba(baseBg||baseText,0.45)||'';
-    const inputBg=formatRgba(cardBg||baseBg,0.12)||(cardBg||baseBg);
-    const inputBorder=formatRgba(borderColor||accentBorder,0.85)||(borderColor||accentBorder);
-    const sectionBg=formatRgba(cardBg||baseBg,0.1)||inputBg;
-    const sectionBorder=formatRgba(borderColor||accentBorder,0.35)||(borderColor||accentBorder);
-    const placeholder=formatRgba(muted||baseText,0.75)||muted||baseText;
-    const scrollTrack=formatRgba(borderColor||baseBg,0.35)||borderColor||baseBg;
-    const scrollThumb=formatRgba(accentBase||borderColor||baseText,0.55)||accentBase||borderColor||baseText;
-    const scrollThumbHover=formatRgba(accentBase||borderColor||baseText,0.72)||scrollThumb;
+    const surface=formatRgba(baseBg,0.9)||baseBg||ERROR_COLOR;
+    const surfaceQuiet=formatRgba(baseBg,0.72)||surface||ERROR_COLOR;
+    const modalBg=formatRgba(baseBg,0.92)||surface||ERROR_COLOR;
+    const overlay=formatRgba(baseBg||baseText,0.45)||ERROR_COLOR;
+    const inputBg=formatRgba(cardBg||baseBg,0.12)||(cardBg||baseBg)||ERROR_COLOR;
+    const inputBorder=formatRgba(borderColor||accentBorder,0.85)||(borderColor||accentBorder)||ERROR_COLOR;
+    const sectionBg=formatRgba(cardBg||baseBg,0.1)||inputBg||ERROR_COLOR;
+    const sectionBorder=formatRgba(borderColor||accentBorder,0.35)||(borderColor||accentBorder)||ERROR_COLOR;
+    const placeholder=formatRgba(muted||baseText,0.75)||muted||baseText||ERROR_COLOR;
+    const scrollTrack=formatRgba(borderColor||baseBg,0.35)||borderColor||baseBg||ERROR_COLOR;
+    const scrollThumb=formatRgba(accentBase||borderColor||baseText,0.55)||accentBase||borderColor||baseText||ERROR_COLOR;
+    const scrollThumbHover=formatRgba(accentBase||borderColor||baseText,0.72)||scrollThumb||ERROR_COLOR;
     root.style.setProperty('--ab-surface',surface);
     root.style.setProperty('--ab-surface-quiet',surfaceQuiet);
     root.style.setProperty('--ab-modal',modalBg);
@@ -1949,16 +1959,16 @@
     const modalMid=formatRgba(baseBg,0.96)||gradientToOverlay;
     const modalGradient=`linear-gradient(160deg,${gradientFromOverlay} 0%,${modalMid} 48%,${gradientToOverlay} 100%)`;
     root.style.setProperty('--modal-gradient',modalGradient);
-    const gradientRgb=parseColorToRgb(gradientTo)||parseColorToRgb(accentBase);
+    const gradientRgb=parseColorToRgb(gradientTo)||parseColorToRgb(accentBase)||parseColorToRgb(ERROR_COLOR);
     if(gradientRgb){
       const [r,g,b]=gradientRgb;
       root.style.setProperty('--accent-rgb',`${r},${g},${b}`);
       root.style.setProperty('--accent-border',`rgba(${r},${g},${b},0.55)`);
       root.style.setProperty('--accent-soft',`rgba(${r},${g},${b},0.22)`);
     }else{
-      root.style.setProperty('--accent-rgb','');
-      root.style.setProperty('--accent-border','');
-      root.style.setProperty('--accent-soft','');
+      root.style.setProperty('--accent-rgb','255,0,0');
+      root.style.setProperty('--accent-border','rgba(255,0,0,0.55)');
+      root.style.setProperty('--accent-soft','rgba(255,0,0,0.22)');
     }
   }
 
