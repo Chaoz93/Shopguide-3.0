@@ -8,6 +8,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Modul-Farbgruppen auf das neue Main/Alternative/Accent-System umgestellt und alle Oberflächenelemente an die drei Paletten gebunden (Main/Alternative für Flächen und Text, Accent für Hervorhebungen).
 - Feste Farbschemata und Picker aus dem Optionsdialog entfernt; alle Hintergründe, Buttons und Karten lesen ihre Farben direkt aus den Modulpaletten.
 - Schaltflächenzeile (z. B. „Aktive Geräte“) konsequent auf die Accent-Palette ausgerichtet, während Suche, Listen und Karten die Main/Alternative-Farben nutzen.
+- Alle verbleibenden Hintergrund-, Text- und Akzentfarben auf die gelieferten Modul-Layer (wie im ColorExample-Modul) umgestellt, ohne dunkle/blau hinterlegte Fallbacks.
 
 ## [1.1.18] – 2025-10-13
 ### Changed
