@@ -3,6 +3,16 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.19] – 2025-12-02
+### Changed
+- Modul-Farbgruppen strikt auf das Main/Alternative/Accent-System umgestellt: alle Hintergründe, Rahmen, Texte und Akzente lesen jetzt direkt die bereitgestellten CSS-Variablen der drei Layer.
+- Legacy-Farbmanagement (Sanitization, Fallback-Logik, Apply-Funktion und Picker) entfernt; die Oberfläche wird ausschließlich über die globalen Modulpaletten wie im ColorExample-Modul eingefärbt.
+- Scrollleisten, Karten, Dialoge und Steuerleisten referenzieren nur noch die drei Themen-Variablen, sodass keine versteckten Weiß-/Blau-Defaults mehr auftreten.
+- Modale Überlagerungen verdunkeln jetzt lediglich den Hintergrund statt flächig eingefärbt zu werden.
+- Karten nutzen den Alternativ-Rahmen passend zu ihrem Alternativ-Hintergrund.
+- Akzentfarbene Buttons und Chips nutzen nun konsequent den Akzent-Rahmen statt auf den Main-Rahmen zurückzufallen, auch in ihrem aktiven Zustand.
+- Akzent-Schaltflächen verwenden im inaktiven Zustand Main-Hintergrund und -Rahmen und schalten erst bei Aktivierung vollständig auf das Akzent-Schema um – inklusive Akzent-Rahmen.
+
 ## [1.1.18] – 2025-10-13
 ### Changed
 - Modalbreite und Layout-Abstände für Einstellungen erweitert, sodass Filter, Zusatzspalten und Hauptbereich mehr Platz bekommen und Dropdowns nicht mehr gequetscht wirken.
