@@ -14,7 +14,7 @@
       --ab-card-text: var(--module-layer-2-module-text,var(--module-layer-1-module-text));
       --ab-border: var(--module-layer-1-module-border);
       --ab-card-border: var(--module-layer-2-module-border,var(--module-layer-2-module-bg,var(--module-layer-1-module-border)));
-      --ab-accent-border: var(--module-layer-3-module-border,var(--module-layer-1-module-border));
+      --ab-accent-border: var(--module-layer-3-module-border,var(--module-layer-3-module-bg,var(--module-layer-1-module-border)));
       --ab-text: var(--module-layer-1-module-text);
       --ab-muted: var(--module-layer-2-module-text,var(--module-layer-1-module-text));
       --ab-active: var(--module-layer-3-module-bg,var(--module-layer-1-module-text));
@@ -264,13 +264,13 @@
     .aspenboard .db-option-section{color:var(--ab-text);}
     .aspenboard .db-part-section{background:var(--ab-surface-quiet,var(--ab-panel));border:1px solid var(--ab-border);box-shadow:var(--ab-shadow);}
     .aspenboard .db-part-section .db-empty{color:var(--ab-muted);}
-    .aspenboard .db-menu-toggle{background:var(--ab-accent-quiet);color:var(--ab-text);border:1px solid var(--ab-accent-border,var(--ab-border));}
+    .aspenboard .db-menu-toggle{background:var(--ab-accent-quiet);color:var(--ab-text);border:1px solid var(--ab-accent-border,var(--ab-accent));}
     .aspenboard .db-menu-toggle:hover{background:var(--ab-accent-soft);}
     .aspenboard .db-surface{background:var(--ab-surface,var(--ab-panel));border:1px solid var(--ab-border);box-shadow:var(--ab-shadow);}
     .aspenboard .db-list-title{color:var(--ab-muted);}
     .aspenboard .db-card{background:var(--ab-card);color:var(--ab-muted);border:1px solid var(--ab-card-border);box-shadow:var(--ab-shadow);}
     .aspenboard .db-card.active{border-color:var(--ab-active);box-shadow:0 0 0 2px var(--ab-active) inset,0 0 0 2px var(--ab-active),var(--ab-shadow);color:var(--ab-accent-contrast);}
-    .aspenboard .db-card-tag{background:var(--ab-accent-quiet);color:var(--ab-accent);border-color:var(--ab-accent-border,var(--ab-border));}
+    .aspenboard .db-card-tag{background:var(--ab-accent-quiet);color:var(--ab-accent);border-color:var(--ab-accent-border,var(--ab-accent));}
     .aspenboard .db-sub{color:var(--ab-muted);}
     .aspenboard .db-config-main,
     .aspenboard .db-extra-card,
@@ -285,7 +285,7 @@
     .aspenboard .db-part-filter input{background:var(--ab-input-bg,var(--ab-card));color:var(--ab-text);border:1px solid var(--ab-input-border,var(--ab-border));border-radius:.5rem;}
     .aspenboard .db-part-filter input:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow,var(--ab-accent-soft));}
     .aspenboard .db-part-list{color:var(--ab-text);}
-    .aspenboard .db-search-filter-btn{background:var(--ab-accent-quiet);color:var(--ab-text);border:1px solid var(--ab-accent-border,var(--ab-border));}
+    .aspenboard .db-search-filter-btn{background:var(--ab-accent-quiet);color:var(--ab-text);border:1px solid var(--ab-accent-border,var(--ab-accent));}
     .aspenboard .db-search-filter-btn:hover{background:var(--ab-accent-soft);}
     .aspenboard .db-search-filter-btn.is-active{background:var(--accent-gradient,var(--ab-accent));color:var(--ab-accent-contrast);border-color:var(--ab-accent-border,var(--ab-accent));box-shadow:0 0 0 3px var(--ab-accent-glow,var(--ab-accent-soft));}
     .aspenboard .db-panel{color:var(--ab-text);border-radius:1rem;border:1px solid var(--ab-border);box-shadow:var(--ab-shadow);}
@@ -355,7 +355,7 @@
     .aspenboard .db-panel .db-icon-btn{
       background:var(--ab-accent-soft);
       color:var(--ab-text);
-      border:1px solid var(--ab-accent-border,var(--ab-border));
+      border:1px solid var(--ab-accent-border,var(--ab-accent));
       border-radius:.55rem;
       padding:.35rem .6rem;
       box-shadow:var(--ab-shadow);

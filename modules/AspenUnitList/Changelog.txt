@@ -10,6 +10,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Scrollleisten, Karten, Dialoge und Steuerleisten referenzieren nur noch die drei Themen-Variablen, sodass keine versteckten Weiß-/Blau-Defaults mehr auftreten.
 - Modale Überlagerungen verdunkeln jetzt lediglich den Hintergrund statt flächig eingefärbt zu werden.
 - Karten nutzen den Alternativ-Rahmen passend zu ihrem Alternativ-Hintergrund.
+- Akzentfarbene Buttons und Chips nutzen nun konsequent den Akzent-Rahmen statt auf den Main-Rahmen zurückzufallen.
 
 ## [1.1.18] – 2025-10-13
 ### Changed
