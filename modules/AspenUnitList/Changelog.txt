@@ -10,6 +10,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Schaltflächenzeile (z. B. „Aktive Geräte“) konsequent auf die Accent-Palette ausgerichtet, während Suche, Listen und Karten die Main/Alternative-Farben nutzen.
 - Alle verbleibenden Hintergrund-, Text- und Akzentfarben auf die gelieferten Modul-Layer (wie im ColorExample-Modul) umgestellt, ohne dunkle/blau hinterlegte Fallbacks.
 - Farbwerte werden unverändert aus den drei Modulpaletten übernommen, ohne zusätzliche Hex-Sanitization oder Ersatz durch Standardweiß/-blau, damit exakt die in HTML definierten Main/Alternative/Accent-Werte greifen.
+- Alle Oberflächen (inklusive Scrollleisten, Umschalter, Berechtigungsdialog und Optionskarten) binden ihre Hintergründe, Rahmen und Texte direkt an die drei Paletten, sodass keine Altfarben oder verdeckte Weiß/Blau-Defaults mehr auftauchen.
 
 ## [1.1.18] – 2025-10-13
 ### Changed
