@@ -1,4 +1,4 @@
-<!-- Version: 3.6.13 -->
+<!-- Version: 3.6.14 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -531,6 +531,36 @@
       align-items: center;
       gap: 0.75rem 1.25rem;
       flex: 1 1 320px;
+    }
+    .update-snapshot-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .update-icon-button {
+      width: 2.25rem;
+      height: 2.25rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      background: #fff;
+      color: #111827;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+      transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    }
+    .update-icon-button:hover {
+      background: #f3f4f6;
+      border-color: #9ca3af;
+    }
+    .update-icon-button:active {
+      transform: translateY(1px);
+    }
+    .update-icon-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
     }
     .update-toggle {
       position: relative;
@@ -1908,6 +1938,16 @@
                   <span id="update-check-status" class="text-gray-500"></span>
                 </div>
                 <div class="update-controls">
+                  <div class="update-snapshot-actions" aria-label="Snapshots">
+                    <button id="take-snapshot" type="button" class="update-icon-button" title="Snapshot erstellen: Snapshot-Ordner leeren und Änderungen ab jetzt sichern">
+                      <span aria-hidden="true">📸</span>
+                      <span class="sr-only">Snapshot erstellen</span>
+                    </button>
+                    <button id="revert-snapshot" type="button" class="update-icon-button" title="Auf Snapshot zurücksetzen">
+                      <span aria-hidden="true">↩️</span>
+                      <span class="sr-only">Snapshot wiederherstellen</span>
+                    </button>
+                  </div>
                   <div class="update-toggle-stack">
                     <div class="update-toggle-group">
                       <span class="update-toggle-label text-sm text-gray-700 select-none">Update-Hinweis anzeigen</span>
@@ -3467,6 +3507,8 @@ const changelogShowFullBtn = document.getElementById('changelog-show-full');
 const changelogVersionLabel = changelogControlsEl?.querySelector('label[for="changelog-version-select"]') || null;
 const updateAllContainer = document.getElementById('update-all-container');
 const updateAllBtn = document.getElementById('update-all');
+const takeSnapshotBtn = document.getElementById('take-snapshot');
+const revertSnapshotBtn = document.getElementById('revert-snapshot');
 const saveIndicator = document.getElementById('save-indicator');
 const downgradeSection = document.getElementById('downgrade-section');
 const downgradeToggle = document.getElementById('downgrade-toggle');
@@ -3555,6 +3597,8 @@ const UPDATE_STATUS_BASE_CLASSES = 'text-sm px-3 py-1 rounded transition-colors 
 const TOP_BAR_DEFAULT_HEIGHT = 40;
 const IGNORED_DOWNGRADES_STORAGE_KEY = 'ignoredDowngradeVersions';
 const MAX_IGNORED_DOWNGRADE_VERSIONS = 20;
+const SNAPSHOT_DIR_NAME = 'Snapshot';
+const SNAPSHOT_ADDED_LOG = '_added-files.txt';
 
 let pendingRootPermission = false;
 let pendingUpdatePermission = false;
@@ -5488,35 +5532,334 @@ async function ensureDirectoryChain(root, parts, { create = true } = {}) {
   return current;
 }
 
+async function getSnapshotRoot({ create = true } = {}) {
+  if (!rootDirHandle) return null;
+  try {
+    return await rootDirHandle.getDirectoryHandle(SNAPSHOT_DIR_NAME, { create });
+  } catch (err) {
+    if (err?.name === 'NotFoundError' && !create) return null;
+    console.warn('Snapshot-Ordner konnte nicht vorbereitet werden.', err);
+    return null;
+  }
+}
+
+async function clearSnapshotFolder() {
+  const snapshotRoot = await getSnapshotRoot({ create: true });
+  if (!snapshotRoot) return false;
+  const names = [];
+  for await (const entry of snapshotRoot.values()) {
+    names.push(entry.name);
+  }
+  for (const name of names) {
+    try {
+      await snapshotRoot.removeEntry(name, { recursive: true });
+    } catch (err) {
+      if (err?.name !== 'NotFoundError') {
+        console.warn('Snapshot-Eintrag konnte nicht entfernt werden:', err);
+      }
+    }
+  }
+  return true;
+}
+
+async function recordAddedPath(relPath) {
+  if (!relPath) return;
+  const snapshotRoot = await getSnapshotRoot({ create: true });
+  if (!snapshotRoot) return;
+  const normalized = relPath.replace(/\\/g, '/');
+  let existing = '';
+  try {
+    const fileHandle = await snapshotRoot.getFileHandle(SNAPSHOT_ADDED_LOG, { create: false });
+    const file = await fileHandle.getFile();
+    existing = await file.text();
+  } catch (err) {
+    if (err?.name !== 'NotFoundError') {
+      console.warn('Added-Log konnte nicht gelesen werden:', err);
+    }
+  }
+  const entries = new Set(existing.split('\n').map(line => line.trim()).filter(Boolean));
+  if (entries.has(normalized)) return;
+  entries.add(normalized);
+  try {
+    const fileHandle = await snapshotRoot.getFileHandle(SNAPSHOT_ADDED_LOG, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(Array.from(entries).join('\n'));
+    await writable.close();
+  } catch (err) {
+    console.warn('Added-Log konnte nicht geschrieben werden:', err);
+  }
+}
+
+async function loadAddedPaths(snapshotRoot) {
+  const result = new Set();
+  if (!snapshotRoot) return result;
+  try {
+    const fileHandle = await snapshotRoot.getFileHandle(SNAPSHOT_ADDED_LOG, { create: false });
+    const file = await fileHandle.getFile();
+    const content = await file.text();
+    content.split('\n').map(line => line.trim()).filter(Boolean).forEach(line => result.add(line));
+  } catch (err) {
+    if (err?.name !== 'NotFoundError') {
+      console.warn('Added-Log konnte nicht gelesen werden:', err);
+    }
+  }
+  return result;
+}
+
+async function snapshotFileIfMissing(relPath) {
+  if (!rootDirHandle || !relPath) return false;
+  const snapshotRoot = await getSnapshotRoot({ create: true });
+  if (!snapshotRoot) return false;
+  const segments = relPath.split('/').filter(Boolean);
+  const fileName = segments.pop();
+  if (!fileName) return false;
+  let targetDir = snapshotRoot;
+  for (const seg of segments) {
+    targetDir = await targetDir.getDirectoryHandle(seg, { create: true });
+  }
+  try {
+    await targetDir.getFileHandle(fileName, { create: false });
+    return false;
+  } catch (err) {
+    if (err?.name !== 'NotFoundError') {
+      console.warn('Snapshot-Datei konnte nicht geprüft werden:', err);
+      return false;
+    }
+  }
+
+  let sourceDir = rootDirHandle;
+  try {
+    sourceDir = await ensureDirectoryChain(rootDirHandle, segments, { create: false });
+  } catch (err) {
+    if (err?.name === 'NotFoundError') return false;
+    console.warn('Snapshot-Quelle nicht verfügbar:', err);
+    return false;
+  }
+
+  try {
+    const sourceHandle = await sourceDir.getFileHandle(fileName, { create: false });
+    const file = await sourceHandle.getFile();
+    const snapshotHandle = await targetDir.getFileHandle(fileName, { create: true });
+    const writable = await snapshotHandle.createWritable();
+    await writable.write(await file.arrayBuffer());
+    await writable.close();
+    return true;
+  } catch (err) {
+    if (err?.name !== 'NotFoundError') {
+      console.warn('Snapshot konnte nicht geschrieben werden:', err);
+    }
+  }
+  return false;
+}
+
+async function snapshotDirectoryEntries(dirHandle, relPath) {
+  for await (const entry of dirHandle.values()) {
+    const entryRelPath = relPath ? `${relPath}/${entry.name}` : entry.name;
+    if (entry.kind === 'file') {
+      await snapshotFileIfMissing(entryRelPath);
+    } else if (entry.kind === 'directory') {
+      await snapshotDirectoryEntries(entry, entryRelPath);
+    }
+  }
+}
+
+async function snapshotTargetPathIfExists(relPath) {
+  if (!rootDirHandle || !relPath) return;
+  const segments = relPath.split('/').filter(Boolean);
+  const name = segments.pop();
+  if (!name) return;
+  let parent = rootDirHandle;
+  try {
+    parent = await ensureDirectoryChain(rootDirHandle, segments, { create: false });
+  } catch (err) {
+    if (err?.name === 'NotFoundError') return;
+    console.warn('Snapshot konnte nicht vorbereitet werden:', err);
+    return;
+  }
+
+  try {
+    const fileHandle = await parent.getFileHandle(name, { create: false });
+    await snapshotFileIfMissing(relPath);
+    return;
+  } catch (err) {
+    if (err?.name !== 'NotFoundError') {
+      console.warn('Snapshot-Dateiprüfung schlug fehl:', err);
+      return;
+    }
+  }
+
+  try {
+    const dirHandle = await parent.getDirectoryHandle(name, { create: false });
+    await snapshotDirectoryEntries(dirHandle, relPath);
+  } catch (err) {
+    if (err?.name !== 'NotFoundError') {
+      console.warn('Snapshot-Verzeichnisprüfung schlug fehl:', err);
+    }
+  }
+}
+
+async function targetFileExists(relPath) {
+  if (!rootDirHandle || !relPath) return false;
+  const segments = relPath.split('/').filter(Boolean);
+  const name = segments.pop();
+  if (!name) return false;
+  let parent = rootDirHandle;
+  try {
+    parent = await ensureDirectoryChain(rootDirHandle, segments, { create: false });
+  } catch (err) {
+    if (err?.name === 'NotFoundError') return false;
+    throw err;
+  }
+  try {
+    await parent.getFileHandle(name, { create: false });
+    return true;
+  } catch (err) {
+    if (err?.name === 'NotFoundError') return false;
+    throw err;
+  }
+}
+
+async function restoreSnapshotFiles(snapshotRoot, basePath = '') {
+  if (!snapshotRoot || !rootDirHandle) return;
+  for await (const entry of snapshotRoot.values()) {
+    if (entry.name === SNAPSHOT_ADDED_LOG) continue;
+    const relPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+    if (entry.kind === 'file') {
+      const file = await entry.getFile();
+      const segments = relPath.split('/').filter(Boolean);
+      const fileName = segments.pop();
+      const targetDir = await ensureDirectoryChain(rootDirHandle, segments, { create: true });
+      const targetFileHandle = await targetDir.getFileHandle(fileName, { create: true });
+      const writable = await targetFileHandle.createWritable();
+      await writable.write(await file.arrayBuffer());
+      await writable.close();
+    } else if (entry.kind === 'directory') {
+      await ensureDirectoryChain(rootDirHandle, relPath.split('/').filter(Boolean), { create: true });
+      await restoreSnapshotFiles(entry, relPath);
+    }
+  }
+}
+
+async function deleteAddedPaths(paths) {
+  if (!rootDirHandle || !paths?.size) return;
+  for (const raw of paths.values()) {
+    const normalized = raw.trim();
+    if (!normalized) continue;
+    const isDir = normalized.endsWith('/');
+    const trimmed = normalized.replace(/\/+$/, '');
+    const segments = trimmed.split('/').filter(Boolean);
+    const name = segments.pop();
+    if (!name) continue;
+    let parent;
+    try {
+      parent = await ensureDirectoryChain(rootDirHandle, segments, { create: false });
+    } catch (err) {
+      if (err?.name === 'NotFoundError') continue;
+      console.warn('Added-Pfad konnte nicht gefunden werden:', err);
+      continue;
+    }
+    try {
+      await parent.removeEntry(name, { recursive: true });
+    } catch (err) {
+      if (err?.name !== 'NotFoundError') {
+        console.warn(`Konnte hinzugefügten ${isDir ? 'Ordner' : 'Datei'} entfernen:`, err);
+      }
+    }
+  }
+}
+
+async function revertSnapshotFromDisk() {
+  if (!rootDirHandle) throw new Error('Kein Arbeitsordner verbunden.');
+  const snapshotRoot = await getSnapshotRoot({ create: false });
+  if (!snapshotRoot) throw new Error('Kein Snapshot-Ordner vorhanden.');
+  await restoreSnapshotFiles(snapshotRoot, '');
+  const addedPaths = await loadAddedPaths(snapshotRoot);
+  if (addedPaths.size) {
+    await deleteAddedPaths(addedPaths);
+  }
+}
+
+async function handleSnapshotClick() {
+  if (!takeSnapshotBtn) return;
+  takeSnapshotBtn.disabled = true;
+  if (updateCheckStatus) updateCheckStatus.textContent = 'Snapshot wird vorbereitet…';
+  try {
+    if (!rootDirHandle) throw new Error('Kein Arbeitsordner verbunden.');
+    const cleared = await clearSnapshotFolder();
+    if (!cleared) throw new Error('Snapshot-Ordner konnte nicht geleert werden.');
+    if (updateCheckStatus) updateCheckStatus.textContent = 'Snapshot bereit. Änderungen werden gesichert.';
+  } catch (err) {
+    console.warn('Snapshot konnte nicht erstellt werden:', err);
+    if (updateCheckStatus) updateCheckStatus.textContent = 'Snapshot fehlgeschlagen.';
+    alert('Snapshot konnte nicht vorbereitet werden. Bitte Arbeitsordner prüfen.');
+  } finally {
+    takeSnapshotBtn.disabled = false;
+  }
+}
+
+async function handleSnapshotRevert() {
+  if (!revertSnapshotBtn) return;
+  revertSnapshotBtn.disabled = true;
+  if (updateCheckStatus) updateCheckStatus.textContent = 'Snapshot wird wiederhergestellt…';
+  try {
+    await revertSnapshotFromDisk();
+    if (updateCheckStatus) updateCheckStatus.textContent = 'Snapshot wiederhergestellt.';
+    await runUpdateCheck();
+  } catch (err) {
+    console.warn('Snapshot konnte nicht wiederhergestellt werden:', err);
+    if (updateCheckStatus) updateCheckStatus.textContent = 'Snapshot nicht verfügbar.';
+    alert('Snapshot konnte nicht wiederhergestellt werden.');
+  } finally {
+    revertSnapshotBtn.disabled = false;
+  }
+}
+
 async function applySingleUpdate(item, { skipRecheck = false } = {}) {
   if (!rootDirHandle) return;
   if (!item) return;
+
+  await getSnapshotRoot({ create: true });
 
   try {
     if (item.type === 'html') {
       if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
       const sourceFileName = item.sourcePath || HTML_FILE_NAME;
+      const targetPath = sourceFileName;
+      const existedBefore = await targetFileExists(targetPath);
+      if (existedBefore) {
+        await snapshotTargetPathIfExists(targetPath);
+      } else {
+        await recordAddedPath(targetPath);
+      }
       const updateFileHandle = await updateDirHandle.getFileHandle(sourceFileName, { create: false });
       const updateFile = await updateFileHandle.getFile();
       const targetFileHandle = await rootDirHandle.getFileHandle(sourceFileName, { create: true });
       const writable = await targetFileHandle.createWritable();
       await writable.write(await updateFile.arrayBuffer());
       await writable.close();
-      await removeOtherHtmlFiles(rootDirHandle, sourceFileName);
+      await removeOtherHtmlFiles(rootDirHandle, sourceFileName, { snapshot: true });
     } else if (item.type === 'module') {
       if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
       const sourceSegments = ['modules', ...(item.sourceRelPath ? item.sourceRelPath.split('/') : [])];
       const targetSegments = ['modules', ...(item.targetRelPath ? item.targetRelPath.split('/') : [])];
       const sourceDir = await ensureDirectoryChain(updateDirHandle, sourceSegments, { create: false });
       const targetDir = await ensureDirectoryChain(rootDirHandle, targetSegments, { create: true });
-      await syncDirectoryContents(sourceDir, targetDir);
+      await syncDirectoryContents(sourceDir, targetDir, { basePath: targetSegments.join('/') });
     } else if (item.sourcePath) {
       if (!updateDirHandle) throw new Error('Kein Update-Ordner vorhanden.');
-      const segments = item.sourcePath.split('/');
+      const relPath = item.sourcePath;
+      const segments = relPath.split('/');
       const fileName = segments.pop();
       const sourceDir = await ensureDirectoryChain(updateDirHandle, segments, { create: false });
       const updateFileHandle = await sourceDir.getFileHandle(fileName, { create: false });
       const targetDir = await ensureDirectoryChain(rootDirHandle, segments, { create: true });
+      const targetPath = relPath;
+      const existedBefore = await targetFileExists(targetPath);
+      if (existedBefore) {
+        await snapshotTargetPathIfExists(targetPath);
+      } else {
+        await recordAddedPath(targetPath);
+      }
       const targetFileHandle = await targetDir.getFileHandle(fileName, { create: true });
       const updateFile = await updateFileHandle.getFile();
       const writable = await targetFileHandle.createWritable();
@@ -5533,7 +5876,8 @@ async function applySingleUpdate(item, { skipRecheck = false } = {}) {
   }
 }
 
-async function syncDirectoryContents(sourceDir, targetDir) {
+async function syncDirectoryContents(sourceDir, targetDir, options = {}) {
+  const { basePath = '' } = options;
   const sourceEntries = new Map();
   for await (const entry of sourceDir.values()) {
     sourceEntries.set(entry.name, entry);
@@ -5546,6 +5890,8 @@ async function syncDirectoryContents(sourceDir, targetDir) {
 
   for (const entry of targetEntries) {
     if (!sourceEntries.has(entry.name)) {
+      const relPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+      await snapshotTargetPathIfExists(relPath);
       try {
         await targetDir.removeEntry(entry.name, { recursive: true });
       } catch (err) {
@@ -5558,19 +5904,41 @@ async function syncDirectoryContents(sourceDir, targetDir) {
 
   for (const [name, entry] of sourceEntries.entries()) {
     if (entry.kind === 'file') {
+      const relPath = basePath ? `${basePath}/${name}` : name;
+      const existedBefore = await targetFileExists(relPath);
+      if (existedBefore) {
+        await snapshotTargetPathIfExists(relPath);
+      } else {
+        await recordAddedPath(relPath);
+      }
       const file = await entry.getFile();
       const targetFileHandle = await targetDir.getFileHandle(name, { create: true });
       const writable = await targetFileHandle.createWritable();
       await writable.write(await file.arrayBuffer());
       await writable.close();
     } else if (entry.kind === 'directory') {
+      const relPath = basePath ? `${basePath}/${name}` : name;
+      let targetExists = true;
+      try {
+        await targetDir.getDirectoryHandle(name, { create: false });
+      } catch (err) {
+        if (err?.name === 'NotFoundError') {
+          targetExists = false;
+        } else {
+          throw err;
+        }
+      }
+      if (!targetExists) {
+        await recordAddedPath(`${relPath}/`);
+      }
       const subTarget = await targetDir.getDirectoryHandle(name, { create: true });
-      await syncDirectoryContents(entry, subTarget);
+      await syncDirectoryContents(entry, subTarget, { basePath: relPath });
     }
   }
 }
 
-async function removeOtherHtmlFiles(rootHandle, keepFileName) {
+async function removeOtherHtmlFiles(rootHandle, keepFileName, options = {}) {
+  const { snapshot = false } = options;
   if (!rootHandle) return;
   const toRemove = [];
   for await (const entry of rootHandle.values()) {
@@ -5580,6 +5948,9 @@ async function removeOtherHtmlFiles(rootHandle, keepFileName) {
   }
 
   for (const name of toRemove) {
+    if (snapshot) {
+      await snapshotTargetPathIfExists(name);
+    }
     try {
       await rootHandle.removeEntry(name);
     } catch (err) {
@@ -7689,6 +8060,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (updateStatusBtn.disabled) return;
       openSettings('updates');
     });
+  }
+
+  if (takeSnapshotBtn) {
+    takeSnapshotBtn.addEventListener('click', handleSnapshotClick);
+  }
+
+  if (revertSnapshotBtn) {
+    revertSnapshotBtn.addEventListener('click', handleSnapshotRevert);
   }
 
   if (updateAllBtn) {

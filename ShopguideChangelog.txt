@@ -4,6 +4,11 @@ Alle relevanten Änderungen an der Hauptanwendung werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 ---
+## [3.6.14] – 2025-12-02
+### Added
+- Snapshot-Ordner und Update-Buttons ergänzen eine Sicherung für aktualisierte Dateien inklusive Protokoll neuer Dateien.
+- Wiederherstellungsfunktion stellt Update-Dateien aus dem Snapshot zurück und löscht neu angelegte Dateien bei Bedarf.
+
 ## [3.6.13] – 2025-12-01
 ### Changed
 - Farben sind in den Moduloptionen auf Main, Alternativ und Akzentfarbe begrenzt
