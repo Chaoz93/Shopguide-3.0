@@ -126,6 +126,7 @@
     .db-config-tab.is-active{background:var(--ab-accent);color:var(--ab-accent-contrast);border:1px solid var(--ab-accent-border,var(--ab-accent));box-shadow:0 0 0 2px var(--ab-accent-glow);}
     .db-tab-panel{display:none;flex-direction:column;gap:1rem;}
     .db-tab-panel.is-active{display:flex;}
+    .db-tab-panel.db-tab-extras{max-height:68vh;overflow:auto;padding-right:.25rem;}
     .db-part-section{display:flex;flex-direction:column;gap:.35rem;padding:.5rem;border-radius:.65rem;border:1px solid var(--ab-section-border);background:var(--ab-section);}
     .db-part-filter{padding:.35rem .5rem .15rem;}
     .db-part-filter input{width:100%;padding:.35rem .55rem;border:1px solid var(--ab-border);border-radius:.5rem;background:transparent;color:inherit;font-size:.85rem;}
@@ -237,7 +238,7 @@
     .db-config-extras{flex:0 0 auto;width:100%;display:flex;justify-content:flex-start;}
     .db-extra-card{flex:1;display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
     .db-extra-card-title{font-weight:600;font-size:.9rem;color:var(--ab-muted);}
-    .db-extra-card-body{display:flex;flex-direction:column;gap:.75rem;}
+    .db-extra-card-body{display:flex;flex-direction:column;gap:.75rem;max-height:64vh;overflow:auto;padding-right:.1rem;}
     .db-config-main{flex:1;display:flex;flex-direction:column;gap:1rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
     .db-config-main>.row{margin-bottom:0;}
     .db-config-main>.row+.row{margin-top:.25rem;}
@@ -1426,12 +1427,16 @@
   }
 
   function createEmptyExtraRule(defaultTarget=''){
-    return {status:'',keyword:'',toColumn:defaultTarget||''};
+    return {field:'',keyword:'',toColumn:defaultTarget||''};
   }
 
   function sanitizeExtraRule(rule,{defaultTarget=''}={}){
     const source=rule&&typeof rule==='object'?rule:{};
-    const status=typeof source.status==='string'?source.status.trim():'';
+    const field=typeof source.field==='string'
+      ? source.field.trim()
+      : typeof source.status==='string'
+        ? source.status.trim()
+        : '';
     const keyword=typeof source.keyword==='string'?source.keyword.trim():'';
     const toColumn=typeof source.toColumn==='string'
       ? source.toColumn.trim()
@@ -1439,7 +1444,7 @@
         ? source.column.trim()
         : '';
     return {
-      status,
+      field,
       keyword,
       toColumn:toColumn||defaultTarget
     };
@@ -1469,8 +1474,20 @@
       const requestedUcSort=!!source.ucSort;
       const ucSort=!ucAssigned && requestedUcSort;
       if(ucSort) ucAssigned=true;
-      const rules=sanitizeExtraRuleList(source.rules,{defaultTarget:id});
-      sanitized.push({id,label,ucSort,rules});
+      const baseRules=sanitizeExtraRuleList(source.rules,{defaultTarget:id});
+      const rules=(()=>{
+        if(!ucSort) return baseRules;
+        const hasUcRule=baseRules.some(rule=>{
+          const normalized=sanitizeExtraRule(rule,{defaultTarget:id});
+          return normalized.field.toLowerCase()==='uc' && !normalized.keyword;
+        });
+        if(hasUcRule) return baseRules;
+        return [
+          {field:'UC',keyword:'',toColumn:id},
+          ...baseRules
+        ];
+      })();
+      sanitized.push({id,label,rules});
     }
     return sanitized;
   }
@@ -1898,17 +1915,6 @@
     return '';
   }
 
-  function getItemStatusValue(item){
-    if(!item||typeof item!=='object') return '';
-    const data=item.data&&typeof item.data==='object'?item.data:{};
-    const directStatus=getDataFieldValue(data,'Status');
-    if(directStatus) return directStatus;
-    return getDataFieldValue(
-      data,
-      Object.keys(data).find(key=>typeof key==='string' && key.toLowerCase().includes('status'))||''
-    );
-  }
-
   function getItemKeywords(item){
     if(!item||typeof item!=='object') return [];
     const data=item.data&&typeof item.data==='object'?item.data:{};
@@ -1919,15 +1925,6 @@
       .split(/[;,|]/)
       .map(part=>part.trim())
       .filter(Boolean);
-  }
-
-  function collectKnownStatuses(items){
-    const statuses=new Set();
-    (Array.isArray(items)?items:[]).forEach(item=>{
-      const status=getItemStatusValue(item);
-      if(status) statuses.add(status);
-    });
-    return Array.from(statuses);
   }
 
   function collectKnownKeywords(items){
@@ -1943,20 +1940,22 @@
   function findRuleTarget(extraColumns,item){
     const availableIds=new Set((Array.isArray(extraColumns)?extraColumns:[]).map(col=>col.id).filter(Boolean));
     if(!availableIds.size) return '';
-    const statusValue=getItemStatusValue(item).toLowerCase();
-    const keywords=getItemKeywords(item).map(keyword=>keyword.toLowerCase());
+    const data=item?.data&&typeof item.data==='object'?item.data:{};
     for(const column of extraColumns){
       const rules=Array.isArray(column?.rules)?column.rules:[];
       for(const rawRule of rules){
         const rule=sanitizeExtraRule(rawRule,{defaultTarget:column.id});
         const target=(rule.toColumn||column.id||'').trim();
         if(!target || !availableIds.has(target)) continue;
-        const ruleStatus=(rule.status||'').toLowerCase();
+        const ruleField=(rule.field||'').trim();
         const ruleKeyword=(rule.keyword||'').toLowerCase();
-        if(!ruleStatus && !ruleKeyword) continue;
-        const statusMatch=!ruleStatus || (!!statusValue && statusValue===ruleStatus);
-        const keywordMatch=!ruleKeyword || keywords.some(keyword=>keyword.includes(ruleKeyword));
-        if(statusMatch && keywordMatch){
+        if(!ruleField && !ruleKeyword) continue;
+        const value=ruleField?getDataFieldValue(data,ruleField).toLowerCase():'';
+        if(!ruleKeyword && value){
+          return target;
+        }
+        const keywordMatch=!ruleKeyword || (!!value && value.includes(ruleKeyword));
+        if(keywordMatch){
           return target;
         }
       }
@@ -3014,7 +3013,7 @@
     function ensureExtraListElements(){
       ensureExtraColumns(state.config);
       const columns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
-      const signature=columns.map(col=>`${col.id}:${col.label}:${col.ucSort?'1':'0'}`).join('|');
+      const signature=columns.map(col=>`${col.id}:${col.label}`).join('|');
       if(signature===lastExtraSignature && Array.isArray(elements.extraWraps)){
         columns.forEach((column,index)=>{
           const wrap=elements.extraWraps[index];
@@ -3022,7 +3021,6 @@
           wrap.title.textContent=column.label||`Extraspalte ${index+1}`;
           wrap.list.dataset.columnId=column.id;
           wrap.wrap.dataset.columnId=column.id;
-          wrap.wrap.dataset.ucSort=column.ucSort?'true':'false';
         });
         if(!columns.length){
           if(elements.extraContainer){
@@ -3045,7 +3043,6 @@
         const wrap=document.createElement('div');
         wrap.className='db-list-wrap db-extra-wrap';
         wrap.dataset.columnId=column.id;
-        wrap.dataset.ucSort=column.ucSort?'true':'false';
         const title=document.createElement('div');
         title.className='db-list-title';
         title.textContent=column.label||`Extraspalte ${index+1}`;
@@ -3291,28 +3288,17 @@
       const extraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
       const hiddenExtras=state.hiddenExtraColumns instanceof Set?state.hiddenExtraColumns:new Set();
       const extraBuckets=new Map(extraColumns.map(col=>[col.id,[]]));
-      const ucColumn=extraColumns.find(col=>col?.ucSort);
-      const ucColumnId=ucColumn?.id||'';
       const autoAssignments=new Map();
       const activeItems=[];
       const mainItems=[];
       state.items.forEach(item=>{
         const meldung=item.meldung;
         let autoColumnId='';
-        if(ucColumnId && meldung){
-          const ucValue=getUcFieldValue(item);
-          if(ucValue){
-            autoColumnId=ucColumnId;
-            autoAssignments.set(meldung,ucColumnId);
-          }
-        }
-        if(!autoColumnId){
-          const ruleTarget=findRuleTarget(extraColumns,item);
-          if(ruleTarget){
-            autoColumnId=ruleTarget;
-            if(meldung){
-              autoAssignments.set(meldung,ruleTarget);
-            }
+        const ruleTarget=findRuleTarget(extraColumns,item);
+        if(ruleTarget){
+          autoColumnId=ruleTarget;
+          if(meldung){
+            autoAssignments.set(meldung,ruleTarget);
           }
         }
         if(autoColumnId && extraBuckets.has(autoColumnId)){
@@ -3757,23 +3743,6 @@
       scheduleOptionPersist(true);
     }
 
-    function handleExtraUcToggleChange(event){
-      const checkbox=event.target;
-      if(!checkbox) return;
-      const columnId=checkbox.dataset?.columnId||'';
-      if(!columnId) return;
-      const index=tempExtraColumns.findIndex(col=>col.id===columnId);
-      if(index===-1) return;
-      const enabled=!!checkbox.checked;
-      if(enabled){
-        tempExtraColumns=tempExtraColumns.map((col,idx)=>idx===index?{...col,ucSort:true}:{...col,ucSort:false});
-      }else{
-        tempExtraColumns[index]={...tempExtraColumns[index],ucSort:false};
-      }
-      renderExtraControls();
-      scheduleOptionPersist(true);
-    }
-
     function renderExtraControls(){
       const sanitized=sanitizeExtraColumns(tempExtraColumns).map(col=>({
         ...col,
@@ -3789,7 +3758,11 @@
       if(!elements.extraNameList){
         return;
       }
-      const statusOptions=collectKnownStatuses(state.items||[]);
+      const ruleFields=(Array.isArray(tempExtraColumns)?tempExtraColumns:[])
+        .flatMap(col=>Array.isArray(col.rules)?col.rules.map(rule=>rule?.field||rule?.status||'')||[]:[])
+        .filter(Boolean);
+      const fieldOptions=getAvailableFieldList(state,ruleFields);
+      if(!fieldOptions.includes('UC')) fieldOptions.push('UC');
       const keywordOptions=collectKnownKeywords(state.items||[]);
       const fallbackActiveLabel=state.config?.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       const fallbackActiveEnabled=state.config?.activeColumn?.enabled!==false;
@@ -3822,23 +3795,6 @@
         title.className='db-extra-name-title';
         title.textContent=`Spalte ${index+1}`;
         header.appendChild(title);
-        const ucToggle=document.createElement('label');
-        ucToggle.className='db-extra-uc-switch';
-        ucToggle.dataset.columnId=column.id;
-        const ucCheckbox=document.createElement('input');
-        ucCheckbox.type='checkbox';
-        ucCheckbox.dataset.columnId=column.id;
-        ucCheckbox.checked=!!column.ucSort;
-        ucCheckbox.addEventListener('change',handleExtraUcToggleChange);
-        ucToggle.appendChild(ucCheckbox);
-        const ucText=document.createElement('span');
-        ucText.className='db-extra-uc-switch-text';
-        ucText.textContent='AutoUC';
-        ucToggle.appendChild(ucText);
-        const ucControl=document.createElement('span');
-        ucControl.className='db-extra-uc-switch-control';
-        ucToggle.appendChild(ucControl);
-        header.appendChild(ucToggle);
         row.appendChild(header);
         const label=document.createElement('label');
         label.className='db-extra-name-input';
@@ -3864,7 +3820,7 @@
         ruleLabel.textContent='Automatische Zuweisung (oberste Regel gewinnt)';
         const ruleHint=document.createElement('span');
         ruleHint.className='db-extra-rule-hint';
-        ruleHint.textContent='Wenn Status & Keyword passen, dann ab in die Zielspalte.';
+        ruleHint.textContent='Wenn Feld befüllt ist und/oder ein Keyword passt, dann ab in die Zielspalte.';
         ruleHeader.appendChild(ruleLabel);
         ruleHeader.appendChild(ruleHint);
         label.appendChild(ruleHeader);
@@ -3902,34 +3858,40 @@
             const ruleRow=document.createElement('div');
             ruleRow.className='db-extra-rule-row';
 
-            const statusField=document.createElement('div');
-            statusField.className='db-extra-rule-field';
-            const statusLabel=document.createElement('label');
-            statusLabel.textContent='Status';
-            statusLabel.title='Wenn der Gerätestatus passt…';
-            const statusSelect=document.createElement('select');
-            const emptyStatus=document.createElement('option');
-            emptyStatus.value='';
-            emptyStatus.textContent='(egal)';
-            statusSelect.appendChild(emptyStatus);
-            statusOptions.forEach(option=>{
+            const fieldWrapper=document.createElement('div');
+            fieldWrapper.className='db-extra-rule-field';
+            const fieldLabel=document.createElement('label');
+            fieldLabel.textContent='Feld';
+            fieldLabel.title='Dieses Aspen-Feld wird auf Inhalt/Keyword geprüft (leer = ignorieren).';
+            const fieldSelect=document.createElement('select');
+            const emptyField=document.createElement('option');
+            emptyField.value='';
+            emptyField.textContent='(egal)';
+            fieldSelect.appendChild(emptyField);
+            fieldOptions.forEach(option=>{
               const opt=document.createElement('option');
               opt.value=option;
               opt.textContent=option;
-              statusSelect.appendChild(opt);
+              fieldSelect.appendChild(opt);
             });
-            statusSelect.value=normalized.status||'';
-            statusSelect.addEventListener('change',()=>{
+            if(normalized.field && !fieldOptions.includes(normalized.field)){
+              const custom=document.createElement('option');
+              custom.value=normalized.field;
+              custom.textContent=normalized.field;
+              fieldSelect.appendChild(custom);
+            }
+            fieldSelect.value=normalized.field||'';
+            fieldSelect.addEventListener('change',()=>{
               ensureRuleSlot(ruleIndex);
               tempExtraColumns[index].rules[ruleIndex]={
                 ...tempExtraColumns[index].rules[ruleIndex],
-                status:statusSelect.value||''
+                field:fieldSelect.value||''
               };
               scheduleOptionPersist(true);
             });
-            statusField.appendChild(statusLabel);
-            statusField.appendChild(statusSelect);
-            ruleRow.appendChild(statusField);
+            fieldWrapper.appendChild(fieldLabel);
+            fieldWrapper.appendChild(fieldSelect);
+            ruleRow.appendChild(fieldWrapper);
 
             const keywordField=document.createElement('div');
             keywordField.className='db-extra-rule-field';
@@ -4055,7 +4017,7 @@
       if(clamped>tempExtraColumns.length){
         for(let i=tempExtraColumns.length;i<clamped;i+=1){
           const id=generateExtraColumnId();
-          tempExtraColumns.push({id,label:'',ucSort:false,rules:[createEmptyExtraRule(id)]});
+          tempExtraColumns.push({id,label:'',rules:[createEmptyExtraRule(id)]});
         }
       }else{
         tempExtraColumns=tempExtraColumns.slice(0,clamped);

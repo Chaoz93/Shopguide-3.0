@@ -3,6 +3,15 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.22] – 2025-12-05
+### Changed
+- Extraspalten-Tab erhält eine begrenzte Höhe mit eigener Scrollfläche, damit umfangreiche Regel-Setups ohne riesige Modaldialoge
+  bearbeitet werden können.
+- Auto-Zuordnungsregeln prüfen jetzt frei wählbare Aspen-Felder; ein leeres Keyword verschiebt Geräte bereits bei gefülltem Feld
+  (z. B. UC) in die Zielspalte.
+- Bestehende AutoUC-Schalter werden in gleichwertige Feld/Keyword-Regeln umgewandelt, damit sämtliche Zuordnungslogik über das
+  Regelraster läuft.
+
 ## [1.1.21] – 2025-12-04
 ### Changed
 - Extraspalten-Konfiguration in einen eigenen Tab des Einstellungsdialogs verschoben, damit die Hauptoptionen kompakter bleiben.
