@@ -174,9 +174,18 @@
     .db-panel .row.rules{display:flex;flex-direction:column;gap:.4rem;}
     .db-panel .row.filters{display:flex;flex-direction:column;gap:.4rem;}
     .db-extra-config{display:flex;flex-direction:column;gap:.6rem;}
+    .db-extra-layout{display:flex;flex-direction:column;gap:.75rem;}
+    .db-extra-section{display:flex;flex-direction:column;gap:.6rem;padding:.65rem;border-radius:.85rem;background:var(--ab-section);border:1px solid var(--ab-section-border);}
+    .db-extra-section-header{display:flex;flex-direction:column;gap:.2rem;}
+    .db-extra-section-title{font-weight:700;color:var(--ab-muted);}
+    .db-extra-section-hint{font-size:.82rem;color:var(--ab-muted);}
     .db-extra-count-label{display:flex;flex-direction:column;gap:.35rem;font-size:.85rem;}
     .db-extra-count{width:120px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
     .db-extra-name-list{display:flex;flex-direction:column;gap:.35rem;}
+    .db-extra-rule-board{display:flex;flex-direction:column;gap:.5rem;}
+    .db-extra-rule-card{display:flex;flex-direction:column;gap:.45rem;padding:.5rem .65rem;border-radius:.75rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);}
+    .db-extra-rule-card-title{display:flex;align-items:center;justify-content:space-between;gap:.45rem;font-weight:700;color:var(--ab-text);}
+    .db-extra-rule-card-meta{font-size:.8rem;color:var(--ab-muted);}
     .db-extra-name-row{display:flex;flex-direction:column;gap:.6rem;padding:.2rem .1rem;}
     .db-extra-name-header{display:flex;flex-direction:column;align-items:stretch;gap:.45rem;width:100%;}
     .db-extra-name-title{font-weight:600;font-size:.85rem;color:var(--ab-muted);}
@@ -1327,9 +1336,22 @@
             <div class="db-extra-card">
               <div class="db-extra-card-title">Extraspalten</div>
               <div class="db-extra-card-body">
-                <div class="db-extra-config">
-                  <label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label>
-                  <div class="db-extra-name-list"></div>
+                <div class="db-extra-config db-extra-layout">
+                  <div class="db-extra-section db-extra-columns">
+                    <div class="db-extra-section-header">
+                      <div class="db-extra-section-title">Spalten</div>
+                      <div class="db-extra-section-hint">Bezeichnung und Anzahl der Zusatzspalten.</div>
+                    </div>
+                    <label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label>
+                    <div class="db-extra-name-list"></div>
+                  </div>
+                  <div class="db-extra-section db-extra-rules">
+                    <div class="db-extra-section-header">
+                      <div class="db-extra-section-title">Regeln</div>
+                      <div class="db-extra-section-hint">Geräte landen mit passenden Feld/Kombinationen direkt in der Zielspalte – unabhängig von der bisherigen Zuweisung.</div>
+                    </div>
+                    <div class="db-extra-rule-board"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1380,6 +1402,7 @@
       partSelectOptions:root.querySelector('.db-part-options'),
       extraCount:root.querySelector('.db-extra-count'),
       extraNameList:root.querySelector('.db-extra-name-list'),
+      extraRuleBoard:root.querySelector('.db-extra-rule-board'),
       partList:root.querySelector('.db-part-list'),
       partFilter:root.querySelector('.db-part-filter-input'),
       enableAllBtn:root.querySelector('.db-action-enable'),
@@ -1945,6 +1968,34 @@
   function buildKeywordMatcher(keyword){
     const raw=typeof keyword==='string'?keyword.trim():'';
     if(!raw) return {test:()=>false,isValid:true,isPattern:false,pattern:''};
+    const parseBooleanMatcher=()=>{
+      const normalizeSegment=value=>value.trim();
+      const orParts=raw.split(/\bOR\b|\|\|/i).map(normalizeSegment).filter(Boolean);
+      if(orParts.length>1){
+        const matchers=orParts.map(part=>buildKeywordMatcher(part));
+        const isValid=matchers.every(matcher=>matcher.isValid);
+        return {
+          test:value=>matchers.some(matcher=>matcher.test(value)),
+          isValid,
+          isPattern:true,
+          pattern:raw
+        };
+      }
+      const andParts=raw.split(/\bAND\b|&&/i).map(normalizeSegment).filter(Boolean);
+      if(andParts.length>1){
+        const matchers=andParts.map(part=>buildKeywordMatcher(part));
+        const isValid=matchers.every(matcher=>matcher.isValid);
+        return {
+          test:value=>matchers.every(matcher=>matcher.test(value)),
+          isValid,
+          isPattern:true,
+          pattern:raw
+        };
+      }
+      return null;
+    };
+    const booleanMatcher=parseBooleanMatcher();
+    if(booleanMatcher) return booleanMatcher;
     const asRegex=(pattern)=>{
       try{
         const regex=new RegExp(pattern,'i');
@@ -3791,7 +3842,7 @@
       if(elements.extraCount){
         elements.extraCount.value=String(tempExtraColumns.length);
       }
-      if(!elements.extraNameList){
+      if(!elements.extraNameList || !elements.extraRuleBoard){
         return;
       }
       const ruleFields=(Array.isArray(tempExtraColumns)?tempExtraColumns:[])
@@ -3820,8 +3871,10 @@
           selectionEnd:activeElement.selectionEnd
         };
       }
-      const fragment=document.createDocumentFragment();
+      const nameFragment=document.createDocumentFragment();
+      const ruleFragment=document.createDocumentFragment();
       tempExtraColumns.forEach((column,index)=>{
+        const columnLabel=(column.label||'').trim()||`Extraspalte ${index+1}`;
         const row=document.createElement('div');
         row.className='db-extra-name-row';
         row.dataset.columnId=column.id;
@@ -3837,7 +3890,7 @@
         label.dataset.columnId=column.id;
         const helper=document.createElement('span');
         helper.className='db-extra-name-input-label';
-        helper.textContent='Name & Regeln';
+        helper.textContent='Spaltenname';
         label.appendChild(helper);
         const input=document.createElement('input');
         input.type='text';
@@ -3849,6 +3902,22 @@
         input.addEventListener('input',handleExtraNameInput);
         input.addEventListener('change',handleExtraNameCommit);
         label.appendChild(input);
+        row.appendChild(label);
+        nameFragment.appendChild(row);
+
+        const card=document.createElement('div');
+        card.className='db-extra-rule-card';
+        card.dataset.columnId=column.id;
+        const cardTitle=document.createElement('div');
+        cardTitle.className='db-extra-rule-card-title';
+        const cardLabel=document.createElement('span');
+        cardLabel.textContent=columnLabel;
+        const cardMeta=document.createElement('span');
+        cardMeta.className='db-extra-rule-card-meta';
+        cardMeta.textContent=`Spalte ${index+1}`;
+        cardTitle.appendChild(cardLabel);
+        cardTitle.appendChild(cardMeta);
+        card.appendChild(cardTitle);
         const ruleHeader=document.createElement('div');
         ruleHeader.className='db-extra-rule-header';
         const ruleLabel=document.createElement('span');
@@ -3856,10 +3925,10 @@
         ruleLabel.textContent='Automatische Zuweisung (oberste Regel gewinnt)';
         const ruleHint=document.createElement('span');
         ruleHint.className='db-extra-rule-hint';
-        ruleHint.textContent='Wenn Feld befüllt ist und/oder ein Keyword passt, dann ab in die Zielspalte.';
+        ruleHint.textContent='Wenn Feld befüllt ist und/oder ein Keyword passt, landet das Gerät in der Zielspalte.';
         ruleHeader.appendChild(ruleLabel);
         ruleHeader.appendChild(ruleHint);
-        label.appendChild(ruleHeader);
+        card.appendChild(ruleHeader);
         const rulesList=document.createElement('div');
         rulesList.className='db-extra-rule-list';
         const ensureRuleSlot=(position)=>{
@@ -3933,12 +4002,12 @@
             keywordField.className='db-extra-rule-field';
             const keywordLabel=document.createElement('label');
             keywordLabel.textContent='Keyword';
-            keywordLabel.title='…und ein Aspen-Keyword gefunden wird (mit * / ? / | für Muster, Enter prüft die Syntax)…';
+            keywordLabel.title='…und ein Aspen-Keyword gefunden wird (mit * / ? / | oder OR/AND für Muster, Enter prüft die Syntax)…';
             const keywordInput=document.createElement('input');
             keywordInput.type='text';
             keywordInput.setAttribute('list',keywordListId);
             keywordInput.value=normalized.keyword||'';
-            keywordInput.placeholder='z.B. UC, EOL, UC9*|mUC99';
+            keywordInput.placeholder='z.B. UC98 OR UC99, UC9*|mUC99';
             const validateKeyword=()=>{
               const result=buildKeywordMatcher(keywordInput.value);
               if(!result.isValid){
@@ -4038,12 +4107,13 @@
           rulesList.appendChild(addRule);
         };
         renderRules();
-        label.appendChild(rulesList);
-        row.appendChild(label);
-        fragment.appendChild(row);
+        card.appendChild(rulesList);
+        ruleFragment.appendChild(card);
       });
       elements.extraNameList.innerHTML='';
-      elements.extraNameList.appendChild(fragment);
+      elements.extraRuleBoard.innerHTML='';
+      elements.extraNameList.appendChild(nameFragment);
+      elements.extraRuleBoard.appendChild(ruleFragment);
       if(restoreFocus && restoreFocus.columnId && restoreFocus.columnId!==ACTIVE_COLUMN_ID){
         const target=elements.extraNameList.querySelector(`input[data-column-id="${restoreFocus.columnId}"]`);
         if(target){
