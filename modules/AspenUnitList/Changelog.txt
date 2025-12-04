@@ -3,6 +3,13 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.20] – 2025-12-03
+### Added
+- Extraspalten erhalten regelbasierte Auto-Zuordnungstabellen mit Status-Dropdown, Keyword-Autocomplete und Zielspaltenwahl.
+
+### Changed
+- Gerätezuweisungen berücksichtigen die neuen Regeln direkt nach der AutoUC-Prüfung; bestehende Konfigurationen ergänzen fehlende Regelstubs automatisch.
+
 ## [1.1.19] – 2025-12-02
 ### Changed
 - Modul-Farbgruppen strikt auf das Main/Alternative/Accent-System umgestellt: alle Hintergründe, Rahmen, Texte und Akzente lesen jetzt direkt die bereitgestellten CSS-Variablen der drei Layer.

@@ -176,6 +176,11 @@
     .db-extra-name-input-label{font-weight:600;}
     .db-extra-name-input-field{width:100%;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
     .db-extra-name-input-field:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
+    .db-extra-rule-header{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
+    .db-extra-rule-hint{font-size:.78rem;font-weight:600;color:var(--ab-muted);}
+    .db-extra-rule-list{display:flex;flex-direction:column;gap:.4rem;}
+    .db-extra-rule-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:.35rem;align-items:end;}
+    .db-extra-rule-field{display:flex;flex-direction:column;gap:.2rem;}
     .db-extra-uc-switch{position:relative;display:flex;align-items:center;gap:.65rem;padding:.35rem .75rem;border-radius:.75rem;font-size:.78rem;font-weight:600;color:var(--ab-text);background:var(--ab-surface-quiet);box-shadow:var(--ab-shadow);cursor:pointer;user-select:none;transition:background .2s ease,box-shadow .2s ease,color .2s ease;min-width:0;line-height:1.1;}
     .db-extra-uc-switch:hover{background:var(--ab-surface);box-shadow:var(--ab-shadow-strong);}
     .db-extra-uc-switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;}
@@ -1294,6 +1299,33 @@
     return 'extra-'+Math.random().toString(36).slice(2,9);
   }
 
+  function createEmptyExtraRule(defaultTarget=''){
+    return {status:'',keyword:'',toColumn:defaultTarget||''};
+  }
+
+  function sanitizeExtraRule(rule,{defaultTarget=''}={}){
+    const source=rule&&typeof rule==='object'?rule:{};
+    const status=typeof source.status==='string'?source.status.trim():'';
+    const keyword=typeof source.keyword==='string'?source.keyword.trim():'';
+    const toColumn=typeof source.toColumn==='string'
+      ? source.toColumn.trim()
+      : typeof source.column==='string'
+        ? source.column.trim()
+        : '';
+    return {
+      status,
+      keyword,
+      toColumn:toColumn||defaultTarget
+    };
+  }
+
+  function sanitizeExtraRuleList(rules,{defaultTarget=''}={}){
+    if(!Array.isArray(rules)) return [createEmptyExtraRule(defaultTarget)];
+    const sanitized=rules.map(rule=>sanitizeExtraRule(rule,{defaultTarget}));
+    if(!sanitized.length) return [createEmptyExtraRule(defaultTarget)];
+    return sanitized;
+  }
+
   function sanitizeExtraColumns(columns){
     if(!Array.isArray(columns)) return [];
     const sanitized=[];
@@ -1311,7 +1343,8 @@
       const requestedUcSort=!!source.ucSort;
       const ucSort=!ucAssigned && requestedUcSort;
       if(ucSort) ucAssigned=true;
-      sanitized.push({id,label,ucSort});
+      const rules=sanitizeExtraRuleList(source.rules,{defaultTarget:id});
+      sanitized.push({id,label,ucSort,rules});
     }
     return sanitized;
   }
@@ -1634,7 +1667,10 @@
         partField:state.config.partField,
         title:state.config.title,
         titleRules:Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[],
-        extraColumns:Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[],
+        extraColumns:Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({
+          ...col,
+          rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+        })) : [],
         activeColumn:{...sanitizeActiveColumn(state.config.activeColumn)},
         searchFilters:Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[]
       },
@@ -1658,7 +1694,10 @@
           ...payload.config,
           subFields:payload.config.subFields.map(sub=>({...sub})),
           titleRules:payload.config.titleRules.map(rule=>({...rule})),
-          extraColumns:payload.config.extraColumns.map(col=>({...col})),
+          extraColumns:payload.config.extraColumns.map(col=>({
+            ...col,
+            rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+          })),
           activeColumn:{...payload.config.activeColumn},
           searchFilters:payload.config.searchFilters.map(filter=>({...filter}))
         },
@@ -1699,6 +1738,25 @@
     return base;
   }
 
+  function getDataFieldValue(data,field){
+    if(!data||typeof data!=='object' || !field) return '';
+    if(Object.prototype.hasOwnProperty.call(data,field)){
+      const value=data[field];
+      if(value===undefined || value===null) return '';
+      return typeof value==='string'?value.trim():String(value).trim();
+    }
+    const lowerField=field.toLowerCase();
+    for(const key of Object.keys(data)){
+      if(typeof key!=='string') continue;
+      if(key.trim().toLowerCase()===lowerField){
+        const value=data[key];
+        if(value===undefined || value===null) continue;
+        return typeof value==='string'?value.trim():String(value).trim();
+      }
+    }
+    return '';
+  }
+
   function getUcFieldValue(item){
     if(!item||typeof item!=='object') return '';
     const data=item.data&&typeof item.data==='object'?item.data:{};
@@ -1709,6 +1767,72 @@
       if(typeof key!=='string') continue;
       if(key.trim().toLowerCase()==='uc'){
         return String(data[key]??'').trim();
+      }
+    }
+    return '';
+  }
+
+  function getItemStatusValue(item){
+    if(!item||typeof item!=='object') return '';
+    const data=item.data&&typeof item.data==='object'?item.data:{};
+    const directStatus=getDataFieldValue(data,'Status');
+    if(directStatus) return directStatus;
+    return getDataFieldValue(
+      data,
+      Object.keys(data).find(key=>typeof key==='string' && key.toLowerCase().includes('status'))||''
+    );
+  }
+
+  function getItemKeywords(item){
+    if(!item||typeof item!=='object') return [];
+    const data=item.data&&typeof item.data==='object'?item.data:{};
+    const keywordKey=Object.keys(data).find(key=>typeof key==='string' && key.toLowerCase().includes('keyword'));
+    const raw=keywordKey?getDataFieldValue(data,keywordKey):'';
+    if(!raw) return [];
+    return raw
+      .split(/[;,|]/)
+      .map(part=>part.trim())
+      .filter(Boolean);
+  }
+
+  function collectKnownStatuses(items){
+    const statuses=new Set();
+    (Array.isArray(items)?items:[]).forEach(item=>{
+      const status=getItemStatusValue(item);
+      if(status) statuses.add(status);
+    });
+    return Array.from(statuses);
+  }
+
+  function collectKnownKeywords(items){
+    const keywords=new Set();
+    (Array.isArray(items)?items:[]).forEach(item=>{
+      getItemKeywords(item).forEach(keyword=>{
+        if(keyword) keywords.add(keyword);
+      });
+    });
+    return Array.from(keywords);
+  }
+
+  function findRuleTarget(extraColumns,item){
+    const availableIds=new Set((Array.isArray(extraColumns)?extraColumns:[]).map(col=>col.id).filter(Boolean));
+    if(!availableIds.size) return '';
+    const statusValue=getItemStatusValue(item).toLowerCase();
+    const keywords=getItemKeywords(item).map(keyword=>keyword.toLowerCase());
+    for(const column of extraColumns){
+      const rules=Array.isArray(column?.rules)?column.rules:[];
+      for(const rawRule of rules){
+        const rule=sanitizeExtraRule(rawRule,{defaultTarget:column.id});
+        const target=(rule.toColumn||column.id||'').trim();
+        if(!target || !availableIds.has(target)) continue;
+        const ruleStatus=(rule.status||'').toLowerCase();
+        const ruleKeyword=(rule.keyword||'').toLowerCase();
+        if(!ruleStatus && !ruleKeyword) continue;
+        const statusMatch=!ruleStatus || (!!statusValue && statusValue===ruleStatus);
+        const keywordMatch=!ruleKeyword || keywords.some(keyword=>keyword.includes(ruleKeyword));
+        if(statusMatch && keywordMatch){
+          return target;
+        }
       }
     }
     return '';
@@ -2282,10 +2406,19 @@
         const extraSource=optionsOpen && Array.isArray(tempExtraColumns)
           ? tempExtraColumns
           : Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
-        const sanitizedExtras=sanitizeExtraColumns(extraSource);
-        state.config.extraColumns=sanitizedExtras;
+        const sanitizedExtras=sanitizeExtraColumns(extraSource).map(col=>({
+          ...col,
+          rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+        }));
+        state.config.extraColumns=sanitizedExtras.map(col=>({
+          ...col,
+          rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+        }));
         if(optionsOpen){
-          tempExtraColumns=sanitizedExtras.map(col=>({...col}));
+          tempExtraColumns=sanitizedExtras.map(col=>({
+            ...col,
+            rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+          }));
         }
         const filterSource=optionsOpen && Array.isArray(tempSearchFilters)
           ? tempSearchFilters
@@ -3030,6 +3163,15 @@
             autoAssignments.set(meldung,ucColumnId);
           }
         }
+        if(!autoColumnId){
+          const ruleTarget=findRuleTarget(extraColumns,item);
+          if(ruleTarget){
+            autoColumnId=ruleTarget;
+            if(meldung){
+              autoAssignments.set(meldung,ruleTarget);
+            }
+          }
+        }
         if(autoColumnId && extraBuckets.has(autoColumnId)){
           extraBuckets.get(autoColumnId).push(item);
           return;
@@ -3476,14 +3618,22 @@
     }
 
     function renderExtraControls(){
-      const sanitized=sanitizeExtraColumns(tempExtraColumns);
-      tempExtraColumns=sanitized.map(col=>({...col}));
+      const sanitized=sanitizeExtraColumns(tempExtraColumns).map(col=>({
+        ...col,
+        rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+      }));
+      tempExtraColumns=sanitized.map(col=>({
+        ...col,
+        rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+      }));
       if(elements.extraCount){
         elements.extraCount.value=String(tempExtraColumns.length);
       }
       if(!elements.extraNameList){
         return;
       }
+      const statusOptions=collectKnownStatuses(state.items||[]);
+      const keywordOptions=collectKnownKeywords(state.items||[]);
       const fallbackActiveLabel=state.config?.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       const fallbackActiveEnabled=state.config?.activeColumn?.enabled!==false;
       const normalizedActiveLabel=String(
@@ -3538,7 +3688,7 @@
         label.dataset.columnId=column.id;
         const helper=document.createElement('span');
         helper.className='db-extra-name-input-label';
-        helper.textContent='Name der Extraspalte';
+        helper.textContent='Name & Regeln';
         label.appendChild(helper);
         const input=document.createElement('input');
         input.type='text';
@@ -3550,6 +3700,172 @@
         input.addEventListener('input',handleExtraNameInput);
         input.addEventListener('change',handleExtraNameCommit);
         label.appendChild(input);
+        const ruleHeader=document.createElement('div');
+        ruleHeader.className='db-extra-rule-header';
+        const ruleLabel=document.createElement('span');
+        ruleLabel.className='db-rule-label';
+        ruleLabel.textContent='Automatische Zuweisung (oberste Regel gewinnt)';
+        const ruleHint=document.createElement('span');
+        ruleHint.className='db-extra-rule-hint';
+        ruleHint.textContent='Wenn Status & Keyword passen, dann ab in die Zielspalte.';
+        ruleHeader.appendChild(ruleLabel);
+        ruleHeader.appendChild(ruleHint);
+        label.appendChild(ruleHeader);
+        const rulesList=document.createElement('div');
+        rulesList.className='db-extra-rule-list';
+        const ensureRuleSlot=(position)=>{
+          if(!Array.isArray(tempExtraColumns[index].rules)){
+            tempExtraColumns[index].rules=[createEmptyExtraRule(column.id)];
+          }
+          if(position>=tempExtraColumns[index].rules.length){
+            tempExtraColumns[index].rules.push(createEmptyExtraRule(column.id));
+          }
+        };
+        const renderRules=()=>{
+          rulesList.innerHTML='';
+          const rules=Array.isArray(tempExtraColumns[index].rules)
+            ? tempExtraColumns[index].rules
+            : [];
+          if(!rules.length){
+            tempExtraColumns[index].rules=[createEmptyExtraRule(column.id)];
+          }
+          const targets=tempExtraColumns.map((col,idx)=>({
+            id:col.id,
+            label:col.label?.trim()||`Extraspalte ${idx+1}`
+          }));
+          const keywordListId=`db-extra-keywords-${column.id}`;
+          const keywordDataList=document.createElement('datalist');
+          keywordDataList.id=keywordListId;
+          keywordDataList.style.display='none';
+          keywordDataList.innerHTML=keywordOptions.map(keyword=>`<option value="${keyword}"></option>`).join('');
+          rulesList.appendChild(keywordDataList);
+          tempExtraColumns[index].rules.forEach((rule,ruleIndex)=>{
+            const normalized=sanitizeExtraRule(rule,{defaultTarget:column.id});
+            tempExtraColumns[index].rules[ruleIndex]=normalized;
+            const ruleRow=document.createElement('div');
+            ruleRow.className='db-extra-rule-row';
+
+            const statusField=document.createElement('div');
+            statusField.className='db-extra-rule-field';
+            const statusLabel=document.createElement('label');
+            statusLabel.textContent='Status';
+            statusLabel.title='Wenn der Gerätestatus passt…';
+            const statusSelect=document.createElement('select');
+            const emptyStatus=document.createElement('option');
+            emptyStatus.value='';
+            emptyStatus.textContent='(egal)';
+            statusSelect.appendChild(emptyStatus);
+            statusOptions.forEach(option=>{
+              const opt=document.createElement('option');
+              opt.value=option;
+              opt.textContent=option;
+              statusSelect.appendChild(opt);
+            });
+            statusSelect.value=normalized.status||'';
+            statusSelect.addEventListener('change',()=>{
+              ensureRuleSlot(ruleIndex);
+              tempExtraColumns[index].rules[ruleIndex]={
+                ...tempExtraColumns[index].rules[ruleIndex],
+                status:statusSelect.value||''
+              };
+              scheduleOptionPersist(true);
+            });
+            statusField.appendChild(statusLabel);
+            statusField.appendChild(statusSelect);
+            ruleRow.appendChild(statusField);
+
+            const keywordField=document.createElement('div');
+            keywordField.className='db-extra-rule-field';
+            const keywordLabel=document.createElement('label');
+            keywordLabel.textContent='Keyword';
+            keywordLabel.title='…und ein Aspen-Keyword gefunden wird…';
+            const keywordInput=document.createElement('input');
+            keywordInput.type='text';
+            keywordInput.setAttribute('list',keywordListId);
+            keywordInput.value=normalized.keyword||'';
+            keywordInput.placeholder='z.B. UC, EOL, Prüfen';
+            keywordInput.addEventListener('change',()=>{
+              ensureRuleSlot(ruleIndex);
+              tempExtraColumns[index].rules[ruleIndex]={
+                ...tempExtraColumns[index].rules[ruleIndex],
+                keyword:keywordInput.value.trim()
+              };
+              scheduleOptionPersist(true);
+            });
+            keywordInput.addEventListener('input',()=>{
+              ensureRuleSlot(ruleIndex);
+              tempExtraColumns[index].rules[ruleIndex]={
+                ...tempExtraColumns[index].rules[ruleIndex],
+                keyword:keywordInput.value.trim()
+              };
+            });
+            keywordField.appendChild(keywordLabel);
+            keywordField.appendChild(keywordInput);
+            ruleRow.appendChild(keywordField);
+
+            const targetField=document.createElement('div');
+            targetField.className='db-extra-rule-field';
+            const targetLabel=document.createElement('label');
+            targetLabel.textContent='…dann Spalte';
+            targetLabel.title='Zielspalte für passende Geräte';
+            const targetSelect=document.createElement('select');
+            const placeholder=document.createElement('option');
+            placeholder.value='';
+            placeholder.textContent='Extraspalte wählen';
+            targetSelect.appendChild(placeholder);
+            targets.forEach(target=>{
+              const opt=document.createElement('option');
+              opt.value=target.id;
+              opt.textContent=target.label;
+              targetSelect.appendChild(opt);
+            });
+            targetSelect.value=normalized.toColumn||'';
+            targetSelect.addEventListener('change',()=>{
+              ensureRuleSlot(ruleIndex);
+              tempExtraColumns[index].rules[ruleIndex]={
+                ...tempExtraColumns[index].rules[ruleIndex],
+                toColumn:targetSelect.value||''
+              };
+              scheduleOptionPersist(true);
+              updateTempColumnPreview(targetSelect.value);
+            });
+            targetField.appendChild(targetLabel);
+            targetField.appendChild(targetSelect);
+            ruleRow.appendChild(targetField);
+
+            const removeBtn=document.createElement('button');
+            removeBtn.type='button';
+            removeBtn.className='db-rule-remove';
+            removeBtn.title='Regel entfernen';
+            removeBtn.textContent='✕';
+            removeBtn.addEventListener('click',()=>{
+              if(Array.isArray(tempExtraColumns[index].rules)){
+                tempExtraColumns[index].rules.splice(ruleIndex,1);
+                if(!tempExtraColumns[index].rules.length){
+                  tempExtraColumns[index].rules=[createEmptyExtraRule(column.id)];
+                }
+              }
+              renderRules();
+              scheduleOptionPersist(true);
+            });
+            ruleRow.appendChild(removeBtn);
+
+            rulesList.appendChild(ruleRow);
+          });
+          const addRule=document.createElement('button');
+          addRule.type='button';
+          addRule.className='db-add-rule';
+          addRule.textContent='Regel hinzufügen';
+          addRule.addEventListener('click',()=>{
+            ensureRuleSlot(tempExtraColumns[index].rules?.length||0);
+            tempExtraColumns[index].rules.push(createEmptyExtraRule(column.id));
+            renderRules();
+            scheduleOptionPersist(true);
+          });
+          rulesList.appendChild(addRule);
+        };
+        renderRules();
+        label.appendChild(rulesList);
         row.appendChild(label);
         fragment.appendChild(row);
       });
@@ -3581,7 +3897,8 @@
       }
       if(clamped>tempExtraColumns.length){
         for(let i=tempExtraColumns.length;i<clamped;i+=1){
-          tempExtraColumns.push({id:generateExtraColumnId(),label:'',ucSort:false});
+          const id=generateExtraColumnId();
+          tempExtraColumns.push({id,label:'',ucSort:false,rules:[createEmptyExtraRule(id)]});
         }
       }else{
         tempExtraColumns=tempExtraColumns.slice(0,clamped);
@@ -3799,7 +4116,12 @@
         const normalized=normalizeTitleRule(rule);
         return {...normalized,draftField:normalized.field};
       }):[];
-      tempExtraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[];
+      tempExtraColumns=Array.isArray(state.config.extraColumns)
+        ? state.config.extraColumns.map(col=>({
+            ...col,
+            rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+          }))
+        : [];
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       tempActiveColumnEnabled=state.config.activeColumn?.enabled!==false;
       tempSearchFilters=Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[];
