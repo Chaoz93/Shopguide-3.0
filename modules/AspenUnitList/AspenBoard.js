@@ -120,6 +120,12 @@
     .db-menu-toggle.is-active .db-menu-toggle-icon{background:var(--ab-accent-quiet);color:var(--ab-accent-contrast);}
     .db-option-section{display:flex;flex-direction:column;gap:.75rem;}
     .db-option-actions{display:flex;flex-wrap:wrap;gap:.35rem;}
+    .db-config-tabs{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin-bottom:.75rem;}
+    .db-config-tab{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:.35rem;padding:.45rem .75rem;border:1px solid var(--ab-border);border-radius:.6rem;background:var(--ab-card);color:var(--ab-text);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
+    .db-config-tab:hover{background:var(--ab-section);color:var(--ab-text);}
+    .db-config-tab.is-active{background:var(--ab-accent);color:var(--ab-accent-contrast);border:1px solid var(--ab-accent-border,var(--ab-accent));box-shadow:0 0 0 2px var(--ab-accent-glow);}
+    .db-tab-panel{display:none;flex-direction:column;gap:1rem;}
+    .db-tab-panel.is-active{display:flex;}
     .db-part-section{display:flex;flex-direction:column;gap:.35rem;padding:.5rem;border-radius:.65rem;border:1px solid var(--ab-section-border);background:var(--ab-section);}
     .db-part-filter{padding:.35rem .5rem .15rem;}
     .db-part-filter input{width:100%;padding:.35rem .55rem;border:1px solid var(--ab-border);border-radius:.5rem;background:transparent;color:inherit;font-size:.85rem;}
@@ -1210,7 +1216,125 @@
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root aspenboard';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><div class="db-search-filter-group" aria-label="Such-Vorfilter"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><aside class="db-config-filter"><div class="db-quick-section"><div class="db-option-section"><label>Titel (optional)<input type="text" class="db-title-input"></label><div class="db-option-actions"><button type="button" class="db-menu-toggle db-action-pick" title="Aspen-Datei auswählen"><span class="db-menu-toggle-icon" aria-hidden="true">📂</span><span class="db-menu-toggle-label">Aspen.xlsx wählen</span></button><div class="db-menu-toggle-group" role="group" aria-label="Partfilter Schnellaktionen"><button type="button" class="db-menu-toggle db-action-enable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✓</span><span class="db-menu-toggle-label">Alles aktivieren</span></button><button type="button" class="db-menu-toggle db-action-disable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✕</span><span class="db-menu-toggle-label">Alle deaktivieren</span></button></div></div></div></div><div class="db-part-section"><div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div><div class="db-part-list"></div></div></aside><aside class="db-config-extras"><div class="db-extra-card"><div class="db-extra-card-title">Extraspalten</div><div class="db-extra-card-body"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div></div></aside><div class="db-config-main"><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row filters"><div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div><div class="db-filter-list"></div><button type="button" class="db-add-filter">Filter hinzufügen</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div></div></div></div>`;
+    root.innerHTML=`
+      <div class="db-titlebar" hidden>
+        <div class="db-title-group">
+          <span class="db-title-text"></span>
+          <span class="db-title-meta" hidden></span>
+          <span class="db-title-status" hidden role="status" aria-live="polite">
+            <span class="db-status-icon" aria-hidden="true"></span>
+            <span class="db-status-text"></span>
+          </span>
+          <span class="db-title-hint" hidden></span>
+        </div>
+        <button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button>
+      </div>
+      <div class="db-surface">
+        <div class="db-toolbar">
+          <div class="db-toggle-group" aria-label="Extraspalten umschalten"></div>
+          <div class="db-search-filter-group" aria-label="Such-Vorfilter"></div>
+          <input type="search" class="db-search" placeholder="Geräte suchen…">
+        </div>
+        <div class="db-lists">
+          <div class="db-list-wrap db-main-wrap">
+            <div class="db-list db-main-list" data-board-type="aspen-unit"></div>
+          </div>
+          <div class="db-extra-container"></div>
+          <div class="db-list-wrap db-active-wrap" hidden>
+            <div class="db-list-title db-active-title">Aktive Geräte</div>
+            <div class="db-list db-active-list" data-board-type="aspen-active"></div>
+          </div>
+        </div>
+      </div>
+      <div class="db-modal">
+        <div class="db-panel">
+          <div class="db-config-tabs" role="tablist" aria-label="Einstellungsbereiche">
+            <button type="button" class="db-config-tab is-active" role="tab" aria-selected="true" data-tab="general">Allgemein</button>
+            <button type="button" class="db-config-tab" role="tab" aria-selected="false" data-tab="extras">Extraspalten</button>
+          </div>
+          <div class="db-tab-panel db-tab-general is-active" data-tab="general">
+            <div class="db-config-layout">
+              <aside class="db-config-filter">
+                <div class="db-quick-section">
+                  <div class="db-option-section">
+                    <label>Titel (optional)<input type="text" class="db-title-input"></label>
+                    <div class="db-option-actions">
+                      <button type="button" class="db-menu-toggle db-action-pick" title="Aspen-Datei auswählen">
+                        <span class="db-menu-toggle-icon" aria-hidden="true">📂</span>
+                        <span class="db-menu-toggle-label">Aspen.xlsx wählen</span>
+                      </button>
+                      <div class="db-menu-toggle-group" role="group" aria-label="Partfilter Schnellaktionen">
+                        <button type="button" class="db-menu-toggle db-action-enable" aria-pressed="false">
+                          <span class="db-menu-toggle-icon" aria-hidden="true">✓</span>
+                          <span class="db-menu-toggle-label">Alles aktivieren</span>
+                        </button>
+                        <button type="button" class="db-menu-toggle db-action-disable" aria-pressed="false">
+                          <span class="db-menu-toggle-icon" aria-hidden="true">✕</span>
+                          <span class="db-menu-toggle-label">Alle deaktivieren</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="db-part-section">
+                  <div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div>
+                  <div class="db-part-list"></div>
+                </div>
+              </aside>
+              <div class="db-config-main">
+                <div class="row rules">
+                  <div class="db-row-header">
+                    <div class="db-rule-label">Titel-Logik (Wenn/Dann)</div>
+                    <div class="db-row-actions">
+                      <button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button>
+                      <button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button>
+                    </div>
+                  </div>
+                  <div class="db-rule-list"></div>
+                  <button type="button" class="db-add-rule">Regel hinzufügen</button>
+                </div>
+                <div class="row subs">
+                  <div class="db-row-header">
+                    <label>Untertitel-Felder</label>
+                    <div class="db-row-actions">
+                      <button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button>
+                      <button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button>
+                    </div>
+                  </div>
+                  <div class="db-sub-list"></div>
+                  <button type="button" class="db-add-sub">+</button>
+                </div>
+                <div class="row filters">
+                  <div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div>
+                  <div class="db-filter-list"></div>
+                  <button type="button" class="db-add-filter">Filter hinzufügen</button>
+                </div>
+                <div class="row">
+                  <label>Dropdownkriterium
+                    <div class="db-part-select">
+                      <input type="text" class="db-part-select-input" placeholder="Spalte wählen">
+                      <div class="db-part-options"></div>
+                    </div>
+                    <select class="db-sel-part" hidden></select>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="db-tab-panel db-tab-extras" data-tab="extras" hidden>
+            <div class="db-extra-card">
+              <div class="db-extra-card-title">Extraspalten</div>
+              <div class="db-extra-card-body">
+                <div class="db-extra-config">
+                  <label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label>
+                  <div class="db-extra-name-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -1258,7 +1382,9 @@
       partFilter:root.querySelector('.db-part-filter-input'),
       enableAllBtn:root.querySelector('.db-action-enable'),
       disableAllBtn:root.querySelector('.db-action-disable'),
-      pickBtn:root.querySelector('.db-action-pick')
+      pickBtn:root.querySelector('.db-action-pick'),
+      configTabs:Array.from(root.querySelectorAll('.db-config-tab')),
+      tabPanels:Array.from(root.querySelectorAll('.db-tab-panel'))
     };
   }
 
@@ -2340,6 +2466,23 @@
     const extraSortableInstances=new Map();
     let baseSortableConfig=null;
     let lastExtraSignature=null;
+    let activeConfigTab='general';
+
+    function activateConfigTab(tab){
+      const target=tab==='extras'?'extras':'general';
+      activeConfigTab=target;
+      (elements.configTabs||[]).forEach(btn=>{
+        const isActive=(btn.dataset?.tab||'')===target;
+        btn.classList.toggle('is-active',isActive);
+        btn.setAttribute('aria-selected',isActive?'true':'false');
+        btn.setAttribute('tabindex',isActive?'0':'-1');
+      });
+      (elements.tabPanels||[]).forEach(panel=>{
+        const isActive=(panel.dataset?.tab||'')===target;
+        panel.classList.toggle('is-active',isActive);
+        panel.hidden=!isActive;
+      });
+    }
 
     function applyOptionChanges(){
       if(applyingOptionChanges) return;
@@ -3262,6 +3405,20 @@
       });
     }
 
+    if(Array.isArray(elements.configTabs)){
+      elements.configTabs.forEach(btn=>{
+        const switchTab=()=>activateConfigTab(btn.dataset?.tab||'general');
+        btn.addEventListener('click',switchTab);
+        btn.addEventListener('keydown',event=>{
+          if(event.key==='Enter' || event.key===' '){
+            event.preventDefault();
+            switchTab();
+          }
+        });
+      });
+    }
+    activateConfigTab(activeConfigTab);
+
     function renderSubFieldControls(){
       const existing=Array.isArray(tempSubFields)?tempSubFields:[];
       tempSubFields=existing.map(entry=>normalizeSubField(entry,{allowEmptyField:true})||createSubFieldConfig(''));
@@ -4131,6 +4288,7 @@
       renderExtraControls();
       renderRuleControls();
       refreshPartControls(elements,state,render);
+      activateConfigTab(activeConfigTab);
       elements.titleInput.value=state.config.title||'';
       elements.modal.classList.add('open');
       syncPartSelectInputValue();
