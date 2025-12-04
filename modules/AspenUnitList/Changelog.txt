@@ -3,6 +3,35 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.24] – 2025-12-07
+### Changed
+- Keyword-Regeln unterstützen jetzt Muster-Syntax (z. B. UC9*|mUC99, UC[89]), sodass mehrere Varianten ohne zusätzliche Regeln erkannt werden.
+- Eingaben im Keyword-Feld lassen sich per Enter-Taste auf gültige Syntax prüfen; fehlerhafte Muster markieren das Feld sofort.
+
+## [1.1.23] – 2025-12-06
+### Fixed
+- Dropdown-Auswahllisten im Einstellungsdialog übernehmen jetzt die Modulhintergründe und Textfarben, damit Feld- und Zielspaltenwahl auch auf dunklen Themen klar lesbar bleibt.
+
+## [1.1.22] – 2025-12-05
+### Changed
+- Extraspalten-Tab erhält eine begrenzte Höhe mit eigener Scrollfläche, damit umfangreiche Regel-Setups ohne riesige Modaldialoge
+  bearbeitet werden können.
+- Auto-Zuordnungsregeln prüfen jetzt frei wählbare Aspen-Felder; ein leeres Keyword verschiebt Geräte bereits bei gefülltem Feld
+  (z. B. UC) in die Zielspalte.
+- Bestehende AutoUC-Schalter werden in gleichwertige Feld/Keyword-Regeln umgewandelt, damit sämtliche Zuordnungslogik über das
+  Regelraster läuft.
+
+## [1.1.21] – 2025-12-04
+### Changed
+- Extraspalten-Konfiguration in einen eigenen Tab des Einstellungsdialogs verschoben, damit die Hauptoptionen kompakter bleiben.
+
+## [1.1.20] – 2025-12-03
+### Added
+- Extraspalten erhalten regelbasierte Auto-Zuordnungstabellen mit Status-Dropdown, Keyword-Autocomplete und Zielspaltenwahl.
+
+### Changed
+- Gerätezuweisungen berücksichtigen die neuen Regeln direkt nach der AutoUC-Prüfung; bestehende Konfigurationen ergänzen fehlende Regelstubs automatisch.
+
 ## [1.1.19] – 2025-12-02
 ### Changed
 - Modul-Farbgruppen strikt auf das Main/Alternative/Accent-System umgestellt: alle Hintergründe, Rahmen, Texte und Akzente lesen jetzt direkt die bereitgestellten CSS-Variablen der drei Layer.

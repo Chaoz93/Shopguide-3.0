@@ -120,6 +120,13 @@
     .db-menu-toggle.is-active .db-menu-toggle-icon{background:var(--ab-accent-quiet);color:var(--ab-accent-contrast);}
     .db-option-section{display:flex;flex-direction:column;gap:.75rem;}
     .db-option-actions{display:flex;flex-wrap:wrap;gap:.35rem;}
+    .db-config-tabs{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin-bottom:.75rem;}
+    .db-config-tab{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:.35rem;padding:.45rem .75rem;border:1px solid var(--ab-border);border-radius:.6rem;background:var(--ab-card);color:var(--ab-text);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
+    .db-config-tab:hover{background:var(--ab-section);color:var(--ab-text);}
+    .db-config-tab.is-active{background:var(--ab-accent);color:var(--ab-accent-contrast);border:1px solid var(--ab-accent-border,var(--ab-accent));box-shadow:0 0 0 2px var(--ab-accent-glow);}
+    .db-tab-panel{display:none;flex-direction:column;gap:1rem;}
+    .db-tab-panel.is-active{display:flex;}
+    .db-tab-panel.db-tab-extras{max-height:68vh;overflow:auto;padding-right:.25rem;}
     .db-part-section{display:flex;flex-direction:column;gap:.35rem;padding:.5rem;border-radius:.65rem;border:1px solid var(--ab-section-border);background:var(--ab-section);}
     .db-part-filter{padding:.35rem .5rem .15rem;}
     .db-part-filter input{width:100%;padding:.35rem .55rem;border:1px solid var(--ab-border);border-radius:.5rem;background:transparent;color:inherit;font-size:.85rem;}
@@ -136,6 +143,7 @@
     .db-panel .row{margin-bottom:.75rem;}
     .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
     .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:var(--ab-surface-quiet);color:inherit;}
+    .db-panel select option,.db-panel select optgroup{background:var(--ab-panel);color:var(--ab-text);}
     .db-panel .db-part-select{position:relative;}
     .db-panel .db-part-select::after{content:'▾';position:absolute;right:.6rem;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--ab-muted);font-size:.75rem;}
     .db-part-select-input{width:100%;padding:.35rem 2rem .35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:var(--ab-surface-quiet);color:inherit;}
@@ -176,6 +184,11 @@
     .db-extra-name-input-label{font-weight:600;}
     .db-extra-name-input-field{width:100%;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
     .db-extra-name-input-field:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
+    .db-extra-rule-header{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
+    .db-extra-rule-hint{font-size:.78rem;font-weight:600;color:var(--ab-muted);}
+    .db-extra-rule-list{display:flex;flex-direction:column;gap:.4rem;}
+    .db-extra-rule-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:.35rem;align-items:end;}
+    .db-extra-rule-field{display:flex;flex-direction:column;gap:.2rem;}
     .db-extra-uc-switch{position:relative;display:flex;align-items:center;gap:.65rem;padding:.35rem .75rem;border-radius:.75rem;font-size:.78rem;font-weight:600;color:var(--ab-text);background:var(--ab-surface-quiet);box-shadow:var(--ab-shadow);cursor:pointer;user-select:none;transition:background .2s ease,box-shadow .2s ease,color .2s ease;min-width:0;line-height:1.1;}
     .db-extra-uc-switch:hover{background:var(--ab-surface);box-shadow:var(--ab-shadow-strong);}
     .db-extra-uc-switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;}
@@ -226,7 +239,7 @@
     .db-config-extras{flex:0 0 auto;width:100%;display:flex;justify-content:flex-start;}
     .db-extra-card{flex:1;display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
     .db-extra-card-title{font-weight:600;font-size:.9rem;color:var(--ab-muted);}
-    .db-extra-card-body{display:flex;flex-direction:column;gap:.75rem;}
+    .db-extra-card-body{display:flex;flex-direction:column;gap:.75rem;max-height:64vh;overflow:auto;padding-right:.1rem;}
     .db-config-main{flex:1;display:flex;flex-direction:column;gap:1rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
     .db-config-main>.row{margin-bottom:0;}
     .db-config-main>.row+.row{margin-top:.25rem;}
@@ -1205,7 +1218,125 @@
   function createElements(initialTitle){
     const root=document.createElement('div');
     root.className='db-root aspenboard';
-    root.innerHTML=`<div class="db-titlebar" hidden><div class="db-title-group"><span class="db-title-text"></span><span class="db-title-meta" hidden></span><span class="db-title-status" hidden role="status" aria-live="polite"><span class="db-status-icon" aria-hidden="true"></span><span class="db-status-text"></span></span><span class="db-title-hint" hidden></span></div><button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button></div><div class="db-surface"><div class="db-toolbar"><div class="db-toggle-group" aria-label="Extraspalten umschalten"></div><div class="db-search-filter-group" aria-label="Such-Vorfilter"></div><input type="search" class="db-search" placeholder="Geräte suchen…"></div><div class="db-lists"><div class="db-list-wrap db-main-wrap"><div class="db-list db-main-list" data-board-type="aspen-unit"></div></div><div class="db-extra-container"></div><div class="db-list-wrap db-active-wrap" hidden><div class="db-list-title db-active-title">Aktive Geräte</div><div class="db-list db-active-list" data-board-type="aspen-active"></div></div></div></div><div class="db-modal"><div class="db-panel"><div class="db-config-layout"><aside class="db-config-filter"><div class="db-quick-section"><div class="db-option-section"><label>Titel (optional)<input type="text" class="db-title-input"></label><div class="db-option-actions"><button type="button" class="db-menu-toggle db-action-pick" title="Aspen-Datei auswählen"><span class="db-menu-toggle-icon" aria-hidden="true">📂</span><span class="db-menu-toggle-label">Aspen.xlsx wählen</span></button><div class="db-menu-toggle-group" role="group" aria-label="Partfilter Schnellaktionen"><button type="button" class="db-menu-toggle db-action-enable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✓</span><span class="db-menu-toggle-label">Alles aktivieren</span></button><button type="button" class="db-menu-toggle db-action-disable" aria-pressed="false"><span class="db-menu-toggle-icon" aria-hidden="true">✕</span><span class="db-menu-toggle-label">Alle deaktivieren</span></button></div></div></div></div><div class="db-part-section"><div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div><div class="db-part-list"></div></div></aside><aside class="db-config-extras"><div class="db-extra-card"><div class="db-extra-card-title">Extraspalten</div><div class="db-extra-card-body"><div class="db-extra-config"><label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label><div class="db-extra-name-list"></div></div></div></div></aside><div class="db-config-main"><div class="row rules"><div class="db-row-header"><div class="db-rule-label">Titel-Logik (Wenn/Dann)</div><div class="db-row-actions"><button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button><button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button></div></div><div class="db-rule-list"></div><button type="button" class="db-add-rule">Regel hinzufügen</button></div><div class="row subs"><div class="db-row-header"><label>Untertitel-Felder</label><div class="db-row-actions"><button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button><button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button></div></div><div class="db-sub-list"></div><button type="button" class="db-add-sub">+</button></div><div class="row filters"><div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div><div class="db-filter-list"></div><button type="button" class="db-add-filter">Filter hinzufügen</button></div><div class="row"><label>Dropdownkriterium<div class="db-part-select"><input type="text" class="db-part-select-input" placeholder="Spalte wählen"><div class="db-part-options"></div></div><select class="db-sel-part" hidden></select></label></div></div></div></div></div>`;
+    root.innerHTML=`
+      <div class="db-titlebar" hidden>
+        <div class="db-title-group">
+          <span class="db-title-text"></span>
+          <span class="db-title-meta" hidden></span>
+          <span class="db-title-status" hidden role="status" aria-live="polite">
+            <span class="db-status-icon" aria-hidden="true"></span>
+            <span class="db-status-text"></span>
+          </span>
+          <span class="db-title-hint" hidden></span>
+        </div>
+        <button type="button" class="db-refresh" title="Aspen-Datei aktualisieren">↻</button>
+      </div>
+      <div class="db-surface">
+        <div class="db-toolbar">
+          <div class="db-toggle-group" aria-label="Extraspalten umschalten"></div>
+          <div class="db-search-filter-group" aria-label="Such-Vorfilter"></div>
+          <input type="search" class="db-search" placeholder="Geräte suchen…">
+        </div>
+        <div class="db-lists">
+          <div class="db-list-wrap db-main-wrap">
+            <div class="db-list db-main-list" data-board-type="aspen-unit"></div>
+          </div>
+          <div class="db-extra-container"></div>
+          <div class="db-list-wrap db-active-wrap" hidden>
+            <div class="db-list-title db-active-title">Aktive Geräte</div>
+            <div class="db-list db-active-list" data-board-type="aspen-active"></div>
+          </div>
+        </div>
+      </div>
+      <div class="db-modal">
+        <div class="db-panel">
+          <div class="db-config-tabs" role="tablist" aria-label="Einstellungsbereiche">
+            <button type="button" class="db-config-tab is-active" role="tab" aria-selected="true" data-tab="general">Allgemein</button>
+            <button type="button" class="db-config-tab" role="tab" aria-selected="false" data-tab="extras">Extraspalten</button>
+          </div>
+          <div class="db-tab-panel db-tab-general is-active" data-tab="general">
+            <div class="db-config-layout">
+              <aside class="db-config-filter">
+                <div class="db-quick-section">
+                  <div class="db-option-section">
+                    <label>Titel (optional)<input type="text" class="db-title-input"></label>
+                    <div class="db-option-actions">
+                      <button type="button" class="db-menu-toggle db-action-pick" title="Aspen-Datei auswählen">
+                        <span class="db-menu-toggle-icon" aria-hidden="true">📂</span>
+                        <span class="db-menu-toggle-label">Aspen.xlsx wählen</span>
+                      </button>
+                      <div class="db-menu-toggle-group" role="group" aria-label="Partfilter Schnellaktionen">
+                        <button type="button" class="db-menu-toggle db-action-enable" aria-pressed="false">
+                          <span class="db-menu-toggle-icon" aria-hidden="true">✓</span>
+                          <span class="db-menu-toggle-label">Alles aktivieren</span>
+                        </button>
+                        <button type="button" class="db-menu-toggle db-action-disable" aria-pressed="false">
+                          <span class="db-menu-toggle-icon" aria-hidden="true">✕</span>
+                          <span class="db-menu-toggle-label">Alle deaktivieren</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="db-part-section">
+                  <div class="db-part-filter"><input type="search" class="db-part-filter-input" placeholder="Überschriften filtern…"></div>
+                  <div class="db-part-list"></div>
+                </div>
+              </aside>
+              <div class="db-config-main">
+                <div class="row rules">
+                  <div class="db-row-header">
+                    <div class="db-rule-label">Titel-Logik (Wenn/Dann)</div>
+                    <div class="db-row-actions">
+                      <button type="button" class="db-icon-btn db-rule-import" title="Regeln importieren" aria-label="Regeln importieren">📥</button>
+                      <button type="button" class="db-icon-btn db-rule-export" title="Regeln exportieren" aria-label="Regeln exportieren">📤</button>
+                    </div>
+                  </div>
+                  <div class="db-rule-list"></div>
+                  <button type="button" class="db-add-rule">Regel hinzufügen</button>
+                </div>
+                <div class="row subs">
+                  <div class="db-row-header">
+                    <label>Untertitel-Felder</label>
+                    <div class="db-row-actions">
+                      <button type="button" class="db-icon-btn db-sub-import" title="Untertitel importieren" aria-label="Untertitel importieren">📥</button>
+                      <button type="button" class="db-icon-btn db-sub-export" title="Untertitel exportieren" aria-label="Untertitel exportieren">📤</button>
+                    </div>
+                  </div>
+                  <div class="db-sub-list"></div>
+                  <button type="button" class="db-add-sub">+</button>
+                </div>
+                <div class="row filters">
+                  <div class="db-row-header"><div class="db-rule-label">Such-Vorfilter</div></div>
+                  <div class="db-filter-list"></div>
+                  <button type="button" class="db-add-filter">Filter hinzufügen</button>
+                </div>
+                <div class="row">
+                  <label>Dropdownkriterium
+                    <div class="db-part-select">
+                      <input type="text" class="db-part-select-input" placeholder="Spalte wählen">
+                      <div class="db-part-options"></div>
+                    </div>
+                    <select class="db-sel-part" hidden></select>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="db-tab-panel db-tab-extras" data-tab="extras" hidden>
+            <div class="db-extra-card">
+              <div class="db-extra-card-title">Extraspalten</div>
+              <div class="db-extra-card-body">
+                <div class="db-extra-config">
+                  <label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label>
+                  <div class="db-extra-name-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
 
     const titleBar=root.querySelector('.db-titlebar');
     if(titleBar){
@@ -1253,7 +1384,9 @@
       partFilter:root.querySelector('.db-part-filter-input'),
       enableAllBtn:root.querySelector('.db-action-enable'),
       disableAllBtn:root.querySelector('.db-action-disable'),
-      pickBtn:root.querySelector('.db-action-pick')
+      pickBtn:root.querySelector('.db-action-pick'),
+      configTabs:Array.from(root.querySelectorAll('.db-config-tab')),
+      tabPanels:Array.from(root.querySelectorAll('.db-tab-panel'))
     };
   }
 
@@ -1294,6 +1427,37 @@
     return 'extra-'+Math.random().toString(36).slice(2,9);
   }
 
+  function createEmptyExtraRule(defaultTarget=''){
+    return {field:'',keyword:'',toColumn:defaultTarget||''};
+  }
+
+  function sanitizeExtraRule(rule,{defaultTarget=''}={}){
+    const source=rule&&typeof rule==='object'?rule:{};
+    const field=typeof source.field==='string'
+      ? source.field.trim()
+      : typeof source.status==='string'
+        ? source.status.trim()
+        : '';
+    const keyword=typeof source.keyword==='string'?source.keyword.trim():'';
+    const toColumn=typeof source.toColumn==='string'
+      ? source.toColumn.trim()
+      : typeof source.column==='string'
+        ? source.column.trim()
+        : '';
+    return {
+      field,
+      keyword,
+      toColumn:toColumn||defaultTarget
+    };
+  }
+
+  function sanitizeExtraRuleList(rules,{defaultTarget=''}={}){
+    if(!Array.isArray(rules)) return [createEmptyExtraRule(defaultTarget)];
+    const sanitized=rules.map(rule=>sanitizeExtraRule(rule,{defaultTarget}));
+    if(!sanitized.length) return [createEmptyExtraRule(defaultTarget)];
+    return sanitized;
+  }
+
   function sanitizeExtraColumns(columns){
     if(!Array.isArray(columns)) return [];
     const sanitized=[];
@@ -1311,7 +1475,20 @@
       const requestedUcSort=!!source.ucSort;
       const ucSort=!ucAssigned && requestedUcSort;
       if(ucSort) ucAssigned=true;
-      sanitized.push({id,label,ucSort});
+      const baseRules=sanitizeExtraRuleList(source.rules,{defaultTarget:id});
+      const rules=(()=>{
+        if(!ucSort) return baseRules;
+        const hasUcRule=baseRules.some(rule=>{
+          const normalized=sanitizeExtraRule(rule,{defaultTarget:id});
+          return normalized.field.toLowerCase()==='uc' && !normalized.keyword;
+        });
+        if(hasUcRule) return baseRules;
+        return [
+          {field:'UC',keyword:'',toColumn:id},
+          ...baseRules
+        ];
+      })();
+      sanitized.push({id,label,rules});
     }
     return sanitized;
   }
@@ -1634,7 +1811,10 @@
         partField:state.config.partField,
         title:state.config.title,
         titleRules:Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[],
-        extraColumns:Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[],
+        extraColumns:Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({
+          ...col,
+          rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+        })) : [],
         activeColumn:{...sanitizeActiveColumn(state.config.activeColumn)},
         searchFilters:Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[]
       },
@@ -1658,7 +1838,10 @@
           ...payload.config,
           subFields:payload.config.subFields.map(sub=>({...sub})),
           titleRules:payload.config.titleRules.map(rule=>({...rule})),
-          extraColumns:payload.config.extraColumns.map(col=>({...col})),
+          extraColumns:payload.config.extraColumns.map(col=>({
+            ...col,
+            rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+          })),
           activeColumn:{...payload.config.activeColumn},
           searchFilters:payload.config.searchFilters.map(filter=>({...filter}))
         },
@@ -1699,6 +1882,25 @@
     return base;
   }
 
+  function getDataFieldValue(data,field){
+    if(!data||typeof data!=='object' || !field) return '';
+    if(Object.prototype.hasOwnProperty.call(data,field)){
+      const value=data[field];
+      if(value===undefined || value===null) return '';
+      return typeof value==='string'?value.trim():String(value).trim();
+    }
+    const lowerField=field.toLowerCase();
+    for(const key of Object.keys(data)){
+      if(typeof key!=='string') continue;
+      if(key.trim().toLowerCase()===lowerField){
+        const value=data[key];
+        if(value===undefined || value===null) continue;
+        return typeof value==='string'?value.trim():String(value).trim();
+      }
+    }
+    return '';
+  }
+
   function getUcFieldValue(item){
     if(!item||typeof item!=='object') return '';
     const data=item.data&&typeof item.data==='object'?item.data:{};
@@ -1709,6 +1911,89 @@
       if(typeof key!=='string') continue;
       if(key.trim().toLowerCase()==='uc'){
         return String(data[key]??'').trim();
+      }
+    }
+    return '';
+  }
+
+  function getItemKeywords(item){
+    if(!item||typeof item!=='object') return [];
+    const data=item.data&&typeof item.data==='object'?item.data:{};
+    const keywordKey=Object.keys(data).find(key=>typeof key==='string' && key.toLowerCase().includes('keyword'));
+    const raw=keywordKey?getDataFieldValue(data,keywordKey):'';
+    if(!raw) return [];
+    return raw
+      .split(/[;,|]/)
+      .map(part=>part.trim())
+      .filter(Boolean);
+  }
+
+  function collectKnownKeywords(items){
+    const keywords=new Set();
+    (Array.isArray(items)?items:[]).forEach(item=>{
+      getItemKeywords(item).forEach(keyword=>{
+        if(keyword) keywords.add(keyword);
+      });
+    });
+    return Array.from(keywords);
+  }
+
+  function escapeRegex(value){
+    return value.replace(/[.*+?^${}()|\[\]\\]/g,'\\$&');
+  }
+
+  function buildKeywordMatcher(keyword){
+    const raw=typeof keyword==='string'?keyword.trim():'';
+    if(!raw) return {test:()=>false,isValid:true,isPattern:false,pattern:''};
+    const asRegex=(pattern)=>{
+      try{
+        const regex=new RegExp(pattern,'i');
+        return {test:value=>regex.test(value||''),isValid:true,isPattern:true,pattern};
+      }catch(error){
+        return {test:()=>false,isValid:false,isPattern:true,pattern,error};
+      }
+    };
+    if(raw.startsWith('/') && raw.endsWith('/') && raw.length>2){
+      return asRegex(raw.slice(1,-1));
+    }
+    const hasPatternSyntax=/[|*?()[\]]/.test(raw);
+    if(hasPatternSyntax){
+      const converted=raw.split('').map(char=>{
+        if(char==='*') return '.*';
+        if(char==='?') return '.';
+        if(char==='|') return '|';
+        if(char==='(' || char===')' || char==='[' || char===']') return char;
+        return escapeRegex(char);
+      }).join('');
+      return asRegex(converted);
+    }
+    const normalized=raw.toLowerCase();
+    return {test:value=>(value||'').toLowerCase().includes(normalized),isValid:true,isPattern:false,pattern:normalized};
+  }
+
+  function findRuleTarget(extraColumns,item){
+    const availableIds=new Set((Array.isArray(extraColumns)?extraColumns:[]).map(col=>col.id).filter(Boolean));
+    if(!availableIds.size) return '';
+    const data=item?.data&&typeof item.data==='object'?item.data:{};
+    for(const column of extraColumns){
+      const rules=Array.isArray(column?.rules)?column.rules:[];
+      for(const rawRule of rules){
+        const rule=sanitizeExtraRule(rawRule,{defaultTarget:column.id});
+        const target=(rule.toColumn||column.id||'').trim();
+        if(!target || !availableIds.has(target)) continue;
+        const ruleField=(rule.field||'').trim();
+        const ruleKeyword=typeof rule.keyword==='string'?rule.keyword.trim():'';
+        if(!ruleField && !ruleKeyword) continue;
+        const value=ruleField?getDataFieldValue(data,ruleField).toLowerCase():'';
+        if(!ruleKeyword && value){
+          return target;
+        }
+        const matcher=buildKeywordMatcher(ruleKeyword);
+        if(!matcher.isValid) continue;
+        const keywordMatch=ruleKeyword && value && matcher.test(value);
+        if(keywordMatch){
+          return target;
+        }
       }
     }
     return '';
@@ -2216,6 +2501,23 @@
     const extraSortableInstances=new Map();
     let baseSortableConfig=null;
     let lastExtraSignature=null;
+    let activeConfigTab='general';
+
+    function activateConfigTab(tab){
+      const target=tab==='extras'?'extras':'general';
+      activeConfigTab=target;
+      (elements.configTabs||[]).forEach(btn=>{
+        const isActive=(btn.dataset?.tab||'')===target;
+        btn.classList.toggle('is-active',isActive);
+        btn.setAttribute('aria-selected',isActive?'true':'false');
+        btn.setAttribute('tabindex',isActive?'0':'-1');
+      });
+      (elements.tabPanels||[]).forEach(panel=>{
+        const isActive=(panel.dataset?.tab||'')===target;
+        panel.classList.toggle('is-active',isActive);
+        panel.hidden=!isActive;
+      });
+    }
 
     function applyOptionChanges(){
       if(applyingOptionChanges) return;
@@ -2282,10 +2584,19 @@
         const extraSource=optionsOpen && Array.isArray(tempExtraColumns)
           ? tempExtraColumns
           : Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
-        const sanitizedExtras=sanitizeExtraColumns(extraSource);
-        state.config.extraColumns=sanitizedExtras;
+        const sanitizedExtras=sanitizeExtraColumns(extraSource).map(col=>({
+          ...col,
+          rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+        }));
+        state.config.extraColumns=sanitizedExtras.map(col=>({
+          ...col,
+          rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+        }));
         if(optionsOpen){
-          tempExtraColumns=sanitizedExtras.map(col=>({...col}));
+          tempExtraColumns=sanitizedExtras.map(col=>({
+            ...col,
+            rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+          }));
         }
         const filterSource=optionsOpen && Array.isArray(tempSearchFilters)
           ? tempSearchFilters
@@ -2738,7 +3049,7 @@
     function ensureExtraListElements(){
       ensureExtraColumns(state.config);
       const columns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
-      const signature=columns.map(col=>`${col.id}:${col.label}:${col.ucSort?'1':'0'}`).join('|');
+      const signature=columns.map(col=>`${col.id}:${col.label}`).join('|');
       if(signature===lastExtraSignature && Array.isArray(elements.extraWraps)){
         columns.forEach((column,index)=>{
           const wrap=elements.extraWraps[index];
@@ -2746,7 +3057,6 @@
           wrap.title.textContent=column.label||`Extraspalte ${index+1}`;
           wrap.list.dataset.columnId=column.id;
           wrap.wrap.dataset.columnId=column.id;
-          wrap.wrap.dataset.ucSort=column.ucSort?'true':'false';
         });
         if(!columns.length){
           if(elements.extraContainer){
@@ -2769,7 +3079,6 @@
         const wrap=document.createElement('div');
         wrap.className='db-list-wrap db-extra-wrap';
         wrap.dataset.columnId=column.id;
-        wrap.dataset.ucSort=column.ucSort?'true':'false';
         const title=document.createElement('div');
         title.className='db-list-title';
         title.textContent=column.label||`Extraspalte ${index+1}`;
@@ -3015,19 +3324,17 @@
       const extraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
       const hiddenExtras=state.hiddenExtraColumns instanceof Set?state.hiddenExtraColumns:new Set();
       const extraBuckets=new Map(extraColumns.map(col=>[col.id,[]]));
-      const ucColumn=extraColumns.find(col=>col?.ucSort);
-      const ucColumnId=ucColumn?.id||'';
       const autoAssignments=new Map();
       const activeItems=[];
       const mainItems=[];
       state.items.forEach(item=>{
         const meldung=item.meldung;
         let autoColumnId='';
-        if(ucColumnId && meldung){
-          const ucValue=getUcFieldValue(item);
-          if(ucValue){
-            autoColumnId=ucColumnId;
-            autoAssignments.set(meldung,ucColumnId);
+        const ruleTarget=findRuleTarget(extraColumns,item);
+        if(ruleTarget){
+          autoColumnId=ruleTarget;
+          if(meldung){
+            autoAssignments.set(meldung,ruleTarget);
           }
         }
         if(autoColumnId && extraBuckets.has(autoColumnId)){
@@ -3119,6 +3426,20 @@
         render();
       });
     }
+
+    if(Array.isArray(elements.configTabs)){
+      elements.configTabs.forEach(btn=>{
+        const switchTab=()=>activateConfigTab(btn.dataset?.tab||'general');
+        btn.addEventListener('click',switchTab);
+        btn.addEventListener('keydown',event=>{
+          if(event.key==='Enter' || event.key===' '){
+            event.preventDefault();
+            switchTab();
+          }
+        });
+      });
+    }
+    activateConfigTab(activeConfigTab);
 
     function renderSubFieldControls(){
       const existing=Array.isArray(tempSubFields)?tempSubFields:[];
@@ -3458,32 +3779,27 @@
       scheduleOptionPersist(true);
     }
 
-    function handleExtraUcToggleChange(event){
-      const checkbox=event.target;
-      if(!checkbox) return;
-      const columnId=checkbox.dataset?.columnId||'';
-      if(!columnId) return;
-      const index=tempExtraColumns.findIndex(col=>col.id===columnId);
-      if(index===-1) return;
-      const enabled=!!checkbox.checked;
-      if(enabled){
-        tempExtraColumns=tempExtraColumns.map((col,idx)=>idx===index?{...col,ucSort:true}:{...col,ucSort:false});
-      }else{
-        tempExtraColumns[index]={...tempExtraColumns[index],ucSort:false};
-      }
-      renderExtraControls();
-      scheduleOptionPersist(true);
-    }
-
     function renderExtraControls(){
-      const sanitized=sanitizeExtraColumns(tempExtraColumns);
-      tempExtraColumns=sanitized.map(col=>({...col}));
+      const sanitized=sanitizeExtraColumns(tempExtraColumns).map(col=>({
+        ...col,
+        rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+      }));
+      tempExtraColumns=sanitized.map(col=>({
+        ...col,
+        rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+      }));
       if(elements.extraCount){
         elements.extraCount.value=String(tempExtraColumns.length);
       }
       if(!elements.extraNameList){
         return;
       }
+      const ruleFields=(Array.isArray(tempExtraColumns)?tempExtraColumns:[])
+        .flatMap(col=>Array.isArray(col.rules)?col.rules.map(rule=>rule?.field||rule?.status||'')||[]:[])
+        .filter(Boolean);
+      const fieldOptions=getAvailableFieldList(state,ruleFields);
+      if(!fieldOptions.includes('UC')) fieldOptions.push('UC');
+      const keywordOptions=collectKnownKeywords(state.items||[]);
       const fallbackActiveLabel=state.config?.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       const fallbackActiveEnabled=state.config?.activeColumn?.enabled!==false;
       const normalizedActiveLabel=String(
@@ -3515,30 +3831,13 @@
         title.className='db-extra-name-title';
         title.textContent=`Spalte ${index+1}`;
         header.appendChild(title);
-        const ucToggle=document.createElement('label');
-        ucToggle.className='db-extra-uc-switch';
-        ucToggle.dataset.columnId=column.id;
-        const ucCheckbox=document.createElement('input');
-        ucCheckbox.type='checkbox';
-        ucCheckbox.dataset.columnId=column.id;
-        ucCheckbox.checked=!!column.ucSort;
-        ucCheckbox.addEventListener('change',handleExtraUcToggleChange);
-        ucToggle.appendChild(ucCheckbox);
-        const ucText=document.createElement('span');
-        ucText.className='db-extra-uc-switch-text';
-        ucText.textContent='AutoUC';
-        ucToggle.appendChild(ucText);
-        const ucControl=document.createElement('span');
-        ucControl.className='db-extra-uc-switch-control';
-        ucToggle.appendChild(ucControl);
-        header.appendChild(ucToggle);
         row.appendChild(header);
         const label=document.createElement('label');
         label.className='db-extra-name-input';
         label.dataset.columnId=column.id;
         const helper=document.createElement('span');
         helper.className='db-extra-name-input-label';
-        helper.textContent='Name der Extraspalte';
+        helper.textContent='Name & Regeln';
         label.appendChild(helper);
         const input=document.createElement('input');
         input.type='text';
@@ -3550,6 +3849,196 @@
         input.addEventListener('input',handleExtraNameInput);
         input.addEventListener('change',handleExtraNameCommit);
         label.appendChild(input);
+        const ruleHeader=document.createElement('div');
+        ruleHeader.className='db-extra-rule-header';
+        const ruleLabel=document.createElement('span');
+        ruleLabel.className='db-rule-label';
+        ruleLabel.textContent='Automatische Zuweisung (oberste Regel gewinnt)';
+        const ruleHint=document.createElement('span');
+        ruleHint.className='db-extra-rule-hint';
+        ruleHint.textContent='Wenn Feld befüllt ist und/oder ein Keyword passt, dann ab in die Zielspalte.';
+        ruleHeader.appendChild(ruleLabel);
+        ruleHeader.appendChild(ruleHint);
+        label.appendChild(ruleHeader);
+        const rulesList=document.createElement('div');
+        rulesList.className='db-extra-rule-list';
+        const ensureRuleSlot=(position)=>{
+          if(!Array.isArray(tempExtraColumns[index].rules)){
+            tempExtraColumns[index].rules=[createEmptyExtraRule(column.id)];
+          }
+          if(position>=tempExtraColumns[index].rules.length){
+            tempExtraColumns[index].rules.push(createEmptyExtraRule(column.id));
+          }
+        };
+        const renderRules=()=>{
+          rulesList.innerHTML='';
+          const rules=Array.isArray(tempExtraColumns[index].rules)
+            ? tempExtraColumns[index].rules
+            : [];
+          if(!rules.length){
+            tempExtraColumns[index].rules=[createEmptyExtraRule(column.id)];
+          }
+          const targets=tempExtraColumns.map((col,idx)=>({
+            id:col.id,
+            label:col.label?.trim()||`Extraspalte ${idx+1}`
+          }));
+          const keywordListId=`db-extra-keywords-${column.id}`;
+          const keywordDataList=document.createElement('datalist');
+          keywordDataList.id=keywordListId;
+          keywordDataList.style.display='none';
+          keywordDataList.innerHTML=keywordOptions.map(keyword=>`<option value="${keyword}"></option>`).join('');
+          rulesList.appendChild(keywordDataList);
+          tempExtraColumns[index].rules.forEach((rule,ruleIndex)=>{
+            const normalized=sanitizeExtraRule(rule,{defaultTarget:column.id});
+            tempExtraColumns[index].rules[ruleIndex]=normalized;
+            const ruleRow=document.createElement('div');
+            ruleRow.className='db-extra-rule-row';
+
+            const fieldWrapper=document.createElement('div');
+            fieldWrapper.className='db-extra-rule-field';
+            const fieldLabel=document.createElement('label');
+            fieldLabel.textContent='Feld';
+            fieldLabel.title='Dieses Aspen-Feld wird auf Inhalt/Keyword geprüft (leer = ignorieren).';
+            const fieldSelect=document.createElement('select');
+            const emptyField=document.createElement('option');
+            emptyField.value='';
+            emptyField.textContent='(egal)';
+            fieldSelect.appendChild(emptyField);
+            fieldOptions.forEach(option=>{
+              const opt=document.createElement('option');
+              opt.value=option;
+              opt.textContent=option;
+              fieldSelect.appendChild(opt);
+            });
+            if(normalized.field && !fieldOptions.includes(normalized.field)){
+              const custom=document.createElement('option');
+              custom.value=normalized.field;
+              custom.textContent=normalized.field;
+              fieldSelect.appendChild(custom);
+            }
+            fieldSelect.value=normalized.field||'';
+            fieldSelect.addEventListener('change',()=>{
+              ensureRuleSlot(ruleIndex);
+              tempExtraColumns[index].rules[ruleIndex]={
+                ...tempExtraColumns[index].rules[ruleIndex],
+                field:fieldSelect.value||''
+              };
+              scheduleOptionPersist(true);
+            });
+            fieldWrapper.appendChild(fieldLabel);
+            fieldWrapper.appendChild(fieldSelect);
+            ruleRow.appendChild(fieldWrapper);
+
+            const keywordField=document.createElement('div');
+            keywordField.className='db-extra-rule-field';
+            const keywordLabel=document.createElement('label');
+            keywordLabel.textContent='Keyword';
+            keywordLabel.title='…und ein Aspen-Keyword gefunden wird (mit * / ? / | für Muster, Enter prüft die Syntax)…';
+            const keywordInput=document.createElement('input');
+            keywordInput.type='text';
+            keywordInput.setAttribute('list',keywordListId);
+            keywordInput.value=normalized.keyword||'';
+            keywordInput.placeholder='z.B. UC, EOL, UC9*|mUC99';
+            const validateKeyword=()=>{
+              const result=buildKeywordMatcher(keywordInput.value);
+              if(!result.isValid){
+                const message=result.error?.message||result.error||'Ungültiges Muster';
+                keywordInput.setCustomValidity(`Syntax-Fehler: ${message}`);
+                keywordInput.reportValidity();
+                return false;
+              }
+              keywordInput.setCustomValidity('');
+              return true;
+            };
+            keywordInput.addEventListener('keydown',(event)=>{
+              if(event.key==='Enter'){
+                validateKeyword();
+              }
+            });
+            keywordInput.addEventListener('change',()=>{
+              ensureRuleSlot(ruleIndex);
+              tempExtraColumns[index].rules[ruleIndex]={
+                ...tempExtraColumns[index].rules[ruleIndex],
+                keyword:keywordInput.value.trim()
+              };
+              scheduleOptionPersist(true);
+            });
+            keywordInput.addEventListener('input',()=>{
+              ensureRuleSlot(ruleIndex);
+              tempExtraColumns[index].rules[ruleIndex]={
+                ...tempExtraColumns[index].rules[ruleIndex],
+                keyword:keywordInput.value.trim()
+              };
+              keywordInput.setCustomValidity('');
+            });
+            keywordInput.addEventListener('blur',validateKeyword);
+            keywordField.appendChild(keywordLabel);
+            keywordField.appendChild(keywordInput);
+            ruleRow.appendChild(keywordField);
+
+            const targetField=document.createElement('div');
+            targetField.className='db-extra-rule-field';
+            const targetLabel=document.createElement('label');
+            targetLabel.textContent='…dann Spalte';
+            targetLabel.title='Zielspalte für passende Geräte';
+            const targetSelect=document.createElement('select');
+            const placeholder=document.createElement('option');
+            placeholder.value='';
+            placeholder.textContent='Extraspalte wählen';
+            targetSelect.appendChild(placeholder);
+            targets.forEach(target=>{
+              const opt=document.createElement('option');
+              opt.value=target.id;
+              opt.textContent=target.label;
+              targetSelect.appendChild(opt);
+            });
+            targetSelect.value=normalized.toColumn||'';
+            targetSelect.addEventListener('change',()=>{
+              ensureRuleSlot(ruleIndex);
+              tempExtraColumns[index].rules[ruleIndex]={
+                ...tempExtraColumns[index].rules[ruleIndex],
+                toColumn:targetSelect.value||''
+              };
+              scheduleOptionPersist(true);
+              updateTempColumnPreview(targetSelect.value);
+            });
+            targetField.appendChild(targetLabel);
+            targetField.appendChild(targetSelect);
+            ruleRow.appendChild(targetField);
+
+            const removeBtn=document.createElement('button');
+            removeBtn.type='button';
+            removeBtn.className='db-rule-remove';
+            removeBtn.title='Regel entfernen';
+            removeBtn.textContent='✕';
+            removeBtn.addEventListener('click',()=>{
+              if(Array.isArray(tempExtraColumns[index].rules)){
+                tempExtraColumns[index].rules.splice(ruleIndex,1);
+                if(!tempExtraColumns[index].rules.length){
+                  tempExtraColumns[index].rules=[createEmptyExtraRule(column.id)];
+                }
+              }
+              renderRules();
+              scheduleOptionPersist(true);
+            });
+            ruleRow.appendChild(removeBtn);
+
+            rulesList.appendChild(ruleRow);
+          });
+          const addRule=document.createElement('button');
+          addRule.type='button';
+          addRule.className='db-add-rule';
+          addRule.textContent='Regel hinzufügen';
+          addRule.addEventListener('click',()=>{
+            ensureRuleSlot(tempExtraColumns[index].rules?.length||0);
+            tempExtraColumns[index].rules.push(createEmptyExtraRule(column.id));
+            renderRules();
+            scheduleOptionPersist(true);
+          });
+          rulesList.appendChild(addRule);
+        };
+        renderRules();
+        label.appendChild(rulesList);
         row.appendChild(label);
         fragment.appendChild(row);
       });
@@ -3581,7 +4070,8 @@
       }
       if(clamped>tempExtraColumns.length){
         for(let i=tempExtraColumns.length;i<clamped;i+=1){
-          tempExtraColumns.push({id:generateExtraColumnId(),label:'',ucSort:false});
+          const id=generateExtraColumnId();
+          tempExtraColumns.push({id,label:'',rules:[createEmptyExtraRule(id)]});
         }
       }else{
         tempExtraColumns=tempExtraColumns.slice(0,clamped);
@@ -3799,7 +4289,12 @@
         const normalized=normalizeTitleRule(rule);
         return {...normalized,draftField:normalized.field};
       }):[];
-      tempExtraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({...col})):[];
+      tempExtraColumns=Array.isArray(state.config.extraColumns)
+        ? state.config.extraColumns.map(col=>({
+            ...col,
+            rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+          }))
+        : [];
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       tempActiveColumnEnabled=state.config.activeColumn?.enabled!==false;
       tempSearchFilters=Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[];
@@ -3809,6 +4304,7 @@
       renderExtraControls();
       renderRuleControls();
       refreshPartControls(elements,state,render);
+      activateConfigTab(activeConfigTab);
       elements.titleInput.value=state.config.title||'';
       elements.modal.classList.add('open');
       syncPartSelectInputValue();
