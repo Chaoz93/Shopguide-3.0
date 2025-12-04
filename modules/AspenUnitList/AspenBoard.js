@@ -143,6 +143,7 @@
     .db-panel .row{margin-bottom:.75rem;}
     .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
     .db-panel input[type=text],.db-panel select{width:100%;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:var(--ab-surface-quiet);color:inherit;}
+    .db-panel select option,.db-panel select optgroup{background:var(--ab-panel);color:var(--ab-text);}
     .db-panel .db-part-select{position:relative;}
     .db-panel .db-part-select::after{content:'▾';position:absolute;right:.6rem;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--ab-muted);font-size:.75rem;}
     .db-part-select-input{width:100%;padding:.35rem 2rem .35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:var(--ab-surface-quiet);color:inherit;}

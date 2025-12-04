@@ -3,6 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.23] – 2025-12-06
+### Fixed
+- Dropdown-Auswahllisten im Einstellungsdialog übernehmen jetzt die Modulhintergründe und Textfarben, damit Feld- und Zielspaltenwahl auch auf dunklen Themen klar lesbar bleibt.
+
 ## [1.1.22] – 2025-12-05
 ### Changed
 - Extraspalten-Tab erhält eine begrenzte Höhe mit eigener Scrollfläche, damit umfangreiche Regel-Setups ohne riesige Modaldialoge
