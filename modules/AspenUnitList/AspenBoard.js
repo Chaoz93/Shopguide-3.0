@@ -186,12 +186,12 @@
     .db-extra-rule-card{display:flex;flex-direction:column;gap:.45rem;padding:.5rem .65rem;border-radius:.75rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);}
     .db-extra-rule-card-title{display:flex;align-items:center;justify-content:space-between;gap:.45rem;font-weight:700;color:var(--ab-text);}
     .db-extra-rule-card-meta{font-size:.8rem;color:var(--ab-muted);}
-    .db-extra-name-row{display:flex;flex-direction:column;gap:.6rem;padding:.2rem .1rem;}
-    .db-extra-name-header{display:flex;flex-direction:column;align-items:stretch;gap:.45rem;width:100%;}
-    .db-extra-name-title{font-weight:600;font-size:.85rem;color:var(--ab-muted);}
-    .db-extra-name-input{display:flex;flex-direction:column;gap:.35rem;font-size:.8rem;color:var(--ab-muted);}
+    .db-extra-name-row{display:flex;flex-direction:column;gap:.4rem;padding:.2rem .1rem;}
+    .db-extra-name-header{display:flex;flex-direction:column;align-items:flex-start;gap:.25rem;width:100%;}
+    .db-extra-name-title{font-weight:600;font-size:.9rem;color:var(--ab-text);}
+    .db-extra-name-input{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.85rem;color:var(--ab-muted);}
     .db-extra-name-input-label{font-weight:600;}
-    .db-extra-name-input-field{width:100%;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-extra-name-input-field{flex:1 1 180px;min-width:140px;max-width:100%;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
     .db-extra-name-input-field:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
     .db-extra-rule-header{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
     .db-extra-rule-hint{font-size:.78rem;font-weight:600;color:var(--ab-muted);}
@@ -406,10 +406,12 @@
     .aspenboard .db-config-main{color:var(--ab-text);}
     .aspenboard .db-extra-card-title{color:var(--ab-muted);}
     .aspenboard .db-extra-card .db-extra-count-label{color:var(--ab-muted);}
-    .aspenboard .db-extra-name-title{color:var(--ab-text);}
+    .aspenboard .db-extra-name-row{gap:.25rem;}
+    .aspenboard .db-extra-name-header{gap:.2rem;}
+    .aspenboard .db-extra-name-inline{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;font-size:.85rem;color:var(--ab-muted);}
+    .aspenboard .db-extra-name-title{color:var(--ab-text);font-weight:700;font-size:.92rem;}
     .aspenboard .db-extra-name-input{color:var(--ab-muted);}
-    .aspenboard .db-extra-name-input-label{color:var(--ab-text);}
-    .aspenboard .db-extra-name-input-field{background:var(--ab-input-bg,var(--ab-card));border-color:var(--ab-input-border,var(--ab-border));color:var(--ab-text);}
+    .aspenboard .db-extra-name-input-field{background:var(--ab-input-bg,var(--ab-card));border-color:var(--ab-input-border,var(--ab-border));color:var(--ab-text);min-width:160px;max-width:420px;}
     .aspenboard .db-extra-name-input-field::placeholder{color:var(--ab-muted);}
     .aspenboard .db-extra-uc-switch{color:var(--ab-muted);}
     .db-inline-title{cursor:text;}
@@ -3983,24 +3985,13 @@
         row.dataset.columnId=column.id;
         const header=document.createElement('div');
         header.className='db-extra-name-header';
+        const label=document.createElement('label');
+        label.className='db-extra-name-inline db-extra-name-input';
+        label.dataset.columnId=column.id;
         const title=document.createElement('span');
         title.className='db-extra-name-title';
         title.textContent=`Spalte ${index+1}`;
-        header.appendChild(title);
-        if(index===0){
-          const inlineHint=document.createElement('span');
-          inlineHint.className='db-inline-hint';
-          inlineHint.textContent='Tipp: Spaltenüberschrift im Board anklicken, um den Namen direkt zu ändern.';
-          header.appendChild(inlineHint);
-        }
-        row.appendChild(header);
-        const label=document.createElement('label');
-        label.className='db-extra-name-input';
-        label.dataset.columnId=column.id;
-        const helper=document.createElement('span');
-        helper.className='db-extra-name-input-label';
-        helper.textContent='Spaltenname';
-        label.appendChild(helper);
+        label.appendChild(title);
         const input=document.createElement('input');
         input.type='text';
         input.placeholder='Name der Extraspalte';
@@ -4011,22 +4002,19 @@
         input.addEventListener('input',handleExtraNameInput);
         input.addEventListener('change',handleExtraNameCommit);
         label.appendChild(input);
-        row.appendChild(label);
+        header.appendChild(label);
+        if(index===0){
+          const inlineHint=document.createElement('span');
+          inlineHint.className='db-inline-hint';
+          inlineHint.textContent='Tipp: Spaltenüberschrift im Board anklicken, um den Namen direkt zu ändern.';
+          header.appendChild(inlineHint);
+        }
+        row.appendChild(header);
         nameFragment.appendChild(row);
 
         const card=document.createElement('div');
         card.className='db-extra-rule-card';
         card.dataset.columnId=column.id;
-        const cardTitle=document.createElement('div');
-        cardTitle.className='db-extra-rule-card-title';
-        const cardLabel=document.createElement('span');
-        cardLabel.textContent='Globale Regeln';
-        const cardMeta=document.createElement('span');
-        cardMeta.className='db-extra-rule-card-meta';
-        cardMeta.textContent=`Ziel: Extraspalte ${index+1}`;
-        cardTitle.appendChild(cardLabel);
-        cardTitle.appendChild(cardMeta);
-        card.appendChild(cardTitle);
         const ruleHeader=document.createElement('div');
         ruleHeader.className='db-extra-rule-header';
         const ruleLabel=document.createElement('span');

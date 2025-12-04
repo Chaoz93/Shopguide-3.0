@@ -3,6 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.27] – 2025-12-10
+### Changed
+- Extraspalten-Eingaben sind kompakter: Der eigene Name steht direkt neben dem Standardtitel, die Zusatzüberschrift entfällt.
+- Regelkarten verzichten auf separate Titel und Zielhinweise, damit der Fokus auf den eigentlichen Zuweisungsregeln liegt.
+
 ## [1.1.26] – 2025-12-09
 ### Changed
 - Extraspalten lassen sich jetzt direkt über die Spaltenüberschrift umbenennen; die Konfiguration verweist darauf und bleibt dadurch kompakter.
