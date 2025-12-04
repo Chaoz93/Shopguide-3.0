@@ -3,6 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.24] – 2025-12-07
+### Changed
+- Keyword-Regeln unterstützen jetzt Muster-Syntax (z. B. UC9*|mUC99, UC[89]), sodass mehrere Varianten ohne zusätzliche Regeln erkannt werden.
+- Eingaben im Keyword-Feld lassen sich per Enter-Taste auf gültige Syntax prüfen; fehlerhafte Muster markieren das Feld sofort.
+
 ## [1.1.23] – 2025-12-06
 ### Fixed
 - Dropdown-Auswahllisten im Einstellungsdialog übernehmen jetzt die Modulhintergründe und Textfarben, damit Feld- und Zielspaltenwahl auch auf dunklen Themen klar lesbar bleibt.

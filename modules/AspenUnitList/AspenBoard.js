@@ -1938,6 +1938,39 @@
     return Array.from(keywords);
   }
 
+  function escapeRegex(value){
+    return value.replace(/[.*+?^${}()|\[\]\\]/g,'\\$&');
+  }
+
+  function buildKeywordMatcher(keyword){
+    const raw=typeof keyword==='string'?keyword.trim():'';
+    if(!raw) return {test:()=>false,isValid:true,isPattern:false,pattern:''};
+    const asRegex=(pattern)=>{
+      try{
+        const regex=new RegExp(pattern,'i');
+        return {test:value=>regex.test(value||''),isValid:true,isPattern:true,pattern};
+      }catch(error){
+        return {test:()=>false,isValid:false,isPattern:true,pattern,error};
+      }
+    };
+    if(raw.startsWith('/') && raw.endsWith('/') && raw.length>2){
+      return asRegex(raw.slice(1,-1));
+    }
+    const hasPatternSyntax=/[|*?()[\]]/.test(raw);
+    if(hasPatternSyntax){
+      const converted=raw.split('').map(char=>{
+        if(char==='*') return '.*';
+        if(char==='?') return '.';
+        if(char==='|') return '|';
+        if(char==='(' || char===')' || char==='[' || char===']') return char;
+        return escapeRegex(char);
+      }).join('');
+      return asRegex(converted);
+    }
+    const normalized=raw.toLowerCase();
+    return {test:value=>(value||'').toLowerCase().includes(normalized),isValid:true,isPattern:false,pattern:normalized};
+  }
+
   function findRuleTarget(extraColumns,item){
     const availableIds=new Set((Array.isArray(extraColumns)?extraColumns:[]).map(col=>col.id).filter(Boolean));
     if(!availableIds.size) return '';
@@ -1949,13 +1982,15 @@
         const target=(rule.toColumn||column.id||'').trim();
         if(!target || !availableIds.has(target)) continue;
         const ruleField=(rule.field||'').trim();
-        const ruleKeyword=(rule.keyword||'').toLowerCase();
+        const ruleKeyword=typeof rule.keyword==='string'?rule.keyword.trim():'';
         if(!ruleField && !ruleKeyword) continue;
         const value=ruleField?getDataFieldValue(data,ruleField).toLowerCase():'';
         if(!ruleKeyword && value){
           return target;
         }
-        const keywordMatch=!ruleKeyword || (!!value && value.includes(ruleKeyword));
+        const matcher=buildKeywordMatcher(ruleKeyword);
+        if(!matcher.isValid) continue;
+        const keywordMatch=ruleKeyword && value && matcher.test(value);
         if(keywordMatch){
           return target;
         }
@@ -3898,12 +3933,28 @@
             keywordField.className='db-extra-rule-field';
             const keywordLabel=document.createElement('label');
             keywordLabel.textContent='Keyword';
-            keywordLabel.title='…und ein Aspen-Keyword gefunden wird…';
+            keywordLabel.title='…und ein Aspen-Keyword gefunden wird (mit * / ? / | für Muster, Enter prüft die Syntax)…';
             const keywordInput=document.createElement('input');
             keywordInput.type='text';
             keywordInput.setAttribute('list',keywordListId);
             keywordInput.value=normalized.keyword||'';
-            keywordInput.placeholder='z.B. UC, EOL, Prüfen';
+            keywordInput.placeholder='z.B. UC, EOL, UC9*|mUC99';
+            const validateKeyword=()=>{
+              const result=buildKeywordMatcher(keywordInput.value);
+              if(!result.isValid){
+                const message=result.error?.message||result.error||'Ungültiges Muster';
+                keywordInput.setCustomValidity(`Syntax-Fehler: ${message}`);
+                keywordInput.reportValidity();
+                return false;
+              }
+              keywordInput.setCustomValidity('');
+              return true;
+            };
+            keywordInput.addEventListener('keydown',(event)=>{
+              if(event.key==='Enter'){
+                validateKeyword();
+              }
+            });
             keywordInput.addEventListener('change',()=>{
               ensureRuleSlot(ruleIndex);
               tempExtraColumns[index].rules[ruleIndex]={
@@ -3918,7 +3969,9 @@
                 ...tempExtraColumns[index].rules[ruleIndex],
                 keyword:keywordInput.value.trim()
               };
+              keywordInput.setCustomValidity('');
             });
+            keywordInput.addEventListener('blur',validateKeyword);
             keywordField.appendChild(keywordLabel);
             keywordField.appendChild(keywordInput);
             ruleRow.appendChild(keywordField);
