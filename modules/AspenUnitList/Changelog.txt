@@ -3,6 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.26] – 2025-12-09
+### Changed
+- Extraspalten lassen sich jetzt direkt über die Spaltenüberschrift umbenennen; die Konfiguration verweist darauf und bleibt dadurch kompakter.
+- Regelkarten verzichten auf angezeigte Spaltennamen und fokussieren sich auf ihr Ziel-Spaltenziel, damit klar wird, dass die Regeln global greifen.
+
 ## [1.1.25] – 2025-12-08
 ### Changed
 - Keyword-Regeln verstehen jetzt logische Ausdrücke mit OR/AND (z. B. „UC98 OR UC99“) und prüfen mehrere Varianten in einem Durchgang.

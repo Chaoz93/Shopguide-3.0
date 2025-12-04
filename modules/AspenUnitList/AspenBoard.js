@@ -412,6 +412,11 @@
     .aspenboard .db-extra-name-input-field{background:var(--ab-input-bg,var(--ab-card));border-color:var(--ab-input-border,var(--ab-border));color:var(--ab-text);}
     .aspenboard .db-extra-name-input-field::placeholder{color:var(--ab-muted);}
     .aspenboard .db-extra-uc-switch{color:var(--ab-muted);}
+    .db-inline-title{cursor:text;}
+    .db-inline-title:focus{outline:none;box-shadow:0 0 0 2px var(--ab-accent-glow);border-radius:.3rem;}
+    .db-inline-title-input{width:100%;padding:.2rem .35rem;border:1px solid var(--ab-border);border-radius:.35rem;background:var(--ab-input-bg,var(--ab-card));color:inherit;font-weight:600;}
+    .db-inline-title-input:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 2px var(--ab-accent-glow);}
+    .db-inline-hint{font-size:.78rem;color:var(--ab-muted);}
     .aspenboard .db-extra-uc-switch-control{background:var(--ab-accent-quiet);}
     .aspenboard .db-extra-uc-switch input:checked~.db-extra-uc-switch-control{background:var(--ab-accent);box-shadow:0 0 0 2px var(--ab-accent-quiet);}
     .aspenboard .db-color-card-title{color:var(--ab-text);}
@@ -3106,6 +3111,16 @@
           const wrap=elements.extraWraps[index];
           if(!wrap) return;
           wrap.title.textContent=column.label||`Extraspalte ${index+1}`;
+          wrap.title.classList.add('db-inline-title');
+          wrap.title.dataset.columnId=column.id;
+          wrap.title.tabIndex=0;
+          wrap.title.addEventListener('click',()=>beginInlineColumnEdit(column.id,wrap.title));
+          wrap.title.addEventListener('keydown',event=>{
+            if(event.key==='Enter' || event.key===' '){
+              event.preventDefault();
+              beginInlineColumnEdit(column.id,wrap.title);
+            }
+          });
           wrap.list.dataset.columnId=column.id;
           wrap.wrap.dataset.columnId=column.id;
         });
@@ -3131,8 +3146,17 @@
         wrap.className='db-list-wrap db-extra-wrap';
         wrap.dataset.columnId=column.id;
         const title=document.createElement('div');
-        title.className='db-list-title';
+        title.className='db-list-title db-inline-title';
+        title.tabIndex=0;
+        title.dataset.columnId=column.id;
         title.textContent=column.label||`Extraspalte ${index+1}`;
+        title.addEventListener('click',()=>beginInlineColumnEdit(column.id,title));
+        title.addEventListener('keydown',event=>{
+          if(event.key==='Enter' || event.key===' '){
+            event.preventDefault();
+            beginInlineColumnEdit(column.id,title);
+          }
+        });
         const list=document.createElement('div');
         list.className='db-list db-extra-list';
         list.dataset.boardType='aspen-extra';
@@ -3757,35 +3781,115 @@
       }
     }
 
-    function updateTempColumnLabel(columnId,value){
-      if(!columnId) return;
-      if(columnId===ACTIVE_COLUMN_ID){
-        tempActiveColumnLabel=value;
-        return;
-      }
-      const index=tempExtraColumns.findIndex(col=>col.id===columnId);
-      if(index===-1) return;
-      tempExtraColumns[index]={...tempExtraColumns[index],label:value};
+  function updateTempColumnLabel(columnId,value){
+    if(!columnId) return;
+    if(columnId===ACTIVE_COLUMN_ID){
+      tempActiveColumnLabel=value;
+      return;
     }
+    const index=tempExtraColumns.findIndex(col=>col.id===columnId);
+    if(index===-1) return;
+    tempExtraColumns[index]={...tempExtraColumns[index],label:value};
+  }
 
-    function getTempColumnDisplayInfo(columnId){
-      if(!columnId){
-        return null;
+  function applyColumnLabel(columnId,value,{persist=true,refresh=true}={}){
+    if(!columnId) return;
+    const nextLabel=(value||'').trim();
+    if(columnId===ACTIVE_COLUMN_ID){
+      tempActiveColumnLabel=nextLabel;
+      state.config.activeColumn={
+        ...sanitizeActiveColumn(state.config.activeColumn),
+        label:nextLabel||DEFAULT_ACTIVE_COLUMN_LABEL
+      };
+      if(refresh){
+        updateTempColumnPreview(columnId);
       }
-      if(columnId===ACTIVE_COLUMN_ID){
-        const raw=typeof tempActiveColumnLabel==='string'?tempActiveColumnLabel:'';
-        const label=raw.trim()||DEFAULT_ACTIVE_COLUMN_LABEL;
-        return {kind:'active',label,index:-1};
+      if(persist){
+        persistState(state,instanceId,stateStorageKey);
       }
-      const index=tempExtraColumns.findIndex(col=>col.id===columnId);
-      if(index===-1){
-        return null;
-      }
-      const column=tempExtraColumns[index]||{};
-      const rawLabel=typeof column.label==='string'?column.label:'';
-      const label=rawLabel.trim()||`Extraspalte ${index+1}`;
-      return {kind:'extra',label,index};
+      return;
     }
+    const configIndex=Array.isArray(state.config.extraColumns)
+      ? state.config.extraColumns.findIndex(col=>col.id===columnId)
+      : -1;
+    if(configIndex!==-1){
+      state.config.extraColumns[configIndex]={
+        ...state.config.extraColumns[configIndex],
+        label:nextLabel
+      };
+    }
+    const tempIndex=tempExtraColumns.findIndex(col=>col.id===columnId);
+    if(tempIndex!==-1){
+      tempExtraColumns[tempIndex]={...tempExtraColumns[tempIndex],label:nextLabel};
+    }
+    if(refresh){
+      updateTempColumnPreview(columnId);
+      if(elements.modal?.classList.contains('open')){
+        renderExtraControls();
+      }
+      render();
+    }
+    if(persist){
+      persistState(state,instanceId,stateStorageKey);
+    }
+  }
+
+  function beginInlineColumnEdit(columnId,titleElement){
+    if(!columnId || !titleElement || titleElement.dataset.editing==='true') return;
+    titleElement.dataset.editing='true';
+    const info=getTempColumnDisplayInfo(columnId) || {label:titleElement.textContent||''};
+    const original=info.label||'';
+    const input=document.createElement('input');
+    input.type='text';
+    input.className='db-inline-title-input';
+    input.value=original;
+    input.placeholder='Spaltenname';
+    const finish=(commit)=>{
+      titleElement.dataset.editing='false';
+      const nextValue=commit?input.value:original;
+      titleElement.textContent=nextValue||original||titleElement.textContent||'';
+      titleElement.tabIndex=0;
+      if(commit){
+        applyColumnLabel(columnId,nextValue,{persist:true,refresh:true});
+      }
+    };
+    input.addEventListener('keydown',event=>{
+      if(event.key==='Enter'){
+        finish(true);
+      }else if(event.key==='Escape'){
+        finish(false);
+      }
+    });
+    input.addEventListener('blur',()=>finish(true));
+    titleElement.innerHTML='';
+    titleElement.appendChild(input);
+    input.focus();
+    input.select();
+  }
+
+  function getTempColumnDisplayInfo(columnId){
+    if(!columnId){
+      return null;
+    }
+    if(columnId===ACTIVE_COLUMN_ID){
+      const raw=typeof tempActiveColumnLabel==='string'?tempActiveColumnLabel:'';
+      const label=raw.trim()||DEFAULT_ACTIVE_COLUMN_LABEL;
+      return {kind:'active',label,index:-1};
+    }
+    const sourceList=Array.isArray(tempExtraColumns)&&tempExtraColumns.length
+      ? tempExtraColumns
+      : Array.isArray(state.config.extraColumns)
+        ? state.config.extraColumns
+        : [];
+    const index=sourceList.findIndex(col=>col.id===columnId);
+    if(index===-1){
+      return null;
+    }
+    const column=sourceList[index]||{};
+    const rawLabel=typeof column.label==='string'?column.label:'';
+    const label=rawLabel.trim()||`Extraspalte ${index+1}`;
+    return {kind:'extra',label,index};
+  }
 
     function updateTempColumnPreview(columnId){
       const info=getTempColumnDisplayInfo(columnId);
@@ -3874,7 +3978,6 @@
       const nameFragment=document.createDocumentFragment();
       const ruleFragment=document.createDocumentFragment();
       tempExtraColumns.forEach((column,index)=>{
-        const columnLabel=(column.label||'').trim()||`Extraspalte ${index+1}`;
         const row=document.createElement('div');
         row.className='db-extra-name-row';
         row.dataset.columnId=column.id;
@@ -3884,6 +3987,12 @@
         title.className='db-extra-name-title';
         title.textContent=`Spalte ${index+1}`;
         header.appendChild(title);
+        if(index===0){
+          const inlineHint=document.createElement('span');
+          inlineHint.className='db-inline-hint';
+          inlineHint.textContent='Tipp: Spaltenüberschrift im Board anklicken, um den Namen direkt zu ändern.';
+          header.appendChild(inlineHint);
+        }
         row.appendChild(header);
         const label=document.createElement('label');
         label.className='db-extra-name-input';
@@ -3911,10 +4020,10 @@
         const cardTitle=document.createElement('div');
         cardTitle.className='db-extra-rule-card-title';
         const cardLabel=document.createElement('span');
-        cardLabel.textContent=columnLabel;
+        cardLabel.textContent='Globale Regeln';
         const cardMeta=document.createElement('span');
         cardMeta.className='db-extra-rule-card-meta';
-        cardMeta.textContent=`Spalte ${index+1}`;
+        cardMeta.textContent=`Ziel: Extraspalte ${index+1}`;
         cardTitle.appendChild(cardLabel);
         cardTitle.appendChild(cardMeta);
         card.appendChild(cardTitle);
