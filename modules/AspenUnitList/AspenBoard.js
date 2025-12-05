@@ -196,6 +196,7 @@
     .db-extra-rule-header{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
     .db-extra-rule-hint{font-size:.78rem;font-weight:600;color:var(--ab-muted);}
     .db-extra-rule-list{display:flex;flex-direction:column;gap:.4rem;}
+    .db-extra-rule-actions{display:flex;justify-content:flex-start;}
     .db-extra-rule-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:.35rem;align-items:start;}
     .db-extra-rule-field{display:flex;flex-direction:column;gap:.2rem;}
     .db-extra-condition-wrap{display:flex;flex-direction:column;gap:.35rem;}
@@ -4223,7 +4224,7 @@
                       tempExtraColumns[index].rules[ruleIndex].conditions=[createEmptyExtraCondition()];
                     }
                   }
-                  renderConditions();
+                  renderRules();
                   scheduleOptionPersist(true);
                 });
                 conditionRow.appendChild(removeCondition);
@@ -4240,7 +4241,7 @@
             addCondition.addEventListener('click',()=>{
               ensureConditionSlot(tempExtraColumns[index].rules[ruleIndex].conditions?.length||0);
               tempExtraColumns[index].rules[ruleIndex].conditions.push(createEmptyExtraCondition());
-              renderConditions();
+              renderRules();
               scheduleOptionPersist(true);
             });
 
@@ -4297,6 +4298,8 @@
 
             rulesList.appendChild(ruleRow);
           });
+          const addRuleRow=document.createElement('div');
+          addRuleRow.className='db-extra-rule-actions';
           const addRule=document.createElement('button');
           addRule.type='button';
           addRule.className='db-add-rule';
@@ -4307,7 +4310,8 @@
             renderRules();
             scheduleOptionPersist(true);
           });
-          rulesList.appendChild(addRule);
+          addRuleRow.appendChild(addRule);
+          rulesList.appendChild(addRuleRow);
         };
         renderRules();
         card.appendChild(rulesList);

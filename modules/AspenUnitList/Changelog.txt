@@ -3,6 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.29] – 2025-12-11
+### Fixed
+- Der Button „Bedingung hinzufügen“ legt jetzt zuverlässig eine neue Bedingungszeile an.
+- „Regel hinzufügen“ erscheint nur noch einmal unterhalb der gesamten Regelliste, nicht mehr unter jeder einzelnen Regelzeile.
+
 ## [1.1.28] – 2025-12-11
 ### Changed
 - Zuweisungsregeln bestehen jetzt aus beliebig vielen Bedingungen, die alle erfüllt sein müssen, bevor ein Gerät in die Zielspalte verschoben wird.
