@@ -1484,7 +1484,7 @@
     const source=rule&&typeof rule==='object'?rule:{};
     const rawConditions=Array.isArray(source.conditions)?source.conditions:[];
     const seeded=rawConditions.length?rawConditions:[{field:source.field||source.status||'',keyword:source.keyword||''}];
-    const normalized=seeded.map(condition=>sanitizeExtraCondition(condition)).filter(condition=>condition.field||condition.keyword);
+    const normalized=seeded.map(condition=>sanitizeExtraCondition(condition));
     return normalized.length?normalized:[createEmptyExtraCondition()];
   }
 
@@ -1506,10 +1506,9 @@
   }
 
   function sanitizeExtraRuleList(rules,{defaultTarget=''}={}){
-    if(!Array.isArray(rules)) return [createEmptyExtraRule(defaultTarget)];
+    if(!Array.isArray(rules)) return [];
     const sanitized=rules.map(rule=>sanitizeExtraRule(rule,{defaultTarget}));
-    if(!sanitized.length) return [createEmptyExtraRule(defaultTarget)];
-    return sanitized;
+    return sanitized.filter(rule=>rule && typeof rule==='object');
   }
 
   function sanitizeExtraColumns(columns){
@@ -4074,7 +4073,7 @@
         rulesList.className='db-extra-rule-list';
         const ensureRuleSlot=(position)=>{
           if(!Array.isArray(tempExtraColumns[index].rules)){
-            tempExtraColumns[index].rules=[createEmptyExtraRule(column.id)];
+            tempExtraColumns[index].rules=[];
           }
           if(position>=tempExtraColumns[index].rules.length){
             tempExtraColumns[index].rules.push(createEmptyExtraRule(column.id));
@@ -4086,7 +4085,7 @@
             ? tempExtraColumns[index].rules
             : [];
           if(!rules.length){
-            tempExtraColumns[index].rules=[createEmptyExtraRule(column.id)];
+            tempExtraColumns[index].rules=[];
           }
           const targets=tempExtraColumns.map((col,idx)=>({
             id:col.id,
@@ -4239,7 +4238,9 @@
             addCondition.className='db-add-sub';
             addCondition.textContent='Bedingung hinzufügen';
             addCondition.addEventListener('click',()=>{
-              ensureConditionSlot(tempExtraColumns[index].rules[ruleIndex].conditions?.length||0);
+              if(!Array.isArray(tempExtraColumns[index].rules[ruleIndex].conditions)){
+                tempExtraColumns[index].rules[ruleIndex].conditions=[createEmptyExtraCondition()];
+              }
               tempExtraColumns[index].rules[ruleIndex].conditions.push(createEmptyExtraCondition());
               renderRules();
               scheduleOptionPersist(true);
@@ -4287,9 +4288,6 @@
             removeBtn.addEventListener('click',()=>{
               if(Array.isArray(tempExtraColumns[index].rules)){
                 tempExtraColumns[index].rules.splice(ruleIndex,1);
-                if(!tempExtraColumns[index].rules.length){
-                  tempExtraColumns[index].rules=[createEmptyExtraRule(column.id)];
-                }
               }
               renderRules();
               scheduleOptionPersist(true);
@@ -4303,9 +4301,11 @@
           const addRule=document.createElement('button');
           addRule.type='button';
           addRule.className='db-add-rule';
-          addRule.textContent='Regel hinzufügen';
+          addRule.textContent='Neue Regelgruppe hinzufügen';
           addRule.addEventListener('click',()=>{
-            ensureRuleSlot(tempExtraColumns[index].rules?.length||0);
+            if(!Array.isArray(tempExtraColumns[index].rules)){
+              tempExtraColumns[index].rules=[];
+            }
             tempExtraColumns[index].rules.push(createEmptyExtraRule(column.id));
             renderRules();
             scheduleOptionPersist(true);
