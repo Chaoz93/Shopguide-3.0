@@ -3,6 +3,26 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.31] – 2025-12-13
+### Fixed
+- Regelgruppen in den Extraspalten starten nicht mehr automatisch in Spaltenanzahl; leere Regeln können vollständig entfernt und bei Bedarf neu angelegt werden.
+
+## [1.1.30] – 2025-12-12
+### Fixed
+- „Bedingung hinzufügen“ erzeugt zusätzliche Bedingungszeilen, auch wenn sie zunächst leer sind.
+- „Neue Regelgruppe hinzufügen“ legt eine eigenständige Regel an, statt weitere Bedingungen in bestehende Regeln einzutragen.
+- Standard-Regeln lassen sich vollständig mit dem ✕ entfernen.
+
+## [1.1.29] – 2025-12-11
+### Changed
+- Der Button „Bedingung hinzufügen“ legt jetzt zuverlässig eine neue Bedingungszeile an.
+- „Regel hinzufügen“ erscheint nur noch einmal unterhalb der gesamten Regelliste, nicht mehr unter jeder einzelnen Regelzeile.
+
+## [1.1.28] – 2025-12-11
+### Changed
+- Zuweisungsregeln bestehen jetzt aus beliebig vielen Bedingungen, die alle erfüllt sein müssen, bevor ein Gerät in die Zielspalte verschoben wird.
+- Die Regeloberfläche zeigt Bedingungen gruppiert pro Zielspalte und erlaubt das Hinzufügen/Entfernen einzelner Bedingungen.
+
 ## [1.1.27] – 2025-12-10
 ### Changed
 - Extraspalten-Eingaben sind kompakter: Der eigene Name steht direkt neben dem Standardtitel, die Zusatzüberschrift entfällt.
