@@ -196,8 +196,11 @@
     .db-extra-rule-header{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
     .db-extra-rule-hint{font-size:.78rem;font-weight:600;color:var(--ab-muted);}
     .db-extra-rule-list{display:flex;flex-direction:column;gap:.4rem;}
-    .db-extra-rule-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:.35rem;align-items:end;}
+    .db-extra-rule-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:.35rem;align-items:start;}
     .db-extra-rule-field{display:flex;flex-direction:column;gap:.2rem;}
+    .db-extra-condition-wrap{display:flex;flex-direction:column;gap:.35rem;}
+    .db-extra-condition-list{display:flex;flex-direction:column;gap:.35rem;}
+    .db-extra-condition-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) auto;gap:.35rem;align-items:end;}
     .db-extra-uc-switch{position:relative;display:flex;align-items:center;gap:.65rem;padding:.35rem .75rem;border-radius:.75rem;font-size:.78rem;font-weight:600;color:var(--ab-text);background:var(--ab-surface-quiet);box-shadow:var(--ab-shadow);cursor:pointer;user-select:none;transition:background .2s ease,box-shadow .2s ease,color .2s ease;min-width:0;line-height:1.1;}
     .db-extra-uc-switch:hover{background:var(--ab-surface);box-shadow:var(--ab-shadow-strong);}
     .db-extra-uc-switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;}
@@ -1457,26 +1460,46 @@
     return 'extra-'+Math.random().toString(36).slice(2,9);
   }
 
-  function createEmptyExtraRule(defaultTarget=''){
-    return {field:'',keyword:'',toColumn:defaultTarget||''};
+  function createEmptyExtraCondition(){
+    return {field:'',keyword:''};
   }
 
-  function sanitizeExtraRule(rule,{defaultTarget=''}={}){
-    const source=rule&&typeof rule==='object'?rule:{};
+  function createEmptyExtraRule(defaultTarget=''){
+    return {conditions:[createEmptyExtraCondition()],toColumn:defaultTarget||''};
+  }
+
+  function sanitizeExtraCondition(condition){
+    const source=condition&&typeof condition==='object'?condition:{};
     const field=typeof source.field==='string'
       ? source.field.trim()
       : typeof source.status==='string'
         ? source.status.trim()
         : '';
     const keyword=typeof source.keyword==='string'?source.keyword.trim():'';
+    return {field,keyword};
+  }
+
+  function normalizeRuleConditions(rule){
+    const source=rule&&typeof rule==='object'?rule:{};
+    const rawConditions=Array.isArray(source.conditions)?source.conditions:[];
+    const seeded=rawConditions.length?rawConditions:[{field:source.field||source.status||'',keyword:source.keyword||''}];
+    const normalized=seeded.map(condition=>sanitizeExtraCondition(condition)).filter(condition=>condition.field||condition.keyword);
+    return normalized.length?normalized:[createEmptyExtraCondition()];
+  }
+
+  function sanitizeExtraRule(rule,{defaultTarget=''}={}){
+    const source=rule&&typeof rule==='object'?rule:{};
     const toColumn=typeof source.toColumn==='string'
       ? source.toColumn.trim()
       : typeof source.column==='string'
         ? source.column.trim()
         : '';
+    const conditions=normalizeRuleConditions(source);
+    const [primary]=conditions;
     return {
-      field,
-      keyword,
+      conditions,
+      field:primary.field,
+      keyword:primary.keyword,
       toColumn:toColumn||defaultTarget
     };
   }
@@ -1510,7 +1533,8 @@
         if(!ucSort) return baseRules;
         const hasUcRule=baseRules.some(rule=>{
           const normalized=sanitizeExtraRule(rule,{defaultTarget:id});
-          return normalized.field.toLowerCase()==='uc' && !normalized.keyword;
+          return (Array.isArray(normalized.conditions)?normalized.conditions:[])
+            .some(condition=>String(condition.field||'').toLowerCase()==='uc' && !condition.keyword);
         });
         if(hasUcRule) return baseRules;
         return [
@@ -2039,17 +2063,30 @@
         const rule=sanitizeExtraRule(rawRule,{defaultTarget:column.id});
         const target=(rule.toColumn||column.id||'').trim();
         if(!target || !availableIds.has(target)) continue;
-        const ruleField=(rule.field||'').trim();
-        const ruleKeyword=typeof rule.keyword==='string'?rule.keyword.trim():'';
-        if(!ruleField && !ruleKeyword) continue;
-        const value=ruleField?getDataFieldValue(data,ruleField).toLowerCase():'';
-        if(!ruleKeyword && value){
-          return target;
+        const conditions=Array.isArray(rule.conditions)?rule.conditions:[];
+        const meaningful=conditions
+          .map(condition=>sanitizeExtraCondition(condition))
+          .filter(condition=>condition.field||condition.keyword);
+        if(!meaningful.length) continue;
+        let allMatch=true;
+        for(const condition of meaningful){
+          const ruleField=(condition.field||'').trim();
+          const ruleKeyword=typeof condition.keyword==='string'?condition.keyword.trim():'';
+          const value=ruleField?getDataFieldValue(data,ruleField).toLowerCase():'';
+          if(!ruleKeyword){
+            if(!value){
+              allMatch=false;
+              break;
+            }
+            continue;
+          }
+          const matcher=buildKeywordMatcher(ruleKeyword);
+          if(!matcher.isValid || !value || !matcher.test(value)){
+            allMatch=false;
+            break;
+          }
         }
-        const matcher=buildKeywordMatcher(ruleKeyword);
-        if(!matcher.isValid) continue;
-        const keywordMatch=ruleKeyword && value && matcher.test(value);
-        if(keywordMatch){
+        if(allMatch){
           return target;
         }
       }
@@ -3952,7 +3989,13 @@
         return;
       }
       const ruleFields=(Array.isArray(tempExtraColumns)?tempExtraColumns:[])
-        .flatMap(col=>Array.isArray(col.rules)?col.rules.map(rule=>rule?.field||rule?.status||'')||[]:[])
+        .flatMap(col=>Array.isArray(col.rules)
+          ? col.rules.flatMap(rule=>{
+            const normalized=sanitizeExtraRule(rule,{defaultTarget:col.id});
+            return (Array.isArray(normalized.conditions)?normalized.conditions:[])
+              .map(condition=>condition?.field||condition?.status||'');
+          })
+          : [])
         .filter(Boolean);
       const fieldOptions=getAvailableFieldList(state,ruleFields);
       if(!fieldOptions.includes('UC')) fieldOptions.push('UC');
@@ -4022,7 +4065,7 @@
         ruleLabel.textContent='Automatische Zuweisung (oberste Regel gewinnt)';
         const ruleHint=document.createElement('span');
         ruleHint.className='db-extra-rule-hint';
-        ruleHint.textContent='Wenn Feld befüllt ist und/oder ein Keyword passt, landet das Gerät in der Zielspalte.';
+        ruleHint.textContent='Alle Bedingungen einer Regel müssen erfüllt sein; die erste passende Regel verschiebt das Gerät in die Zielspalte.';
         ruleHeader.appendChild(ruleLabel);
         ruleHeader.appendChild(ruleHint);
         card.appendChild(ruleHeader);
@@ -4059,88 +4102,151 @@
             tempExtraColumns[index].rules[ruleIndex]=normalized;
             const ruleRow=document.createElement('div');
             ruleRow.className='db-extra-rule-row';
-
-            const fieldWrapper=document.createElement('div');
-            fieldWrapper.className='db-extra-rule-field';
-            const fieldLabel=document.createElement('label');
-            fieldLabel.textContent='Feld';
-            fieldLabel.title='Dieses Aspen-Feld wird auf Inhalt/Keyword geprüft (leer = ignorieren).';
-            const fieldSelect=document.createElement('select');
-            const emptyField=document.createElement('option');
-            emptyField.value='';
-            emptyField.textContent='(egal)';
-            fieldSelect.appendChild(emptyField);
-            fieldOptions.forEach(option=>{
-              const opt=document.createElement('option');
-              opt.value=option;
-              opt.textContent=option;
-              fieldSelect.appendChild(opt);
-            });
-            if(normalized.field && !fieldOptions.includes(normalized.field)){
-              const custom=document.createElement('option');
-              custom.value=normalized.field;
-              custom.textContent=normalized.field;
-              fieldSelect.appendChild(custom);
-            }
-            fieldSelect.value=normalized.field||'';
-            fieldSelect.addEventListener('change',()=>{
-              ensureRuleSlot(ruleIndex);
-              tempExtraColumns[index].rules[ruleIndex]={
-                ...tempExtraColumns[index].rules[ruleIndex],
-                field:fieldSelect.value||''
-              };
-              scheduleOptionPersist(true);
-            });
-            fieldWrapper.appendChild(fieldLabel);
-            fieldWrapper.appendChild(fieldSelect);
-            ruleRow.appendChild(fieldWrapper);
-
-            const keywordField=document.createElement('div');
-            keywordField.className='db-extra-rule-field';
-            const keywordLabel=document.createElement('label');
-            keywordLabel.textContent='Keyword';
-            keywordLabel.title='…und ein Aspen-Keyword gefunden wird (mit * / ? / | oder OR/AND für Muster, Enter prüft die Syntax)…';
-            const keywordInput=document.createElement('input');
-            keywordInput.type='text';
-            keywordInput.setAttribute('list',keywordListId);
-            keywordInput.value=normalized.keyword||'';
-            keywordInput.placeholder='z.B. UC98 OR UC99, UC9*|mUC99';
-            const validateKeyword=()=>{
-              const result=buildKeywordMatcher(keywordInput.value);
-              if(!result.isValid){
-                const message=result.error?.message||result.error||'Ungültiges Muster';
-                keywordInput.setCustomValidity(`Syntax-Fehler: ${message}`);
-                keywordInput.reportValidity();
-                return false;
+            const conditionWrap=document.createElement('div');
+            conditionWrap.className='db-extra-condition-wrap';
+            const conditionList=document.createElement('div');
+            conditionList.className='db-extra-condition-list';
+            const ensureConditionSlot=(position)=>{
+              if(!Array.isArray(tempExtraColumns[index].rules[ruleIndex].conditions)){
+                tempExtraColumns[index].rules[ruleIndex].conditions=[createEmptyExtraCondition()];
               }
-              keywordInput.setCustomValidity('');
-              return true;
+              if(position>=tempExtraColumns[index].rules[ruleIndex].conditions.length){
+                tempExtraColumns[index].rules[ruleIndex].conditions.push(createEmptyExtraCondition());
+              }
             };
-            keywordInput.addEventListener('keydown',(event)=>{
-              if(event.key==='Enter'){
-                validateKeyword();
+            const renderConditions=()=>{
+              conditionList.innerHTML='';
+              const conditions=Array.isArray(tempExtraColumns[index].rules[ruleIndex].conditions)
+                ? tempExtraColumns[index].rules[ruleIndex].conditions
+                : [];
+              if(!conditions.length){
+                tempExtraColumns[index].rules[ruleIndex].conditions=[createEmptyExtraCondition()];
               }
-            });
-            keywordInput.addEventListener('change',()=>{
-              ensureRuleSlot(ruleIndex);
-              tempExtraColumns[index].rules[ruleIndex]={
-                ...tempExtraColumns[index].rules[ruleIndex],
-                keyword:keywordInput.value.trim()
-              };
+              tempExtraColumns[index].rules[ruleIndex].conditions.forEach((condition,conditionIndex)=>{
+                const normalizedCondition=sanitizeExtraCondition(condition);
+                tempExtraColumns[index].rules[ruleIndex].conditions[conditionIndex]=normalizedCondition;
+                const conditionRow=document.createElement('div');
+                conditionRow.className='db-extra-condition-row';
+
+                const fieldWrapper=document.createElement('div');
+                fieldWrapper.className='db-extra-rule-field';
+                const fieldLabel=document.createElement('label');
+                fieldLabel.textContent='Feld';
+                fieldLabel.title='Dieses Aspen-Feld wird auf Inhalt/Keyword geprüft (leer = ignorieren).';
+                const fieldSelect=document.createElement('select');
+                const emptyField=document.createElement('option');
+                emptyField.value='';
+                emptyField.textContent='(egal)';
+                fieldSelect.appendChild(emptyField);
+                fieldOptions.forEach(option=>{
+                  const opt=document.createElement('option');
+                  opt.value=option;
+                  opt.textContent=option;
+                  fieldSelect.appendChild(opt);
+                });
+                if(normalizedCondition.field && !fieldOptions.includes(normalizedCondition.field)){
+                  const custom=document.createElement('option');
+                  custom.value=normalizedCondition.field;
+                  custom.textContent=normalizedCondition.field;
+                  fieldSelect.appendChild(custom);
+                }
+                fieldSelect.value=normalizedCondition.field||'';
+                fieldSelect.addEventListener('change',()=>{
+                  ensureConditionSlot(conditionIndex);
+                  tempExtraColumns[index].rules[ruleIndex].conditions[conditionIndex]={
+                    ...tempExtraColumns[index].rules[ruleIndex].conditions[conditionIndex],
+                    field:fieldSelect.value||''
+                  };
+                  scheduleOptionPersist(true);
+                });
+                fieldWrapper.appendChild(fieldLabel);
+                fieldWrapper.appendChild(fieldSelect);
+                conditionRow.appendChild(fieldWrapper);
+
+                const keywordField=document.createElement('div');
+                keywordField.className='db-extra-rule-field';
+                const keywordLabel=document.createElement('label');
+                keywordLabel.textContent='Keyword';
+                keywordLabel.title='…und ein Aspen-Keyword gefunden wird (mit * / ? / | oder OR/AND für Muster, Enter prüft die Syntax)…';
+                const keywordInput=document.createElement('input');
+                keywordInput.type='text';
+                keywordInput.setAttribute('list',keywordListId);
+                keywordInput.value=normalizedCondition.keyword||'';
+                keywordInput.placeholder='z.B. UC98 OR UC99, UC9*|mUC99';
+                const validateKeyword=()=>{
+                  const result=buildKeywordMatcher(keywordInput.value);
+                  if(!result.isValid){
+                    const message=result.error?.message||result.error||'Ungültiges Muster';
+                    keywordInput.setCustomValidity(`Syntax-Fehler: ${message}`);
+                    keywordInput.reportValidity();
+                    return false;
+                  }
+                  keywordInput.setCustomValidity('');
+                  return true;
+                };
+                keywordInput.addEventListener('keydown',(event)=>{
+                  if(event.key==='Enter'){
+                    validateKeyword();
+                  }
+                });
+                keywordInput.addEventListener('change',()=>{
+                  ensureConditionSlot(conditionIndex);
+                  tempExtraColumns[index].rules[ruleIndex].conditions[conditionIndex]={
+                    ...tempExtraColumns[index].rules[ruleIndex].conditions[conditionIndex],
+                    keyword:keywordInput.value.trim()
+                  };
+                  scheduleOptionPersist(true);
+                });
+                keywordInput.addEventListener('input',()=>{
+                  ensureConditionSlot(conditionIndex);
+                  tempExtraColumns[index].rules[ruleIndex].conditions[conditionIndex]={
+                    ...tempExtraColumns[index].rules[ruleIndex].conditions[conditionIndex],
+                    keyword:keywordInput.value.trim()
+                  };
+                  keywordInput.setCustomValidity('');
+                });
+                keywordInput.addEventListener('blur',validateKeyword);
+                keywordField.appendChild(keywordLabel);
+                keywordField.appendChild(keywordInput);
+                conditionRow.appendChild(keywordField);
+
+                const removeCondition=document.createElement('button');
+                removeCondition.type='button';
+                removeCondition.className='db-rule-remove';
+                removeCondition.title='Bedingung entfernen';
+                removeCondition.textContent='✕';
+                removeCondition.disabled=tempExtraColumns[index].rules[ruleIndex].conditions.length<=1;
+                removeCondition.addEventListener('click',()=>{
+                  if(Array.isArray(tempExtraColumns[index].rules[ruleIndex].conditions)){
+                    tempExtraColumns[index].rules[ruleIndex].conditions.splice(conditionIndex,1);
+                    if(!tempExtraColumns[index].rules[ruleIndex].conditions.length){
+                      tempExtraColumns[index].rules[ruleIndex].conditions=[createEmptyExtraCondition()];
+                    }
+                  }
+                  renderConditions();
+                  scheduleOptionPersist(true);
+                });
+                conditionRow.appendChild(removeCondition);
+
+                conditionList.appendChild(conditionRow);
+              });
+            };
+            renderConditions();
+
+            const addCondition=document.createElement('button');
+            addCondition.type='button';
+            addCondition.className='db-add-sub';
+            addCondition.textContent='Bedingung hinzufügen';
+            addCondition.addEventListener('click',()=>{
+              ensureConditionSlot(tempExtraColumns[index].rules[ruleIndex].conditions?.length||0);
+              tempExtraColumns[index].rules[ruleIndex].conditions.push(createEmptyExtraCondition());
+              renderConditions();
               scheduleOptionPersist(true);
             });
-            keywordInput.addEventListener('input',()=>{
-              ensureRuleSlot(ruleIndex);
-              tempExtraColumns[index].rules[ruleIndex]={
-                ...tempExtraColumns[index].rules[ruleIndex],
-                keyword:keywordInput.value.trim()
-              };
-              keywordInput.setCustomValidity('');
-            });
-            keywordInput.addEventListener('blur',validateKeyword);
-            keywordField.appendChild(keywordLabel);
-            keywordField.appendChild(keywordInput);
-            ruleRow.appendChild(keywordField);
+
+            conditionWrap.appendChild(conditionList);
+            conditionWrap.appendChild(addCondition);
+            ruleRow.appendChild(conditionWrap);
 
             const targetField=document.createElement('div');
             targetField.className='db-extra-rule-field';

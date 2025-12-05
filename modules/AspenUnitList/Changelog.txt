@@ -3,6 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.28] – 2025-12-11
+### Changed
+- Zuweisungsregeln bestehen jetzt aus beliebig vielen Bedingungen, die alle erfüllt sein müssen, bevor ein Gerät in die Zielspalte verschoben wird.
+- Die Regeloberfläche zeigt Bedingungen gruppiert pro Zielspalte und erlaubt das Hinzufügen/Entfernen einzelner Bedingungen.
+
 ## [1.1.27] – 2025-12-10
 ### Changed
 - Extraspalten-Eingaben sind kompakter: Der eigene Name steht direkt neben dem Standardtitel, die Zusatzüberschrift entfällt.
