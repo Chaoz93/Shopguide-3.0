@@ -4348,7 +4348,7 @@
       if(clamped>tempExtraColumns.length){
         for(let i=tempExtraColumns.length;i<clamped;i+=1){
           const id=generateExtraColumnId();
-          tempExtraColumns.push({id,label:'',rules:[createEmptyExtraRule(id)]});
+          tempExtraColumns.push({id,label:'',rules:[]});
         }
       }else{
         tempExtraColumns=tempExtraColumns.slice(0,clamped);
