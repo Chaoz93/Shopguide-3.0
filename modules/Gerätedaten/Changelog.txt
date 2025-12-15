@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.8.1] – 2025-05-04
+### Changed
+- Farbwahl des Moduls folgt nun live den Einstellungen im HTML-Menü und aktualisiert Palette sowie Vorschau ohne Reload.
+
 ## [1.8.0] – 2025-10-23
 ### Changed
 - Modulfarben vollständig auf das Main/Alternative/Accent-System umgestellt und direkt an die neuen globalen Layer-Variablen angebunden.

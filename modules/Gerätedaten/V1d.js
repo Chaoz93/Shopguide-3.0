@@ -513,9 +513,21 @@
 
     const els=buildUI(root);
     const moduleHost=root.closest('.grid-stack-item-content');
+    const cleanupTasks=[];
     let colorLayers=loadGlobalColorLayers();
     const baselineColors=getDocumentModuleColorBaseline();
     let fallbackColorLayerId=colorLayers[0]?.id||'default';
+    const colorLayerSignature=layers=>JSON.stringify(layers.map(layer=>({
+      id:layer?.id||'',
+      name:layer?.name||'',
+      moduleBg:layer?.moduleBg||'',
+      moduleText:layer?.moduleText||'',
+      moduleBorder:layer?.moduleBorder||'',
+      headerBg:layer?.headerBg||'',
+      headerText:layer?.headerText||'',
+      headerBorder:layer?.headerBorder||''
+    })));
+    let currentColorSignature=colorLayerSignature(colorLayers);
     let cfg;
     const findColorLayer=id=>colorLayers.find(layer=>layer&&String(layer.id)===String(id))||null;
     const sanitizeColorSelection=(raw)=>{
@@ -575,7 +587,13 @@
     };
     const refreshColorLayers=({repopulate=true,applyTheme=true}={})=>{
       const before=cfg?JSON.stringify(cfg.colors||{}):'';
-      colorLayers=loadGlobalColorLayers();
+      const nextLayers=loadGlobalColorLayers();
+      const nextSignature=colorLayerSignature(nextLayers);
+      const changed=nextSignature!==currentColorSignature;
+      if(changed){
+        colorLayers=nextLayers;
+        currentColorSignature=nextSignature;
+      }
       fallbackColorLayerId=colorLayers[0]?.id||fallbackColorLayerId||'default';
       if(cfg){
         const storedColors=readModuleColorSettings(instanceId);
@@ -590,9 +608,9 @@
           saveCfg(cfg);
         }
       }
-      if(repopulate)renderColorSelectOptions();
+      if(repopulate&&changed)renderColorSelectOptions();
       updateColorSelectValues();
-      if(applyTheme)applyColorTheme();
+      if(applyTheme&&(changed||before!==JSON.stringify(cfg?.colors||{})))applyColorTheme();
     };
     let debugInfo='';
     let deviceName='';
@@ -1026,6 +1044,15 @@
     function activeMeldung(){return(loadDoc()?.general?.Meldung||'').trim();}
     function refreshFromAspen(){const m=activeMeldung();const row=m?findAspenRow(m):null;cfg.fields.forEach(f=>{const el=fieldEls[f.id];if(!el)return;if(f.key==='meldung'){el.input.value=m;}else if(f.group==='calc'){el.input.value=row?getCalculationValue(row,f):'';}else{el.input.value=row?getAspenValue(row,f):'';}const tip=getFieldTooltip(f);if(el.labelEl){el.labelEl.textContent=f.label;el.labelEl.title=tip;}if(el.infoEl)el.infoEl.title=tip;});updateName();updateCustomButtonStates(row);}
 
+    const debouncedColorSync=debounce(160,()=>refreshColorLayers());
+    if(typeof MutationObserver==='function'){
+      const root=document.documentElement;
+      const observer=new MutationObserver(mutations=>{
+        if(mutations.some(m=>m.type==='attributes'&&m.attributeName==='style'))debouncedColorSync();
+      });
+      if(root)observer.observe(root,{attributes:true,attributeFilter:['style']});
+      cleanupTasks.push(()=>observer.disconnect());
+    }
     addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromAspen();if(e.key==='appSettings')refreshColorLayers();});
     addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromAspen();});
     let lastDocString=getDocString();
@@ -1057,7 +1084,7 @@
     renderFields();
     updateUndoRedoButtons();
 
-    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);stopAspenWatcher();(async()=>{try{await idbDel(cfg.ruleIdbKey);}catch{}try{await idbDel(cfg.aspenIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
+    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);stopAspenWatcher();cleanupTasks.forEach(fn=>{try{fn();}catch{}});(async()=>{try{await idbDel(cfg.ruleIdbKey);}catch{}try{await idbDel(cfg.aspenIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
   };
 })();
