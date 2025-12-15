@@ -137,6 +137,11 @@
     .db-design-slider{flex:1 1 240px;min-width:180px;display:flex;align-items:center;gap:.45rem;}
     .db-design-slider input[type=range]{flex:1;accent-color:var(--ab-accent);}
     .db-design-slider input[type=number]{width:4.5rem;padding:.35rem .45rem;border:1px solid var(--ab-border);border-radius:.5rem;background:var(--ab-input-bg);color:var(--ab-text);}
+    .db-design-chip-input{flex:0 0 auto;display:flex;flex-direction:column;gap:.2rem;min-width:180px;color:var(--ab-muted);}
+    .db-design-chip-input .db-design-chip-label{font-weight:700;color:var(--ab-text);font-size:.9rem;}
+    .db-design-chip-input input[type=number]{width:100%;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.5rem;background:var(--ab-input-bg);color:var(--ab-text);}
+    .db-design-chip-input input[type=number]:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
+    .db-design-chip-input .db-design-chip-hint{font-size:.78rem;}
     .db-design-preview{display:flex;flex-direction:column;gap:.65rem;}
     .db-design-preview .db-card{max-width:480px;}
     .db-part-section{display:flex;flex-direction:column;gap:.35rem;padding:.5rem;border-radius:.65rem;border:1px solid var(--ab-section-border);background:var(--ab-section);}
@@ -459,6 +464,7 @@
   const TITLE_FIELD = 'MELDUNGS_NO';
   const MELDUNG_FIELD = 'MELDUNGS_NO';
   const DEFAULT_SUB_FIELD = 'AUFTRAGS_NO';
+  const DEFAULT_PREVIEW_CHIP_COUNT = 3;
   function deriveAccentBaseColor(){
     const root=document.documentElement;
     if(!root) return '';
@@ -1392,6 +1398,11 @@
                     <input type="range" class="db-design-font-range" min="0.8" max="1.6" step="0.05">
                     <input type="number" class="db-design-font-input" min="0.8" max="1.6" step="0.05">
                   </div>
+                  <label class="db-design-chip-input">
+                    <span class="db-design-chip-label">Vorschau-Chips</span>
+                    <input type="number" class="db-design-chip-count" min="0" max="8" step="1" value="3">
+                    <span class="db-design-chip-hint">Stellt testweise ein, wie viele Chips die Vorschau anzeigt.</span>
+                  </label>
                 </div>
               </div>
               <div class="db-design-preview" aria-live="polite"></div>
@@ -1453,6 +1464,7 @@
       tabPanels:Array.from(root.querySelectorAll('.db-tab-panel')),
       designRange:root.querySelector('.db-design-font-range'),
       designInput:root.querySelector('.db-design-font-input'),
+      designChipInput:root.querySelector('.db-design-chip-count'),
       designPreview:root.querySelector('.db-design-preview')
     };
   }
@@ -1551,10 +1563,17 @@
     return Math.min(1.6,Math.max(0.8,num));
   }
 
+  function clampPreviewChipCount(value){
+    const num=Math.round(Number(value));
+    if(!Number.isFinite(num)) return DEFAULT_PREVIEW_CHIP_COUNT;
+    return Math.min(8,Math.max(0,num));
+  }
+
   function sanitizeDesignConfig(design){
     const source=design&&typeof design==='object'?design:{};
     const cardFontScale=clampCardFontScale(source.cardFontScale);
-    return {cardFontScale};
+    const previewChipCount=clampPreviewChipCount(source.previewChipCount);
+    return {cardFontScale,previewChipCount};
   }
 
   function sanitizeExtraColumns(columns){
@@ -2811,13 +2830,17 @@
       }
     }
 
-    function syncDesignInputs(scale){
-      const normalized=clampCardFontScale(scale);
+    function syncDesignInputs(designConfig){
+      const sanitized=sanitizeDesignConfig(designConfig);
+      const normalized=sanitized.cardFontScale;
       if(elements.designRange){
         elements.designRange.value=String(normalized);
       }
       if(elements.designInput){
         elements.designInput.value=normalized.toFixed(2);
+      }
+      if(elements.designChipInput){
+        elements.designChipInput.value=String(sanitized.previewChipCount);
       }
     }
 
@@ -2838,24 +2861,50 @@
       return {id:'design-preview',meldung:'Vorschau',part:'Vorschau',data};
     }
 
-    function renderDesignPreview(scaleOverride){
+    function buildDesignPreviewTags(count){
+      const total=clampPreviewChipCount(count);
+      const accent=deriveAccentBaseColor();
+      const tags=[];
+      for(let i=0;i<total;i++){
+        const label=`Chip ${i+1}`;
+        tags.push({text:label,color:i===0?accent:''});
+      }
+      return tags;
+    }
+
+    function renderDesignPreview(designOverride){
       if(!elements.designPreview) return;
       const activeSubs=Array.isArray(tempSubFields)&&tempSubFields.length?tempSubFields:state.config.subFields;
       const previewConfig={...state.config,subFields:activeSubs};
+      const designConfig=sanitizeDesignConfig(designOverride||tempDesignConfig||state.config.design||{});
       const previewItem=buildDesignPreviewItem(previewConfig);
-      const previewTags=[{text:'Vorschau',color:deriveAccentBaseColor()}];
-      const appliedScale=clampCardFontScale(scaleOverride ?? state.config.design?.cardFontScale);
+      const previewTags=buildDesignPreviewTags(designConfig.previewChipCount);
+      const appliedScale=designConfig.cardFontScale;
       elements.designPreview.innerHTML=buildCardMarkup(previewItem,previewConfig,previewTags);
       elements.designPreview.style.setProperty('--ab-card-font-scale',appliedScale);
     }
 
+    function updateDesignDraft(partial){
+      const base=sanitizeDesignConfig(tempDesignConfig||state.config.design||{});
+      const next=sanitizeDesignConfig({...base,...partial});
+      tempDesignConfig=next;
+      state.config.design=next;
+      return next;
+    }
+
     function updateDesignScale(value,{immediate=false}={}){
-      const clamped=clampCardFontScale(value);
-      tempDesignConfig={cardFontScale:clamped};
-      state.config.design=sanitizeDesignConfig(tempDesignConfig);
-      applyCardFontScale(clamped);
-      syncDesignInputs(clamped);
-      renderDesignPreview(clamped);
+      const next=updateDesignDraft({cardFontScale:clampCardFontScale(value)});
+      applyCardFontScale(next.cardFontScale);
+      syncDesignInputs(next);
+      renderDesignPreview(next);
+      scheduleOptionPersist(immediate);
+    }
+
+    function updatePreviewChipCount(value,{immediate=false}={}){
+      const next=updateDesignDraft({previewChipCount:clampPreviewChipCount(value)});
+      applyCardFontScale(next.cardFontScale);
+      syncDesignInputs(next);
+      renderDesignPreview(next);
       scheduleOptionPersist(immediate);
     }
 
@@ -4706,8 +4755,8 @@
       renderSearchFilterControls();
       renderExtraControls();
       renderRuleControls();
-      renderDesignPreview(tempDesignConfig.cardFontScale);
-      syncDesignInputs(tempDesignConfig.cardFontScale);
+      renderDesignPreview(tempDesignConfig);
+      syncDesignInputs(tempDesignConfig);
       applyCardFontScale(tempDesignConfig.cardFontScale);
       refreshPartControls(elements,state,render);
       activateConfigTab(activeConfigTab);
@@ -4861,6 +4910,11 @@
     if(elements.designInput){
       elements.designInput.addEventListener('input',()=>updateDesignScale(elements.designInput.value));
       elements.designInput.addEventListener('change',()=>updateDesignScale(elements.designInput.value,{immediate:true}));
+    }
+
+    if(elements.designChipInput){
+      elements.designChipInput.addEventListener('input',()=>updatePreviewChipCount(elements.designChipInput.value));
+      elements.designChipInput.addEventListener('change',()=>updatePreviewChipCount(elements.designChipInput.value,{immediate:true}));
     }
 
     if(elements.titleInput){
