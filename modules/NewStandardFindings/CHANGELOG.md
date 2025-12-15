@@ -3,8 +3,12 @@
 Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentiert.
 
 ## Unreleased
+- Keine Einträge.
+
+## 1.3.5 – 2025-12-15
 ### Fixed
 - Zusätzliche Feld-Aliasse für Bestelltexte ergänzt, damit neue Shopguide-Findings-Dateien die korrekten Bestellinformationen übernehmen.
+- Keyword `{routine}` entfernt jetzt den überflüssigen Prefix "Actions performed/to perform" aus den Routine-Texten.
 
 ## 1.3.4 – 2025-12-15
 ### Added

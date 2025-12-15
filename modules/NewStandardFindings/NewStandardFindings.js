@@ -8300,14 +8300,16 @@
         sections.push({title:'Findings:',body:routineFinding});
       }
       if(routineAction){
-        sections.push({title:'Actions performed/to perform:',body:routineAction});
+        sections.push({title:'',body:routineAction});
       }
       if(!sections.length){
         return fallback;
       }
       const lines=[];
       sections.forEach((section,idx)=>{
-        lines.push(section.title);
+        if(section.title){
+          lines.push(section.title);
+        }
         lines.push(section.body);
         if(idx<sections.length-1) lines.push('');
       });
