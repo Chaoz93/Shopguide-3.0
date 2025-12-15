@@ -6,6 +6,13 @@
   const MAX_EXTRA_COLUMNS=6;
   const ACTIVE_COLUMN_ID='__active__';
   const DEFAULT_ACTIVE_COLUMN_LABEL='Aktive Geräte';
+  const DEFAULT_DESIGN_CONFIG={
+    titleSize:16,
+    subtitleSize:13,
+    chipSize:12,
+    chipPosition:'inline',
+    subLayout:'stacked'
+  };
 
   const CSS = `
     .aspenboard{
@@ -99,13 +106,25 @@
     .db-active-wrap[hidden]{display:none;}
     .db-root.db-has-active .db-active-wrap{display:flex;}
     .db-empty{opacity:.6;padding:.25rem .1rem;}
-    .db-card{background:var(--ab-card);color:var(--ab-muted);border-radius:.8rem;padding:.65rem .75rem;box-shadow:var(--ab-shadow);display:flex;align-items:center;gap:.75rem;user-select:none;border:1px solid var(--ab-card-border);}
-    .db-flex{flex:1;display:flex;flex-direction:column;}
+    .db-card{background:var(--ab-card);color:var(--ab-muted);border-radius:.8rem;padding:.65rem .75rem;box-shadow:var(--ab-shadow);display:flex;align-items:center;gap:.75rem;user-select:none;border:1px solid var(--ab-card-border);--ab-title-size:1rem;--ab-sub-size:.9rem;--ab-chip-size:.75rem;}
+    .db-flex{flex:1;display:flex;flex-direction:column;gap:.35rem;min-width:0;}
     .db-card-header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-card-tags{margin-left:auto;display:flex;flex-wrap:wrap;gap:.35rem;justify-content:flex-end;}
-    .db-card-tag{background:var(--ab-accent-quiet);color:var(--ab-accent);padding:.1rem .4rem;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap;border:1px solid transparent;}
-    .db-title{color:var(--ab-text);font-weight:600;line-height:1.1;}
-    .db-sub{color:var(--ab-muted);font-size:.85rem;margin-top:.15rem;}
+    .db-card-tag{background:var(--ab-accent-quiet);color:var(--ab-accent);padding:.1rem .4rem;border-radius:999px;font-size:var(--ab-chip-size,.75rem);font-weight:600;white-space:nowrap;border:1px solid transparent;}
+    .db-title{color:var(--ab-text);font-weight:600;line-height:1.1;font-size:var(--ab-title-size,1rem);}
+    .db-sub{color:var(--ab-muted);font-size:var(--ab-sub-size,.85rem);margin-top:.15rem;display:flex;flex-direction:column;gap:.15rem;}
+    .db-card-body{display:flex;flex-direction:column;gap:.35rem;min-width:0;}
+    .db-card.layout-inline .db-card-body{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:.5rem;row-gap:.3rem;align-items:start;}
+    .db-card.layout-inline .db-card-header{grid-column:1/2;grid-row:1;}
+    .db-card.layout-inline .db-card-tags{grid-column:2/3;grid-row:1;justify-content:flex-end;}
+    .db-card.layout-inline .db-card-tags:empty{display:none;}
+    .db-card.layout-inline .db-sub{grid-column:1/3;}
+    .db-card.layout-tags-below-title .db-card-body{flex-direction:column;}
+    .db-card.layout-tags-below-title .db-card-tags{margin-left:0;justify-content:flex-start;}
+    .db-card.layout-tags-below-sub .db-card-tags{order:3;margin-left:0;justify-content:flex-start;}
+    .db-card.layout-tags-below-sub .db-sub{order:2;}
+    .db-card.layout-sub-inline .db-sub{flex-direction:row;flex-wrap:wrap;gap:.25rem .55rem;}
+    .db-card.layout-sub-inline .db-sub-line{display:inline-flex;align-items:center;}
     .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:.45rem;background:var(--ab-surface-quiet);cursor:grab;color:inherit;border:1px solid var(--ab-border);}
     .db-handle:active{cursor:grabbing;}
     .db-card.active{border-color:var(--dl-active);box-shadow:0 0 0 2px var(--dl-active) inset,0 0 0 2px var(--dl-active),var(--ab-shadow-strong);transform:translateY(-1px);color:var(--ab-accent-contrast);}
@@ -254,6 +273,21 @@
     .db-extra-card-title{font-weight:600;font-size:.9rem;color:var(--ab-muted);}
     .db-extra-card-body{display:flex;flex-direction:column;gap:.75rem;max-height:64vh;overflow:auto;padding-right:.1rem;}
     .db-config-main{flex:1;display:flex;flex-direction:column;gap:1rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
+    .db-design-layout{display:grid;grid-template-columns:1.1fr 0.9fr;gap:1rem;align-items:start;}
+    .db-design-preview{display:flex;flex-direction:column;gap:.75rem;padding:1rem;border:1px solid var(--ab-border);border-radius:.85rem;background:var(--ab-surface);box-shadow:var(--ab-shadow);}
+    .db-design-preview-header{display:flex;flex-direction:column;gap:.25rem;}
+    .db-design-preview-title{font-weight:700;color:var(--ab-muted);}
+    .db-design-preview-hint{font-size:.85rem;color:var(--ab-muted);}
+    .db-design-preview-card{border:1px dashed var(--ab-section-border);border-radius:.85rem;padding:.5rem;background:var(--ab-section);min-height:120px;display:flex;align-items:center;}
+    .db-design-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem;padding:1rem;border:1px solid var(--ab-border);border-radius:.85rem;background:var(--ab-surface);box-shadow:var(--ab-shadow);}
+    .db-design-control{display:flex;flex-direction:column;gap:.35rem;}
+    .db-design-input-row{display:flex;align-items:center;gap:.5rem;}
+    .db-design-control input[type=range]{flex:1;}
+    .db-design-control select{width:100%;padding:.4rem .55rem;border:1px solid var(--ab-border);border-radius:.45rem;background:var(--ab-surface-quiet);color:inherit;}
+    .db-design-value{min-width:48px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:var(--ab-muted);}
+    @media(max-width:1100px){
+      .db-design-layout{grid-template-columns:1fr;}
+    }
     .db-config-main>.row{margin-bottom:0;}
     .db-config-main>.row+.row{margin-top:.25rem;}
     .db-config-colors{flex:0 0 auto;width:100%;display:flex;justify-content:flex-end;}
@@ -1273,6 +1307,7 @@
           <div class="db-config-tabs" role="tablist" aria-label="Einstellungsbereiche">
             <button type="button" class="db-config-tab is-active" role="tab" aria-selected="true" data-tab="general">Allgemein</button>
             <button type="button" class="db-config-tab" role="tab" aria-selected="false" data-tab="extras">Extraspalten</button>
+            <button type="button" class="db-config-tab" role="tab" aria-selected="false" data-tab="design">Design</button>
           </div>
           <div class="db-tab-panel db-tab-general is-active" data-tab="general">
             <div class="db-config-layout">
@@ -1367,6 +1402,55 @@
               </div>
             </div>
           </div>
+          <div class="db-tab-panel db-tab-design" data-tab="design" hidden>
+            <div class="db-design-layout">
+              <div class="db-design-preview">
+                <div class="db-design-preview-header">
+                  <div class="db-design-preview-title">Testkachel</div>
+                  <div class="db-design-preview-hint">Passe Schriftgrößen, Chip-Position und Untertitel-Anordnung an.</div>
+                </div>
+                <div class="db-design-preview-card" aria-live="polite"></div>
+              </div>
+              <div class="db-design-controls">
+                <div class="db-design-control">
+                  <label for="design-title-size">Titel-Schriftgröße</label>
+                  <div class="db-design-input-row">
+                    <input type="range" id="design-title-size" class="db-design-title-size" min="12" max="28" step="1">
+                    <span class="db-design-value" data-design-title-value></span>
+                  </div>
+                </div>
+                <div class="db-design-control">
+                  <label for="design-subtitle-size">Untertitel-Schriftgröße</label>
+                  <div class="db-design-input-row">
+                    <input type="range" id="design-subtitle-size" class="db-design-subtitle-size" min="10" max="22" step="1">
+                    <span class="db-design-value" data-design-subtitle-value></span>
+                  </div>
+                </div>
+                <div class="db-design-control">
+                  <label for="design-chip-size">Chip-Schriftgröße</label>
+                  <div class="db-design-input-row">
+                    <input type="range" id="design-chip-size" class="db-design-chip-size" min="10" max="20" step="1">
+                    <span class="db-design-value" data-design-chip-value></span>
+                  </div>
+                </div>
+                <div class="db-design-control">
+                  <label for="design-chip-position">Chip-Anordnung</label>
+                  <select id="design-chip-position" class="db-design-chip-position">
+                    <option value="inline">Neben dem Titel</option>
+                    <option value="belowTitle">Unter dem Titel</option>
+                    <option value="belowSub">Unter den Untertiteln</option>
+                  </select>
+                </div>
+                <div class="db-design-control">
+                  <label for="design-sub-layout">Untertitel-Anordnung</label>
+                  <select id="design-sub-layout" class="db-design-sub-layout">
+                    <option value="stacked">Zeilenweise</option>
+                    <option value="inline">Nebeneinander</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -1414,6 +1498,15 @@
       extraCount:root.querySelector('.db-extra-count'),
       extraNameList:root.querySelector('.db-extra-name-list'),
       extraRuleBoard:root.querySelector('.db-extra-rule-board'),
+      designPreviewCard:root.querySelector('.db-design-preview-card'),
+      designTitleSize:root.querySelector('.db-design-title-size'),
+      designSubtitleSize:root.querySelector('.db-design-subtitle-size'),
+      designChipSize:root.querySelector('.db-design-chip-size'),
+      designChipPosition:root.querySelector('.db-design-chip-position'),
+      designSubLayout:root.querySelector('.db-design-sub-layout'),
+      designTitleValue:root.querySelector('[data-design-title-value]'),
+      designSubtitleValue:root.querySelector('[data-design-subtitle-value]'),
+      designChipValue:root.querySelector('[data-design-chip-value]'),
       partList:root.querySelector('.db-part-list'),
       partFilter:root.querySelector('.db-part-filter-input'),
       enableAllBtn:root.querySelector('.db-action-enable'),
@@ -1434,7 +1527,8 @@
         titleRules:[],
         extraColumns:[],
         activeColumn:sanitizeActiveColumn({}),
-        searchFilters:[]
+        searchFilters:[],
+        design:sanitizeDesignConfig(DEFAULT_DESIGN_CONFIG)
       },
       items:[],
       excluded:new Set(),
@@ -1573,6 +1667,29 @@
     if(Object.prototype.hasOwnProperty.call(config,'activeColumnLabel')){
       delete config.activeColumnLabel;
     }
+  }
+
+  function sanitizeDesignConfig(design){
+    const source=design&&typeof design==='object'?design:{};
+    const titleSize=clamp(Number(source.titleSize)||DEFAULT_DESIGN_CONFIG.titleSize,12,28);
+    const subtitleSize=clamp(Number(source.subtitleSize)||DEFAULT_DESIGN_CONFIG.subtitleSize,10,22);
+    const chipSize=clamp(Number(source.chipSize)||DEFAULT_DESIGN_CONFIG.chipSize,10,20);
+    const chipPosition=(()=>{
+      const raw=typeof source.chipPosition==='string'?source.chipPosition.trim():'';
+      const allowed=new Set(['inline','belowTitle','belowSub']);
+      return allowed.has(raw)?raw:DEFAULT_DESIGN_CONFIG.chipPosition;
+    })();
+    const subLayout=(()=>{
+      const raw=typeof source.subLayout==='string'?source.subLayout.trim():'';
+      const allowed=new Set(['stacked','inline']);
+      return allowed.has(raw)?raw:DEFAULT_DESIGN_CONFIG.subLayout;
+    })();
+    return {titleSize,subtitleSize,chipSize,chipPosition,subLayout};
+  }
+
+  function ensureDesignConfig(config){
+    if(!config||typeof config!=='object') return;
+    config.design=sanitizeDesignConfig(config.design||DEFAULT_DESIGN_CONFIG);
   }
 
   function generateSearchFilterId(){
@@ -1796,13 +1913,15 @@
           titleRules:savedRules,
           extraColumns:sanitizeExtraColumns(saved.config.extraColumns||state.config.extraColumns||[]),
           activeColumn:sanitizeActiveColumn(saved.config.activeColumn||{label:saved.config.activeColumnLabel||state.config.activeColumn?.label}),
-          searchFilters:sanitizeSearchFilters(saved.config.searchFilters||state.config.searchFilters||[])
+          searchFilters:sanitizeSearchFilters(saved.config.searchFilters||state.config.searchFilters||[]),
+          design:sanitizeDesignConfig(saved.config.design||state.config.design||DEFAULT_DESIGN_CONFIG)
         };
       }
       ensureSubFields(state.config);
       ensureExtraColumns(state.config);
       ensureActiveColumn(state.config);
       ensureSearchFilters(state.config);
+      ensureDesignConfig(state.config);
       let restoredOrder=false;
       if(Array.isArray(saved.items) && saved.items.length){
         state.items=dedupeByMeldung(saved.items);
@@ -1856,6 +1975,7 @@
     ensureExtraColumns(state.config);
     ensureActiveColumn(state.config);
     ensureSearchFilters(state.config);
+    ensureDesignConfig(state.config);
     ensureColumnAssignments(state);
     ensureHiddenExtraColumns(state);
     const payload={
@@ -1870,7 +1990,8 @@
           rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
         })) : [],
         activeColumn:{...sanitizeActiveColumn(state.config.activeColumn)},
-        searchFilters:Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[]
+        searchFilters:Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[],
+        design:sanitizeDesignConfig(state.config.design)
       },
       items:Array.isArray(state.items)?state.items.slice():[],
       excluded:Array.from(state.excluded),
@@ -1897,7 +2018,8 @@
             rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
           })),
           activeColumn:{...payload.config.activeColumn},
-          searchFilters:payload.config.searchFilters.map(filter=>({...filter}))
+          searchFilters:payload.config.searchFilters.map(filter=>({...filter})),
+          design:{...payload.config.design}
         },
         items:payload.items.map(item=>{
           if(!item||typeof item!=='object') return item;
@@ -2330,6 +2452,15 @@
   }
 
   function buildCardMarkup(item,config,ruleTags){
+    const design=sanitizeDesignConfig(config?.design||DEFAULT_DESIGN_CONFIG);
+    const layoutClass=design.chipPosition==='inline'
+      ? 'layout-inline'
+      : design.chipPosition==='belowTitle'
+        ? 'layout-tags-below-title'
+        : 'layout-tags-below-sub';
+    const subClass=design.subLayout==='inline'?'layout-sub-inline':'';
+    const classList=['db-card',layoutClass,subClass].filter(Boolean).join(' ');
+    const styleVars=`--ab-title-size:${design.titleSize}px;--ab-sub-size:${design.subtitleSize}px;--ab-chip-size:${design.chipSize}px;`;
     const titleValue=item.data?.[TITLE_FIELD]||'';
     const meldung=item.meldung||'';
     const subs=(Array.isArray(config.subFields)?config.subFields:[])
@@ -2358,13 +2489,14 @@
       const styleAttr=style?` style="${style}"`:'';
       return `<span class="db-card-tag"${styleAttr}>${escapeHtml(tag.text)}</span>`;
     }).join('')}</div>`:'';
+    const resolvedTags=tagHtml || (design.chipPosition==='inline'?'<div class="db-card-tags"></div>':'');
     return `
-      <div class="db-card" data-id="${item.id}" data-meldung="${meldung}" data-part="${item.part}">
-        <div class="db-flex">
+      <div class="${classList}" style="${styleVars}" data-id="${item.id}" data-meldung="${meldung}" data-part="${item.part}">
+        <div class="db-flex db-card-body">
           <div class="db-card-header">
             <div class="db-title">${titleValue}</div>
-            ${tagHtml}
           </div>
+          ${resolvedTags}
           <div class="db-sub">${subs}</div>
         </div>
         <div class="db-handle" title="Ziehen">⋮⋮</div>
@@ -2586,6 +2718,7 @@
     let tempActiveColumnLabel='';
     let tempActiveColumnEnabled=true;
     let tempSearchFilters=[];
+    let tempDesignSettings=null;
     let partOptions=[];
     let filteredPartOptions=[];
     let partSelectOpen=false;
@@ -2599,7 +2732,8 @@
     let activeConfigTab='general';
 
     function activateConfigTab(tab){
-      const target=tab==='extras'?'extras':'general';
+      const allowed=new Set(['general','extras','design']);
+      const target=allowed.has(tab)?tab:'general';
       activeConfigTab=target;
       (elements.configTabs||[]).forEach(btn=>{
         const isActive=(btn.dataset?.tab||'')===target;
@@ -2701,6 +2835,14 @@
         if(optionsOpen){
           tempSearchFilters=sanitizedFilters.map(filter=>({...filter}));
         }
+        const designSource=optionsOpen && tempDesignSettings
+          ? tempDesignSettings
+          : state.config.design;
+        const sanitizedDesign=sanitizeDesignConfig(designSource);
+        state.config.design=sanitizedDesign;
+        if(optionsOpen){
+          tempDesignSettings={...sanitizedDesign};
+        }
         if(!(state.activeSearchFilters instanceof Set)){
           state.activeSearchFilters=new Set(Array.isArray(state.activeSearchFilters)?state.activeSearchFilters:[]);
         }
@@ -2716,6 +2858,7 @@
         if(optionsOpen){
           renderExtraControls();
           renderSearchFilterControls();
+          renderDesignControls();
         }
         refreshTitleBar();
         if(partChanged){
@@ -3414,6 +3557,7 @@
       ensureExtraColumns(state.config);
       ensureActiveColumn(state.config);
       ensureSearchFilters(state.config);
+      ensureDesignConfig(state.config);
       ensureColumnAssignments(state);
       ensureHiddenExtraColumns(state);
       if(!(state.activeSearchFilters instanceof Set)){
@@ -3807,17 +3951,69 @@
         const target=Array.from(elements.filterList.querySelectorAll('input')).find(input=>{
           return input.dataset?.filterId===restoreFocus.id && (input.dataset?.field||'')===restoreFocus.field;
         });
-        if(target){
-          target.focus();
-          if(typeof restoreFocus.selectionStart==='number' && typeof restoreFocus.selectionEnd==='number' && typeof target.setSelectionRange==='function'){
-            try{
-              target.setSelectionRange(restoreFocus.selectionStart,restoreFocus.selectionEnd);
-            }catch{
-              /* ignore selection errors */
-            }
-          }
+    if(target){
+      target.focus();
+      if(typeof restoreFocus.selectionStart==='number' && typeof restoreFocus.selectionEnd==='number' && typeof target.setSelectionRange==='function'){
+        try{
+          target.setSelectionRange(restoreFocus.selectionStart,restoreFocus.selectionEnd);
+        }catch{
+          /* ignore selection errors */
         }
       }
+    }
+  }
+
+  function currentDesignSettings(){
+    return sanitizeDesignConfig(tempDesignSettings||state.config.design||DEFAULT_DESIGN_CONFIG);
+  }
+
+  function renderDesignPreview(){
+    if(!elements.designPreviewCard) return;
+    const design=currentDesignSettings();
+    const previewConfig={
+      ...state.config,
+      design,
+      subFields:[
+        {field:'Status',nickname:'Status: '},
+        {field:'Standort',nickname:'Ort: '}
+      ]
+    };
+    const previewItem={
+      id:'preview-item',
+      part:'UC-42',
+      meldung:'UC-42',
+      data:{
+        [TITLE_FIELD]:'Testgerät 123',
+        Status:'Online',
+        Standort:'Labor A',
+        UC:'UC-42'
+      }
+    };
+    const previewTags=[
+      {text:previewItem.data?.UC||'UC',color:deriveAccentBaseColor()},
+      {text:'Aktiv',color:'#16a34a'}
+    ];
+    elements.designPreviewCard.innerHTML=buildCardMarkup(previewItem,previewConfig,previewTags);
+    const handle=elements.designPreviewCard.querySelector('.db-handle');
+    if(handle){
+      handle.setAttribute('aria-hidden','true');
+      handle.style.pointerEvents='none';
+    }
+  }
+
+  function renderDesignControls(){
+    const design=currentDesignSettings();
+    tempDesignSettings={...design};
+    if(elements.designTitleSize) elements.designTitleSize.value=String(design.titleSize);
+    if(elements.designSubtitleSize) elements.designSubtitleSize.value=String(design.subtitleSize);
+    if(elements.designChipSize) elements.designChipSize.value=String(design.chipSize);
+    if(elements.designChipPosition) elements.designChipPosition.value=design.chipPosition;
+    if(elements.designSubLayout) elements.designSubLayout.value=design.subLayout;
+    if(elements.designTitleValue) elements.designTitleValue.textContent=`${design.titleSize}px`;
+    if(elements.designSubtitleValue) elements.designSubtitleValue.textContent=`${design.subtitleSize}px`;
+    if(elements.designChipValue) elements.designChipValue.textContent=`${design.chipSize}px`;
+    renderDesignPreview();
+  }
     }
 
   function updateTempColumnLabel(columnId,value){
@@ -4575,11 +4771,13 @@
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       tempActiveColumnEnabled=state.config.activeColumn?.enabled!==false;
       tempSearchFilters=Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[];
+      tempDesignSettings=sanitizeDesignConfig(state.config.design||DEFAULT_DESIGN_CONFIG);
       populateFieldSelects();
       renderSubFieldControls();
       renderSearchFilterControls();
       renderExtraControls();
       renderRuleControls();
+      renderDesignControls();
       refreshPartControls(elements,state,render);
       activateConfigTab(activeConfigTab);
       elements.titleInput.value=state.config.title||'';
@@ -4595,6 +4793,7 @@
       tempActiveColumnLabel='';
       tempActiveColumnEnabled=true;
       tempSearchFilters=[];
+      tempDesignSettings=null;
       closePartSelectDropdown();
       syncPartSelectInputValue();
     }
@@ -4720,6 +4919,36 @@
           return;
         }
         setExtraColumnCount(value,true);
+      });
+    }
+
+    const updateDesignSetting=(key,value)=>{
+      const next=sanitizeDesignConfig({...currentDesignSettings(),[key]:value});
+      tempDesignSettings={...next};
+      renderDesignControls();
+      scheduleOptionPersist();
+    };
+
+    const bindDesignSlider=(input,key)=>{
+      if(!input) return;
+      const handler=()=>updateDesignSetting(key,Number(input.value));
+      input.addEventListener('input',handler);
+      input.addEventListener('change',handler);
+    };
+
+    bindDesignSlider(elements.designTitleSize,'titleSize');
+    bindDesignSlider(elements.designSubtitleSize,'subtitleSize');
+    bindDesignSlider(elements.designChipSize,'chipSize');
+
+    if(elements.designChipPosition){
+      elements.designChipPosition.addEventListener('change',()=>{
+        updateDesignSetting('chipPosition',elements.designChipPosition.value);
+      });
+    }
+
+    if(elements.designSubLayout){
+      elements.designSubLayout.addEventListener('change',()=>{
+        updateDesignSetting('subLayout',elements.designSubLayout.value);
       });
     }
 

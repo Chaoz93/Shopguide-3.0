@@ -3,6 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.32] – 2025-12-14
+### Added
+- Neuer Design-Tab mit Vorschaukachel für frei anpassbare Schriftgrößen von Titel, Untertiteln und Chips sowie wählbare Chip-/Untertitel-Anordnung.
+- Gerätekarten übernehmen die gewählte Gestaltung direkt im Board.
+
 ## [1.1.31] – 2025-12-13
 ### Fixed
 - Regelgruppen in den Extraspalten starten nicht mehr automatisch in Spaltenanzahl; leere Regeln können vollständig entfernt und bei Bedarf neu angelegt werden.
