@@ -2496,8 +2496,11 @@
         buttons: { bg: primarySub.bg, text: primarySub.text }
       };
 
+      const varIndex = index + 1;
+
       return {
         ...raw,
+        varIndex,
         id,
         variableId,
         name,
@@ -3300,6 +3303,47 @@
 
     updateSelectedColorsFromFarblayer();
 
+    function resolveLayerVarPrefix(layer){
+      const numericIndex = Number.isFinite(layer?.varIndex)
+        ? layer.varIndex
+        : Number.isFinite(layer?.index)
+          ? layer.index
+          : Number.isFinite(Number(layer?.variableId))
+            ? Number(layer.variableId)
+            : Number.isFinite(Number(layer?.id))
+              ? Number(layer.id)
+              : null;
+      if(Number.isFinite(numericIndex) && numericIndex > 0){
+        return `--module-layer-${numericIndex}-`;
+      }
+      const rawId = sanitizeId(layer?.variableId || layer?.id || '');
+      if(!rawId) return '';
+      const mapped = rawId === 'main' ? 1 : rawId === 'alternative' ? 2 : rawId === 'accent' ? 3 : null;
+      if(mapped){
+        return `--module-layer-${mapped}-`;
+      }
+      return '';
+    }
+
+    function layerVarValue(layer, suffix, fallback = ''){
+      const prefix = resolveLayerVarPrefix(layer);
+      if(prefix){
+        const varName = `${prefix}${suffix}`;
+        return fallback ? `var(${varName}, ${fallback})` : `var(${varName})`;
+      }
+      return fallback || '';
+    }
+
+    function layerMixValue(layer, primarySuffix, fallback, ratio = 90, secondarySuffix = 'module-bg'){
+      const prefix = resolveLayerVarPrefix(layer);
+      if(prefix){
+        const primary = `${prefix}${primarySuffix}`;
+        const secondary = `${prefix}${secondarySuffix}`;
+        return `color-mix(in srgb, var(${primary}, var(${secondary}${fallback ? `, ${fallback}` : ''})) ${ratio}%, transparent)`;
+      }
+      return fallback || '';
+    }
+
     function applySelectedColors(){
       const layers = getColorLayers();
       let needsPersist = false;
@@ -3349,39 +3393,59 @@
       const headerColors = headerLayer ? deriveHeaderColors(headerLayer) : null;
       const buttonColors = buttonLayer ? deriveButtonColors(buttonLayer) : null;
 
+      const mainBgValue = layerVarValue(mainLayer, 'module-bg', mainColors?.bg || '');
+      const mainTextValue = layerVarValue(mainLayer, 'module-text', mainColors?.text || '');
+      const mainBorderValue = layerVarValue(mainLayer, 'module-border', mainColors?.border || mainBgValue || '');
+
+      const headerBgValue = layerVarValue(headerLayer, 'header-bg', headerColors?.bg || mainBgValue || '');
+      const headerTextValue = layerVarValue(headerLayer, 'header-text', headerColors?.text || mainTextValue || '');
+      const headerBorderValue = layerVarValue(headerLayer, 'header-border', headerColors?.border || headerBgValue || mainBorderValue || '');
+
+      const buttonBgValue = layerVarValue(buttonLayer, 'module-bg', buttonColors?.bg || mainBgValue || '');
+      const buttonTextValue = layerVarValue(buttonLayer, 'module-text', buttonColors?.text || mainTextValue || '');
+      const buttonBorderValue = layerVarValue(buttonLayer, 'module-border', buttonColors?.border || buttonBgValue || mainBorderValue || '');
+
+      const hoverBorder = layerMixValue(buttonLayer, 'module-border', adjustColorLightness(buttonColors?.border, 10) || buttonBorderValue || '', 92);
+      const activeBg = layerMixValue(buttonLayer, 'module-bg', adjustColorLightness(buttonColors?.bg, 6) || adjustColorAlpha(buttonColors?.bg, 0.78) || buttonBgValue || '', 88);
+      const shadowValue = layerMixValue(buttonLayer, 'module-border', buttonColors?.border ? adjustColorAlpha(buttonColors.border, 0.26) : '', 26);
+      const hoverShadowValue = layerMixValue(buttonLayer, 'module-border', buttonColors?.border ? adjustColorAlpha(buttonColors.border, 0.32) : '', 32);
+
       const colorSets = new Map();
       const mainGroupName = getConfiguredGroupName('main');
       const headerGroupName = getConfiguredGroupName('header');
       const buttonGroupName = getConfiguredGroupName('buttons');
-      if(mainColors && mainGroupName){
-        colorSets.set(mainGroupName, mainColors);
+      const mainGroupColors = mainColors ? { bg: mainBgValue, text: mainTextValue, border: mainBorderValue } : null;
+      const headerGroupColors = headerColors ? { bg: headerBgValue, text: headerTextValue, border: headerBorderValue } : null;
+      const buttonGroupColors = buttonColors ? { bg: buttonBgValue, text: buttonTextValue, border: buttonBorderValue } : null;
+      if(mainGroupColors && mainGroupName){
+        colorSets.set(mainGroupName, mainGroupColors);
       }
       if(headerGroupName){
-        if(headerColors){
-          colorSets.set(headerGroupName, headerColors);
-        }else if(mainColors && !colorSets.has(headerGroupName)){
-          colorSets.set(headerGroupName, mainColors);
+        if(headerGroupColors){
+          colorSets.set(headerGroupName, headerGroupColors);
+        }else if(mainGroupColors && !colorSets.has(headerGroupName)){
+          colorSets.set(headerGroupName, mainGroupColors);
         }
       }
       if(buttonGroupName){
-        if(buttonColors){
-          colorSets.set(buttonGroupName, buttonColors);
-        }else if(mainColors && !colorSets.has(buttonGroupName)){
-          colorSets.set(buttonGroupName, mainColors);
+        if(buttonGroupColors){
+          colorSets.set(buttonGroupName, buttonGroupColors);
+        }else if(mainGroupColors && !colorSets.has(buttonGroupName)){
+          colorSets.set(buttonGroupName, mainGroupColors);
         }
       }
 
       if(hostEl){
         if(mainColors){
-          setCssVar(hostEl, '--module-bg', mainColors.bg);
-          setCssVar(hostEl, '--text-color', mainColors.text);
-          setCssVar(hostEl, '--module-border-color', mainColors.border);
+          setCssVar(hostEl, '--module-bg', mainBgValue);
+          setCssVar(hostEl, '--text-color', mainTextValue);
+          setCssVar(hostEl, '--module-border-color', mainBorderValue);
           const baseHeader = deriveHeaderColors(mainLayer);
-          setCssVar(hostEl, '--module-header-bg', baseHeader?.bg || '');
-          setCssVar(hostEl, '--module-header-text', baseHeader?.text || '');
-          hostEl.style.background = mainColors.bg || '';
-          hostEl.style.color = mainColors.text || '';
-          hostEl.style.borderColor = mainColors.border || '';
+          setCssVar(hostEl, '--module-header-bg', layerVarValue(mainLayer, 'header-bg', baseHeader?.bg || mainBgValue || ''));
+          setCssVar(hostEl, '--module-header-text', layerVarValue(mainLayer, 'header-text', baseHeader?.text || mainTextValue || ''));
+          hostEl.style.background = mainBgValue || '';
+          hostEl.style.color = mainTextValue || '';
+          hostEl.style.borderColor = mainBorderValue || '';
         } else {
           setCssVar(hostEl, '--module-bg', '');
           setCssVar(hostEl, '--text-color', '');
@@ -3394,38 +3458,34 @@
         }
       }
 
-      setCssVar(root, '--lbp-main-text', mainColors?.text || '');
-      setCssVar(root, '--lbp-main-border', mainColors?.border || '');
-      root.style.color = mainColors?.text || '';
+      setCssVar(root, '--lbp-main-text', mainTextValue || '');
+      setCssVar(root, '--lbp-main-border', mainBorderValue || '');
+      root.style.color = mainTextValue || '';
 
-      setCssVar(root, '--lbp-header-bg', headerColors?.bg || '');
-      setCssVar(root, '--lbp-header-text', headerColors?.text || '');
-      setCssVar(root, '--lbp-header-border', headerColors?.border || '');
+      setCssVar(root, '--lbp-header-bg', headerBgValue || '');
+      setCssVar(root, '--lbp-header-text', headerTextValue || '');
+      setCssVar(root, '--lbp-header-border', headerBorderValue || '');
       const headerEl = root.querySelector('.ops-header');
       if(headerEl){
-        headerEl.style.background = headerColors?.bg || '';
-        headerEl.style.color = headerColors?.text || '';
-        headerEl.style.borderColor = headerColors?.border || '';
+        headerEl.style.background = headerBgValue || '';
+        headerEl.style.color = headerTextValue || '';
+        headerEl.style.borderColor = headerBorderValue || '';
       }
 
       if(buttonColors){
-        setCssVar(root, '--lbp-card-bg', buttonColors.bg || '');
-        setCssVar(root, '--lbp-card-text', buttonColors.text || '');
-        setCssVar(root, '--lbp-card-border', buttonColors.border || '');
-        const hoverBorder = adjustColorLightness(buttonColors.border, 10) || buttonColors.border;
+        setCssVar(root, '--lbp-card-bg', buttonBgValue || '');
+        setCssVar(root, '--lbp-card-text', buttonTextValue || '');
+        setCssVar(root, '--lbp-card-border', buttonBorderValue || '');
         setCssVar(root, '--lbp-card-hover-border', hoverBorder || '');
-        const activeBg = adjustColorLightness(buttonColors.bg, 6) || adjustColorAlpha(buttonColors.bg, 0.78) || '';
-        setCssVar(root, '--lbp-card-active-bg', activeBg);
-        const shadow = buttonColors.border ? adjustColorAlpha(buttonColors.border, 0.26) : '';
-        const hoverShadow = buttonColors.border ? adjustColorAlpha(buttonColors.border, 0.32) : '';
-        const shadowValue = shadow ? `0 16px 34px ${shadow}` : '';
-        const hoverShadowValue = hoverShadow ? `0 20px 40px ${hoverShadow}` : '';
-        setCssVar(root, '--lbp-card-shadow', shadowValue);
-        setCssVar(root, '--lbp-card-shadow-hover', hoverShadowValue);
+        setCssVar(root, '--lbp-card-active-bg', activeBg || '');
+        const shadowCss = shadowValue ? `0 16px 34px ${shadowValue}` : '';
+        const hoverShadowCss = hoverShadowValue ? `0 20px 40px ${hoverShadowValue}` : '';
+        setCssVar(root, '--lbp-card-shadow', shadowCss);
+        setCssVar(root, '--lbp-card-shadow-hover', hoverShadowCss);
         cardElements.forEach(card => {
-          card.style.background = buttonColors.bg || '';
-          card.style.color = buttonColors.text || '';
-          card.style.borderColor = buttonColors.border || '';
+          card.style.background = buttonBgValue || '';
+          card.style.color = buttonTextValue || '';
+          card.style.borderColor = buttonBorderValue || '';
         });
       } else {
         setCssVar(root, '--lbp-card-bg','');
@@ -3442,17 +3502,19 @@
         });
       }
 
+      const accentLayer = headerLayer || mainLayer || buttonLayer || null;
       const accentSource = headerColors || mainColors || buttonColors || null;
       const accentEl = root.querySelector('.ops-autorefresh');
       if(accentSource){
-        const accentBg = adjustColorLightness(accentSource.border || accentSource.bg, 8)
+        const accentBg = layerMixValue(accentLayer, 'module-border', adjustColorLightness(accentSource.border || accentSource.bg, 8)
           || adjustColorAlpha(accentSource.bg, 0.82)
-          || accentSource.bg;
+          || accentSource.bg || '', 94);
+        const accentText = layerVarValue(accentLayer, 'module-text', accentSource.text || '');
         setCssVar(root, '--lbp-accent-bg', accentBg || '');
-        setCssVar(root, '--lbp-accent-text', accentSource.text || '');
+        setCssVar(root, '--lbp-accent-text', accentText || '');
         if(accentEl){
           accentEl.style.background = accentBg || '';
-          accentEl.style.color = accentSource.text || '';
+          accentEl.style.color = accentText || '';
         }
       } else {
         setCssVar(root, '--lbp-accent-bg','');
