@@ -1703,6 +1703,8 @@
       .nsf-editor-menu{position:fixed;z-index:410;background:rgba(15,23,42,0.95);border-radius:0.85rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 18px 36px rgba(15,23,42,0.55);padding:0.35rem;display:flex;flex-direction:column;min-width:170px;}
       .nsf-editor-menu-btn{background:transparent;border:none;border-radius:0.65rem;padding:0.5rem 0.75rem;font:inherit;color:#f8fafc;text-align:left;cursor:pointer;transition:background 0.15s ease;}
       .nsf-editor-menu-btn:hover{background:rgba(59,130,246,0.22);}
+      .nsf-editor-menu-note{padding:0.15rem 0.55rem 0.35rem;font-size:0.8rem;opacity:0.82;line-height:1.35;}
+      .nsf-editor-menu-note strong{color:#fff;}
       .nsf-output{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;min-height:0;width:100%;}
       .nsf-output-header{display:flex;align-items:center;justify-content:space-between;font-weight:600;}
       .nsf-copy-btn{background:rgba(255,255,255,0.16);border:none;border-radius:0.6rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;cursor:pointer;transition:background 0.15s ease;display:flex;align-items:center;gap:0.3rem;}
@@ -5727,14 +5729,30 @@
     openRoutineEditorMenu(event,tabKey){
       this.closeRoutineEditorMenu();
       const targetTab=getRoutineEditorTabKey(tabKey);
+      const tabDef=OUTPUT_DEFS.find(def=>def.key===targetTab)||OUTPUT_DEFS.find(def=>def.key==='routine');
+      const label=tabDef?tabDef.label:'Routine';
+      const activePreset=this.getActiveRoutineEditorPreset();
       const menu=document.createElement('div');
       menu.className='nsf-editor-menu';
+
+      const menuLabel=document.createElement('div');
+      menuLabel.className='nsf-editor-menu-label';
+      menuLabel.textContent=`${label}-Ausgabe`;
+      menu.appendChild(menuLabel);
+
+      const presetInfo=document.createElement('div');
+      presetInfo.className='nsf-editor-menu-note';
+      presetInfo.textContent=activePreset?`Aktives Preset: ${activePreset.name}`:'Kein Preset aktiv';
+      menu.appendChild(presetInfo);
+
+      const divider=document.createElement('div');
+      divider.className='nsf-editor-menu-divider';
+      menu.appendChild(divider);
+
       const editBtn=document.createElement('button');
       editBtn.type='button';
       editBtn.className='nsf-editor-menu-btn';
-      const tabDef=OUTPUT_DEFS.find(def=>def.key===targetTab)||OUTPUT_DEFS.find(def=>def.key==='routine');
-      const label=tabDef?tabDef.label:'Routine';
-      editBtn.textContent=`${label} bearbeiten`;
+      editBtn.textContent=`${label}-Preset konfigurieren`;
       editBtn.addEventListener('click',()=>{
         const key=this.routineEditorMenuTabKey||targetTab;
         this.closeRoutineEditorMenu();
@@ -5742,6 +5760,7 @@
         this.openRoutineEditorOverlay();
       });
       menu.appendChild(editBtn);
+
       document.body.appendChild(menu);
       const rect=menu.getBoundingClientRect();
       const maxLeft=Math.max(0,window.innerWidth-rect.width-12);
