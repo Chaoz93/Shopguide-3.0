@@ -5000,10 +5000,13 @@
       elements.extraContainer.addEventListener('click',handleCardClick);
     }
 
-    targetDiv.addEventListener('contextmenu',event=>{
+    const handleContextMenu=event=>{
+      if(event.target.closest('.db-modal')) return;
       event.preventDefault();
       openOptions();
-    });
+    };
+    targetDiv.addEventListener('contextmenu',handleContextMenu);
+    elements.root.addEventListener('contextmenu',handleContextMenu);
 
     const refreshHighlights=()=>{
       updateHighlights(elements.list);
