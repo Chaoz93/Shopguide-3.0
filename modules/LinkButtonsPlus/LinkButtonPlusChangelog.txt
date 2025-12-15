@@ -4,6 +4,11 @@ Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 
+## [1.8.0] – 2025-10-30
+### Changed
+- Umstellung auf das neue Drei-Paletten-Farbsystem (Main/Alternative/Accent) inklusive automatischer Standardzuweisungen.
+- Entfernt die alten Farbbaustein-Fallbacks und synchronisiert die Palette direkt mit den Modul-Farben aus den Shopguide-Einstellungen.
+
 ## [1.7.0] – 2025-10-21
 ### Added
 - Farbdatei kann jetzt direkt im Einstellungsdialog ausgewählt werden; das Modul liest die Palette aus der gewählten JSON-Datei und aktualisiert die Farbfelder automatisch.
