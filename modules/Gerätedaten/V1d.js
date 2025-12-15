@@ -138,6 +138,7 @@
   const IDB_STORE='fs-handles';
   const WATCH_INTERVAL=300;
   const ASPEN_POLL_INTERVAL=4000;
+  const COLOR_WATCH_INTERVAL=1200;
   const GLOBAL_NAME_KEY='globalNameRules';
   const BASE_FIELD_KEYS=['meldung','auftrag','part','serial'];
   const DEFAULT_FIELD_SOURCE_HINTS={
@@ -244,8 +245,11 @@
 
   function ensureBaseFields(list){const seen=new Set(list.map(f=>f.key));BASE_FIELD_KEYS.forEach(key=>{if(!seen.has(key)){list.push({id:key,key,label:defaultLabelForKey(key),enabled:true,group:'base',originalKey:key});}});return list;}
 
-  const DEFAULT_COLOR_SUB_LAYERS=2;
-  const MAX_COLOR_SUB_LAYERS=15;
+  const COLOR_PRESETS=[
+    {id:'main',cssIndex:1,fallbackName:'Main'},
+    {id:'alternative',cssIndex:2,fallbackName:'Alternative'},
+    {id:'accent',cssIndex:3,fallbackName:'Accent'}
+  ];
   const clampNumber=(value,min,max)=>{const num=Number(value);if(!Number.isFinite(num))return min;return Math.min(Math.max(num,min),max);};
   function ensureColorValue(value,fallback){const str=typeof value==='string'?value.trim():'';return str||fallback||'';}
   function parseHexColor(value){const str=ensureColorValue(value,'');if(!/^#?[0-9a-f]{3}([0-9a-f]{3})?$/i.test(str))return null;const hex=str.startsWith('#')?str.slice(1):str;const normalized=hex.length===3?hex.split('').map(ch=>ch+ch).join(''):hex;const int=parseInt(normalized,16);if(Number.isNaN(int))return null;return{r:(int>>16)&255,g:(int>>8)&255,b:int&255};}
@@ -275,29 +279,21 @@
   const relativeLuminance=rgba=>{if(!rgba)return null;const r=srgbToLinear(rgba.r);const g=srgbToLinear(rgba.g);const b=srgbToLinear(rgba.b);return 0.2126*r+0.7152*g+0.0722*b;};
   const preferredTextColor=rgba=>{const lum=relativeLuminance(rgba);if(lum==null)return CONTRAST_LIGHT_TEXT;return lum>0.55?CONTRAST_DARK_TEXT:CONTRAST_LIGHT_TEXT;};
   const hexToRgba=(color,alphaOverride)=>{const parsed=parseCssColorMeta(color);if(!parsed)return null;const rgba={...parsed.rgba};if(Number.isFinite(alphaOverride)){rgba.a=clamp(alphaOverride,0,1);return rgbaToCss(rgba);}return rgba;};
-  function createLayerFromCssVariables(index,hRaw,sRaw,lRaw,aRaw){const h=parseHue(hRaw);const s=parsePercent(sRaw);const l=parsePercent(lRaw);const a=parseAlpha(aRaw??'1');const color=typeof hRaw==='string'||typeof sRaw==='string'||typeof lRaw==='string'||typeof aRaw==='string'?`hsla(${(hRaw||'').trim()|| (Number.isFinite(h)?`${h}`:'0')}, ${(sRaw||'').trim()|| (Number.isFinite(s)?`${s}%`:'0%')}, ${(lRaw||'').trim()|| (Number.isFinite(l)?`${l}%`:'0%')}, ${(aRaw||'').trim()|| (Number.isFinite(a)?`${a}`:'1')})`:formatHslaFromNumbers(h,s,l,a);const rgba=hslaToRgba(h??0,s??0,l??0,a??1);const textColor=preferredTextColor(rgba);const borderColor=mixHexColors(color,'hsla(0, 0%, 0%, 1)',0.18);const subLayer={bg:color,text:textColor,border:borderColor};const hex=rgbaToHex(rgba);return{ id:`layer${index}`, name:`Unter-Layer ${index}`, label:`Unter-Layer ${index}`, color, dropdownTextColor:textColor, moduleBg:color, moduleText:textColor, moduleBorder:borderColor, headerBg:color, headerText:textColor, headerBorder:borderColor, subLayers:[subLayer], subBg:subLayer.bg, subText:subLayer.text, subBorder:subLayer.border, hsla:{h,s,l,a}, hex, rgba};}
-  function normalizeLegacyLayer(layer,index){const id=typeof layer?.id==='string'&&layer.id.trim()?layer.id.trim():`layer-${index+1}`;const name=typeof layer?.name==='string'&&layer.name.trim()?layer.name.trim():`Unter-Layer ${index+1}`;const label=typeof layer?.label==='string'&&layer.label.trim()?layer.label.trim():`Unter-Layer ${index+1}`;const moduleBg=ensureColorValue(layer?.moduleBg||layer?.color,'#005983');const moduleText=ensureColorValue(layer?.moduleText,CONTRAST_LIGHT_TEXT);const moduleBorder=ensureColorValue(layer?.moduleBorder,moduleText);const headerBg=ensureColorValue(layer?.headerBg,moduleBg);const headerText=ensureColorValue(layer?.headerText,moduleText);const headerBorder=ensureColorValue(layer?.headerBorder,headerBg);const subLayers=Array.isArray(layer?.subLayers)&&layer.subLayers.length?layer.subLayers.map(sub=>({bg:ensureColorValue(sub?.bg,moduleBg),text:ensureColorValue(sub?.text,moduleText),border:ensureColorValue(sub?.border,moduleBorder)})):[{bg:moduleBg,text:moduleText,border:moduleBorder}];const primarySub=subLayers[0];const rgba=hexToRgba(moduleBg)||hexToRgba(primarySub.bg);const dropdownText=ensureColorValue(layer?.dropdownTextColor,rgba?preferredTextColor(rgba):moduleText);const hex=rgbaToHex(rgba)||(/^#/i.test(moduleBg)?moduleBg:null);return{...layer,id,name,label,color:ensureColorValue(layer?.color,moduleBg),moduleBg,moduleText,moduleBorder,headerBg,headerText,headerBorder,subLayers,subBg:ensureColorValue(layer?.subBg,primarySub.bg),subText:ensureColorValue(layer?.subText,primarySub.text),subBorder:ensureColorValue(layer?.subBorder,primarySub.border),dropdownTextColor:dropdownText,hex,rgba};}
+  function normalizeLegacyLayer(layer,index){const id=typeof layer?.id==='string'&&layer.id.trim()?layer.id.trim():`layer-${index+1}`;const name=typeof layer?.name==='string'&&layer.name.trim()?layer.name.trim():`Layer ${index+1}`;const label=typeof layer?.label==='string'&&layer.label.trim()?layer.label.trim():name;const moduleBg=ensureColorValue(layer?.moduleBg||layer?.color,'#005983');const moduleText=ensureColorValue(layer?.moduleText,CONTRAST_LIGHT_TEXT);const moduleBorder=ensureColorValue(layer?.moduleBorder,moduleText);const headerBg=ensureColorValue(layer?.headerBg,moduleBg);const headerText=ensureColorValue(layer?.headerText,moduleText);const headerBorder=ensureColorValue(layer?.headerBorder,headerBg);const subLayers=Array.isArray(layer?.subLayers)&&layer.subLayers.length?layer.subLayers.map(sub=>({bg:ensureColorValue(sub?.bg,moduleBg),text:ensureColorValue(sub?.text,moduleText),border:ensureColorValue(sub?.border,moduleBorder)})):[{bg:moduleBg,text:moduleText,border:moduleBorder}];const primarySub=subLayers[0];const rgba=hexToRgba(moduleBg)||hexToRgba(primarySub.bg);const dropdownText=ensureColorValue(layer?.dropdownTextColor,rgba?preferredTextColor(rgba):moduleText);const hex=rgbaToHex(rgba)||(/^#/i.test(moduleBg)?moduleBg:null);return{...layer,id,name,label,color:ensureColorValue(layer?.color,moduleBg),moduleBg,moduleText,moduleBorder,headerBg,headerText,headerBorder,subLayers,subBg:ensureColorValue(layer?.subBg,primarySub.bg),subText:ensureColorValue(layer?.subText,primarySub.text),subBorder:ensureColorValue(layer?.subBorder,primarySub.border),dropdownTextColor:dropdownText,hex,rgba};}
   function deepClone(value){if(value==null)return value;if(typeof structuredClone==='function'){try{return structuredClone(value);}catch{}}try{return JSON.parse(JSON.stringify(value));}catch{return value;}}
   function readStoredAppSettings(){try{const raw=localStorage.getItem('appSettings');if(!raw)return null;return JSON.parse(raw);}catch{return null;}}
   function readLiveAppSettings(){try{if(typeof window==='object'&&window&&typeof window.appSettings==='object'&&window.appSettings){return deepClone(window.appSettings);} }catch{}return readStoredAppSettings();}
   function mutateAppSettings(mutator){if(typeof mutator!=='function')return readLiveAppSettings()||{};const current=readLiveAppSettings()||{};const draft=deepClone(current)||{};mutator(draft);try{localStorage.setItem('appSettings',JSON.stringify(draft));}catch{}try{if(typeof window==='object'&&window){if(!window.appSettings||typeof window.appSettings!=='object'){window.appSettings={};}mutator(window.appSettings);}}catch{}return draft;}
   function readModuleColorSettings(instanceId){if(!instanceId)return null;const settings=readLiveAppSettings();if(!settings||typeof settings!=='object')return null;const modules=settings.modules;if(!modules||typeof modules!=='object')return null;const entry=modules[instanceId];if(!entry||typeof entry!=='object')return null;const colors=entry.colors;if(!colors||typeof colors!=='object')return null;return {...colors};}
   function getDocumentModuleColorBaseline(){try{const styles=getComputedStyle(document.documentElement);const moduleBg=ensureColorValue(styles.getPropertyValue('--module-bg'),'#005983');const moduleText=ensureColorValue(styles.getPropertyValue('--text-color'),'#ffffff');const moduleBorder=ensureColorValue(styles.getPropertyValue('--module-border-color'),moduleText);const headerBg=ensureColorValue(styles.getPropertyValue('--module-header-bg'),moduleBg);const headerText=ensureColorValue(styles.getPropertyValue('--module-header-text'),moduleText);return{moduleBg,moduleText,moduleBorder,headerBg,headerText};}catch{return{moduleBg:'#005983',moduleText:'#ffffff',moduleBorder:'#0f6ab4',headerBg:'#0f6ab4',headerText:'#ffffff'};}}
-  function normalizeColorLayers(rawLayers,subLayerCount){const normalizer=typeof window.normalizeModuleColorLayers==='function'?window.normalizeModuleColorLayers:null;if(normalizer){try{return normalizer(Array.isArray(rawLayers)?rawLayers:[],subLayerCount);}catch(e){}}return Array.isArray(rawLayers)?rawLayers:[];}
-  function enrichColorLayers(list){return(list||[]).map((layer,index)=>{const id=typeof layer?.id==='string'&&layer.id.trim()?layer.id.trim():`layer-${index+1}`;const name=typeof layer?.name==='string'&&layer.name.trim()?layer.name.trim():`Unter-Layer ${index+1}`;return{...layer,id,name};});}
-  const normalizeCssVarToken=value=>String(value||'').trim().toLowerCase().replace(/\s+/g,'');
-  const stripCssQuotes=value=>{const str=typeof value==='string'?value.trim():'';if(!str)return'';const first=str[0];const last=str[str.length-1];if((first==='"'&&last==='"')||(first==="'"&&last==="'")){return str.slice(1,-1).replace(/\\"/g,'"').replace(/\\'/g,"'");}return str;};
-  function readCssLayerTriplets(styles,desired){if(!styles)return[];const list=[];for(let i=1;i<=MAX_COLOR_SUB_LAYERS;i+=1){const base=`--module-layer-${i}`;const moduleBg=ensureColorValue(styles.getPropertyValue(`${base}-module-bg`),'');const moduleText=ensureColorValue(styles.getPropertyValue(`${base}-module-text`),'');const moduleBorder=ensureColorValue(styles.getPropertyValue(`${base}-module-border`),'');const headerBg=ensureColorValue(styles.getPropertyValue(`${base}-header-bg`),moduleBg);const headerText=ensureColorValue(styles.getPropertyValue(`${base}-header-text`),moduleText);const headerBorder=ensureColorValue(styles.getPropertyValue(`${base}-header-border`),headerBg);const hasColor=moduleBg||moduleText||moduleBorder||headerBg||headerText||headerBorder;if(!hasColor)continue;const rawName=stripCssQuotes(styles.getPropertyValue(`${base}-name`))||stripCssQuotes(styles.getPropertyValue(`${base}-name-quoted`));const layerName=rawName||`Unter-Layer ${i}`;const subLayers=[];for(let subIndex=1;subIndex<=desired;subIndex+=1){const subBase=`${base}-sub-${subIndex}`;const subBg=ensureColorValue(styles.getPropertyValue(`${subBase}-bg`),'');const subText=ensureColorValue(styles.getPropertyValue(`${subBase}-text`),'');const subBorder=ensureColorValue(styles.getPropertyValue(`${subBase}-border`),'');if(subBg||subText||subBorder){subLayers.push({bg:subBg,text:subText,border:subBorder});}}
-      list.push(normalizeLegacyLayer({id:`layer${i}`,name:layerName,label:layerName,moduleBg,moduleText,moduleBorder,headerBg,headerText,headerBorder,subLayers},i-1));}
-    return list;}
-  function isFallbackLayerPlaceholder(h,s,l,a,inlineTokens){if(inlineTokens.some(token=>String(token||'').trim()))return false;const normH=normalizeCssVarToken(h);const normS=normalizeCssVarToken(s);const normL=normalizeCssVarToken(l);const normA=normalizeCssVarToken(a);const isHueDefault=normH===''||normH==='0'||normH==='0deg';const isSatDefault=normS===''||normS==='0'||normS==='0%';const isLightDefault=normL===''||normL==='1'||normL==='100'||normL==='100%';const isAlphaDefault=normA===''||normA==='1'||normA==='100%';return isHueDefault&&isSatDefault&&isLightDefault&&isAlphaDefault;}
-  function readLegacyCssLayers(styles,root,desired){const layers=[];if(!styles)return layers;for(let i=1;i<=MAX_COLOR_SUB_LAYERS;i+=1){const hueVar=`--layer${i}-h`;const satVar=`--layer${i}-s`;const lightVar=`--layer${i}-l`;const alphaVar=`--layer${i}-a`;const h=styles.getPropertyValue(hueVar).trim();const s=styles.getPropertyValue(satVar).trim();const l=styles.getPropertyValue(lightVar).trim();const a=styles.getPropertyValue(alphaVar).trim();if(h&&s&&l&&a&&!isFallbackLayerPlaceholder(h,s,l,a,[root?.style?.getPropertyValue(hueVar),root?.style?.getPropertyValue(satVar),root?.style?.getPropertyValue(lightVar),root?.style?.getPropertyValue(alphaVar)])){layers.push(createLayerFromCssVariables(i,h,s,l,a));}}return layers;}
-  function loadGlobalColorLayers(){const settings=readLiveAppSettings()||{};const desired=clampNumber(settings?.moduleSubLayerCount??DEFAULT_COLOR_SUB_LAYERS,1,MAX_COLOR_SUB_LAYERS);const normalizedSettings=enrichColorLayers(normalizeColorLayers(settings?.moduleColorLayers,desired)).map((layer,index)=>normalizeLegacyLayer(layer,index));const cssLayers=[];try{const root=document.documentElement;if(root){const styles=getComputedStyle(root);cssLayers.push(...readCssLayerTriplets(styles,desired));if(!cssLayers.length){cssLayers.push(...readLegacyCssLayers(styles,root,desired));}}}catch(error){console.log('[LayerScan] Fehler beim Lesen der CSS-Layer:',error);}if(cssLayers.length){if(normalizedSettings.length){const seen=new Set(cssLayers.map(layer=>layer?.id));normalizedSettings.forEach(layer=>{const key=layer?.id;if(!key||seen.has(key))return;cssLayers.push(layer);seen.add(key);});}return cssLayers;}if(normalizedSettings.length)return normalizedSettings;const fallback=enrichColorLayers(normalizeColorLayers([],desired)).map((layer,index)=>normalizeLegacyLayer(layer,index));if(fallback.length)return fallback;try{if(typeof window.getDefaultModuleColorLayers==='function'){const defaults=window.getDefaultModuleColorLayers();const normalizedDefaults=enrichColorLayers(normalizeColorLayers(defaults,desired)).map((layer,index)=>normalizeLegacyLayer(layer,index));if(normalizedDefaults.length)return normalizedDefaults;}}catch(error){console.log('[LayerScan] Fehler beim Laden der Default-Layer:',error);}const baseline=getDocumentModuleColorBaseline();return[normalizeLegacyLayer({id:'default',name:'Standard',moduleBg:baseline.moduleBg,moduleText:baseline.moduleText,moduleBorder:baseline.moduleBorder,headerBg:baseline.headerBg,headerText:baseline.headerText,headerBorder:baseline.headerBg,subLayers:[{bg:baseline.moduleBg,text:baseline.moduleText,border:baseline.moduleBorder}],subBg:baseline.moduleBg,subText:baseline.moduleText,subBorder:baseline.moduleBorder},0)];}
+  const stripCssQuotes=value=>{const str=ensureColorValue(value,'');return str.replace(/^['"]|['"]$/g,'');};
+  function readPresetLayer(styles,preset,appLayer){const baseBg=ensureColorValue(styles?.getPropertyValue('--module-layer-module-bg')||styles?.getPropertyValue('--module-bg'),'');const baseText=ensureColorValue(styles?.getPropertyValue('--module-layer-module-text')||styles?.getPropertyValue('--text-color'),'');const baseBorder=ensureColorValue(styles?.getPropertyValue('--module-layer-module-border')||styles?.getPropertyValue('--module-border-color'),baseText);const idx=preset.cssIndex;const cssName=stripCssQuotes(styles?.getPropertyValue(`--module-layer-${idx}-name`))||preset.fallbackName;const cssModuleBg=ensureColorValue(styles?.getPropertyValue(`--module-layer-${idx}-module-bg`),baseBg);const cssModuleText=ensureColorValue(styles?.getPropertyValue(`--module-layer-${idx}-module-text`),baseText);const cssModuleBorder=ensureColorValue(styles?.getPropertyValue(`--module-layer-${idx}-module-border`),baseBorder);const layer=appLayer||{};const name=ensureColorValue(layer.name,cssName||preset.fallbackName)||preset.fallbackName;const moduleBg=ensureColorValue(layer.moduleBg,cssModuleBg||baseBg);const moduleText=ensureColorValue(layer.moduleText,cssModuleText||baseText);const moduleBorder=ensureColorValue(layer.moduleBorder,cssModuleBorder||baseBorder||moduleText);const headerBg=ensureColorValue(layer.headerBg,moduleBg);const headerText=ensureColorValue(layer.headerText,moduleText);const headerBorder=ensureColorValue(layer.headerBorder,moduleBorder||headerBg);return normalizeLegacyLayer({id:preset.id,name,moduleBg,moduleText,moduleBorder,headerBg,headerText,headerBorder,color:moduleBg,subLayers:[{bg:moduleBg,text:moduleText,border:moduleBorder}]},idx-1);}
+  function loadGlobalColorLayers(){const settings=readLiveAppSettings()||{};let styles=null;try{styles=getComputedStyle(document.documentElement);}catch{}const appLayers=Array.isArray(settings?.moduleColorLayers)?settings.moduleColorLayers:[];const layers=COLOR_PRESETS.map((preset,index)=>{const appLayer=appLayers[index]||null;return readPresetLayer(styles,preset,appLayer);}).filter(Boolean);const baseline=getDocumentModuleColorBaseline();if(layers.length)return layers;return[normalizeLegacyLayer({id:'main',name:'Main',moduleBg:baseline.moduleBg,moduleText:baseline.moduleText,moduleBorder:baseline.moduleBorder,headerBg:baseline.headerBg,headerText:baseline.headerText,headerBorder:baseline.headerBg,subLayers:[{bg:baseline.moduleBg,text:baseline.moduleText,border:baseline.moduleBorder}],color:baseline.moduleBg},0)];}
   function formatColorLayerLabel(layer){if(!layer)return'Standard';const name=layer.name||layer.label||'Layer';const color=ensureColorValue(layer.color||layer.moduleBg,'');return color?`${name} · ${color}`:name;}
-  function populateLayerDropdown(select,layers){if(!select)return;console.log('[Dropdown] Fülle Dropdown:',select.id||'(ohne id)',layers);select.innerHTML='';const list=Array.isArray(layers)?layers:[];list.forEach((layer,index)=>{if(!layer)return;const opt=document.createElement('option');const value=layer.id||`layer${index+1}`;opt.value=value;opt.textContent=layer.name||`Unter-Layer ${index+1}`;const bg=layer.color||layer.moduleBg||'';if(bg)opt.style.background=bg;opt.style.color='#fff';opt.style.padding='4px 8px';opt.style.borderRadius='4px';select.appendChild(opt);});}
+  function populateLayerDropdown(select,layers){if(!select)return;select.innerHTML='';const list=Array.isArray(layers)?layers:[];list.forEach((layer,index)=>{if(!layer)return;const opt=document.createElement('option');const value=layer.id||COLOR_PRESETS[index]?.id||`layer${index+1}`;opt.value=value;opt.textContent=layer.name||formatColorLayerLabel(layer)||`Layer ${index+1}`;select.appendChild(opt);});}
   function getLayerColor(layerId,layers){const list=Array.isArray(layers)?layers:[];const match=list.find(layer=>layer&&String(layer.id)===String(layerId));return match?.color||match?.moduleBg||'';}
   function applyLayerSelectStyles(select,layer){if(!select)return;if(layer){const bg=layer?.color||layer?.moduleBg||'';const text=layer?.dropdownTextColor||'';select.style.background=bg;select.style.color=text||CONTRAST_LIGHT_TEXT;}else{select.style.background='';select.style.color='';}}
-  function computeButtonPalette(layer,headerColors,moduleColors,baseline){const sub=Array.isArray(layer?.subLayers)&&layer.subLayers.length?layer.subLayers[0]:null;const bg=ensureColorValue(sub?.bg||layer?.subBg||layer?.moduleBg,headerColors.bg||moduleColors.bg||baseline.moduleBg);const text=ensureColorValue(sub?.text||layer?.subText||layer?.moduleText,headerColors.text||moduleColors.text||baseline.moduleText);const border=ensureColorValue(sub?.border||layer?.subBorder||layer?.moduleBorder,headerColors.border||moduleColors.border||baseline.moduleBorder);const inlineBg=ensureColorValue(lightenHexColor(bg,.18),bg);const inlineBorder=ensureColorValue(mixHexColors(border,'hsla(0, 0%, 100%, 1)',.12),border);const secondaryBg=ensureColorValue(mixHexColors(bg,'hsla(0, 0%, 100%, 1)',.28),bg);return{name:layer?.name||headerColors.name||moduleColors.name,bg,text,border,inlineBg,inlineBorder,secondaryBg,secondaryText:text};}
+  function computeButtonPalette(layer,headerColors,moduleColors,baseline){const bg=ensureColorValue(layer?.moduleBg,headerColors.bg||moduleColors.bg||baseline.moduleBg);const text=ensureColorValue(layer?.moduleText,headerColors.text||moduleColors.text||baseline.moduleText);const border=ensureColorValue(layer?.moduleBorder,headerColors.border||moduleColors.border||baseline.moduleBorder);const inlineBg=ensureColorValue(lightenHexColor(bg,.18),bg);const inlineBorder=ensureColorValue(mixHexColors(border,'hsla(0, 0%, 100%, 1)',.12),border);const secondaryBg=ensureColorValue(mixHexColors(bg,'hsla(0, 0%, 100%, 1)',.28),bg);return{name:layer?.name||headerColors.name||moduleColors.name,bg,text,border,inlineBg,inlineBorder,secondaryBg,secondaryText:text};}
   function computeModulePalette(layers,selection,baseline){const list=Array.isArray(layers)?layers:[];const findById=id=>list.find(layer=>layer&&String(layer.id)===String(id));const fallback=list[0]||null;const moduleLayer=findById(selection?.module)||fallback;const headerLayer=findById(selection?.header)||moduleLayer||fallback;const buttonsLayer=findById(selection?.buttons)||headerLayer||moduleLayer||fallback;const moduleColors={name:moduleLayer?.name||'Standard',bg:ensureColorValue(moduleLayer?.moduleBg,baseline.moduleBg),text:ensureColorValue(moduleLayer?.moduleText,baseline.moduleText),border:ensureColorValue(moduleLayer?.moduleBorder,moduleLayer?.moduleText||baseline.moduleBorder||baseline.moduleText)};const headerColors={name:headerLayer?.name||moduleColors.name,bg:ensureColorValue(headerLayer?.headerBg,moduleLayer?.moduleBg||baseline.headerBg||moduleColors.bg),text:ensureColorValue(headerLayer?.headerText,moduleLayer?.moduleText||baseline.headerText||moduleColors.text),border:ensureColorValue(headerLayer?.headerBorder,headerLayer?.headerBg||moduleColors.border)};const buttons=computeButtonPalette(buttonsLayer,headerColors,moduleColors,baseline);return{module:moduleColors,header:headerColors,buttons};}
   function setCssVar(element,name,value){if(!element||!element.style||typeof name!=='string')return;if(value)element.style.setProperty(name,value);else element.style.removeProperty(name);}
   function applyPaletteToElement(element,palette){if(!element||!palette)return;const{module,header,buttons}=palette;setCssVar(element,'--module-bg',module.bg);setCssVar(element,'--text-color',module.text);setCssVar(element,'--module-border-color',module.border);setCssVar(element,'--module-header-bg',header.bg);setCssVar(element,'--module-header-text',header.text);setCssVar(element,'--rs-header-border',header.border);setCssVar(element,'--rs-surface-bg',buttons.bg);setCssVar(element,'--rs-surface-text',buttons.text);setCssVar(element,'--rs-surface-border',buttons.border);setCssVar(element,'--rs-inline-bg',buttons.inlineBg||buttons.bg);setCssVar(element,'--rs-inline-border',buttons.inlineBorder||buttons.border);setCssVar(element,'--rs-button-bg',buttons.bg);setCssVar(element,'--rs-button-text',buttons.text);setCssVar(element,'--rs-button-border',buttons.border);setCssVar(element,'--rs-button-secondary-bg',buttons.secondaryBg||buttons.inlineBg||buttons.bg);setCssVar(element,'--rs-button-secondary-text',buttons.secondaryText||buttons.text);}
@@ -392,7 +388,7 @@
             </div>
           </div>
           <div class="db-field" style="margin-top:1rem;">
-            <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Modulfarben</label>
+            <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Modul-Farbgruppen (Main · Alternative · Accent)</label>
             <div class="rs-color-grid">
               <label class="rs-color-select">
                 <span>Hauptmodul</span>
@@ -518,9 +514,21 @@
 
     const els=buildUI(root);
     const moduleHost=root.closest('.grid-stack-item-content');
+    const cleanupTasks=[];
     let colorLayers=loadGlobalColorLayers();
     const baselineColors=getDocumentModuleColorBaseline();
     let fallbackColorLayerId=colorLayers[0]?.id||'default';
+    const colorLayerSignature=layers=>JSON.stringify(layers.map(layer=>({
+      id:layer?.id||'',
+      name:layer?.name||'',
+      moduleBg:layer?.moduleBg||'',
+      moduleText:layer?.moduleText||'',
+      moduleBorder:layer?.moduleBorder||'',
+      headerBg:layer?.headerBg||'',
+      headerText:layer?.headerText||'',
+      headerBorder:layer?.headerBorder||''
+    })));
+    let currentColorSignature=colorLayerSignature(colorLayers);
     let cfg;
     const findColorLayer=id=>colorLayers.find(layer=>layer&&String(layer.id)===String(id))||null;
     const sanitizeColorSelection=(raw)=>{
@@ -580,7 +588,13 @@
     };
     const refreshColorLayers=({repopulate=true,applyTheme=true}={})=>{
       const before=cfg?JSON.stringify(cfg.colors||{}):'';
-      colorLayers=loadGlobalColorLayers();
+      const nextLayers=loadGlobalColorLayers();
+      const nextSignature=colorLayerSignature(nextLayers);
+      const changed=nextSignature!==currentColorSignature;
+      if(changed){
+        colorLayers=nextLayers;
+        currentColorSignature=nextSignature;
+      }
       fallbackColorLayerId=colorLayers[0]?.id||fallbackColorLayerId||'default';
       if(cfg){
         const storedColors=readModuleColorSettings(instanceId);
@@ -595,9 +609,9 @@
           saveCfg(cfg);
         }
       }
-      if(repopulate)renderColorSelectOptions();
+      if(repopulate&&changed)renderColorSelectOptions();
       updateColorSelectValues();
-      if(applyTheme)applyColorTheme();
+      if(applyTheme&&(changed||before!==JSON.stringify(cfg?.colors||{})))applyColorTheme();
     };
     let debugInfo='';
     let deviceName='';
@@ -1031,6 +1045,21 @@
     function activeMeldung(){return(loadDoc()?.general?.Meldung||'').trim();}
     function refreshFromAspen(){const m=activeMeldung();const row=m?findAspenRow(m):null;cfg.fields.forEach(f=>{const el=fieldEls[f.id];if(!el)return;if(f.key==='meldung'){el.input.value=m;}else if(f.group==='calc'){el.input.value=row?getCalculationValue(row,f):'';}else{el.input.value=row?getAspenValue(row,f):'';}const tip=getFieldTooltip(f);if(el.labelEl){el.labelEl.textContent=f.label;el.labelEl.title=tip;}if(el.infoEl)el.infoEl.title=tip;});updateName();updateCustomButtonStates(row);}
 
+    const debouncedColorSync=debounce(160,()=>refreshColorLayers());
+    if(typeof MutationObserver==='function'){
+      const root=document.documentElement;
+      const observer=new MutationObserver(mutations=>{
+        if(mutations.some(m=>m.type==='attributes'&&m.attributeName==='style'))debouncedColorSync();
+      });
+      if(root)observer.observe(root,{attributes:true,attributeFilter:['style']});
+      cleanupTasks.push(()=>observer.disconnect());
+
+      const styleObserver=new MutationObserver(()=>debouncedColorSync());
+      if(document.head)styleObserver.observe(document.head,{subtree:true,childList:true,characterData:true});
+      cleanupTasks.push(()=>styleObserver.disconnect());
+    }
+    const colorPoller=setInterval(()=>refreshColorLayers({repopulate:false,applyTheme:true}),COLOR_WATCH_INTERVAL);
+    cleanupTasks.push(()=>clearInterval(colorPoller));
     addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromAspen();if(e.key==='appSettings')refreshColorLayers();});
     addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromAspen();});
     let lastDocString=getDocString();
@@ -1062,7 +1091,7 @@
     renderFields();
     updateUndoRedoButtons();
 
-    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);stopAspenWatcher();(async()=>{try{await idbDel(cfg.ruleIdbKey);}catch{}try{await idbDel(cfg.aspenIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
+    const mo=new MutationObserver(()=>{if(!document.body.contains(root)){clearInterval(watcher);stopAspenWatcher();cleanupTasks.forEach(fn=>{try{fn();}catch{}});(async()=>{try{await idbDel(cfg.ruleIdbKey);}catch{}try{await idbDel(cfg.aspenIdbKey);}catch{}try{removeCfg();}catch{}})();mo.disconnect();}});
     mo.observe(document.body,{childList:true,subtree:true});
   };
 })();
