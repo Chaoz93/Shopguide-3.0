@@ -6,6 +6,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ### Fixed
 - Zusätzliche Feld-Aliasse für Bestelltexte ergänzt, damit neue Shopguide-Findings-Dateien die korrekten Bestellinformationen übernehmen.
 
+## 1.3.4 – 2025-12-15
+### Added
+- Eigene Kontextmenüs für alle Kopierausgabefelder ergänzt, damit Presets direkt wie beim Routine-Ausgabefeld konfiguriert und das aktive Profil angezeigt werden kann.
+
 ## 1.3.3 – 2025-10-04
 ### Added
 - Aspen-Autofill-Spalten können über das Keyword `aspen:<Spaltenname>` direkt in Freitexten genutzt werden.
