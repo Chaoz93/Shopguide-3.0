@@ -4014,7 +4014,6 @@
     if(elements.designChipValue) elements.designChipValue.textContent=`${design.chipSize}px`;
     renderDesignPreview();
   }
-    }
 
   function updateTempColumnLabel(columnId,value){
     if(!columnId) return;
