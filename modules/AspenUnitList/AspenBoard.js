@@ -38,6 +38,7 @@
       --ab-shadow-color: color-mix(in srgb,var(--ab-text,var(--ab-border,var(--ab-panel))) 25%,transparent);
       --ab-shadow: 0 10px 24px var(--ab-shadow-color);
       --ab-shadow-strong: 0 14px 32px var(--ab-shadow-color);
+      --ab-card-font-scale: 1;
       --dl-bg: var(--ab-panel);
       --dl-item-bg: var(--ab-card);
       --dl-title: var(--ab-text);
@@ -99,14 +100,14 @@
     .db-active-wrap[hidden]{display:none;}
     .db-root.db-has-active .db-active-wrap{display:flex;}
     .db-empty{opacity:.6;padding:.25rem .1rem;}
-    .db-card{background:var(--ab-card);color:var(--ab-muted);border-radius:.8rem;padding:.65rem .75rem;box-shadow:var(--ab-shadow);display:flex;align-items:center;gap:.75rem;user-select:none;border:1px solid var(--ab-card-border);}
+    .db-card{background:var(--ab-card);color:var(--ab-muted);border-radius:.8rem;padding:.65rem .75rem;box-shadow:var(--ab-shadow);display:flex;align-items:center;gap:.75rem;user-select:none;border:1px solid var(--ab-card-border);font-size:calc(1rem * var(--ab-card-font-scale));}
     .db-flex{flex:1;display:flex;flex-direction:column;}
     .db-card-header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-card-tags{margin-left:auto;display:flex;flex-wrap:wrap;gap:.35rem;justify-content:flex-end;}
-    .db-card-tag{background:var(--ab-accent-quiet);color:var(--ab-accent);padding:.1rem .4rem;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap;border:1px solid transparent;}
+    .db-card-tag{background:var(--ab-accent-quiet);color:var(--ab-accent);padding:.1rem .4rem;border-radius:999px;font-size:calc(.75rem * var(--ab-card-font-scale));font-weight:600;white-space:nowrap;border:1px solid transparent;}
     .db-title{color:var(--ab-text);font-weight:600;line-height:1.1;}
-    .db-sub{color:var(--ab-muted);font-size:.85rem;margin-top:.15rem;}
-    .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:.45rem;background:var(--ab-surface-quiet);cursor:grab;color:inherit;border:1px solid var(--ab-border);}
+    .db-sub{color:var(--ab-muted);font-size:calc(.85rem * var(--ab-card-font-scale));margin-top:.15rem;}
+    .db-handle{margin-left:.5rem;flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:.45rem;background:var(--ab-surface-quiet);cursor:grab;color:inherit;border:1px solid var(--ab-border);font-size:calc(.95rem * var(--ab-card-font-scale));}
     .db-handle:active{cursor:grabbing;}
     .db-card.active{border-color:var(--dl-active);box-shadow:0 0 0 2px var(--dl-active) inset,0 0 0 2px var(--dl-active),var(--ab-shadow-strong);transform:translateY(-1px);color:var(--ab-accent-contrast);}
     .db-ghost{opacity:.4;}
@@ -127,6 +128,17 @@
     .db-tab-panel{display:none;flex-direction:column;gap:1rem;}
     .db-tab-panel.is-active{display:flex;}
     .db-tab-panel.db-tab-extras{max-height:68vh;overflow:auto;padding-right:.25rem;}
+    .db-tab-panel.db-tab-design{gap:1.25rem;}
+    .db-design-card{display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
+    .db-design-header{display:flex;align-items:flex-end;flex-wrap:wrap;gap:.75rem;justify-content:space-between;}
+    .db-design-title{display:flex;flex-direction:column;gap:.15rem;color:var(--ab-text);}
+    .db-design-title .hint{color:var(--ab-muted);font-size:.9rem;}
+    .db-design-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.45rem;}
+    .db-design-slider{flex:1 1 240px;min-width:180px;display:flex;align-items:center;gap:.45rem;}
+    .db-design-slider input[type=range]{flex:1;accent-color:var(--ab-accent);}
+    .db-design-slider input[type=number]{width:4.5rem;padding:.35rem .45rem;border:1px solid var(--ab-border);border-radius:.5rem;background:var(--ab-input-bg);color:var(--ab-text);}
+    .db-design-preview{display:flex;flex-direction:column;gap:.65rem;}
+    .db-design-preview .db-card{max-width:480px;}
     .db-part-section{display:flex;flex-direction:column;gap:.35rem;padding:.5rem;border-radius:.65rem;border:1px solid var(--ab-section-border);background:var(--ab-section);}
     .db-part-filter{padding:.35rem .5rem .15rem;}
     .db-part-filter input{width:100%;padding:.35rem .55rem;border:1px solid var(--ab-border);border-radius:.5rem;background:transparent;color:inherit;font-size:.85rem;}
@@ -1273,6 +1285,7 @@
           <div class="db-config-tabs" role="tablist" aria-label="Einstellungsbereiche">
             <button type="button" class="db-config-tab is-active" role="tab" aria-selected="true" data-tab="general">Allgemein</button>
             <button type="button" class="db-config-tab" role="tab" aria-selected="false" data-tab="extras">Extraspalten</button>
+            <button type="button" class="db-config-tab" role="tab" aria-selected="false" data-tab="design">Design</button>
           </div>
           <div class="db-tab-panel db-tab-general is-active" data-tab="general">
             <div class="db-config-layout">
@@ -1367,6 +1380,23 @@
               </div>
             </div>
           </div>
+          <div class="db-tab-panel db-tab-design" data-tab="design" hidden>
+            <div class="db-design-card">
+              <div class="db-design-header">
+                <div class="db-design-title">
+                  <div class="label">Schriftgröße der Karten</div>
+                  <div class="hint">Passt die Textgröße der Gerätekachel für Vorschau und Board an.</div>
+                </div>
+                <div class="db-design-controls">
+                  <div class="db-design-slider">
+                    <input type="range" class="db-design-font-range" min="0.8" max="1.6" step="0.05">
+                    <input type="number" class="db-design-font-input" min="0.8" max="1.6" step="0.05">
+                  </div>
+                </div>
+              </div>
+              <div class="db-design-preview" aria-live="polite"></div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -1420,7 +1450,10 @@
       disableAllBtn:root.querySelector('.db-action-disable'),
       pickBtn:root.querySelector('.db-action-pick'),
       configTabs:Array.from(root.querySelectorAll('.db-config-tab')),
-      tabPanels:Array.from(root.querySelectorAll('.db-tab-panel'))
+      tabPanels:Array.from(root.querySelectorAll('.db-tab-panel')),
+      designRange:root.querySelector('.db-design-font-range'),
+      designInput:root.querySelector('.db-design-font-input'),
+      designPreview:root.querySelector('.db-design-preview')
     };
   }
 
@@ -1434,6 +1467,7 @@
         titleRules:[],
         extraColumns:[],
         activeColumn:sanitizeActiveColumn({}),
+        design:sanitizeDesignConfig({}),
         searchFilters:[]
       },
       items:[],
@@ -1511,6 +1545,18 @@
     return sanitized.filter(rule=>rule && typeof rule==='object');
   }
 
+  function clampCardFontScale(value){
+    const num=Number(value);
+    if(!Number.isFinite(num)) return 1;
+    return Math.min(1.6,Math.max(0.8,num));
+  }
+
+  function sanitizeDesignConfig(design){
+    const source=design&&typeof design==='object'?design:{};
+    const cardFontScale=clampCardFontScale(source.cardFontScale);
+    return {cardFontScale};
+  }
+
   function sanitizeExtraColumns(columns){
     if(!Array.isArray(columns)) return [];
     const sanitized=[];
@@ -1573,6 +1619,11 @@
     if(Object.prototype.hasOwnProperty.call(config,'activeColumnLabel')){
       delete config.activeColumnLabel;
     }
+  }
+
+  function ensureDesignConfig(config){
+    if(!config||typeof config!=='object') return;
+    config.design=sanitizeDesignConfig(config.design||{});
   }
 
   function generateSearchFilterId(){
@@ -1796,12 +1847,14 @@
           titleRules:savedRules,
           extraColumns:sanitizeExtraColumns(saved.config.extraColumns||state.config.extraColumns||[]),
           activeColumn:sanitizeActiveColumn(saved.config.activeColumn||{label:saved.config.activeColumnLabel||state.config.activeColumn?.label}),
+          design:sanitizeDesignConfig(saved.config.design||state.config.design||{}),
           searchFilters:sanitizeSearchFilters(saved.config.searchFilters||state.config.searchFilters||[])
         };
       }
       ensureSubFields(state.config);
       ensureExtraColumns(state.config);
       ensureActiveColumn(state.config);
+      ensureDesignConfig(state.config);
       ensureSearchFilters(state.config);
       let restoredOrder=false;
       if(Array.isArray(saved.items) && saved.items.length){
@@ -1855,6 +1908,7 @@
     ensureSubFields(state.config);
     ensureExtraColumns(state.config);
     ensureActiveColumn(state.config);
+    ensureDesignConfig(state.config);
     ensureSearchFilters(state.config);
     ensureColumnAssignments(state);
     ensureHiddenExtraColumns(state);
@@ -1870,6 +1924,7 @@
           rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
         })) : [],
         activeColumn:{...sanitizeActiveColumn(state.config.activeColumn)},
+        design:{...sanitizeDesignConfig(state.config.design)},
         searchFilters:Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[]
       },
       items:Array.isArray(state.items)?state.items.slice():[],
@@ -1897,6 +1952,7 @@
             rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
           })),
           activeColumn:{...payload.config.activeColumn},
+          design:{...payload.config.design},
           searchFilters:payload.config.searchFilters.map(filter=>({...filter}))
         },
         items:payload.items.map(item=>{
@@ -2586,6 +2642,7 @@
     let tempActiveColumnLabel='';
     let tempActiveColumnEnabled=true;
     let tempSearchFilters=[];
+    let tempDesignConfig=null;
     let partOptions=[];
     let filteredPartOptions=[];
     let partSelectOpen=false;
@@ -2599,7 +2656,8 @@
     let activeConfigTab='general';
 
     function activateConfigTab(tab){
-      const target=tab==='extras'?'extras':'general';
+      const allowedTabs=['general','extras','design'];
+      const target=allowedTabs.includes(tab)?tab:'general';
       activeConfigTab=target;
       (elements.configTabs||[]).forEach(btn=>{
         const isActive=(btn.dataset?.tab||'')===target;
@@ -2701,6 +2759,13 @@
         if(optionsOpen){
           tempSearchFilters=sanitizedFilters.map(filter=>({...filter}));
         }
+        const designSource=optionsOpen && tempDesignConfig?tempDesignConfig:state.config.design;
+        const sanitizedDesign=sanitizeDesignConfig(designSource);
+        state.config.design=sanitizedDesign;
+        if(optionsOpen){
+          tempDesignConfig={...sanitizedDesign};
+        }
+        applyCardFontScale(state.config.design.cardFontScale);
         if(!(state.activeSearchFilters instanceof Set)){
           state.activeSearchFilters=new Set(Array.isArray(state.activeSearchFilters)?state.activeSearchFilters:[]);
         }
@@ -2734,6 +2799,64 @@
       }finally{
         applyingOptionChanges=false;
       }
+    }
+
+    function applyCardFontScale(scale){
+      const clamped=clampCardFontScale(scale);
+      if(elements.root){
+        elements.root.style.setProperty('--ab-card-font-scale',clamped);
+      }
+      if(elements.designPreview){
+        elements.designPreview.style.setProperty('--ab-card-font-scale',clamped);
+      }
+    }
+
+    function syncDesignInputs(scale){
+      const normalized=clampCardFontScale(scale);
+      if(elements.designRange){
+        elements.designRange.value=String(normalized);
+      }
+      if(elements.designInput){
+        elements.designInput.value=normalized.toFixed(2);
+      }
+    }
+
+    function buildDesignPreviewItem(config){
+      const subFields=Array.isArray(config?.subFields)?config.subFields:[];
+      const data={[TITLE_FIELD]:'Testgerät · Vorschau'};
+      if(subFields.length){
+        subFields.forEach((sub,index)=>{
+          const key=String(sub?.field||`Feld ${index+1}`).trim();
+          if(!key) return;
+          const prefix=String(sub?.nickname||'').trim();
+          const value=`${prefix?`${prefix} `:''}Wert ${index+1}`;
+          data[key]=value;
+        });
+      }else{
+        data[DEFAULT_SUB_FIELD]='Vorschau-ID';
+      }
+      return {id:'design-preview',meldung:'Vorschau',part:'Vorschau',data};
+    }
+
+    function renderDesignPreview(scaleOverride){
+      if(!elements.designPreview) return;
+      const activeSubs=Array.isArray(tempSubFields)&&tempSubFields.length?tempSubFields:state.config.subFields;
+      const previewConfig={...state.config,subFields:activeSubs};
+      const previewItem=buildDesignPreviewItem(previewConfig);
+      const previewTags=[{text:'Vorschau',color:deriveAccentBaseColor()}];
+      const appliedScale=clampCardFontScale(scaleOverride ?? state.config.design?.cardFontScale);
+      elements.designPreview.innerHTML=buildCardMarkup(previewItem,previewConfig,previewTags);
+      elements.designPreview.style.setProperty('--ab-card-font-scale',appliedScale);
+    }
+
+    function updateDesignScale(value,{immediate=false}={}){
+      const clamped=clampCardFontScale(value);
+      tempDesignConfig={cardFontScale:clamped};
+      state.config.design=sanitizeDesignConfig(tempDesignConfig);
+      applyCardFontScale(clamped);
+      syncDesignInputs(clamped);
+      renderDesignPreview(clamped);
+      scheduleOptionPersist(immediate);
     }
 
     function scheduleOptionPersist(immediate=false){
@@ -2844,6 +2967,7 @@
 
     elements.titleInput.value=state.config.title||'';
     refreshTitleBar();
+    applyCardFontScale(state.config.design?.cardFontScale);
 
     function stopPolling(){
       if(pollInterval){
@@ -3705,6 +3829,7 @@
 
         elements.subList.appendChild(row);
       });
+      renderDesignPreview();
     }
 
     function renderSearchFilterControls(){
@@ -4575,11 +4700,15 @@
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       tempActiveColumnEnabled=state.config.activeColumn?.enabled!==false;
       tempSearchFilters=Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[];
+      tempDesignConfig=sanitizeDesignConfig(state.config.design||{});
       populateFieldSelects();
       renderSubFieldControls();
       renderSearchFilterControls();
       renderExtraControls();
       renderRuleControls();
+      renderDesignPreview(tempDesignConfig.cardFontScale);
+      syncDesignInputs(tempDesignConfig.cardFontScale);
+      applyCardFontScale(tempDesignConfig.cardFontScale);
       refreshPartControls(elements,state,render);
       activateConfigTab(activeConfigTab);
       elements.titleInput.value=state.config.title||'';
@@ -4595,6 +4724,7 @@
       tempActiveColumnLabel='';
       tempActiveColumnEnabled=true;
       tempSearchFilters=[];
+      tempDesignConfig=null;
       closePartSelectDropdown();
       syncPartSelectInputValue();
     }
@@ -4721,6 +4851,16 @@
         }
         setExtraColumnCount(value,true);
       });
+    }
+
+    if(elements.designRange){
+      elements.designRange.addEventListener('input',()=>updateDesignScale(elements.designRange.value));
+      elements.designRange.addEventListener('change',()=>updateDesignScale(elements.designRange.value,{immediate:true}));
+    }
+
+    if(elements.designInput){
+      elements.designInput.addEventListener('input',()=>updateDesignScale(elements.designInput.value));
+      elements.designInput.addEventListener('change',()=>updateDesignScale(elements.designInput.value,{immediate:true}));
     }
 
     if(elements.titleInput){
