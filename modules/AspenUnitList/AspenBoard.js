@@ -5186,66 +5186,71 @@
       }catch(error){console.error(error);}
     }
 
-    await ensureSortable();
-    baseSortableConfig={
-      group:{name:GROUP_NAME,pull:true,put:true},
-      animation:150,
-      handle:'.db-handle',
-      draggable:'.db-card',
-      ghostClass:'db-ghost',
-      chosenClass:'db-chosen'
-    };
-    new Sortable(elements.list,{
-      ...baseSortableConfig,
-      onSort:()=>{syncFromDOM();render();},
-      onAdd:evt=>{
-        syncFromDOM();
-        render();
-        if(evt?.to===elements.list && SHARED?.handleAspenToDeviceDrop){
-          void SHARED.handleAspenToDeviceDrop(evt,{});
-        }
-      },
-      onRemove:()=>{syncFromDOM();render();}
-    });
-    if(elements.activeList){
-      new Sortable(elements.activeList,{
+    const initSortableInfrastructure=async ()=>{
+      await ensureSortable();
+      baseSortableConfig={
+        group:{name:GROUP_NAME,pull:true,put:true},
+        animation:150,
+        handle:'.db-handle',
+        draggable:'.db-card',
+        ghostClass:'db-ghost',
+        chosenClass:'db-chosen'
+      };
+      new Sortable(elements.list,{
         ...baseSortableConfig,
         onSort:()=>{syncFromDOM();render();},
-        onAdd:()=>{syncFromDOM();render();},
+        onAdd:evt=>{
+          syncFromDOM();
+          render();
+          if(evt?.to===elements.list && SHARED?.handleAspenToDeviceDrop){
+            void SHARED.handleAspenToDeviceDrop(evt,{});
+          }
+        },
         onRemove:()=>{syncFromDOM();render();}
       });
-    }
+      if(elements.activeList){
+        new Sortable(elements.activeList,{
+          ...baseSortableConfig,
+          onSort:()=>{syncFromDOM();render();},
+          onAdd:()=>{syncFromDOM();render();},
+          onRemove:()=>{syncFromDOM();render();}
+        });
+      }
 
-    setupExtraSortables();
+      setupExtraSortables();
 
-    if(!fileHandle){
-      try{
-        let storedHandle=await restoreFileHandleFromStore(handleStorageKey);
-        if(!storedHandle && Array.isArray(legacyHandleKeys) && legacyHandleKeys.length){
-          for(const legacyKey of legacyHandleKeys){
-            if(!legacyKey || legacyKey===handleStorageKey) continue;
-            storedHandle=await restoreFileHandleFromStore(legacyKey);
-            if(storedHandle){
-              try{await persistFileHandle(handleStorageKey,storedHandle);}catch{}
-              break;
+      if(!fileHandle){
+        try{
+          let storedHandle=await restoreFileHandleFromStore(handleStorageKey);
+          if(!storedHandle && Array.isArray(legacyHandleKeys) && legacyHandleKeys.length){
+            for(const legacyKey of legacyHandleKeys){
+              if(!legacyKey || legacyKey===handleStorageKey) continue;
+              storedHandle=await restoreFileHandleFromStore(legacyKey);
+              if(storedHandle){
+                try{await persistFileHandle(handleStorageKey,storedHandle);}catch{}
+                break;
+              }
             }
           }
-        }
-        if(storedHandle){
-          fileHandle=storedHandle;
-          const permission=await queryHandlePermission(storedHandle,'read');
-          if(permission==='granted'){
-            await loadAspenFromHandle(storedHandle,{silent:false,skipPermissionCheck:true});
-          }else{
-            hasReadPermission=false;
-            state.filePath=storedHandle.name||state.filePath||'';
-            console.info('[AspenBoard] Kein Zugriff – Nutzer muss Datei neu auswählen');
-            refreshTitleBar({hasFile:false,hintText:'Keine Berechtigung – bitte Aspen-Datei neu auswählen.'});
+          if(storedHandle){
+            fileHandle=storedHandle;
+            const permission=await queryHandlePermission(storedHandle,'read');
+            if(permission==='granted'){
+              await loadAspenFromHandle(storedHandle,{silent:false,skipPermissionCheck:true});
+            }else{
+              hasReadPermission=false;
+              state.filePath=storedHandle.name||state.filePath||'';
+              console.info('[AspenBoard] Kein Zugriff – Nutzer muss Datei neu auswählen');
+              refreshTitleBar({hasFile:false,hintText:'Keine Berechtigung – bitte Aspen-Datei neu auswählen.'});
+            }
           }
+        }catch(error){
+          console.warn('[AspenBoard] Persistierte Aspen-Datei konnte nicht wiederhergestellt werden',error);
         }
-      }catch(error){
-        console.warn('[AspenBoard] Persistierte Aspen-Datei konnte nicht wiederhergestellt werden',error);
       }
-    }
+    };
+
+    void initSortableInfrastructure();
   };
+}
 })();
