@@ -138,6 +138,7 @@
   const IDB_STORE='fs-handles';
   const WATCH_INTERVAL=300;
   const ASPEN_POLL_INTERVAL=4000;
+  const COLOR_WATCH_INTERVAL=1200;
   const GLOBAL_NAME_KEY='globalNameRules';
   const BASE_FIELD_KEYS=['meldung','auftrag','part','serial'];
   const DEFAULT_FIELD_SOURCE_HINTS={
@@ -1052,7 +1053,13 @@
       });
       if(root)observer.observe(root,{attributes:true,attributeFilter:['style']});
       cleanupTasks.push(()=>observer.disconnect());
+
+      const styleObserver=new MutationObserver(()=>debouncedColorSync());
+      if(document.head)styleObserver.observe(document.head,{subtree:true,childList:true,characterData:true});
+      cleanupTasks.push(()=>styleObserver.disconnect());
     }
+    const colorPoller=setInterval(()=>refreshColorLayers({repopulate:false,applyTheme:true}),COLOR_WATCH_INTERVAL);
+    cleanupTasks.push(()=>clearInterval(colorPoller));
     addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromAspen();if(e.key==='appSettings')refreshColorLayers();});
     addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromAspen();});
     let lastDocString=getDocString();

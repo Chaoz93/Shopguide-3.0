@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.8.2] – 2025-05-07
+### Fixed
+- Farb-Layer der Gerätekarten folgen jetzt wie beim Aspenboard live allen Änderungen im HTML-Menü und greifen Style-Änderungen sowie CSS-Variablen sofort auf.
+
 ## [1.8.1] – 2025-05-04
 ### Changed
 - Farbwahl des Moduls folgt nun live den Einstellungen im HTML-Menü und aktualisiert Palette sowie Vorschau ohne Reload.
