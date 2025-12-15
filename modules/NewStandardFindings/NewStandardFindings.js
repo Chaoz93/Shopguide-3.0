@@ -7050,6 +7050,35 @@
       return options.find(option=>option&&option.key===key)||null;
     }
 
+    resolveAspenKeywordValue(rawKey){
+      const key=typeof rawKey==='string'?rawKey.trim():'';
+      if(!key) return '';
+      const normalizeCandidate=candidate=>{
+        if(!candidate) return '';
+        const text=valueToText(candidate);
+        return clean(text||'');
+      };
+      const directOption=this.getAspenFieldOption(key);
+      if(directOption){
+        const directValue=normalizeCandidate(directOption.value);
+        if(directValue) return directValue;
+      }
+      const boardOption=this.getAspenFieldOption(`board.${key}`);
+      if(boardOption){
+        const boardValue=normalizeCandidate(boardOption.value);
+        if(boardValue) return boardValue;
+      }
+      const generalOption=this.getAspenFieldOption(`general.${key}`);
+      if(generalOption){
+        const generalValue=normalizeCandidate(generalOption.value);
+        if(generalValue) return generalValue;
+      }
+      if(key.toLowerCase()==='repairorder'){
+        return clean(this.repairOrder||'');
+      }
+      return '';
+    }
+
     resolveAspenFieldValue(fieldKey){
       if(!fieldKey) return '';
       if(fieldKey==='repairOrder'){
@@ -7941,6 +7970,9 @@
           return replacements[normalized];
         }
         return match;
+      }).replace(/aspen:([\w.-]+)/gi,(match,fieldKey)=>{
+        const value=this.resolveAspenKeywordValue(fieldKey);
+        return value||match;
       });
       return expanded;
     }

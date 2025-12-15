@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.3.3] – 2025-10-04
+### Added
+- Aspen-Autofill-Spalten lassen sich jetzt mit dem Keyword `aspen:<Spaltenname>` in Freitexten ausgeben, sodass Gerätemetadaten aus den Board-Spalten direkt übernommen werden können.
+
 ## [1.3.2] – 2025-10-03
 ### Added
 - Automatisches Polling überwacht die ausgewählte Findings-Datei alle fünf Sekunden und lädt aktualisierte Inhalte sofort nach.
