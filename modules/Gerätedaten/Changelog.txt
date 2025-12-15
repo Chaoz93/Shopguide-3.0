@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.8.0] – 2025-10-23
+### Changed
+- Modulfarben vollständig auf das Main/Alternative/Accent-System umgestellt und direkt an die neuen globalen Layer-Variablen angebunden.
+
 ## [1.7.0] – 2025-10-19
 ### Changed
 - Modul nutzt jetzt die neuen CSS-Variablen der globalen Farblayer, wodurch aktuelle Farbkonfigurationen direkt übernommen werden.
