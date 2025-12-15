@@ -807,6 +807,10 @@
   let lastPrimedPaletteCount = 0;
   let cssVarPrimeSignature = '';
   const paletteUpdateListeners = new Set();
+  let paletteStyleObserver = null;
+  let paletteStyleTimeout = null;
+  let paletteSettingsWatcher = null;
+  let lastSettingsSignature = '';
   let paletteFileHandle = null;
   let paletteHandleLoaded = false;
   let paletteFileLastModified = null;
@@ -1574,6 +1578,70 @@
     }
   }
 
+  function snapshotSettingsSignature(){
+    if(typeof window === 'undefined') return '';
+    try {
+      const layers = Array.isArray(window?.appSettings?.moduleColorLayers)
+        ? window.appSettings.moduleColorLayers
+        : [];
+      return JSON.stringify(layers);
+    } catch {
+      return '';
+    }
+  }
+
+  function startSettingsWatcher(){
+    if(typeof window === 'undefined') return;
+    lastSettingsSignature = snapshotSettingsSignature();
+    try { window.__lbpSettingsSignature = lastSettingsSignature; } catch {}
+    if(paletteSettingsWatcher){
+      return;
+    }
+    paletteSettingsWatcher = window.setInterval(() => {
+      const nextSignature = snapshotSettingsSignature();
+      if(nextSignature && nextSignature !== lastSettingsSignature){
+        lastSettingsSignature = nextSignature;
+        try { window.__lbpSettingsSignature = nextSignature; } catch {}
+        refreshPaletteFromConfig('app-settings-change', { force: true });
+      }
+    }, 1000);
+  }
+
+  function startPaletteMutationObserver(){
+    if(typeof window === 'undefined' || !window.document) return;
+    const root = window.document.documentElement;
+    if(!root || typeof MutationObserver !== 'function') return;
+    if(paletteStyleObserver && typeof paletteStyleObserver.disconnect === 'function'){
+      try { paletteStyleObserver.disconnect(); } catch {}
+    }
+    if(root.__lbpPaletteObserver && typeof root.__lbpPaletteObserver.disconnect === 'function'){
+      try { root.__lbpPaletteObserver.disconnect(); } catch {}
+    }
+    const scheduleRefresh = () => {
+      if(paletteStyleTimeout){
+        try { window.clearTimeout(paletteStyleTimeout); } catch {}
+      }
+      paletteStyleTimeout = window.setTimeout(() => {
+        refreshPaletteFromConfig('css-var-change', { force: true });
+      }, 80);
+    };
+    paletteStyleObserver = new MutationObserver(mutations => {
+      const styleChanged = mutations.some(m => m.type === 'attributes' && m.attributeName === 'style');
+      if(styleChanged){
+        scheduleRefresh();
+      }
+    });
+    try {
+      paletteStyleObserver.observe(root, { attributes: true, attributeFilter: ['style'] });
+      root.__lbpPaletteObserver = paletteStyleObserver;
+    } catch {}
+  }
+
+  function initLivePaletteSync(){
+    startSettingsWatcher();
+    startPaletteMutationObserver();
+  }
+
   (function initPaletteConfigSync(){
     if(typeof window === 'undefined') return;
     if(!window.__lbpPalette || typeof window.__lbpPalette !== 'object'){
@@ -1589,6 +1657,8 @@
         }
       }
     };
+
+    initLivePaletteSync();
 
     refreshPaletteFromConfig('loaded');
 
