@@ -289,6 +289,7 @@
   const BUTTON_ORDER_KEY = 'linkbuttonsplus-order';
   const COLOR_CONFIG_KEY = 'linkbuttonsplus-colors-v1';
   const COLOR_AREAS = ['main','header','buttons'];
+  const COLOR_PRESETS = ['Main','Alternative','Accent'];
   const FARBLAYER_GROUP_CONFIG_KEY = 'linkbuttonsplus-group-config-v1';
   const FARBLAYER_MODULE_NAME = 'LinkButtonsPlus';
   const FARBLAYER_GROUPS = {
@@ -806,6 +807,10 @@
   let lastPrimedPaletteCount = 0;
   let cssVarPrimeSignature = '';
   const paletteUpdateListeners = new Set();
+  let paletteStyleObserver = null;
+  let paletteStyleTimeout = null;
+  let paletteSettingsWatcher = null;
+  let lastSettingsSignature = '';
   let paletteFileHandle = null;
   let paletteHandleLoaded = false;
   let paletteFileLastModified = null;
@@ -1573,6 +1578,70 @@
     }
   }
 
+  function snapshotSettingsSignature(){
+    if(typeof window === 'undefined') return '';
+    try {
+      const layers = Array.isArray(window?.appSettings?.moduleColorLayers)
+        ? window.appSettings.moduleColorLayers
+        : [];
+      return JSON.stringify(layers);
+    } catch {
+      return '';
+    }
+  }
+
+  function startSettingsWatcher(){
+    if(typeof window === 'undefined') return;
+    lastSettingsSignature = snapshotSettingsSignature();
+    try { window.__lbpSettingsSignature = lastSettingsSignature; } catch {}
+    if(paletteSettingsWatcher){
+      return;
+    }
+    paletteSettingsWatcher = window.setInterval(() => {
+      const nextSignature = snapshotSettingsSignature();
+      if(nextSignature && nextSignature !== lastSettingsSignature){
+        lastSettingsSignature = nextSignature;
+        try { window.__lbpSettingsSignature = nextSignature; } catch {}
+        refreshPaletteFromConfig('app-settings-change', { force: true });
+      }
+    }, 1000);
+  }
+
+  function startPaletteMutationObserver(){
+    if(typeof window === 'undefined' || !window.document) return;
+    const root = window.document.documentElement;
+    if(!root || typeof MutationObserver !== 'function') return;
+    if(paletteStyleObserver && typeof paletteStyleObserver.disconnect === 'function'){
+      try { paletteStyleObserver.disconnect(); } catch {}
+    }
+    if(root.__lbpPaletteObserver && typeof root.__lbpPaletteObserver.disconnect === 'function'){
+      try { root.__lbpPaletteObserver.disconnect(); } catch {}
+    }
+    const scheduleRefresh = () => {
+      if(paletteStyleTimeout){
+        try { window.clearTimeout(paletteStyleTimeout); } catch {}
+      }
+      paletteStyleTimeout = window.setTimeout(() => {
+        refreshPaletteFromConfig('css-var-change', { force: true });
+      }, 80);
+    };
+    paletteStyleObserver = new MutationObserver(mutations => {
+      const styleChanged = mutations.some(m => m.type === 'attributes' && m.attributeName === 'style');
+      if(styleChanged){
+        scheduleRefresh();
+      }
+    });
+    try {
+      paletteStyleObserver.observe(root, { attributes: true, attributeFilter: ['style'] });
+      root.__lbpPaletteObserver = paletteStyleObserver;
+    } catch {}
+  }
+
+  function initLivePaletteSync(){
+    startSettingsWatcher();
+    startPaletteMutationObserver();
+  }
+
   (function initPaletteConfigSync(){
     if(typeof window === 'undefined') return;
     if(!window.__lbpPalette || typeof window.__lbpPalette !== 'object'){
@@ -1588,6 +1657,8 @@
         }
       }
     };
+
+    initLivePaletteSync();
 
     refreshPaletteFromConfig('loaded');
 
@@ -2382,528 +2453,123 @@
     return { layers, datasetSources };
   }
 
-  function loadGlobalColorLayers(maxLayers = 15, configLayers = [], domData = null){
-    const layers = [];
-    const sources = [];
-    const docEl = document.documentElement;
-    if(docEl){
-      try { sources.push(getComputedStyle(docEl)); } catch {}
-    }
-    const body = document.body;
-    if(body && body !== docEl){
-      try { sources.push(getComputedStyle(body)); } catch {}
-    }
-    if(!sources.length) return layers;
+  
+  function loadGlobalColorLayers(maxLayers = COLOR_PRESETS.length){
+    const root = document.documentElement;
+    const styles = root ? getComputedStyle(root) : null;
+    const readValue = (prop) => (styles?.getPropertyValue(prop) || '').trim();
 
-    const readVar = (name) => {
-      for(const style of sources){
-        if(!style) continue;
-        const raw = style.getPropertyValue(name);
-        if(typeof raw === 'string' && raw.trim()) return raw.trim();
-      }
-      return '';
-    };
+    const baseModuleBg = readValue('--module-layer-module-bg') || readValue('--module-bg') || '';
+    const baseModuleText = readValue('--module-layer-module-text') || readValue('--text-color') || '';
+    const baseModuleBorder = readValue('--module-layer-module-border') || readValue('--module-border-color') || '';
+    const baseHeaderBg = readValue('--module-header-bg') || '';
+    const baseHeaderText = readValue('--module-header-text') || '';
+    const baseHeaderBorder = readValue('--module-header-border') || '';
 
-    const datasetSources = [];
-    if (docEl && docEl.dataset) datasetSources.push(docEl.dataset);
-    if (body && body !== docEl && body.dataset) datasetSources.push(body.dataset);
-    if (domData && Array.isArray(domData.datasetSources)) {
-      domData.datasetSources.forEach(source => {
-        if (source) datasetSources.push(source);
-      });
-    }
-
-    const readDatasetValue = (key) => {
-      if(!key) return '';
-      for (const source of datasetSources) {
-        if (!source) continue;
-        const value = source[key];
-        if (typeof value === 'string' && value.trim()) return value.trim();
-      }
-      return '';
-    };
-
-    const stripQuotes = (value) => {
-      if (typeof value !== 'string') return '';
-      const trimmed = value.trim();
-      if (!trimmed) return '';
-      const first = trimmed.charAt(0);
-      const last = trimmed.charAt(trimmed.length - 1);
-      if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-        return trimmed.slice(1, -1).trim();
-      }
-      return trimmed;
-    };
-
-    const resolveCustomProperty = (rawValue, seen = new Set()) => {
-      if (typeof rawValue !== 'string') return '';
-      const trimmed = rawValue.trim();
-      if (!trimmed) return '';
-      const match = trimmed.match(/^var\((--[A-Za-z0-9\-]+)(?:,([^\)]*))?\)$/);
-      if (!match) return trimmed;
-      const varName = match[1];
-      if (seen.has(varName)) return '';
-      seen.add(varName);
-      const replacement = readVar(varName);
-      if (replacement) {
-        return resolveCustomProperty(replacement, seen);
-      }
-      const fallback = typeof match[2] === 'string' ? match[2].trim() : '';
-      if (!fallback) return '';
-      return resolveCustomProperty(fallback, seen);
-    };
-
-    const readResolvedVar = (name) => {
-      if (!name) return '';
-      const raw = readVar(name);
-      if (!raw) return '';
-      const resolved = resolveCustomProperty(raw);
-      return typeof resolved === 'string' ? resolved.trim() : '';
-    };
-
-    const readTripletForPrefix = (prefix) => {
-      if (!prefix) return null;
-      const bg = readResolvedVar(`${prefix}-bg`);
-      const text = readResolvedVar(`${prefix}-text`);
-      const border = readResolvedVar(`${prefix}-border`);
-      if (!bg && !text && !border) return null;
+    const normalizeSubLayer = (input, fallback) => {
+      const bg = (input?.bg || '').trim() || fallback.bg || '';
+      const text = (input?.text || '').trim() || fallback.text || '';
+      const border = (input?.border || '').trim() || fallback.border || '';
       return { bg, text, border };
     };
 
-    const readTripletFromCandidates = (candidates) => {
-      if (!Array.isArray(candidates)) return null;
-      for (const candidate of candidates) {
-        const triplet = readTripletForPrefix(candidate);
-        if (triplet) return triplet;
-      }
-      return null;
-    };
+    const buildLayer = (raw, index) => {
+      const id = sanitizeId(raw?.id) || sanitizeId(raw?.variableId) || (index === 0 ? 'main' : `layer-${index + 1}`);
+      const variableId = sanitizeId(raw?.variableId) || id;
+      const name = (raw?.name || raw?.displayName || '').trim() || COLOR_PRESETS[index] || `Layer ${index + 1}`;
+      const displayName = (raw?.displayName || '').trim() || name;
+      const moduleBg = (raw?.moduleBg || '').trim() || baseModuleBg;
+      const moduleText = (raw?.moduleText || '').trim() || baseModuleText;
+      const moduleBorder = (raw?.moduleBorder || '').trim() || baseModuleBorder || moduleBg;
+      const headerBg = (raw?.headerBg || '').trim() || moduleBg || baseHeaderBg;
+      const headerText = (raw?.headerText || '').trim() || moduleText || baseHeaderText;
+      const headerBorder = (raw?.headerBorder || '').trim() || headerBg || baseHeaderBorder || moduleBorder;
 
-    const readNameFromCandidates = (candidates) => {
-      if (!Array.isArray(candidates)) return '';
-      for (const candidate of candidates) {
-        const raw = readResolvedVar(`${candidate}-name`);
-        const value = stripQuotes(raw);
-        if (value) return value;
-      }
-      return '';
-    };
+      const subLayers = (Array.isArray(raw?.subLayers) && raw.subLayers.length)
+        ? raw.subLayers.map(sub => normalizeSubLayer(sub, { bg: moduleBg, text: moduleText, border: moduleBorder }))
+        : [normalizeSubLayer({ bg: raw?.subBg, text: raw?.subText, border: raw?.subBorder }, { bg: moduleBg, text: moduleText, border: moduleBorder })];
+      const primarySub = subLayers[0] || { bg: moduleBg, text: moduleText, border: moduleBorder };
 
-    const normalizeTriplet = (value) => ({
-      bg: typeof value?.bg === 'string' ? value.bg : '',
-      text: typeof value?.text === 'string' ? value.text : '',
-      border: typeof value?.border === 'string' ? value.border : ''
-    });
-
-    const hasTripletValues = (value) => {
-      if (!value) return false;
-      return Boolean(value.bg || value.text || value.border);
-    };
-
-    const SUB_LAYER_LIMIT = 8;
-
-    const limit = Math.max(maxLayers, Array.isArray(configLayers) ? configLayers.length : 0);
-
-    const indexCandidates = new Map();
-    const ensureEntry = (index) => {
-      if (!indexCandidates.has(index)) {
-        indexCandidates.set(index, {
-          index,
-          variableIds: new Set(),
-          datasetTokens: new Set(),
-          configLayer: null
-        });
-      }
-      return indexCandidates.get(index);
-    };
-
-    const addDatasetToken = (entry, value) => {
-      if (!entry || typeof value !== 'string') return;
-      const trimmed = value.trim();
-      if (!trimmed || /^layer-?\d+$/i.test(trimmed) || /^\d+$/.test(trimmed)) return;
-      const token = toDatasetToken(trimmed);
-      if (token) entry.datasetTokens.add(token);
-    };
-
-    const addVariableCandidate = (entry, value) => {
-      if (!entry || typeof value !== 'string') return;
-      const trimmed = value.trim();
-      if (!trimmed) return;
-      entry.variableIds.add(trimmed);
-      const slug = toCssIdentifier(trimmed);
-      if (slug) entry.variableIds.add(slug);
-      addDatasetToken(entry, trimmed);
-    };
-
-    const addNameCandidate = (entry, value) => {
-      if (!entry || typeof value !== 'string') return;
-      const trimmed = value.trim();
-      if (!trimmed) return;
-      addDatasetToken(entry, trimmed);
-      const slug = toCssIdentifier(trimmed);
-      if (slug) entry.variableIds.add(slug);
-    };
-
-    for (let i = 1; i <= limit; i += 1) {
-      ensureEntry(i);
-    }
-
-    if (Array.isArray(configLayers)) {
-      configLayers.forEach((layer, idx) => {
-        const entry = ensureEntry(idx + 1);
-        if (layer && !entry.configLayer) entry.configLayer = layer;
-        addVariableCandidate(entry, sanitizeId(layer?.variableId));
-        addVariableCandidate(entry, sanitizeId(layer?.id));
-        if (typeof layer?.displayName === 'string') addNameCandidate(entry, layer.displayName);
-        if (typeof layer?.name === 'string') addNameCandidate(entry, layer.name);
-      });
-    }
-
-    for (let i = 1; i <= limit; i += 1) {
-      const entry = ensureEntry(i);
-      addVariableCandidate(entry, `layer-${i}`);
-      addVariableCandidate(entry, `layer${i}`);
-    }
-
-    const datasetSuffixes = [
-      '',
-      'Name',
-      'Label',
-      'Title',
-      'Display',
-      'DisplayName',
-      'Displayname',
-      'Anzeige',
-      'Anzeigename',
-      'AnzeigeName',
-      'Anzeigenamen',
-      'Bezeichnung',
-      'Beschreibung'
-    ];
-    const cssSuffixes = [
-      '-name',
-      '-name-quoted',
-      '-label',
-      '-label-quoted',
-      '-title',
-      '-title-quoted',
-      '-display',
-      '-display-quoted',
-      '-display-name',
-      '-display-name-quoted',
-      '-anzeige',
-      '-anzeige-quoted',
-      '-anzeige-name',
-      '-anzeige-name-quoted',
-      '-anzeigename',
-      '-anzeigename-quoted',
-      '-anzeigenamen',
-      '-anzeigenamen-quoted',
-      '-bezeichnung',
-      '-bezeichnung-quoted',
-      '-beschreibung',
-      '-beschreibung-quoted'
-    ];
-
-    const readDisplayNameForEntry = (index, entry) => {
-      const configLayer = entry?.configLayer;
-      const configDisplay = extractLayerDisplayName(configLayer);
-      if (configDisplay) return configDisplay;
-
-      const baseDatasetKeys = new Set([`moduleLayer${index}`, `layer${index}`]);
-      if (entry) {
-        entry.datasetTokens.forEach(token => {
-          if (!token) return;
-          baseDatasetKeys.add(`moduleLayer${token}`);
-          baseDatasetKeys.add(`layer${token}`);
-        });
-      }
-
-      for (const base of baseDatasetKeys) {
-        for (const suffix of datasetSuffixes) {
-          const candidates = new Set();
-          candidates.add(`${base}${suffix}`);
-          if (suffix) {
-            candidates.add(`${base}${suffix.charAt(0).toLowerCase()}${suffix.slice(1)}`);
-            candidates.add(`${base}${suffix.toLowerCase()}`);
-          }
-          for (const key of candidates) {
-            const value = readDatasetValue(key);
-            if (value) return value;
-          }
-        }
-      }
-
-      const cssBases = new Set([`--module-layer-${index}`, '--module-layer']);
-      if (entry) {
-        entry.variableIds.forEach(varId => {
-          if (!varId) return;
-          cssBases.add(`--${varId}`);
-          cssBases.add(`--module-layer-${varId}`);
-        });
-      }
-
-      const cssCandidates = [];
-      cssBases.forEach(base => {
-        cssSuffixes.forEach(suffix => {
-          cssCandidates.push(`${base}${suffix}`);
-        });
-      });
-      cssCandidates.push(
-        '--module-layer-primary-name',
-        '--module-layer-primary-name-quoted',
-        '--module-layer-primary-display-name',
-        '--module-layer-primary-display-name-quoted'
-      );
-
-      for (const candidate of cssCandidates) {
-        const raw = readVar(candidate);
-        if (!raw) continue;
-        const resolved = resolveCustomProperty(raw);
-        const normalized = stripQuotes(resolved);
-        if (normalized) return normalized;
-      }
-
-      if (configLayer && typeof configLayer.name === 'string' && configLayer.name.trim()) {
-        return configLayer.name.trim();
-      }
-      return '';
-    };
-
-    const readLayerColors = (entry) => {
-      if (!entry) return null;
-      const index = Number.isFinite(entry.index) ? entry.index : null;
-      const rawVarIds = Array.from(entry.variableIds || []);
-      const sanitizedVarIds = rawVarIds
-        .map(id => sanitizeId(id))
-        .filter(Boolean);
-      const preferredFromConfig = sanitizeId(entry?.configLayer?.variableId);
-      const baseNamePrefixes = [];
-      if (index) baseNamePrefixes.push(`--module-layer-${index}`);
-      sanitizedVarIds.forEach(id => baseNamePrefixes.push(`--${id}`));
-      const fallbackName = readNameFromCandidates(baseNamePrefixes);
-      const fallbackId = fallbackName ? toCssIdentifier(fallbackName) : '';
-      const preferredId = preferredFromConfig || sanitizedVarIds[0] || fallbackId || (index ? `layer${index}` : '');
-
-      const tryReadHsla = (varId) => {
-        if (!varId) return null;
-        const hRaw = readVar(`--${varId}-h`);
-        const sRaw = readVar(`--${varId}-s`);
-        const lRaw = readVar(`--${varId}-l`);
-        const aRaw = readVar(`--${varId}-a`);
-        if (hRaw && sRaw && lRaw) {
-          return { mode: 'hsla', variableId: varId, hRaw, sRaw, lRaw, aRaw };
-        }
-        return null;
+      const preview = raw?.preview || {
+        main: { bg: moduleBg, text: moduleText },
+        header: { bg: headerBg, text: headerText },
+        buttons: { bg: primarySub.bg, text: primarySub.text }
       };
 
-      for (const varId of sanitizedVarIds) {
-        const hsla = tryReadHsla(varId);
-        if (hsla) return hsla;
-      }
-      if (index) {
-        const hsla = tryReadHsla(`module-layer-${index}`);
-        if (hsla) return hsla;
-      }
-
-      const modulePrefixes = [];
-      const headerPrefixes = [];
-      const namePrefixes = baseNamePrefixes.slice();
-      if (index) {
-        modulePrefixes.push(`--module-layer-${index}-module`);
-        modulePrefixes.push(`--module-layer-${index}`);
-        headerPrefixes.push(`--module-layer-${index}-header`);
-      }
-      sanitizedVarIds.forEach(id => {
-        modulePrefixes.push(`--${id}-module`);
-        modulePrefixes.push(`--${id}`);
-        headerPrefixes.push(`--${id}-header`);
-      });
-
-      const moduleTriplet = readTripletFromCandidates(modulePrefixes);
-      const headerTriplet = readTripletFromCandidates(headerPrefixes);
-      const resolvedName = fallbackName || readNameFromCandidates(namePrefixes);
-
-      const subLayers = [];
-      for (let subIndex = 1; subIndex <= SUB_LAYER_LIMIT; subIndex += 1) {
-        const subPrefixes = [];
-        if (index) {
-          subPrefixes.push(`--module-layer-${index}-sub-${subIndex}`);
-          if (index === 1) subPrefixes.push(`--module-sub-layer-${subIndex}`);
-        }
-        sanitizedVarIds.forEach(id => {
-          subPrefixes.push(`--${id}-sub-${subIndex}`);
-        });
-        const subTriplet = readTripletFromCandidates(subPrefixes);
-        const subName = readNameFromCandidates(subPrefixes);
-        if (!hasTripletValues(subTriplet) && !subName) continue;
-        const normalizedSub = normalizeTriplet(subTriplet);
-        if (subName) normalizedSub.name = subName;
-        subLayers.push(normalizedSub);
-      }
-
-      if (!hasTripletValues(moduleTriplet) && !hasTripletValues(headerTriplet) && !subLayers.length) {
-        return null;
-      }
-
-      const resolvedVariableId = sanitizeId(preferredId) || fallbackId || (index ? `layer${index}` : '');
+      const varIndex = index + 1;
 
       return {
-        mode: 'triplet',
-        variableId: resolvedVariableId,
-        module: normalizeTriplet(moduleTriplet),
-        header: normalizeTriplet(headerTriplet),
-        subLayers,
-        name: resolvedName
-      };
-    };
-
-    const sortedEntries = Array.from(indexCandidates.entries()).sort((a, b) => a[0] - b[0]);
-
-    sortedEntries.forEach(([index, entry]) => {
-      const colors = readLayerColors(entry);
-      if (!colors) return;
-
-      const displayName = readDisplayNameForEntry(index, entry) || `Layer ${index}`;
-      const resolvedId = sanitizeId(colors.variableId) || `layer${index}`;
-
-      if (colors.mode === 'triplet') {
-        const moduleColors = hasTripletValues(colors.module) ? normalizeTriplet(colors.module) : { bg:'', text:'', border:'' };
-        const headerColors = hasTripletValues(colors.header) ? normalizeTriplet(colors.header) : { bg:'', text:'', border:'' };
-        const firstSub = Array.isArray(colors.subLayers) && colors.subLayers.length
-          ? (() => {
-              const sub = colors.subLayers[0];
-              const normalized = normalizeTriplet(sub);
-              if (sub && typeof sub.name === 'string' && sub.name) {
-                normalized.name = sub.name;
-              }
-              return normalized;
-            })()
-          : { bg:'', text:'', border:'' };
-        const effectiveModule = hasTripletValues(moduleColors)
-          ? moduleColors
-          : (hasTripletValues(headerColors) ? headerColors : firstSub);
-        const effectiveHeader = hasTripletValues(headerColors) ? headerColors : effectiveModule;
-        const buttonSource = hasTripletValues(firstSub) ? firstSub : effectiveModule;
-        const normalizedSubs = Array.isArray(colors.subLayers) && colors.subLayers.length
-          ? colors.subLayers.map(sub => {
-              const normalized = normalizeTriplet(sub);
-              if (sub && typeof sub.name === 'string' && sub.name) {
-                normalized.name = sub.name;
-              }
-              return normalized;
-            })
-          : [buttonSource];
-        layers.push({
-          id: resolvedId,
-          variableId: resolvedId,
-          index,
-          label: displayName,
-          name: displayName,
-          displayName,
-          color: effectiveModule.bg || effectiveHeader.bg || '',
-          swatch: effectiveModule.bg || effectiveHeader.bg || '',
-          moduleBg: effectiveModule.bg || '',
-          moduleText: effectiveModule.text || '',
-          moduleBorder: effectiveModule.border || effectiveModule.text || effectiveModule.bg || '',
-          headerBg: effectiveHeader.bg || '',
-          headerText: effectiveHeader.text || '',
-          headerBorder: effectiveHeader.border || effectiveHeader.bg || effectiveModule.border || '',
-          subLayers: normalizedSubs,
-          subBg: buttonSource.bg || '',
-          subText: buttonSource.text || '',
-          subBorder: buttonSource.border || '',
-          preview: {
-            main: { bg: effectiveModule.bg || '', text: effectiveModule.text || '' },
-            header: { bg: effectiveHeader.bg || '', text: effectiveHeader.text || '' },
-            buttons: { bg: buttonSource.bg || '', text: buttonSource.text || '' }
-          }
-        });
-        return;
-      }
-
-      const { hRaw, sRaw, lRaw, aRaw, variableId } = colors;
-      const hVal = parseLayerNumber(hRaw);
-      const sVal = parseLayerNumber(sRaw);
-      const lVal = parseLayerNumber(lRaw);
-      const aValRaw = parseLayerNumber(aRaw);
-      const hasNumeric = Number.isFinite(hVal) && Number.isFinite(sVal) && Number.isFinite(lVal);
-      const resolvedVariableId = sanitizeId(variableId) || resolvedId;
-
-      if(!hasNumeric) {
-        const colorOnly = buildRawHslaString(hRaw, sRaw, lRaw, aRaw);
-        const fallbackText = Number.isFinite(lVal) ? pickTextColor(lVal) : '#ffffff';
-        layers.push({
-          id: resolvedVariableId,
-          variableId: resolvedVariableId,
-          index,
-          label: displayName,
-          name: displayName,
-          displayName,
-          color: colorOnly,
-          swatch: colorOnly,
-          moduleBg: colorOnly,
-          moduleText: fallbackText,
-          moduleBorder: colorOnly,
-          headerBg: colorOnly,
-          headerText: fallbackText,
-          headerBorder: colorOnly,
-          subLayers: [{ bg: colorOnly, text: fallbackText, border: colorOnly }],
-          subBg: colorOnly,
-          subText: fallbackText,
-          subBorder: colorOnly,
-          preview: {
-            main: { bg: colorOnly, text: fallbackText },
-            header: { bg: colorOnly, text: fallbackText },
-            buttons: { bg: colorOnly, text: fallbackText }
-          }
-        });
-        return;
-      }
-
-      const alpha = Number.isFinite(aValRaw) ? normalizeAlpha(aValRaw) : 1;
-      const baseColor = buildHslaColor(hVal, sVal, lVal, alpha);
-      const moduleText = pickTextColor(lVal);
-      const moduleBorder = buildHslaColor(hVal, sVal, shiftLightness(lVal, -14), shiftAlpha(alpha, 0));
-
-      const headerLight = shiftLightness(lVal, -6);
-      const headerBg = buildHslaColor(hVal, sVal, headerLight, alpha);
-      const headerText = pickTextColor(headerLight);
-      const headerBorder = buildHslaColor(hVal, sVal, shiftLightness(headerLight, -8), shiftAlpha(alpha, 0.05));
-
-      const buttonLight = shiftLightness(lVal, -12);
-      const buttonBg = buildHslaColor(hVal, sVal, buttonLight, shiftAlpha(alpha, 0.05));
-      const buttonText = pickTextColor(buttonLight);
-      const buttonBorder = buildHslaColor(hVal, sVal, shiftLightness(buttonLight, -6), shiftAlpha(alpha, 0.08));
-
-      layers.push({
-        id: resolvedVariableId,
-        variableId: resolvedVariableId,
-        index,
-        label: displayName,
-        name: displayName,
+        ...raw,
+        varIndex,
+        id,
+        variableId,
+        name,
         displayName,
-        color: baseColor,
-        swatch: baseColor,
-        moduleBg: baseColor,
+        label: raw?.label || displayName,
+        moduleBg,
         moduleText,
         moduleBorder,
         headerBg,
         headerText,
         headerBorder,
-        subLayers: [{ bg: buttonBg, text: buttonText, border: buttonBorder }],
-        subBg: buttonBg,
-        subText: buttonText,
-        subBorder: buttonBorder,
-        preview: {
-          main: { bg: baseColor, text: moduleText },
-          header: { bg: headerBg, text: headerText },
-          buttons: { bg: buttonBg, text: buttonText }
-        }
-      });
+        subLayers,
+        subBg: primarySub.bg,
+        subText: primarySub.text,
+        subBorder: primarySub.border,
+        swatch: raw?.swatch || moduleBg || headerBg || primarySub.bg,
+        preview,
+        color: raw?.color || moduleBg
+      };
+    };
+
+    const layers = [];
+    const maxCount = Math.max(1, Math.min(maxLayers, COLOR_PRESETS.length));
+    const appLayers = Array.isArray(window?.appSettings?.moduleColorLayers) ? window.appSettings.moduleColorLayers : [];
+    appLayers.slice(0, maxCount).forEach((layer, index) => {
+      layers.push(buildLayer(layer || {}, index));
     });
 
-    return layers;
+    if (!layers.length && styles) {
+      for (let i = 1; i <= maxCount; i += 1) {
+        const name = readValue(`--module-layer-${i}-name`) || COLOR_PRESETS[i - 1];
+        const moduleBg = readValue(`--module-layer-${i}-module-bg`) || baseModuleBg;
+        const moduleText = readValue(`--module-layer-${i}-module-text`) || baseModuleText;
+        const moduleBorder = readValue(`--module-layer-${i}-module-border`) || baseModuleBorder;
+        const headerBg = readValue(`--module-layer-${i}-header-bg`) || readValue(`--module-layer-${i}-module-header-bg`) || moduleBg || baseHeaderBg;
+        const headerText = readValue(`--module-layer-${i}-header-text`) || readValue(`--module-layer-${i}-module-header-text`) || moduleText || baseHeaderText;
+        const headerBorder = readValue(`--module-layer-${i}-header-border`) || readValue(`--module-layer-${i}-module-header-border`) || moduleBorder || headerBg || baseHeaderBorder;
+        layers.push(buildLayer({
+          id: i === 1 ? 'main' : `layer-${i}`,
+          variableId: i === 1 ? 'main' : `layer-${i}`,
+          name,
+          displayName: name,
+          moduleBg,
+          moduleText,
+          moduleBorder,
+          headerBg,
+          headerText,
+          headerBorder
+        }, i - 1));
+      }
+    }
+
+    if (!layers.length) {
+      const fallbackName = readValue('--module-layer-name') || COLOR_PRESETS[0];
+      layers.push(buildLayer({
+        id: 'main',
+        variableId: 'main',
+        name: fallbackName,
+        displayName: fallbackName,
+        moduleBg: baseModuleBg,
+        moduleText: baseModuleText,
+        moduleBorder: baseModuleBorder,
+        headerBg: baseHeaderBg,
+        headerText: baseHeaderText,
+        headerBorder: baseHeaderBorder
+      }, 0));
+    }
+
+    return layers.slice(0, maxCount);
   }
 
   function ensureLayerSwatch(layer){
@@ -2918,125 +2584,44 @@
     return { ...layer, swatch };
   }
 
+  
   function getColorLayers(){
-    const configLayersFromSettings = (() => {
-      if (Array.isArray(window?.appSettings?.moduleColorLayers)) {
-        return window.appSettings.moduleColorLayers;
-      }
-      if (typeof window?.getDefaultModuleColorLayers === 'function') {
-        try { return window.getDefaultModuleColorLayers(); } catch { return []; }
-      }
-      return [];
-    })();
-
-    const domLayerData = readDomModuleLayers();
-    const configSourceLayers = Array.isArray(configLayersFromSettings) && configLayersFromSettings.length
-      ? configLayersFromSettings
-      : (Array.isArray(domLayerData.layers) && domLayerData.layers.length ? domLayerData.layers : []);
-
-    const normalizedConfig = Array.isArray(configSourceLayers)
-      ? configSourceLayers.map((layer, index) => {
-          const id = sanitizeId(layer?.id) || `layer-${index}`;
-          const variableId = sanitizeId(layer?.variableId) || '';
-          const name = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : '';
-          const displayName = extractLayerDisplayName(layer, layer?.displayName, name);
-          return {
+    const rawLayers = loadGlobalColorLayers(COLOR_PRESETS.length);
+    const normalized = Array.isArray(rawLayers)
+      ? rawLayers.map((layer, index) => {
+          const id = sanitizeId(layer?.id) || sanitizeId(layer?.variableId) || (index === 0 ? 'main' : `layer-${index + 1}`);
+          const variableId = sanitizeId(layer?.variableId) || id;
+          const name = (layer?.name || layer?.displayName || '').trim() || COLOR_PRESETS[index] || `Layer ${index + 1}`;
+          const displayName = extractLayerDisplayName(layer, layer?.displayName, name) || name;
+          const subLayers = Array.isArray(layer?.subLayers) && layer.subLayers.length
+            ? layer.subLayers.map(sub => ({ ...sub }))
+            : [{ bg: layer?.subBg || layer?.moduleBg, text: layer?.subText || layer?.moduleText, border: layer?.subBorder || layer?.moduleBorder }];
+          const primarySub = subLayers[0] || { bg: layer?.moduleBg, text: layer?.moduleText, border: layer?.moduleBorder };
+          const preview = layer?.preview || {
+            main: { bg: layer?.moduleBg, text: layer?.moduleText },
+            header: { bg: layer?.headerBg || layer?.moduleBg, text: layer?.headerText || layer?.moduleText },
+            buttons: { bg: primarySub.bg, text: primarySub.text }
+          };
+          return ensureLayerSwatch({
             ...layer,
             id,
             variableId,
             name,
-            displayName: displayName || name,
-            subLayers: Array.isArray(layer?.subLayers)
-              ? layer.subLayers.map(sub => ({ ...sub }))
-              : []
-          };
+            displayName,
+            label: layer?.label || displayName,
+            subLayers,
+            preview
+          });
         })
       : [];
 
-    const cssLayers = loadGlobalColorLayers(15, normalizedConfig, domLayerData);
+    updateCachedPalette(normalized, { layerCount: normalized.length, source: 'app+css' });
 
-    if(!cssLayers.length && !normalizedConfig.length) return [];
-
-    if(!cssLayers.length) {
-      return normalizedConfig.map(layer => ensureLayerSwatch({
-        ...layer,
-        label: typeof layer.displayName === 'string' && layer.displayName ? layer.displayName : (layer.name || layer.label),
-        preview: buildPreviewFromLayer(layer)
-      }));
+    if(typeof window !== 'undefined'){
+      try{ window.__lbpPaletteSource = normalized; }catch{}
     }
 
-    const merged = cssLayers.map(layer => {
-      const existing = findLayerById(normalizedConfig, layer.id)
-        || findLayerById(normalizedConfig, layer.variableId)
-        || null;
-      const mergedLayer = { ...layer };
-      const variableId = sanitizeId(existing?.variableId) || sanitizeId(layer?.variableId) || sanitizeId(layer?.id) || '';
-      const rawName = typeof existing?.name === 'string' && existing.name.trim()
-        ? existing.name.trim()
-        : (typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : '');
-      const friendlyName = extractLayerDisplayName(
-        existing,
-        layer.displayName,
-        layer.label,
-        rawName
-      ) || rawName || layer.displayName || layer.label || layer.name;
-
-      if(existing){
-        Object.keys(existing).forEach(key => {
-          const value = existing[key];
-          if (value !== undefined) mergedLayer[key] = value;
-        });
-      }
-
-      const fallbackId = friendlyName ? toCssIdentifier(friendlyName) : '';
-      mergedLayer.id = sanitizeId(mergedLayer.id)
-        || sanitizeId(existing?.id)
-        || variableId
-        || fallbackId
-        || mergedLayer.id
-        || `layer-${merged.length + 1}`;
-      mergedLayer.variableId = variableId || sanitizeId(mergedLayer.variableId) || '';
-      mergedLayer.name = rawName || mergedLayer.name || friendlyName || mergedLayer.label || mergedLayer.id;
-      mergedLayer.displayName = friendlyName || mergedLayer.displayName || mergedLayer.name;
-      mergedLayer.label = mergedLayer.displayName || mergedLayer.label || mergedLayer.name;
-      mergedLayer.preview = existing?.preview || layer.preview || buildPreviewFromLayer({ ...layer, ...existing, id: mergedLayer.id });
-      return mergedLayer;
-    });
-
-    normalizedConfig.forEach(layer => {
-      const id = sanitizeId(layer?.id);
-      const variableId = sanitizeId(layer?.variableId);
-      const name = typeof layer?.name === 'string' && layer.name.trim() ? layer.name.trim() : '';
-      const displayName = typeof layer?.displayName === 'string' && layer.displayName.trim() ? layer.displayName.trim() : '';
-      const exists = merged.some(item => {
-        const itemId = sanitizeId(item?.id);
-        const itemVar = sanitizeId(item?.variableId);
-        const itemName = typeof item?.name === 'string' && item.name.trim() ? item.name.trim() : '';
-        const itemDisplay = typeof item?.displayName === 'string' && item.displayName.trim() ? item.displayName.trim() : '';
-        if (id && itemId && id === itemId) return true;
-        if (variableId && itemVar && variableId === itemVar) return true;
-        if (displayName && itemDisplay && displayName === itemDisplay) return true;
-        if (name && itemName && name === itemName) return true;
-        return false;
-      });
-      if(exists) return;
-      const friendly = displayName || extractLayerDisplayName(layer, name) || name || `Layer ${merged.length + 1}`;
-      const fallbackId = friendly ? toCssIdentifier(friendly) : '';
-      merged.push({
-        ...layer,
-        id: id || variableId || fallbackId || `layer-${merged.length + 1}`,
-        variableId: variableId || id || fallbackId || '',
-        name: name || friendly,
-        displayName: friendly,
-        label: friendly,
-        preview: layer.preview ? layer.preview : buildPreviewFromLayer(layer)
-      });
-    });
-
-    const domLayers = Array.isArray(domLayerData?.layers) ? domLayerData.layers : [];
-    const mergedWithDom = applyDomLayerMetadata(merged, domLayers);
-
-    return mergedWithDom.map(layer => ensureLayerSwatch(layer));
+    return normalized;
   }
 
   function applyDomLayerMetadata(layers, domLayers){
@@ -3718,17 +3303,72 @@
 
     updateSelectedColorsFromFarblayer();
 
+    function resolveLayerVarPrefix(layer){
+      const numericIndex = Number.isFinite(layer?.varIndex)
+        ? layer.varIndex
+        : Number.isFinite(layer?.index)
+          ? layer.index
+          : Number.isFinite(Number(layer?.variableId))
+            ? Number(layer.variableId)
+            : Number.isFinite(Number(layer?.id))
+              ? Number(layer.id)
+              : null;
+      if(Number.isFinite(numericIndex) && numericIndex > 0){
+        return `--module-layer-${numericIndex}-`;
+      }
+      const rawId = sanitizeId(layer?.variableId || layer?.id || '');
+      if(!rawId) return '';
+      const mapped = rawId === 'main' ? 1 : rawId === 'alternative' ? 2 : rawId === 'accent' ? 3 : null;
+      if(mapped){
+        return `--module-layer-${mapped}-`;
+      }
+      return '';
+    }
+
+    function layerVarValue(layer, suffix, fallback = ''){
+      const prefix = resolveLayerVarPrefix(layer);
+      if(prefix){
+        const varName = `${prefix}${suffix}`;
+        return fallback ? `var(${varName}, ${fallback})` : `var(${varName})`;
+      }
+      return fallback || '';
+    }
+
+    function layerMixValue(layer, primarySuffix, fallback, ratio = 90, secondarySuffix = 'module-bg'){
+      const prefix = resolveLayerVarPrefix(layer);
+      if(prefix){
+        const primary = `${prefix}${primarySuffix}`;
+        const secondary = `${prefix}${secondarySuffix}`;
+        return `color-mix(in srgb, var(${primary}, var(${secondary}${fallback ? `, ${fallback}` : ''})) ${ratio}%, transparent)`;
+      }
+      return fallback || '';
+    }
+
     function applySelectedColors(){
       const layers = getColorLayers();
-      let removed = false;
+      let needsPersist = false;
       for(const area of COLOR_AREAS){
         const id = normalizeDropdownValue(selectedColors[area]);
         if(id && !findLayerById(layers, id)){
           selectedColors[area] = '';
-          removed = true;
+          needsPersist = true;
         }
       }
-      if(removed){
+
+      const defaultSelections = {
+        main: selectedColors.main || layers[0]?.id || layers[0]?.variableId || '',
+        header: selectedColors.header || layers[1]?.id || layers[1]?.variableId || layers[0]?.id || '',
+        buttons: selectedColors.buttons || layers[1]?.id || layers[1]?.variableId || layers[0]?.id || layers[2]?.id || ''
+      };
+
+      COLOR_AREAS.forEach(area => {
+        if(!selectedColors[area] && defaultSelections[area]){
+          selectedColors[area] = defaultSelections[area];
+          needsPersist = true;
+        }
+      });
+
+      if(needsPersist){
         const current = loadFarblayerState();
         const nextAssignments = { ...current.assignments };
         COLOR_AREAS.forEach(area => {
@@ -3753,39 +3393,59 @@
       const headerColors = headerLayer ? deriveHeaderColors(headerLayer) : null;
       const buttonColors = buttonLayer ? deriveButtonColors(buttonLayer) : null;
 
+      const mainBgValue = layerVarValue(mainLayer, 'module-bg', mainColors?.bg || '');
+      const mainTextValue = layerVarValue(mainLayer, 'module-text', mainColors?.text || '');
+      const mainBorderValue = layerVarValue(mainLayer, 'module-border', mainColors?.border || mainBgValue || '');
+
+      const headerBgValue = layerVarValue(headerLayer, 'header-bg', headerColors?.bg || mainBgValue || '');
+      const headerTextValue = layerVarValue(headerLayer, 'header-text', headerColors?.text || mainTextValue || '');
+      const headerBorderValue = layerVarValue(headerLayer, 'header-border', headerColors?.border || headerBgValue || mainBorderValue || '');
+
+      const buttonBgValue = layerVarValue(buttonLayer, 'module-bg', buttonColors?.bg || mainBgValue || '');
+      const buttonTextValue = layerVarValue(buttonLayer, 'module-text', buttonColors?.text || mainTextValue || '');
+      const buttonBorderValue = layerVarValue(buttonLayer, 'module-border', buttonColors?.border || buttonBgValue || mainBorderValue || '');
+
+      const hoverBorder = layerMixValue(buttonLayer, 'module-border', adjustColorLightness(buttonColors?.border, 10) || buttonBorderValue || '', 92);
+      const activeBg = layerMixValue(buttonLayer, 'module-bg', adjustColorLightness(buttonColors?.bg, 6) || adjustColorAlpha(buttonColors?.bg, 0.78) || buttonBgValue || '', 88);
+      const shadowValue = layerMixValue(buttonLayer, 'module-border', buttonColors?.border ? adjustColorAlpha(buttonColors.border, 0.26) : '', 26);
+      const hoverShadowValue = layerMixValue(buttonLayer, 'module-border', buttonColors?.border ? adjustColorAlpha(buttonColors.border, 0.32) : '', 32);
+
       const colorSets = new Map();
       const mainGroupName = getConfiguredGroupName('main');
       const headerGroupName = getConfiguredGroupName('header');
       const buttonGroupName = getConfiguredGroupName('buttons');
-      if(mainColors && mainGroupName){
-        colorSets.set(mainGroupName, mainColors);
+      const mainGroupColors = mainColors ? { bg: mainBgValue, text: mainTextValue, border: mainBorderValue } : null;
+      const headerGroupColors = headerColors ? { bg: headerBgValue, text: headerTextValue, border: headerBorderValue } : null;
+      const buttonGroupColors = buttonColors ? { bg: buttonBgValue, text: buttonTextValue, border: buttonBorderValue } : null;
+      if(mainGroupColors && mainGroupName){
+        colorSets.set(mainGroupName, mainGroupColors);
       }
       if(headerGroupName){
-        if(headerColors){
-          colorSets.set(headerGroupName, headerColors);
-        }else if(mainColors && !colorSets.has(headerGroupName)){
-          colorSets.set(headerGroupName, mainColors);
+        if(headerGroupColors){
+          colorSets.set(headerGroupName, headerGroupColors);
+        }else if(mainGroupColors && !colorSets.has(headerGroupName)){
+          colorSets.set(headerGroupName, mainGroupColors);
         }
       }
       if(buttonGroupName){
-        if(buttonColors){
-          colorSets.set(buttonGroupName, buttonColors);
-        }else if(mainColors && !colorSets.has(buttonGroupName)){
-          colorSets.set(buttonGroupName, mainColors);
+        if(buttonGroupColors){
+          colorSets.set(buttonGroupName, buttonGroupColors);
+        }else if(mainGroupColors && !colorSets.has(buttonGroupName)){
+          colorSets.set(buttonGroupName, mainGroupColors);
         }
       }
 
       if(hostEl){
         if(mainColors){
-          setCssVar(hostEl, '--module-bg', mainColors.bg);
-          setCssVar(hostEl, '--text-color', mainColors.text);
-          setCssVar(hostEl, '--module-border-color', mainColors.border);
+          setCssVar(hostEl, '--module-bg', mainBgValue);
+          setCssVar(hostEl, '--text-color', mainTextValue);
+          setCssVar(hostEl, '--module-border-color', mainBorderValue);
           const baseHeader = deriveHeaderColors(mainLayer);
-          setCssVar(hostEl, '--module-header-bg', baseHeader?.bg || '');
-          setCssVar(hostEl, '--module-header-text', baseHeader?.text || '');
-          hostEl.style.background = mainColors.bg || '';
-          hostEl.style.color = mainColors.text || '';
-          hostEl.style.borderColor = mainColors.border || '';
+          setCssVar(hostEl, '--module-header-bg', layerVarValue(mainLayer, 'header-bg', baseHeader?.bg || mainBgValue || ''));
+          setCssVar(hostEl, '--module-header-text', layerVarValue(mainLayer, 'header-text', baseHeader?.text || mainTextValue || ''));
+          hostEl.style.background = mainBgValue || '';
+          hostEl.style.color = mainTextValue || '';
+          hostEl.style.borderColor = mainBorderValue || '';
         } else {
           setCssVar(hostEl, '--module-bg', '');
           setCssVar(hostEl, '--text-color', '');
@@ -3798,38 +3458,34 @@
         }
       }
 
-      setCssVar(root, '--lbp-main-text', mainColors?.text || '');
-      setCssVar(root, '--lbp-main-border', mainColors?.border || '');
-      root.style.color = mainColors?.text || '';
+      setCssVar(root, '--lbp-main-text', mainTextValue || '');
+      setCssVar(root, '--lbp-main-border', mainBorderValue || '');
+      root.style.color = mainTextValue || '';
 
-      setCssVar(root, '--lbp-header-bg', headerColors?.bg || '');
-      setCssVar(root, '--lbp-header-text', headerColors?.text || '');
-      setCssVar(root, '--lbp-header-border', headerColors?.border || '');
+      setCssVar(root, '--lbp-header-bg', headerBgValue || '');
+      setCssVar(root, '--lbp-header-text', headerTextValue || '');
+      setCssVar(root, '--lbp-header-border', headerBorderValue || '');
       const headerEl = root.querySelector('.ops-header');
       if(headerEl){
-        headerEl.style.background = headerColors?.bg || '';
-        headerEl.style.color = headerColors?.text || '';
-        headerEl.style.borderColor = headerColors?.border || '';
+        headerEl.style.background = headerBgValue || '';
+        headerEl.style.color = headerTextValue || '';
+        headerEl.style.borderColor = headerBorderValue || '';
       }
 
       if(buttonColors){
-        setCssVar(root, '--lbp-card-bg', buttonColors.bg || '');
-        setCssVar(root, '--lbp-card-text', buttonColors.text || '');
-        setCssVar(root, '--lbp-card-border', buttonColors.border || '');
-        const hoverBorder = adjustColorLightness(buttonColors.border, 10) || buttonColors.border;
+        setCssVar(root, '--lbp-card-bg', buttonBgValue || '');
+        setCssVar(root, '--lbp-card-text', buttonTextValue || '');
+        setCssVar(root, '--lbp-card-border', buttonBorderValue || '');
         setCssVar(root, '--lbp-card-hover-border', hoverBorder || '');
-        const activeBg = adjustColorLightness(buttonColors.bg, 6) || adjustColorAlpha(buttonColors.bg, 0.78) || '';
-        setCssVar(root, '--lbp-card-active-bg', activeBg);
-        const shadow = buttonColors.border ? adjustColorAlpha(buttonColors.border, 0.26) : '';
-        const hoverShadow = buttonColors.border ? adjustColorAlpha(buttonColors.border, 0.32) : '';
-        const shadowValue = shadow ? `0 16px 34px ${shadow}` : '';
-        const hoverShadowValue = hoverShadow ? `0 20px 40px ${hoverShadow}` : '';
-        setCssVar(root, '--lbp-card-shadow', shadowValue);
-        setCssVar(root, '--lbp-card-shadow-hover', hoverShadowValue);
+        setCssVar(root, '--lbp-card-active-bg', activeBg || '');
+        const shadowCss = shadowValue ? `0 16px 34px ${shadowValue}` : '';
+        const hoverShadowCss = hoverShadowValue ? `0 20px 40px ${hoverShadowValue}` : '';
+        setCssVar(root, '--lbp-card-shadow', shadowCss);
+        setCssVar(root, '--lbp-card-shadow-hover', hoverShadowCss);
         cardElements.forEach(card => {
-          card.style.background = buttonColors.bg || '';
-          card.style.color = buttonColors.text || '';
-          card.style.borderColor = buttonColors.border || '';
+          card.style.background = buttonBgValue || '';
+          card.style.color = buttonTextValue || '';
+          card.style.borderColor = buttonBorderValue || '';
         });
       } else {
         setCssVar(root, '--lbp-card-bg','');
@@ -3846,17 +3502,19 @@
         });
       }
 
+      const accentLayer = headerLayer || mainLayer || buttonLayer || null;
       const accentSource = headerColors || mainColors || buttonColors || null;
       const accentEl = root.querySelector('.ops-autorefresh');
       if(accentSource){
-        const accentBg = adjustColorLightness(accentSource.border || accentSource.bg, 8)
+        const accentBg = layerMixValue(accentLayer, 'module-border', adjustColorLightness(accentSource.border || accentSource.bg, 8)
           || adjustColorAlpha(accentSource.bg, 0.82)
-          || accentSource.bg;
+          || accentSource.bg || '', 94);
+        const accentText = layerVarValue(accentLayer, 'module-text', accentSource.text || '');
         setCssVar(root, '--lbp-accent-bg', accentBg || '');
-        setCssVar(root, '--lbp-accent-text', accentSource.text || '');
+        setCssVar(root, '--lbp-accent-text', accentText || '');
         if(accentEl){
           accentEl.style.background = accentBg || '';
-          accentEl.style.color = accentSource.text || '';
+          accentEl.style.color = accentText || '';
         }
       } else {
         setCssVar(root, '--lbp-accent-bg','');

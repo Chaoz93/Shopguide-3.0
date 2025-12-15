@@ -4,6 +4,19 @@ Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 
+## [1.8.2] – 2025-11-06
+### Fixed
+- Farbzuweisungen orientieren sich jetzt direkt an den Modul-Layer-Variablen wie beim Aspen Board, sodass Änderungen an den Shopguide-Farben ohne Reload sofort in Header, Karten und Buttons ankommen.
+
+## [1.8.1] – 2025-11-05
+### Fixed
+- Farbzuweisungen bleiben jetzt live mit den Einstellungen synchronisiert: Änderungen an den Shopguide-Farbpaletten werden ohne Reload sofort erkannt und auf das Modul angewendet.
+
+## [1.8.0] – 2025-10-30
+### Changed
+- Umstellung auf das neue Drei-Paletten-Farbsystem (Main/Alternative/Accent) inklusive automatischer Standardzuweisungen.
+- Entfernt die alten Farbbaustein-Fallbacks und synchronisiert die Palette direkt mit den Modul-Farben aus den Shopguide-Einstellungen.
+
 ## [1.7.0] – 2025-10-21
 ### Added
 - Farbdatei kann jetzt direkt im Einstellungsdialog ausgewählt werden; das Modul liest die Palette aus der gewählten JSON-Datei und aktualisiert die Farbfelder automatisch.
