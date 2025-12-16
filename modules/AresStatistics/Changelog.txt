@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.0] – 2025-12-16
+### Changed
+- Minimalistischeres Layout ohne Kopfzeile, Kennzahlen und Tagesliste.
+- Glatte rot/grüne Linie ohne Punkte mit Tooltip für Datum und exakte Summe beim Hover.
+- Monatsanfänge als X-Achsen-Markierungen für einen klaren zeitlichen Verlauf.
+
 ## [1.0.0] – 2025-12-16
 ### Added
 - Erstveröffentlichung des AresStatistics-Moduls mit Datei-Upload für Ares-Zeitnachweise.

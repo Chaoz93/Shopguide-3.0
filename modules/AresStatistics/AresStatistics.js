@@ -6,42 +6,24 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .ares-root{height:100%;width:100%;box-sizing:border-box;padding:.85rem;display:flex;flex-direction:column;gap:.75rem;color:var(--ares-text,var(--module-layer-module-text,#f8fafc));}
-      .ares-surface{flex:1;display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:1rem;background:var(--ares-surface,var(--module-layer-module-bg,#0f172a));border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,0.24)));box-shadow:0 14px 34px rgba(0,0,0,.24);}
-      .ares-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;flex-wrap:wrap;}
-      .ares-title{font-weight:700;font-size:1.2rem;line-height:1.3;}
-      .ares-sub{opacity:.85;font-size:.95rem;}
-      .ares-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
-      .ares-btn{border:1px solid var(--ares-header-border,var(--module-layer-header-border,var(--ares-border,#cbd5e1)));background:var(--ares-header,var(--module-layer-header-bg,rgba(255,255,255,.08)));color:var(--ares-header-text,var(--module-layer-header-text,var(--ares-text,#f8fafc)));border-radius:.65rem;padding:.45rem .9rem;font-weight:600;font-size:.92rem;cursor:pointer;transition:background-color .2s,transform .1s;box-shadow:0 10px 24px rgba(0,0,0,.12);}
+      .ares-root{height:100%;width:100%;box-sizing:border-box;padding:1rem;display:flex;flex-direction:column;gap:.75rem;color:var(--ares-text,var(--module-layer-module-text,#f8fafc));}
+      .ares-surface{flex:1;display:flex;flex-direction:column;gap:.65rem;padding:1rem;border-radius:1rem;background:var(--ares-surface,var(--module-layer-module-bg,#0f172a));border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,0.24)));box-shadow:0 14px 34px rgba(0,0,0,.24);}
+      .ares-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:space-between;}
+      .ares-btn-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+      .ares-btn{border:1px solid var(--ares-header-border,var(--module-layer-header-border,var(--ares-border,#cbd5e1)));background:var(--ares-header,var(--module-layer-header-bg,rgba(255,255,255,.08)));color:var(--ares-header-text,var(--module-layer-header-text,var(--ares-text,#f8fafc)));border-radius:.65rem;padding:.45rem .9rem;font-weight:600;font-size:.92rem;cursor:pointer;transition:background-color .2s,transform .1s;box-shadow:0 10px 24px rgba(0,0,0,.12);display:inline-flex;align-items:center;gap:.4rem;}
       .ares-btn:hover{background:var(--ares-header-strong,rgba(255,255,255,.15));transform:translateY(-1px);}
       .ares-btn.secondary{background:transparent;color:var(--ares-header-text,var(--ares-text,#f8fafc));border-color:var(--ares-border,var(--module-layer-module-border,#cbd5e1));}
       .ares-file-input{display:none;}
-      .ares-file-label{display:inline-flex;align-items:center;gap:.35rem;}
-      .ares-meta{display:flex;gap:1rem;flex-wrap:wrap;font-size:.92rem;opacity:.9;}
-      .ares-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .65rem;border-radius:.55rem;background:var(--ares-chip-bg,var(--module-header-bg,rgba(255,255,255,.08)));border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.22)));font-weight:600;}
-      .ares-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.65rem;}
-      .ares-stat{padding:.75rem .9rem;border-radius:.75rem;background:var(--ares-alt-surface,rgba(255,255,255,.06));border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.22)));box-shadow:0 10px 24px rgba(0,0,0,.12);}
-      .ares-stat .label{display:block;font-size:.8rem;opacity:.8;margin-bottom:.2rem;}
-      .ares-stat .value{font-weight:700;font-size:1.1rem;}
-      .ares-chart-card{background:var(--ares-alt-surface,rgba(255,255,255,.06));border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.22)));border-radius:1rem;padding:.75rem;box-shadow:0 10px 24px rgba(0,0,0,.18);}
-      .ares-chart-header{display:flex;justify-content:space-between;align-items:center;gap:.5rem;font-weight:600;margin-bottom:.35rem;}
-      .ares-chart{width:100%;height:300px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border-radius:.75rem;border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.22)));}
-      .ares-chart svg{width:100%;height:100%;display:block;border-radius:.75rem;}
-      .ares-chart circle.pos{fill:var(--ares-positive,#22c55e);stroke:var(--ares-surface,var(--module-layer-module-bg,#0f172a));}
-      .ares-chart circle.neg{fill:var(--ares-negative,#ef4444);stroke:var(--ares-surface,var(--module-layer-module-bg,#0f172a));}
-      .ares-list{max-height:200px;overflow:auto;padding-right:.35rem;}
-      .ares-row{display:grid;grid-template-columns:140px 1fr 100px;gap:.5rem;padding:.35rem .55rem;border-bottom:1px dashed var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.22)));align-items:center;}
-      .ares-row:last-child{border-bottom:none;}
-      .ares-pill{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .55rem;border-radius:.55rem;font-weight:600;font-size:.9rem;}
-      .ares-pill.pos{background:rgba(34,197,94,.15);color:var(--ares-positive,#22c55e);}
-      .ares-pill.neg{background:rgba(239,68,68,.16);color:var(--ares-negative,#ef4444);}
-      .ares-legend{display:flex;gap:.75rem;align-items:center;font-size:.9rem;opacity:.9;flex-wrap:wrap;margin-top:.35rem;}
-      .ares-dot{width:10px;height:10px;border-radius:9999px;display:inline-block;border:2px solid currentColor;}
-      .ares-empty{padding:1rem;border-radius:.75rem;background:var(--ares-alt-surface,rgba(255,255,255,.04));border:1px dashed var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.22)));text-align:center;opacity:.85;}
+      .ares-file-name{padding:.45rem .85rem;border-radius:.6rem;border:1px dashed var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.28)));background:rgba(255,255,255,.04);font-weight:600;opacity:.9;}
+      .ares-chart-card{flex:1;min-height:360px;background:linear-gradient(145deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.22)));border-radius:1rem;padding:.5rem;position:relative;box-shadow:0 10px 28px rgba(0,0,0,.2);}
+      .ares-chart{width:100%;height:100%;border-radius:.9rem;overflow:hidden;}
+      .ares-chart svg{width:100%;height:100%;display:block;}
+      .ares-tooltip{position:absolute;pointer-events:none;z-index:5;min-width:150px;background:rgba(15,23,42,0.85);color:var(--ares-text,#f8fafc);border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.28)));border-radius:.65rem;padding:.55rem .7rem;backdrop-filter:blur(6px);box-shadow:0 12px 32px rgba(0,0,0,.35);font-size:.9rem;opacity:0;transform:translate(-50%,-120%);transition:opacity .12s ease, transform .12s ease;}
+      .ares-tooltip.visible{opacity:1;transform:translate(-50%,-110%);}
+      .ares-tooltip .label{opacity:.8;font-size:.85rem;}
+      .ares-tooltip .value{font-weight:700;font-size:1.05rem;margin-top:.15rem;}
       .ares-error{color:var(--ares-negative,#ef4444);font-weight:600;}
-      @media (max-width:640px){
-        .ares-row{grid-template-columns:120px 1fr 90px;}
-      }
+      .ares-empty{padding:1rem;border-radius:.75rem;background:var(--ares-alt-surface,rgba(255,255,255,.04));border:1px dashed var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.22)));text-align:center;opacity:.85;}
     `;
     document.head.appendChild(style);
   }
@@ -213,8 +195,8 @@
   }
 
   function buildChartPoints(entries, width, height){
-    if(!entries.length) return { points: [], domain:[0,1], range:[0,1] };
-    const padding = { top: 20, right: 30, bottom: 32, left: 54 };
+    if(!entries.length) return { points: [], domain:[0,1], range:[0,1], padding:{ top:20,right:30,bottom:36,left:64 }, usableWidth: width, usableHeight: height };
+    const padding = { top: 24, right: 30, bottom: 44, left: 70 };
     const usableWidth = Math.max(10, width - padding.left - padding.right);
     const usableHeight = Math.max(10, height - padding.top - padding.bottom);
     const start = entries[0].date.getTime();
@@ -271,13 +253,36 @@
     };
   }
 
+  function buildMonthTicks(domain, padding, width){
+    const [start,end] = domain;
+    if(!start || !end || end <= start) return [];
+    const firstDate = new Date(start);
+    firstDate.setDate(1);
+    firstDate.setHours(0,0,0,0);
+    const lastDate = new Date(end);
+    lastDate.setDate(1);
+    lastDate.setHours(0,0,0,0);
+    const ticks = [];
+    const usableWidth = Math.max(10, width - padding.left - padding.right);
+    for(let d = new Date(firstDate); d <= lastDate; d.setMonth(d.getMonth()+1)){
+      const ratio = (d.getTime() - start) / (end - start || 1);
+      ticks.push({
+        x: padding.left + ratio * usableWidth,
+        date: new Date(d)
+      });
+    }
+    return ticks;
+  }
+
   function renderChart(container, entries){
     const chart = container.querySelector('.ares-chart');
+    const tooltip = container.querySelector('.ares-tooltip');
     if(!chart) return;
     const width = chart.clientWidth || 600;
-    const height = chart.clientHeight || 300;
+    const height = chart.clientHeight || 360;
     const { points, range, padding } = buildChartPoints(entries, width, height);
     const { positive, negative } = buildSegmentPaths(points);
+
     const zeroY = (() => {
       if(!points.length) return height - padding.bottom;
       const min = range[0];
@@ -288,96 +293,85 @@
       return padding.top + (1 - ratio) * usableHeight;
     })();
 
-    const axis = points.map(p => ({ x:p.x, label: p.date.toLocaleDateString('de-DE',{ day:'2-digit', month:'2-digit' }) }));
+    const monthTicks = (() => {
+      if(!points.length) return [];
+      const [start] = points;
+      const last = points[points.length - 1];
+      return buildMonthTicks([start.date.getTime(), last.date.getTime()], padding, width);
+    })();
 
-    const markers = points.map(p => {
-      const cls = p.total >= 0 ? 'pos' : 'neg';
-      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" class="${cls}" stroke-width="2" />`;
-    }).join('');
+    const ticks = monthTicks.map(t => ({
+      x: t.x,
+      label: t.date.toLocaleDateString('de-DE', { month:'short', year:'2-digit' }),
+      date: t.date
+    }));
 
-    const ticks = axis.filter((_,idx) => idx % Math.max(1, Math.ceil(axis.length / 8)) === 0);
-    const tickEls = ticks.map(t => `<g><line x1="${t.x.toFixed(1)}" x2="${t.x.toFixed(1)}" y1="${(height-padding.bottom).toFixed(1)}" y2="${(height-padding.bottom+6).toFixed(1)}" stroke="var(--ares-border,rgba(255,255,255,.32))" stroke-width="1" />
-      <text x="${t.x.toFixed(1)}" y="${(height-padding.bottom+18).toFixed(1)}" text-anchor="middle" fill="var(--ares-text, #e5e7eb)" font-size="10">${t.label}</text></g>`).join('');
-
-    chart.innerHTML = points.length ? `
+    chart.innerHTML = entries.length ? `
       <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Zeitguthaben-Verlauf">
         <defs>
           <linearGradient id="ares-grid-grad" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stop-color="rgba(255,255,255,.08)" />
+            <stop offset="0%" stop-color="rgba(255,255,255,.06)" />
             <stop offset="100%" stop-color="rgba(255,255,255,.02)" />
           </linearGradient>
         </defs>
         <rect x="0" y="0" width="${width}" height="${height}" fill="url(#ares-grid-grad)" rx="12" />
-        <line x1="${padding.left}" x2="${width - padding.right}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke="var(--ares-border,rgba(255,255,255,.32))" stroke-width="1" stroke-dasharray="4 3" />
+        <line x1="${padding.left}" x2="${width - padding.right}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke="var(--ares-border,rgba(255,255,255,.32))" stroke-width="1.1" stroke-dasharray="4 3" />
         <g fill="none" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round">
           ${negative ? `<path d="${negative}" stroke="var(--ares-negative,#ef4444)" />` : ''}
           ${positive ? `<path d="${positive}" stroke="var(--ares-positive,#22c55e)" />` : ''}
         </g>
-        <g fill="none" stroke="var(--ares-border,rgba(255,255,255,.22))" stroke-dasharray="6 6" stroke-width="1">${points.length ? '' : ''}</g>
-        <g fill="none">${tickEls}</g>
-        <g fill="currentColor">
-          ${markers}
+        <g fill="none" stroke="var(--ares-border,rgba(255,255,255,.22))" stroke-width="1">
+          ${ticks.map(t => `<line x1="${t.x.toFixed(1)}" x2="${t.x.toFixed(1)}" y1="${(height-padding.bottom).toFixed(1)}" y2="${(height-padding.bottom+6).toFixed(1)}" />`).join('')}
         </g>
+        <g fill="var(--ares-text,#e5e7eb)">
+          ${ticks.map(t => `<text x="${t.x.toFixed(1)}" y="${(height-padding.bottom+18).toFixed(1)}" text-anchor="middle" font-size="10">${t.label}</text>`).join('')}
+        </g>
+        <rect class="ares-hit" x="${padding.left}" y="${padding.top}" width="${(width-padding.left-padding.right).toFixed(1)}" height="${(height-padding.top-padding.bottom).toFixed(1)}" fill="transparent" />
       </svg>
     ` : '<div class="ares-empty">Bitte Zeitnachweis laden, um den Verlauf zu sehen.</div>';
-  }
 
-  function summarize(entries){
-    if(!entries.length) return null;
-    const totals = entries.map(e => e.total);
-    const last = entries[entries.length-1].total;
-    return {
-      last,
-      max: Math.max(...totals),
-      min: Math.min(...totals),
-      span: Math.max(...totals) - Math.min(...totals),
-      count: entries.length
-    };
-  }
+    if(!entries.length || !tooltip) return;
 
-  function formatHours(value){
-    if(value === null || typeof value === 'undefined') return '–';
-    const fixed = value.toFixed(2).replace('.', ',');
-    return `${fixed} h`;
-  }
+    const hitArea = chart.querySelector('.ares-hit');
+    if(!hitArea) return;
 
-  function renderRows(listEl, entries){
-    if(!listEl) return;
-    if(!entries.length){
-      listEl.innerHTML = '<div class="ares-empty">Keine Tageswerte geladen.</div>';
-      return;
-    }
-    const rows = entries.map((entry, idx) => {
-      const diff = idx === 0 ? 0 : entry.total - entries[idx-1].total;
-      const cls = entry.total >= 0 ? 'pos' : 'neg';
-      const diffCls = diff >= 0 ? 'pos' : 'neg';
-      return `<div class="ares-row">
-        <div class="font-semibold">${formatDate(entry.date)}</div>
-        <div class="ares-pill ${cls}">${entry.total.toFixed(2).replace('.', ',')} h</div>
-        <div class="ares-pill ${diffCls}" style="justify-self:end;">${diff >= 0 ? '+' : ''}${diff.toFixed(2).replace('.', ',')} h</div>
-      </div>`;
-    }).join('');
-    listEl.innerHTML = rows;
+    hitArea.addEventListener('mousemove', evt => {
+      const rect = chart.getBoundingClientRect();
+      const x = evt.clientX - rect.left;
+      const nearest = points.reduce((acc, point) => {
+        const dist = Math.abs(point.x - x);
+        if(dist < acc.dist) return { point, dist };
+        return acc;
+      }, { point: points[0], dist: Math.abs(points[0].x - x) });
+      const { point } = nearest;
+      tooltip.querySelector('.label').textContent = formatDate(point.date);
+      tooltip.querySelector('.value').textContent = `${point.total.toFixed(2).replace('.', ',')} h`;
+      tooltip.style.left = `${point.x}px`;
+      tooltip.style.top = `${point.y}px`;
+      tooltip.classList.add('visible');
+    });
+
+    hitArea.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('visible');
+    });
   }
 
   function handleReport(container, text){
     const entries = parseReport(text);
-    const stats = summarize(entries);
-    const listEl = container.querySelector('.ares-list');
+    const errorBox = container.querySelector('.ares-error-box');
+    if(!entries.length){
+      if(errorBox){
+        errorBox.textContent = 'Keine Werte gefunden – bitte gültigen Ares-Export laden.';
+        errorBox.style.display = 'block';
+      }
+      renderChart(container, []);
+      return;
+    }
+    if(errorBox){
+      errorBox.textContent = '';
+      errorBox.style.display = 'none';
+    }
     renderChart(container, entries);
-    renderRows(listEl, entries);
-
-    const last = container.querySelector('.ares-last');
-    const max = container.querySelector('.ares-max');
-    const min = container.querySelector('.ares-min');
-    const span = container.querySelector('.ares-span');
-    const count = container.querySelector('.ares-count');
-
-    if(last) last.textContent = stats ? formatHours(stats.last) : '–';
-    if(max) max.textContent = stats ? formatHours(stats.max) : '–';
-    if(min) min.textContent = stats ? formatHours(stats.min) : '–';
-    if(span) span.textContent = stats ? formatHours(stats.span) : '–';
-    if(count) count.textContent = stats ? `${stats.count} Tage` : '–';
   }
 
   function bindFileLoader(container){
@@ -433,41 +427,20 @@
 
     targetDiv.innerHTML = `
       <div class="ares-surface">
-        <div class="ares-header">
-          <div>
-            <div class="ares-title">AresStatistics</div>
-            <div class="ares-sub">Wähle eine Ares-Exportdatei (Text) und verfolge dein Zeitguthaben.</div>
-            <div class="ares-meta mt-2">
-              <span class="ares-badge">Modul-Farbgruppen: Main, Alternative, Accent</span>
-            </div>
-          </div>
-          <div class="ares-actions">
+        <div class="ares-actions">
+          <div class="ares-btn-row">
             <label class="ares-btn ares-file-label">
               <input class="ares-file-input" type="file" accept=".txt" />
               <span>Textdatei wählen</span>
             </label>
             <button type="button" class="ares-btn secondary ares-sample">Beispiel laden</button>
-            <div class="ares-badge ares-file-name">Keine Datei gewählt</div>
           </div>
-        </div>
-        <div class="ares-grid">
-          <div class="ares-stat"><span class="label">Letzter Stand</span><span class="value ares-last">–</span></div>
-          <div class="ares-stat"><span class="label">Höchststand</span><span class="value ares-max">–</span></div>
-          <div class="ares-stat"><span class="label">Tiefstand</span><span class="value ares-min">–</span></div>
-          <div class="ares-stat"><span class="label">Spannweite</span><span class="value ares-span">–</span></div>
-          <div class="ares-stat"><span class="label">Tage im Verlauf</span><span class="value ares-count">–</span></div>
+          <div class="ares-file-name">Keine Datei gewählt</div>
         </div>
         <div class="ares-chart-card">
-          <div class="ares-chart-header">
-            <span>Gesamter Verlauf (laufende Summe)</span>
-            <div class="ares-legend">
-              <span><span class="ares-dot" style="color:var(--ares-positive,#22c55e)"></span> positiv</span>
-              <span><span class="ares-dot" style="color:var(--ares-negative,#ef4444)"></span> negativ</span>
-            </div>
-          </div>
+          <div class="ares-tooltip"><div class="label"></div><div class="value"></div></div>
           <div class="ares-chart"></div>
         </div>
-        <div class="ares-list"></div>
         <div class="ares-error-box ares-error" style="display:none"></div>
       </div>
     `;
