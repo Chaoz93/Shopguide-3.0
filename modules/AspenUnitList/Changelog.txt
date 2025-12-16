@@ -3,6 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.1.35] – 2025-12-16
+### Added
+- Extraspalten-Bedingungen interpretieren Vergleichsoperatoren im Keyword-Feld (z. B. >0 oder <=1,5), um numerische Aspen-Felder gezielt zu prüfen.
+
 ## [1.1.34] – 2025-12-16
 ### Fixed
 - Manuelle Positionsänderungen sichern den Gerätestatus jetzt unmittelbar nach dem Verschieben.
