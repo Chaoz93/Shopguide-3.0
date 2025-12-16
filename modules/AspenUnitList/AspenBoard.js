@@ -3306,9 +3306,9 @@
         if(extraSortableInstances.has(id)) return;
         const sortable=new Sortable(wrap.list,{
           ...baseSortableConfig,
-          onSort:()=>{syncFromDOM();render();},
-          onAdd:()=>{syncFromDOM();render();},
-          onRemove:()=>{syncFromDOM();render();}
+          onSort:syncRenderPersist,
+          onAdd:syncRenderPersist,
+          onRemove:syncRenderPersist
         });
         extraSortableInstances.set(id,sortable);
       });
@@ -3577,6 +3577,12 @@
       mergedAssignments.forEach((_,meldung)=>{if(!validMeldungen.has(meldung)) mergedAssignments.delete(meldung);});
       state.columnAssignments=mergedAssignments;
       ensureColumnAssignments(state);
+    }
+
+    function syncRenderPersist(){
+      syncFromDOM();
+      render();
+      persistState(state,instanceId,stateStorageKey);
     }
 
     function render(){
@@ -5163,22 +5169,21 @@
     };
     new Sortable(elements.list,{
       ...baseSortableConfig,
-      onSort:()=>{syncFromDOM();render();},
+      onSort:syncRenderPersist,
       onAdd:evt=>{
-        syncFromDOM();
-        render();
+        syncRenderPersist();
         if(evt?.to===elements.list && SHARED?.handleAspenToDeviceDrop){
           void SHARED.handleAspenToDeviceDrop(evt,{});
         }
       },
-      onRemove:()=>{syncFromDOM();render();}
+      onRemove:syncRenderPersist
     });
     if(elements.activeList){
       new Sortable(elements.activeList,{
         ...baseSortableConfig,
-        onSort:()=>{syncFromDOM();render();},
-        onAdd:()=>{syncFromDOM();render();},
-        onRemove:()=>{syncFromDOM();render();}
+        onSort:syncRenderPersist,
+        onAdd:syncRenderPersist,
+        onRemove:syncRenderPersist
       });
     }
 
