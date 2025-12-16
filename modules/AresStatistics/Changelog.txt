@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.2] – 2025-12-16
+### Fixed
+- Tooltip nutzt nun die Standard-Header-Farben des Moduls und bleibt auf allen Themes lesbar.
+- Liniensegmente werden beim Wechsel über die Nulllinie nahtlos von Grün zu Rot fortgeführt.
+- Entfernt die Schaltfläche zum Laden des Beispieldokuments, um die Oberfläche zu vereinfachen.
+
 ## [1.1.1] – 2025-12-16
 ### Fixed
 - Korrekte Auswertung von Monatswechseln, sodass Tagesabschlüsse wie der 31.08. unverändert übernommen werden.

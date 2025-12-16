@@ -18,7 +18,7 @@
       .ares-chart-card{flex:1;min-height:360px;background:linear-gradient(145deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.22)));border-radius:1rem;padding:.5rem;position:relative;box-shadow:0 10px 28px rgba(0,0,0,.2);}
       .ares-chart{width:100%;height:100%;border-radius:.9rem;overflow:hidden;}
       .ares-chart svg{width:100%;height:100%;display:block;}
-      .ares-tooltip{position:absolute;pointer-events:none;z-index:5;min-width:150px;background:rgba(15,23,42,0.85);color:var(--ares-text,#f8fafc);border:1px solid var(--ares-border,var(--module-layer-module-border,rgba(255,255,255,.28)));border-radius:.65rem;padding:.55rem .7rem;backdrop-filter:blur(6px);box-shadow:0 12px 32px rgba(0,0,0,.35);font-size:.9rem;opacity:0;transform:translate(-50%,-120%);transition:opacity .12s ease, transform .12s ease;}
+      .ares-tooltip{position:absolute;pointer-events:none;z-index:5;min-width:150px;background:var(--ares-header,var(--module-layer-header-bg,var(--ares-surface,#0f172a)));color:var(--ares-header-text,var(--module-layer-header-text,var(--ares-text,#f8fafc)));border:1px solid var(--ares-header-border,var(--module-layer-header-border,var(--ares-border,rgba(255,255,255,.28))));border-radius:.65rem;padding:.55rem .7rem;box-shadow:0 12px 32px rgba(0,0,0,.35);font-size:.9rem;opacity:0;transform:translate(-50%,-120%);transition:opacity .12s ease, transform .12s ease;}
       .ares-tooltip.visible{opacity:1;transform:translate(-50%,-110%);}
       .ares-tooltip .label{opacity:.8;font-size:.85rem;}
       .ares-tooltip .value{font-weight:700;font-size:1.05rem;margin-top:.15rem;}
@@ -263,14 +263,25 @@
       current = [];
     }
 
+    let prev = null;
+
     for(const point of source){
       const sign = point.total >= 0 ? 'pos' : 'neg';
-      if(currentSign === null) currentSign = sign;
+      if(currentSign === null){
+        currentSign = sign;
+        current.push(point);
+        prev = point;
+        continue;
+      }
+
       if(sign !== currentSign){
         commit();
         currentSign = sign;
+        current = prev ? [prev, point] : [point];
+      }else{
+        current.push(point);
       }
-      current.push(point);
+      prev = point;
     }
     commit();
     return {
@@ -427,22 +438,6 @@
       });
     }
 
-    const sampleBtn = container.querySelector('.ares-sample');
-    if(sampleBtn){
-      sampleBtn.addEventListener('click', async () => {
-        try{
-          showError('');
-          const res = await fetch('./ares_Luna.txt');
-          if(!res.ok) throw new Error('HTTP '+res.status);
-          const txt = await res.text();
-          label.textContent = 'ares_Luna.txt';
-          handleReport(container, txt);
-        }catch(err){
-          console.error(err);
-          showError('Beispieldatei konnte nicht geladen werden.');
-        }
-      });
-    }
   }
 
   window.renderAresStatistics = function(targetDiv){
@@ -459,7 +454,6 @@
               <input class="ares-file-input" type="file" accept=".txt" />
               <span>Textdatei wählen</span>
             </label>
-            <button type="button" class="ares-btn secondary ares-sample">Beispiel laden</button>
           </div>
           <div class="ares-file-name">Keine Datei gewählt</div>
         </div>
