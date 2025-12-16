@@ -118,14 +118,14 @@
     const moduleText = main.module?.text || 'var(--module-layer-module-text,#f8fafc)';
     const moduleBorder = main.module?.border || 'var(--module-layer-module-border,rgba(255,255,255,0.22))';
 
-    root.style.setProperty('--ares-surface', moduleBg);
-    root.style.setProperty('--ares-text', moduleText);
-    root.style.setProperty('--ares-border', moduleBorder);
-    root.style.setProperty('--ares-header', alt.module?.headerBg || alt.module?.bg || moduleBg);
-    root.style.setProperty('--ares-header-text', alt.module?.headerText || alt.module?.text || moduleText);
-    root.style.setProperty('--ares-header-border', alt.module?.headerBorder || alt.module?.border || moduleBorder);
-    root.style.setProperty('--ares-alt-surface', alt.module?.bg || 'rgba(255,255,255,0.04)');
-    root.style.setProperty('--ares-accent', accent.module?.bg || alt.module?.bg || moduleBg);
+    root.style.setProperty('--ares-surface', moduleBg || 'var(--module-bg,#0f172a)');
+    root.style.setProperty('--ares-text', moduleText || 'var(--text-color,#f8fafc)');
+    root.style.setProperty('--ares-border', moduleBorder || 'var(--module-border-color,rgba(255,255,255,0.22))');
+    root.style.setProperty('--ares-header', alt.module?.headerBg || alt.module?.bg || moduleBg || 'var(--module-bg,#0f172a)');
+    root.style.setProperty('--ares-header-text', alt.module?.headerText || alt.module?.text || moduleText || 'var(--text-color,#f8fafc)');
+    root.style.setProperty('--ares-header-border', alt.module?.headerBorder || alt.module?.border || moduleBorder || 'var(--module-border-color,rgba(255,255,255,0.22))');
+    root.style.setProperty('--ares-alt-surface', alt.module?.bg || moduleBg || 'rgba(255,255,255,0.04)');
+    root.style.setProperty('--ares-accent', accent.module?.bg || alt.module?.bg || moduleBg || 'var(--module-bg,#0f172a)');
     root.style.setProperty('--ares-positive', '#22c55e');
     root.style.setProperty('--ares-negative', '#ef4444');
   }
@@ -165,6 +165,9 @@
       const line = raw.trimEnd();
       const period = line.match(/Abrechnungsperiode:\s*\d+\s*vom\s*\d{2}\.(\d{2})\.(\d{4})/);
       if(period){
+        pushDay();
+        currentDay = null;
+        buffer = [];
         currentMonth = Number(period[1]);
         currentYear = Number(period[2]);
       }
@@ -223,12 +226,35 @@
     return { points, domain:[start,end], range:[min,max], padding, usableHeight, usableWidth };
   }
 
+  function insertZeroCrossings(points){
+    if(points.length < 2) return points;
+    const withCrossings = [points[0]];
+    for(let i=1;i<points.length;i+=1){
+      const prev = withCrossings[withCrossings.length - 1];
+      const curr = points[i];
+      const prevSign = Math.sign(prev.total);
+      const currSign = Math.sign(curr.total);
+      if(prevSign !== 0 && currSign !== 0 && prevSign !== currSign){
+        const delta = curr.total - prev.total;
+        const ratio = delta === 0 ? 0 : (0 - prev.total) / delta;
+        const x = prev.x + ratio * (curr.x - prev.x);
+        const y = prev.y + ratio * (curr.y - prev.y);
+        const time = prev.date.getTime() + ratio * (curr.date.getTime() - prev.date.getTime());
+        withCrossings.push({ x, y, total: 0, date: new Date(time) });
+      }
+      withCrossings.push(curr);
+    }
+    return withCrossings;
+  }
+
   function buildSegmentPaths(points){
     if(!points.length) return { positive:'', negative:'' };
     const posSegments = [];
     const negSegments = [];
     let current = [];
     let currentSign = null;
+
+    const source = insertZeroCrossings(points);
 
     function commit(){
       if(!current.length) return;
@@ -237,7 +263,7 @@
       current = [];
     }
 
-    for(const point of points){
+    for(const point of source){
       const sign = point.total >= 0 ? 'pos' : 'neg';
       if(currentSign === null) currentSign = sign;
       if(sign !== currentSign){
