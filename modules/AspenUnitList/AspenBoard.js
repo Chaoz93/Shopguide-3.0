@@ -2102,6 +2102,45 @@
     };
     const booleanMatcher=parseBooleanMatcher();
     if(booleanMatcher) return booleanMatcher;
+    const parseNumericValue=value=>{
+      const match=String(value??'').match(/-?\d+(?:[.,]\d+)?/);
+      if(!match) return Number.NaN;
+      return Number.parseFloat(match[0].replace(',','.'));
+    };
+    const parseNumericMatcher=()=>{
+      const match=raw.match(/^(<=|>=|<>|==|!?=|<|>)\s*(-?\d+(?:[.,]\d+)?)/);
+      if(!match) return null;
+      const [,operator,rawTarget]=match;
+      const target=parseNumericValue(rawTarget);
+      if(Number.isNaN(target)){
+        return {test:()=>false,isValid:false,isPattern:true,pattern:raw,error:'Ungültiger Zahlenwert'};
+      }
+      const compare=value=>{
+        const actual=parseNumericValue(value);
+        if(Number.isNaN(actual)) return false;
+        switch(operator){
+          case '>':
+            return actual>target;
+          case '>=':
+            return actual>=target;
+          case '<':
+            return actual<target;
+          case '<=':
+            return actual<=target;
+          case '=':
+          case '==':
+            return actual===target;
+          case '<>':
+          case '!=':
+            return actual!==target;
+          default:
+            return false;
+        }
+      };
+      return {test:compare,isValid:true,isPattern:true,pattern:raw};
+    };
+    const numericMatcher=parseNumericMatcher();
+    if(numericMatcher) return numericMatcher;
     const asRegex=(pattern)=>{
       try{
         const regex=new RegExp(pattern,'i');
@@ -2147,7 +2186,7 @@
         for(const condition of meaningful){
           const ruleField=(condition.field||'').trim();
           const ruleKeyword=typeof condition.keyword==='string'?condition.keyword.trim():'';
-          const value=ruleField?getDataFieldValue(data,ruleField).toLowerCase():'';
+          const value=ruleField?getDataFieldValue(data,ruleField):'';
           if(!ruleKeyword){
             if(!value){
               allMatch=false;
@@ -4347,12 +4386,12 @@
                 keywordField.className='db-extra-rule-field';
                 const keywordLabel=document.createElement('label');
                 keywordLabel.textContent='Keyword';
-                keywordLabel.title='…und ein Aspen-Keyword gefunden wird (mit * / ? / | oder OR/AND für Muster, Enter prüft die Syntax)…';
+                keywordLabel.title='…und ein Aspen-Keyword gefunden wird (mit * / ? / | oder OR/AND für Muster oder Vergleiche wie >0 bzw. <=1,5; Enter prüft die Syntax)…';
                 const keywordInput=document.createElement('input');
                 keywordInput.type='text';
                 keywordInput.setAttribute('list',keywordListId);
                 keywordInput.value=normalizedCondition.keyword||'';
-                keywordInput.placeholder='z.B. UC98 OR UC99, UC9*|mUC99';
+                keywordInput.placeholder='z.B. >0, UC98 OR UC99, UC9*|mUC99';
                 const validateKeyword=()=>{
                   const result=buildKeywordMatcher(keywordInput.value);
                   if(!result.isValid){
