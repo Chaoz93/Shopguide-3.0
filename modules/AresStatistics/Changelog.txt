@@ -1,0 +1,12 @@
+# Changelog – AresStatistics
+
+Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
+Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
+
+---
+
+## [1.0.0] – 2025-12-16
+### Added
+- Erstveröffentlichung des AresStatistics-Moduls mit Datei-Upload für Ares-Zeitnachweise.
+- Visualisierung der laufenden Summe mit rot/grünem Liniendiagramm und Tagesliste.
+- Kennzahlen für letzte Summe, Höchst- und Tiefstand, Spannweite und Anzahl der ausgewerteten Tage.
