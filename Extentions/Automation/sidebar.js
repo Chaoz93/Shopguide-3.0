@@ -7,6 +7,10 @@
   let chainTabId = null;
   const settleAfterCompleteMs = 1500;
 
+  function askToContinue(message) {
+    return window.confirm(`${message}\n\nContinue with remaining commands?`);
+  }
+
   function timestamp() {
     return new Date().toLocaleTimeString([], { hour12: false });
   }
@@ -26,6 +30,8 @@
     row.append(time, text);
     logContainer.appendChild(row);
     logContainer.scrollTop = logContainer.scrollHeight;
+
+    return { type, message };
   }
 
   function normalizeUrl(raw) {
@@ -48,7 +54,7 @@
   async function waitForChainTabLoad() {
     if (!chainTabId) {
       addLog("WAITTOLOAD requires a previous GOTO to open a tab.", "error");
-      return;
+      return false;
     }
 
     let tab;
@@ -57,30 +63,30 @@
     } catch (error) {
       addLog(`WAITTOLOAD could not access tracked tab: ${error.message || error}`, "error");
       chainTabId = null;
-      return;
+      return false;
     }
 
     if (!tab) {
       addLog("WAITTOLOAD could not find the tracked tab (it may have been closed).", "error");
       chainTabId = null;
-      return;
+      return false;
     }
 
     if (tab.status === "complete") {
       addLog("Tracked tab already loaded; waiting briefly for late assets...", "info");
       await new Promise((resolve) => setTimeout(resolve, settleAfterCompleteMs));
       addLog("Tracked tab finished loading.", "success");
-      return;
+      return true;
     }
 
     addLog("Waiting for the tracked tab to finish loading...", "info");
 
-    await new Promise((resolve) => {
+    const completed = await new Promise((resolve) => {
       const timeout = setTimeout(() => {
         api.tabs.onUpdated.removeListener(listener);
         api.tabs.onRemoved.removeListener(onRemoved);
         addLog("WAITTOLOAD timed out after 30s.", "error");
-        resolve();
+        resolve(false);
       }, 30000);
 
       const settle = () => {
@@ -89,7 +95,7 @@
         api.tabs.onRemoved.removeListener(onRemoved);
         setTimeout(() => {
           addLog("Tracked tab finished loading.", "success");
-          resolve();
+          resolve(true);
         }, settleAfterCompleteMs);
       };
 
@@ -106,20 +112,22 @@
           api.tabs.onRemoved.removeListener(onRemoved);
           addLog("Tracked tab was closed while waiting.", "error");
           chainTabId = null;
-          resolve();
+          resolve(false);
         }
       }
 
       api.tabs.onUpdated.addListener(listener);
       api.tabs.onRemoved.addListener(onRemoved);
     });
+
+    return completed;
   }
 
   async function gotoCommand(target) {
     const normalized = normalizeUrl(target);
     if (!normalized) {
       addLog(`GOTO: could not parse URL from "${target}"`, "error");
-      return;
+      return false;
     }
 
     let navigateExistingTab = Boolean(chainTabId);
@@ -161,9 +169,12 @@
           addLog(`Opened new tab and navigated to ${normalized}`, "success");
         } catch (fallbackError) {
           addLog(`Fallback GOTO failed: ${fallbackError.message || fallbackError}`, "error");
+          return false;
         }
       }
     }
+
+    return true;
   }
 
   async function clickCommand(elementId) {
@@ -171,12 +182,12 @@
 
     if (!targetId) {
       addLog("CLICK requires an element ID.", "error");
-      return;
+      return false;
     }
 
     if (!chainTabId) {
       addLog("CLICK requires a tracked tab (run GOTO first).", "error");
-      return;
+      return false;
     }
 
     try {
@@ -214,7 +225,7 @@
 
       if (!result) {
         addLog("CLICK failed: no response from the tab.", "error");
-        return;
+        return false;
       }
 
       if (result.success) {
@@ -222,16 +233,20 @@
         addLog(`Clicked element #${targetId}${label}.`, "success");
       } else {
         addLog(`CLICK failed: ${result.error || "unknown error"}.`, "error");
+        return false;
       }
     } catch (error) {
       addLog(`CLICK failed: ${error && error.message ? error.message : error}`, "error");
+      return false;
     }
+
+    return true;
   }
 
   async function closeCommand() {
     if (!chainTabId) {
       addLog("CLOSE requires a tracked tab (run GOTO first).", "error");
-      return;
+      return false;
     }
 
     try {
@@ -239,9 +254,12 @@
       addLog("Closed tracked tab.", "success");
     } catch (error) {
       addLog(`CLOSE failed: ${error.message || error}`, "error");
+      return false;
     } finally {
       chainTabId = null;
     }
+
+    return true;
   }
 
   async function runInstructions() {
@@ -258,33 +276,47 @@
         continue;
       }
 
+      let commandSucceeded = true;
       const upper = command.toUpperCase();
       if (upper === "GOTO") {
         if (!args.length) {
           addLog("GOTO requires a URL.", "error");
-          continue;
+          commandSucceeded = false;
+        } else {
+          commandSucceeded = await gotoCommand(args.join(" "));
         }
-        await gotoCommand(args.join(" "));
       } else if (upper === "CLICK") {
         if (!args.length) {
           addLog("CLICK requires an element ID.", "error");
-          continue;
+          commandSucceeded = false;
+        } else {
+          commandSucceeded = await clickCommand(args.join(" "));
         }
-        await clickCommand(args.join(" "));
       } else if (upper === "WAITTOLOAD") {
         if (args.length) {
           addLog("WAITTOLOAD does not take arguments.", "error");
-          continue;
+          commandSucceeded = false;
+        } else {
+          commandSucceeded = await waitForChainTabLoad();
         }
-        await waitForChainTabLoad();
       } else if (upper === "CLOSE") {
         if (args.length) {
           addLog("CLOSE does not take arguments.", "error");
-          continue;
+          commandSucceeded = false;
+        } else {
+          commandSucceeded = await closeCommand();
         }
-        await closeCommand();
       } else {
         addLog(`Unknown command: ${command}`, "error");
+        commandSucceeded = false;
+      }
+
+      if (!commandSucceeded) {
+        const proceed = askToContinue(`Command "${command}" failed.`);
+        if (!proceed) {
+          addLog("Execution cancelled after error.", "error");
+          break;
+        }
       }
     }
   }

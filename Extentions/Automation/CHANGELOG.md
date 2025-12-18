@@ -1,5 +1,10 @@
 # Automation Sidebar Changelog
 
+## [0.6.1] - 2025-12-18
+### Fixed
+- Added host permissions so commands like CLICK can run on any page without missing-permission errors.
+- Command runner now pauses on fatal errors and asks whether to continue or cancel.
+
 ## [0.6.0] - 2025-12-18
 ### Added
 - New CLICK command that triggers an element click in the tracked tab using a provided element ID.
