@@ -243,6 +243,78 @@
     return true;
   }
 
+  async function waitCommand(durationMs) {
+    const ms = Number(durationMs);
+    if (!Number.isFinite(ms) || ms < 0) {
+      addLog("WAIT requires a non-negative number of milliseconds.", "error");
+      return false;
+    }
+
+    addLog(`Waiting ${ms}ms...`, "info");
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    addLog(`Finished waiting ${ms}ms.`, "success");
+    return true;
+  }
+
+  async function inputCommand(elementId, valueText) {
+    const targetId = (elementId || "").trim();
+    if (!targetId) {
+      addLog("INPUT requires an element ID.", "error");
+      return false;
+    }
+
+    const rawValue = valueText == null ? "" : valueText;
+
+    if (!chainTabId) {
+      addLog("INPUT requires a tracked tab (run GOTO first).", "error");
+      return false;
+    }
+
+    try {
+      const [result] = await api.tabs.executeScript(chainTabId, {
+        code: `(function (id, text) {
+          const element = document.getElementById(id);
+          if (!element) {
+            return { success: false, error: 'Element not found' };
+          }
+
+          try {
+            element.focus && element.focus();
+            if ('value' in element) {
+              element.value = text;
+            } else {
+              element.textContent = text;
+            }
+
+            const eventInit = { bubbles: true, cancelable: true };
+            element.dispatchEvent(new Event('input', eventInit));
+            element.dispatchEvent(new Event('change', eventInit));
+            return { success: true };
+          } catch (error) {
+            return { success: false, error: error && error.message ? error.message : String(error) };
+          }
+        })(${JSON.stringify(targetId)}, ${JSON.stringify(rawValue)})`,
+      });
+
+      if (!result) {
+        addLog("INPUT failed: no response from the tab.", "error");
+        return false;
+      }
+
+      if (result.success) {
+        addLog(`Updated element #${targetId} with provided text.`, "success");
+      } else {
+        addLog(`INPUT failed: ${result.error || "unknown error"}.`, "error");
+        return false;
+      }
+    } catch (error) {
+      addLog(`INPUT failed: ${error && error.message ? error.message : error}`, "error");
+      return false;
+    }
+
+    return true;
+  }
+
   async function closeCommand() {
     if (!chainTabId) {
       addLog("CLOSE requires a tracked tab (run GOTO first).", "error");
@@ -298,6 +370,24 @@
           commandSucceeded = false;
         } else {
           commandSucceeded = await waitForChainTabLoad();
+        }
+      } else if (upper === "WAIT") {
+        if (!args.length) {
+          addLog("WAIT requires a millisecond duration.", "error");
+          commandSucceeded = false;
+        } else {
+          commandSucceeded = await waitCommand(args[0]);
+        }
+      } else if (upper === "INPUT") {
+        if (args.length < 2) {
+          addLog("INPUT requires an element ID and a quoted string.", "error");
+          commandSucceeded = false;
+        } else {
+          const [id, ...rest] = args;
+          const valueRaw = rest.join(" ");
+          const matched = valueRaw.match(/^['"]([\s\S]*)['"]$/);
+          const value = matched ? matched[1] : valueRaw;
+          commandSucceeded = await inputCommand(id, value);
         }
       } else if (upper === "CLOSE") {
         if (args.length) {

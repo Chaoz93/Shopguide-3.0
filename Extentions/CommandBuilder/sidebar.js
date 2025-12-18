@@ -3,11 +3,14 @@
   const commandsInput = document.getElementById("commands");
   const addGotoButton = document.getElementById("add-goto");
   const tryGotoButton = document.getElementById("try-goto");
+  const addWaitToLoadButton = document.getElementById("add-waittoload");
   const addWaitButton = document.getElementById("add-wait");
   const addClickButton = document.getElementById("add-click");
+  const addInputButton = document.getElementById("add-input");
   const pickElementButton = document.getElementById("pick-element");
   const copyButton = document.getElementById("copy-commands");
   const statusEl = document.getElementById("status");
+  let pickerCommand = "CLICK";
 
   function setStatus(message, tone = "muted") {
     statusEl.textContent = message;
@@ -48,7 +51,7 @@
     commandsInput.focus();
   }
 
-  function insertCommand(text, { advanceLine = false } = {}) {
+  function insertCommand(text, { advanceLine = false, caretColumn = null } = {}) {
     const lines = getLines();
     const lineIndex = getCurrentLineIndex();
     ensureLine(lines, lineIndex);
@@ -61,7 +64,8 @@
     }
 
     setLines(lines);
-    setCaret(nextLineIndex, lines[nextLineIndex].length);
+    const caret = caretColumn != null ? caretColumn : lines[nextLineIndex].length;
+    setCaret(nextLineIndex, caret);
   }
 
   function normalizeUrl(raw) {
@@ -91,16 +95,16 @@
     return tab;
   }
 
-  function ensureClickPrefix() {
+  function ensureCommandPrefix(commandName) {
     const lines = getLines();
     const { index, content } = getCurrentLineContent();
     const trimmed = content.trim();
 
-    if (trimmed.toUpperCase().startsWith("CLICK")) {
+    if (trimmed.toUpperCase().startsWith(commandName)) {
       return { lines, index };
     }
 
-    const prefix = "CLICK ";
+    const prefix = `${commandName} `;
     if (!trimmed) {
       lines[index] = prefix;
     } else {
@@ -114,12 +118,25 @@
   }
 
   function handleElementSelection(id, name) {
-    const { lines, index } = ensureClickPrefix();
-    lines[index] = `CLICK ${id}`;
+    const targetCommand = pickerCommand || "CLICK";
+    const { lines, index } = ensureCommandPrefix(targetCommand);
+
+    if (targetCommand === "INPUT") {
+      lines[index] = `INPUT ${id} ""`;
+    } else {
+      lines[index] = `${targetCommand} ${id}`;
+    }
 
     ensureLine(lines, index + 1);
     setLines(lines);
-    setCaret(index + 1, 0);
+
+    if (targetCommand === "INPUT") {
+      const quoteIndex = lines[index].indexOf("\"") + 1;
+      setCaret(index, Math.max(quoteIndex, lines[index].length));
+    } else {
+      setCaret(index + 1, 0);
+    }
+
     setStatus(`Captured element ${name ? `${name} ` : ""}#${id}`, "success");
   }
 
@@ -136,6 +153,18 @@
       setStatus("Hover an element to highlight it, then click to capture the ID.");
     } catch (error) {
       setStatus(`Could not start picker: ${error && error.message ? error.message : error}`, "warning");
+    }
+  }
+
+  function inferPickerCommand() {
+    const { content } = getCurrentLineContent();
+    const upper = content.trim().toUpperCase();
+    if (upper.startsWith("INPUT")) {
+      pickerCommand = "INPUT";
+    } else if (upper.startsWith("CLICK")) {
+      pickerCommand = "CLICK";
+    } else {
+      pickerCommand = "CLICK";
     }
   }
 
@@ -177,9 +206,14 @@
 
   addGotoButton.addEventListener("click", () => insertCommand("GOTO "));
   tryGotoButton.addEventListener("click", tryGoto);
-  addWaitButton.addEventListener("click", () => insertCommand("WAITTOLOAD", { advanceLine: true }));
+  addWaitToLoadButton.addEventListener("click", () => insertCommand("WAITTOLOAD", { advanceLine: true }));
+  addWaitButton.addEventListener("click", () => insertCommand("WAIT 1000", { advanceLine: true }));
   addClickButton.addEventListener("click", () => insertCommand("CLICK "));
-  pickElementButton.addEventListener("click", startPicker);
+  addInputButton.addEventListener("click", () => insertCommand("INPUT  \"\"", { caretColumn: "INPUT ".length }));
+  pickElementButton.addEventListener("click", () => {
+    inferPickerCommand();
+    startPicker();
+  });
   copyButton.addEventListener("click", copyCommands);
 
   api.runtime.onMessage.addListener((message) => {

@@ -1,6 +1,10 @@
 # Automation Command Builder Changelog
 
-## [0.1.1] - 2025-12-18
+## [0.1.2] - 2025-12-18
+### Added
+- New WAIT command for delays and INPUT command to set text values on elements.
+- Restructured command buttons for clearer grouping in the builder UI.
+
 ### Fixed
 - Added host permissions to allow the picker overlay to start on any page without missing-permission errors.
 

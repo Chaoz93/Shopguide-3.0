@@ -73,8 +73,14 @@
       }
 
       .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .actions-row {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 8px;
       }
 
@@ -129,7 +135,7 @@
         <p>
           Assemble automation instructions with quick buttons. Hover a command to
           learn what it does, insert it into the current line, and use the
-          element picker to fill CLICK IDs.
+          element picker to fill CLICK or INPUT IDs.
         </p>
       </div>
 
@@ -137,24 +143,32 @@
         <label for="commands">Commands</label>
         <textarea
           id="commands"
-          placeholder="Use the buttons below or type manually. Example:\nGOTO https://example.com\nWAITTOLOAD\nCLICK hero-cta"
+          placeholder="Use the buttons below or type manually. Example:\nGOTO https://example.com\nWAITTOLOAD\nWAIT 1000\nCLICK hero-cta\nINPUT email \"hello@example.com\""
         ></textarea>
         <div class="actions">
-          <button id="add-goto" title="Insert 'GOTO ' on this line and place the cursor for the URL">Add GOTO</button>
-          <button id="try-goto" title="Navigate the active tab to the URL on the current GOTO line">Try GOTO</button>
-          <button id="add-wait" title="Insert WAITTOLOAD and move to the next line">Add WAITTOLOAD</button>
-          <button id="add-click" title="Insert CLICK and keep the cursor on this line to enter an element ID">Add CLICK</button>
-          <button id="pick-element" title="Start the element picker to capture an element ID for the current CLICK line">Pick element ID</button>
-          <button id="copy-commands" title="Copy all commands to the clipboard">Copy commands</button>
+          <div class="actions-row">
+            <button id="add-goto" title="Insert 'GOTO ' on this line and place the cursor for the URL">Add GOTO</button>
+            <button id="try-goto" title="Navigate the active tab to the URL on the current GOTO line">Try GOTO</button>
+            <button id="add-waittoload" title="Insert WAITTOLOAD and move to the next line">Add WAITTOLOAD</button>
+          </div>
+          <div class="actions-row">
+            <button id="add-wait" title="Insert WAIT <ms> and move to the next line">Add WAIT</button>
+            <button id="add-click" title="Insert CLICK and keep the cursor on this line to enter an element ID">Add CLICK</button>
+            <button id="add-input" title="Insert INPUT <element-id> \"text\" and keep the cursor ready to edit">Add INPUT</button>
+            <button id="pick-element" title="Start the element picker to capture an element ID for the current CLICK/INPUT line">Pick element ID</button>
+          </div>
+          <div class="actions-row">
+            <button id="copy-commands" title="Copy all commands to the clipboard">Copy commands</button>
+          </div>
         </div>
         <div id="status" class="status" aria-live="polite"></div>
       </div>
 
       <div class="note">
         GOTO inserts the URL and can be tested immediately. WAITTOLOAD moves you
-        to the next line. CLICK stays on the current line so you can type an ID
-        or pick one from the active page; selecting an element adds a new line
-        for the next command.
+        to the next line. WAIT adds a millisecond pause. CLICK and INPUT stay on
+        the current line so you can type an ID or pick one from the active page;
+        selecting an element fills the ID and prepares the next command line.
       </div>
     </div>
 

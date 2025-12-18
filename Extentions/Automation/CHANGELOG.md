@@ -1,6 +1,10 @@
 # Automation Sidebar Changelog
 
-## [0.6.1] - 2025-12-18
+## [0.6.2] - 2025-12-18
+### Added
+- WAIT command to pause for a specified number of milliseconds between steps.
+- INPUT command to set the value of a target element by ID with change/input events.
+
 ### Fixed
 - Added host permissions so commands like CLICK can run on any page without missing-permission errors.
 - Command runner now pauses on fatal errors and asks whether to continue or cancel.
