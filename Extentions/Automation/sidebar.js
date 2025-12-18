@@ -43,6 +43,48 @@
     }
   }
 
+  async function waitForActiveTabLoad() {
+    let activeTab;
+    try {
+      const tabs = await api.tabs.query({ active: true, currentWindow: true });
+      activeTab = tabs[0];
+    } catch (error) {
+      addLog(`WAITTOLOAD failed to access tabs: ${error.message || error}`, "error");
+      return;
+    }
+
+    if (!activeTab) {
+      addLog("WAITTOLOAD could not find the active tab.", "error");
+      return;
+    }
+
+    if (activeTab.status === "complete") {
+      addLog("Active tab already loaded.", "success");
+      return;
+    }
+
+    addLog("Waiting for the active tab to finish loading...", "info");
+
+    await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        api.tabs.onUpdated.removeListener(listener);
+        addLog("WAITTOLOAD timed out after 30s.", "error");
+        resolve();
+      }, 30000);
+
+      function listener(tabId, changeInfo) {
+        if (tabId === activeTab.id && changeInfo.status === "complete") {
+          clearTimeout(timeout);
+          api.tabs.onUpdated.removeListener(listener);
+          addLog("Active tab finished loading.", "success");
+          resolve();
+        }
+      }
+
+      api.tabs.onUpdated.addListener(listener);
+    });
+  }
+
   async function gotoCommand(target) {
     const normalized = normalizeUrl(target);
     if (!normalized) {
@@ -80,6 +122,12 @@
           continue;
         }
         await gotoCommand(args.join(" "));
+      } else if (upper === "WAITTOLOAD") {
+        if (args.length) {
+          addLog("WAITTOLOAD does not take arguments.", "error");
+          continue;
+        }
+        await waitForActiveTabLoad();
       } else {
         addLog(`Unknown command: ${command}`, "error");
       }
