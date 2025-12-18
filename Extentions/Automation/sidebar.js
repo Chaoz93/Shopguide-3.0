@@ -5,6 +5,7 @@
   const logContainer = document.getElementById("log");
   const api = typeof browser !== "undefined" ? browser : chrome;
   let chainTabId = null;
+  const settleAfterCompleteMs = 1500;
 
   function timestamp() {
     return new Date().toLocaleTimeString([], { hour12: false });
@@ -66,7 +67,9 @@
     }
 
     if (tab.status === "complete") {
-      addLog("Tracked tab already loaded.", "success");
+      addLog("Tracked tab already loaded; waiting briefly for late assets...", "info");
+      await new Promise((resolve) => setTimeout(resolve, settleAfterCompleteMs));
+      addLog("Tracked tab finished loading.", "success");
       return;
     }
 
@@ -80,13 +83,19 @@
         resolve();
       }, 30000);
 
-      function listener(tabId, changeInfo) {
-        if (tabId === chainTabId && changeInfo.status === "complete") {
-          clearTimeout(timeout);
-          api.tabs.onUpdated.removeListener(listener);
-          api.tabs.onRemoved.removeListener(onRemoved);
+      const settle = () => {
+        clearTimeout(timeout);
+        api.tabs.onUpdated.removeListener(listener);
+        api.tabs.onRemoved.removeListener(onRemoved);
+        setTimeout(() => {
           addLog("Tracked tab finished loading.", "success");
           resolve();
+        }, settleAfterCompleteMs);
+      };
+
+      function listener(tabId, changeInfo) {
+        if (tabId === chainTabId && changeInfo.status === "complete") {
+          settle();
         }
       }
 
@@ -113,7 +122,17 @@
       return;
     }
 
-    const navigateExistingTab = Boolean(chainTabId);
+    let navigateExistingTab = Boolean(chainTabId);
+
+    if (navigateExistingTab) {
+      try {
+        await api.tabs.get(chainTabId);
+      } catch (error) {
+        navigateExistingTab = false;
+        chainTabId = null;
+        addLog("Tracked tab was closed; opening a new tab.", "info");
+      }
+    }
     addLog(
       navigateExistingTab
         ? `Navigating tracked tab to ${normalized} ...`
@@ -135,7 +154,14 @@
       addLog(`GOTO failed: ${message}`, "error");
       if (navigateExistingTab) {
         chainTabId = null;
-        addLog("Tracked tab became invalid; next GOTO will open a new tab.", "info");
+        addLog("Tracked tab became invalid; retrying by opening a new tab...", "info");
+        try {
+          const tab = await api.tabs.create({ url: normalized });
+          chainTabId = tab.id;
+          addLog(`Opened new tab and navigated to ${normalized}`, "success");
+        } catch (fallbackError) {
+          addLog(`Fallback GOTO failed: ${fallbackError.message || fallbackError}`, "error");
+        }
       }
     }
   }

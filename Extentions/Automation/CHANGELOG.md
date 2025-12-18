@@ -1,5 +1,11 @@
 # Automation Sidebar Changelog
 
+## [0.5.0] - 2025-05-23
+### Added
+- WAITTOLOAD now includes a post-complete settle period and watches for tab removal to avoid premature completion.
+- GOTO validates the tracked tab, recreates it if missing, and retries navigation on invalid tab errors.
+- Updated sidebar copy and manifest version for the improved single-tab workflow.
+
 ## [0.4.0] - 2025-05-23
 ### Added
 - Single-tab chains now handle closed/invalid tabs gracefully, resetting the tracker when navigation fails.
