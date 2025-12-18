@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Automation Sidebar</title>
+    <style>
+      :root {
+        --automation-bg: var(--module-layer-1-module-bg, #0f172a);
+        --automation-surface: var(--module-layer-2-module-bg, #111827);
+        --automation-border: var(--module-layer-2-module-border, #1f2937);
+        --automation-text: var(--module-layer-1-module-text, #f8fafc);
+        --automation-subtle: var(--module-layer-2-module-text, #94a3b8);
+        --automation-accent: var(--module-layer-3-module-border, #22d3ee);
+        --automation-error: var(--module-layer-3-module-bg, #f43f5e);
+        --automation-success: var(--module-layer-3-module-text, #22c55e);
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+        color: var(--automation-text);
+        background: var(--automation-bg);
+      }
+
+      .app {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      h1 {
+        font-size: 16px;
+        margin: 0;
+        letter-spacing: 0.01em;
+      }
+
+      p {
+        margin: 0;
+        color: var(--automation-subtle);
+        font-size: 13px;
+      }
+
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      label {
+        font-size: 13px;
+        color: var(--automation-subtle);
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        resize: vertical;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--automation-border);
+        background: var(--automation-surface);
+        color: var(--automation-text);
+        font-size: 13px;
+        box-sizing: border-box;
+      }
+
+      textarea:focus {
+        outline: 2px solid var(--automation-accent);
+        outline-offset: 1px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: 1px solid var(--automation-border);
+        background: var(--automation-surface);
+        color: var(--automation-text);
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: border-color 150ms ease, background 150ms ease;
+      }
+
+      button:hover {
+        border-color: var(--automation-accent);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .log {
+        border: 1px solid var(--automation-border);
+        background: var(--automation-surface);
+        border-radius: 8px;
+        padding: 10px;
+        min-height: 120px;
+        font-size: 12px;
+        line-height: 1.4;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .log-entry {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 8px;
+        align-items: baseline;
+      }
+
+      .log-entry .time {
+        color: var(--automation-subtle);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .log-entry .message {
+        color: var(--automation-text);
+      }
+
+      .log-entry.success .message {
+        color: var(--automation-success);
+      }
+
+      .log-entry.error .message {
+        color: var(--automation-error);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div>
+        <h1>Automation Commands</h1>
+        <p>
+          Run multiline instructions in a single tab. Start with
+          <strong>GOTO &lt;url&gt;</strong>, optionally wait with
+          <strong>WAITTOLOAD</strong> (gives the page a short settle time),
+          navigate again with another GOTO, and finish with
+          <strong>CLOSE</strong> if desired.
+        </p>
+      </div>
+
+      <div class="input-group">
+          <label for="instructions">Instructions</label>
+          <textarea
+            id="instructions"
+            placeholder="Example:\nGOTO https://example.com\nWAITTOLOAD\nGOTO https://example.org\nCLOSE"
+          ></textarea>
+        <div class="actions">
+          <button id="paste">Paste from clipboard</button>
+          <button id="run">Run</button>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label>Activity log</label>
+        <div id="log" class="log" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <script src="sidebar.js"></script>
+  </body>
+</html>
