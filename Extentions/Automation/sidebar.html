@@ -141,9 +141,9 @@
       <div>
         <h1>Automation Commands</h1>
         <p>
-          Run multiline instructions like <strong>GOTO &lt;url&gt;</strong> or
-          <strong>WAITTOLOAD</strong> to pause until the active tab is fully
-          loaded.
+          Run multiline instructions in a single tab. Start with
+          <strong>GOTO &lt;url&gt;</strong>, optionally wait with
+          <strong>WAITTOLOAD</strong>, then navigate again with another GOTO.
         </p>
       </div>
 
@@ -151,7 +151,7 @@
         <label for="instructions">Instructions</label>
         <textarea
           id="instructions"
-          placeholder="Example:\nGOTO https://example.com\nWAITTOLOAD"
+          placeholder="Example:\nGOTO https://example.com\nWAITTOLOAD\nGOTO https://example.org"
         ></textarea>
         <div class="actions">
           <button id="paste">Paste from clipboard</button>

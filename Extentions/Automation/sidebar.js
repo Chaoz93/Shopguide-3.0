@@ -4,6 +4,7 @@
   const runButton = document.getElementById("run");
   const logContainer = document.getElementById("log");
   const api = typeof browser !== "undefined" ? browser : chrome;
+  let chainTabId = null;
 
   function timestamp() {
     return new Date().toLocaleTimeString([], { hour12: false });
@@ -43,27 +44,33 @@
     }
   }
 
-  async function waitForActiveTabLoad() {
-    let activeTab;
+  async function waitForChainTabLoad() {
+    if (!chainTabId) {
+      addLog("WAITTOLOAD requires a previous GOTO to open a tab.", "error");
+      return;
+    }
+
+    let tab;
     try {
-      const tabs = await api.tabs.query({ active: true, currentWindow: true });
-      activeTab = tabs[0];
+      tab = await api.tabs.get(chainTabId);
     } catch (error) {
-      addLog(`WAITTOLOAD failed to access tabs: ${error.message || error}`, "error");
+      addLog(`WAITTOLOAD could not access tracked tab: ${error.message || error}`, "error");
+      chainTabId = null;
       return;
     }
 
-    if (!activeTab) {
-      addLog("WAITTOLOAD could not find the active tab.", "error");
+    if (!tab) {
+      addLog("WAITTOLOAD could not find the tracked tab (it may have been closed).", "error");
+      chainTabId = null;
       return;
     }
 
-    if (activeTab.status === "complete") {
-      addLog("Active tab already loaded.", "success");
+    if (tab.status === "complete") {
+      addLog("Tracked tab already loaded.", "success");
       return;
     }
 
-    addLog("Waiting for the active tab to finish loading...", "info");
+    addLog("Waiting for the tracked tab to finish loading...", "info");
 
     await new Promise((resolve) => {
       const timeout = setTimeout(() => {
@@ -73,10 +80,10 @@
       }, 30000);
 
       function listener(tabId, changeInfo) {
-        if (tabId === activeTab.id && changeInfo.status === "complete") {
+        if (tabId === chainTabId && changeInfo.status === "complete") {
           clearTimeout(timeout);
           api.tabs.onUpdated.removeListener(listener);
-          addLog("Active tab finished loading.", "success");
+          addLog("Tracked tab finished loading.", "success");
           resolve();
         }
       }
@@ -92,10 +99,23 @@
       return;
     }
 
-    addLog(`Opening ${normalized} ...`, "info");
+    const navigateExistingTab = Boolean(chainTabId);
+    addLog(
+      navigateExistingTab
+        ? `Navigating tracked tab to ${normalized} ...`
+        : `Opening ${normalized} in a new tab ...`,
+      "info"
+    );
+
     try {
-      await api.tabs.create({ url: normalized });
-      addLog(`Navigated to ${normalized}`, "success");
+      if (navigateExistingTab) {
+        await api.tabs.update(chainTabId, { url: normalized });
+        addLog(`Navigated tracked tab to ${normalized}`, "success");
+      } else {
+        const tab = await api.tabs.create({ url: normalized });
+        chainTabId = tab.id;
+        addLog(`Opened new tab and navigated to ${normalized}`, "success");
+      }
     } catch (error) {
       addLog(`GOTO failed: ${error.message || error}`, "error");
     }
@@ -127,7 +147,7 @@
           addLog("WAITTOLOAD does not take arguments.", "error");
           continue;
         }
-        await waitForActiveTabLoad();
+        await waitForChainTabLoad();
       } else {
         addLog(`Unknown command: ${command}`, "error");
       }

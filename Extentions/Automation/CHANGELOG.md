@@ -1,5 +1,10 @@
 # Automation Sidebar Changelog
 
+## [0.3.0] - 2025-05-23
+### Added
+- Command chains stay within a single tracked tab: GOTO opens or reuses it, WAITTOLOAD pauses until that tab finishes loading, and later GOTOs reuse the same tab.
+- Updated sidebar copy and manifest version to reflect the single-tab workflow and new command flow.
+
 ## [0.2.0] - 2025-05-23
 ### Added
 - WAITTOLOAD command that pauses execution until the active tab finishes loading, with timeout handling and activity logging.
