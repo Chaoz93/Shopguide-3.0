@@ -75,6 +75,7 @@
     await new Promise((resolve) => {
       const timeout = setTimeout(() => {
         api.tabs.onUpdated.removeListener(listener);
+        api.tabs.onRemoved.removeListener(onRemoved);
         addLog("WAITTOLOAD timed out after 30s.", "error");
         resolve();
       }, 30000);
@@ -83,12 +84,25 @@
         if (tabId === chainTabId && changeInfo.status === "complete") {
           clearTimeout(timeout);
           api.tabs.onUpdated.removeListener(listener);
+          api.tabs.onRemoved.removeListener(onRemoved);
           addLog("Tracked tab finished loading.", "success");
           resolve();
         }
       }
 
+      function onRemoved(tabId) {
+        if (tabId === chainTabId) {
+          clearTimeout(timeout);
+          api.tabs.onUpdated.removeListener(listener);
+          api.tabs.onRemoved.removeListener(onRemoved);
+          addLog("Tracked tab was closed while waiting.", "error");
+          chainTabId = null;
+          resolve();
+        }
+      }
+
       api.tabs.onUpdated.addListener(listener);
+      api.tabs.onRemoved.addListener(onRemoved);
     });
   }
 
@@ -117,7 +131,28 @@
         addLog(`Opened new tab and navigated to ${normalized}`, "success");
       }
     } catch (error) {
-      addLog(`GOTO failed: ${error.message || error}`, "error");
+      const message = error && error.message ? error.message : error;
+      addLog(`GOTO failed: ${message}`, "error");
+      if (navigateExistingTab) {
+        chainTabId = null;
+        addLog("Tracked tab became invalid; next GOTO will open a new tab.", "info");
+      }
+    }
+  }
+
+  async function closeCommand() {
+    if (!chainTabId) {
+      addLog("CLOSE requires a tracked tab (run GOTO first).", "error");
+      return;
+    }
+
+    try {
+      await api.tabs.remove(chainTabId);
+      addLog("Closed tracked tab.", "success");
+    } catch (error) {
+      addLog(`CLOSE failed: ${error.message || error}`, "error");
+    } finally {
+      chainTabId = null;
     }
   }
 
@@ -148,6 +183,12 @@
           continue;
         }
         await waitForChainTabLoad();
+      } else if (upper === "CLOSE") {
+        if (args.length) {
+          addLog("CLOSE does not take arguments.", "error");
+          continue;
+        }
+        await closeCommand();
       } else {
         addLog(`Unknown command: ${command}`, "error");
       }
