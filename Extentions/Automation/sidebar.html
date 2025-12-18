@@ -144,8 +144,9 @@
           Run multiline instructions in a single tab. Start with
           <strong>GOTO &lt;url&gt;</strong>, optionally wait with
           <strong>WAITTOLOAD</strong> (gives the page a short settle time),
-          navigate again with another GOTO, and finish with
-          <strong>CLOSE</strong> if desired.
+          click elements with <strong>CLICK &lt;element-id&gt;</strong> (capture
+          IDs with the Command Builder helper), navigate again with another
+          GOTO, and finish with <strong>CLOSE</strong> if desired.
         </p>
       </div>
 
@@ -153,7 +154,7 @@
           <label for="instructions">Instructions</label>
           <textarea
             id="instructions"
-            placeholder="Example:\nGOTO https://example.com\nWAITTOLOAD\nGOTO https://example.org\nCLOSE"
+            placeholder="Example:\nGOTO https://example.com\nWAITTOLOAD\nCLICK hero-cta\nGOTO https://example.org\nCLOSE"
           ></textarea>
         <div class="actions">
           <button id="paste">Paste from clipboard</button>

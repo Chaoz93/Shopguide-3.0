@@ -1,5 +1,10 @@
 # Automation Sidebar Changelog
 
+## [0.6.0] - 2025-12-18
+### Added
+- New CLICK command that triggers an element click in the tracked tab using a provided element ID.
+- Sidebar copy now highlights the CLICK and new helper extension workflow for gathering element IDs.
+
 ## [0.5.0] - 2025-05-23
 ### Added
 - WAITTOLOAD now includes a post-complete settle period and watches for tab removal to avoid premature completion.

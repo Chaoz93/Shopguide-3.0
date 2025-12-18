@@ -166,6 +166,68 @@
     }
   }
 
+  async function clickCommand(elementId) {
+    const targetId = (elementId || "").trim();
+
+    if (!targetId) {
+      addLog("CLICK requires an element ID.", "error");
+      return;
+    }
+
+    if (!chainTabId) {
+      addLog("CLICK requires a tracked tab (run GOTO first).", "error");
+      return;
+    }
+
+    try {
+      const [result] = await api.tabs.executeScript(chainTabId, {
+        code: `(function (id) {
+          const element = document.getElementById(id);
+          if (!element) {
+            return { success: false, error: 'Element not found' };
+          }
+
+          const rect = element.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          const eventOptions = {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            clientX: centerX,
+            clientY: centerY,
+          };
+
+          try {
+            element.focus && element.focus();
+            element.dispatchEvent(new MouseEvent('mouseover', eventOptions));
+            element.dispatchEvent(new MouseEvent('mousemove', eventOptions));
+            element.dispatchEvent(new MouseEvent('mousedown', eventOptions));
+            element.dispatchEvent(new MouseEvent('mouseup', eventOptions));
+            element.dispatchEvent(new MouseEvent('click', eventOptions));
+            return { success: true, label: element.tagName ? element.tagName.toLowerCase() : '' };
+          } catch (error) {
+            return { success: false, error: error && error.message ? error.message : String(error) };
+          }
+        })(${JSON.stringify(targetId)})`,
+      });
+
+      if (!result) {
+        addLog("CLICK failed: no response from the tab.", "error");
+        return;
+      }
+
+      if (result.success) {
+        const label = result.label ? ` (${result.label})` : "";
+        addLog(`Clicked element #${targetId}${label}.`, "success");
+      } else {
+        addLog(`CLICK failed: ${result.error || "unknown error"}.`, "error");
+      }
+    } catch (error) {
+      addLog(`CLICK failed: ${error && error.message ? error.message : error}`, "error");
+    }
+  }
+
   async function closeCommand() {
     if (!chainTabId) {
       addLog("CLOSE requires a tracked tab (run GOTO first).", "error");
@@ -203,6 +265,12 @@
           continue;
         }
         await gotoCommand(args.join(" "));
+      } else if (upper === "CLICK") {
+        if (!args.length) {
+          addLog("CLICK requires an element ID.", "error");
+          continue;
+        }
+        await clickCommand(args.join(" "));
       } else if (upper === "WAITTOLOAD") {
         if (args.length) {
           addLog("WAITTOLOAD does not take arguments.", "error");

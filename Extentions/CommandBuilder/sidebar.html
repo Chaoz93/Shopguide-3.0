@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Builder</title>
+    <style>
+      :root {
+        --builder-bg: var(--module-layer-1-module-bg, #0f172a);
+        --builder-surface: var(--module-layer-2-module-bg, #111827);
+        --builder-border: var(--module-layer-2-module-border, #1f2937);
+        --builder-text: var(--module-layer-1-module-text, #f8fafc);
+        --builder-subtle: var(--module-layer-2-module-text, #94a3b8);
+        --builder-accent: var(--module-layer-3-module-border, #22d3ee);
+        --builder-positive: var(--module-layer-3-module-text, #22c55e);
+        --builder-warning: var(--module-layer-3-module-bg, #f59e0b);
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+        color: var(--builder-text);
+        background: var(--builder-bg);
+      }
+
+      .app {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      h1 {
+        font-size: 16px;
+        margin: 0;
+        letter-spacing: 0.01em;
+      }
+
+      p {
+        margin: 0;
+        color: var(--builder-subtle);
+        font-size: 13px;
+      }
+
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      label {
+        font-size: 13px;
+        color: var(--builder-subtle);
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 140px;
+        resize: vertical;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--builder-border);
+        background: var(--builder-surface);
+        color: var(--builder-text);
+        font-size: 13px;
+        box-sizing: border-box;
+      }
+
+      textarea:focus {
+        outline: 2px solid var(--builder-accent);
+        outline-offset: 1px;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+      }
+
+      button {
+        border: 1px solid var(--builder-border);
+        background: var(--builder-surface);
+        color: var(--builder-text);
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: border-color 150ms ease, background 150ms ease;
+      }
+
+      button:hover {
+        border-color: var(--builder-accent);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .status {
+        min-height: 20px;
+        font-size: 12px;
+        color: var(--builder-subtle);
+      }
+
+      .status[data-tone="success"] {
+        color: var(--builder-positive);
+      }
+
+      .status[data-tone="warning"] {
+        color: var(--builder-warning);
+      }
+
+      .note {
+        font-size: 12px;
+        color: var(--builder-subtle);
+        background: var(--builder-surface);
+        border: 1px solid var(--builder-border);
+        padding: 8px;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div>
+        <h1>Command Builder</h1>
+        <p>
+          Assemble automation instructions with quick buttons. Hover a command to
+          learn what it does, insert it into the current line, and use the
+          element picker to fill CLICK IDs.
+        </p>
+      </div>
+
+      <div class="input-group">
+        <label for="commands">Commands</label>
+        <textarea
+          id="commands"
+          placeholder="Use the buttons below or type manually. Example:\nGOTO https://example.com\nWAITTOLOAD\nCLICK hero-cta"
+        ></textarea>
+        <div class="actions">
+          <button id="add-goto" title="Insert 'GOTO ' on this line and place the cursor for the URL">Add GOTO</button>
+          <button id="try-goto" title="Navigate the active tab to the URL on the current GOTO line">Try GOTO</button>
+          <button id="add-wait" title="Insert WAITTOLOAD and move to the next line">Add WAITTOLOAD</button>
+          <button id="add-click" title="Insert CLICK and keep the cursor on this line to enter an element ID">Add CLICK</button>
+          <button id="pick-element" title="Start the element picker to capture an element ID for the current CLICK line">Pick element ID</button>
+          <button id="copy-commands" title="Copy all commands to the clipboard">Copy commands</button>
+        </div>
+        <div id="status" class="status" aria-live="polite"></div>
+      </div>
+
+      <div class="note">
+        GOTO inserts the URL and can be tested immediately. WAITTOLOAD moves you
+        to the next line. CLICK stays on the current line so you can type an ID
+        or pick one from the active page; selecting an element adds a new line
+        for the next command.
+      </div>
+    </div>
+
+    <script src="sidebar.js"></script>
+  </body>
+</html>

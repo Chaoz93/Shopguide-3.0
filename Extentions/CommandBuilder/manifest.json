@@ -1,0 +1,22 @@
+{
+  "manifest_version": 2,
+  "name": "Automation Command Builder",
+  "version": "0.1.0",
+  "description": "Compose automation commands with previews and an element picker for CLICK IDs.",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "clipboardWrite",
+    "clipboardRead"
+  ],
+  "sidebar_action": {
+    "default_title": "Command Builder",
+    "default_panel": "sidebar.html"
+  },
+  "applications": {
+    "gecko": {
+      "id": "automation-command-builder@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}
