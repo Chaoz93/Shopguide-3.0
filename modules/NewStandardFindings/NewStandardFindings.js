@@ -8087,11 +8087,10 @@
 
     setFreitextEditorValue(value){
       const text=typeof value==='string'?value:'';
-      this.freitextDraft=text;
-      if(this.freitextTextarea&&this.freitextTextarea.value!==text){
-        this.freitextTextarea.value=text;
+      this.commitFreitextDraft(text);
+      if(typeof autoResizeTextarea==='function'&&this.freitextTextarea){
+        try{autoResizeTextarea(this.freitextTextarea);}catch{}
       }
-      this.updateFreitextPreview();
     }
 
     setRoutineEditorActiveTab(tabKey){

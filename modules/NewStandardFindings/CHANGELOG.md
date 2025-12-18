@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.3.6 – 2025-12-18
+### Fixed
+- Freitext-Vorschauen werden beim Schließen des Editors jetzt auch ohne neue Eingabe in das Routinefeld übernommen.
+
 ## 1.3.5 – 2025-12-15
 ### Fixed
 - Zusätzliche Feld-Aliasse für Bestelltexte ergänzt, damit neue Shopguide-Findings-Dateien die korrekten Bestellinformationen übernehmen.
