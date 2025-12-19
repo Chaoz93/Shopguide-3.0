@@ -1,5 +1,11 @@
 # Automation Sidebar Changelog
 
+## [0.6.11] - 2025-12-20
+### Changed
+- Darkened the logo cradle to #303030 and emphasized a visible blue loading ring while running.
+- Added gradient slide animation when toggling Run/Stop and slimmed the control width.
+- Kept the light #606060 backdrop with the refreshed spinner track.
+
 ## [0.6.10] - 2025-12-20
 ### Changed
 - Lightened the background to a softer #606060 gray palette for the minimal UI.

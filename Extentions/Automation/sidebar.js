@@ -10,6 +10,7 @@
   let stopLogged = false;
 
   function setRunning(state) {
+    const wasRunning = isRunning;
     isRunning = state;
     if (!state) {
       stopRequested = false;
@@ -19,6 +20,12 @@
     runButton.textContent = state ? "Stop" : "Run";
     runButton.classList.toggle("stop", state);
     logoWrap.classList.toggle("running", state);
+
+    if (wasRunning !== state) {
+      runButton.classList.remove("transition-to-run", "transition-to-stop");
+      void runButton.offsetWidth;
+      runButton.classList.add(state ? "transition-to-stop" : "transition-to-run");
+    }
   }
 
   function askToContinue(message) {
