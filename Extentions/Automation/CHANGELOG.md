@@ -1,5 +1,10 @@
 # Automation Sidebar Changelog
 
+## [0.6.16] - 2025-12-19
+### Fixed
+- Softened the vignette overlay intensity while keeping the blue highlight visible during runs.
+- Reapplies the vignette automatically after navigations so reused tabs still show the running indicator.
+
 ## [0.6.15] - 2025-12-20
 ### Fixed
 - Intensified the blue vignette overlay with a thicker halo so the running indicator stays clearly visible on any page.

@@ -9,6 +9,7 @@
   let stopRequested = false;
   let stopLogged = false;
   let lastVignetteTabId = null;
+  let tabUpdateListener = null;
 
   function setRunning(state) {
     const wasRunning = isRunning;
@@ -21,6 +22,12 @@
     runButton.textContent = state ? "Stop" : "Run";
     runButton.classList.toggle("stop", state);
     logoWrap.classList.toggle("running", state);
+
+    if (state) {
+      ensureVignetteWatcher();
+    } else {
+      disableVignetteWatcher();
+    }
 
     if (state && (chainTabId || lastVignetteTabId)) {
       syncVignetteForTab(chainTabId || lastVignetteTabId).catch(() => {});
@@ -63,12 +70,12 @@
       overlay.style.pointerEvents = "none";
       overlay.style.zIndex = "2147483646";
       overlay.style.background =
-        "radial-gradient(circle at center, rgba(46, 140, 255, 0.26) 0%, rgba(46, 140, 255, 0.42) 36%, rgba(8, 20, 46, 0.82) 72%, rgba(4, 8, 18, 0.92) 100%)";
+        "radial-gradient(circle at center, rgba(46, 140, 255, 0.12) 0%, rgba(46, 140, 255, 0.2) 32%, rgba(8, 20, 46, 0.58) 70%, rgba(4, 8, 18, 0.68) 100%)";
       overlay.style.opacity = existing ? existing.style.opacity || "1" : "0";
       overlay.style.transition = "opacity 260ms ease";
       overlay.style.boxShadow =
-        "inset 0 0 0 120px rgba(46, 140, 255, 0.28), inset 0 0 180px 40px rgba(46, 140, 255, 0.32), 0 0 220px 80px rgba(46, 140, 255, 0.35)";
-      overlay.style.filter = "saturate(1.05)";
+        "inset 0 0 0 70px rgba(46, 140, 255, 0.18), inset 0 0 140px 38px rgba(46, 140, 255, 0.22), 0 0 140px 60px rgba(46, 140, 255, 0.22)";
+      overlay.style.filter = "saturate(1.08)";
 
       if (!existing) {
         document.documentElement.appendChild(overlay);
@@ -108,6 +115,23 @@
       await toggleTabVignette(lastVignetteTabId, false);
     } catch (_) {}
     lastVignetteTabId = null;
+  }
+
+  function ensureVignetteWatcher() {
+    if (tabUpdateListener) return;
+    tabUpdateListener = function (tabId, changeInfo) {
+      if (!isRunning || !chainTabId || tabId !== chainTabId) return;
+      if (changeInfo.status === "complete" || changeInfo.status === "loading") {
+        syncVignetteForTab(tabId).catch(() => {});
+      }
+    };
+    api.tabs.onUpdated.addListener(tabUpdateListener);
+  }
+
+  function disableVignetteWatcher() {
+    if (!tabUpdateListener) return;
+    api.tabs.onUpdated.removeListener(tabUpdateListener);
+    tabUpdateListener = null;
   }
 
   function timestamp() {
