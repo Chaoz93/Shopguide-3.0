@@ -1,5 +1,94 @@
 # Automation Sidebar Changelog
 
+## [0.6.18] - 2025-12-20
+### Fixed
+- Reduced the vignette thickness by about half and removed the transparent border so the running halo just frames the edges.
+
+## [0.6.17] - 2025-12-20
+### Changed
+- Shrunk the vignette to a thinner blue edge highlight so the running indicator stays visible without covering the page.
+
+## [0.6.16] - 2025-12-19
+### Fixed
+- Softened the vignette overlay intensity while keeping the blue highlight visible during runs.
+- Reapplies the vignette automatically after navigations so reused tabs still show the running indicator.
+
+## [0.6.15] - 2025-12-20
+### Fixed
+- Intensified the blue vignette overlay with a thicker halo so the running indicator stays clearly visible on any page.
+
+## [0.6.14] - 2025-12-20
+### Added
+- Added a blue vignette overlay to the active tab while automation is running, clearing when runs stop or tabs change.
+
+## [0.6.13] - 2025-12-19
+### Fixed
+- Added a visible blue-to-red sweep animation when toggling Run/Stop, with smoother half-second transitions.
+
+## [0.6.12] - 2025-12-20
+### Changed
+- Unified the sidebar background to #303030 for a fully dark canvas that frames the logo.
+- Thickened and brightened the blue loading ring so the running animation stays clearly visible around the logo.
+
+## [0.6.11] - 2025-12-20
+### Changed
+- Darkened the logo cradle to #303030 and emphasized a visible blue loading ring while running.
+- Added gradient slide animation when toggling Run/Stop and slimmed the control width.
+- Kept the light #606060 backdrop with the refreshed spinner track.
+
+## [0.6.10] - 2025-12-20
+### Changed
+- Lightened the background to a softer #606060 gray palette for the minimal UI.
+- Made the spinner ring larger and brighter so the running animation is clearly visible.
+- Narrowed the Run/Stop button to a slimmer centered layout.
+
+## [0.6.9] - 2025-12-20
+### Changed
+- Enlarged the Lufthansa logo with refined spinner ring and tightened the Run/Stop control width for a sleeker layout.
+- Lightened the gray background palette while keeping blue accents for the minimalist UI.
+
+## [0.6.8] - 2025-12-20
+### Changed
+- Simplified the sidebar to a logo-first layout with a single Run/Stop control and subtle gray/blue styling.
+- Runs clipboard instructions immediately with a stop toggle and a spinning ring indicator while active.
+- Added a collapsible debug log that stays hidden by default but can be expanded for status details.
+
+## [0.6.7] - 2025-12-19
+### Fixed
+- Input parsing now treats selectors and values as quoted pairs so complex selectors stay intact and text goes to the intended field.
+- CLICK accepts quoted selectors without stripping spaces, preventing malformed targets.
+
+## [0.6.6] - 2025-12-19
+### Fixed
+- Reworked CLICK and INPUT script injection to serialize arguments via function payloads, preventing unescaped line-break errors from any selector or text content.
+
+## [0.6.5] - 2025-12-19
+### Fixed
+- Encoded CLICK and INPUT parameters before injecting scripts to prevent "string literal contains an unescaped line break" errors from complex selectors or text values.
+
+## [0.6.4] - 2025-12-19
+### Fixed
+- Command parsing now preserves complex selectors (including descendant/child combinators) to avoid injected script errors.
+
+## [0.6.3] - 2025-12-19
+### Fixed
+- CLICK and INPUT now accept CSS selectors in addition to element IDs and resolve elements more reliably.
+- Status messages clarify selectors and reduce false "not found" errors when running scripts captured by the builder.
+
+## [0.6.2] - 2025-12-18
+### Added
+- WAIT command to pause for a specified number of milliseconds between steps.
+- INPUT command to set the value of a target element by ID with change/input events.
+
+### Fixed
+- Added host permissions so commands like CLICK can run on any page without missing-permission errors.
+- Command runner now pauses on fatal errors and asks whether to continue or cancel.
+
+## [0.6.0] - 2025-12-18
+### Added
+- New CLICK command that triggers an element click in the tracked tab using a provided element ID.
+- Sidebar copy now highlights the CLICK and new helper extension workflow for gathering element IDs.
+
 ## [0.5.0] - 2025-05-23
 ### Added
 - WAITTOLOAD now includes a post-complete settle period and watches for tab removal to avoid premature completion.

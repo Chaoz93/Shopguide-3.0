@@ -6,104 +6,246 @@
     <title>Automation Sidebar</title>
     <style>
       :root {
-        --automation-bg: var(--module-layer-1-module-bg, #0f172a);
-        --automation-surface: var(--module-layer-2-module-bg, #111827);
-        --automation-border: var(--module-layer-2-module-border, #1f2937);
-        --automation-text: var(--module-layer-1-module-text, #f8fafc);
-        --automation-subtle: var(--module-layer-2-module-text, #94a3b8);
-        --automation-accent: var(--module-layer-3-module-border, #22d3ee);
-        --automation-error: var(--module-layer-3-module-bg, #f43f5e);
-        --automation-success: var(--module-layer-3-module-text, #22c55e);
+        --automation-bg: #303030;
+        --automation-surface: #5a5a5a;
+        --automation-surface-2: #6a6a6a;
+        --automation-border: #808080;
+        --automation-text: #f1f4f8;
+        --automation-subtle: #d1d6de;
+        --automation-accent: #4da3ff;
+        --automation-accent-strong: #2c82e8;
+        --automation-success: #4ade80;
+        --automation-error: #ef4444;
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         margin: 0;
         padding: 0;
-        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+        font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
         color: var(--automation-text);
         background: var(--automation-bg);
       }
 
       .app {
-        padding: 16px;
+        min-height: 100vh;
+        padding: 22px 18px 16px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        align-items: center;
+        gap: 18px;
       }
 
-      h1 {
-        font-size: 16px;
-        margin: 0;
-        letter-spacing: 0.01em;
+      .logo-wrap {
+        position: relative;
+        width: 260px;
+        height: 260px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: #303030;
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.4);
+        overflow: hidden;
       }
 
-      p {
-        margin: 0;
-        color: var(--automation-subtle);
-        font-size: 13px;
+      .logo-ring {
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        background: conic-gradient(
+          from 0deg,
+          rgba(77, 163, 255, 0.98),
+          rgba(77, 163, 255, 0.3),
+          rgba(77, 163, 255, 0.98)
+        );
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 42px), #000 calc(100% - 12px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 42px), #000 calc(100% - 12px));
+        opacity: 0;
+        transform: rotate(0deg) scale(1);
+        filter: drop-shadow(0 0 30px rgba(77, 163, 255, 0.55));
+        transition: opacity 220ms ease;
       }
 
-      .input-group {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+      .logo-ring::after {
+        content: "";
+        position: absolute;
+        inset: 26px;
+        border-radius: 50%;
+        border: 3px solid rgba(77, 163, 255, 0.5);
+        box-shadow: 0 0 0 6px rgba(77, 163, 255, 0.12);
       }
 
-      label {
-        font-size: 13px;
-        color: var(--automation-subtle);
+      .logo-wrap.running .logo-ring {
+        opacity: 1;
+        animation: ring-spin 2.2s linear infinite;
       }
 
-      textarea {
-        width: 100%;
-        min-height: 120px;
-        resize: vertical;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid var(--automation-border);
-        background: var(--automation-surface);
+      .logo {
+        width: 200px;
+        height: 200px;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.38));
+      }
+
+      @keyframes ring-spin {
+        from {
+          transform: rotate(0deg) scale(1);
+        }
+        50% {
+          transform: rotate(180deg) scale(1.04);
+        }
+        to {
+          transform: rotate(360deg) scale(1);
+        }
+      }
+
+      .run-button {
+        width: 25%;
+        max-width: 200px;
+        min-width: 128px;
+        padding: 12px 14px;
+        font-size: 15px;
+        font-weight: 600;
         color: var(--automation-text);
-        font-size: 13px;
-        box-sizing: border-box;
-      }
-
-      textarea:focus {
-        outline: 2px solid var(--automation-accent);
-        outline-offset: 1px;
-      }
-
-      .actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-
-      button {
-        border: 1px solid var(--automation-border);
-        background: var(--automation-surface);
-        color: var(--automation-text);
-        border-radius: 8px;
-        padding: 8px 12px;
+        background-image: linear-gradient(125deg, var(--automation-accent), var(--automation-accent-strong));
+        background-size: 220% 100%;
+        background-position: 0% 50%;
+        border: 1px solid rgba(77, 163, 255, 0.35);
+        border-radius: 12px;
+        text-align: center;
         cursor: pointer;
-        font-size: 13px;
-        transition: border-color 150ms ease, background 150ms ease;
+        box-shadow: 0 12px 30px rgba(44, 130, 232, 0.25);
+        transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease, background-position 180ms ease;
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
       }
 
-      button:hover {
-        border-color: var(--automation-accent);
+      .run-button::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        background: linear-gradient(120deg, var(--overlay-from, var(--automation-accent)), var(--overlay-to, var(--automation-accent-strong)));
+        transform: translateX(-120%);
+        opacity: 0;
+        pointer-events: none;
+        mix-blend-mode: screen;
+        filter: drop-shadow(0 12px 24px rgba(77, 163, 255, 0.28));
       }
 
-      button:disabled {
+      .run-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 34px rgba(44, 130, 232, 0.32);
+      }
+
+      .run-button:active {
+        transform: translateY(0);
+      }
+
+      .run-button.stop {
+        background-image: linear-gradient(125deg, #ef4444, #b91c1c);
+        background-position: 100% 50%;
+        border-color: rgba(239, 68, 68, 0.4);
+        box-shadow: 0 12px 30px rgba(239, 68, 68, 0.25);
+      }
+
+      .run-button.stop::after {
+        background: linear-gradient(120deg, #2563eb, #ef4444);
+      }
+
+      .run-button.transition-to-stop::after {
+        --overlay-from: var(--automation-accent);
+        --overlay-to: #ef4444;
+        animation: sweep-to-stop 520ms ease forwards;
+      }
+
+      .run-button.transition-to-run::after {
+        --overlay-from: #ef4444;
+        --overlay-to: var(--automation-accent);
+        animation: sweep-to-run 520ms ease forwards;
+      }
+
+      .run-button:disabled {
         opacity: 0.6;
         cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      @keyframes sweep-to-stop {
+        from {
+          transform: translateX(-130%);
+          opacity: 0.92;
+        }
+        35% {
+          opacity: 1;
+        }
+        to {
+          transform: translateX(130%);
+          opacity: 0;
+        }
+      }
+
+      @keyframes sweep-to-run {
+        from {
+          transform: translateX(130%);
+          opacity: 0.92;
+        }
+        35% {
+          opacity: 1;
+        }
+        to {
+          transform: translateX(-130%);
+          opacity: 0;
+        }
+      }
+
+      .log-panel {
+        width: 100%;
+        background: var(--automation-surface);
+        border: 1px solid var(--automation-border);
+        border-radius: 12px;
+        color: var(--automation-text);
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+      }
+
+      .log-panel summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 10px 12px;
+        position: relative;
+        color: var(--automation-subtle);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .log-panel summary::marker,
+      .log-panel summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .log-panel summary::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--automation-accent);
+        opacity: 0.6;
+        box-shadow: 0 0 0 4px rgba(77, 163, 255, 0.08);
       }
 
       .log {
-        border: 1px solid var(--automation-border);
-        background: var(--automation-surface);
-        border-radius: 8px;
-        padding: 10px;
-        min-height: 120px;
+        border-top: 1px solid var(--automation-border);
+        background: linear-gradient(180deg, var(--automation-surface) 0%, var(--automation-surface-2) 100%);
+        padding: 10px 12px 14px;
+        max-height: 240px;
+        overflow: auto;
         font-size: 12px;
         line-height: 1.4;
         display: flex;
@@ -116,15 +258,12 @@
         grid-template-columns: auto 1fr;
         gap: 8px;
         align-items: baseline;
+        color: var(--automation-text);
       }
 
       .log-entry .time {
         color: var(--automation-subtle);
         font-variant-numeric: tabular-nums;
-      }
-
-      .log-entry .message {
-        color: var(--automation-text);
       }
 
       .log-entry.success .message {
@@ -138,33 +277,17 @@
   </head>
   <body>
     <div class="app">
-      <div>
-        <h1>Automation Commands</h1>
-        <p>
-          Run multiline instructions in a single tab. Start with
-          <strong>GOTO &lt;url&gt;</strong>, optionally wait with
-          <strong>WAITTOLOAD</strong> (gives the page a short settle time),
-          navigate again with another GOTO, and finish with
-          <strong>CLOSE</strong> if desired.
-        </p>
+      <div class="logo-wrap" id="logoWrap">
+        <div class="logo-ring" aria-hidden="true"></div>
+        <img src="lufthansa.png" alt="Lufthansa" class="logo" />
       </div>
 
-      <div class="input-group">
-          <label for="instructions">Instructions</label>
-          <textarea
-            id="instructions"
-            placeholder="Example:\nGOTO https://example.com\nWAITTOLOAD\nGOTO https://example.org\nCLOSE"
-          ></textarea>
-        <div class="actions">
-          <button id="paste">Paste from clipboard</button>
-          <button id="run">Run</button>
-        </div>
-      </div>
+      <button id="run" class="run-button">Run</button>
 
-      <div class="input-group">
-        <label>Activity log</label>
+      <details id="logPanel" class="log-panel">
+        <summary>Debug log</summary>
         <div id="log" class="log" aria-live="polite"></div>
-      </div>
+      </details>
     </div>
 
     <script src="sidebar.js"></script>
