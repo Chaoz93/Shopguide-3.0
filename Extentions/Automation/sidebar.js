@@ -191,77 +191,78 @@
     }
 
     try {
-      const [result] = await api.tabs.executeScript(chainTabId, {
-        code: `(function (encoded) {
-          function cssEscape(value) {
-            if (window.CSS && typeof window.CSS.escape === 'function') {
-              return window.CSS.escape(value);
-            }
-            return value.replace(/[^a-zA-Z0-9_\-]/g, (char) => '\\' + char);
+      const clickRunner = function (payload) {
+        function cssEscape(value) {
+          if (window.CSS && typeof window.CSS.escape === "function") {
+            return window.CSS.escape(value);
           }
+          return value.replace(/[^a-zA-Z0-9_\-]/g, (char) => "\\" + char);
+        }
 
-          function findTarget(idOrSelector) {
-            if (!idOrSelector) return null;
-            const trimmed = idOrSelector.trim();
-            if (!trimmed) return null;
+        function findTarget(idOrSelector) {
+          if (!idOrSelector) return null;
+          const trimmed = idOrSelector.trim();
+          if (!trimmed) return null;
 
-            const idCandidate = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
-            const directById = document.getElementById(idCandidate);
-            if (directById) return directById;
-
-            try {
-              const escapedId = cssEscape(idCandidate);
-              if (escapedId) {
-                const escaped = document.getElementById(idCandidate) || document.querySelector('#' + escapedId);
-                if (escaped) return escaped;
-              }
-            } catch (_) {}
-
-            try {
-              const selectorMatch = document.querySelector(trimmed);
-              if (selectorMatch) return selectorMatch;
-            } catch (_) {}
-
-            if (!trimmed.startsWith('#')) {
-              try {
-                const hashFallback = document.querySelector('#' + cssEscape(trimmed));
-                if (hashFallback) return hashFallback;
-              } catch (_) {}
-            }
-
-            return null;
-          }
-
-          const decoded = decodeURIComponent(encoded || '');
-          const element = findTarget(decoded);
-          if (!element) {
-            return { success: false, error: 'Element not found' };
-          }
-
-          const rect = element.getBoundingClientRect();
-          const centerX = rect.left + rect.width / 2;
-          const centerY = rect.top + rect.height / 2;
-          const eventOptions = {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-            clientX: centerX,
-            clientY: centerY,
-          };
+          const idCandidate = trimmed.startsWith("#") ? trimmed.slice(1) : trimmed;
+          const directById = document.getElementById(idCandidate);
+          if (directById) return directById;
 
           try {
-            element.focus && element.focus();
-            element.dispatchEvent(new MouseEvent('mouseover', eventOptions));
-            element.dispatchEvent(new MouseEvent('mousemove', eventOptions));
-            element.dispatchEvent(new MouseEvent('mousedown', eventOptions));
-            element.dispatchEvent(new MouseEvent('mouseup', eventOptions));
-            element.dispatchEvent(new MouseEvent('click', eventOptions));
-            return { success: true, label: element.tagName ? element.tagName.toLowerCase() : '' };
-          } catch (error) {
-            return { success: false, error: error && error.message ? error.message : String(error) };
+            const escapedId = cssEscape(idCandidate);
+            if (escapedId) {
+              const escaped = document.getElementById(idCandidate) || document.querySelector("#" + escapedId);
+              if (escaped) return escaped;
+            }
+          } catch (_) {}
+
+          try {
+            const selectorMatch = document.querySelector(trimmed);
+            if (selectorMatch) return selectorMatch;
+          } catch (_) {}
+
+          if (!trimmed.startsWith("#")) {
+            try {
+              const hashFallback = document.querySelector("#" + cssEscape(trimmed));
+              if (hashFallback) return hashFallback;
+            } catch (_) {}
           }
-        })("${encodeURIComponent(targetId)}")`,
-      });
+
+          return null;
+        }
+
+        const decoded = payload && typeof payload.target === "string" ? payload.target : "";
+        const element = findTarget(decoded);
+        if (!element) {
+          return { success: false, error: "Element not found" };
+        }
+
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const eventOptions = {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: centerX,
+          clientY: centerY,
+        };
+
+        try {
+          element.focus && element.focus();
+          element.dispatchEvent(new MouseEvent("mouseover", eventOptions));
+          element.dispatchEvent(new MouseEvent("mousemove", eventOptions));
+          element.dispatchEvent(new MouseEvent("mousedown", eventOptions));
+          element.dispatchEvent(new MouseEvent("mouseup", eventOptions));
+          element.dispatchEvent(new MouseEvent("click", eventOptions));
+          return { success: true, label: element.tagName ? element.tagName.toLowerCase() : "" };
+        } catch (error) {
+          return { success: false, error: error && error.message ? error.message : String(error) };
+        }
+      };
+
+      const script = `(${clickRunner.toString()})(${JSON.stringify({ target: targetId })});`;
+      const [result] = await api.tabs.executeScript(chainTabId, { code: script });
 
       if (!result) {
         addLog("CLICK failed: no response from the tab.", "error");
@@ -311,71 +312,72 @@
     }
 
     try {
-      const [result] = await api.tabs.executeScript(chainTabId, {
-        code: `(function (encodedIdentifier, encodedText) {
-          function cssEscape(val) {
-            if (window.CSS && typeof window.CSS.escape === 'function') {
-              return window.CSS.escape(val);
-            }
-            return val.replace(/[^a-zA-Z0-9_\-]/g, (char) => '\\' + char);
+      const inputRunner = function (payload) {
+        function cssEscape(val) {
+          if (window.CSS && typeof window.CSS.escape === "function") {
+            return window.CSS.escape(val);
           }
+          return val.replace(/[^a-zA-Z0-9_\-]/g, (char) => "\\" + char);
+        }
 
-          function findTarget(idOrSelector) {
-            if (!idOrSelector) return null;
-            const trimmed = idOrSelector.trim();
-            if (!trimmed) return null;
+        function findTarget(idOrSelector) {
+          if (!idOrSelector) return null;
+          const trimmed = idOrSelector.trim();
+          if (!trimmed) return null;
 
-            const idCandidate = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
-            const directById = document.getElementById(idCandidate);
-            if (directById) return directById;
-
-            try {
-              const escapedId = cssEscape(idCandidate);
-              if (escapedId) {
-                const escaped = document.getElementById(idCandidate) || document.querySelector('#' + escapedId);
-                if (escaped) return escaped;
-              }
-            } catch (_) {}
-
-            try {
-              const selectorMatch = document.querySelector(trimmed);
-              if (selectorMatch) return selectorMatch;
-            } catch (_) {}
-
-            if (!trimmed.startsWith('#')) {
-              try {
-                const hashFallback = document.querySelector('#' + cssEscape(trimmed));
-                if (hashFallback) return hashFallback;
-              } catch (_) {}
-            }
-
-            return null;
-          }
-
-          const identifier = decodeURIComponent(encodedIdentifier || '');
-          const text = decodeURIComponent(encodedText || '');
-          const element = findTarget(identifier);
-          if (!element) {
-            return { success: false, error: 'Element not found' };
-          }
+          const idCandidate = trimmed.startsWith("#") ? trimmed.slice(1) : trimmed;
+          const directById = document.getElementById(idCandidate);
+          if (directById) return directById;
 
           try {
-            element.focus && element.focus();
-            if ('value' in element) {
-              element.value = text;
-            } else {
-              element.textContent = text;
+            const escapedId = cssEscape(idCandidate);
+            if (escapedId) {
+              const escaped = document.getElementById(idCandidate) || document.querySelector("#" + escapedId);
+              if (escaped) return escaped;
             }
+          } catch (_) {}
 
-            const eventInit = { bubbles: true, cancelable: true };
-            element.dispatchEvent(new Event('input', eventInit));
-            element.dispatchEvent(new Event('change', eventInit));
-            return { success: true };
-          } catch (error) {
-            return { success: false, error: error && error.message ? error.message : String(error) };
+          try {
+            const selectorMatch = document.querySelector(trimmed);
+            if (selectorMatch) return selectorMatch;
+          } catch (_) {}
+
+          if (!trimmed.startsWith("#")) {
+            try {
+              const hashFallback = document.querySelector("#" + cssEscape(trimmed));
+              if (hashFallback) return hashFallback;
+            } catch (_) {}
           }
-        })("${encodeURIComponent(targetId)}", "${encodeURIComponent(rawValue)}")`,
-      });
+
+          return null;
+        }
+
+        const identifier = payload && typeof payload.target === "string" ? payload.target : "";
+        const text = payload && typeof payload.text === "string" ? payload.text : "";
+        const element = findTarget(identifier);
+        if (!element) {
+          return { success: false, error: "Element not found" };
+        }
+
+        try {
+          element.focus && element.focus();
+          if ("value" in element) {
+            element.value = text;
+          } else {
+            element.textContent = text;
+          }
+
+          const eventInit = { bubbles: true, cancelable: true };
+          element.dispatchEvent(new Event("input", eventInit));
+          element.dispatchEvent(new Event("change", eventInit));
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: error && error.message ? error.message : String(error) };
+        }
+      };
+
+      const script = `(${inputRunner.toString()})(${JSON.stringify({ target: targetId, text: rawValue })});`;
+      const [result] = await api.tabs.executeScript(chainTabId, { code: script });
 
       if (!result) {
         addLog("INPUT failed: no response from the tab.", "error");

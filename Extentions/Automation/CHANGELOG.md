@@ -1,5 +1,9 @@
 # Automation Sidebar Changelog
 
+## [0.6.6] - 2025-12-19
+### Fixed
+- Reworked CLICK and INPUT script injection to serialize arguments via function payloads, preventing unescaped line-break errors from any selector or text content.
+
 ## [0.6.5] - 2025-12-19
 ### Fixed
 - Encoded CLICK and INPUT parameters before injecting scripts to prevent "string literal contains an unescaped line break" errors from complex selectors or text values.
