@@ -70,12 +70,11 @@
       overlay.style.pointerEvents = "none";
       overlay.style.zIndex = "2147483646";
       overlay.style.background =
-        "radial-gradient(circle at center, rgba(0, 10, 30, 0) 40%, rgba(24, 104, 212, 0.12) 64%, rgba(24, 104, 212, 0.18) 74%, rgba(12, 54, 126, 0.26) 100%)";
+        "radial-gradient(circle at center, rgba(0, 12, 32, 0) 74%, rgba(38, 130, 245, 0.14) 84%, rgba(38, 130, 245, 0.2) 92%, rgba(24, 88, 186, 0.26) 100%)";
       overlay.style.opacity = existing ? existing.style.opacity || "1" : "0";
       overlay.style.transition = "opacity 260ms ease";
-      overlay.style.boxShadow =
-        "inset 0 0 0 24px rgba(46, 140, 255, 0.12), inset 0 0 80px 22px rgba(46, 140, 255, 0.18), 0 0 120px 50px rgba(12, 54, 126, 0.28)";
-      overlay.style.filter = "saturate(1.08)";
+      overlay.style.boxShadow = "none";
+      overlay.style.filter = "saturate(1.02)";
 
       if (!existing) {
         document.documentElement.appendChild(overlay);

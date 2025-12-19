@@ -1,5 +1,9 @@
 # Automation Sidebar Changelog
 
+## [0.6.18] - 2025-12-20
+### Fixed
+- Reduced the vignette thickness by about half and removed the transparent border so the running halo just frames the edges.
+
 ## [0.6.17] - 2025-12-20
 ### Changed
 - Shrunk the vignette to a thinner blue edge highlight so the running indicator stays visible without covering the page.
