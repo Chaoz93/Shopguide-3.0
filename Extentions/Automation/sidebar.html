@@ -6,10 +6,10 @@
     <title>Automation Sidebar</title>
     <style>
       :root {
-        --automation-bg: #0f1115;
-        --automation-surface: #14171d;
-        --automation-surface-2: #191c23;
-        --automation-border: #1f232c;
+        --automation-bg: #1b1f26;
+        --automation-surface: #242a35;
+        --automation-surface-2: #2c3341;
+        --automation-border: #353d4d;
         --automation-text: #e8ecf2;
         --automation-subtle: #9aa3b3;
         --automation-accent: #4da3ff;
@@ -27,7 +27,7 @@
         padding: 0;
         font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
         color: var(--automation-text);
-        background: radial-gradient(circle at 20% 20%, #161a22, #0f1115 55%);
+        background: radial-gradient(circle at 22% 18%, #222835, #1b1f26 60%);
       }
 
       .app {
@@ -36,13 +36,13 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 16px;
+        gap: 18px;
       }
 
       .logo-wrap {
         position: relative;
-        width: 96px;
-        height: 96px;
+        width: 240px;
+        height: 240px;
         display: grid;
         place-items: center;
         border-radius: 50%;
@@ -53,7 +53,7 @@
 
       .logo-ring {
         position: absolute;
-        inset: -6px;
+        inset: -10px;
         border-radius: 50%;
         border: 2px solid transparent;
         border-top-color: var(--automation-accent);
@@ -69,8 +69,8 @@
       }
 
       .logo {
-        width: 64px;
-        height: 64px;
+        width: 160px;
+        height: 160px;
         object-fit: contain;
         filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
       }
@@ -88,7 +88,9 @@
       }
 
       .run-button {
-        width: 100%;
+        width: 72%;
+        max-width: 280px;
+        min-width: 180px;
         padding: 12px 14px;
         font-size: 15px;
         font-weight: 600;
