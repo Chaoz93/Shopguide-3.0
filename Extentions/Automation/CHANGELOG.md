@@ -1,5 +1,10 @@
 # Automation Sidebar Changelog
 
+## [0.6.3] - 2025-12-19
+### Fixed
+- CLICK and INPUT now accept CSS selectors in addition to element IDs and resolve elements more reliably.
+- Status messages clarify selectors and reduce false "not found" errors when running scripts captured by the builder.
+
 ## [0.6.2] - 2025-12-18
 ### Added
 - WAIT command to pause for a specified number of milliseconds between steps.

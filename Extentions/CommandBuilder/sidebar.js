@@ -117,14 +117,14 @@
     return { lines: getLines(), index: targetIndex };
   }
 
-  function handleElementSelection(id, name) {
+  function handleElementSelection(selector, name) {
     const targetCommand = pickerCommand || "CLICK";
     const { lines, index } = ensureCommandPrefix(targetCommand);
 
     if (targetCommand === "INPUT") {
-      lines[index] = `INPUT ${id} ""`;
+      lines[index] = `INPUT ${selector || ""} ""`;
     } else {
-      lines[index] = `${targetCommand} ${id}`;
+      lines[index] = `${targetCommand} ${selector || ""}`;
     }
 
     ensureLine(lines, index + 1);
@@ -137,7 +137,10 @@
       setCaret(index + 1, 0);
     }
 
-    setStatus(`Captured element ${name ? `${name} ` : ""}#${id}`, "success");
+    setStatus(
+      `Captured element ${name ? `${name} ` : ""}${selector ? `(${selector})` : ""}`,
+      "success"
+    );
   }
 
   async function startPicker() {
@@ -218,7 +221,7 @@
 
   api.runtime.onMessage.addListener((message) => {
     if (message && message.type === "automation-picker-selection") {
-      handleElementSelection(message.id, message.name);
+      handleElementSelection(message.selector, message.name);
       return;
     }
 

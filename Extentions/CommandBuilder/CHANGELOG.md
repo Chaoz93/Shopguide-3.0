@@ -1,5 +1,10 @@
 # Automation Command Builder Changelog
 
+## [0.1.3] - 2025-12-19
+### Fixed
+- Element picker now returns stable CSS selectors instead of generated IDs, avoiding lookup failures in the automation extension.
+- UI copy updated to highlight selector-based CLICK and INPUT commands.
+
 ## [0.1.2] - 2025-12-18
 ### Added
 - New WAIT command for delays and INPUT command to set text values on elements.

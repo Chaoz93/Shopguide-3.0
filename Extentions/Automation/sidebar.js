@@ -177,11 +177,11 @@
     return true;
   }
 
-  async function clickCommand(elementId) {
-    const targetId = (elementId || "").trim();
+  async function clickCommand(targetIdentifier) {
+    const targetId = (targetIdentifier || "").trim();
 
     if (!targetId) {
-      addLog("CLICK requires an element ID.", "error");
+      addLog("CLICK requires an element selector or ID.", "error");
       return false;
     }
 
@@ -192,8 +192,47 @@
 
     try {
       const [result] = await api.tabs.executeScript(chainTabId, {
-        code: `(function (id) {
-          const element = document.getElementById(id);
+        code: `(function (identifier) {
+          function cssEscape(value) {
+            if (window.CSS && typeof window.CSS.escape === 'function') {
+              return window.CSS.escape(value);
+            }
+            return value.replace(/[^a-zA-Z0-9_\-]/g, (char) => '\\' + char);
+          }
+
+          function findTarget(idOrSelector) {
+            if (!idOrSelector) return null;
+            const trimmed = idOrSelector.trim();
+            if (!trimmed) return null;
+
+            const idCandidate = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
+            const directById = document.getElementById(idCandidate);
+            if (directById) return directById;
+
+            try {
+              const escapedId = cssEscape(idCandidate);
+              if (escapedId) {
+                const escaped = document.getElementById(idCandidate) || document.querySelector('#' + escapedId);
+                if (escaped) return escaped;
+              }
+            } catch (_) {}
+
+            try {
+              const selectorMatch = document.querySelector(trimmed);
+              if (selectorMatch) return selectorMatch;
+            } catch (_) {}
+
+            if (!trimmed.startsWith('#')) {
+              try {
+                const hashFallback = document.querySelector('#' + cssEscape(trimmed));
+                if (hashFallback) return hashFallback;
+              } catch (_) {}
+            }
+
+            return null;
+          }
+
+          const element = findTarget(identifier);
           if (!element) {
             return { success: false, error: 'Element not found' };
           }
@@ -230,7 +269,7 @@
 
       if (result.success) {
         const label = result.label ? ` (${result.label})` : "";
-        addLog(`Clicked element #${targetId}${label}.`, "success");
+        addLog(`Clicked element (${targetId})${label}.`, "success");
       } else {
         addLog(`CLICK failed: ${result.error || "unknown error"}.`, "error");
         return false;
@@ -259,7 +298,7 @@
   async function inputCommand(elementId, valueText) {
     const targetId = (elementId || "").trim();
     if (!targetId) {
-      addLog("INPUT requires an element ID.", "error");
+      addLog("INPUT requires an element selector or ID.", "error");
       return false;
     }
 
@@ -272,8 +311,47 @@
 
     try {
       const [result] = await api.tabs.executeScript(chainTabId, {
-        code: `(function (id, text) {
-          const element = document.getElementById(id);
+        code: `(function (identifier, text) {
+          function cssEscape(val) {
+            if (window.CSS && typeof window.CSS.escape === 'function') {
+              return window.CSS.escape(val);
+            }
+            return val.replace(/[^a-zA-Z0-9_\-]/g, (char) => '\\' + char);
+          }
+
+          function findTarget(idOrSelector) {
+            if (!idOrSelector) return null;
+            const trimmed = idOrSelector.trim();
+            if (!trimmed) return null;
+
+            const idCandidate = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
+            const directById = document.getElementById(idCandidate);
+            if (directById) return directById;
+
+            try {
+              const escapedId = cssEscape(idCandidate);
+              if (escapedId) {
+                const escaped = document.getElementById(idCandidate) || document.querySelector('#' + escapedId);
+                if (escaped) return escaped;
+              }
+            } catch (_) {}
+
+            try {
+              const selectorMatch = document.querySelector(trimmed);
+              if (selectorMatch) return selectorMatch;
+            } catch (_) {}
+
+            if (!trimmed.startsWith('#')) {
+              try {
+                const hashFallback = document.querySelector('#' + cssEscape(trimmed));
+                if (hashFallback) return hashFallback;
+              } catch (_) {}
+            }
+
+            return null;
+          }
+
+          const element = findTarget(identifier);
           if (!element) {
             return { success: false, error: 'Element not found' };
           }
@@ -302,7 +380,7 @@
       }
 
       if (result.success) {
-        addLog(`Updated element #${targetId} with provided text.`, "success");
+        addLog(`Updated element (${targetId}) with provided text.`, "success");
       } else {
         addLog(`INPUT failed: ${result.error || "unknown error"}.`, "error");
         return false;
@@ -359,7 +437,7 @@
         }
       } else if (upper === "CLICK") {
         if (!args.length) {
-          addLog("CLICK requires an element ID.", "error");
+          addLog("CLICK requires an element selector or ID.", "error");
           commandSucceeded = false;
         } else {
           commandSucceeded = await clickCommand(args.join(" "));
@@ -380,7 +458,7 @@
         }
       } else if (upper === "INPUT") {
         if (args.length < 2) {
-          addLog("INPUT requires an element ID and a quoted string.", "error");
+          addLog("INPUT requires an element selector/ID and a quoted string.", "error");
           commandSucceeded = false;
         } else {
           const [id, ...rest] = args;

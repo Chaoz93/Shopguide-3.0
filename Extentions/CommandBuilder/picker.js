@@ -13,6 +13,13 @@
   let active = false;
   let currentTarget = null;
 
+  function cssEscape(value) {
+    if (window.CSS && typeof window.CSS.escape === "function") {
+      return window.CSS.escape(value);
+    }
+    return value.replace(/[^a-zA-Z0-9_\-]/g, (char) => `\\${char}`);
+  }
+
   function createOverlay() {
     if (overlay) return;
     overlay = document.createElement("div");
@@ -92,20 +99,62 @@
     }
   }
 
-  function ensureIds(target) {
-    if (target.id) return target.id;
-    const generated = `automation-capture-${Date.now().toString(16)}-${Math.random()
-      .toString(16)
-      .slice(2, 6)}`;
-    target.id = generated;
-    return generated;
+  function buildSegment(el) {
+    const tag = el.tagName ? el.tagName.toLowerCase() : "*";
+    if (el.id) {
+      return `#${cssEscape(el.id)}`;
+    }
+
+    let segment = tag;
+    const classes = Array.from(el.classList).slice(0, 2);
+    if (classes.length) {
+      segment += `.${classes.map((c) => cssEscape(c)).join(".")}`;
+    }
+
+    if (el.parentElement) {
+      const siblings = Array.from(el.parentElement.children).filter(
+        (child) => child.tagName === el.tagName
+      );
+      if (siblings.length > 1) {
+        segment += `:nth-of-type(${siblings.indexOf(el) + 1})`;
+      }
+    }
+
+    return segment;
+  }
+
+  function uniqueSelector(target) {
+    if (!target || !(target instanceof Element)) return null;
+    if (target.id) return `#${cssEscape(target.id)}`;
+
+    const segments = [];
+    let el = target;
+    let depth = 0;
+    while (el && el.tagName && depth < 6 && el !== document.documentElement) {
+      segments.unshift(buildSegment(el));
+      const selector = segments.join(" > ");
+      try {
+        const matches = document.querySelectorAll(selector);
+        if (matches.length === 1 && matches[0] === target) {
+          return selector;
+        }
+      } catch (_) {
+        // keep climbing if selector is invalid at this depth
+      }
+      el = el.parentElement;
+      depth += 1;
+    }
+
+    return segments.join(" > ");
   }
 
   function commitSelection(target) {
     if (!target) return;
-    const id = ensureIds(target);
+    const selector = uniqueSelector(target);
     const name = describeElement(target);
-    api.runtime.sendMessage({ type: "automation-picker-selection", id, name }).catch(() => {});
+    api.runtime
+      .sendMessage({ type: "automation-picker-selection", selector, name })
+      .catch(() => {});
     cleanup();
   }
 

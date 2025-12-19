@@ -135,7 +135,7 @@
         <p>
           Assemble automation instructions with quick buttons. Hover a command to
           learn what it does, insert it into the current line, and use the
-          element picker to fill CLICK or INPUT IDs.
+          element picker to fill CLICK or INPUT selectors.
         </p>
       </div>
 
@@ -143,7 +143,7 @@
         <label for="commands">Commands</label>
         <textarea
           id="commands"
-          placeholder="Use the buttons below or type manually. Example:\nGOTO https://example.com\nWAITTOLOAD\nWAIT 1000\nCLICK hero-cta\nINPUT email \"hello@example.com\""
+          placeholder="Use the buttons below or type manually. Example:\nGOTO https://example.com\nWAITTOLOAD\nWAIT 1000\nCLICK #hero-cta\nINPUT form > input[name=email] \"hello@example.com\""
         ></textarea>
         <div class="actions">
           <div class="actions-row">
@@ -153,9 +153,9 @@
           </div>
           <div class="actions-row">
             <button id="add-wait" title="Insert WAIT <ms> and move to the next line">Add WAIT</button>
-            <button id="add-click" title="Insert CLICK and keep the cursor on this line to enter an element ID">Add CLICK</button>
-            <button id="add-input" title="Insert INPUT <element-id> \"text\" and keep the cursor ready to edit">Add INPUT</button>
-            <button id="pick-element" title="Start the element picker to capture an element ID for the current CLICK/INPUT line">Pick element ID</button>
+            <button id="add-click" title="Insert CLICK and keep the cursor on this line to enter an element selector">Add CLICK</button>
+            <button id="add-input" title="Insert INPUT <selector> \"text\" and keep the cursor ready to edit">Add INPUT</button>
+            <button id="pick-element" title="Start the element picker to capture a selector for the current CLICK/INPUT line">Pick element</button>
           </div>
           <div class="actions-row">
             <button id="copy-commands" title="Copy all commands to the clipboard">Copy commands</button>
@@ -167,8 +167,9 @@
       <div class="note">
         GOTO inserts the URL and can be tested immediately. WAITTOLOAD moves you
         to the next line. WAIT adds a millisecond pause. CLICK and INPUT stay on
-        the current line so you can type an ID or pick one from the active page;
-        selecting an element fills the ID and prepares the next command line.
+        the current line so you can type a selector or pick one from the active
+        page; selecting an element fills the selector and prepares the next
+        command line.
       </div>
     </div>
 
