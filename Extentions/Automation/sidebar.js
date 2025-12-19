@@ -192,7 +192,7 @@
 
     try {
       const [result] = await api.tabs.executeScript(chainTabId, {
-        code: `(function (identifier) {
+        code: `(function (encoded) {
           function cssEscape(value) {
             if (window.CSS && typeof window.CSS.escape === 'function') {
               return window.CSS.escape(value);
@@ -232,7 +232,8 @@
             return null;
           }
 
-          const element = findTarget(identifier);
+          const decoded = decodeURIComponent(encoded || '');
+          const element = findTarget(decoded);
           if (!element) {
             return { success: false, error: 'Element not found' };
           }
@@ -259,7 +260,7 @@
           } catch (error) {
             return { success: false, error: error && error.message ? error.message : String(error) };
           }
-        })(${JSON.stringify(targetId)})`,
+        })("${encodeURIComponent(targetId)}")`,
       });
 
       if (!result) {
@@ -311,7 +312,7 @@
 
     try {
       const [result] = await api.tabs.executeScript(chainTabId, {
-        code: `(function (identifier, text) {
+        code: `(function (encodedIdentifier, encodedText) {
           function cssEscape(val) {
             if (window.CSS && typeof window.CSS.escape === 'function') {
               return window.CSS.escape(val);
@@ -351,6 +352,8 @@
             return null;
           }
 
+          const identifier = decodeURIComponent(encodedIdentifier || '');
+          const text = decodeURIComponent(encodedText || '');
           const element = findTarget(identifier);
           if (!element) {
             return { success: false, error: 'Element not found' };
@@ -371,7 +374,7 @@
           } catch (error) {
             return { success: false, error: error && error.message ? error.message : String(error) };
           }
-        })(${JSON.stringify(targetId)}, ${JSON.stringify(rawValue)})`,
+        })("${encodeURIComponent(targetId)}", "${encodeURIComponent(rawValue)}")`,
       });
 
       if (!result) {

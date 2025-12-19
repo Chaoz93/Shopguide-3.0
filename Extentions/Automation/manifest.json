@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Shopguide Automation Sidebar",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "Sidebar to run simple automation commands like navigating to URLs from multiline instructions.",
   "permissions": [
     "tabs",
