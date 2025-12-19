@@ -1,5 +1,9 @@
 # Automation Sidebar Changelog
 
+## [0.6.13] - 2025-12-19
+### Fixed
+- Added a visible blue-to-red sweep animation when toggling Run/Stop, with smoother half-second transitions.
+
 ## [0.6.12] - 2025-12-20
 ### Changed
 - Unified the sidebar background to #303030 for a fully dark canvas that frames the logo.
