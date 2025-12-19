@@ -1,5 +1,10 @@
 # Automation Sidebar Changelog
 
+## [0.6.12] - 2025-12-20
+### Changed
+- Unified the sidebar background to #303030 for a fully dark canvas that frames the logo.
+- Thickened and brightened the blue loading ring so the running animation stays clearly visible around the logo.
+
 ## [0.6.11] - 2025-12-20
 ### Changed
 - Darkened the logo cradle to #303030 and emphasized a visible blue loading ring while running.

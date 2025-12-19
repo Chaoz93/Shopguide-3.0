@@ -6,10 +6,10 @@
     <title>Automation Sidebar</title>
     <style>
       :root {
-        --automation-bg: #606060;
-        --automation-surface: #6a6a6a;
-        --automation-surface-2: #757575;
-        --automation-border: #8a8a8a;
+        --automation-bg: #303030;
+        --automation-surface: #5a5a5a;
+        --automation-surface-2: #6a6a6a;
+        --automation-border: #808080;
         --automation-text: #f1f4f8;
         --automation-subtle: #d1d6de;
         --automation-accent: #4da3ff;
@@ -27,7 +27,7 @@
         padding: 0;
         font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
         color: var(--automation-text);
-        background: radial-gradient(circle at 22% 18%, #6c6c6c, #606060 60%);
+        background: var(--automation-bg);
       }
 
       .app {
@@ -53,24 +53,29 @@
 
       .logo-ring {
         position: absolute;
-        inset: -12px;
+        inset: -8px;
         border-radius: 50%;
-        background: conic-gradient(from 0deg, rgba(77, 163, 255, 0.95), rgba(77, 163, 255, 0.2), rgba(77, 163, 255, 0.95));
-        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 18px), #000 calc(100% - 10px));
-        mask: radial-gradient(farthest-side, transparent calc(100% - 18px), #000 calc(100% - 10px));
+        background: conic-gradient(
+          from 0deg,
+          rgba(77, 163, 255, 0.98),
+          rgba(77, 163, 255, 0.3),
+          rgba(77, 163, 255, 0.98)
+        );
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 42px), #000 calc(100% - 12px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 42px), #000 calc(100% - 12px));
         opacity: 0;
         transform: rotate(0deg) scale(1);
-        filter: drop-shadow(0 0 22px rgba(77, 163, 255, 0.45));
+        filter: drop-shadow(0 0 30px rgba(77, 163, 255, 0.55));
         transition: opacity 220ms ease;
       }
 
       .logo-ring::after {
         content: "";
         position: absolute;
-        inset: 18px;
+        inset: 26px;
         border-radius: 50%;
-        border: 2px solid rgba(77, 163, 255, 0.35);
-        box-shadow: 0 0 0 1px rgba(77, 163, 255, 0.18);
+        border: 3px solid rgba(77, 163, 255, 0.5);
+        box-shadow: 0 0 0 6px rgba(77, 163, 255, 0.12);
       }
 
       .logo-wrap.running .logo-ring {
