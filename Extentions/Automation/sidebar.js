@@ -421,54 +421,72 @@
 
     const lines = raw.split(/\n+/).map((line) => line.trim()).filter(Boolean);
     for (const line of lines) {
-      const [command, ...args] = line.split(/\s+/);
-      if (!command) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) {
         continue;
       }
+
+      const firstSpaceIndex = trimmedLine.search(/\s/);
+      const command =
+        firstSpaceIndex === -1
+          ? trimmedLine
+          : trimmedLine.slice(0, firstSpaceIndex).trim();
+      const argString = firstSpaceIndex === -1 ? "" : trimmedLine.slice(firstSpaceIndex + 1);
 
       let commandSucceeded = true;
       const upper = command.toUpperCase();
       if (upper === "GOTO") {
-        if (!args.length) {
+        const urlText = argString.trim();
+        if (!urlText) {
           addLog("GOTO requires a URL.", "error");
           commandSucceeded = false;
         } else {
-          commandSucceeded = await gotoCommand(args.join(" "));
+          commandSucceeded = await gotoCommand(urlText);
         }
       } else if (upper === "CLICK") {
-        if (!args.length) {
+        const targetText = argString.replace(/\s+/g, " ").trim();
+        if (!targetText) {
           addLog("CLICK requires an element selector or ID.", "error");
           commandSucceeded = false;
         } else {
-          commandSucceeded = await clickCommand(args.join(" "));
+          commandSucceeded = await clickCommand(targetText);
         }
       } else if (upper === "WAITTOLOAD") {
-        if (args.length) {
+        if (argString.trim()) {
           addLog("WAITTOLOAD does not take arguments.", "error");
           commandSucceeded = false;
         } else {
           commandSucceeded = await waitForChainTabLoad();
         }
       } else if (upper === "WAIT") {
-        if (!args.length) {
+        const durationText = argString.trim();
+        if (!durationText) {
           addLog("WAIT requires a millisecond duration.", "error");
           commandSucceeded = false;
         } else {
-          commandSucceeded = await waitCommand(args[0]);
+          const [durationRaw] = durationText.split(/\s+/);
+          commandSucceeded = await waitCommand(durationRaw);
         }
       } else if (upper === "INPUT") {
-        if (args.length < 2) {
+        const inputArgs = argString.trimStart();
+        if (!inputArgs) {
           addLog("INPUT requires an element selector/ID and a quoted string.", "error");
           commandSucceeded = false;
         } else {
-          const [id, ...rest] = args;
-          const valueRaw = rest.join(" ");
-          const matched = valueRaw.match(/^['"]([\s\S]*)['"]$/);
-          const value = matched ? matched[1] : valueRaw;
-          commandSucceeded = await inputCommand(id, value);
+          const spaceIndex = inputArgs.search(/\s/);
+          if (spaceIndex === -1) {
+            addLog("INPUT requires an element selector/ID and a quoted string.", "error");
+            commandSucceeded = false;
+          } else {
+            const id = inputArgs.slice(0, spaceIndex).replace(/\s+/g, " ").trim();
+            const valueRaw = inputArgs.slice(spaceIndex + 1).trim();
+            const matched = valueRaw.match(/^['"]([\s\S]*)['"]$/);
+            const value = matched ? matched[1] : valueRaw;
+            commandSucceeded = await inputCommand(id, value);
+          }
         }
       } else if (upper === "CLOSE") {
-        if (args.length) {
+        if (argString.trim()) {
           addLog("CLOSE does not take arguments.", "error");
           commandSucceeded = false;
         } else {

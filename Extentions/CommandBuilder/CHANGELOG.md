@@ -1,5 +1,9 @@
 # Automation Command Builder Changelog
 
+## [0.1.4] - 2025-12-19
+### Fixed
+- Element selections normalize whitespace so selectors stay valid when inserted into CLICK or INPUT commands.
+
 ## [0.1.3] - 2025-12-19
 ### Fixed
 - Element picker now returns stable CSS selectors instead of generated IDs, avoiding lookup failures in the automation extension.

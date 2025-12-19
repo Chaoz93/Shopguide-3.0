@@ -1,5 +1,9 @@
 # Automation Sidebar Changelog
 
+## [0.6.4] - 2025-12-19
+### Fixed
+- Command parsing now preserves complex selectors (including descendant/child combinators) to avoid injected script errors.
+
 ## [0.6.3] - 2025-12-19
 ### Fixed
 - CLICK and INPUT now accept CSS selectors in addition to element IDs and resolve elements more reliably.

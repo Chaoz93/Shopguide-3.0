@@ -119,12 +119,16 @@
 
   function handleElementSelection(selector, name) {
     const targetCommand = pickerCommand || "CLICK";
+    const cleanedSelector = (selector || "")
+      .toString()
+      .replace(/\s+/g, " ")
+      .trim();
     const { lines, index } = ensureCommandPrefix(targetCommand);
 
     if (targetCommand === "INPUT") {
-      lines[index] = `INPUT ${selector || ""} ""`;
+      lines[index] = `INPUT ${cleanedSelector} ""`;
     } else {
-      lines[index] = `${targetCommand} ${selector || ""}`;
+      lines[index] = `${targetCommand} ${cleanedSelector}`;
     }
 
     ensureLine(lines, index + 1);
@@ -138,7 +142,7 @@
     }
 
     setStatus(
-      `Captured element ${name ? `${name} ` : ""}${selector ? `(${selector})` : ""}`,
+      `Captured element ${name ? `${name} ` : ""}${cleanedSelector ? `(${cleanedSelector})` : ""}`,
       "success"
     );
   }
