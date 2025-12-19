@@ -1,5 +1,10 @@
 # Automation Sidebar Changelog
 
+## [0.6.7] - 2025-12-19
+### Fixed
+- Input parsing now treats selectors and values as quoted pairs so complex selectors stay intact and text goes to the intended field.
+- CLICK accepts quoted selectors without stripping spaces, preventing malformed targets.
+
 ## [0.6.6] - 2025-12-19
 ### Fixed
 - Reworked CLICK and INPUT script injection to serialize arguments via function payloads, preventing unescaped line-break errors from any selector or text content.

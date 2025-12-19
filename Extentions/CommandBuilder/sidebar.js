@@ -117,26 +117,31 @@
     return { lines: getLines(), index: targetIndex };
   }
 
+  function escapeDoubleQuotes(value) {
+    return (value || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  }
+
   function handleElementSelection(selector, name) {
     const targetCommand = pickerCommand || "CLICK";
     const cleanedSelector = (selector || "")
       .toString()
       .replace(/\s+/g, " ")
       .trim();
+    const quotedSelector = `"${escapeDoubleQuotes(cleanedSelector)}"`;
     const { lines, index } = ensureCommandPrefix(targetCommand);
 
     if (targetCommand === "INPUT") {
-      lines[index] = `INPUT ${cleanedSelector} ""`;
+      lines[index] = `INPUT ${quotedSelector} ""`;
     } else {
-      lines[index] = `${targetCommand} ${cleanedSelector}`;
+      lines[index] = `${targetCommand} ${quotedSelector}`;
     }
 
     ensureLine(lines, index + 1);
     setLines(lines);
 
     if (targetCommand === "INPUT") {
-      const quoteIndex = lines[index].indexOf("\"") + 1;
-      setCaret(index, Math.max(quoteIndex, lines[index].length));
+      const lastQuote = lines[index].lastIndexOf("\"");
+      setCaret(index, Math.max(lastQuote, lines[index].length));
     } else {
       setCaret(index + 1, 0);
     }
@@ -215,8 +220,8 @@
   tryGotoButton.addEventListener("click", tryGoto);
   addWaitToLoadButton.addEventListener("click", () => insertCommand("WAITTOLOAD", { advanceLine: true }));
   addWaitButton.addEventListener("click", () => insertCommand("WAIT 1000", { advanceLine: true }));
-  addClickButton.addEventListener("click", () => insertCommand("CLICK "));
-  addInputButton.addEventListener("click", () => insertCommand("INPUT  \"\"", { caretColumn: "INPUT ".length }));
+  addClickButton.addEventListener("click", () => insertCommand('CLICK ""', { caretColumn: 'CLICK "'.length }));
+  addInputButton.addEventListener("click", () => insertCommand('INPUT "" ""', { caretColumn: 'INPUT "'.length }));
   pickElementButton.addEventListener("click", () => {
     inferPickerCommand();
     startPicker();

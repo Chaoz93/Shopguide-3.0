@@ -1,5 +1,10 @@
 # Automation Command Builder Changelog
 
+## [0.1.5] - 2025-12-19
+### Fixed
+- CLICK and INPUT commands now wrap selectors in quotes when inserted or picked so automation parsing keeps the full selector intact.
+- Element selection caret positioning focuses on the value field to speed up INPUT authoring.
+
 ## [0.1.4] - 2025-12-19
 ### Fixed
 - Element selections normalize whitespace so selectors stay valid when inserted into CLICK or INPUT commands.

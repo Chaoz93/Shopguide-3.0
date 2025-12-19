@@ -417,6 +417,53 @@
     return true;
   }
 
+  function parseSelectorArg(raw) {
+    const trimmed = (raw || "").trim();
+    if (!trimmed) return "";
+
+    const quoted = trimmed.match(/^['"]([\s\S]*)['"]$/);
+    if (quoted) {
+      return quoted[1];
+    }
+
+    return trimmed;
+  }
+
+  function parseInputArgs(raw) {
+    if (!raw || !raw.trim()) {
+      return { error: "INPUT requires a selector and a quoted string." };
+    }
+
+    const pairMatch = raw.match(/^\s*(['"])([\s\S]*?)\1\s+(['"])([\s\S]*?)\3\s*$/);
+    if (pairMatch) {
+      return { selector: pairMatch[2], text: pairMatch[4] };
+    }
+
+    const firstMatch = raw.match(/^\s*(['"])([\s\S]*?)\1/);
+    if (firstMatch) {
+      const remaining = raw.slice(firstMatch[0].length).trim();
+      const secondMatch = remaining.match(/^(['"])([\s\S]*?)\1/);
+      if (secondMatch) {
+        return { selector: firstMatch[2], text: secondMatch[2] };
+      }
+    }
+
+    const firstSpace = raw.search(/\s/);
+    if (firstSpace === -1) {
+      return { error: "INPUT requires a selector and a quoted string." };
+    }
+
+    const selector = raw.slice(0, firstSpace).trim();
+    const remainder = raw.slice(firstSpace).trim();
+    if (!selector || !remainder) {
+      return { error: "INPUT requires a selector and a quoted string." };
+    }
+
+    const remainderMatch = remainder.match(/^['"]([\s\S]*)['"]$/);
+    const value = remainderMatch ? remainderMatch[1] : remainder;
+    return { selector, text: value };
+  }
+
   async function runInstructions() {
     const raw = instructionInput.value.trim();
     if (!raw) {
@@ -449,7 +496,7 @@
           commandSucceeded = await gotoCommand(urlText);
         }
       } else if (upper === "CLICK") {
-        const targetText = argString.replace(/\s+/g, " ").trim();
+        const targetText = parseSelectorArg(argString);
         if (!targetText) {
           addLog("CLICK requires an element selector or ID.", "error");
           commandSucceeded = false;
@@ -473,22 +520,12 @@
           commandSucceeded = await waitCommand(durationRaw);
         }
       } else if (upper === "INPUT") {
-        const inputArgs = argString.trimStart();
-        if (!inputArgs) {
-          addLog("INPUT requires an element selector/ID and a quoted string.", "error");
+        const parsed = parseInputArgs(argString);
+        if (parsed.error) {
+          addLog(parsed.error, "error");
           commandSucceeded = false;
         } else {
-          const spaceIndex = inputArgs.search(/\s/);
-          if (spaceIndex === -1) {
-            addLog("INPUT requires an element selector/ID and a quoted string.", "error");
-            commandSucceeded = false;
-          } else {
-            const id = inputArgs.slice(0, spaceIndex).replace(/\s+/g, " ").trim();
-            const valueRaw = inputArgs.slice(spaceIndex + 1).trim();
-            const matched = valueRaw.match(/^['"]([\s\S]*)['"]$/);
-            const value = matched ? matched[1] : valueRaw;
-            commandSucceeded = await inputCommand(id, value);
-          }
+          commandSucceeded = await inputCommand(parsed.selector, parsed.text);
         }
       } else if (upper === "CLOSE") {
         if (argString.trim()) {
