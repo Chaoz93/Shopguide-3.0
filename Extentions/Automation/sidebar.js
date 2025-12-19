@@ -50,8 +50,8 @@
       if (!payload.active) {
         if (existing) {
           existing.style.opacity = "0";
-          existing.style.transition = "opacity 220ms ease";
-          setTimeout(() => existing.remove(), 240);
+          existing.style.transition = "opacity 260ms ease";
+          setTimeout(() => existing.remove(), 280);
         }
         return true;
       }
@@ -63,12 +63,12 @@
       overlay.style.pointerEvents = "none";
       overlay.style.zIndex = "2147483646";
       overlay.style.background =
-        "radial-gradient(circle at center, rgba(77, 163, 255, 0.12), rgba(77, 163, 255, 0.28) 36%, rgba(14, 24, 44, 0.72) 72%, rgba(0, 0, 0, 0.85))";
-      overlay.style.mixBlendMode = "screen";
+        "radial-gradient(circle at center, rgba(46, 140, 255, 0.26) 0%, rgba(46, 140, 255, 0.42) 36%, rgba(8, 20, 46, 0.82) 72%, rgba(4, 8, 18, 0.92) 100%)";
       overlay.style.opacity = existing ? existing.style.opacity || "1" : "0";
-      overlay.style.transition = "opacity 220ms ease";
+      overlay.style.transition = "opacity 260ms ease";
       overlay.style.boxShadow =
-        "0 0 60px 18px rgba(77, 163, 255, 0.3) inset, 0 0 90px rgba(77, 163, 255, 0.32)";
+        "inset 0 0 0 120px rgba(46, 140, 255, 0.28), inset 0 0 180px 40px rgba(46, 140, 255, 0.32), 0 0 220px 80px rgba(46, 140, 255, 0.35)";
+      overlay.style.filter = "saturate(1.05)";
 
       if (!existing) {
         document.documentElement.appendChild(overlay);

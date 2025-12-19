@@ -1,5 +1,9 @@
 # Automation Sidebar Changelog
 
+## [0.6.15] - 2025-12-20
+### Fixed
+- Intensified the blue vignette overlay with a thicker halo so the running indicator stays clearly visible on any page.
+
 ## [0.6.14] - 2025-12-20
 ### Added
 - Added a blue vignette overlay to the active tab while automation is running, clearing when runs stop or tabs change.
