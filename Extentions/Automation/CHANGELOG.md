@@ -1,5 +1,11 @@
 # Automation Sidebar Changelog
 
+## [0.6.8] - 2025-12-20
+### Changed
+- Simplified the sidebar to a logo-first layout with a single Run/Stop control and subtle gray/blue styling.
+- Runs clipboard instructions immediately with a stop toggle and a spinning ring indicator while active.
+- Added a collapsible debug log that stays hidden by default but can be expanded for status details.
+
 ## [0.6.7] - 2025-12-19
 ### Fixed
 - Input parsing now treats selectors and values as quoted pairs so complex selectors stay intact and text goes to the intended field.

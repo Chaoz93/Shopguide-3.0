@@ -1,11 +1,25 @@
 (function () {
-  const instructionInput = document.getElementById("instructions");
-  const pasteButton = document.getElementById("paste");
   const runButton = document.getElementById("run");
   const logContainer = document.getElementById("log");
+  const logoWrap = document.getElementById("logoWrap");
   const api = typeof browser !== "undefined" ? browser : chrome;
   let chainTabId = null;
   const settleAfterCompleteMs = 1500;
+  let isRunning = false;
+  let stopRequested = false;
+  let stopLogged = false;
+
+  function setRunning(state) {
+    isRunning = state;
+    if (!state) {
+      stopRequested = false;
+      stopLogged = false;
+    }
+
+    runButton.textContent = state ? "Stop" : "Run";
+    runButton.classList.toggle("stop", state);
+    logoWrap.classList.toggle("running", state);
+  }
 
   function askToContinue(message) {
     return window.confirm(`${message}\n\nContinue with remaining commands?`);
@@ -292,7 +306,14 @@
     }
 
     addLog(`Waiting ${ms}ms...`, "info");
-    await new Promise((resolve) => setTimeout(resolve, ms));
+    const start = Date.now();
+    while (Date.now() - start < ms) {
+      if (stopRequested) {
+        addLog("WAIT cancelled by stop request.", "error");
+        return false;
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.min(150, ms - (Date.now() - start))));
+    }
     addLog(`Finished waiting ${ms}ms.`, "success");
     return true;
   }
@@ -464,15 +485,20 @@
     return { selector, text: value };
   }
 
-  async function runInstructions() {
-    const raw = instructionInput.value.trim();
+  async function runInstructions(rawInput) {
+    const raw = (rawInput || "").trim();
     if (!raw) {
-      addLog("Nothing to run. Add at least one command.", "error");
+      addLog("Clipboard was empty or had no commands.", "error");
       return;
     }
 
     const lines = raw.split(/\n+/).map((line) => line.trim()).filter(Boolean);
     for (const line of lines) {
+      if (stopRequested) {
+        addLog("Run stopped before executing next command.", "error");
+        break;
+      }
+
       const trimmedLine = line.trim();
       if (!trimmedLine) {
         continue;
@@ -539,6 +565,11 @@
         commandSucceeded = false;
       }
 
+      if (stopRequested) {
+        addLog("Run stopped during execution.", "error");
+        break;
+      }
+
       if (!commandSucceeded) {
         const proceed = askToContinue(`Command "${command}" failed.`);
         if (!proceed) {
@@ -549,26 +580,37 @@
     }
   }
 
-  async function pasteFromClipboard() {
-    pasteButton.disabled = true;
+  async function readClipboardText() {
     try {
       const text = await navigator.clipboard.readText();
-      instructionInput.value = text;
-      addLog("Pasted instructions from clipboard.", "success");
+      return text;
     } catch (error) {
       addLog(`Clipboard read failed: ${error.message || error}`, "error");
-    } finally {
-      pasteButton.disabled = false;
+      return "";
     }
   }
 
-  pasteButton.addEventListener("click", pasteFromClipboard);
-  runButton.addEventListener("click", () => {
+  runButton.addEventListener("click", async () => {
+    if (isRunning) {
+      stopRequested = true;
+      if (!stopLogged) {
+        addLog("Stop requested. Finishing current step...", "error");
+        stopLogged = true;
+      }
+      return;
+    }
+
     runButton.disabled = true;
-    runInstructions().finally(() => {
-      runButton.disabled = false;
-    });
+    const clipboardText = await readClipboardText();
+    setRunning(true);
+    runButton.disabled = false;
+
+    try {
+      await runInstructions(clipboardText);
+    } finally {
+      setRunning(false);
+    }
   });
 
-  addLog("Automation sidebar ready.", "success");
+  addLog("Automation sidebar ready. Paste commands to the clipboard and press Run.", "success");
 })();
