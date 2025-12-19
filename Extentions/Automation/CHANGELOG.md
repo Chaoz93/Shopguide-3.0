@@ -1,5 +1,9 @@
 # Automation Sidebar Changelog
 
+## [0.6.17] - 2025-12-20
+### Changed
+- Shrunk the vignette to a thinner blue edge highlight so the running indicator stays visible without covering the page.
+
 ## [0.6.16] - 2025-12-19
 ### Fixed
 - Softened the vignette overlay intensity while keeping the blue highlight visible during runs.

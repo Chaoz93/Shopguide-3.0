@@ -70,11 +70,11 @@
       overlay.style.pointerEvents = "none";
       overlay.style.zIndex = "2147483646";
       overlay.style.background =
-        "radial-gradient(circle at center, rgba(46, 140, 255, 0.12) 0%, rgba(46, 140, 255, 0.2) 32%, rgba(8, 20, 46, 0.58) 70%, rgba(4, 8, 18, 0.68) 100%)";
+        "radial-gradient(circle at center, rgba(0, 10, 30, 0) 40%, rgba(24, 104, 212, 0.12) 64%, rgba(24, 104, 212, 0.18) 74%, rgba(12, 54, 126, 0.26) 100%)";
       overlay.style.opacity = existing ? existing.style.opacity || "1" : "0";
       overlay.style.transition = "opacity 260ms ease";
       overlay.style.boxShadow =
-        "inset 0 0 0 70px rgba(46, 140, 255, 0.18), inset 0 0 140px 38px rgba(46, 140, 255, 0.22), 0 0 140px 60px rgba(46, 140, 255, 0.22)";
+        "inset 0 0 0 24px rgba(46, 140, 255, 0.12), inset 0 0 80px 22px rgba(46, 140, 255, 0.18), 0 0 120px 50px rgba(12, 54, 126, 0.28)";
       overlay.style.filter = "saturate(1.08)";
 
       if (!existing) {
