@@ -8,6 +8,7 @@
   let isRunning = false;
   let stopRequested = false;
   let stopLogged = false;
+  let lastVignetteTabId = null;
 
   function setRunning(state) {
     const wasRunning = isRunning;
@@ -21,6 +22,13 @@
     runButton.classList.toggle("stop", state);
     logoWrap.classList.toggle("running", state);
 
+    if (state && (chainTabId || lastVignetteTabId)) {
+      syncVignetteForTab(chainTabId || lastVignetteTabId).catch(() => {});
+    }
+    if (!state && lastVignetteTabId) {
+      clearVignette().catch(() => {});
+    }
+
     if (wasRunning !== state) {
       runButton.classList.remove("transition-to-run", "transition-to-stop");
       void runButton.offsetWidth;
@@ -30,6 +38,76 @@
 
   function askToContinue(message) {
     return window.confirm(`${message}\n\nContinue with remaining commands?`);
+  }
+
+  async function toggleTabVignette(tabId, active) {
+    if (!tabId) return;
+
+    const vignetteScript = `(${function (payload) {
+      const overlayId = "automation-vignette-overlay";
+      const existing = document.getElementById(overlayId);
+
+      if (!payload.active) {
+        if (existing) {
+          existing.style.opacity = "0";
+          existing.style.transition = "opacity 220ms ease";
+          setTimeout(() => existing.remove(), 240);
+        }
+        return true;
+      }
+
+      const overlay = existing || document.createElement("div");
+      overlay.id = overlayId;
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.pointerEvents = "none";
+      overlay.style.zIndex = "2147483646";
+      overlay.style.background =
+        "radial-gradient(circle at center, rgba(77, 163, 255, 0.12), rgba(77, 163, 255, 0.28) 36%, rgba(14, 24, 44, 0.72) 72%, rgba(0, 0, 0, 0.85))";
+      overlay.style.mixBlendMode = "screen";
+      overlay.style.opacity = existing ? existing.style.opacity || "1" : "0";
+      overlay.style.transition = "opacity 220ms ease";
+      overlay.style.boxShadow =
+        "0 0 60px 18px rgba(77, 163, 255, 0.3) inset, 0 0 90px rgba(77, 163, 255, 0.32)";
+
+      if (!existing) {
+        document.documentElement.appendChild(overlay);
+        requestAnimationFrame(() => {
+          overlay.style.opacity = "1";
+        });
+      } else {
+        overlay.style.opacity = "1";
+      }
+
+      return true;
+    }.toString()})(${JSON.stringify({ active })});`;
+
+    try {
+      await api.tabs.executeScript(tabId, { code: vignetteScript });
+    } catch (error) {
+      console.warn("Vignette update failed", error);
+    }
+  }
+
+  async function syncVignetteForTab(tabId) {
+    if (!tabId || !isRunning) return;
+
+    if (lastVignetteTabId && lastVignetteTabId !== tabId) {
+      try {
+        await toggleTabVignette(lastVignetteTabId, false);
+      } catch (_) {}
+    }
+
+    await toggleTabVignette(tabId, true);
+    lastVignetteTabId = tabId;
+  }
+
+  async function clearVignette() {
+    if (!lastVignetteTabId) return;
+    try {
+      await toggleTabVignette(lastVignetteTabId, false);
+    } catch (_) {}
+    lastVignetteTabId = null;
   }
 
   function timestamp() {
@@ -173,10 +251,16 @@
       if (navigateExistingTab) {
         await api.tabs.update(chainTabId, { url: normalized });
         addLog(`Navigated tracked tab to ${normalized}`, "success");
+        if (isRunning) {
+          await syncVignetteForTab(chainTabId);
+        }
       } else {
         const tab = await api.tabs.create({ url: normalized });
         chainTabId = tab.id;
         addLog(`Opened new tab and navigated to ${normalized}`, "success");
+        if (isRunning) {
+          await syncVignetteForTab(chainTabId);
+        }
       }
     } catch (error) {
       const message = error && error.message ? error.message : error;
@@ -188,6 +272,9 @@
           const tab = await api.tabs.create({ url: normalized });
           chainTabId = tab.id;
           addLog(`Opened new tab and navigated to ${normalized}`, "success");
+          if (isRunning) {
+            await syncVignetteForTab(chainTabId);
+          }
         } catch (fallbackError) {
           addLog(`Fallback GOTO failed: ${fallbackError.message || fallbackError}`, "error");
           return false;
@@ -433,6 +520,9 @@
     }
 
     try {
+      if (isRunning && lastVignetteTabId) {
+        await clearVignette();
+      }
       await api.tabs.remove(chainTabId);
       addLog("Closed tracked tab.", "success");
     } catch (error) {

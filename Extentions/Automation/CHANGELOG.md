@@ -1,5 +1,9 @@
 # Automation Sidebar Changelog
 
+## [0.6.14] - 2025-12-20
+### Added
+- Added a blue vignette overlay to the active tab while automation is running, clearing when runs stop or tabs change.
+
 ## [0.6.13] - 2025-12-19
 ### Fixed
 - Added a visible blue-to-red sweep animation when toggling Run/Stop, with smoother half-second transitions.
