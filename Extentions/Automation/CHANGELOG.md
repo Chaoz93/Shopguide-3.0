@@ -1,5 +1,11 @@
 # Automation Sidebar Changelog
 
+## [0.6.10] - 2025-12-20
+### Changed
+- Lightened the background to a softer #606060 gray palette for the minimal UI.
+- Made the spinner ring larger and brighter so the running animation is clearly visible.
+- Narrowed the Run/Stop button to a slimmer centered layout.
+
 ## [0.6.9] - 2025-12-20
 ### Changed
 - Enlarged the Lufthansa logo with refined spinner ring and tightened the Run/Stop control width for a sleeker layout.
