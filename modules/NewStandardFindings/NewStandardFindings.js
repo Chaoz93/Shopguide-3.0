@@ -7935,7 +7935,6 @@
         findings:splitLines(findingsText),
         actions:splitLines(actionsText)
       };
-      this.rawFindings=this.routineEditorDerivedLines.findings.slice();
       this.refreshRoutineEditorPreview();
     }
 
