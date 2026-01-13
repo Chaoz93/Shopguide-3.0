@@ -5187,8 +5187,15 @@
       }
       for(const key of OUTPUT_KEYS){
         let value=opts.forceEmpty?'' : computed[key]||'';
-        if(key==='routine'&&!opts.forceEmpty&&effectiveTemplate){
-          value=this.expandPlaceholders(effectiveTemplate);
+        if(!opts.forceEmpty){
+          if(key==='routine'&&effectiveTemplate){
+            value=this.expandPlaceholders(effectiveTemplate);
+          }else{
+            const template=this.getRoutineEditorFreitextTemplate(key);
+            if(template){
+              value=this.expandPlaceholders(template);
+            }
+          }
         }
         if(this.activeState[key]!==value){
           this.activeState[key]=value;
@@ -7999,20 +8006,16 @@
     updateFreitextPreview(){
       const rawText=typeof this.freitextDraft==='string'?this.freitextDraft:'';
       const expanded=this.expandPlaceholders(rawText);
-      const hasContent=expanded.trim().length>0;
-      if(this.routineEditorPreviewContent){
-        this.routineEditorPreviewContent.textContent=hasContent?expanded:'Keine Routine-Daten vorhanden.';
-      }
-      if(this.routineEditorPreviewPanel){
-        this.routineEditorPreviewPanel.classList.toggle('is-empty',!hasContent);
-      }
+      this.updateFreitextPreviewWithExpanded(expanded);
     }
 
-    updateFreitextPreviewWithExpanded(expanded){
+    updateFreitextPreviewWithExpanded(expanded,tabKey=this.getActiveRoutineEditorTab()){
       const text=typeof expanded==='string'?expanded:'';
       const hasContent=text.trim().length>0;
+      const config=this.getRoutineEditorTabConfig(tabKey);
+      const emptyText=config?.previewEmpty||'Keine Routine-Daten vorhanden.';
       if(this.routineEditorPreviewContent){
-        this.routineEditorPreviewContent.textContent=hasContent?text:'Keine Routine-Daten vorhanden.';
+        this.routineEditorPreviewContent.textContent=hasContent?text:emptyText;
       }
       if(this.routineEditorPreviewPanel){
         this.routineEditorPreviewPanel.classList.toggle('is-empty',!hasContent);
@@ -8021,24 +8024,29 @@
 
     commitFreitextDraft(value,options={}){
       const rawText=typeof value==='string'?value:(typeof this.freitextDraft==='string'?this.freitextDraft:'');
+      const activeTab=this.getActiveRoutineEditorTab();
+      const targetConfig=this.getRoutineEditorTabConfig(activeTab);
+      const targetKey=targetConfig&&targetConfig.primaryTextarea?targetConfig.primaryTextarea:'routine';
       this.freitextDraft=rawText;
       if(this.freitextTextarea&&this.freitextTextarea.value!==rawText){
         this.freitextTextarea.value=rawText;
       }
       const expanded=this.expandPlaceholders(rawText);
-      const routineTextarea=this.textareas&&this.textareas.routine;
-      if(routineTextarea&&routineTextarea.value!==expanded){
-        routineTextarea.value=expanded;
+      const targetTextarea=this.textareas&&this.textareas[targetKey];
+      if(targetTextarea&&targetTextarea.value!==expanded){
+        targetTextarea.value=expanded;
         if(typeof autoResizeTextarea==='function'){
-          try{autoResizeTextarea(routineTextarea);}catch{}
+          try{autoResizeTextarea(targetTextarea);}catch{}
         }
       }
       if(this.activeState&&typeof this.activeState==='object'){
         this.activeState.freitextTemplate=rawText;
-        this.activeState.routine=expanded;
+        if(Object.prototype.hasOwnProperty.call(this.activeState,targetKey)){
+          this.activeState[targetKey]=expanded;
+        }
       }
-      this.setRoutineEditorFreitextTemplate(rawText,this.getActiveRoutineEditorTab());
-      this.updateFreitextPreviewWithExpanded(expanded);
+      this.setRoutineEditorFreitextTemplate(rawText,activeTab);
+      this.updateFreitextPreviewWithExpanded(expanded,activeTab);
       this.queueStateSave();
       if(options&&options.closeOverlay){
         this.closeRoutineEditorOverlay();
@@ -8087,11 +8095,10 @@
 
     setFreitextEditorValue(value){
       const text=typeof value==='string'?value:'';
-      this.freitextDraft=text;
-      if(this.freitextTextarea&&this.freitextTextarea.value!==text){
-        this.freitextTextarea.value=text;
+      this.commitFreitextDraft(text);
+      if(typeof autoResizeTextarea==='function'&&this.freitextTextarea){
+        try{autoResizeTextarea(this.freitextTextarea);}catch{}
       }
-      this.updateFreitextPreview();
     }
 
     setRoutineEditorActiveTab(tabKey){
