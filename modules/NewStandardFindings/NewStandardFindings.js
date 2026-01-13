@@ -1480,6 +1480,12 @@
       .nsf-selection-section.collapsed .nsf-selection-body{display:none;}
       .nsf-selection-section.collapsed .nsf-selection-summary{margin-left:0;}
       .nsf-selection-section.collapsed .nsf-selection-header{border-bottom:none;}
+      .nsf-removal-panel{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-removal-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .nsf-removal-actions{display:flex;flex-wrap:wrap;gap:0.45rem;}
+      .nsf-removal-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.65rem;padding:0.35rem 0.7rem;font:inherit;font-size:0.78rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-removal-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
+      .nsf-removal-btn:disabled{opacity:0.45;cursor:not-allowed;background:rgba(255,255,255,0.12);transform:none;}
       .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
       .nsf-header-action{background:rgba(255,255,255,0.12);border:none;border-radius:999px;padding:0.25rem 0.6rem;font:inherit;font-size:0.72rem;color:inherit;line-height:1;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-header-action:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
@@ -4485,6 +4491,41 @@
 
       const selectionBody=document.createElement('div');
       selectionBody.className='nsf-selection-body';
+
+      const removalPanel=document.createElement('div');
+      removalPanel.className='nsf-removal-panel';
+      const removalTitle=document.createElement('div');
+      removalTitle.className='nsf-removal-title';
+      removalTitle.textContent='Reason for Removal';
+      removalPanel.appendChild(removalTitle);
+      const removalActions=document.createElement('div');
+      removalActions.className='nsf-removal-actions';
+      const removalDisabled=!this.meldung;
+      const addRemovalButton=(label,handler)=>{
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='nsf-removal-btn';
+        button.textContent=label;
+        button.disabled=removalDisabled;
+        button.addEventListener('click',handler);
+        removalActions.appendChild(button);
+        return button;
+      };
+      addRemovalButton('Confirmed',()=>this.setRemovalReason('confirmed.'));
+      addRemovalButton('Not confirmed',()=>this.setRemovalReason('not confirmed.'));
+      addRemovalButton('Not provided by customer',()=>this.setRemovalReason('not provided by customer.'));
+      addRemovalButton('Surplus as removed',()=>{
+        const input=window.prompt('Bitte geben Sie die MSN ein:','');
+        if(!input) return;
+        this.setRemovalReason(`Surplus as removed from MSN: ${input.trim()}`);
+      });
+      addRemovalButton('Other',()=>{
+        const input=window.prompt('Bitte geben Sie einen eigenen Grund ein:','');
+        if(!input) return;
+        this.setRemovalReason(input.trim());
+      });
+      removalPanel.appendChild(removalActions);
+      selectionBody.appendChild(removalPanel);
 
       const note=document.createElement('div');
       note.className='nsf-note';
@@ -8335,6 +8376,40 @@
       if(finalLines[finalLines.length-1]!=='') finalLines.push('');
       finalLines.push(fallback);
       return finalLines.join('\n');
+    }
+
+    clearRemovalSelections(){
+      const prefix='removal:';
+      let changed=false;
+      this.selectedEntries=this.selectedEntries.filter(entry=>{
+        if(!entry||typeof entry.key!=='string') return true;
+        if(entry.key.startsWith(prefix)){
+          changed=true;
+          return false;
+        }
+        return true;
+      });
+      return changed;
+    }
+
+    setRemovalReason(reasonText){
+      if(!this.meldung) return;
+      const cleaned=clean(reasonText);
+      if(!cleaned) return;
+      this.clearRemovalSelections();
+      const slug=cleaned.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+      const key=`removal:${slug||Date.now().toString(36)}`;
+      const entry={
+        key,
+        label:cleaned,
+        finding:cleaned,
+        action:''
+      };
+      this.addSelection(entry);
+      this.undoBuffer=null;
+      this.syncOutputsWithSelections({persist:false});
+      this.persistState(true);
+      this.render();
     }
 
     addInputRow(prefillEntry,focusNext){
