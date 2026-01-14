@@ -424,6 +424,7 @@
     {key:'routine',label:'{routine}',description:'Routine-Text'},
     {key:'times',label:'{times}',description:'Arbeitszeiten'},
     {key:'mods',label:'{mods}',description:'Modifikationen'},
+    {key:'rfr',label:'{RfR}',description:'Removal-Grund'},
     {key:'label',label:'{label}',description:'Aktuelles Profil-Label'}
   ];
 
@@ -1480,6 +1481,12 @@
       .nsf-selection-section.collapsed .nsf-selection-body{display:none;}
       .nsf-selection-section.collapsed .nsf-selection-summary{margin-left:0;}
       .nsf-selection-section.collapsed .nsf-selection-header{border-bottom:none;}
+      .nsf-removal-panel{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-removal-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .nsf-removal-actions{display:flex;flex-wrap:wrap;gap:0.45rem;}
+      .nsf-removal-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.65rem;padding:0.35rem 0.7rem;font:inherit;font-size:0.78rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-removal-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
+      .nsf-removal-btn:disabled{opacity:0.45;cursor:not-allowed;background:rgba(255,255,255,0.12);transform:none;}
       .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
       .nsf-header-action{background:rgba(255,255,255,0.12);border:none;border-radius:999px;padding:0.25rem 0.6rem;font:inherit;font-size:0.72rem;color:inherit;line-height:1;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-header-action:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
@@ -3213,7 +3220,7 @@
   }
 
   function createEmptyActiveState(){
-    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',freitextTemplate:'',customSections:[]};
+    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',freitextTemplate:'',rfr:'',customSections:[]};
   }
 
   let customSectionIdCounter=0;
@@ -3240,6 +3247,7 @@
       nonroutine:typeof state.nonroutine==='string'?state.nonroutine:'',
       parts:typeof state.parts==='string'?state.parts:'',
       freitextTemplate:typeof state.freitextTemplate==='string'?state.freitextTemplate:'',
+      rfr:typeof state.rfr==='string'?state.rfr:'',
       customSections:Array.isArray(state.customSections)
         ?state.customSections.map(cloneCustomSection)
         :[]
@@ -3274,6 +3282,7 @@
       routine: typeof entry?.routine==='string'?entry.routine:'',
       nonroutine: typeof entry?.nonroutine==='string'?entry.nonroutine:'',
       parts: typeof entry?.partsText==='string'?entry.partsText:'',
+      rfr: typeof entry?.rfr==='string'?entry.rfr:'',
       customSections: normalizeCustomSections(entry?.customSections)
     };
   }
@@ -3326,6 +3335,7 @@
       routine: typeof state.routine==='string'?state.routine:'',
       nonroutine: typeof state.nonroutine==='string'?state.nonroutine:'',
       parts: typeof state.parts==='string'?state.parts:'',
+      rfr: typeof state.rfr==='string'?state.rfr:'',
       customSections: Array.isArray(state.customSections)?state.customSections.map(cloneCustomSection):[],
       selections: serializeSelections(selections)
     };
@@ -3593,6 +3603,7 @@
       this.findingsPath='';
       this.selectionCollapsed=false;
       this.headerCollapsed=true;
+      this.removalReason='';
       this.menuCleanup=null;
       this.partsContextMenu=null;
       this.partsContextMenuCleanup=null;
@@ -3744,6 +3755,22 @@
         this.activeState=createEmptyActiveState();
         selections=[];
       }
+      let removalFromSelection=null;
+      selections=Array.isArray(selections)
+        ?selections.filter(sel=>{
+            const key=typeof sel?.key==='string'?sel.key:'';
+            if(!key.startsWith('removal:')) return true;
+            if(!removalFromSelection) removalFromSelection=sel;
+            return false;
+          })
+        :[];
+      if(removalFromSelection&&!this.activeState.rfr){
+        const removalValue=clean(removalFromSelection.label||removalFromSelection.finding||'');
+        if(removalValue){
+          this.activeState.rfr=removalValue;
+        }
+      }
+      this.removalReason=clean(this.activeState.rfr||'');
       this.customSections=normalizeCustomSections(this.activeState.customSections);
       this.rebuildCustomSectionMap();
       this.syncCustomSectionsToActiveState({save:false});
@@ -4485,6 +4512,41 @@
 
       const selectionBody=document.createElement('div');
       selectionBody.className='nsf-selection-body';
+
+      const removalPanel=document.createElement('div');
+      removalPanel.className='nsf-removal-panel';
+      const removalTitle=document.createElement('div');
+      removalTitle.className='nsf-removal-title';
+      removalTitle.textContent='Reason for Removal';
+      removalPanel.appendChild(removalTitle);
+      const removalActions=document.createElement('div');
+      removalActions.className='nsf-removal-actions';
+      const removalDisabled=!this.meldung;
+      const addRemovalButton=(label,handler)=>{
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='nsf-removal-btn';
+        button.textContent=label;
+        button.disabled=removalDisabled;
+        button.addEventListener('click',handler);
+        removalActions.appendChild(button);
+        return button;
+      };
+      addRemovalButton('Confirmed',()=>this.setRemovalReason('confirmed.'));
+      addRemovalButton('Not confirmed',()=>this.setRemovalReason('not confirmed.'));
+      addRemovalButton('Not provided by customer',()=>this.setRemovalReason('not provided by customer.'));
+      addRemovalButton('Surplus as removed',()=>{
+        const input=window.prompt('Bitte geben Sie die MSN ein:','');
+        if(!input) return;
+        this.setRemovalReason(`Surplus as removed from MSN: ${input.trim()}`);
+      });
+      addRemovalButton('Other',()=>{
+        const input=window.prompt('Bitte geben Sie einen eigenen Grund ein:','');
+        if(!input) return;
+        this.setRemovalReason(input.trim());
+      });
+      removalPanel.appendChild(removalActions);
+      selectionBody.appendChild(removalPanel);
 
       const note=document.createElement('div');
       note.className='nsf-note';
@@ -7987,6 +8049,7 @@
         mods:modsText,
         parts:partsText,
         times:timesText,
+        rfr:clean(this.removalReason||this.activeState?.rfr||''),
         label:typeof this.currentLabel==='string'?this.currentLabel:''
       };
       const expanded=raw.replace(/\{([a-z]+)\}/gi,(match,key)=>{
@@ -8335,6 +8398,20 @@
       if(finalLines[finalLines.length-1]!=='') finalLines.push('');
       finalLines.push(fallback);
       return finalLines.join('\n');
+    }
+
+    setRemovalReason(reasonText){
+      if(!this.meldung) return;
+      const cleaned=clean(reasonText);
+      if(!cleaned) return;
+      this.removalReason=cleaned;
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.rfr=cleaned;
+      }
+      this.undoBuffer=null;
+      this.syncOutputsWithSelections({persist:false});
+      this.persistState(true);
+      this.render();
     }
 
     addInputRow(prefillEntry,focusNext){
@@ -8763,6 +8840,7 @@
       this.rebuildCustomSectionMap();
       this.syncCustomSectionsToActiveState({save:false});
       this.selectedEntries=[];
+      this.removalReason='';
       this.undoBuffer=null;
       for(const key of Object.keys(this.textareas||{})){
         const textarea=this.textareas[key];
