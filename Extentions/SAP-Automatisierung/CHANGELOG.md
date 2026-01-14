@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.1.2] - 2026-01-14
+### Added
+- Enabled left-click drag selection only and added Enter-to-move-down focus behavior for grid cells.
+
 ## [0.1.1] - 2026-01-14
 ### Added
 - Added drag selection and delete-to-clear behavior for grid cells, keeping one empty row at the bottom.

@@ -135,6 +135,7 @@
   }
 
   function handleSelectStart(event) {
+    if (event.button !== 0) return;
     isSelecting = true;
     selectionAnchor = getCellPosition(event.target);
     selectRange(selectionAnchor, selectionAnchor);
@@ -203,6 +204,24 @@
     if ((event.key === "Delete" || event.key === "Backspace") && selectedCells.size) {
       event.preventDefault();
       deleteSelection();
+      return;
+    }
+
+    if (event.key === "Enter") {
+      const active = document.activeElement;
+      if (!(active instanceof HTMLInputElement) || !active.classList.contains("sheet-input")) {
+        return;
+      }
+      event.preventDefault();
+      const { rowIndex, colIndex } = getCellPosition(active);
+      ensureRowCount(rowIndex + 2);
+      const nextRow = sheetBody.children[rowIndex + 1];
+      const inputs = Array.from(nextRow.querySelectorAll("input"));
+      const nextInput = inputs[colIndex];
+      if (nextInput) {
+        nextInput.focus();
+        selectRange({ rowIndex: rowIndex + 1, colIndex }, { rowIndex: rowIndex + 1, colIndex });
+      }
     }
   }
 
