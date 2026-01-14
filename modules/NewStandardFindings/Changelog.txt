@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.4.1] – 2026-01-14
+### Fixed
+- Findings-Auswahlbereich nutzt jetzt eine dedizierte Collapse-Klasse, damit das Feld nach dem Einklappen zuverlässig wieder geöffnet werden kann.
+
 ## [1.4.0] – 2026-01-14
 ### Added
 - Neuer Reason-Abschnitt zum Eingeben des Piloten-Reasontexts inklusive Variable `{Reason}` für Freitexte.

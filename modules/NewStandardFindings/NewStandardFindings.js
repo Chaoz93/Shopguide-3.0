@@ -1470,7 +1470,7 @@
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
       .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;}
       .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
-      .nsf-selection-section.collapsed{overflow:hidden;}
+      .nsf-selection-section.nsf-selection-collapsed{overflow:hidden;}
       .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);}
       .nsf-selection-header:focus-within{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
       .nsf-selection-heading{display:flex;align-items:center;gap:0.4rem;font-size:0.95rem;font-weight:600;}
@@ -1479,9 +1479,9 @@
       .nsf-selection-summary-more{opacity:0.75;font-weight:500;}
       .nsf-selection-summary-empty{opacity:0.6;font-style:italic;}
       .nsf-selection-body{display:flex;flex-direction:column;gap:0.6rem;padding:0.7rem 0.85rem;overflow:visible;}
-      .nsf-selection-section.collapsed .nsf-selection-body{display:none;}
-      .nsf-selection-section.collapsed .nsf-selection-summary{margin-left:0;}
-      .nsf-selection-section.collapsed .nsf-selection-header{border-bottom:none;}
+      .nsf-selection-section.nsf-selection-collapsed .nsf-selection-body{display:none;}
+      .nsf-selection-section.nsf-selection-collapsed .nsf-selection-summary{margin-left:0;}
+      .nsf-selection-section.nsf-selection-collapsed .nsf-selection-header{border-bottom:none;}
       .nsf-removal-panel{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-removal-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-removal-actions{display:flex;flex-wrap:wrap;gap:0.45rem;}
@@ -4454,7 +4454,7 @@
 
       const inputSection=document.createElement('div');
       inputSection.className='nsf-section nsf-selection-section';
-      if(this.selectionCollapsed) inputSection.classList.add('collapsed');
+      if(this.selectionCollapsed) inputSection.classList.add('nsf-selection-collapsed');
 
       const selectionHeader=document.createElement('div');
       selectionHeader.className='nsf-selection-header';
