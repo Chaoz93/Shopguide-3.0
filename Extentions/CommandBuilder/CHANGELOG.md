@@ -1,5 +1,21 @@
 # Automation Command Builder Changelog
 
+## [0.1.9] - 2026-01-14
+### Fixed
+- Escaped tooltip syntax markers so button labels remain unchanged.
+
+## [0.1.8] - 2026-01-14
+### Changed
+- Removed the header/footer helper text and updated button tooltips to show syntax plus a short hint.
+
+## [0.1.7] - 2026-01-14
+### Changed
+- Reorganized the command buttons into labeled groups and cleared the editor so it starts empty.
+
+## [0.1.6] - 2026-01-14
+### Added
+- Added a WAITFORELEMENT command button with picker support and updated helper copy.
+
 ## [0.1.5] - 2025-12-19
 ### Fixed
 - CLICK and INPUT commands now wrap selectors in quotes when inserted or picked so automation parsing keeps the full selector intact.

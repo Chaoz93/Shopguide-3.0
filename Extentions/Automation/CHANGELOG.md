@@ -1,5 +1,13 @@
 # Automation Sidebar Changelog
 
+## [0.6.20] - 2026-01-14
+### Changed
+- WAITFORELEMENT now checks every 100ms instead of 500ms for faster response.
+
+## [0.6.19] - 2026-01-14
+### Added
+- Added a WAITFORELEMENT command that polls every 500ms until the target selector appears.
+
 ## [0.6.18] - 2025-12-20
 ### Fixed
 - Reduced the vignette thickness by about half and removed the transparent border so the running halo just frames the edges.
