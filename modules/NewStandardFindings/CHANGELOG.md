@@ -5,6 +5,22 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.4.7 – 2026-01-14
+### Changed
+- Der Bereich „Findings auswählen“ ist jetzt fest integriert und nicht mehr einklappbar.
+
+## 1.4.6 – 2026-01-14
+### Fixed
+- Der eingeklappte Bereich „Findings auswählen“ bleibt sichtbar und unterscheidbar, damit er nicht wie ausgeblendet wirkt.
+
+## 1.4.5 – 2026-01-14
+### Changed
+- Die Findings-Auswahl ist jetzt standardmäßig eingeklappt, damit der Startzustand dem Modulkopf entspricht.
+
+## 1.4.4 – 2026-01-14
+### Fixed
+- Die Einklapplogik für den Bereich „Findings auswählen“ übernimmt jetzt die Modulkopf-Logik, sodass das Ein- und Ausklappen zuverlässiger reagiert.
+
 ## 1.3.7 – 2025-12-18
 ### Fixed
 - Freitext-Profile übertragen ihre Inhalte jetzt für alle Ausgabefelder (Findings, Actions, Routine, Nonroutine) zuverlässig zurück in die Textfelder.
