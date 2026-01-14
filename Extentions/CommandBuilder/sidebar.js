@@ -162,7 +162,7 @@
 
     try {
       await api.tabs.executeScript(tab.id, { file: "picker.js" });
-      await api.tabs.sendMessage(tab.id, { type: "automation-picker-start" });
+      await api.tabs.sendMessage(tab.id, { type: "automation-picker-start", command: pickerCommand });
       setStatus("Hover an element to highlight it, then click to capture the ID.");
     } catch (error) {
       setStatus(`Could not start picker: ${error && error.message ? error.message : error}`, "warning");

@@ -12,6 +12,7 @@
   let label;
   let active = false;
   let currentTarget = null;
+  let pickerCommand = "CLICK";
 
   function cssEscape(value) {
     if (window.CSS && typeof window.CSS.escape === "function") {
@@ -106,6 +107,15 @@
     }
 
     let segment = tag;
+    const dataAttribute = ["data-testid", "data-test", "data-qa", "name", "aria-label", "role"].find(
+      (attr) => el.hasAttribute && el.hasAttribute(attr)
+    );
+    if (dataAttribute) {
+      const value = el.getAttribute(dataAttribute);
+      if (value) {
+        segment += `[${dataAttribute}="${cssEscape(value)}"]`;
+      }
+    }
     const classes = Array.from(el.classList).slice(0, 2);
     if (classes.length) {
       segment += `.${classes.map((c) => cssEscape(c)).join(".")}`;
@@ -121,6 +131,24 @@
     }
 
     return segment;
+  }
+
+  function buildStrictPath(target) {
+    const segments = [];
+    let el = target;
+    while (el && el.tagName && el !== document.documentElement) {
+      const tag = el.tagName.toLowerCase();
+      const siblings = el.parentElement ? Array.from(el.parentElement.children) : [];
+      if (siblings.length > 1) {
+        const index = siblings.indexOf(el) + 1;
+        segments.unshift(`${tag}:nth-child(${index})`);
+      } else {
+        segments.unshift(tag);
+      }
+      el = el.parentElement;
+    }
+    segments.unshift("html");
+    return segments.join(" > ");
   }
 
   function uniqueSelector(target) {
@@ -145,7 +173,17 @@
       depth += 1;
     }
 
-    return segments.join(" > ");
+    const candidate = segments.join(" > ");
+    try {
+      const matches = document.querySelectorAll(candidate);
+      if (matches.length === 1 && matches[0] === target) {
+        return candidate;
+      }
+    } catch (_) {
+      // ignore, fallback below
+    }
+
+    return buildStrictPath(target);
   }
 
   function commitSelection(target) {
@@ -160,7 +198,8 @@
 
   function onMove(event) {
     if (!active) return;
-    const target = document.elementFromPoint(event.clientX, event.clientY);
+    const targets = document.elementsFromPoint(event.clientX, event.clientY);
+    const target = pickTarget(targets);
     if (!target || target === document.documentElement || target === document.body) {
       return;
     }
@@ -172,7 +211,8 @@
     if (!active) return;
     event.preventDefault();
     event.stopPropagation();
-    const topmostTarget = document.elementFromPoint(event.clientX, event.clientY);
+    const targets = document.elementsFromPoint(event.clientX, event.clientY);
+    const topmostTarget = pickTarget(targets);
     if (topmostTarget && topmostTarget !== document.documentElement && topmostTarget !== document.body) {
       currentTarget = topmostTarget;
     }
@@ -188,7 +228,34 @@
     }
   }
 
-  function startPicker() {
+  function isEditableTarget(target) {
+    if (!target || !(target instanceof HTMLElement)) return false;
+    if (target.isContentEditable) return true;
+    if (target instanceof HTMLTextAreaElement) {
+      return !target.disabled && !target.readOnly;
+    }
+    if (target instanceof HTMLInputElement) {
+      const type = (target.type || "text").toLowerCase();
+      const blockedTypes = ["button", "submit", "reset", "checkbox", "radio", "file", "image", "range", "color"];
+      if (blockedTypes.includes(type)) return false;
+      return !target.disabled && !target.readOnly;
+    }
+    if (target.getAttribute("role") === "textbox") {
+      return !target.hasAttribute("aria-disabled") && target.getAttribute("aria-readonly") !== "true";
+    }
+    return false;
+  }
+
+  function pickTarget(targets) {
+    if (!targets || !targets.length) return null;
+    if (pickerCommand === "INPUT") {
+      return targets.find((target) => isEditableTarget(target)) || null;
+    }
+    return targets.find((target) => target !== document.documentElement && target !== document.body) || null;
+  }
+
+  function startPicker(command = "CLICK") {
+    pickerCommand = command || "CLICK";
     createOverlay();
     if (!overlay || !label) return;
 
@@ -207,7 +274,7 @@
   api.runtime.onMessage.addListener((message) => {
     if (!message || !message.type) return;
     if (message.type === "automation-picker-start") {
-      startPicker();
+      startPicker(message.command);
       return;
     }
     if (message.type === "automation-picker-stop") {
