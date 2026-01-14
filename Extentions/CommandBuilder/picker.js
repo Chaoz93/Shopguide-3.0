@@ -172,6 +172,10 @@
     if (!active) return;
     event.preventDefault();
     event.stopPropagation();
+    const topmostTarget = document.elementFromPoint(event.clientX, event.clientY);
+    if (topmostTarget && topmostTarget !== document.documentElement && topmostTarget !== document.body) {
+      currentTarget = topmostTarget;
+    }
     commitSelection(currentTarget || event.target);
   }
 
