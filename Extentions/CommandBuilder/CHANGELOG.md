@@ -1,5 +1,9 @@
 # Automation Command Builder Changelog
 
+## [0.1.8] - 2026-01-14
+### Changed
+- Removed the header/footer helper text and updated button tooltips to show syntax plus a short hint.
+
 ## [0.1.7] - 2026-01-14
 ### Changed
 - Reorganized the command buttons into labeled groups and cleared the editor so it starts empty.

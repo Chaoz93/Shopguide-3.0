@@ -154,11 +154,6 @@
     <div class="app">
       <div>
         <h1>Command Builder</h1>
-        <p>
-          Assemble automation instructions with quick buttons. Hover a command to
-          learn what it does, insert it into the current line, and use the
-          element picker to fill CLICK, WAITFORELEMENT, or INPUT selectors.
-        </p>
       </div>
 
       <div class="input-group">
@@ -169,31 +164,56 @@
             <div class="command-group">
               <h2>Navigation</h2>
               <div class="actions-row">
-                <button id="add-goto" title="Insert 'GOTO ' on this line and place the cursor for the URL">Add GOTO</button>
-                <button id="try-goto" title="Navigate the active tab to the URL on the current GOTO line">Try GOTO</button>
+                <button
+                  id="add-goto"
+                  title="GOTO <URL>&#10;Insert a GOTO command and position the cursor for the URL."
+                >
+                  Add GOTO
+                </button>
+                <button
+                  id="try-goto"
+                  title="Try GOTO&#10;Open the URL from the current GOTO line in the active tab."
+                >
+                  Try GOTO
+                </button>
               </div>
             </div>
             <div class="command-group">
               <h2>Waiting</h2>
               <div class="actions-row">
-                <button id="add-waittoload" title="Insert WAITTOLOAD and move to the next line">Add WAITTOLOAD</button>
+                <button
+                  id="add-waittoload"
+                  title="WAITTOLOAD&#10;Wait for the tracked tab to finish loading."
+                >
+                  Add WAITTOLOAD
+                </button>
                 <button
                   id="add-waitforelement"
-                  title="Insert WAITFORELEMENT and keep the cursor on this line to enter an element selector (quoted)"
+                  title="WAITFORELEMENT \"<selector>\"&#10;Wait until the selector appears."
                 >
                   Add WAITFORELEMENT
                 </button>
-                <button id="add-wait" title="Insert WAIT <ms> and move to the next line">Add WAIT</button>
+                <button id="add-wait" title="WAIT <ms>&#10;Pause for a specific number of milliseconds.">Add WAIT</button>
               </div>
             </div>
             <div class="command-group">
               <h2>Actions</h2>
               <div class="actions-row">
-                <button id="add-click" title="Insert CLICK and keep the cursor on this line to enter an element selector (quoted)">Add CLICK</button>
-                <button id="add-input" title="Insert INPUT \"selector\" \"text\" and keep the cursor ready to edit">Add INPUT</button>
+                <button
+                  id="add-click"
+                  title="CLICK \"<selector>\"&#10;Click the matching element in the tracked tab."
+                >
+                  Add CLICK
+                </button>
+                <button
+                  id="add-input"
+                  title="INPUT \"<selector>\" \"<text>\"&#10;Fill the target element with text."
+                >
+                  Add INPUT
+                </button>
                 <button
                   id="pick-element"
-                  title="Start the element picker to capture a selector for the current CLICK/WAITFORELEMENT/INPUT line"
+                  title="Pick element&#10;Capture a selector for CLICK, WAITFORELEMENT, or INPUT."
                 >
                   Pick element
                 </button>
@@ -202,7 +222,9 @@
             <div class="command-group">
               <h2>Clipboard</h2>
               <div class="actions-row">
-                <button id="copy-commands" title="Copy all commands to the clipboard">Copy commands</button>
+                <button id="copy-commands" title="Copy commands&#10;Copy the full command list to the clipboard.">
+                  Copy commands
+                </button>
               </div>
             </div>
           </div>
@@ -210,13 +232,6 @@
         <div id="status" class="status" aria-live="polite"></div>
       </div>
 
-      <div class="note">
-        GOTO inserts the URL and can be tested immediately. WAITTOLOAD moves you
-        to the next line. WAITFORELEMENT waits until a selector appears.
-        WAIT adds a millisecond pause. CLICK and INPUT stay on the current line
-        so you can type a selector or pick one from the active page; selecting
-        an element fills the quoted selector and prepares the next command line.
-      </div>
     </div>
 
     <script src="sidebar.js"></script>
