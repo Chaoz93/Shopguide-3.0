@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.1.5] - 2026-01-14
+### Added
+- Added arrow key navigation to move cell focus and selection.
+
 ## [0.1.4] - 2026-01-14
 ### Added
 - Added column headers and enabled copy-to-clipboard for selected grid ranges.

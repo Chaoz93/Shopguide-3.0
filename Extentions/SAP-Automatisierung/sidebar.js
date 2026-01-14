@@ -268,6 +268,38 @@
         nextInput.focus();
         selectRange({ rowIndex: rowIndex + 1, colIndex }, { rowIndex: rowIndex + 1, colIndex });
       }
+      return;
+    }
+
+    const arrowKeys = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+    if (arrowKeys.has(event.key)) {
+      const active = document.activeElement;
+      if (!(active instanceof HTMLInputElement) || !active.classList.contains("sheet-input")) {
+        return;
+      }
+      event.preventDefault();
+      const { rowIndex, colIndex } = getCellPosition(active);
+      let nextRow = rowIndex;
+      let nextCol = colIndex;
+      if (event.key === "ArrowUp") {
+        nextRow = Math.max(0, rowIndex - 1);
+      } else if (event.key === "ArrowDown") {
+        nextRow = rowIndex + 1;
+      } else if (event.key === "ArrowLeft") {
+        nextCol = Math.max(0, colIndex - 1);
+      } else if (event.key === "ArrowRight") {
+        nextCol = colIndex + 1;
+      }
+      if (event.key === "ArrowDown") {
+        ensureRowCount(nextRow + 1);
+      }
+      const targetRow = sheetBody.children[nextRow];
+      if (!targetRow) return;
+      const inputs = Array.from(targetRow.querySelectorAll("input"));
+      const nextInput = inputs[nextCol];
+      if (!nextInput) return;
+      nextInput.focus();
+      selectRange({ rowIndex: nextRow, colIndex: nextCol }, { rowIndex: nextRow, colIndex: nextCol });
     }
   }
 
