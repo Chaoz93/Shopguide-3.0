@@ -84,6 +84,28 @@
         gap: 8px;
       }
 
+      .command-groups {
+        display: grid;
+        gap: 12px;
+      }
+
+      .command-group {
+        border: 1px solid var(--builder-border);
+        border-radius: 12px;
+        padding: 12px;
+        background: color-mix(in srgb, var(--builder-surface) 90%, transparent);
+        display: grid;
+        gap: 10px;
+      }
+
+      .command-group h2 {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 0;
+        color: var(--builder-subtle);
+      }
+
       button {
         border: 1px solid var(--builder-border);
         background: var(--builder-surface);
@@ -141,35 +163,48 @@
 
       <div class="input-group">
         <label for="commands">Commands</label>
-        <textarea
-          id="commands"
-          placeholder="Use the buttons below or type manually. Example:\nGOTO https://example.com\nWAITTOLOAD\nWAITFORELEMENT \"#hero-cta\"\nWAIT 1000\nCLICK \"#hero-cta\"\nINPUT \"form > input[name=email]\" \"hello@example.com\""
-        ></textarea>
+        <textarea id="commands"></textarea>
         <div class="actions">
-          <div class="actions-row">
-            <button id="add-goto" title="Insert 'GOTO ' on this line and place the cursor for the URL">Add GOTO</button>
-            <button id="try-goto" title="Navigate the active tab to the URL on the current GOTO line">Try GOTO</button>
-            <button id="add-waittoload" title="Insert WAITTOLOAD and move to the next line">Add WAITTOLOAD</button>
-          </div>
-          <div class="actions-row">
-            <button
-              id="add-waitforelement"
-              title="Insert WAITFORELEMENT and keep the cursor on this line to enter an element selector (quoted)"
-            >
-              Add WAITFORELEMENT
-            </button>
-            <button id="add-wait" title="Insert WAIT <ms> and move to the next line">Add WAIT</button>
-            <button id="add-click" title="Insert CLICK and keep the cursor on this line to enter an element selector (quoted)">Add CLICK</button>
-            <button id="add-input" title="Insert INPUT \"selector\" \"text\" and keep the cursor ready to edit">Add INPUT</button>
-            <button
-              id="pick-element"
-              title="Start the element picker to capture a selector for the current CLICK/WAITFORELEMENT/INPUT line"
-            >
-              Pick element
-            </button>
-          </div>
-          <div class="actions-row">
-            <button id="copy-commands" title="Copy all commands to the clipboard">Copy commands</button>
+          <div class="command-groups">
+            <div class="command-group">
+              <h2>Navigation</h2>
+              <div class="actions-row">
+                <button id="add-goto" title="Insert 'GOTO ' on this line and place the cursor for the URL">Add GOTO</button>
+                <button id="try-goto" title="Navigate the active tab to the URL on the current GOTO line">Try GOTO</button>
+              </div>
+            </div>
+            <div class="command-group">
+              <h2>Waiting</h2>
+              <div class="actions-row">
+                <button id="add-waittoload" title="Insert WAITTOLOAD and move to the next line">Add WAITTOLOAD</button>
+                <button
+                  id="add-waitforelement"
+                  title="Insert WAITFORELEMENT and keep the cursor on this line to enter an element selector (quoted)"
+                >
+                  Add WAITFORELEMENT
+                </button>
+                <button id="add-wait" title="Insert WAIT <ms> and move to the next line">Add WAIT</button>
+              </div>
+            </div>
+            <div class="command-group">
+              <h2>Actions</h2>
+              <div class="actions-row">
+                <button id="add-click" title="Insert CLICK and keep the cursor on this line to enter an element selector (quoted)">Add CLICK</button>
+                <button id="add-input" title="Insert INPUT \"selector\" \"text\" and keep the cursor ready to edit">Add INPUT</button>
+                <button
+                  id="pick-element"
+                  title="Start the element picker to capture a selector for the current CLICK/WAITFORELEMENT/INPUT line"
+                >
+                  Pick element
+                </button>
+              </div>
+            </div>
+            <div class="command-group">
+              <h2>Clipboard</h2>
+              <div class="actions-row">
+                <button id="copy-commands" title="Copy all commands to the clipboard">Copy commands</button>
+              </div>
+            </div>
           </div>
         </div>
         <div id="status" class="status" aria-live="polite"></div>

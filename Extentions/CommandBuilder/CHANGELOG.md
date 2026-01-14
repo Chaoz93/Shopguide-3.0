@@ -1,5 +1,9 @@
 # Automation Command Builder Changelog
 
+## [0.1.7] - 2026-01-14
+### Changed
+- Reorganized the command buttons into labeled groups and cleared the editor so it starts empty.
+
 ## [0.1.6] - 2026-01-14
 ### Added
 - Added a WAITFORELEMENT command button with picker support and updated helper copy.
