@@ -429,7 +429,7 @@
     }
 
     addLog(`Waiting for element (${targetId}) to appear...`, "info");
-    const pollIntervalMs = 500;
+    const pollIntervalMs = 100;
 
     const elementExistsRunner = function (payload) {
       function cssEscape(value) {
