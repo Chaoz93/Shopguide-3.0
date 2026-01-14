@@ -424,6 +424,7 @@
     {key:'routine',label:'{routine}',description:'Routine-Text'},
     {key:'times',label:'{times}',description:'Arbeitszeiten'},
     {key:'mods',label:'{mods}',description:'Modifikationen'},
+    {key:'rfr',label:'{RfR}',description:'Removal-Grund'},
     {key:'label',label:'{label}',description:'Aktuelles Profil-Label'}
   ];
 
@@ -3219,7 +3220,7 @@
   }
 
   function createEmptyActiveState(){
-    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',freitextTemplate:'',customSections:[]};
+    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',freitextTemplate:'',rfr:'',customSections:[]};
   }
 
   let customSectionIdCounter=0;
@@ -3246,6 +3247,7 @@
       nonroutine:typeof state.nonroutine==='string'?state.nonroutine:'',
       parts:typeof state.parts==='string'?state.parts:'',
       freitextTemplate:typeof state.freitextTemplate==='string'?state.freitextTemplate:'',
+      rfr:typeof state.rfr==='string'?state.rfr:'',
       customSections:Array.isArray(state.customSections)
         ?state.customSections.map(cloneCustomSection)
         :[]
@@ -3599,6 +3601,7 @@
       this.findingsPath='';
       this.selectionCollapsed=false;
       this.headerCollapsed=true;
+      this.removalReason='';
       this.menuCleanup=null;
       this.partsContextMenu=null;
       this.partsContextMenuCleanup=null;
@@ -3750,6 +3753,22 @@
         this.activeState=createEmptyActiveState();
         selections=[];
       }
+      let removalFromSelection=null;
+      selections=Array.isArray(selections)
+        ?selections.filter(sel=>{
+            const key=typeof sel?.key==='string'?sel.key:'';
+            if(!key.startsWith('removal:')) return true;
+            if(!removalFromSelection) removalFromSelection=sel;
+            return false;
+          })
+        :[];
+      if(removalFromSelection&&!this.activeState.rfr){
+        const removalValue=clean(removalFromSelection.label||removalFromSelection.finding||'');
+        if(removalValue){
+          this.activeState.rfr=removalValue;
+        }
+      }
+      this.removalReason=clean(this.activeState.rfr||'');
       this.customSections=normalizeCustomSections(this.activeState.customSections);
       this.rebuildCustomSectionMap();
       this.syncCustomSectionsToActiveState({save:false});
@@ -8028,6 +8047,7 @@
         mods:modsText,
         parts:partsText,
         times:timesText,
+        rfr:clean(this.removalReason||this.activeState?.rfr||''),
         label:typeof this.currentLabel==='string'?this.currentLabel:''
       };
       const expanded=raw.replace(/\{([a-z]+)\}/gi,(match,key)=>{
@@ -8378,34 +8398,14 @@
       return finalLines.join('\n');
     }
 
-    clearRemovalSelections(){
-      const prefix='removal:';
-      let changed=false;
-      this.selectedEntries=this.selectedEntries.filter(entry=>{
-        if(!entry||typeof entry.key!=='string') return true;
-        if(entry.key.startsWith(prefix)){
-          changed=true;
-          return false;
-        }
-        return true;
-      });
-      return changed;
-    }
-
     setRemovalReason(reasonText){
       if(!this.meldung) return;
       const cleaned=clean(reasonText);
       if(!cleaned) return;
-      this.clearRemovalSelections();
-      const slug=cleaned.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-      const key=`removal:${slug||Date.now().toString(36)}`;
-      const entry={
-        key,
-        label:cleaned,
-        finding:cleaned,
-        action:''
-      };
-      this.addSelection(entry);
+      this.removalReason=cleaned;
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.rfr=cleaned;
+      }
       this.undoBuffer=null;
       this.syncOutputsWithSelections({persist:false});
       this.persistState(true);
@@ -8838,6 +8838,7 @@
       this.rebuildCustomSectionMap();
       this.syncCustomSectionsToActiveState({save:false});
       this.selectedEntries=[];
+      this.removalReason='';
       this.undoBuffer=null;
       for(const key of Object.keys(this.textareas||{})){
         const textarea=this.textareas[key];

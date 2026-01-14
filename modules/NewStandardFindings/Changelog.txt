@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.3.10] – 2026-01-13
+### Changed
+- Removal-Grund wird jetzt als Variable `{RfR}` gespeichert und nicht mehr als Finding-Eintrag.
+
 ## [1.3.9] – 2026-01-13
 ### Added
 - Schnellwahl für Removal-Gründe im Bereich „Findings auswählen“, inklusive Eingabe für freie Gründe oder MSN-Details.
