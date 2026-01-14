@@ -1471,7 +1471,7 @@
       .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;}
       .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
       .nsf-selection-section.nsf-selection-collapsed{overflow:hidden;}
-      .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);}
+      .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;}
       .nsf-selection-header:focus-within{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
       .nsf-selection-heading{display:flex;align-items:center;gap:0.4rem;font-size:0.95rem;font-weight:600;}
       .nsf-selection-summary{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:0.35rem;font-size:0.78rem;line-height:1.2;}
@@ -1483,8 +1483,14 @@
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-summary{margin-left:0;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-header{border-bottom:none;}
       .nsf-removal-panel{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-removal-header{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;}
       .nsf-removal-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .nsf-removal-chip{background:rgba(148,163,184,0.18);border-radius:999px;padding:0.18rem 0.6rem;font-size:0.75rem;font-weight:600;letter-spacing:0.01em;}
+      .nsf-removal-toggle{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,0.2);color:inherit;border-radius:999px;padding:0.2rem 0.65rem;font-size:0.72rem;cursor:pointer;transition:background 0.15s ease,border-color 0.15s ease;}
+      .nsf-removal-toggle:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.35);}
+      .nsf-removal-toggle:disabled{opacity:0.45;cursor:not-allowed;}
       .nsf-removal-actions{display:flex;flex-wrap:wrap;gap:0.45rem;}
+      .nsf-removal-panel.nsf-removal-collapsed .nsf-removal-actions{display:none;}
       .nsf-removal-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.65rem;padding:0.35rem 0.7rem;font:inherit;font-size:0.78rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-removal-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
       .nsf-removal-btn:disabled{opacity:0.45;cursor:not-allowed;background:rgba(255,255,255,0.12);transform:none;}
@@ -3611,6 +3617,8 @@
       this.selectionCollapsed=false;
       this.headerCollapsed=true;
       this.removalReason='';
+      this.removalOptionsCollapsed=false;
+      this.removalOptionsInitialized=false;
       this.reasonText='';
       this.reasonTextarea=null;
       this.menuCleanup=null;
@@ -3780,6 +3788,12 @@
         }
       }
       this.removalReason=clean(this.activeState.rfr||'');
+      if(this.stateKey!==previousKey){
+        this.removalOptionsCollapsed=!!this.removalReason;
+      }else if(!this.removalReason){
+        this.removalOptionsCollapsed=false;
+      }
+      this.removalOptionsInitialized=true;
       this.reasonText=clean(this.activeState.reason||'');
       this.customSections=normalizeCustomSections(this.activeState.customSections);
       this.rebuildCustomSectionMap();
@@ -4520,13 +4534,42 @@
 
       const removalPanel=document.createElement('div');
       removalPanel.className='nsf-removal-panel';
+      const removalHeader=document.createElement('div');
+      removalHeader.className='nsf-removal-header';
       const removalTitle=document.createElement('div');
       removalTitle.className='nsf-removal-title';
       removalTitle.textContent='Reason for Removal';
-      removalPanel.appendChild(removalTitle);
+      removalHeader.appendChild(removalTitle);
+      const hasRemovalReason=!!this.removalReason;
+      if(hasRemovalReason){
+        const removalChip=document.createElement('span');
+        removalChip.className='nsf-removal-chip';
+        removalChip.textContent=this.removalReason;
+        removalChip.title=this.removalReason;
+        removalHeader.appendChild(removalChip);
+      }
       const removalActions=document.createElement('div');
       removalActions.className='nsf-removal-actions';
+      const removalOptionsCollapsed=hasRemovalReason&&this.removalOptionsCollapsed;
+      if(removalOptionsCollapsed){
+        removalPanel.classList.add('nsf-removal-collapsed');
+      }
       const removalDisabled=!this.meldung;
+      if(hasRemovalReason){
+        const removalToggle=document.createElement('button');
+        removalToggle.type='button';
+        removalToggle.className='nsf-removal-toggle';
+        removalToggle.textContent=removalOptionsCollapsed?'Ändern':'Einklappen';
+        removalToggle.title=removalToggle.textContent;
+        removalToggle.disabled=removalDisabled;
+        removalToggle.addEventListener('click',()=>{
+          if(removalToggle.disabled) return;
+          this.removalOptionsCollapsed=!this.removalOptionsCollapsed;
+          this.render();
+        });
+        removalHeader.appendChild(removalToggle);
+      }
+      removalPanel.appendChild(removalHeader);
       const addRemovalButton=(label,handler)=>{
         const button=document.createElement('button');
         button.type='button';
@@ -8431,6 +8474,7 @@
       const cleaned=clean(reasonText);
       if(!cleaned) return;
       this.removalReason=cleaned;
+      this.removalOptionsCollapsed=true;
       if(this.activeState&&typeof this.activeState==='object'){
         this.activeState.rfr=cleaned;
       }
@@ -8879,6 +8923,8 @@
       this.syncCustomSectionsToActiveState({save:false});
       this.selectedEntries=[];
       this.removalReason='';
+      this.removalOptionsCollapsed=false;
+      this.removalOptionsInitialized=false;
       this.reasonText='';
       this.undoBuffer=null;
       for(const key of Object.keys(this.textareas||{})){
