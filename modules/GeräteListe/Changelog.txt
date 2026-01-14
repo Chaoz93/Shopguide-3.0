@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
  
+## [1.5.0] – 2026-01-13
+### Added
+- Custom-Feld pro Gerät mit Doppelklick-Bearbeitung für Name und Wert ergänzt.
+- Optionales Custom-Berechnungsfeld für Formeln mit Aspen-Spalten und dem eingegebenen Wert ergänzt.
+
 ## [1.4.6] – 2025-09-23
 ### Added
 - Geräte lassen sich in der Excel-Liste per Rechtsklick entfernen; Aktualisierungen landen direkt in der Devices.xlsx.

@@ -45,6 +45,9 @@
     .db-sub-row{display:flex; gap:.5rem; align-items:center;}
     .db-sub-row select{flex:1;}
     .db-sub-remove{padding:.35rem .6rem;}
+    .db-custom-label,.db-custom-value{cursor:text;}
+    .db-custom-label:hover,.db-custom-value:hover{text-decoration:underline;}
+    .db-help{font-size:.75rem; opacity:.7; margin-top:.25rem;}
     @media (max-width:840px){ .db-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
     @media (max-width:520px){ .db-grid{grid-template-columns:1fr;} }
     .db-ghost{opacity:.4}
@@ -626,6 +629,15 @@
               <div class="db-sub-list"></div>
               <button type="button" class="db-btn secondary db-sub-add">Feld hinzufügen</button>
             </div>
+            <div class="db-field" style="grid-column: span 3;">
+              <label>Custom-Berechnung (optional)</label>
+              <input type="text" class="db-input db-custom-formula" placeholder="z.B. value - IST_AH_FS">
+              <div class="db-help">Tokens: value/custom + Aspen-Spalten (z.B. IST_AH_FS). Rechnen mit + - * / ( ). Anzeige via Untertitel-Felder → Custom-Berechnung.</div>
+            </div>
+            <div class="db-field">
+              <label>Custom-Berechnung Label</label>
+              <input type="text" class="db-input db-custom-label" placeholder="Differenz zu IST_AH_FS">
+            </div>
             <div class="db-field">
               <label>Hintergrund</label>
               <input type="color" class="db-color db-c-bg" value="#f5f7fb">
@@ -697,6 +709,8 @@
       selPart:root.querySelector('.db-sel-part'),
       subList:root.querySelector('.db-sub-list'),
       subAdd:root.querySelector('.db-sub-add'),
+      customFormula:root.querySelector('.db-custom-formula'),
+      customCalcLabel:root.querySelector('.db-custom-label'),
       cBg:root.querySelector('.db-c-bg'),
       cItem:root.querySelector('.db-c-item'),
       cTitle:root.querySelector('.db-c-title'),
@@ -715,7 +729,7 @@
     };
   }
 
-  function cardEl(item,cfg,state,partValue){
+  function cardEl(item,cfg,state,partValue,customInfo){
     const el=document.createElement('div');
     el.className='db-card';
     el.dataset.id=item.id;
@@ -725,21 +739,67 @@
     const valueFor=field=>{
       if(field==='meldung') return (item.meldung||'').trim();
       if(field==='name') return lookupName(part,state.names.rules);
+      if(field==='custom'){
+        if(!customInfo) return '';
+        const rawLabel=(customInfo.label||'').trim();
+        const value=(customInfo.value||'').trim();
+        if(!rawLabel && !value) return '';
+        const label=(rawLabel||'Custom').trim();
+        return label && value?`${label}: ${value}`:(label||value);
+      }
+      if(field==='custom_calc'){
+        if(!customInfo) return '';
+        const label=(customInfo.calcLabel||'Berechnung').trim();
+        const value=(customInfo.calcValue||'').trim();
+        if(!value) return '';
+        return label && value?`${label}: ${value}`:(label||value);
+      }
       return String(data[field]??'').trim();
     };
     const subs=Array.isArray(cfg.subFields)&&cfg.subFields.length?cfg.subFields:[cfg.titleField||'meldung'];
-    const subHtml=subs
-      .map(field=>valueFor(field))
-      .filter(text=>String(text||'').trim()!=='')
-      .map(text=>`<div class="db-sub-line">${text}</div>`)
-      .join('');
-    el.innerHTML=`
-      <div class="db-flex">
-        <div class="db-title">${valueFor(cfg.titleField)}</div>
-        <div class="db-sub">${subHtml}</div>
-      </div>
-      <div class="db-handle" title="Ziehen">⋮⋮</div>
-    `;
+    const titleWrap=document.createElement('div');
+    titleWrap.className='db-flex';
+    const title=document.createElement('div');
+    title.className='db-title';
+    title.textContent=valueFor(cfg.titleField);
+    const subWrap=document.createElement('div');
+    subWrap.className='db-sub';
+    subs.forEach(field=>{
+      const text=valueFor(field);
+      if(String(text||'').trim()==='') return;
+      const line=document.createElement('div');
+      line.className='db-sub-line';
+      if(field==='custom' && customInfo){
+        const label=document.createElement('span');
+        label.className='db-custom-label';
+        label.textContent=(customInfo.label||'Custom').trim();
+        const sep=document.createElement('span');
+        sep.textContent=': ';
+        const value=document.createElement('span');
+        value.className='db-custom-value';
+        value.textContent=(customInfo.value||'').trim();
+        line.append(label,sep,value);
+      }else if(field==='custom_calc' && customInfo){
+        const label=document.createElement('span');
+        label.className='db-custom-calc-label';
+        label.textContent=(customInfo.calcLabel||'Berechnung').trim();
+        const sep=document.createElement('span');
+        sep.textContent=': ';
+        const value=document.createElement('span');
+        value.className='db-custom-calc-value';
+        value.textContent=(customInfo.calcValue||'').trim();
+        line.append(label,sep,value);
+      }else{
+        line.textContent=text;
+      }
+      subWrap.appendChild(line);
+    });
+    titleWrap.append(title,subWrap);
+    const handle=document.createElement('div');
+    handle.className='db-handle';
+    handle.title='Ziehen';
+    handle.textContent='⋮⋮';
+    el.append(titleWrap,handle);
     el.dataset.part=part;
     return el;
   }
@@ -768,7 +828,10 @@
       subFields:subFields,
       excludedParts:Array.isArray(cfg.excludedParts)?cfg.excludedParts.slice():[],
       title:cfg.title||'',
-      colors:cfg.colors||{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'}
+      colors:cfg.colors||{bg:'#f5f7fb',item:'#ffffff',title:'#2563eb',sub:'#4b5563',active:'#10b981'},
+      customCalcFormula:cfg.customCalcFormula||'',
+      customCalcLabel:cfg.customCalcLabel||'',
+      customEntries:cfg.customEntries&&typeof cfg.customEntries==='object'?{...cfg.customEntries}:{}
     };
   }
 
@@ -781,6 +844,9 @@
       subFields:Array.isArray(cfg.subFields)?cfg.subFields.slice():[],
       subField:Array.isArray(cfg.subFields)&&cfg.subFields.length?cfg.subFields[0]:'auftrag',
       excludedParts:Array.isArray(cfg.excludedParts)?cfg.excludedParts.slice():[],
+      customCalcFormula:cfg.customCalcFormula||'',
+      customCalcLabel:cfg.customCalcLabel||'',
+      customEntries:cfg.customEntries&&typeof cfg.customEntries==='object'?{...cfg.customEntries}:{}
     };
     doc.instances[instanceId].unitBoard=payload;
     saveDoc(doc);
@@ -848,12 +914,65 @@
     els.dictLabel.textContent=cfg.dictFileName?`• ${cfg.dictFileName}`:'Kein Dictionary';
     els.aspenLabel.textContent=cfg.aspenFileName?`• ${cfg.aspenFileName}`:'Keine Aspen-Datei';
     els.nameLabel.textContent=cfg.nameFileName?`• ${cfg.nameFileName}`:'Keine Namensregeln';
+    if(els.customFormula) els.customFormula.value=cfg.customCalcFormula||'';
+    if(els.customCalcLabel) els.customCalcLabel.value=cfg.customCalcLabel||'';
 
     const arraysEqual=(a,b)=>{
       if(!Array.isArray(a) || !Array.isArray(b)) return false;
       if(a.length!==b.length) return false;
       for(let i=0;i<a.length;i++){if(a[i]!==b[i]) return false;}
       return true;
+    };
+
+    const toNumber=value=>{
+      if(value===null || value===undefined) return NaN;
+      if(typeof value==='number') return Number.isFinite(value)?value:NaN;
+      const normalized=String(value).trim().replace(',','.');
+      if(!normalized) return NaN;
+      const num=Number.parseFloat(normalized);
+      return Number.isFinite(num)?num:NaN;
+    };
+
+    const formatNumber=value=>{
+      const rounded=Math.round(value*100)/100;
+      if(Number.isInteger(rounded)) return String(rounded);
+      return String(rounded);
+    };
+
+    const buildCalcContext=(customValue,data)=>{
+      const context={};
+      const baseValue=toNumber(customValue);
+      if(Number.isFinite(baseValue)){
+        context.value=baseValue;
+        context.custom=baseValue;
+      }
+      if(data&&typeof data==='object'){
+        Object.entries(data).forEach(([key,value])=>{
+          const num=toNumber(value);
+          if(!Number.isFinite(num)) return;
+          context[key]=num;
+          context[String(key).toLowerCase()]=num;
+        });
+      }
+      return context;
+    };
+
+    const evaluateExpression=(expr,context)=>{
+      const raw=String(expr||'').trim();
+      if(!raw) return '';
+      if(/[^0-9A-Za-z_+\\-*/().\\s]/.test(raw)) return '';
+      const replaced=raw.replace(/\\b[A-Za-z_][A-Za-z0-9_]*\\b/g,token=>{
+        const value=context[token] ?? context[token.toLowerCase()];
+        if(!Number.isFinite(value)) return 'NaN';
+        return String(value);
+      });
+      try{
+        const result=Function(`"use strict"; return (${replaced});`)();
+        if(!Number.isFinite(result)) return '';
+        return formatNumber(result);
+      }catch{
+        return '';
+      }
     };
 
     function uniqueFields(list){
@@ -878,6 +997,13 @@
 
     function titleFieldOptions(){
       const base=baseFieldOptions();
+      const extras=[
+        {key:'custom',label:'Custom-Feld'},
+        {key:'custom_calc',label:'Custom-Berechnung'}
+      ];
+      extras.forEach(extra=>{
+        if(!base.some(field=>field.key===extra.key)) base.push(extra);
+      });
       if(state.names.rules.length && !base.some(f=>f.key==='name')) base.push({key:'name',label:'Name'});
       return base;
     }
@@ -1006,6 +1132,33 @@
       return String(value??'').trim();
     }
 
+    function getCustomEntry(meldung){
+      const key=cleanText(meldung);
+      const entry=cfg.customEntries?.[key];
+      return {
+        label:cleanText(entry?.label),
+        value:cleanText(entry?.value)
+      };
+    }
+
+    function setCustomEntry(meldung,updates){
+      const key=cleanText(meldung);
+      if(!key) return;
+      cfg.customEntries ||= {};
+      const current=getCustomEntry(key);
+      const next={
+        label:cleanText(updates?.label ?? current.label),
+        value:cleanText(updates?.value ?? current.value)
+      };
+      if(!next.label && !next.value){
+        delete cfg.customEntries[key];
+      }else{
+        cfg.customEntries[key]={label:next.label,value:next.value};
+      }
+      saveCfg(instanceId,cfg);
+      renderList();
+    }
+
     function cleanPart(value){
       const text=cleanText(value);
       if(!text) return '';
@@ -1017,6 +1170,13 @@
       const meld=(item?.meldung||'').trim();
       if(!meld) return {};
       return state.aspen.data[meld]||state.dict.data[meld]||{};
+    }
+
+    function computeCustomCalcValue(customValue,item){
+      if(!cfg.customCalcFormula) return '';
+      const data=recordDataFor(item);
+      const context=buildCalcContext(customValue,data);
+      return evaluateExpression(cfg.customCalcFormula,context);
     }
 
     function computePart(item){
@@ -1038,7 +1198,14 @@
       state.items.forEach(item=>{
         const part=computePart(item);
         if(state.excluded.has(part)) return;
-        const card=cardEl(item,cfg,state,part);
+        const customEntry=getCustomEntry(item.meldung);
+        const calcValue=computeCustomCalcValue(customEntry.value,item);
+        const card=cardEl(item,cfg,state,part,{
+          label:customEntry.label,
+          value:customEntry.value,
+          calcLabel:cfg.customCalcLabel||'',
+          calcValue
+        });
         els.list.appendChild(card);
         visibleCount++;
       });
@@ -1307,6 +1474,8 @@
       cfg.excludedParts=Array.from(state.excluded);
       cfg.colors={bg:els.cBg.value,item:els.cItem.value,title:els.cTitle.value,sub:els.cSub.value,active:els.cActive.value};
       cfg.title=els.titleInput.value||'';
+      if(els.customFormula) cfg.customCalcFormula=els.customFormula.value||'';
+      if(els.customCalcLabel) cfg.customCalcLabel=els.customCalcLabel.value||'';
       applyColors(els,cfg);
       applyTitle(els,cfg.title);
       saveCfg(instanceId,cfg);
@@ -1327,6 +1496,8 @@
       els.cTitle.value=cfg.colors.title;
       els.cSub.value=cfg.colors.sub;
       els.cActive.value=cfg.colors.active;
+      if(els.customFormula) els.customFormula.value=cfg.customCalcFormula||'';
+      if(els.customCalcLabel) els.customCalcLabel.value=cfg.customCalcLabel||'';
       if(els.selTitle) els.selTitle.value=cfg.titleField;
       if(els.selPart) els.selPart.value=cfg.partField;
       els.modal.classList.add('open');
@@ -1382,6 +1553,26 @@
       }
     });
 
+    els.list.addEventListener('dblclick',event=>{
+      const labelEl=event.target.closest('.db-custom-label');
+      const valueEl=event.target.closest('.db-custom-value');
+      if(!labelEl && !valueEl) return;
+      const card=event.target.closest('.db-card');
+      if(!card) return;
+      const meld=(card.dataset.meldung||'').trim();
+      if(!meld) return;
+      const entry=getCustomEntry(meld);
+      if(labelEl){
+        const next=window.prompt('Custom-Feldname',entry.label||'');
+        if(next===null) return;
+        setCustomEntry(meld,{label:next});
+      }else if(valueEl){
+        const next=window.prompt('Custom-Wert',entry.value||'');
+        if(next===null) return;
+        setCustomEntry(meld,{value:next});
+      }
+    });
+
     if(els.menuOpt){
       els.menuOpt.addEventListener('click',event=>{event.stopPropagation();closeMenu();openModal();});
     }
@@ -1423,7 +1614,7 @@
         const before=state.items.length;
         state.items=state.items.filter(item=>(item.meldung||'').trim()!==meld);
         if(state.items.length===before) return;
-        renderList();
+        setCustomEntry(meld,{label:'',value:''});
         scheduleSave();
         updateHighlights();
       });
