@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.1] - 2026-01-14
+### Added
+- Added SAP sequence steps for enter submission and title clicking, plus Run/Stop visuals with vignette during execution.
+
 ## [0.2.0] - 2026-01-14
 ### Added
 - Added a SAP run sequence that opens the WebGUI, waits for the target field, and fills it with the top-left grid value.

@@ -2,6 +2,7 @@
   const runButton = document.getElementById("run");
   const logContainer = document.getElementById("log");
   const sheetBody = document.getElementById("sheetBody");
+  const logoWrap = document.getElementById("logoWrap");
   const api = typeof browser !== "undefined" ? browser : chrome;
   const initialRows = 2;
   const initialColumns = 2;
@@ -9,6 +10,10 @@
   let isSelecting = false;
   let selectionAnchor = null;
   let selectionRange = null;
+  let isRunning = false;
+  let stopRequested = false;
+  let lastVignetteTabId = null;
+  let tabUpdateListener = null;
   const selectedCells = new Set();
 
   function timestamp() {
@@ -30,6 +35,116 @@
     row.append(time, text);
     logContainer.appendChild(row);
     logContainer.scrollTop = logContainer.scrollHeight;
+  }
+
+  function setRunning(state) {
+    const wasRunning = isRunning;
+    isRunning = state;
+    if (!state) {
+      stopRequested = false;
+    }
+
+    runButton.textContent = state ? "Stop" : "Run";
+    runButton.classList.toggle("stop", state);
+    logoWrap.classList.toggle("running", state);
+
+    if (state) {
+      ensureVignetteWatcher();
+    } else {
+      disableVignetteWatcher();
+    }
+
+    if (wasRunning !== state) {
+      runButton.classList.remove("transition-to-run", "transition-to-stop");
+      void runButton.offsetWidth;
+      runButton.classList.add(state ? "transition-to-stop" : "transition-to-run");
+    }
+  }
+
+  async function toggleTabVignette(tabId, active) {
+    if (!tabId) return;
+
+    const vignetteScript = `(${function (payload) {
+      const overlayId = "automation-vignette-overlay";
+      const existing = document.getElementById(overlayId);
+
+      if (!payload.active) {
+        if (existing) {
+          existing.style.opacity = "0";
+          existing.style.transition = "opacity 260ms ease";
+          setTimeout(() => existing.remove(), 280);
+        }
+        return true;
+      }
+
+      const overlay = existing || document.createElement("div");
+      overlay.id = overlayId;
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.pointerEvents = "none";
+      overlay.style.zIndex = "2147483646";
+      overlay.style.background =
+        "radial-gradient(circle at center, rgba(0, 12, 32, 0) 74%, rgba(38, 130, 245, 0.14) 84%, rgba(38, 130, 245, 0.2) 92%, rgba(24, 88, 186, 0.26) 100%)";
+      overlay.style.opacity = existing ? existing.style.opacity || "1" : "0";
+      overlay.style.transition = "opacity 260ms ease";
+      overlay.style.boxShadow = "none";
+      overlay.style.filter = "saturate(1.02)";
+
+      if (!existing) {
+        document.documentElement.appendChild(overlay);
+        requestAnimationFrame(() => {
+          overlay.style.opacity = "1";
+        });
+      } else {
+        overlay.style.opacity = "1";
+      }
+
+      return true;
+    }.toString()})(${JSON.stringify({ active })});`;
+
+    try {
+      await api.tabs.executeScript(tabId, { code: vignetteScript });
+    } catch (error) {
+      console.warn("Vignette update failed", error);
+    }
+  }
+
+  async function syncVignetteForTab(tabId) {
+    if (!tabId || !isRunning) return;
+
+    if (lastVignetteTabId && lastVignetteTabId !== tabId) {
+      try {
+        await toggleTabVignette(lastVignetteTabId, false);
+      } catch (_) {}
+    }
+
+    await toggleTabVignette(tabId, true);
+    lastVignetteTabId = tabId;
+  }
+
+  async function clearVignette() {
+    if (!lastVignetteTabId) return;
+    try {
+      await toggleTabVignette(lastVignetteTabId, false);
+    } catch (_) {}
+    lastVignetteTabId = null;
+  }
+
+  function ensureVignetteWatcher() {
+    if (tabUpdateListener) return;
+    tabUpdateListener = function (tabId, changeInfo) {
+      if (!isRunning || !lastVignetteTabId || tabId !== lastVignetteTabId) return;
+      if (changeInfo.status === "complete" || changeInfo.status === "loading") {
+        syncVignetteForTab(tabId).catch(() => {});
+      }
+    };
+    api.tabs.onUpdated.addListener(tabUpdateListener);
+  }
+
+  function disableVignetteWatcher() {
+    if (!tabUpdateListener) return;
+    api.tabs.onUpdated.removeListener(tabUpdateListener);
+    tabUpdateListener = null;
   }
 
   function getTopLeftValue() {
@@ -320,6 +435,7 @@
     const pollInterval = 300;
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
+      if (stopRequested) return false;
       const script = `(${function (payload) {
         return Boolean(document.querySelector(payload.selector));
       }.toString()})(${JSON.stringify({ selector })});`;
@@ -344,38 +460,96 @@
     return result;
   }
 
-  async function runSapSequence({ url, selector, value }) {
+  async function pressEnter(tabId, selector) {
+    const script = `(${function (payload) {
+      const input = document.querySelector(payload.selector);
+      if (!input) return false;
+      input.focus();
+      const event = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true });
+      input.dispatchEvent(event);
+      return true;
+    }.toString()})(${JSON.stringify({ selector })});`;
+    const [result] = await api.tabs.executeScript(tabId, { code: script });
+    return result;
+  }
+
+  async function clickElement(tabId, selector) {
+    const script = `(${function (payload) {
+      const target = document.querySelector(payload.selector);
+      if (!target) return false;
+      target.click();
+      return true;
+    }.toString()})(${JSON.stringify({ selector })});`;
+    const [result] = await api.tabs.executeScript(tabId, { code: script });
+    return result;
+  }
+
+  async function runSapSequence({ url, inputSelector, value, titleSelector }) {
     addLog("Opening SAP WebGUI...", "info");
     const tabId = await openTab(url);
+    await syncVignetteForTab(tabId);
     addLog("Waiting for SAP input field...", "info");
-    const ready = await waitForElement(tabId, selector);
+    const ready = await waitForElement(tabId, inputSelector);
     if (!ready) {
       addLog("SAP input field did not load in time.", "error");
       return;
     }
+    if (stopRequested) return;
     addLog("Entering value into SAP field...", "info");
-    const success = await setInputValue(tabId, selector, value);
-    if (success) {
-      addLog("Value entered successfully.", "success");
-    } else {
+    const success = await setInputValue(tabId, inputSelector, value);
+    if (!success) {
       addLog("Failed to set the SAP field value.", "error");
+      return;
+    }
+    addLog("Submitting the SAP field...", "info");
+    const submitted = await pressEnter(tabId, inputSelector);
+    if (!submitted) {
+      addLog("Failed to submit the SAP field.", "error");
+      return;
+    }
+    addLog("Waiting for title element...", "info");
+    const titleReady = await waitForElement(tabId, titleSelector);
+    if (!titleReady) {
+      addLog("Title element did not load in time.", "error");
+      return;
+    }
+    if (stopRequested) return;
+    addLog("Clicking title element...", "info");
+    const clicked = await clickElement(tabId, titleSelector);
+    if (clicked) {
+      addLog("SAP sequence completed.", "success");
+    } else {
+      addLog("Failed to click the title element.", "error");
     }
   }
 
   runButton.addEventListener("click", async () => {
+    if (isRunning) {
+      stopRequested = true;
+      setRunning(false);
+      await clearVignette();
+      addLog("Run stopped by user.", "info");
+      return;
+    }
+
     const topLeftValue = getTopLeftValue();
     if (!topLeftValue) {
       addLog("Top-left cell is empty. Please enter a value before running.", "error");
       return;
     }
+    setRunning(true);
     try {
       await runSapSequence({
         url: "https://sap-p04.lht.ham.dlh.de/sap/bc/gui/sap/its/webgui?sap-client=002&~transaction=*zmm03#",
-        selector: "#M0\\:46\\:\\:\\:2\\:29",
+        inputSelector: "#M0\\:46\\:\\:\\:2\\:29",
+        titleSelector: "#M0\\:46\\:2\\:\\:0\\:1-title",
         value: topLeftValue
       });
     } catch (error) {
       addLog(`Run failed: ${error.message || error}`, "error");
+    } finally {
+      setRunning(false);
+      await clearVignette();
     }
   });
 
