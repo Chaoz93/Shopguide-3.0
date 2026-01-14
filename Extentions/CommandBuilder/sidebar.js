@@ -119,7 +119,7 @@
   }
 
   function escapeDoubleQuotes(value) {
-    return (value || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    return (value || "").replace(/"/g, '\\"');
   }
 
   function handleElementSelection(selector, name) {
