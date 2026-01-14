@@ -2546,13 +2546,15 @@
     const titleValue=item.data?.[TITLE_FIELD]||'';
     const meldung=item.meldung||'';
     const customEntry=getCustomEntry(state,meldung);
-    const customLabel=customEntry.label||'Custom';
+    const customLabel=customEntry.label||'Stundenanpassung';
     const customValue=customEntry.value||'';
     const calcFormula=state?.config?.customCalcFormula||'';
     const calcLabel=(state?.config?.customCalcLabel||'').trim()||'Berechnung';
     const calcValue=calcFormula
       ? evaluateCustomFormula(calcFormula,buildCustomCalcContext(customValue,item.data||{}))
       : '';
+    let hasCustomLine=false;
+    let hasCustomCalcLine=false;
     const subs=(Array.isArray(config.subFields)?config.subFields:[])
       .map(entry=>normalizeSubField(entry))
       .filter(Boolean)
@@ -2561,6 +2563,7 @@
         if(!field) return '';
         const fieldKey=field.toLowerCase();
         if(fieldKey===CUSTOM_FIELD_KEY){
+          hasCustomLine=true;
           const valueText=customValue||'–';
           const labelText=customLabel.trim()||'Custom';
           return `<div class="db-sub-line db-custom-line" data-field="${CUSTOM_FIELD_KEY}">
@@ -2570,6 +2573,7 @@
           </div>`;
         }
         if(fieldKey===CUSTOM_CALC_FIELD_KEY){
+          hasCustomCalcLine=true;
           if(!calcValue) return '';
           return `<div class="db-sub-line db-custom-calc-line" data-field="${CUSTOM_CALC_FIELD_KEY}">
             <span class="db-custom-calc-label">${escapeHtml(calcLabel)}</span>
@@ -2586,8 +2590,22 @@
         const display=`${sub.nickname||''}${filteredValue}`;
         return display?`<div class="db-sub-line" data-field="${field}">${display}</div>`:'';
       })
-      .filter(Boolean)
-      .join('');
+      .filter(Boolean);
+    if(!hasCustomLine && customValue){
+      subs.push(`<div class="db-sub-line db-custom-line" data-field="${CUSTOM_FIELD_KEY}">
+        <span class="db-custom-label">${escapeHtml(customLabel.trim()||'Custom')}</span>
+        <span class="db-custom-sep">: </span>
+        <span class="db-custom-value">${escapeHtml(customValue)}</span>
+      </div>`);
+    }
+    if(!hasCustomCalcLine && calcValue){
+      subs.push(`<div class="db-sub-line db-custom-calc-line" data-field="${CUSTOM_CALC_FIELD_KEY}">
+        <span class="db-custom-calc-label">${escapeHtml(calcLabel)}</span>
+        <span class="db-custom-sep">: </span>
+        <span class="db-custom-calc-value">${escapeHtml(calcValue)}</span>
+      </div>`);
+    }
+    const subHtml=subs.join('');
     const tags=Array.isArray(ruleTags)?ruleTags.map(tag=>({
       text:String(tag?.text||'').trim(),
       color:sanitizeHexColor(tag?.color||'')
@@ -2604,7 +2622,7 @@
             <div class="db-title">${titleValue}</div>
             ${tagHtml}
           </div>
-          <div class="db-sub">${subs}</div>
+          <div class="db-sub">${subHtml}</div>
         </div>
         <div class="db-handle" title="Ziehen">⋮⋮</div>
       </div>

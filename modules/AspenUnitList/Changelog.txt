@@ -3,6 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.2.1] – 2026-01-13
+### Added
+- Stundenanpassung wird pro Gerät zusätzlich in den Kacheln angezeigt, sofern ein Custom-Wert gesetzt ist.
+
 ## [1.2.0] – 2026-01-13
 ### Added
 - Custom-Feld pro Gerät mit Doppelklick-Bearbeitung für Name und Wert ergänzt.
