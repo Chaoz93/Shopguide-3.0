@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.1.1] - 2026-01-14
+### Added
+- Added drag selection and delete-to-clear behavior for grid cells, keeping one empty row at the bottom.
+
 ## [0.1.0] - 2026-01-14
 ### Added
 - Initial SAP-Automatisierung sidebar scaffold with a light gray theme, data grid entry, and placeholder run control.

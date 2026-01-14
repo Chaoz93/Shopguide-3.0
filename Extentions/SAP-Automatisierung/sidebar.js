@@ -5,6 +5,9 @@
   const initialRows = 2;
   const initialColumns = 2;
   let columnCount = initialColumns;
+  let isSelecting = false;
+  let selectionAnchor = null;
+  const selectedCells = new Set();
 
   function timestamp() {
     return new Date().toLocaleTimeString([], { hour12: false });
@@ -29,11 +32,15 @@
 
   function createCell() {
     const td = document.createElement("td");
+    td.className = "sheet-cell";
     const input = document.createElement("input");
     input.type = "text";
     input.className = "sheet-input";
     input.addEventListener("input", syncRows);
     input.addEventListener("paste", handlePaste);
+    input.addEventListener("mousedown", handleSelectStart);
+    input.addEventListener("mouseenter", handleSelectMove);
+    input.addEventListener("focus", handleSelectFocus);
     td.appendChild(input);
     return td;
   }
@@ -98,6 +105,67 @@
     return { rowIndex, colIndex };
   }
 
+  function clearSelection() {
+    selectedCells.forEach((cell) => cell.classList.remove("selected"));
+    selectedCells.clear();
+  }
+
+  function selectRange(start, end) {
+    clearSelection();
+    if (!start || !end) return;
+    const startRow = Math.min(start.rowIndex, end.rowIndex);
+    const endRow = Math.max(start.rowIndex, end.rowIndex);
+    const startCol = Math.min(start.colIndex, end.colIndex);
+    const endCol = Math.max(start.colIndex, end.colIndex);
+
+    for (let rowIndex = startRow; rowIndex <= endRow; rowIndex += 1) {
+      const row = sheetBody.children[rowIndex];
+      if (!row) continue;
+      const inputs = Array.from(row.querySelectorAll("input"));
+      for (let colIndex = startCol; colIndex <= endCol; colIndex += 1) {
+        const input = inputs[colIndex];
+        if (!input) continue;
+        const cell = input.closest("td");
+        if (cell) {
+          cell.classList.add("selected");
+          selectedCells.add(cell);
+        }
+      }
+    }
+  }
+
+  function handleSelectStart(event) {
+    isSelecting = true;
+    selectionAnchor = getCellPosition(event.target);
+    selectRange(selectionAnchor, selectionAnchor);
+  }
+
+  function handleSelectMove(event) {
+    if (!isSelecting || !selectionAnchor) return;
+    const current = getCellPosition(event.target);
+    selectRange(selectionAnchor, current);
+  }
+
+  function handleSelectFocus(event) {
+    if (isSelecting) return;
+    const focused = getCellPosition(event.target);
+    selectRange(focused, focused);
+  }
+
+  function endSelection() {
+    isSelecting = false;
+  }
+
+  function deleteSelection() {
+    if (!selectedCells.size) return false;
+    selectedCells.forEach((cell) => {
+      const input = cell.querySelector("input");
+      if (input) input.value = "";
+    });
+    syncRows();
+    return true;
+  }
+
   function parseClipboard(text) {
     const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const lines = normalized.split("\n");
@@ -131,9 +199,19 @@
     syncRows();
   }
 
+  function handleKeydown(event) {
+    if ((event.key === "Delete" || event.key === "Backspace") && selectedCells.size) {
+      event.preventDefault();
+      deleteSelection();
+    }
+  }
+
   runButton.addEventListener("click", () => {
     addLog("Run is currently disabled. This will be re-enabled for SAP automation later.", "info");
   });
+
+  document.addEventListener("mouseup", endSelection);
+  document.addEventListener("keydown", handleKeydown);
 
   for (let i = 0; i < initialRows; i += 1) {
     sheetBody.appendChild(createRow());
