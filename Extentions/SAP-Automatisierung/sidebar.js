@@ -157,6 +157,21 @@
     isSelecting = false;
   }
 
+  function getInputFromPoint(event) {
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    if (!target) return null;
+    if (target.classList.contains("sheet-input")) return target;
+    return target.closest(".sheet-cell")?.querySelector(".sheet-input") || null;
+  }
+
+  function handleGlobalMouseMove(event) {
+    if (!isSelecting || !selectionAnchor) return;
+    const input = getInputFromPoint(event);
+    if (!input) return;
+    const current = getCellPosition(input);
+    selectRange(selectionAnchor, current);
+  }
+
   function deleteSelection() {
     if (!selectedCells.size) return false;
     selectedCells.forEach((cell) => {
@@ -201,7 +216,7 @@
   }
 
   function handleKeydown(event) {
-    if ((event.key === "Delete" || event.key === "Backspace") && selectedCells.size) {
+    if (event.key === "Delete" && selectedCells.size) {
       event.preventDefault();
       deleteSelection();
       return;
@@ -230,6 +245,7 @@
   });
 
   document.addEventListener("mouseup", endSelection);
+  document.addEventListener("mousemove", handleGlobalMouseMove);
   document.addEventListener("keydown", handleKeydown);
 
   for (let i = 0; i < initialRows; i += 1) {

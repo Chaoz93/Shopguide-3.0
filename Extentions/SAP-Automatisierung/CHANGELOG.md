@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.1.3] - 2026-01-14
+### Fixed
+- Improved drag selection tracking across cells and kept Backspace editing to single-character deletes.
+
 ## [0.1.2] - 2026-01-14
 ### Added
 - Enabled left-click drag selection only and added Enter-to-move-down focus behavior for grid cells.
