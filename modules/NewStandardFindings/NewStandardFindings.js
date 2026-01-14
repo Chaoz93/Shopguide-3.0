@@ -425,6 +425,7 @@
     {key:'times',label:'{times}',description:'Arbeitszeiten'},
     {key:'mods',label:'{mods}',description:'Modifikationen'},
     {key:'rfr',label:'{RfR}',description:'Removal-Grund'},
+    {key:'reason',label:'{Reason}',description:'Pilot-Reason-Text'},
     {key:'label',label:'{label}',description:'Aktuelles Profil-Label'}
   ];
 
@@ -1469,8 +1470,8 @@
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
       .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;}
       .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
-      .nsf-selection-section.collapsed{overflow:hidden;}
-      .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);cursor:pointer;}
+      .nsf-selection-section.nsf-selection-collapsed{overflow:hidden;}
+      .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);}
       .nsf-selection-header:focus-within{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
       .nsf-selection-heading{display:flex;align-items:center;gap:0.4rem;font-size:0.95rem;font-weight:600;}
       .nsf-selection-summary{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:0.35rem;font-size:0.78rem;line-height:1.2;}
@@ -1478,15 +1479,18 @@
       .nsf-selection-summary-more{opacity:0.75;font-weight:500;}
       .nsf-selection-summary-empty{opacity:0.6;font-style:italic;}
       .nsf-selection-body{display:flex;flex-direction:column;gap:0.6rem;padding:0.7rem 0.85rem;overflow:visible;}
-      .nsf-selection-section.collapsed .nsf-selection-body{display:none;}
-      .nsf-selection-section.collapsed .nsf-selection-summary{margin-left:0;}
-      .nsf-selection-section.collapsed .nsf-selection-header{border-bottom:none;}
+      .nsf-selection-section.nsf-selection-collapsed .nsf-selection-body{display:none;}
+      .nsf-selection-section.nsf-selection-collapsed .nsf-selection-summary{margin-left:0;}
+      .nsf-selection-section.nsf-selection-collapsed .nsf-selection-header{border-bottom:none;}
       .nsf-removal-panel{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-removal-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-removal-actions{display:flex;flex-wrap:wrap;gap:0.45rem;}
       .nsf-removal-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.65rem;padding:0.35rem 0.7rem;font:inherit;font-size:0.78rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-removal-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
       .nsf-removal-btn:disabled{opacity:0.45;cursor:not-allowed;background:rgba(255,255,255,0.12);transform:none;}
+      .nsf-reason-panel{background:rgba(15,23,42,0.16);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-reason-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .nsf-reason-textarea{min-height:4.5rem;}
       .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
       .nsf-header-action{background:rgba(255,255,255,0.12);border:none;border-radius:999px;padding:0.25rem 0.6rem;font:inherit;font-size:0.72rem;color:inherit;line-height:1;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-header-action:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
@@ -3220,7 +3224,7 @@
   }
 
   function createEmptyActiveState(){
-    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',freitextTemplate:'',rfr:'',customSections:[]};
+    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',freitextTemplate:'',rfr:'',reason:'',customSections:[]};
   }
 
   let customSectionIdCounter=0;
@@ -3248,6 +3252,7 @@
       parts:typeof state.parts==='string'?state.parts:'',
       freitextTemplate:typeof state.freitextTemplate==='string'?state.freitextTemplate:'',
       rfr:typeof state.rfr==='string'?state.rfr:'',
+      reason:typeof state.reason==='string'?state.reason:'',
       customSections:Array.isArray(state.customSections)
         ?state.customSections.map(cloneCustomSection)
         :[]
@@ -3283,6 +3288,7 @@
       nonroutine: typeof entry?.nonroutine==='string'?entry.nonroutine:'',
       parts: typeof entry?.partsText==='string'?entry.partsText:'',
       rfr: typeof entry?.rfr==='string'?entry.rfr:'',
+      reason: typeof entry?.reason==='string'?entry.reason:'',
       customSections: normalizeCustomSections(entry?.customSections)
     };
   }
@@ -3336,6 +3342,7 @@
       nonroutine: typeof state.nonroutine==='string'?state.nonroutine:'',
       parts: typeof state.parts==='string'?state.parts:'',
       rfr: typeof state.rfr==='string'?state.rfr:'',
+      reason: typeof state.reason==='string'?state.reason:'',
       customSections: Array.isArray(state.customSections)?state.customSections.map(cloneCustomSection):[],
       selections: serializeSelections(selections)
     };
@@ -3604,6 +3611,8 @@
       this.selectionCollapsed=false;
       this.headerCollapsed=true;
       this.removalReason='';
+      this.reasonText='';
+      this.reasonTextarea=null;
       this.menuCleanup=null;
       this.partsContextMenu=null;
       this.partsContextMenuCleanup=null;
@@ -3771,6 +3780,7 @@
         }
       }
       this.removalReason=clean(this.activeState.rfr||'');
+      this.reasonText=clean(this.activeState.reason||'');
       this.customSections=normalizeCustomSections(this.activeState.customSections);
       this.rebuildCustomSectionMap();
       this.syncCustomSectionsToActiveState({save:false});
@@ -4444,7 +4454,7 @@
 
       const inputSection=document.createElement('div');
       inputSection.className='nsf-section nsf-selection-section';
-      if(this.selectionCollapsed) inputSection.classList.add('collapsed');
+      if(this.selectionCollapsed) inputSection.classList.add('nsf-selection-collapsed');
 
       const selectionHeader=document.createElement('div');
       selectionHeader.className='nsf-selection-header';
@@ -4504,11 +4514,6 @@
         }
       }
       selectionHeader.appendChild(selectionSummary);
-      selectionHeader.addEventListener('click',event=>{
-        if(event.target.closest('button')) return;
-        this.selectionCollapsed=!this.selectionCollapsed;
-        this.render();
-      });
 
       const selectionBody=document.createElement('div');
       selectionBody.className='nsf-selection-body';
@@ -4548,6 +4553,26 @@
       removalPanel.appendChild(removalActions);
       selectionBody.appendChild(removalPanel);
 
+      const reasonPanel=document.createElement('div');
+      reasonPanel.className='nsf-reason-panel';
+      const reasonTitle=document.createElement('div');
+      reasonTitle.className='nsf-reason-title';
+      reasonTitle.textContent='Reason';
+      const reasonInput=document.createElement('textarea');
+      reasonInput.className='nsf-textarea nsf-reason-textarea';
+      reasonInput.placeholder='Piloten-Reasontext eingeben…';
+      reasonInput.value=this.reasonText||'';
+      reasonInput.disabled=!this.meldung;
+      reasonInput.dataset.minRows='2';
+      reasonInput.addEventListener('input',()=>{
+        this.setReasonText(reasonInput.value);
+        autoResizeTextarea(reasonInput);
+      });
+      reasonPanel.append(reasonTitle,reasonInput);
+      selectionBody.appendChild(reasonPanel);
+      this.reasonTextarea=reasonInput;
+      ensureTextareaAutoResize(reasonInput);
+
       const note=document.createElement('div');
       note.className='nsf-note';
       if(!this.meldung){
@@ -4562,10 +4587,10 @@
         }else{
           note.textContent='Keine Findings verfügbar.';
         }
-      }else{
-        note.textContent='Tippen, um Findings zu suchen oder über den Pfeil-Button rechts die Auswahlliste öffnen. Mit Enter auswählen – es erscheint automatisch ein weiteres Eingabefeld.';
       }
-      selectionBody.appendChild(note);
+      if(note.textContent){
+        selectionBody.appendChild(note);
+      }
 
       if(this.history.length){
         const historyContainer=document.createElement('div');
@@ -8050,6 +8075,7 @@
         parts:partsText,
         times:timesText,
         rfr:clean(this.removalReason||this.activeState?.rfr||''),
+        reason:clean(this.reasonText||this.activeState?.reason||''),
         label:typeof this.currentLabel==='string'?this.currentLabel:''
       };
       const expanded=raw.replace(/\{([a-z]+)\}/gi,(match,key)=>{
@@ -8412,6 +8438,18 @@
       this.syncOutputsWithSelections({persist:false});
       this.persistState(true);
       this.render();
+    }
+
+    setReasonText(reasonText){
+      if(!this.meldung) return;
+      const cleaned=typeof reasonText==='string'?reasonText.trim():'';
+      if(this.reasonText===cleaned) return;
+      this.reasonText=cleaned;
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.reason=cleaned;
+      }
+      this.syncOutputsWithSelections({persist:false});
+      this.queueStateSave();
     }
 
     addInputRow(prefillEntry,focusNext){
@@ -8841,6 +8879,7 @@
       this.syncCustomSectionsToActiveState({save:false});
       this.selectedEntries=[];
       this.removalReason='';
+      this.reasonText='';
       this.undoBuffer=null;
       for(const key of Object.keys(this.textareas||{})){
         const textarea=this.textareas[key];
