@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.4.5 – 2026-01-14
+### Changed
+- Die Findings-Auswahl ist jetzt standardmäßig eingeklappt, damit der Startzustand dem Modulkopf entspricht.
+
 ## 1.4.4 – 2026-01-14
 ### Fixed
 - Die Einklapplogik für den Bereich „Findings auswählen“ übernimmt jetzt die Modulkopf-Logik, sodass das Ein- und Ausklappen zuverlässiger reagiert.

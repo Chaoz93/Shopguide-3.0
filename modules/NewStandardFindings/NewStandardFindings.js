@@ -3614,7 +3614,7 @@
       this.entryMap=new Map();
       this.dictionaryUsed=false;
       this.findingsPath='';
-      this.selectionCollapsed=false;
+      this.selectionCollapsed=true;
       this.headerCollapsed=true;
       this.removalReason='';
       this.removalOptionsCollapsed=false;
