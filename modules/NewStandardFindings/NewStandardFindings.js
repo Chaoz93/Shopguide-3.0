@@ -3618,6 +3618,7 @@
       this.headerCollapsed=true;
       this.removalReason='';
       this.removalOptionsCollapsed=false;
+      this.removalOptionsInitialized=false;
       this.reasonText='';
       this.reasonTextarea=null;
       this.menuCleanup=null;
@@ -3787,7 +3788,12 @@
         }
       }
       this.removalReason=clean(this.activeState.rfr||'');
-      this.removalOptionsCollapsed=!!this.removalReason;
+      if(this.stateKey!==previousKey){
+        this.removalOptionsCollapsed=!!this.removalReason;
+      }else if(!this.removalReason){
+        this.removalOptionsCollapsed=false;
+      }
+      this.removalOptionsInitialized=true;
       this.reasonText=clean(this.activeState.reason||'');
       this.customSections=normalizeCustomSections(this.activeState.customSections);
       this.rebuildCustomSectionMap();
@@ -8918,6 +8924,7 @@
       this.selectedEntries=[];
       this.removalReason='';
       this.removalOptionsCollapsed=false;
+      this.removalOptionsInitialized=false;
       this.reasonText='';
       this.undoBuffer=null;
       for(const key of Object.keys(this.textareas||{})){
