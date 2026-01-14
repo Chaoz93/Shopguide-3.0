@@ -2,6 +2,7 @@
   const runButton = document.getElementById("run");
   const logContainer = document.getElementById("log");
   const sheetBody = document.getElementById("sheetBody");
+  const api = typeof browser !== "undefined" ? browser : chrome;
   const initialRows = 2;
   const initialColumns = 2;
   let columnCount = initialColumns;
@@ -29,6 +30,13 @@
     row.append(time, text);
     logContainer.appendChild(row);
     logContainer.scrollTop = logContainer.scrollHeight;
+  }
+
+  function getTopLeftValue() {
+    const firstRow = sheetBody.querySelector("tr");
+    if (!firstRow) return "";
+    const firstInput = firstRow.querySelector("input");
+    return firstInput ? firstInput.value.trim() : "";
   }
 
   function createCell() {
@@ -303,8 +311,72 @@
     }
   }
 
-  runButton.addEventListener("click", () => {
-    addLog("Run is currently disabled. This will be re-enabled for SAP automation later.", "info");
+  async function openTab(url) {
+    const tab = await api.tabs.create({ url, active: true });
+    return tab.id;
+  }
+
+  async function waitForElement(tabId, selector, timeoutMs = 30000) {
+    const pollInterval = 300;
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const script = `(${function (payload) {
+        return Boolean(document.querySelector(payload.selector));
+      }.toString()})(${JSON.stringify({ selector })});`;
+      const [exists] = await api.tabs.executeScript(tabId, { code: script });
+      if (exists) return true;
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+    return false;
+  }
+
+  async function setInputValue(tabId, selector, value) {
+    const script = `(${function (payload) {
+      const input = document.querySelector(payload.selector);
+      if (!input) return false;
+      input.focus();
+      input.value = payload.value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    }.toString()})(${JSON.stringify({ selector, value })});`;
+    const [result] = await api.tabs.executeScript(tabId, { code: script });
+    return result;
+  }
+
+  async function runSapSequence({ url, selector, value }) {
+    addLog("Opening SAP WebGUI...", "info");
+    const tabId = await openTab(url);
+    addLog("Waiting for SAP input field...", "info");
+    const ready = await waitForElement(tabId, selector);
+    if (!ready) {
+      addLog("SAP input field did not load in time.", "error");
+      return;
+    }
+    addLog("Entering value into SAP field...", "info");
+    const success = await setInputValue(tabId, selector, value);
+    if (success) {
+      addLog("Value entered successfully.", "success");
+    } else {
+      addLog("Failed to set the SAP field value.", "error");
+    }
+  }
+
+  runButton.addEventListener("click", async () => {
+    const topLeftValue = getTopLeftValue();
+    if (!topLeftValue) {
+      addLog("Top-left cell is empty. Please enter a value before running.", "error");
+      return;
+    }
+    try {
+      await runSapSequence({
+        url: "https://sap-p04.lht.ham.dlh.de/sap/bc/gui/sap/its/webgui?sap-client=002&~transaction=*zmm03#",
+        selector: "#M0\\:46\\:\\:\\:2\\:29",
+        value: topLeftValue
+      });
+    } catch (error) {
+      addLog(`Run failed: ${error.message || error}`, "error");
+    }
   });
 
   document.addEventListener("mouseup", endSelection);

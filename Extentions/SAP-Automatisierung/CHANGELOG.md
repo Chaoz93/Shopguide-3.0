@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.0] - 2026-01-14
+### Added
+- Added a SAP run sequence that opens the WebGUI, waits for the target field, and fills it with the top-left grid value.
+
 ## [0.1.5] - 2026-01-14
 ### Added
 - Added arrow key navigation to move cell focus and selection.
