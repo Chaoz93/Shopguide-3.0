@@ -3282,6 +3282,7 @@
       routine: typeof entry?.routine==='string'?entry.routine:'',
       nonroutine: typeof entry?.nonroutine==='string'?entry.nonroutine:'',
       parts: typeof entry?.partsText==='string'?entry.partsText:'',
+      rfr: typeof entry?.rfr==='string'?entry.rfr:'',
       customSections: normalizeCustomSections(entry?.customSections)
     };
   }
@@ -3334,6 +3335,7 @@
       routine: typeof state.routine==='string'?state.routine:'',
       nonroutine: typeof state.nonroutine==='string'?state.nonroutine:'',
       parts: typeof state.parts==='string'?state.parts:'',
+      rfr: typeof state.rfr==='string'?state.rfr:'',
       customSections: Array.isArray(state.customSections)?state.customSections.map(cloneCustomSection):[],
       selections: serializeSelections(selections)
     };
