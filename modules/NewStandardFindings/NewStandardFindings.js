@@ -4532,9 +4532,9 @@
         removalActions.appendChild(button);
         return button;
       };
-      addRemovalButton('Confirmed',()=>this.setRemovalReason('confirmed.'));
-      addRemovalButton('Not confirmed',()=>this.setRemovalReason('not confirmed.'));
-      addRemovalButton('Not provided by customer',()=>this.setRemovalReason('not provided by customer.'));
+      addRemovalButton('Reason for removal confirmed.',()=>this.setRemovalReason('Reason for removal confirmed.'));
+      addRemovalButton('Reason for removal not confirmed.',()=>this.setRemovalReason('Reason for removal not confirmed.'));
+      addRemovalButton('No detailed reason for removal provided by customer.',()=>this.setRemovalReason('No detailed reason for removal provided by customer.'));
       addRemovalButton('Surplus as removed',()=>{
         const input=window.prompt('Bitte geben Sie die MSN ein:','');
         if(!input) return;
