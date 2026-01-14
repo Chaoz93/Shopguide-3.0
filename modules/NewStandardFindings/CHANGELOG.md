@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.4.7 – 2026-01-14
+### Changed
+- Der Bereich „Findings auswählen“ ist jetzt fest integriert und nicht mehr einklappbar.
+
 ## 1.4.6 – 2026-01-14
 ### Fixed
 - Der eingeklappte Bereich „Findings auswählen“ bleibt sichtbar und unterscheidbar, damit er nicht wie ausgeblendet wirkt.
