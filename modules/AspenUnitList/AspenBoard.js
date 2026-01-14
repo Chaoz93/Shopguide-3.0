@@ -2546,7 +2546,7 @@
     const titleValue=item.data?.[TITLE_FIELD]||'';
     const meldung=item.meldung||'';
     const customEntry=getCustomEntry(state,meldung);
-    const customLabel=customEntry.label||'Stundenanpassung';
+    const customLabel=customEntry.label||'KV-Arbeitsstunden';
     const customValue=customEntry.value||'';
     const calcFormula=state?.config?.customCalcFormula||'';
     const calcLabel=(state?.config?.customCalcLabel||'').trim()||'Berechnung';
@@ -2565,7 +2565,7 @@
         if(fieldKey===CUSTOM_FIELD_KEY){
           hasCustomLine=true;
           const valueText=customValue||'–';
-          const labelText=customLabel.trim()||'Custom';
+          const labelText=customLabel.trim()||'KV-Arbeitsstunden';
           return `<div class="db-sub-line db-custom-line" data-field="${CUSTOM_FIELD_KEY}">
             <span class="db-custom-label">${escapeHtml(labelText)}</span>
             <span class="db-custom-sep">: </span>
@@ -2593,7 +2593,7 @@
       .filter(Boolean);
     if(!hasCustomLine && customValue){
       subs.push(`<div class="db-sub-line db-custom-line" data-field="${CUSTOM_FIELD_KEY}">
-        <span class="db-custom-label">${escapeHtml(customLabel.trim()||'Custom')}</span>
+        <span class="db-custom-label">${escapeHtml(customLabel.trim()||'KV-Arbeitsstunden')}</span>
         <span class="db-custom-sep">: </span>
         <span class="db-custom-value">${escapeHtml(customValue)}</span>
       </div>`);
@@ -5205,20 +5205,34 @@
         if(next===null) return;
         updateCustomEntry(meldung,{label:next});
       }else if(valueEl){
-        const next=showPrompt('Custom-Wert',entry.value||'');
+        const next=showPrompt('KV-Arbeitsstunden',entry.value||'');
         if(next===null) return;
-        updateCustomEntry(meldung,{value:next});
+        updateCustomEntry(meldung,{label:entry.label||'KV-Arbeitsstunden',value:next});
       }
+    };
+    const handleCardDblClick=event=>{
+      if(event.target.closest('.db-custom-label, .db-custom-value')) return;
+      const card=event.target.closest('.db-card');
+      if(!card) return;
+      const meldung=(card.dataset.meldung||'').trim();
+      if(!meldung) return;
+      const entry=getCustomEntry(state,meldung);
+      const next=showPrompt('KV-Arbeitsstunden',entry.value||'');
+      if(next===null) return;
+      updateCustomEntry(meldung,{label:entry.label||'KV-Arbeitsstunden',value:next});
     };
     elements.list.addEventListener('click',handleCardClick);
     elements.list.addEventListener('dblclick',handleCustomDblClick);
+    elements.list.addEventListener('dblclick',handleCardDblClick);
     if(elements.activeList){
       elements.activeList.addEventListener('click',handleCardClick);
       elements.activeList.addEventListener('dblclick',handleCustomDblClick);
+      elements.activeList.addEventListener('dblclick',handleCardDblClick);
     }
     if(elements.extraContainer){
       elements.extraContainer.addEventListener('click',handleCardClick);
       elements.extraContainer.addEventListener('dblclick',handleCustomDblClick);
+      elements.extraContainer.addEventListener('dblclick',handleCardDblClick);
     }
 
     targetDiv.addEventListener('contextmenu',event=>{

@@ -3,6 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.2.2] – 2026-01-13
+### Added
+- Doppelklick auf eine Kachel öffnet die Eingabe für KV-Arbeitsstunden pro Gerät.
+- Standardlabel der Stundenanpassung auf KV-Arbeitsstunden gesetzt.
+
 ## [1.2.1] – 2026-01-13
 ### Added
 - Stundenanpassung wird pro Gerät zusätzlich in den Kacheln angezeigt, sofern ein Custom-Wert gesetzt ist.
