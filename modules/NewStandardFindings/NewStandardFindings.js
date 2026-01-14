@@ -4532,10 +4532,10 @@
         removalActions.appendChild(button);
         return button;
       };
-      addRemovalButton('Reason for removal confirmed.',()=>this.setRemovalReason('Reason for removal confirmed.'));
-      addRemovalButton('Reason for removal not confirmed.',()=>this.setRemovalReason('Reason for removal not confirmed.'));
-      addRemovalButton('No detailed reason for removal provided by customer.',()=>this.setRemovalReason('No detailed reason for removal provided by customer.'));
-      addRemovalButton('Surplus as removed',()=>{
+      addRemovalButton('confirmed.',()=>this.setRemovalReason('Reason for removal confirmed.'));
+      addRemovalButton('not confirmed.',()=>this.setRemovalReason('Reason for removal not confirmed.'));
+      addRemovalButton('Not provided.',()=>this.setRemovalReason('No detailed reason for removal provided by customer.'));
+      addRemovalButton('Surplus',()=>{
         const input=window.prompt('Bitte geben Sie die MSN ein:','');
         if(!input) return;
         this.setRemovalReason(`Surplus as removed from MSN: ${input.trim()}`);
