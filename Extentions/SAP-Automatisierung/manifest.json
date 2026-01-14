@@ -1,0 +1,21 @@
+{
+  "manifest_version": 2,
+  "name": "SAP-Automatisierung",
+  "version": "0.1.0",
+  "description": "Sidebar with a configurable data grid for future SAP automation sequences.",
+  "permissions": [
+    "tabs",
+    "clipboardRead",
+    "<all_urls>"
+  ],
+  "sidebar_action": {
+    "default_title": "SAP-Automatisierung",
+    "default_panel": "sidebar.html"
+  },
+  "applications": {
+    "gecko": {
+      "id": "sap-automation-sidebar@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

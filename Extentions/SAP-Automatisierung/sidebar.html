@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SAP-Automatisierung</title>
+    <style>
+      :root {
+        --automation-bg: #e4e4e4;
+        --automation-surface: #f0f0f0;
+        --automation-surface-2: #f7f7f7;
+        --automation-border: #c8c8c8;
+        --automation-text: #111111;
+        --automation-subtle: #4b4b4b;
+        --automation-accent: #4da3ff;
+        --automation-accent-strong: #2c82e8;
+        --automation-success: #16a34a;
+        --automation-error: #dc2626;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: var(--automation-text);
+        background: var(--automation-bg);
+      }
+
+      .app {
+        min-height: 100vh;
+        padding: 22px 18px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .logo-wrap {
+        position: relative;
+        width: 260px;
+        height: 260px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: #dedede;
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+      }
+
+      .logo-ring {
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        background: conic-gradient(
+          from 0deg,
+          rgba(77, 163, 255, 0.98),
+          rgba(77, 163, 255, 0.3),
+          rgba(77, 163, 255, 0.98)
+        );
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 42px), #000 calc(100% - 12px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 42px), #000 calc(100% - 12px));
+        opacity: 0;
+        transform: rotate(0deg) scale(1);
+        filter: drop-shadow(0 0 30px rgba(77, 163, 255, 0.55));
+        transition: opacity 220ms ease;
+      }
+
+      .logo-ring::after {
+        content: "";
+        position: absolute;
+        inset: 26px;
+        border-radius: 50%;
+        border: 3px solid rgba(77, 163, 255, 0.5);
+        box-shadow: 0 0 0 6px rgba(77, 163, 255, 0.12);
+      }
+
+      .logo-wrap.running .logo-ring {
+        opacity: 1;
+        animation: ring-spin 2.2s linear infinite;
+      }
+
+      .logo {
+        width: 200px;
+        height: 200px;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.28));
+      }
+
+      @keyframes ring-spin {
+        from {
+          transform: rotate(0deg) scale(1);
+        }
+        50% {
+          transform: rotate(180deg) scale(1.04);
+        }
+        to {
+          transform: rotate(360deg) scale(1);
+        }
+      }
+
+      .run-button {
+        width: 25%;
+        max-width: 200px;
+        min-width: 128px;
+        padding: 12px 14px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--automation-text);
+        background-image: linear-gradient(125deg, var(--automation-accent), var(--automation-accent-strong));
+        background-size: 220% 100%;
+        background-position: 0% 50%;
+        border: 1px solid rgba(77, 163, 255, 0.35);
+        border-radius: 12px;
+        text-align: center;
+        cursor: pointer;
+        box-shadow: 0 12px 30px rgba(44, 130, 232, 0.25);
+        transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease, background-position 180ms ease;
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+      }
+
+      .run-button::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        background: linear-gradient(120deg, var(--overlay-from, var(--automation-accent)), var(--overlay-to, var(--automation-accent-strong)));
+        transform: translateX(-120%);
+        opacity: 0;
+        pointer-events: none;
+        mix-blend-mode: screen;
+        filter: drop-shadow(0 12px 24px rgba(77, 163, 255, 0.28));
+      }
+
+      .run-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 34px rgba(44, 130, 232, 0.32);
+      }
+
+      .run-button:active {
+        transform: translateY(0);
+      }
+
+      .run-button.stop {
+        background-image: linear-gradient(125deg, #ef4444, #b91c1c);
+        background-position: 100% 50%;
+        border-color: rgba(239, 68, 68, 0.4);
+        box-shadow: 0 12px 30px rgba(239, 68, 68, 0.25);
+      }
+
+      .run-button.stop::after {
+        background: linear-gradient(120deg, #2563eb, #ef4444);
+      }
+
+      .run-button.transition-to-stop::after {
+        --overlay-from: var(--automation-accent);
+        --overlay-to: #ef4444;
+        animation: sweep-to-stop 520ms ease forwards;
+      }
+
+      .run-button.transition-to-run::after {
+        --overlay-from: #ef4444;
+        --overlay-to: var(--automation-accent);
+        animation: sweep-to-run 520ms ease forwards;
+      }
+
+      .run-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      @keyframes sweep-to-stop {
+        from {
+          transform: translateX(-130%);
+          opacity: 0.92;
+        }
+        35% {
+          opacity: 1;
+        }
+        to {
+          transform: translateX(130%);
+          opacity: 0;
+        }
+      }
+
+      @keyframes sweep-to-run {
+        from {
+          transform: translateX(130%);
+          opacity: 0.92;
+        }
+        35% {
+          opacity: 1;
+        }
+        to {
+          transform: translateX(-130%);
+          opacity: 0;
+        }
+      }
+
+      .sheet-wrap {
+        width: 100%;
+      }
+
+      .sheet-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
+      }
+
+      .sheet-table td {
+        border: 1px solid var(--automation-border);
+        padding: 0;
+        background: #ffffff;
+      }
+
+      .sheet-input {
+        width: 100%;
+        border: none;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-family: inherit;
+        color: var(--automation-text);
+        background: transparent;
+      }
+
+      .sheet-input:focus {
+        outline: 2px solid rgba(77, 163, 255, 0.6);
+        outline-offset: -2px;
+      }
+
+      .log-panel {
+        width: 100%;
+        background: var(--automation-surface);
+        border: 1px solid var(--automation-border);
+        border-radius: 12px;
+        color: var(--automation-text);
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      }
+
+      .log-panel summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 10px 12px;
+        position: relative;
+        color: var(--automation-subtle);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .log-panel summary::marker,
+      .log-panel summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .log-panel summary::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--automation-accent);
+        opacity: 0.6;
+        box-shadow: 0 0 0 4px rgba(77, 163, 255, 0.08);
+      }
+
+      .log {
+        border-top: 1px solid var(--automation-border);
+        background: linear-gradient(180deg, var(--automation-surface) 0%, var(--automation-surface-2) 100%);
+        padding: 10px 12px 14px;
+        max-height: 240px;
+        overflow: auto;
+        font-size: 12px;
+        line-height: 1.4;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .log-entry {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 8px;
+        align-items: baseline;
+        color: var(--automation-text);
+      }
+
+      .log-entry .time {
+        color: var(--automation-subtle);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .log-entry.success .message {
+        color: var(--automation-success);
+      }
+
+      .log-entry.error .message {
+        color: var(--automation-error);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="logo-wrap" id="logoWrap">
+        <div class="logo-ring" aria-hidden="true"></div>
+        <img src="lufthansa.png" alt="Lufthansa" class="logo" />
+      </div>
+
+      <button id="run" class="run-button">Run</button>
+
+      <div class="sheet-wrap">
+        <table class="sheet-table" aria-label="SAP Daten">
+          <tbody id="sheetBody"></tbody>
+        </table>
+      </div>
+
+      <details id="logPanel" class="log-panel">
+        <summary>Debug log</summary>
+        <div id="log" class="log" aria-live="polite"></div>
+      </details>
+    </div>
+
+    <script src="sidebar.js"></script>
+  </body>
+</html>
