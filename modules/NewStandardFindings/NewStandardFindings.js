@@ -4473,6 +4473,11 @@
       const selectionHeader=document.createElement('div');
       selectionHeader.className='nsf-selection-header';
 
+      const toggleSelectionCollapsed=()=>{
+        this.selectionCollapsed=!this.selectionCollapsed;
+        this.render();
+      };
+
       const selectionToggle=document.createElement('button');
       selectionToggle.type='button';
       selectionToggle.className='nsf-header-toggle';
@@ -4480,12 +4485,12 @@
       selectionToggle.title=this.selectionCollapsed?'Auswahl anzeigen':'Auswahl ausblenden';
       selectionToggle.setAttribute('aria-label',selectionToggle.title);
       selectionToggle.setAttribute('aria-expanded',String(!this.selectionCollapsed));
-      selectionToggle.addEventListener('click',event=>{
-        event.stopPropagation();
-        this.selectionCollapsed=!this.selectionCollapsed;
-        this.render();
-      });
+      selectionToggle.addEventListener('click',toggleSelectionCollapsed);
       selectionHeader.appendChild(selectionToggle);
+      selectionHeader.addEventListener('click',event=>{
+        if(event.target.closest('button')) return;
+        toggleSelectionCollapsed();
+      });
 
       const heading=document.createElement('div');
       heading.className='nsf-selection-heading';

@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.4.4] – 2026-01-14
+### Fixed
+- Die Einklapplogik für den Bereich „Findings auswählen“ wurde an die Modulkopf-Logik angeglichen, damit das Ein- und Ausklappen zuverlässiger reagiert.
+
 ## [1.4.3] – 2026-01-14
 ### Fixed
 - Der „Ändern“-Button für Removal-Gründe klappt die Optionen jetzt wieder zuverlässig ein und aus.
