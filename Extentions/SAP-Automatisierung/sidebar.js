@@ -501,6 +501,8 @@
       addLog("Failed to set the SAP field value.", "error");
       return;
     }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (stopRequested) return;
     addLog("Submitting the SAP field...", "info");
     const submitted = await pressEnter(tabId, inputSelector);
     if (!submitted) {

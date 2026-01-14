@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.2] - 2026-01-14
+### Changed
+- Added a short delay between filling the SAP input and submitting with Enter.
+
 ## [0.2.1] - 2026-01-14
 ### Added
 - Added SAP sequence steps for enter submission and title clicking, plus Run/Stop visuals with vignette during execution.
