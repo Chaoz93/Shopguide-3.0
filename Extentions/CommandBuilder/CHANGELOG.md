@@ -1,5 +1,15 @@
 # Automation Command Builder Changelog
 
+## [0.1.12] - 2026-01-14
+### Fixed
+- Avoided double-escaping backslashes in selectors so IDs with special characters still resolve.
+
+## [0.1.11] - 2026-01-14
+### Fixed
+- Picker now builds stronger selectors with attribute and full-path fallbacks to better identify elements.
+- INPUT picking only highlights and selects editable targets like text inputs, textareas, and contenteditable fields.
+- Element picker uses the topmost element at click time to match the hover highlight.
+
 ## [0.1.9] - 2026-01-14
 ### Fixed
 - Escaped tooltip syntax markers so button labels remain unchanged.
