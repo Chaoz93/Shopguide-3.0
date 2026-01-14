@@ -4,6 +4,7 @@
   const addGotoButton = document.getElementById("add-goto");
   const tryGotoButton = document.getElementById("try-goto");
   const addWaitToLoadButton = document.getElementById("add-waittoload");
+  const addWaitForElementButton = document.getElementById("add-waitforelement");
   const addWaitButton = document.getElementById("add-wait");
   const addClickButton = document.getElementById("add-click");
   const addInputButton = document.getElementById("add-input");
@@ -173,6 +174,8 @@
     const upper = content.trim().toUpperCase();
     if (upper.startsWith("INPUT")) {
       pickerCommand = "INPUT";
+    } else if (upper.startsWith("WAITFORELEMENT")) {
+      pickerCommand = "WAITFORELEMENT";
     } else if (upper.startsWith("CLICK")) {
       pickerCommand = "CLICK";
     } else {
@@ -219,6 +222,9 @@
   addGotoButton.addEventListener("click", () => insertCommand("GOTO "));
   tryGotoButton.addEventListener("click", tryGoto);
   addWaitToLoadButton.addEventListener("click", () => insertCommand("WAITTOLOAD", { advanceLine: true }));
+  addWaitForElementButton.addEventListener("click", () =>
+    insertCommand('WAITFORELEMENT ""', { caretColumn: 'WAITFORELEMENT "'.length })
+  );
   addWaitButton.addEventListener("click", () => insertCommand("WAIT 1000", { advanceLine: true }));
   addClickButton.addEventListener("click", () => insertCommand('CLICK ""', { caretColumn: 'CLICK "'.length }));
   addInputButton.addEventListener("click", () => insertCommand('INPUT "" ""', { caretColumn: 'INPUT "'.length }));

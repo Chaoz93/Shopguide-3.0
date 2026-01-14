@@ -415,6 +415,94 @@
     return true;
   }
 
+  async function waitForElementCommand(targetIdentifier) {
+    const targetId = (targetIdentifier || "").trim();
+
+    if (!targetId) {
+      addLog("WAITFORELEMENT requires an element selector or ID.", "error");
+      return false;
+    }
+
+    if (!chainTabId) {
+      addLog("WAITFORELEMENT requires a tracked tab (run GOTO first).", "error");
+      return false;
+    }
+
+    addLog(`Waiting for element (${targetId}) to appear...`, "info");
+    const pollIntervalMs = 500;
+
+    const elementExistsRunner = function (payload) {
+      function cssEscape(value) {
+        if (window.CSS && typeof window.CSS.escape === "function") {
+          return window.CSS.escape(value);
+        }
+        return value.replace(/[^a-zA-Z0-9_\-]/g, (char) => "\\" + char);
+      }
+
+      function findTarget(idOrSelector) {
+        if (!idOrSelector) return null;
+        const trimmed = idOrSelector.trim();
+        if (!trimmed) return null;
+
+        const idCandidate = trimmed.startsWith("#") ? trimmed.slice(1) : trimmed;
+        const directById = document.getElementById(idCandidate);
+        if (directById) return directById;
+
+        try {
+          const escapedId = cssEscape(idCandidate);
+          if (escapedId) {
+            const escaped = document.getElementById(idCandidate) || document.querySelector("#" + escapedId);
+            if (escaped) return escaped;
+          }
+        } catch (_) {}
+
+        try {
+          const selectorMatch = document.querySelector(trimmed);
+          if (selectorMatch) return selectorMatch;
+        } catch (_) {}
+
+        if (!trimmed.startsWith("#")) {
+          try {
+            const hashFallback = document.querySelector("#" + cssEscape(trimmed));
+            if (hashFallback) return hashFallback;
+          } catch (_) {}
+        }
+
+        return null;
+      }
+
+      const decoded = payload && typeof payload.target === "string" ? payload.target : "";
+      const element = findTarget(decoded);
+      return { found: Boolean(element) };
+    };
+
+    const script = `(${elementExistsRunner.toString()})(${JSON.stringify({ target: targetId })});`;
+
+    while (true) {
+      if (stopRequested) {
+        addLog("WAITFORELEMENT cancelled by stop request.", "error");
+        return false;
+      }
+
+      try {
+        const [result] = await api.tabs.executeScript(chainTabId, { code: script });
+        if (!result) {
+          addLog("WAITFORELEMENT failed: no response from the tab.", "error");
+          return false;
+        }
+        if (result.found) {
+          addLog(`Element (${targetId}) found.`, "success");
+          return true;
+        }
+      } catch (error) {
+        addLog(`WAITFORELEMENT failed: ${error && error.message ? error.message : error}`, "error");
+        return false;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    }
+  }
+
   async function waitCommand(durationMs) {
     const ms = Number(durationMs);
     if (!Number.isFinite(ms) || ms < 0) {
@@ -655,6 +743,14 @@
           commandSucceeded = false;
         } else {
           commandSucceeded = await waitForChainTabLoad();
+        }
+      } else if (upper === "WAITFORELEMENT") {
+        const targetText = parseSelectorArg(argString);
+        if (!targetText) {
+          addLog("WAITFORELEMENT requires an element selector or ID.", "error");
+          commandSucceeded = false;
+        } else {
+          commandSucceeded = await waitForElementCommand(targetText);
         }
       } else if (upper === "WAIT") {
         const durationText = argString.trim();

@@ -1,5 +1,9 @@
 # Automation Command Builder Changelog
 
+## [0.1.6] - 2026-01-14
+### Added
+- Added a WAITFORELEMENT command button with picker support and updated helper copy.
+
 ## [0.1.5] - 2025-12-19
 ### Fixed
 - CLICK and INPUT commands now wrap selectors in quotes when inserted or picked so automation parsing keeps the full selector intact.
