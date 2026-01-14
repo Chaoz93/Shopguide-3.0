@@ -1,5 +1,9 @@
 # Automation Command Builder Changelog
 
+## [0.1.9] - 2026-01-14
+### Fixed
+- Escaped tooltip syntax markers so button labels remain unchanged.
+
 ## [0.1.8] - 2026-01-14
 ### Changed
 - Removed the header/footer helper text and updated button tooltips to show syntax plus a short hint.
