@@ -7,6 +7,7 @@
   let columnCount = initialColumns;
   let isSelecting = false;
   let selectionAnchor = null;
+  let selectionRange = null;
   const selectedCells = new Set();
 
   function timestamp() {
@@ -113,6 +114,7 @@
   function selectRange(start, end) {
     clearSelection();
     if (!start || !end) return;
+    selectionRange = { start, end };
     const startRow = Math.min(start.rowIndex, end.rowIndex);
     const endRow = Math.max(start.rowIndex, end.rowIndex);
     const startCol = Math.min(start.colIndex, end.colIndex);
@@ -182,6 +184,35 @@
     return true;
   }
 
+  function getSelectionText() {
+    if (!selectionRange) return "";
+    const startRow = Math.min(selectionRange.start.rowIndex, selectionRange.end.rowIndex);
+    const endRow = Math.max(selectionRange.start.rowIndex, selectionRange.end.rowIndex);
+    const startCol = Math.min(selectionRange.start.colIndex, selectionRange.end.colIndex);
+    const endCol = Math.max(selectionRange.start.colIndex, selectionRange.end.colIndex);
+
+    const rows = [];
+    for (let rowIndex = startRow; rowIndex <= endRow; rowIndex += 1) {
+      const row = sheetBody.children[rowIndex];
+      if (!row) continue;
+      const inputs = Array.from(row.querySelectorAll("input"));
+      const values = [];
+      for (let colIndex = startCol; colIndex <= endCol; colIndex += 1) {
+        values.push(inputs[colIndex]?.value ?? "");
+      }
+      rows.push(values.join("\t"));
+    }
+    return rows.join("\n");
+  }
+
+  function handleCopy(event) {
+    if (!selectedCells.size) return;
+    const text = getSelectionText();
+    if (!text) return;
+    event.preventDefault();
+    event.clipboardData?.setData("text/plain", text);
+  }
+
   function parseClipboard(text) {
     const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const lines = normalized.split("\n");
@@ -247,6 +278,7 @@
   document.addEventListener("mouseup", endSelection);
   document.addEventListener("mousemove", handleGlobalMouseMove);
   document.addEventListener("keydown", handleKeydown);
+  document.addEventListener("copy", handleCopy);
 
   for (let i = 0; i < initialRows; i += 1) {
     sheetBody.appendChild(createRow());

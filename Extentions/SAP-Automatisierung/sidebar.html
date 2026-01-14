@@ -215,6 +215,16 @@
         box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
       }
 
+      .sheet-table th {
+        border: 1px solid var(--automation-border);
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        text-align: center;
+        color: var(--automation-text);
+        background: #f3f3f3;
+      }
+
       .sheet-table td {
         border: 1px solid var(--automation-border);
         padding: 0;
@@ -325,6 +335,12 @@
 
       <div class="sheet-wrap">
         <table class="sheet-table" aria-label="SAP Daten">
+          <thead>
+            <tr>
+              <th scope="col">BM</th>
+              <th scope="col">Schulung</th>
+            </tr>
+          </thead>
           <tbody id="sheetBody"></tbody>
         </table>
       </div>
