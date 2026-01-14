@@ -465,8 +465,18 @@
       const input = document.querySelector(payload.selector);
       if (!input) return false;
       input.focus();
-      const event = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true });
-      input.dispatchEvent(event);
+      const keyOptions = { key: "Enter", code: "Enter", which: 13, keyCode: 13, bubbles: true };
+      input.dispatchEvent(new KeyboardEvent("keydown", keyOptions));
+      input.dispatchEvent(new KeyboardEvent("keypress", keyOptions));
+      input.dispatchEvent(new KeyboardEvent("keyup", keyOptions));
+      const form = input.form;
+      if (form) {
+        const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
+        form.dispatchEvent(submitEvent);
+        if (!submitEvent.defaultPrevented) {
+          form.submit();
+        }
+      }
       return true;
     }.toString()})(${JSON.stringify({ selector })});`;
     const [result] = await api.tabs.executeScript(tabId, { code: script });

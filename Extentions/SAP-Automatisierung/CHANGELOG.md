@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.3] - 2026-01-14
+### Changed
+- Improved the Enter submission simulation to dispatch full key events and submit the form when available.
+
 ## [0.2.2] - 2026-01-14
 ### Changed
 - Added a short delay between filling the SAP input and submitting with Enter.
