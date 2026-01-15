@@ -548,10 +548,20 @@
               ? element.className.baseVal
               : "";
         const input = findRadioInput(element);
-        return JSON.stringify({
+        const descendants = element.querySelectorAll ? Array.from(element.querySelectorAll("*")) : [];
+        const descendantClasses = descendants
+          .map((node) => {
+            if (typeof node.className === "string") return node.className;
+            if (node.className && typeof node.className.baseVal === "string") return node.className.baseVal;
+            return "";
+          })
+          .filter(Boolean)
+          .join(" ");
+        const info = {
           tagName: element.tagName,
           id: element.id || null,
           className,
+          classText: [className, descendantClasses].filter(Boolean).join(" "),
           role: getAttr(element, "role"),
           ariaChecked: getAttr(element, "aria-checked"),
           ariaSelected: getAttr(element, "aria-selected"),
@@ -574,7 +584,8 @@
                 checkedAttr: getAttr(input, "checked")
               }
             : null
-        });
+        };
+        return JSON.stringify(info);
       };
 
       const isActive = (element) => {
@@ -616,13 +627,29 @@
         }
         return null;
       };
-      const summarize = (element) => {
+      const buildRadioDebugInfo = (element) => {
         if (!element) return null;
+        const className =
+          typeof element.className === "string"
+            ? element.className
+            : element.className && typeof element.className.baseVal === "string"
+              ? element.className.baseVal
+              : "";
+        const descendants = element.querySelectorAll ? Array.from(element.querySelectorAll("*")) : [];
+        const descendantClasses = descendants
+          .map((node) => {
+            if (typeof node.className === "string") return node.className;
+            if (node.className && typeof node.className.baseVal === "string") return node.className.baseVal;
+            return "";
+          })
+          .filter(Boolean)
+          .join(" ");
         const input = findRadioInput(element);
         return {
           tagName: element.tagName,
           id: element.id || null,
-          className: element.className || null,
+          className,
+          classText: [className, descendantClasses].filter(Boolean).join(" "),
           role: getAttr(element, "role"),
           ariaChecked: getAttr(element, "aria-checked"),
           ariaSelected: getAttr(element, "aria-selected"),
@@ -650,22 +677,13 @@
 
       return payload.selectors.map((selector) => {
         const element = document.querySelector(selector);
-        const className =
-          element && typeof element.className === "string"
-            ? element.className
-            : element && element.className && typeof element.className.baseVal === "string"
-              ? element.className.baseVal
-              : "";
-        const hasCheckedDisabled = className.includes("IsRadioButton--checked--disabled");
-        const hasUncheckedDisabled = className.includes("IsRadioButton--unchecked--disabled");
+        const info = buildRadioDebugInfo(element);
+        const infoString = JSON.stringify(info);
         return {
           selector,
           found: Boolean(element),
-          classMatches: {
-            checkedDisabled: hasCheckedDisabled,
-            uncheckedDisabled: hasUncheckedDisabled
-          },
-          element: summarize(element)
+          infoString,
+          element: info
         };
       });
     }.toString()})(${JSON.stringify({ selectors })});`;

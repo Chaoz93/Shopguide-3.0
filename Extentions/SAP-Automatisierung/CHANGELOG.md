@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.16] - 2026-01-15
+### Changed
+- Unified radio debug strings with detection and included descendant class names in the debug payload.
+
 ## [0.2.15] - 2026-01-15
 ### Changed
 - Always log debug info for all four SAP radio options to aid troubleshooting.
