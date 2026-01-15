@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.6] - 2026-01-14
+### Fixed
+- Guarded browser API usage so the grid still renders outside the extension runtime.
+
 ## [0.2.5] - 2026-01-14
 ### Changed
 - Expanded radio detection to check nested inputs, aria states, and selection-like classes.

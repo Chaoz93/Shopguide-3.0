@@ -3,7 +3,7 @@
   const logContainer = document.getElementById("log");
   const sheetBody = document.getElementById("sheetBody");
   const logoWrap = document.getElementById("logoWrap");
-  const api = typeof browser !== "undefined" ? browser : chrome;
+  const api = typeof browser !== "undefined" ? browser : typeof chrome !== "undefined" ? chrome : null;
   const initialRows = 2;
   const initialColumns = 2;
   let columnCount = initialColumns;
@@ -48,7 +48,7 @@
     runButton.classList.toggle("stop", state);
     logoWrap.classList.toggle("running", state);
 
-    if (state) {
+    if (state && api) {
       ensureVignetteWatcher();
     } else {
       disableVignetteWatcher();
@@ -102,6 +102,7 @@
       return true;
     }.toString()})(${JSON.stringify({ active })});`;
 
+    if (!api) return;
     try {
       await api.tabs.executeScript(tabId, { code: vignetteScript });
     } catch (error) {
@@ -138,11 +139,13 @@
         syncVignetteForTab(tabId).catch(() => {});
       }
     };
+    if (!api) return;
     api.tabs.onUpdated.addListener(tabUpdateListener);
   }
 
   function disableVignetteWatcher() {
     if (!tabUpdateListener) return;
+    if (!api) return;
     api.tabs.onUpdated.removeListener(tabUpdateListener);
     tabUpdateListener = null;
   }
@@ -439,11 +442,13 @@
   }
 
   async function openTab(url) {
+    if (!api) throw new Error("Browser API unavailable.");
     const tab = await api.tabs.create({ url, active: true });
     return tab.id;
   }
 
   async function waitForElement(tabId, selector, timeoutMs = 30000) {
+    if (!api) return false;
     const pollInterval = 300;
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
@@ -459,6 +464,7 @@
   }
 
   async function setInputValue(tabId, selector, value) {
+    if (!api) return false;
     const script = `(${function (payload) {
       const input = document.querySelector(payload.selector);
       if (!input) return false;
@@ -473,6 +479,7 @@
   }
 
   async function pressEnter(tabId, selector) {
+    if (!api) return false;
     const script = `(${function (payload) {
       const input = document.querySelector(payload.selector);
       if (!input) return false;
@@ -496,6 +503,7 @@
   }
 
   async function clickElement(tabId, selector) {
+    if (!api) return false;
     const script = `(${function (payload) {
       const target = document.querySelector(payload.selector);
       if (!target) return false;
@@ -507,6 +515,7 @@
   }
 
   async function getActiveRadioIndex(tabId, selectors) {
+    if (!api) return -1;
     const script = `(${function (payload) {
       const hasActiveClass = (element) => {
         if (!element || !element.className) return false;
@@ -601,6 +610,10 @@
   }
 
   runButton.addEventListener("click", async () => {
+    if (!api) {
+      addLog("Run unavailable outside the extension environment.", "error");
+      return;
+    }
     if (isRunning) {
       stopRequested = true;
       setRunning(false);
