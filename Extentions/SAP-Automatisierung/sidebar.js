@@ -540,10 +540,14 @@
       };
 
       const hasStateClass = (element) => {
-        if (!element || !element.className) return false;
-        if (/IsRadioButton--unchecked/i.test(element.className)) return false;
-        if (/IsRadioButton--checked/i.test(element.className)) return true;
-        return /(^|\s)(checked|selected|active|marked)(\s|$)/i.test(element.className);
+        if (!element) return false;
+        const classList = element.classList ? Array.from(element.classList) : null;
+        const className = typeof element.className === "string" ? element.className : "";
+        const tokens = classList || className.split(/\s+/).filter(Boolean);
+        if (!tokens.length) return false;
+        if (tokens.some((token) => /IsRadioButton--unchecked/i.test(token))) return false;
+        if (tokens.some((token) => /IsRadioButton--checked/i.test(token))) return true;
+        return tokens.some((token) => /^(checked|selected|active|marked)$/i.test(token));
       };
 
       const isActive = (element) => {
