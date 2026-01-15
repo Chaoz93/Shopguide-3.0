@@ -147,18 +147,19 @@
     tabUpdateListener = null;
   }
 
-  function getTopLeftValue() {
-    const firstRow = sheetBody.querySelector("tr");
-    if (!firstRow) return "";
-    const firstInput = firstRow.querySelector("input");
-    return firstInput ? firstInput.value.trim() : "";
+  function getRowValue(rowIndex, colIndex) {
+    const row = sheetBody.children[rowIndex];
+    if (!row) return "";
+    const inputs = Array.from(row.querySelectorAll("input"));
+    const target = inputs[colIndex];
+    return target ? target.value.trim() : "";
   }
 
-  function setTopRightValue(value) {
-    const firstRow = sheetBody.querySelector("tr");
-    if (!firstRow) return;
-    const inputs = Array.from(firstRow.querySelectorAll("input"));
-    const target = inputs[1];
+  function setRowValue(rowIndex, colIndex, value) {
+    const row = sheetBody.children[rowIndex];
+    if (!row) return;
+    const inputs = Array.from(row.querySelectorAll("input"));
+    const target = inputs[colIndex];
     if (target) {
       target.value = value;
       target.dispatchEvent(new Event("input", { bubbles: true }));
@@ -539,25 +540,59 @@
         return null;
       };
 
-      const hasStateClass = (element) => {
-        if (!element || !element.className) return false;
-        return /checked|selected|active|marked|on/i.test(element.className);
+      const getInfoString = (element) => {
+        if (!element) return "";
+        const className =
+          typeof element.className === "string"
+            ? element.className
+            : element.className && typeof element.className.baseVal === "string"
+              ? element.className.baseVal
+              : "";
+        const input = findRadioInput(element);
+        const descendants = element.querySelectorAll ? Array.from(element.querySelectorAll("*")) : [];
+        const descendantClasses = descendants
+          .map((node) => {
+            if (typeof node.className === "string") return node.className;
+            if (node.className && typeof node.className.baseVal === "string") return node.className.baseVal;
+            return "";
+          })
+          .filter(Boolean)
+          .join(" ");
+        const info = {
+          tagName: element.tagName,
+          id: element.id || null,
+          className,
+          classText: [className, descendantClasses].filter(Boolean).join(" "),
+          role: getAttr(element, "role"),
+          ariaChecked: getAttr(element, "aria-checked"),
+          ariaSelected: getAttr(element, "aria-selected"),
+          dataChecked: getAttr(element, "data-checked"),
+          dataSelected: getAttr(element, "data-selected"),
+          dataState: getAttr(element, "data-state"),
+          checkedAttr: getAttr(element, "checked"),
+          text: (element.textContent || "").trim().slice(0, 140),
+          input: input
+            ? {
+                tagName: input.tagName,
+                id: input.id || null,
+                name: input.name || null,
+                type: input.type || null,
+                checked: input.checked,
+                ariaChecked: getAttr(input, "aria-checked"),
+                ariaSelected: getAttr(input, "aria-selected"),
+                dataChecked: getAttr(input, "data-checked"),
+                dataSelected: getAttr(input, "data-selected"),
+                checkedAttr: getAttr(input, "checked")
+              }
+            : null
+        };
+        return JSON.stringify(info);
       };
 
       const isActive = (element) => {
         if (!element) return false;
-        const input = findRadioInput(element);
-        if (input && (input.checked || getAttr(input, "checked") === "checked")) return true;
-        if (input && getAttr(input, "aria-checked") === "true") return true;
-        if (element.querySelector && element.querySelector('input[type=\"radio\"]:checked')) return true;
-        if (hasStateAttribute(element)) return true;
-        if (hasStateClass(element)) return true;
-        const descendants = element.querySelectorAll("*");
-        for (const node of descendants) {
-          if (hasStateAttribute(node)) return true;
-          if (hasStateClass(node)) return true;
-        }
-        return false;
+        const infoString = getInfoString(element);
+        return infoString.toLowerCase().includes("lsradiobutton--checked--disabled");
       };
 
       for (let i = 0; i < payload.selectors.length; i += 1) {
@@ -570,7 +605,100 @@
     return result;
   }
 
-  async function runSapSequence({ url, inputSelector, value, titleSelector }) {
+  async function logRadioDebugInfo(tabId, selectors) {
+    const script = `(${function (payload) {
+      const getAttr = (element, attr) => (element ? element.getAttribute(attr) : null);
+      const findRadioInput = (element) => {
+        if (!element) return null;
+        if (element.matches && element.matches('input[type="radio"]')) return element;
+        if (element.control && element.control.type === "radio") return element.control;
+        const label = element.closest ? element.closest("label") : null;
+        if (label && label.control && label.control.type === "radio") return label.control;
+        const forId = getAttr(element, "for");
+        if (forId) {
+          const linked = document.getElementById(forId);
+          if (linked && linked.type === "radio") return linked;
+        }
+        const inside = element.querySelector ? element.querySelector('input[type="radio"]') : null;
+        if (inside) return inside;
+        const parent = element.parentElement;
+        if (parent) {
+          const radios = parent.querySelectorAll('input[type="radio"]');
+          if (radios.length === 1) return radios[0];
+        }
+        return null;
+      };
+      const buildRadioDebugInfo = (element) => {
+        if (!element) return null;
+        const className =
+          typeof element.className === "string"
+            ? element.className
+            : element.className && typeof element.className.baseVal === "string"
+              ? element.className.baseVal
+              : "";
+        const descendants = element.querySelectorAll ? Array.from(element.querySelectorAll("*")) : [];
+        const descendantClasses = descendants
+          .map((node) => {
+            if (typeof node.className === "string") return node.className;
+            if (node.className && typeof node.className.baseVal === "string") return node.className.baseVal;
+            return "";
+          })
+          .filter(Boolean)
+          .join(" ");
+        const input = findRadioInput(element);
+        return {
+          tagName: element.tagName,
+          id: element.id || null,
+          className,
+          classText: [className, descendantClasses].filter(Boolean).join(" "),
+          role: getAttr(element, "role"),
+          ariaChecked: getAttr(element, "aria-checked"),
+          ariaSelected: getAttr(element, "aria-selected"),
+          dataChecked: getAttr(element, "data-checked"),
+          dataSelected: getAttr(element, "data-selected"),
+          dataState: getAttr(element, "data-state"),
+          checkedAttr: getAttr(element, "checked"),
+          text: (element.textContent || "").trim().slice(0, 140),
+          input: input
+            ? {
+                tagName: input.tagName,
+                id: input.id || null,
+                name: input.name || null,
+                type: input.type || null,
+                checked: input.checked,
+                ariaChecked: getAttr(input, "aria-checked"),
+                ariaSelected: getAttr(input, "aria-selected"),
+                dataChecked: getAttr(input, "data-checked"),
+                dataSelected: getAttr(input, "data-selected"),
+                checkedAttr: getAttr(input, "checked")
+              }
+            : null
+        };
+      };
+
+      return payload.selectors.map((selector) => {
+        const element = document.querySelector(selector);
+        const info = buildRadioDebugInfo(element);
+        const infoString = JSON.stringify(info);
+        return {
+          selector,
+          found: Boolean(element),
+          infoString,
+          element: info
+        };
+      });
+    }.toString()})(${JSON.stringify({ selectors })});`;
+    const [result] = await api.tabs.executeScript(tabId, { code: script });
+    if (!result) {
+      addLog("Radio debug: no data returned.", "error");
+      return;
+    }
+    result.forEach((entry, index) => {
+      addLog(`Radio debug ${index + 1}: ${JSON.stringify(entry)}`, "info");
+    });
+  }
+
+  async function runSapSequence({ url, inputSelector, value, titleSelector, rowIndex }) {
     addLog("Opening SAP WebGUI...", "info");
     const tabId = await openTab(url);
     await syncVignetteForTab(tabId);
@@ -622,10 +750,11 @@
       "#M0\\:46\\:2\\:3B257\\:2\\:\\:4\\:135",
       "#M0\\:46\\:2\\:3B257\\:2\\:\\:5\\:135"
     ];
+    await logRadioDebugInfo(tabId, radioSelectors);
     const activeIndex = await getActiveRadioIndex(tabId, radioSelectors);
     const labels = ["In Prüfung", "Schriftliche Berechtigung", "Unterweisungspflicht", "Sonstiges T&E"];
     if (activeIndex >= 0) {
-      setTopRightValue(labels[activeIndex]);
+      setRowValue(rowIndex, 1, labels[activeIndex]);
       addLog("SAP sequence completed.", "success");
     } else {
       addLog("No active radio option detected.", "error");
@@ -641,19 +770,29 @@
       return;
     }
 
-    const topLeftValue = getTopLeftValue();
-    if (!topLeftValue) {
-      addLog("Top-left cell is empty. Please enter a value before running.", "error");
+    const rows = Array.from(sheetBody.querySelectorAll("tr"));
+    const rowsToProcess = rows
+      .map((row, rowIndex) => ({
+        rowIndex,
+        value: getRowValue(rowIndex, 0)
+      }))
+      .filter((entry) => entry.value);
+    if (!rowsToProcess.length) {
+      addLog("Left column is empty. Please enter a value before running.", "error");
       return;
     }
     setRunning(true);
     try {
-      await runSapSequence({
-        url: "https://sap-p04.lht.ham.dlh.de/sap/bc/gui/sap/its/webgui?sap-client=002&~transaction=*zmm03#",
-        inputSelector: "#M0\\:46\\:\\:\\:2\\:29",
-        titleSelector: "#M0\\:46\\:2\\:\\:0\\:1-title",
-        value: topLeftValue
-      });
+      for (const entry of rowsToProcess) {
+        if (stopRequested) break;
+        await runSapSequence({
+          url: "https://sap-p04.lht.ham.dlh.de/sap/bc/gui/sap/its/webgui?sap-client=002&~transaction=*zmm03#",
+          inputSelector: "#M0\\:46\\:\\:\\:2\\:29",
+          titleSelector: "#M0\\:46\\:2\\:\\:0\\:1-title",
+          value: entry.value,
+          rowIndex: entry.rowIndex
+        });
+      }
     } catch (error) {
       addLog(`Run failed: ${error.message || error}`, "error");
     } finally {
