@@ -539,38 +539,48 @@
         return null;
       };
 
-      const hasStateClass = (element) => {
-        if (!element) return false;
-        const classList = element.classList ? Array.from(element.classList) : null;
+      const getInfoString = (element) => {
+        if (!element) return "";
         const className =
           typeof element.className === "string"
             ? element.className
             : element.className && typeof element.className.baseVal === "string"
               ? element.className.baseVal
               : "";
-        if (className.includes("IsRadioButton--unchecked--disabled")) return false;
-        if (className.includes("IsRadioButton--checked--disabled")) return true;
-        const tokens = classList || className.split(/\s+/).filter(Boolean);
-        if (!tokens.length) return false;
-        if (tokens.some((token) => /IsRadioButton--unchecked/i.test(token))) return false;
-        if (tokens.some((token) => /IsRadioButton--checked/i.test(token))) return true;
-        return tokens.some((token) => /^(checked|selected|active|marked)$/i.test(token));
+        const input = findRadioInput(element);
+        return JSON.stringify({
+          tagName: element.tagName,
+          id: element.id || null,
+          className,
+          role: getAttr(element, "role"),
+          ariaChecked: getAttr(element, "aria-checked"),
+          ariaSelected: getAttr(element, "aria-selected"),
+          dataChecked: getAttr(element, "data-checked"),
+          dataSelected: getAttr(element, "data-selected"),
+          dataState: getAttr(element, "data-state"),
+          checkedAttr: getAttr(element, "checked"),
+          text: (element.textContent || "").trim().slice(0, 140),
+          input: input
+            ? {
+                tagName: input.tagName,
+                id: input.id || null,
+                name: input.name || null,
+                type: input.type || null,
+                checked: input.checked,
+                ariaChecked: getAttr(input, "aria-checked"),
+                ariaSelected: getAttr(input, "aria-selected"),
+                dataChecked: getAttr(input, "data-checked"),
+                dataSelected: getAttr(input, "data-selected"),
+                checkedAttr: getAttr(input, "checked")
+              }
+            : null
+        });
       };
 
       const isActive = (element) => {
         if (!element) return false;
-        const input = findRadioInput(element);
-        if (input && (input.checked || getAttr(input, "checked") === "checked")) return true;
-        if (input && getAttr(input, "aria-checked") === "true") return true;
-        if (element.querySelector && element.querySelector('input[type=\"radio\"]:checked')) return true;
-        if (hasStateAttribute(element)) return true;
-        if (hasStateClass(element)) return true;
-        const descendants = element.querySelectorAll("*");
-        for (const node of descendants) {
-          if (hasStateAttribute(node)) return true;
-          if (hasStateClass(node)) return true;
-        }
-        return false;
+        const infoString = getInfoString(element);
+        return infoString.includes("IsRadioButton--checked--disabled");
       };
 
       for (let i = 0; i < payload.selectors.length; i += 1) {
