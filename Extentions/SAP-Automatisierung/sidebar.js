@@ -548,6 +548,8 @@
             : element.className && typeof element.className.baseVal === "string"
               ? element.className.baseVal
               : "";
+        if (className.includes("IsRadioButton--unchecked--disabled")) return false;
+        if (className.includes("IsRadioButton--checked--disabled")) return true;
         const tokens = classList || className.split(/\s+/).filter(Boolean);
         if (!tokens.length) return false;
         if (tokens.some((token) => /IsRadioButton--unchecked/i.test(token))) return false;

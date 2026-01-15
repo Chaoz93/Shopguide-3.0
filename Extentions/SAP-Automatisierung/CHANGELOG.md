@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.12] - 2026-01-15
+### Changed
+- Detect SAP radio selection by searching for the checked/unchecked class strings in the debug output text.
+
 ## [0.2.11] - 2026-01-15
 ### Changed
 - Handle SVG-style className.baseVal so SAP checked/unchecked classes are detected reliably.
