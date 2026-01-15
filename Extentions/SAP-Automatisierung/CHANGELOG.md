@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.7] - 2026-01-14
+### Fixed
+- Added static starter rows and adjusted initialization so the grid renders even if scripts fail to attach.
+
 ## [0.2.6] - 2026-01-14
 ### Fixed
 - Guarded browser API usage so the grid still renders outside the extension runtime.

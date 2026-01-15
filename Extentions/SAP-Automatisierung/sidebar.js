@@ -648,7 +648,8 @@
   document.addEventListener("keydown", handleKeydown);
   document.addEventListener("copy", handleCopy);
 
-  for (let i = 0; i < initialRows; i += 1) {
+  const existingRows = sheetBody.children.length;
+  for (let i = existingRows; i < initialRows; i += 1) {
     sheetBody.appendChild(createRow());
   }
 
