@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.9] - 2026-01-15
+### Changed
+- Tightened radio class checks to avoid matching generic "on" substrings and prioritize SAP checked classes.
+
 ## [0.2.8] - 2026-01-15
 ### Changed
 - Updated radio detection to recognize SAP checked/unchecked class names without false positives.

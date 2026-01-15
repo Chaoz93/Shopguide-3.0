@@ -542,9 +542,8 @@
       const hasStateClass = (element) => {
         if (!element || !element.className) return false;
         if (/IsRadioButton--unchecked/i.test(element.className)) return false;
-        return /IsRadioButton--checked|(^|\s)checked(\s|$)|selected|active|marked|on/i.test(
-          element.className
-        );
+        if (/IsRadioButton--checked/i.test(element.className)) return true;
+        return /(^|\s)(checked|selected|active|marked)(\s|$)/i.test(element.className);
       };
 
       const isActive = (element) => {
