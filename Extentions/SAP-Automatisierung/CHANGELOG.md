@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.7] - 2026-01-15
+### Changed
+- Added debug logging that dumps the first two radio option details for troubleshooting detection.
+
 ## [0.2.6] - 2026-01-14
 ### Changed
 - Expanded radio detection to associate labels with inputs and check state attributes/class markers.

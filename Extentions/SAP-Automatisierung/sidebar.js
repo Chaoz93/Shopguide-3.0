@@ -570,6 +570,81 @@
     return result;
   }
 
+  async function logRadioDebugInfo(tabId, selectors) {
+    const debugSelectors = selectors.slice(0, 2);
+    const script = `(${function (payload) {
+      const getAttr = (element, attr) => (element ? element.getAttribute(attr) : null);
+      const findRadioInput = (element) => {
+        if (!element) return null;
+        if (element.matches && element.matches('input[type="radio"]')) return element;
+        if (element.control && element.control.type === "radio") return element.control;
+        const label = element.closest ? element.closest("label") : null;
+        if (label && label.control && label.control.type === "radio") return label.control;
+        const forId = getAttr(element, "for");
+        if (forId) {
+          const linked = document.getElementById(forId);
+          if (linked && linked.type === "radio") return linked;
+        }
+        const inside = element.querySelector ? element.querySelector('input[type="radio"]') : null;
+        if (inside) return inside;
+        const parent = element.parentElement;
+        if (parent) {
+          const radios = parent.querySelectorAll('input[type="radio"]');
+          if (radios.length === 1) return radios[0];
+        }
+        return null;
+      };
+      const summarize = (element) => {
+        if (!element) return null;
+        const input = findRadioInput(element);
+        return {
+          tagName: element.tagName,
+          id: element.id || null,
+          className: element.className || null,
+          role: getAttr(element, "role"),
+          ariaChecked: getAttr(element, "aria-checked"),
+          ariaSelected: getAttr(element, "aria-selected"),
+          dataChecked: getAttr(element, "data-checked"),
+          dataSelected: getAttr(element, "data-selected"),
+          dataState: getAttr(element, "data-state"),
+          checkedAttr: getAttr(element, "checked"),
+          text: (element.textContent || "").trim().slice(0, 140),
+          input: input
+            ? {
+                tagName: input.tagName,
+                id: input.id || null,
+                name: input.name || null,
+                type: input.type || null,
+                checked: input.checked,
+                ariaChecked: getAttr(input, "aria-checked"),
+                ariaSelected: getAttr(input, "aria-selected"),
+                dataChecked: getAttr(input, "data-checked"),
+                dataSelected: getAttr(input, "data-selected"),
+                checkedAttr: getAttr(input, "checked")
+              }
+            : null
+        };
+      };
+
+      return payload.selectors.map((selector) => {
+        const element = document.querySelector(selector);
+        return {
+          selector,
+          found: Boolean(element),
+          element: summarize(element)
+        };
+      });
+    }.toString()})(${JSON.stringify({ selectors: debugSelectors })});`;
+    const [result] = await api.tabs.executeScript(tabId, { code: script });
+    if (!result) {
+      addLog("Radio debug: no data returned.", "error");
+      return;
+    }
+    result.forEach((entry, index) => {
+      addLog(`Radio debug ${index + 1}: ${JSON.stringify(entry)}`, "info");
+    });
+  }
+
   async function runSapSequence({ url, inputSelector, value, titleSelector }) {
     addLog("Opening SAP WebGUI...", "info");
     const tabId = await openTab(url);
@@ -622,6 +697,7 @@
       "#M0\\:46\\:2\\:3B257\\:2\\:\\:4\\:135",
       "#M0\\:46\\:2\\:3B257\\:2\\:\\:5\\:135"
     ];
+    await logRadioDebugInfo(tabId, radioSelectors);
     const activeIndex = await getActiveRadioIndex(tabId, radioSelectors);
     const labels = ["In Prüfung", "Schriftliche Berechtigung", "Unterweisungspflicht", "Sonstiges T&E"];
     if (activeIndex >= 0) {
