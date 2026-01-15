@@ -154,6 +154,18 @@
     return firstInput ? firstInput.value.trim() : "";
   }
 
+  function setTopRightValue(value) {
+    const firstRow = sheetBody.querySelector("tr");
+    if (!firstRow) return;
+    const inputs = Array.from(firstRow.querySelectorAll("input"));
+    const target = inputs[1];
+    if (target) {
+      target.value = value;
+      target.dispatchEvent(new Event("input", { bubbles: true }));
+      target.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
   function createCell() {
     const td = document.createElement("td");
     td.className = "sheet-cell";
@@ -494,6 +506,27 @@
     return result;
   }
 
+  async function getActiveRadioIndex(tabId, selectors) {
+    const script = `(${function (payload) {
+      const isActive = (element) => {
+        if (!element) return false;
+        const input = element.querySelector('input[type=\"radio\"]');
+        if (input && input.checked) return true;
+        const ariaChecked = element.getAttribute("aria-checked");
+        if (ariaChecked === "true") return true;
+        return element.classList.contains("sapRb-checked") || element.classList.contains("checked");
+      };
+
+      for (let i = 0; i < payload.selectors.length; i += 1) {
+        const element = document.querySelector(payload.selectors[i]);
+        if (isActive(element)) return i;
+      }
+      return -1;
+    }.toString()})(${JSON.stringify({ selectors })});`;
+    const [result] = await api.tabs.executeScript(tabId, { code: script });
+    return result;
+  }
+
   async function runSapSequence({ url, inputSelector, value, titleSelector }) {
     addLog("Opening SAP WebGUI...", "info");
     const tabId = await openTab(url);
@@ -528,10 +561,31 @@
     if (stopRequested) return;
     addLog("Clicking title element...", "info");
     const clicked = await clickElement(tabId, titleSelector);
-    if (clicked) {
+    if (!clicked) {
+      addLog("Failed to click the title element.", "error");
+      return;
+    }
+    addLog("Waiting for radio options...", "info");
+    const radioContainerSelector = "#M0\\:46\\:2\\:3B257\\:2\\:\\:2\\:135";
+    const radioReady = await waitForElement(tabId, radioContainerSelector);
+    if (!radioReady) {
+      addLog("Radio options did not load in time.", "error");
+      return;
+    }
+    if (stopRequested) return;
+    const radioSelectors = [
+      "#M0\\:46\\:2\\:3B257\\:2\\:\\:2\\:135",
+      "#M0\\:46\\:2\\:3B257\\:2\\:\\:3\\:135",
+      "#M0\\:46\\:2\\:3B257\\:2\\:\\:4\\:135",
+      "#M0\\:46\\:2\\:3B257\\:2\\:\\:5\\:135"
+    ];
+    const activeIndex = await getActiveRadioIndex(tabId, radioSelectors);
+    const labels = ["In Prüfung", "Schriftliche Berechtigung", "Unterweisungspflicht", "Sonstiges T&E"];
+    if (activeIndex >= 0) {
+      setTopRightValue(labels[activeIndex]);
       addLog("SAP sequence completed.", "success");
     } else {
-      addLog("Failed to click the title element.", "error");
+      addLog("No active radio option detected.", "error");
     }
   }
 

@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.4] - 2026-01-14
+### Added
+- Added radio-option detection to populate the top-right grid cell based on the active SAP selection.
+
 ## [0.2.3] - 2026-01-14
 ### Changed
 - Improved the Enter submission simulation to dispatch full key events and submit the form when available.
