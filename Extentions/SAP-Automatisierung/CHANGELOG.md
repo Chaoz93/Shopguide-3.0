@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.17] - 2026-01-15
+### Changed
+- Enabled text selection in the debug log panel.
+
 ## [0.2.16] - 2026-01-15
 ### Changed
 - Unified radio debug strings with detection and included descendant class names in the debug payload.
