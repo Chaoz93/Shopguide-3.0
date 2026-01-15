@@ -591,7 +591,7 @@
       const isActive = (element) => {
         if (!element) return false;
         const infoString = getInfoString(element);
-        return infoString.includes("IsRadioButton--checked--disabled");
+        return infoString.toLowerCase().includes("lsradiobutton--checked--disabled");
       };
 
       for (let i = 0; i < payload.selectors.length; i += 1) {

@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.18] - 2026-01-15
+### Changed
+- Match the SAP checked radio class string in a case-insensitive way.
+
 ## [0.2.17] - 2026-01-15
 ### Changed
 - Enabled text selection in the debug log panel.
