@@ -584,7 +584,6 @@
   }
 
   async function logRadioDebugInfo(tabId, selectors) {
-    const debugSelectors = selectors.slice(0, 2);
     const script = `(${function (payload) {
       const getAttr = (element, attr) => (element ? element.getAttribute(attr) : null);
       const findRadioInput = (element) => {
@@ -641,20 +640,34 @@
 
       return payload.selectors.map((selector) => {
         const element = document.querySelector(selector);
+        const className =
+          element && typeof element.className === "string"
+            ? element.className
+            : element && element.className && typeof element.className.baseVal === "string"
+              ? element.className.baseVal
+              : "";
+        const hasCheckedDisabled = className.includes("IsRadioButton--checked--disabled");
+        const hasUncheckedDisabled = className.includes("IsRadioButton--unchecked--disabled");
         return {
           selector,
           found: Boolean(element),
+          classMatches: {
+            checkedDisabled: hasCheckedDisabled,
+            uncheckedDisabled: hasUncheckedDisabled
+          },
           element: summarize(element)
         };
       });
-    }.toString()})(${JSON.stringify({ selectors: debugSelectors })});`;
+    }.toString()})(${JSON.stringify({ selectors })});`;
     const [result] = await api.tabs.executeScript(tabId, { code: script });
     if (!result) {
       addLog("Radio debug: no data returned.", "error");
       return;
     }
     result.forEach((entry, index) => {
-      addLog(`Radio debug ${index + 1}: ${JSON.stringify(entry)}`, "info");
+      if (entry.classMatches?.checkedDisabled || entry.classMatches?.uncheckedDisabled) {
+        addLog(`Radio debug ${index + 1}: ${JSON.stringify(entry)}`, "info");
+      }
     });
   }
 

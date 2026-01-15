@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.13] - 2026-01-15
+### Changed
+- Expanded radio debug logging to cover all four options when checked/unchecked class strings are present.
+
 ## [0.2.12] - 2026-01-15
 ### Changed
 - Detect SAP radio selection by searching for the checked/unchecked class strings in the debug output text.
