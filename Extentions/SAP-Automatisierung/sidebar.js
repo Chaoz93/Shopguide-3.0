@@ -508,13 +508,24 @@
 
   async function getActiveRadioIndex(tabId, selectors) {
     const script = `(${function (payload) {
+      const hasActiveClass = (element) => {
+        if (!element || !element.className) return false;
+        return /checked|selected|active|marked/i.test(element.className);
+      };
+
       const isActive = (element) => {
         if (!element) return false;
         const input = element.querySelector('input[type=\"radio\"]');
         if (input && input.checked) return true;
-        const ariaChecked = element.getAttribute("aria-checked");
-        if (ariaChecked === "true") return true;
-        return element.classList.contains("sapRb-checked") || element.classList.contains("checked");
+        if (element.querySelector('input[type=\"radio\"]:checked')) return true;
+        if (element.querySelector('[aria-checked=\"true\"]')) return true;
+        if (element.querySelector('[aria-selected=\"true\"]')) return true;
+        if (hasActiveClass(element)) return true;
+        const descendants = element.querySelectorAll(\"*\");
+        for (const node of descendants) {
+          if (hasActiveClass(node)) return true;
+        }
+        return false;
       };
 
       for (let i = 0; i < payload.selectors.length; i += 1) {
