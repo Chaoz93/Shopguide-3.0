@@ -542,7 +542,12 @@
       const hasStateClass = (element) => {
         if (!element) return false;
         const classList = element.classList ? Array.from(element.classList) : null;
-        const className = typeof element.className === "string" ? element.className : "";
+        const className =
+          typeof element.className === "string"
+            ? element.className
+            : element.className && typeof element.className.baseVal === "string"
+              ? element.className.baseVal
+              : "";
         const tokens = classList || className.split(/\s+/).filter(Boolean);
         if (!tokens.length) return false;
         if (tokens.some((token) => /IsRadioButton--unchecked/i.test(token))) return false;

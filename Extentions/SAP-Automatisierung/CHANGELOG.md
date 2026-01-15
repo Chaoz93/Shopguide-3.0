@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.11] - 2026-01-15
+### Changed
+- Handle SVG-style className.baseVal so SAP checked/unchecked classes are detected reliably.
+
 ## [0.2.10] - 2026-01-15
 ### Changed
 - Switched radio class detection to token-based checks so SAP checked/unchecked classes are evaluated reliably.
