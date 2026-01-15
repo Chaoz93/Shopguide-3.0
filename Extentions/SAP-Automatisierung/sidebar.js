@@ -3,7 +3,7 @@
   const logContainer = document.getElementById("log");
   const sheetBody = document.getElementById("sheetBody");
   const logoWrap = document.getElementById("logoWrap");
-  const api = typeof browser !== "undefined" ? browser : typeof chrome !== "undefined" ? chrome : null;
+  const api = typeof browser !== "undefined" ? browser : chrome;
   const initialRows = 2;
   const initialColumns = 2;
   let columnCount = initialColumns;
@@ -48,7 +48,7 @@
     runButton.classList.toggle("stop", state);
     logoWrap.classList.toggle("running", state);
 
-    if (state && api) {
+    if (state) {
       ensureVignetteWatcher();
     } else {
       disableVignetteWatcher();
@@ -102,7 +102,6 @@
       return true;
     }.toString()})(${JSON.stringify({ active })});`;
 
-    if (!api) return;
     try {
       await api.tabs.executeScript(tabId, { code: vignetteScript });
     } catch (error) {
@@ -139,13 +138,11 @@
         syncVignetteForTab(tabId).catch(() => {});
       }
     };
-    if (!api) return;
     api.tabs.onUpdated.addListener(tabUpdateListener);
   }
 
   function disableVignetteWatcher() {
     if (!tabUpdateListener) return;
-    if (!api) return;
     api.tabs.onUpdated.removeListener(tabUpdateListener);
     tabUpdateListener = null;
   }
@@ -155,21 +152,6 @@
     if (!firstRow) return "";
     const firstInput = firstRow.querySelector("input");
     return firstInput ? firstInput.value.trim() : "";
-  }
-
-  function attachInputListeners(input) {
-    if (!input || input.dataset.listenerAttached === "true") return;
-    input.addEventListener("input", syncRows);
-    input.addEventListener("paste", handlePaste);
-    input.addEventListener("mousedown", handleSelectStart);
-    input.addEventListener("mouseenter", handleSelectMove);
-    input.addEventListener("focus", handleSelectFocus);
-    input.dataset.listenerAttached = "true";
-  }
-
-  function attachExistingInputs() {
-    const inputs = sheetBody.querySelectorAll(".sheet-input");
-    inputs.forEach((input) => attachInputListeners(input));
   }
 
   function setTopRightValue(value) {
@@ -190,7 +172,11 @@
     const input = document.createElement("input");
     input.type = "text";
     input.className = "sheet-input";
-    attachInputListeners(input);
+    input.addEventListener("input", syncRows);
+    input.addEventListener("paste", handlePaste);
+    input.addEventListener("mousedown", handleSelectStart);
+    input.addEventListener("mouseenter", handleSelectMove);
+    input.addEventListener("focus", handleSelectFocus);
     td.appendChild(input);
     return td;
   }
@@ -453,13 +439,11 @@
   }
 
   async function openTab(url) {
-    if (!api) throw new Error("Browser API unavailable.");
     const tab = await api.tabs.create({ url, active: true });
     return tab.id;
   }
 
   async function waitForElement(tabId, selector, timeoutMs = 30000) {
-    if (!api) return false;
     const pollInterval = 300;
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
@@ -475,7 +459,6 @@
   }
 
   async function setInputValue(tabId, selector, value) {
-    if (!api) return false;
     const script = `(${function (payload) {
       const input = document.querySelector(payload.selector);
       if (!input) return false;
@@ -490,7 +473,6 @@
   }
 
   async function pressEnter(tabId, selector) {
-    if (!api) return false;
     const script = `(${function (payload) {
       const input = document.querySelector(payload.selector);
       if (!input) return false;
@@ -514,7 +496,6 @@
   }
 
   async function clickElement(tabId, selector) {
-    if (!api) return false;
     const script = `(${function (payload) {
       const target = document.querySelector(payload.selector);
       if (!target) return false;
@@ -526,26 +507,14 @@
   }
 
   async function getActiveRadioIndex(tabId, selectors) {
-    if (!api) return -1;
     const script = `(${function (payload) {
-      const hasActiveClass = (element) => {
-        if (!element || !element.className) return false;
-        return /checked|selected|active|marked/i.test(element.className);
-      };
-
       const isActive = (element) => {
         if (!element) return false;
         const input = element.querySelector('input[type=\"radio\"]');
         if (input && input.checked) return true;
-        if (element.querySelector('input[type=\"radio\"]:checked')) return true;
-        if (element.querySelector('[aria-checked=\"true\"]')) return true;
-        if (element.querySelector('[aria-selected=\"true\"]')) return true;
-        if (hasActiveClass(element)) return true;
-        const descendants = element.querySelectorAll(\"*\");
-        for (const node of descendants) {
-          if (hasActiveClass(node)) return true;
-        }
-        return false;
+        const ariaChecked = element.getAttribute("aria-checked");
+        if (ariaChecked === "true") return true;
+        return element.classList.contains("sapRb-checked") || element.classList.contains("checked");
       };
 
       for (let i = 0; i < payload.selectors.length; i += 1) {
@@ -621,10 +590,6 @@
   }
 
   runButton.addEventListener("click", async () => {
-    if (!api) {
-      addLog("Run unavailable outside the extension environment.", "error");
-      return;
-    }
     if (isRunning) {
       stopRequested = true;
       setRunning(false);
@@ -659,9 +624,7 @@
   document.addEventListener("keydown", handleKeydown);
   document.addEventListener("copy", handleCopy);
 
-  attachExistingInputs();
-  const existingRows = sheetBody.children.length;
-  for (let i = existingRows; i < initialRows; i += 1) {
+  for (let i = 0; i < initialRows; i += 1) {
     sheetBody.appendChild(createRow());
   }
 

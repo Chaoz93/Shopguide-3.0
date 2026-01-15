@@ -1,21 +1,5 @@
 # SAP-Automatisierung Changelog
 
-## [0.2.8] - 2026-01-14
-### Fixed
-- Reattached grid input listeners on pre-rendered rows so resizing and interactions work reliably.
-
-## [0.2.7] - 2026-01-14
-### Fixed
-- Added static starter rows and adjusted initialization so the grid renders even if scripts fail to attach.
-
-## [0.2.6] - 2026-01-14
-### Fixed
-- Guarded browser API usage so the grid still renders outside the extension runtime.
-
-## [0.2.5] - 2026-01-14
-### Changed
-- Expanded radio detection to check nested inputs, aria states, and selection-like classes.
-
 ## [0.2.4] - 2026-01-14
 ### Added
 - Added radio-option detection to populate the top-right grid cell based on the active SAP selection.
