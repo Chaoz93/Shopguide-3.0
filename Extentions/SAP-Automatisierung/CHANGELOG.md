@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.15] - 2026-01-15
+### Changed
+- Always log debug info for all four SAP radio options to aid troubleshooting.
+
 ## [0.2.14] - 2026-01-15
 ### Changed
 - Simplified radio detection to rely on the debug info string containing the checked class marker.

@@ -675,9 +675,7 @@
       return;
     }
     result.forEach((entry, index) => {
-      if (entry.classMatches?.checkedDisabled || entry.classMatches?.uncheckedDisabled) {
-        addLog(`Radio debug ${index + 1}: ${JSON.stringify(entry)}`, "info");
-      }
+      addLog(`Radio debug ${index + 1}: ${JSON.stringify(entry)}`, "info");
     });
   }
 
