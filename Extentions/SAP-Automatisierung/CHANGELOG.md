@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.6] - 2026-01-14
+### Changed
+- Expanded radio detection to associate labels with inputs and check state attributes/class markers.
+
 ## [0.2.5] - 2026-01-14
 ### Changed
 - Expanded radio detection to check nested inputs, aria/data state attributes, and selection-like classes.

@@ -508,7 +508,7 @@
 
   async function getActiveRadioIndex(tabId, selectors) {
     const script = `(${function (payload) {
-      const getAttr = (element, attr) => element?.getAttribute(attr);
+      const getAttr = (element, attr) => (element ? element.getAttribute(attr) : null);
       const hasStateAttribute = (element) => {
         return (
           getAttr(element, "aria-checked") === "true" ||
@@ -518,6 +518,27 @@
         );
       };
 
+      const findRadioInput = (element) => {
+        if (!element) return null;
+        if (element.matches && element.matches('input[type="radio"]')) return element;
+        if (element.control && element.control.type === "radio") return element.control;
+        const label = element.closest ? element.closest("label") : null;
+        if (label && label.control && label.control.type === "radio") return label.control;
+        const forId = getAttr(element, "for");
+        if (forId) {
+          const linked = document.getElementById(forId);
+          if (linked && linked.type === "radio") return linked;
+        }
+        const inside = element.querySelector ? element.querySelector('input[type="radio"]') : null;
+        if (inside) return inside;
+        const parent = element.parentElement;
+        if (parent) {
+          const radios = parent.querySelectorAll('input[type="radio"]');
+          if (radios.length === 1) return radios[0];
+        }
+        return null;
+      };
+
       const hasStateClass = (element) => {
         if (!element || !element.className) return false;
         return /checked|selected|active|marked|on/i.test(element.className);
@@ -525,9 +546,10 @@
 
       const isActive = (element) => {
         if (!element) return false;
-        const input = element.querySelector('input[type=\"radio\"]');
-        if (input && input.checked) return true;
-        if (element.querySelector('input[type=\"radio\"]:checked')) return true;
+        const input = findRadioInput(element);
+        if (input && (input.checked || getAttr(input, "checked") === "checked")) return true;
+        if (input && getAttr(input, "aria-checked") === "true") return true;
+        if (element.querySelector && element.querySelector('input[type=\"radio\"]:checked')) return true;
         if (hasStateAttribute(element)) return true;
         if (hasStateClass(element)) return true;
         const descendants = element.querySelectorAll("*");
