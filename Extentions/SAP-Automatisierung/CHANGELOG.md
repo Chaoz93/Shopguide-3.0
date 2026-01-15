@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.5] - 2026-01-14
+### Changed
+- Expanded radio detection to check nested inputs, aria/data state attributes, and selection-like classes.
+
 ## [0.2.4] - 2026-01-14
 ### Added
 - Added radio-option detection to populate the top-right grid cell based on the active SAP selection.
