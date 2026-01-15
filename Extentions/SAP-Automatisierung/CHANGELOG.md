@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.8] - 2026-01-14
+### Fixed
+- Reattached grid input listeners on pre-rendered rows so resizing and interactions work reliably.
+
 ## [0.2.7] - 2026-01-14
 ### Fixed
 - Added static starter rows and adjusted initialization so the grid renders even if scripts fail to attach.

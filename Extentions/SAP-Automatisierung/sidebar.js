@@ -157,6 +157,21 @@
     return firstInput ? firstInput.value.trim() : "";
   }
 
+  function attachInputListeners(input) {
+    if (!input || input.dataset.listenerAttached === "true") return;
+    input.addEventListener("input", syncRows);
+    input.addEventListener("paste", handlePaste);
+    input.addEventListener("mousedown", handleSelectStart);
+    input.addEventListener("mouseenter", handleSelectMove);
+    input.addEventListener("focus", handleSelectFocus);
+    input.dataset.listenerAttached = "true";
+  }
+
+  function attachExistingInputs() {
+    const inputs = sheetBody.querySelectorAll(".sheet-input");
+    inputs.forEach((input) => attachInputListeners(input));
+  }
+
   function setTopRightValue(value) {
     const firstRow = sheetBody.querySelector("tr");
     if (!firstRow) return;
@@ -175,11 +190,7 @@
     const input = document.createElement("input");
     input.type = "text";
     input.className = "sheet-input";
-    input.addEventListener("input", syncRows);
-    input.addEventListener("paste", handlePaste);
-    input.addEventListener("mousedown", handleSelectStart);
-    input.addEventListener("mouseenter", handleSelectMove);
-    input.addEventListener("focus", handleSelectFocus);
+    attachInputListeners(input);
     td.appendChild(input);
     return td;
   }
@@ -648,6 +659,7 @@
   document.addEventListener("keydown", handleKeydown);
   document.addEventListener("copy", handleCopy);
 
+  attachExistingInputs();
   const existingRows = sheetBody.children.length;
   for (let i = existingRows; i < initialRows; i += 1) {
     sheetBody.appendChild(createRow());
