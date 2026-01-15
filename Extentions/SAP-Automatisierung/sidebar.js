@@ -147,18 +147,19 @@
     tabUpdateListener = null;
   }
 
-  function getTopLeftValue() {
-    const firstRow = sheetBody.querySelector("tr");
-    if (!firstRow) return "";
-    const firstInput = firstRow.querySelector("input");
-    return firstInput ? firstInput.value.trim() : "";
+  function getRowValue(rowIndex, colIndex) {
+    const row = sheetBody.children[rowIndex];
+    if (!row) return "";
+    const inputs = Array.from(row.querySelectorAll("input"));
+    const target = inputs[colIndex];
+    return target ? target.value.trim() : "";
   }
 
-  function setTopRightValue(value) {
-    const firstRow = sheetBody.querySelector("tr");
-    if (!firstRow) return;
-    const inputs = Array.from(firstRow.querySelectorAll("input"));
-    const target = inputs[1];
+  function setRowValue(rowIndex, colIndex, value) {
+    const row = sheetBody.children[rowIndex];
+    if (!row) return;
+    const inputs = Array.from(row.querySelectorAll("input"));
+    const target = inputs[colIndex];
     if (target) {
       target.value = value;
       target.dispatchEvent(new Event("input", { bubbles: true }));
@@ -697,7 +698,7 @@
     });
   }
 
-  async function runSapSequence({ url, inputSelector, value, titleSelector }) {
+  async function runSapSequence({ url, inputSelector, value, titleSelector, rowIndex }) {
     addLog("Opening SAP WebGUI...", "info");
     const tabId = await openTab(url);
     await syncVignetteForTab(tabId);
@@ -753,7 +754,7 @@
     const activeIndex = await getActiveRadioIndex(tabId, radioSelectors);
     const labels = ["In Prüfung", "Schriftliche Berechtigung", "Unterweisungspflicht", "Sonstiges T&E"];
     if (activeIndex >= 0) {
-      setTopRightValue(labels[activeIndex]);
+      setRowValue(rowIndex, 1, labels[activeIndex]);
       addLog("SAP sequence completed.", "success");
     } else {
       addLog("No active radio option detected.", "error");
@@ -769,19 +770,29 @@
       return;
     }
 
-    const topLeftValue = getTopLeftValue();
-    if (!topLeftValue) {
-      addLog("Top-left cell is empty. Please enter a value before running.", "error");
+    const rows = Array.from(sheetBody.querySelectorAll("tr"));
+    const rowsToProcess = rows
+      .map((row, rowIndex) => ({
+        rowIndex,
+        value: getRowValue(rowIndex, 0)
+      }))
+      .filter((entry) => entry.value);
+    if (!rowsToProcess.length) {
+      addLog("Left column is empty. Please enter a value before running.", "error");
       return;
     }
     setRunning(true);
     try {
-      await runSapSequence({
-        url: "https://sap-p04.lht.ham.dlh.de/sap/bc/gui/sap/its/webgui?sap-client=002&~transaction=*zmm03#",
-        inputSelector: "#M0\\:46\\:\\:\\:2\\:29",
-        titleSelector: "#M0\\:46\\:2\\:\\:0\\:1-title",
-        value: topLeftValue
-      });
+      for (const entry of rowsToProcess) {
+        if (stopRequested) break;
+        await runSapSequence({
+          url: "https://sap-p04.lht.ham.dlh.de/sap/bc/gui/sap/its/webgui?sap-client=002&~transaction=*zmm03#",
+          inputSelector: "#M0\\:46\\:\\:\\:2\\:29",
+          titleSelector: "#M0\\:46\\:2\\:\\:0\\:1-title",
+          value: entry.value,
+          rowIndex: entry.rowIndex
+        });
+      }
     } catch (error) {
       addLog(`Run failed: ${error.message || error}`, "error");
     } finally {

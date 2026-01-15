@@ -1,5 +1,9 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.19] - 2026-01-15
+### Changed
+- Process all non-empty left-column rows, writing the detected radio label into the right column per row.
+
 ## [0.2.18] - 2026-01-15
 ### Changed
 - Match the SAP checked radio class string in a case-insensitive way.
