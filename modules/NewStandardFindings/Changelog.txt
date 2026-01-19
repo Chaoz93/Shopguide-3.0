@@ -12,6 +12,13 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.5.2] – 2026-01-19
+### Added
+- History-Dropdown im Aktionsmenü speichert Findings-Ereignisse pro Part-/Seriennummer mit Zeitstempel und ermöglicht das Umschalten zwischen gespeicherten Events.
+- History wird als eigene JSON-Datei im Root-Ordner geführt und bei Bedarf automatisch angelegt.
+- „Findings auswählen“ enthält jetzt einen Plus-Button zum Speichern eines Ereignisses.
+- History-Dropdown ist im eingeklappten Header verfügbar und zeigt Datumswerte im Format TT.MM.JJJJ.
+
 ## [1.4.7] – 2026-01-14
 ### Changed
 - Der Bereich „Findings auswählen“ ist jetzt fest integriert und nicht mehr einklappbar.

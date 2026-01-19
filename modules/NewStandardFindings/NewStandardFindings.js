@@ -340,6 +340,9 @@
   const FINDINGS_POLL_INTERVAL=5000;
   const SAVE_DEBOUNCE=250;
   const HISTORY_LIMIT=10;
+  const EVENT_HISTORY_LIMIT=40;
+  const EVENT_HISTORY_FILE_NAME='NewStandardFindings_History.json';
+  const EVENT_HISTORY_STORAGE_KEY='nsf-event-history-cache';
   const STYLE_ID='nsf-styles';
   const ASPEN_BOARD_STATE_KEY='aspenUnitListState';
   const ROUTINE_EDITOR_STORAGE_KEY='nsf-routine-editor';
@@ -1474,6 +1477,8 @@
       .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;}
       .nsf-selection-header:focus-within{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
       .nsf-selection-heading{display:flex;align-items:center;gap:0.4rem;font-size:0.95rem;font-weight:600;}
+      .nsf-selection-add{padding:0.3rem 0.55rem;font-size:0.85rem;}
+      .nsf-selection-add:disabled{opacity:0.5;cursor:not-allowed;}
       .nsf-selection-summary{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:0.35rem;font-size:0.78rem;line-height:1.2;}
       .nsf-selection-summary-chip{background:rgba(148,163,184,0.16);border-radius:999px;padding:0.2rem 0.55rem;font-weight:500;white-space:nowrap;}
       .nsf-selection-summary-more{opacity:0.75;font-weight:500;}
@@ -1498,6 +1503,10 @@
       .nsf-reason-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-reason-textarea{min-height:4.5rem;}
       .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-header-history{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-header-history-label{font-size:0.7rem;opacity:0.7;}
+      .nsf-header-history-select{background:rgba(15,23,42,0.55);border:1px solid rgba(148,163,184,0.35);border-radius:0.55rem;padding:0.2rem 0.45rem;color:inherit;font:inherit;font-size:0.72rem;max-width:220px;}
+      .nsf-header-history-select:disabled{opacity:0.6;cursor:not-allowed;}
       .nsf-header-action{background:rgba(255,255,255,0.12);border:none;border-radius:999px;padding:0.25rem 0.6rem;font:inherit;font-size:0.72rem;color:inherit;line-height:1;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-header-action:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
       .nsf-context{display:flex;flex-direction:column;gap:0.6rem;font-size:0.88rem;}
@@ -1525,6 +1534,13 @@
       .nsf-menu-toggle:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
       .nsf-menu-list{position:absolute;right:0;margin-top:0.35rem;background:rgba(15,23,42,0.92);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.45);padding:0.35rem;display:none;flex-direction:column;min-width:200px;z-index:200;backdrop-filter:blur(10px);}
       .nsf-menu.open .nsf-menu-list{display:flex;}
+      .nsf-menu-history{padding:0.35rem 0.55rem;display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-menu-history-row{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-menu-select{flex:1;min-width:0;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.35);border-radius:0.55rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;font-size:0.78rem;}
+      .nsf-menu-select:disabled{opacity:0.6;cursor:not-allowed;}
+      .nsf-menu-add{background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.35);border-radius:0.55rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;font-size:0.85rem;cursor:pointer;}
+      .nsf-menu-add:hover{background:rgba(59,130,246,0.32);}
+      .nsf-menu-add:disabled{opacity:0.5;cursor:not-allowed;}
       .nsf-menu-item{background:transparent;border:none;border-radius:0.6rem;padding:0.45rem 0.75rem;color:inherit;font:inherit;text-align:left;cursor:pointer;display:flex;align-items:center;gap:0.5rem;}
       .nsf-menu-item:hover{background:rgba(59,130,246,0.18);}
       .nsf-menu-item:disabled{opacity:0.5;cursor:not-allowed;background:transparent;}
@@ -3182,6 +3198,182 @@
       .join(STATE_KEY_SEPARATOR);
   }
 
+  function buildEventHistoryKey(part,serial){
+    const normalizedPart=normalizePart(part);
+    const normalizedSerial=clean(serial);
+    if(!normalizedPart||!normalizedSerial) return '';
+    return [normalizedPart,normalizedSerial].map(value=>encodeURIComponent(value||''))
+      .join(STATE_KEY_SEPARATOR);
+  }
+
+  function createEventId(){
+    return `event-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+  }
+
+  function createEmptyEventHistoryStore(){
+    return {version:1,updatedAt:new Date().toISOString(),events:{}};
+  }
+
+  function normalizeEventHistoryStore(raw){
+    const base=createEmptyEventHistoryStore();
+    if(!raw||typeof raw!=='object') return base;
+    const events=raw.events&&typeof raw.events==='object'?raw.events:{};
+    return {
+      version:Number.isFinite(raw.version)?raw.version:base.version,
+      updatedAt:typeof raw.updatedAt==='string'?raw.updatedAt:base.updatedAt,
+      events
+    };
+  }
+
+  function loadEventHistoryStoreFromLocalStorage(){
+    try{
+      const cached=localStorage.getItem(EVENT_HISTORY_STORAGE_KEY);
+      if(cached){
+        const parsed=JSON.parse(cached);
+        return normalizeEventHistoryStore(parsed);
+      }
+    }catch(err){
+      console.warn('NSF: Event-History konnte nicht aus dem Cache gelesen werden',err);
+    }
+    try{
+      const legacy=JSON.parse(localStorage.getItem(STATE_KEY)||'{}');
+      if(legacy&&legacy.eventHistory&&typeof legacy.eventHistory==='object'){
+        const migrated=createEmptyEventHistoryStore();
+        migrated.events=legacy.eventHistory;
+        return migrated;
+      }
+    }catch(err){
+      console.warn('NSF: Legacy-Event-History konnte nicht migriert werden',err);
+    }
+    return createEmptyEventHistoryStore();
+  }
+
+  function cacheEventHistoryStore(store){
+    try{
+      const payload=JSON.stringify(store);
+      localStorage.setItem(EVENT_HISTORY_STORAGE_KEY,payload);
+    }catch(err){
+      console.warn('NSF: Event-History konnte nicht gecached werden',err);
+    }
+  }
+
+  function getRootHistoryHandle(){
+    if(typeof window==='undefined') return null;
+    if(!window.showDirectoryPicker) return null;
+    return window.rootDirHandle||null;
+  }
+
+  async function ensureRootPermission(handle){
+    if(!handle) return false;
+    if(typeof ensureRWPermission==='function'){
+      return await ensureRWPermission(handle,{mode:'readwrite'});
+    }
+    return true;
+  }
+
+  async function readEventHistoryStoreFromFile(){
+    const rootHandle=getRootHistoryHandle();
+    if(!rootHandle) return null;
+    const granted=await ensureRootPermission(rootHandle);
+    if(!granted) return null;
+    try{
+      const fileHandle=await rootHandle.getFileHandle(EVENT_HISTORY_FILE_NAME,{create:false});
+      const file=await fileHandle.getFile();
+      const text=await file.text();
+      const parsed=JSON.parse(text||'{}');
+      const normalized=normalizeEventHistoryStore(parsed);
+      cacheEventHistoryStore(normalized);
+      return normalized;
+    }catch(err){
+      if(err&&err.name==='NotFoundError'){
+        return null;
+      }
+      console.warn('NSF: Event-History-Datei konnte nicht gelesen werden',err);
+      return null;
+    }
+  }
+
+  async function writeEventHistoryStoreToFile(store){
+    const rootHandle=getRootHistoryHandle();
+    if(!rootHandle) return false;
+    const granted=await ensureRootPermission(rootHandle);
+    if(!granted) return false;
+    try{
+      const normalized=normalizeEventHistoryStore(store);
+      normalized.updatedAt=new Date().toISOString();
+      const payload=JSON.stringify(normalized,null,2);
+      const fileHandle=await rootHandle.getFileHandle(EVENT_HISTORY_FILE_NAME,{create:true});
+      const writable=await fileHandle.createWritable();
+      await writable.write(payload);
+      await writable.close();
+      cacheEventHistoryStore(normalized);
+      return true;
+    }catch(err){
+      console.warn('NSF: Event-History-Datei konnte nicht geschrieben werden',err);
+      return false;
+    }
+  }
+
+  async function loadEventHistoryStore(){
+    const fromFile=await readEventHistoryStoreFromFile();
+    if(fromFile){
+      return fromFile;
+    }
+    const fallback=loadEventHistoryStoreFromLocalStorage();
+    await writeEventHistoryStoreToFile(fallback);
+    return fallback;
+  }
+
+  function normalizeEventHistoryEntry(raw){
+    if(!raw||typeof raw!=='object') return null;
+    const id=typeof raw.id==='string'?raw.id:'';
+    const createdAt=typeof raw.createdAt==='string'?raw.createdAt:'';
+    const createdMs=Date.parse(createdAt);
+    const selections=Array.isArray(raw.selections)?raw.selections.filter(Boolean):[];
+    if(!id||!createdAt||!Number.isFinite(createdMs)) return null;
+    return {id,createdAt,createdMs,selections};
+  }
+
+  function getEventHistoryForKey(store,key){
+    if(!store||!key) return [];
+    const list=store.events&&store.events[key];
+    if(!Array.isArray(list)) return [];
+    const normalized=list.map(normalizeEventHistoryEntry).filter(Boolean);
+    normalized.sort((a,b)=>b.createdMs-a.createdMs);
+    return normalized.slice(0,EVENT_HISTORY_LIMIT);
+  }
+
+  function pushEventHistory(store,key,entry){
+    if(!store||!key||!entry) return;
+    if(!store.events||typeof store.events!=='object'){
+      store.events={};
+    }
+    if(!Array.isArray(store.events[key])){
+      store.events[key]=[];
+    }
+    const list=store.events[key];
+    list.unshift({
+      id:entry.id,
+      createdAt:entry.createdAt,
+      selections:Array.isArray(entry.selections)?entry.selections:[]
+    });
+    const unique=new Map();
+    const filtered=[];
+    for(const item of list){
+      const normalizedEntry=normalizeEventHistoryEntry(item);
+      if(!normalizedEntry) continue;
+      if(unique.has(normalizedEntry.id)) continue;
+      unique.set(normalizedEntry.id,true);
+      filtered.push({
+        id:normalizedEntry.id,
+        createdAt:normalizedEntry.createdAt,
+        selections:normalizedEntry.selections
+      });
+      if(filtered.length>=EVENT_HISTORY_LIMIT) break;
+    }
+    store.events[key]=filtered;
+  }
+
   function serializeSelections(selections){
     if(!Array.isArray(selections)) return [];
     return selections
@@ -3433,6 +3625,13 @@
     });
   }
 
+  function formatEventTimestamp(value){
+    if(!value) return '';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit'});
+  }
+
   function autoResizeTextarea(textarea){
     if(!(textarea instanceof HTMLTextAreaElement)) return;
     const computed=window.getComputedStyle(textarea);
@@ -3607,6 +3806,11 @@
       this.hasAspenDoc=false;
       this.globalState=loadGlobalState();
       this.history=[];
+      this.eventHistory=[];
+      this.eventHistoryKey='';
+      this.activeEventId='';
+      this.eventHistoryStore=null;
+      this.eventHistoryStorePromise=null;
       this.filterAll=false;
       this.undoBuffer=null;
       this.selectedEntries=[];
@@ -3651,6 +3855,17 @@
       });
     }
 
+    async ensureEventHistoryStore(){
+      if(this.eventHistoryStorePromise) return this.eventHistoryStorePromise;
+      this.eventHistoryStorePromise=(async()=>{
+        this.eventHistoryStore=await loadEventHistoryStore();
+        return this.eventHistoryStore;
+      })().finally(()=>{
+        this.eventHistoryStorePromise=null;
+      });
+      return this.eventHistoryStorePromise;
+    }
+
     render(){
       if(this.destroyed) return;
       if(this.rendering){this.pending=true;return;}
@@ -3683,6 +3898,7 @@
       setupWatchers();
       await ensureData();
       await this.ensureFindingsHandleInitialized();
+      await this.ensureEventHistoryStore();
       this.globalState=loadGlobalState();
       this.findingsPath=clean(localStorage.getItem(FINDINGS_PATH_KEY)||'');
       const data=parseData();
@@ -3729,6 +3945,11 @@
       this.serial=serialResult.serial||'';
       this.serialStatus=serialResult.reason||'';
       this.serialLookupMeldung=serialResult.lookup||'';
+      this.eventHistoryKey=buildEventHistoryKey(this.currentPart,this.serial);
+      this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+      if(this.activeEventId&&!this.eventHistory.some(entry=>entry.id===this.activeEventId)){
+        this.activeEventId='';
+      }
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
         this.filterAll=false;
@@ -3799,70 +4020,7 @@
       this.rebuildCustomSectionMap();
       this.syncCustomSectionsToActiveState({save:false});
       this.history=getHistoryForPart(this.globalState,this.currentPart);
-      this.selectedEntries=selections.map(sel=>{
-        const resolved=this.entryMap.get(sel.key);
-        if(resolved){
-          const storedPart=normalizePart(sel.part);
-          const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
-          return {
-            ...resolved,
-            routine:resolved.routine||sel.routine||'',
-            routineFinding:resolved.routineFinding||resolved.routineFindings||sel.routineFinding||'',
-            routineAction:resolved.routineAction||resolved.routineActions||sel.routineAction||'',
-            nonroutine:resolved.nonroutine||sel.nonroutine||'',
-            nonroutineFinding:resolved.nonroutineFinding||resolved.nonroutineFindings||sel.nonroutineFinding||'',
-            nonroutineAction:resolved.nonroutineAction||resolved.nonroutineActions||sel.nonroutineAction||'',
-            partsText:resolved.partsText||sel.partsText||'',
-            parts:Array.isArray(resolved.parts)
-              ? resolved.parts.map(item=>{
-                  const partValue=clean(item?.part||'');
-                  if(!partValue) return null;
-                  const quantityValue=clean(item?.menge??item?.quantity??'');
-                  const partEntry={part:partValue};
-                  if(quantityValue) partEntry.menge=quantityValue;
-                  return partEntry;
-                }).filter(Boolean)
-              : Array.isArray(sel.parts)
-                ? sel.parts.map(item=>{
-                    const partValue=clean(item?.part||'');
-                    if(!partValue) return null;
-                    const quantityValue=clean(item?.menge??item?.quantity??'');
-                    const partEntry={part:partValue};
-                    if(quantityValue) partEntry.menge=quantityValue;
-                    return partEntry;
-                  }).filter(Boolean)
-                : [],
-            timesText:resolved.timesText||sel.timesText||'',
-            times:(resolved.times&&typeof resolved.times==='object')
-              ? {...resolved.times}
-              : (sel.times&&typeof sel.times==='object'?{...sel.times}:{}),
-            modsText:resolved.modsText||sel.modsText||'',
-            mods:Array.isArray(resolved.mods)
-              ? resolved.mods.map(item=>clean(item)).filter(Boolean)
-              : Array.isArray(sel.mods)
-                ? sel.mods.map(item=>clean(item)).filter(Boolean)
-                : [],
-            part:matchedPart||resolved.part
-          };
-        }
-        return {
-          key:sel.key,
-          finding:sel.finding||'',
-          action:sel.action||'',
-          label:sel.label||'',
-          part:normalizePart(sel.part)||this.currentPart,
-          routine:sel.routine||'',
-          routineFinding:sel.routineFinding||'',
-          routineAction:sel.routineAction||'',
-          nonroutine:sel.nonroutine||'',
-          nonroutineFinding:sel.nonroutineFinding||'',
-          nonroutineAction:sel.nonroutineAction||'',
-          parts:sel.parts||'',
-          times:sel.times||'',
-          mods:sel.mods||'',
-          raw:sel.raw!=null?cloneDeep(sel.raw):null
-        };
-      });
+      this.selectedEntries=this.hydrateSelections(selections);
       this.selectionRows=[];
       this.renderDom();
       if(this.restoredAspenState&&this.stateKey){
@@ -4199,6 +4357,40 @@
       const findingsAction=makeHeaderAction('Findings',()=>this.handleFindingsButton());
       const aspenAction=makeHeaderAction('Aspen',()=>fileInput.click());
       headerActions.append(findingsAction,aspenAction);
+      const headerHistory=document.createElement('div');
+      headerHistory.className='nsf-header-history';
+      const headerHistoryLabel=document.createElement('span');
+      headerHistoryLabel.className='nsf-header-history-label';
+      headerHistoryLabel.textContent='History';
+      const headerHistorySelect=document.createElement('select');
+      headerHistorySelect.className='nsf-header-history-select';
+      const headerHistoryPlaceholder=document.createElement('option');
+      headerHistoryPlaceholder.value='';
+      headerHistoryPlaceholder.textContent=this.eventHistoryKey
+        ?(this.eventHistory.length?'History auswählen':'Keine History')
+        :'PN/SN fehlt';
+      headerHistorySelect.appendChild(headerHistoryPlaceholder);
+      if(this.eventHistory.length){
+        this.eventHistory.forEach(entry=>{
+          const option=document.createElement('option');
+          option.value=entry.id;
+          const label=formatEventTimestamp(entry.createdAt);
+          option.textContent=label||'Event';
+          if(entry.id===this.activeEventId) option.selected=true;
+          headerHistorySelect.appendChild(option);
+        });
+      }
+      headerHistorySelect.disabled=!this.eventHistoryKey||!this.eventHistory.length;
+      headerHistorySelect.addEventListener('change',()=>{
+        const selectedId=headerHistorySelect.value;
+        if(!selectedId) return;
+        const entry=this.eventHistory.find(item=>item.id===selectedId);
+        if(!entry) return;
+        this.activeEventId=entry.id;
+        this.applyEventSnapshot(entry);
+      });
+      headerHistory.append(headerHistoryLabel,headerHistorySelect);
+      headerActions.appendChild(headerHistory);
       headerBar.appendChild(headerActions);
 
       contextSection.appendChild(headerBar);
@@ -4296,6 +4488,58 @@
         menuList.className='nsf-menu-list';
         menuWrapper.append(menuButton,menuList);
         controls.appendChild(menuWrapper);
+
+        const historyWrapper=document.createElement('div');
+        historyWrapper.className='nsf-menu-history';
+        const historyLabel=document.createElement('div');
+        historyLabel.className='nsf-editor-menu-label';
+        historyLabel.textContent='History (PN/SN)';
+        const historyRow=document.createElement('div');
+        historyRow.className='nsf-menu-history-row';
+        const historySelect=document.createElement('select');
+        historySelect.className='nsf-menu-select';
+        const historyPlaceholder=document.createElement('option');
+        historyPlaceholder.value='';
+        historyPlaceholder.textContent=this.eventHistoryKey
+          ?(this.eventHistory.length?'History auswählen':'Keine History vorhanden')
+          :'PN/SN fehlt';
+        historySelect.appendChild(historyPlaceholder);
+        if(this.eventHistory.length){
+          this.eventHistory.forEach(entry=>{
+            const option=document.createElement('option');
+            option.value=entry.id;
+            const count=Array.isArray(entry.selections)?entry.selections.length:0;
+            const label=formatEventTimestamp(entry.createdAt);
+            option.textContent=label?`${label} • ${count}`:`${count} Findings`;
+            if(entry.id===this.activeEventId) option.selected=true;
+            historySelect.appendChild(option);
+          });
+        }
+        historySelect.disabled=!this.eventHistoryKey||!this.eventHistory.length;
+        const historyAddButton=document.createElement('button');
+        historyAddButton.type='button';
+        historyAddButton.className='nsf-menu-add';
+        historyAddButton.textContent='+';
+        historyAddButton.title='Neues Findings-Ereignis speichern';
+        historyAddButton.setAttribute('aria-label',historyAddButton.title);
+        historyAddButton.disabled=!this.eventHistoryKey||!this.selectedEntries.length;
+        historyAddButton.addEventListener('click',()=>{
+          if(historyAddButton.disabled) return;
+          closeMenu();
+          void this.createEventSnapshot();
+        });
+        historySelect.addEventListener('change',()=>{
+          const selectedId=historySelect.value;
+          if(!selectedId) return;
+          const entry=this.eventHistory.find(item=>item.id===selectedId);
+          if(!entry) return;
+          this.activeEventId=entry.id;
+          closeMenu();
+          this.applyEventSnapshot(entry);
+        });
+        historyRow.append(historySelect,historyAddButton);
+        historyWrapper.append(historyLabel,historyRow);
+        menuList.appendChild(historyWrapper);
 
         const handleOutsideClick=event=>{
           if(!menuWrapper.contains(event.target)){
@@ -4484,6 +4728,18 @@
         title.appendChild(badge);
       }
       heading.appendChild(title);
+      const addEventButton=document.createElement('button');
+      addEventButton.type='button';
+      addEventButton.className='nsf-btn nsf-selection-add';
+      addEventButton.textContent='+';
+      addEventButton.title='Findings-Ereignis speichern';
+      addEventButton.setAttribute('aria-label',addEventButton.title);
+      addEventButton.disabled=!this.eventHistoryKey||!this.selectedEntries.length;
+      addEventButton.addEventListener('click',()=>{
+        if(addEventButton.disabled) return;
+        void this.createEventSnapshot();
+      });
+      heading.appendChild(addEventButton);
       selectionHeader.appendChild(heading);
 
       const selectionSummary=document.createElement('div');
@@ -8479,6 +8735,100 @@
       }
       this.syncOutputsWithSelections({persist:false});
       this.queueStateSave();
+    }
+
+    hydrateSelections(selections){
+      const normalized=Array.isArray(selections)?selections:[];
+      return normalized.map(sel=>{
+        const resolved=this.entryMap.get(sel.key);
+        if(resolved){
+          const storedPart=normalizePart(sel.part);
+          const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
+          return {
+            ...resolved,
+            routine:resolved.routine||sel.routine||'',
+            routineFinding:resolved.routineFinding||resolved.routineFindings||sel.routineFinding||'',
+            routineAction:resolved.routineAction||resolved.routineActions||sel.routineAction||'',
+            nonroutine:resolved.nonroutine||sel.nonroutine||'',
+            nonroutineFinding:resolved.nonroutineFinding||resolved.nonroutineFindings||sel.nonroutineFinding||'',
+            nonroutineAction:resolved.nonroutineAction||resolved.nonroutineActions||sel.nonroutineAction||'',
+            partsText:resolved.partsText||sel.partsText||'',
+            parts:Array.isArray(resolved.parts)
+              ? resolved.parts.map(item=>{
+                  const partValue=clean(item?.part||'');
+                  if(!partValue) return null;
+                  const quantityValue=clean(item?.menge??item?.quantity??'');
+                  const partEntry={part:partValue};
+                  if(quantityValue) partEntry.menge=quantityValue;
+                  return partEntry;
+                }).filter(Boolean)
+              : Array.isArray(sel.parts)
+                ? sel.parts.map(item=>{
+                    const partValue=clean(item?.part||'');
+                    if(!partValue) return null;
+                    const quantityValue=clean(item?.menge??item?.quantity??'');
+                    const partEntry={part:partValue};
+                    if(quantityValue) partEntry.menge=quantityValue;
+                    return partEntry;
+                  }).filter(Boolean)
+                : [],
+            timesText:resolved.timesText||sel.timesText||'',
+            times:(resolved.times&&typeof resolved.times==='object')
+              ? {...resolved.times}
+              : (sel.times&&typeof sel.times==='object'?{...sel.times}:{}),
+            modsText:resolved.modsText||sel.modsText||'',
+            mods:Array.isArray(resolved.mods)
+              ? resolved.mods.map(item=>clean(item)).filter(Boolean)
+              : Array.isArray(sel.mods)
+                ? sel.mods.map(item=>clean(item)).filter(Boolean)
+                : [],
+            part:matchedPart||resolved.part
+          };
+        }
+        return {
+          key:sel.key,
+          finding:sel.finding||'',
+          action:sel.action||'',
+          label:sel.label||'',
+          part:normalizePart(sel.part)||this.currentPart,
+          routine:sel.routine||'',
+          routineFinding:sel.routineFinding||'',
+          routineAction:sel.routineAction||'',
+          nonroutine:sel.nonroutine||'',
+          nonroutineFinding:sel.nonroutineFinding||'',
+          nonroutineAction:sel.nonroutineAction||'',
+          parts:sel.parts||'',
+          times:sel.times||'',
+          mods:sel.mods||'',
+          raw:sel.raw!=null?cloneDeep(sel.raw):null
+        };
+      });
+    }
+
+    async createEventSnapshot(){
+      if(!this.eventHistoryKey||!this.selectedEntries.length) return;
+      await this.ensureEventHistoryStore();
+      const timestamp=new Date();
+      const entry={
+        id:createEventId(),
+        createdAt:timestamp.toISOString(),
+        selections:serializeSelections(this.selectedEntries)
+      };
+      pushEventHistory(this.eventHistoryStore,this.eventHistoryKey,entry);
+      await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+      this.activeEventId=entry.id;
+      this.render();
+    }
+
+    applyEventSnapshot(entry){
+      if(!entry) return;
+      const selections=deserializeSelections(entry);
+      this.selectedEntries=this.hydrateSelections(selections);
+      this.undoBuffer=null;
+      this.syncOutputsWithSelections({persist:false});
+      this.persistState(true);
+      this.render();
     }
 
     addInputRow(prefillEntry,focusNext){
