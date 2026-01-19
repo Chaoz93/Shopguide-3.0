@@ -340,6 +340,8 @@
   const FINDINGS_POLL_INTERVAL=5000;
   const SAVE_DEBOUNCE=250;
   const HISTORY_LIMIT=10;
+  const EVENT_HISTORY_KEY='eventHistory';
+  const EVENT_HISTORY_LIMIT=40;
   const STYLE_ID='nsf-styles';
   const ASPEN_BOARD_STATE_KEY='aspenUnitListState';
   const ROUTINE_EDITOR_STORAGE_KEY='nsf-routine-editor';
@@ -1525,6 +1527,13 @@
       .nsf-menu-toggle:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
       .nsf-menu-list{position:absolute;right:0;margin-top:0.35rem;background:rgba(15,23,42,0.92);border-radius:0.75rem;box-shadow:0 12px 28px rgba(15,23,42,0.45);padding:0.35rem;display:none;flex-direction:column;min-width:200px;z-index:200;backdrop-filter:blur(10px);}
       .nsf-menu.open .nsf-menu-list{display:flex;}
+      .nsf-menu-history{padding:0.35rem 0.55rem;display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-menu-history-row{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-menu-select{flex:1;min-width:0;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.35);border-radius:0.55rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;font-size:0.78rem;}
+      .nsf-menu-select:disabled{opacity:0.6;cursor:not-allowed;}
+      .nsf-menu-add{background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.35);border-radius:0.55rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;font-size:0.85rem;cursor:pointer;}
+      .nsf-menu-add:hover{background:rgba(59,130,246,0.32);}
+      .nsf-menu-add:disabled{opacity:0.5;cursor:not-allowed;}
       .nsf-menu-item{background:transparent;border:none;border-radius:0.6rem;padding:0.45rem 0.75rem;color:inherit;font:inherit;text-align:left;cursor:pointer;display:flex;align-items:center;gap:0.5rem;}
       .nsf-menu-item:hover{background:rgba(59,130,246,0.18);}
       .nsf-menu-item:disabled{opacity:0.5;cursor:not-allowed;background:transparent;}
@@ -3163,6 +3172,9 @@
     if(!parsed||typeof parsed!=='object') parsed={};
     if(!parsed.meldungsbezogen||typeof parsed.meldungsbezogen!=='object') parsed.meldungsbezogen={};
     if(!parsed.history||typeof parsed.history!=='object') parsed.history={};
+    if(!parsed[EVENT_HISTORY_KEY]||typeof parsed[EVENT_HISTORY_KEY]!=='object'){
+      parsed[EVENT_HISTORY_KEY]={};
+    }
     return parsed;
   }
 
@@ -3180,6 +3192,73 @@
     const serial=clean(parts.serial);
     return [meldung,part,serial].map(value=>encodeURIComponent(value||''))
       .join(STATE_KEY_SEPARATOR);
+  }
+
+  function buildEventHistoryKey(part,serial){
+    const normalizedPart=normalizePart(part);
+    const normalizedSerial=clean(serial);
+    if(!normalizedPart||!normalizedSerial) return '';
+    return [normalizedPart,normalizedSerial].map(value=>encodeURIComponent(value||''))
+      .join(STATE_KEY_SEPARATOR);
+  }
+
+  function createEventId(){
+    return `event-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+  }
+
+  function normalizeEventHistoryEntry(raw){
+    if(!raw||typeof raw!=='object') return null;
+    const id=typeof raw.id==='string'?raw.id:'';
+    const createdAt=typeof raw.createdAt==='string'?raw.createdAt:'';
+    const createdMs=Date.parse(createdAt);
+    const selections=Array.isArray(raw.selections)?raw.selections.filter(Boolean):[];
+    if(!id||!createdAt||!Number.isFinite(createdMs)) return null;
+    return {id,createdAt,createdMs,selections};
+  }
+
+  function getEventHistoryForKey(global,key){
+    if(!global||!key) return [];
+    if(!global[EVENT_HISTORY_KEY]||typeof global[EVENT_HISTORY_KEY]!=='object'){
+      global[EVENT_HISTORY_KEY]={};
+    }
+    const list=global[EVENT_HISTORY_KEY][key];
+    if(!Array.isArray(list)) return [];
+    const normalized=list.map(normalizeEventHistoryEntry).filter(Boolean);
+    normalized.sort((a,b)=>b.createdMs-a.createdMs);
+    return normalized.slice(0,EVENT_HISTORY_LIMIT);
+  }
+
+  function pushEventHistory(global,key,entry){
+    if(!global||!key||!entry) return;
+    if(!global[EVENT_HISTORY_KEY]||typeof global[EVENT_HISTORY_KEY]!=='object'){
+      global[EVENT_HISTORY_KEY]={};
+    }
+    if(!Array.isArray(global[EVENT_HISTORY_KEY][key])){
+      global[EVENT_HISTORY_KEY][key]=[];
+    }
+    const list=global[EVENT_HISTORY_KEY][key];
+    list.unshift({
+      id:entry.id,
+      createdAt:entry.createdAt,
+      selections:Array.isArray(entry.selections)?entry.selections:[],
+      createdMs:entry.createdMs
+    });
+    const unique=new Map();
+    const filtered=[];
+    for(const item of list){
+      const normalizedEntry=normalizeEventHistoryEntry(item);
+      if(!normalizedEntry) continue;
+      if(unique.has(normalizedEntry.id)) continue;
+      unique.set(normalizedEntry.id,true);
+      filtered.push({
+        id:normalizedEntry.id,
+        createdAt:normalizedEntry.createdAt,
+        selections:normalizedEntry.selections
+      });
+      if(filtered.length>=EVENT_HISTORY_LIMIT) break;
+    }
+    global[EVENT_HISTORY_KEY][key]=filtered;
+    saveGlobalState(global);
   }
 
   function serializeSelections(selections){
@@ -3433,6 +3512,13 @@
     });
   }
 
+  function formatEventTimestamp(value){
+    if(!value) return '';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  }
+
   function autoResizeTextarea(textarea){
     if(!(textarea instanceof HTMLTextAreaElement)) return;
     const computed=window.getComputedStyle(textarea);
@@ -3607,6 +3693,9 @@
       this.hasAspenDoc=false;
       this.globalState=loadGlobalState();
       this.history=[];
+      this.eventHistory=[];
+      this.eventHistoryKey='';
+      this.activeEventId='';
       this.filterAll=false;
       this.undoBuffer=null;
       this.selectedEntries=[];
@@ -3729,6 +3818,11 @@
       this.serial=serialResult.serial||'';
       this.serialStatus=serialResult.reason||'';
       this.serialLookupMeldung=serialResult.lookup||'';
+      this.eventHistoryKey=buildEventHistoryKey(this.currentPart,this.serial);
+      this.eventHistory=getEventHistoryForKey(this.globalState,this.eventHistoryKey);
+      if(this.activeEventId&&!this.eventHistory.some(entry=>entry.id===this.activeEventId)){
+        this.activeEventId='';
+      }
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
         this.filterAll=false;
@@ -3799,70 +3893,7 @@
       this.rebuildCustomSectionMap();
       this.syncCustomSectionsToActiveState({save:false});
       this.history=getHistoryForPart(this.globalState,this.currentPart);
-      this.selectedEntries=selections.map(sel=>{
-        const resolved=this.entryMap.get(sel.key);
-        if(resolved){
-          const storedPart=normalizePart(sel.part);
-          const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
-          return {
-            ...resolved,
-            routine:resolved.routine||sel.routine||'',
-            routineFinding:resolved.routineFinding||resolved.routineFindings||sel.routineFinding||'',
-            routineAction:resolved.routineAction||resolved.routineActions||sel.routineAction||'',
-            nonroutine:resolved.nonroutine||sel.nonroutine||'',
-            nonroutineFinding:resolved.nonroutineFinding||resolved.nonroutineFindings||sel.nonroutineFinding||'',
-            nonroutineAction:resolved.nonroutineAction||resolved.nonroutineActions||sel.nonroutineAction||'',
-            partsText:resolved.partsText||sel.partsText||'',
-            parts:Array.isArray(resolved.parts)
-              ? resolved.parts.map(item=>{
-                  const partValue=clean(item?.part||'');
-                  if(!partValue) return null;
-                  const quantityValue=clean(item?.menge??item?.quantity??'');
-                  const partEntry={part:partValue};
-                  if(quantityValue) partEntry.menge=quantityValue;
-                  return partEntry;
-                }).filter(Boolean)
-              : Array.isArray(sel.parts)
-                ? sel.parts.map(item=>{
-                    const partValue=clean(item?.part||'');
-                    if(!partValue) return null;
-                    const quantityValue=clean(item?.menge??item?.quantity??'');
-                    const partEntry={part:partValue};
-                    if(quantityValue) partEntry.menge=quantityValue;
-                    return partEntry;
-                  }).filter(Boolean)
-                : [],
-            timesText:resolved.timesText||sel.timesText||'',
-            times:(resolved.times&&typeof resolved.times==='object')
-              ? {...resolved.times}
-              : (sel.times&&typeof sel.times==='object'?{...sel.times}:{}),
-            modsText:resolved.modsText||sel.modsText||'',
-            mods:Array.isArray(resolved.mods)
-              ? resolved.mods.map(item=>clean(item)).filter(Boolean)
-              : Array.isArray(sel.mods)
-                ? sel.mods.map(item=>clean(item)).filter(Boolean)
-                : [],
-            part:matchedPart||resolved.part
-          };
-        }
-        return {
-          key:sel.key,
-          finding:sel.finding||'',
-          action:sel.action||'',
-          label:sel.label||'',
-          part:normalizePart(sel.part)||this.currentPart,
-          routine:sel.routine||'',
-          routineFinding:sel.routineFinding||'',
-          routineAction:sel.routineAction||'',
-          nonroutine:sel.nonroutine||'',
-          nonroutineFinding:sel.nonroutineFinding||'',
-          nonroutineAction:sel.nonroutineAction||'',
-          parts:sel.parts||'',
-          times:sel.times||'',
-          mods:sel.mods||'',
-          raw:sel.raw!=null?cloneDeep(sel.raw):null
-        };
-      });
+      this.selectedEntries=this.hydrateSelections(selections);
       this.selectionRows=[];
       this.renderDom();
       if(this.restoredAspenState&&this.stateKey){
@@ -4296,6 +4327,58 @@
         menuList.className='nsf-menu-list';
         menuWrapper.append(menuButton,menuList);
         controls.appendChild(menuWrapper);
+
+        const historyWrapper=document.createElement('div');
+        historyWrapper.className='nsf-menu-history';
+        const historyLabel=document.createElement('div');
+        historyLabel.className='nsf-editor-menu-label';
+        historyLabel.textContent='History (PN/SN)';
+        const historyRow=document.createElement('div');
+        historyRow.className='nsf-menu-history-row';
+        const historySelect=document.createElement('select');
+        historySelect.className='nsf-menu-select';
+        const historyPlaceholder=document.createElement('option');
+        historyPlaceholder.value='';
+        historyPlaceholder.textContent=this.eventHistoryKey
+          ?(this.eventHistory.length?'History auswählen':'Keine History vorhanden')
+          :'PN/SN fehlt';
+        historySelect.appendChild(historyPlaceholder);
+        if(this.eventHistory.length){
+          this.eventHistory.forEach(entry=>{
+            const option=document.createElement('option');
+            option.value=entry.id;
+            const count=Array.isArray(entry.selections)?entry.selections.length:0;
+            const label=formatEventTimestamp(entry.createdAt);
+            option.textContent=label?`${label} • ${count}`:`${count} Findings`;
+            if(entry.id===this.activeEventId) option.selected=true;
+            historySelect.appendChild(option);
+          });
+        }
+        historySelect.disabled=!this.eventHistoryKey||!this.eventHistory.length;
+        const historyAddButton=document.createElement('button');
+        historyAddButton.type='button';
+        historyAddButton.className='nsf-menu-add';
+        historyAddButton.textContent='+';
+        historyAddButton.title='Neues Findings-Ereignis speichern';
+        historyAddButton.setAttribute('aria-label',historyAddButton.title);
+        historyAddButton.disabled=!this.eventHistoryKey||!this.selectedEntries.length;
+        historyAddButton.addEventListener('click',()=>{
+          if(historyAddButton.disabled) return;
+          closeMenu();
+          this.createEventSnapshot();
+        });
+        historySelect.addEventListener('change',()=>{
+          const selectedId=historySelect.value;
+          if(!selectedId) return;
+          const entry=this.eventHistory.find(item=>item.id===selectedId);
+          if(!entry) return;
+          this.activeEventId=entry.id;
+          closeMenu();
+          this.applyEventSnapshot(entry);
+        });
+        historyRow.append(historySelect,historyAddButton);
+        historyWrapper.append(historyLabel,historyRow);
+        menuList.appendChild(historyWrapper);
 
         const handleOutsideClick=event=>{
           if(!menuWrapper.contains(event.target)){
@@ -8479,6 +8562,100 @@
       }
       this.syncOutputsWithSelections({persist:false});
       this.queueStateSave();
+    }
+
+    hydrateSelections(selections){
+      const normalized=Array.isArray(selections)?selections:[];
+      return normalized.map(sel=>{
+        const resolved=this.entryMap.get(sel.key);
+        if(resolved){
+          const storedPart=normalizePart(sel.part);
+          const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
+          return {
+            ...resolved,
+            routine:resolved.routine||sel.routine||'',
+            routineFinding:resolved.routineFinding||resolved.routineFindings||sel.routineFinding||'',
+            routineAction:resolved.routineAction||resolved.routineActions||sel.routineAction||'',
+            nonroutine:resolved.nonroutine||sel.nonroutine||'',
+            nonroutineFinding:resolved.nonroutineFinding||resolved.nonroutineFindings||sel.nonroutineFinding||'',
+            nonroutineAction:resolved.nonroutineAction||resolved.nonroutineActions||sel.nonroutineAction||'',
+            partsText:resolved.partsText||sel.partsText||'',
+            parts:Array.isArray(resolved.parts)
+              ? resolved.parts.map(item=>{
+                  const partValue=clean(item?.part||'');
+                  if(!partValue) return null;
+                  const quantityValue=clean(item?.menge??item?.quantity??'');
+                  const partEntry={part:partValue};
+                  if(quantityValue) partEntry.menge=quantityValue;
+                  return partEntry;
+                }).filter(Boolean)
+              : Array.isArray(sel.parts)
+                ? sel.parts.map(item=>{
+                    const partValue=clean(item?.part||'');
+                    if(!partValue) return null;
+                    const quantityValue=clean(item?.menge??item?.quantity??'');
+                    const partEntry={part:partValue};
+                    if(quantityValue) partEntry.menge=quantityValue;
+                    return partEntry;
+                  }).filter(Boolean)
+                : [],
+            timesText:resolved.timesText||sel.timesText||'',
+            times:(resolved.times&&typeof resolved.times==='object')
+              ? {...resolved.times}
+              : (sel.times&&typeof sel.times==='object'?{...sel.times}:{}),
+            modsText:resolved.modsText||sel.modsText||'',
+            mods:Array.isArray(resolved.mods)
+              ? resolved.mods.map(item=>clean(item)).filter(Boolean)
+              : Array.isArray(sel.mods)
+                ? sel.mods.map(item=>clean(item)).filter(Boolean)
+                : [],
+            part:matchedPart||resolved.part
+          };
+        }
+        return {
+          key:sel.key,
+          finding:sel.finding||'',
+          action:sel.action||'',
+          label:sel.label||'',
+          part:normalizePart(sel.part)||this.currentPart,
+          routine:sel.routine||'',
+          routineFinding:sel.routineFinding||'',
+          routineAction:sel.routineAction||'',
+          nonroutine:sel.nonroutine||'',
+          nonroutineFinding:sel.nonroutineFinding||'',
+          nonroutineAction:sel.nonroutineAction||'',
+          parts:sel.parts||'',
+          times:sel.times||'',
+          mods:sel.mods||'',
+          raw:sel.raw!=null?cloneDeep(sel.raw):null
+        };
+      });
+    }
+
+    createEventSnapshot(){
+      if(!this.eventHistoryKey||!this.selectedEntries.length) return;
+      const timestamp=new Date();
+      const entry={
+        id:createEventId(),
+        createdAt:timestamp.toISOString(),
+        createdMs:timestamp.getTime(),
+        selections:serializeSelections(this.selectedEntries)
+      };
+      pushEventHistory(this.globalState,this.eventHistoryKey,entry);
+      this.globalState=loadGlobalState();
+      this.eventHistory=getEventHistoryForKey(this.globalState,this.eventHistoryKey);
+      this.activeEventId=entry.id;
+      this.render();
+    }
+
+    applyEventSnapshot(entry){
+      if(!entry) return;
+      const selections=deserializeSelections(entry);
+      this.selectedEntries=this.hydrateSelections(selections);
+      this.undoBuffer=null;
+      this.syncOutputsWithSelections({persist:false});
+      this.persistState(true);
+      this.render();
     }
 
     addInputRow(prefillEntry,focusNext){
