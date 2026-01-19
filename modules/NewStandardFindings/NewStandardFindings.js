@@ -42,6 +42,13 @@
       .filter(Boolean);
   }
 
+  function nsfFormatQuantity(value){
+    if(value==null) return '';
+    const text=String(value).trim();
+    if(!text) return '';
+    return text.replace(/\./g,',');
+  }
+
   function nsfRenderPnTextHeader(containerEl,entry){
     if(!containerEl) return;
     try{
@@ -146,9 +153,8 @@
 
       const qtyCol=document.createElement('div');
       qtyCol.className='nsf-col nsf-col-qty';
-      qtyCol.textContent=String(
-        (typeof pair.menge === 'number' ? pair.menge : (pair.menge ? Number(String(pair.menge).replace(',', '.')) : 1)) || 1
-      );
+      const rawQty=pair.menge??pair.quantity??1;
+      qtyCol.textContent=nsfFormatQuantity(rawQty)||'1';
       row.appendChild(qtyCol);
 
       list.appendChild(row);
@@ -226,16 +232,8 @@
         row.appendChild(partCell);
         const qtyCell=document.createElement('td');
         const rawMenge=partEntry&&partEntry.menge;
-        let normalizedMenge='';
-        if(typeof rawMenge==='number'){
-          normalizedMenge=String(rawMenge);
-        }else if(rawMenge){
-          const parsedMenge=Number(String(rawMenge).replace(',','.'));
-          if(!Number.isNaN(parsedMenge)){
-            normalizedMenge=String(parsedMenge);
-          }
-        }
-        qtyCell.textContent=normalizedMenge||clean(partEntry.quantity||'');
+        const normalizedMenge=nsfFormatQuantity(rawMenge);
+        qtyCell.textContent=normalizedMenge||nsfFormatQuantity(partEntry.quantity||'');
         row.appendChild(qtyCell);
         tbody.appendChild(row);
       });
@@ -5608,7 +5606,7 @@
       const normalizedPairs=aggregatedParts.map(pair=>({part:pair.part,quantity:pair.quantity}));
       const partsLines=normalizedPairs
         .map(pair=>{
-          const qty=pair.quantity||'';
+          const qty=nsfFormatQuantity(pair.quantity||'');
           const part=pair.part||'';
           if(qty&&part) return `${qty}x ${part}`;
           return part;
@@ -5663,7 +5661,7 @@
         .map(pair=>{
           const part=clean(pair.part||'');
           if(!part) return '';
-          const qty=clean(pair.quantity||pair.menge)||'1';
+          const qty=nsfFormatQuantity(clean(pair.quantity||pair.menge)||'1')||'1';
           return `${part}${gap}${qty}`;
         })
         .filter(Boolean)
