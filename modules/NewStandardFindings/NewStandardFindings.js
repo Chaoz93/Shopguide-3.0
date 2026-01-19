@@ -340,8 +340,9 @@
   const FINDINGS_POLL_INTERVAL=5000;
   const SAVE_DEBOUNCE=250;
   const HISTORY_LIMIT=10;
-  const EVENT_HISTORY_KEY='eventHistory';
   const EVENT_HISTORY_LIMIT=40;
+  const EVENT_HISTORY_FILE_NAME='NewStandardFindings_History.json';
+  const EVENT_HISTORY_STORAGE_KEY='nsf-event-history-cache';
   const STYLE_ID='nsf-styles';
   const ASPEN_BOARD_STATE_KEY='aspenUnitListState';
   const ROUTINE_EDITOR_STORAGE_KEY='nsf-routine-editor';
@@ -1476,6 +1477,8 @@
       .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;}
       .nsf-selection-header:focus-within{outline:2px solid rgba(59,130,246,0.45);outline-offset:2px;}
       .nsf-selection-heading{display:flex;align-items:center;gap:0.4rem;font-size:0.95rem;font-weight:600;}
+      .nsf-selection-add{padding:0.3rem 0.55rem;font-size:0.85rem;}
+      .nsf-selection-add:disabled{opacity:0.5;cursor:not-allowed;}
       .nsf-selection-summary{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:0.35rem;font-size:0.78rem;line-height:1.2;}
       .nsf-selection-summary-chip{background:rgba(148,163,184,0.16);border-radius:999px;padding:0.2rem 0.55rem;font-weight:500;white-space:nowrap;}
       .nsf-selection-summary-more{opacity:0.75;font-weight:500;}
@@ -3172,9 +3175,6 @@
     if(!parsed||typeof parsed!=='object') parsed={};
     if(!parsed.meldungsbezogen||typeof parsed.meldungsbezogen!=='object') parsed.meldungsbezogen={};
     if(!parsed.history||typeof parsed.history!=='object') parsed.history={};
-    if(!parsed[EVENT_HISTORY_KEY]||typeof parsed[EVENT_HISTORY_KEY]!=='object'){
-      parsed[EVENT_HISTORY_KEY]={};
-    }
     return parsed;
   }
 
@@ -3206,6 +3206,120 @@
     return `event-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
   }
 
+  function createEmptyEventHistoryStore(){
+    return {version:1,updatedAt:new Date().toISOString(),events:{}};
+  }
+
+  function normalizeEventHistoryStore(raw){
+    const base=createEmptyEventHistoryStore();
+    if(!raw||typeof raw!=='object') return base;
+    const events=raw.events&&typeof raw.events==='object'?raw.events:{};
+    return {
+      version:Number.isFinite(raw.version)?raw.version:base.version,
+      updatedAt:typeof raw.updatedAt==='string'?raw.updatedAt:base.updatedAt,
+      events
+    };
+  }
+
+  function loadEventHistoryStoreFromLocalStorage(){
+    try{
+      const cached=localStorage.getItem(EVENT_HISTORY_STORAGE_KEY);
+      if(cached){
+        const parsed=JSON.parse(cached);
+        return normalizeEventHistoryStore(parsed);
+      }
+    }catch(err){
+      console.warn('NSF: Event-History konnte nicht aus dem Cache gelesen werden',err);
+    }
+    try{
+      const legacy=JSON.parse(localStorage.getItem(STATE_KEY)||'{}');
+      if(legacy&&legacy.eventHistory&&typeof legacy.eventHistory==='object'){
+        const migrated=createEmptyEventHistoryStore();
+        migrated.events=legacy.eventHistory;
+        return migrated;
+      }
+    }catch(err){
+      console.warn('NSF: Legacy-Event-History konnte nicht migriert werden',err);
+    }
+    return createEmptyEventHistoryStore();
+  }
+
+  function cacheEventHistoryStore(store){
+    try{
+      const payload=JSON.stringify(store);
+      localStorage.setItem(EVENT_HISTORY_STORAGE_KEY,payload);
+    }catch(err){
+      console.warn('NSF: Event-History konnte nicht gecached werden',err);
+    }
+  }
+
+  function getRootHistoryHandle(){
+    if(typeof window==='undefined') return null;
+    if(!window.showDirectoryPicker) return null;
+    return window.rootDirHandle||null;
+  }
+
+  async function ensureRootPermission(handle){
+    if(!handle) return false;
+    if(typeof ensureRWPermission==='function'){
+      return await ensureRWPermission(handle,{mode:'readwrite'});
+    }
+    return true;
+  }
+
+  async function readEventHistoryStoreFromFile(){
+    const rootHandle=getRootHistoryHandle();
+    if(!rootHandle) return null;
+    const granted=await ensureRootPermission(rootHandle);
+    if(!granted) return null;
+    try{
+      const fileHandle=await rootHandle.getFileHandle(EVENT_HISTORY_FILE_NAME,{create:false});
+      const file=await fileHandle.getFile();
+      const text=await file.text();
+      const parsed=JSON.parse(text||'{}');
+      const normalized=normalizeEventHistoryStore(parsed);
+      cacheEventHistoryStore(normalized);
+      return normalized;
+    }catch(err){
+      if(err&&err.name==='NotFoundError'){
+        return null;
+      }
+      console.warn('NSF: Event-History-Datei konnte nicht gelesen werden',err);
+      return null;
+    }
+  }
+
+  async function writeEventHistoryStoreToFile(store){
+    const rootHandle=getRootHistoryHandle();
+    if(!rootHandle) return false;
+    const granted=await ensureRootPermission(rootHandle);
+    if(!granted) return false;
+    try{
+      const normalized=normalizeEventHistoryStore(store);
+      normalized.updatedAt=new Date().toISOString();
+      const payload=JSON.stringify(normalized,null,2);
+      const fileHandle=await rootHandle.getFileHandle(EVENT_HISTORY_FILE_NAME,{create:true});
+      const writable=await fileHandle.createWritable();
+      await writable.write(payload);
+      await writable.close();
+      cacheEventHistoryStore(normalized);
+      return true;
+    }catch(err){
+      console.warn('NSF: Event-History-Datei konnte nicht geschrieben werden',err);
+      return false;
+    }
+  }
+
+  async function loadEventHistoryStore(){
+    const fromFile=await readEventHistoryStoreFromFile();
+    if(fromFile){
+      return fromFile;
+    }
+    const fallback=loadEventHistoryStoreFromLocalStorage();
+    await writeEventHistoryStoreToFile(fallback);
+    return fallback;
+  }
+
   function normalizeEventHistoryEntry(raw){
     if(!raw||typeof raw!=='object') return null;
     const id=typeof raw.id==='string'?raw.id:'';
@@ -3216,32 +3330,28 @@
     return {id,createdAt,createdMs,selections};
   }
 
-  function getEventHistoryForKey(global,key){
-    if(!global||!key) return [];
-    if(!global[EVENT_HISTORY_KEY]||typeof global[EVENT_HISTORY_KEY]!=='object'){
-      global[EVENT_HISTORY_KEY]={};
-    }
-    const list=global[EVENT_HISTORY_KEY][key];
+  function getEventHistoryForKey(store,key){
+    if(!store||!key) return [];
+    const list=store.events&&store.events[key];
     if(!Array.isArray(list)) return [];
     const normalized=list.map(normalizeEventHistoryEntry).filter(Boolean);
     normalized.sort((a,b)=>b.createdMs-a.createdMs);
     return normalized.slice(0,EVENT_HISTORY_LIMIT);
   }
 
-  function pushEventHistory(global,key,entry){
-    if(!global||!key||!entry) return;
-    if(!global[EVENT_HISTORY_KEY]||typeof global[EVENT_HISTORY_KEY]!=='object'){
-      global[EVENT_HISTORY_KEY]={};
+  function pushEventHistory(store,key,entry){
+    if(!store||!key||!entry) return;
+    if(!store.events||typeof store.events!=='object'){
+      store.events={};
     }
-    if(!Array.isArray(global[EVENT_HISTORY_KEY][key])){
-      global[EVENT_HISTORY_KEY][key]=[];
+    if(!Array.isArray(store.events[key])){
+      store.events[key]=[];
     }
-    const list=global[EVENT_HISTORY_KEY][key];
+    const list=store.events[key];
     list.unshift({
       id:entry.id,
       createdAt:entry.createdAt,
-      selections:Array.isArray(entry.selections)?entry.selections:[],
-      createdMs:entry.createdMs
+      selections:Array.isArray(entry.selections)?entry.selections:[]
     });
     const unique=new Map();
     const filtered=[];
@@ -3257,8 +3367,7 @@
       });
       if(filtered.length>=EVENT_HISTORY_LIMIT) break;
     }
-    global[EVENT_HISTORY_KEY][key]=filtered;
-    saveGlobalState(global);
+    store.events[key]=filtered;
   }
 
   function serializeSelections(selections){
@@ -3696,6 +3805,8 @@
       this.eventHistory=[];
       this.eventHistoryKey='';
       this.activeEventId='';
+      this.eventHistoryStore=null;
+      this.eventHistoryStorePromise=null;
       this.filterAll=false;
       this.undoBuffer=null;
       this.selectedEntries=[];
@@ -3740,6 +3851,17 @@
       });
     }
 
+    async ensureEventHistoryStore(){
+      if(this.eventHistoryStorePromise) return this.eventHistoryStorePromise;
+      this.eventHistoryStorePromise=(async()=>{
+        this.eventHistoryStore=await loadEventHistoryStore();
+        return this.eventHistoryStore;
+      })().finally(()=>{
+        this.eventHistoryStorePromise=null;
+      });
+      return this.eventHistoryStorePromise;
+    }
+
     render(){
       if(this.destroyed) return;
       if(this.rendering){this.pending=true;return;}
@@ -3772,6 +3894,7 @@
       setupWatchers();
       await ensureData();
       await this.ensureFindingsHandleInitialized();
+      await this.ensureEventHistoryStore();
       this.globalState=loadGlobalState();
       this.findingsPath=clean(localStorage.getItem(FINDINGS_PATH_KEY)||'');
       const data=parseData();
@@ -3819,7 +3942,7 @@
       this.serialStatus=serialResult.reason||'';
       this.serialLookupMeldung=serialResult.lookup||'';
       this.eventHistoryKey=buildEventHistoryKey(this.currentPart,this.serial);
-      this.eventHistory=getEventHistoryForKey(this.globalState,this.eventHistoryKey);
+      this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
       if(this.activeEventId&&!this.eventHistory.some(entry=>entry.id===this.activeEventId)){
         this.activeEventId='';
       }
@@ -4365,7 +4488,7 @@
         historyAddButton.addEventListener('click',()=>{
           if(historyAddButton.disabled) return;
           closeMenu();
-          this.createEventSnapshot();
+          void this.createEventSnapshot();
         });
         historySelect.addEventListener('change',()=>{
           const selectedId=historySelect.value;
@@ -4567,6 +4690,18 @@
         title.appendChild(badge);
       }
       heading.appendChild(title);
+      const addEventButton=document.createElement('button');
+      addEventButton.type='button';
+      addEventButton.className='nsf-btn nsf-selection-add';
+      addEventButton.textContent='+';
+      addEventButton.title='Findings-Ereignis speichern';
+      addEventButton.setAttribute('aria-label',addEventButton.title);
+      addEventButton.disabled=!this.eventHistoryKey||!this.selectedEntries.length;
+      addEventButton.addEventListener('click',()=>{
+        if(addEventButton.disabled) return;
+        void this.createEventSnapshot();
+      });
+      heading.appendChild(addEventButton);
       selectionHeader.appendChild(heading);
 
       const selectionSummary=document.createElement('div');
@@ -8632,18 +8767,18 @@
       });
     }
 
-    createEventSnapshot(){
+    async createEventSnapshot(){
       if(!this.eventHistoryKey||!this.selectedEntries.length) return;
+      await this.ensureEventHistoryStore();
       const timestamp=new Date();
       const entry={
         id:createEventId(),
         createdAt:timestamp.toISOString(),
-        createdMs:timestamp.getTime(),
         selections:serializeSelections(this.selectedEntries)
       };
-      pushEventHistory(this.globalState,this.eventHistoryKey,entry);
-      this.globalState=loadGlobalState();
-      this.eventHistory=getEventHistoryForKey(this.globalState,this.eventHistoryKey);
+      pushEventHistory(this.eventHistoryStore,this.eventHistoryKey,entry);
+      await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
       this.activeEventId=entry.id;
       this.render();
     }
