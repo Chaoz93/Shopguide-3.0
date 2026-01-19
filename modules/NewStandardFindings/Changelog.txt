@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.5.5] – 2026-01-19
+### Changed
+- Kopierfunktion der Bestellliste erstellt jetzt tabellenartige Zeilen mit Partnummer in Spalte 1 und Menge in Spalte 6.
+
 ## [1.5.4] – 2026-01-19
 ### Changed
 - Event-History speichert nur noch die ausgewählten Finding-Labels statt aller Unterpunkte.
