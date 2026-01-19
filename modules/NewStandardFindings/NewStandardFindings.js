@@ -1510,7 +1510,8 @@
       .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
       .nsf-header-section.collapsed .nsf-header-actions{order:3;width:100%;justify-content:flex-end;flex-wrap:wrap;}
       .nsf-header-history{display:flex;align-items:center;gap:0.35rem;}
-      .nsf-header-history-label{font-size:0.7rem;opacity:0.7;}
+      .nsf-header-history-label{font-size:0.7rem;opacity:0.7;display:inline-flex;align-items:center;gap:0.25rem;}
+      .nsf-history-warning{width:0.45rem;height:0.45rem;border-radius:999px;background:rgba(248,113,113,0.95);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px rgba(248,113,113,0.25);flex:0 0 auto;}
       .nsf-header-history-select{background:rgba(15,23,42,0.55);border:1px solid rgba(148,163,184,0.35);border-radius:0.55rem;padding:0.2rem 0.45rem;color:inherit;font:inherit;font-size:0.72rem;max-width:220px;}
       .nsf-header-history-select:disabled{opacity:0.6;cursor:not-allowed;}
       .nsf-header-action{background:rgba(255,255,255,0.12);border:none;border-radius:999px;padding:0.25rem 0.6rem;font:inherit;font-size:0.72rem;color:inherit;line-height:1;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
@@ -1560,7 +1561,7 @@
       .nsf-menu-item{background:transparent;border:none;border-radius:0.6rem;padding:0.45rem 0.75rem;color:inherit;font:inherit;text-align:left;cursor:pointer;display:flex;align-items:center;gap:0.5rem;}
       .nsf-menu-item:hover{background:rgba(59,130,246,0.18);}
       .nsf-menu-item:disabled{opacity:0.5;cursor:not-allowed;background:transparent;}
-      .nsf-editor-menu-label{padding:0.35rem 0.55rem;font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;opacity:0.6;}
+      .nsf-editor-menu-label{padding:0.35rem 0.55rem;font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;opacity:0.6;display:flex;align-items:center;gap:0.35rem;}
       .nsf-editor-menu-divider{height:1px;background:rgba(148,163,184,0.28);margin:0.35rem 0;}
       .nsf-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.75rem;padding:0.45rem 0.9rem;color:inherit;font:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;display:inline-flex;align-items:center;gap:0.35rem;}
       .nsf-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
@@ -4005,6 +4006,9 @@
       if(this.activeEventId&&!this.eventHistory.some(entry=>entry.id===this.activeEventId)){
         this.activeEventId='';
       }
+      const defaultEventEntry=!this.activeEventId&&this.eventHistory.length
+        ?this.eventHistory[0]
+        :null;
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
         this.filterAll=false;
@@ -4076,6 +4080,10 @@
       this.syncCustomSectionsToActiveState({save:false});
       this.history=getHistoryForPart(this.globalState,this.currentPart);
       this.selectedEntries=this.hydrateSelections(selections);
+      if(defaultEventEntry){
+        this.activeEventId=defaultEventEntry.id;
+        this.applyEventSnapshotToState(defaultEventEntry,{persist:true});
+      }
       this.selectionRows=[];
       this.renderDom();
       if(this.restoredAspenState&&this.stateKey){
@@ -4397,6 +4405,8 @@
 
       const headerActions=document.createElement('div');
       headerActions.className='nsf-header-actions';
+      const latestEventId=this.eventHistory[0]?.id||'';
+      const showHistoryWarning=!!latestEventId&&this.activeEventId&&this.activeEventId!==latestEventId;
 
       const makeHeaderAction=(label,handler)=>{
         const btn=document.createElement('button');
@@ -4417,6 +4427,13 @@
       const headerHistoryLabel=document.createElement('span');
       headerHistoryLabel.className='nsf-header-history-label';
       headerHistoryLabel.textContent='History';
+      if(showHistoryWarning){
+        const warning=document.createElement('span');
+        warning.className='nsf-history-warning';
+        warning.title='Nicht aktuelles Ereignis ausgewählt';
+        warning.setAttribute('aria-label',warning.title);
+        headerHistoryLabel.appendChild(warning);
+      }
       const headerHistorySelect=document.createElement('select');
       headerHistorySelect.className='nsf-header-history-select';
       const headerHistoryPlaceholder=document.createElement('option');
@@ -4549,6 +4566,13 @@
         const historyLabel=document.createElement('div');
         historyLabel.className='nsf-editor-menu-label';
         historyLabel.textContent='History (PN/SN)';
+        if(showHistoryWarning){
+          const warning=document.createElement('span');
+          warning.className='nsf-history-warning';
+          warning.title='Nicht aktuelles Ereignis ausgewählt';
+          warning.setAttribute('aria-label',warning.title);
+          historyLabel.appendChild(warning);
+        }
         const historyRow=document.createElement('div');
         historyRow.className='nsf-menu-history-row';
         const historySelect=document.createElement('select');
@@ -9005,7 +9029,7 @@
       this.render();
     }
 
-    applyEventSnapshot(entry){
+    applyEventSnapshotToState(entry,options){
       if(!entry) return;
       const selections=deserializeSelections(entry);
       this.selectedEntries=this.hydrateSelections(selections);
@@ -9022,7 +9046,14 @@
       }
       this.undoBuffer=null;
       this.syncOutputsWithSelections({persist:false});
-      this.persistState(true);
+      if(options&&options.persist){
+        this.persistState(true);
+      }
+    }
+
+    applyEventSnapshot(entry){
+      if(!entry) return;
+      this.applyEventSnapshotToState(entry,{persist:true});
       this.render();
     }
 
