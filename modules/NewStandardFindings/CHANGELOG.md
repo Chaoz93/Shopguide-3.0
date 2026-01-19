@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.5.6 – 2026-01-19
+### Changed
+- History-Dropdown wählt beim Laden automatisch das neueste Ereignis und zeigt einen roten Hinweis, wenn ein älteres Ereignis aktiv ist.
+
 ## 1.4.7 – 2026-01-14
 ### Changed
 - Der Bereich „Findings auswählen“ ist jetzt fest integriert und nicht mehr einklappbar.
