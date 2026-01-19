@@ -339,6 +339,7 @@
   const WATCH_INTERVAL=600;
   const FINDINGS_POLL_INTERVAL=5000;
   const SAVE_DEBOUNCE=250;
+  const EVENT_AUTO_UPDATE_DEBOUNCE=600;
   const HISTORY_LIMIT=10;
   const EVENT_HISTORY_LIMIT=40;
   const EVENT_HISTORY_FILE_NAME='NewStandardFindings_History.json';
@@ -1467,11 +1468,15 @@
       .nsf-header-section{padding:0.4rem 0.6rem;gap:0.35rem;}
       .nsf-header-section.collapsed{padding:0.3rem 0.5rem;}
       .nsf-header-bar{display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;line-height:1.2;}
+      .nsf-header-section.collapsed .nsf-header-bar{flex-wrap:wrap;align-items:flex-start;}
+      .nsf-header-section.collapsed .nsf-header-toggle{order:1;}
       .nsf-header-toggle{background:rgba(255,255,255,0.12);border:none;border-radius:0.45rem;width:1.6rem;height:1.6rem;display:flex;align-items:center;justify-content:center;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-header-toggle:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
       .nsf-header-summary{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
+      .nsf-header-section.collapsed .nsf-header-summary{order:2;width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.35rem 0.6rem;align-items:center;}
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
       .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;}
+      .nsf-header-section.collapsed .nsf-header-debug{grid-column:1/-1;flex-basis:auto;}
       .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
       .nsf-selection-section.nsf-selection-collapsed{overflow:hidden;}
       .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;}
@@ -1503,6 +1508,7 @@
       .nsf-reason-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-reason-textarea{min-height:4.5rem;}
       .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-header-section.collapsed .nsf-header-actions{order:3;width:100%;justify-content:flex-end;flex-wrap:wrap;}
       .nsf-header-history{display:flex;align-items:center;gap:0.35rem;}
       .nsf-header-history-label{font-size:0.7rem;opacity:0.7;}
       .nsf-header-history-select{background:rgba(15,23,42,0.55);border:1px solid rgba(148,163,184,0.35);border-radius:0.55rem;padding:0.2rem 0.45rem;color:inherit;font:inherit;font-size:0.72rem;max-width:220px;}
@@ -1536,6 +1542,16 @@
       .nsf-menu.open .nsf-menu-list{display:flex;}
       .nsf-menu-history{padding:0.35rem 0.55rem;display:flex;flex-direction:column;gap:0.35rem;}
       .nsf-menu-history-row{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-event-list{display:flex;flex-direction:column;gap:0.25rem;}
+      .nsf-event-item{display:flex;align-items:center;gap:0.35rem;padding:0.25rem 0.3rem;border-radius:0.5rem;transition:background 0.15s ease;}
+      .nsf-event-item:hover{background:rgba(59,130,246,0.16);}
+      .nsf-event-select{flex:1;background:transparent;border:none;color:inherit;font:inherit;font-size:0.75rem;text-align:left;cursor:pointer;display:flex;align-items:center;gap:0.4rem;padding:0;}
+      .nsf-event-select.is-active{font-weight:600;}
+      .nsf-event-meta{opacity:0.7;font-size:0.68rem;}
+      .nsf-event-delete{background:transparent;border:none;color:inherit;font:inherit;font-size:0.8rem;opacity:0;cursor:pointer;transition:opacity 0.15s ease,transform 0.15s ease;}
+      .nsf-event-item:hover .nsf-event-delete{opacity:0.85;transform:translateY(-1px);}
+      .nsf-event-delete:focus-visible{opacity:0.85;}
+      .nsf-event-empty{font-size:0.72rem;opacity:0.65;}
       .nsf-menu-select{flex:1;min-width:0;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.35);border-radius:0.55rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;font-size:0.78rem;}
       .nsf-menu-select:disabled{opacity:0.6;cursor:not-allowed;}
       .nsf-menu-add{background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.35);border-radius:0.55rem;padding:0.3rem 0.5rem;color:inherit;font:inherit;font-size:0.85rem;cursor:pointer;}
@@ -3374,6 +3390,20 @@
     store.events[key]=filtered;
   }
 
+  function removeEventHistoryEntry(store,key,id){
+    if(!store||!key||!id) return false;
+    const list=store.events&&store.events[key];
+    if(!Array.isArray(list)) return false;
+    const filtered=list.filter(item=>item&&item.id!==id);
+    if(filtered.length===list.length) return false;
+    if(filtered.length){
+      store.events[key]=filtered;
+    }else{
+      delete store.events[key];
+    }
+    return true;
+  }
+
   function serializeSelections(selections){
     if(!Array.isArray(selections)) return [];
     return selections
@@ -3811,6 +3841,7 @@
       this.activeEventId='';
       this.eventHistoryStore=null;
       this.eventHistoryStorePromise=null;
+      this.eventUpdateTimer=null;
       this.filterAll=false;
       this.undoBuffer=null;
       this.selectedEntries=[];
@@ -4539,6 +4570,53 @@
         });
         historyRow.append(historySelect,historyAddButton);
         historyWrapper.append(historyLabel,historyRow);
+        const historyList=document.createElement('div');
+        historyList.className='nsf-event-list';
+        if(this.eventHistory.length){
+          this.eventHistory.forEach(entry=>{
+            const item=document.createElement('div');
+            item.className='nsf-event-item';
+            const selectBtn=document.createElement('button');
+            selectBtn.type='button';
+            selectBtn.className='nsf-event-select';
+            if(entry.id===this.activeEventId){
+              selectBtn.classList.add('is-active');
+            }
+            const count=Array.isArray(entry.selections)?entry.selections.length:0;
+            const label=formatEventTimestamp(entry.createdAt);
+            const textLabel=document.createElement('span');
+            textLabel.textContent=label?`Ereignis ${label}`:'Ereignis';
+            const meta=document.createElement('span');
+            meta.className='nsf-event-meta';
+            meta.textContent=`${count} Findings`;
+            selectBtn.append(textLabel,meta);
+            selectBtn.addEventListener('click',()=>{
+              this.activeEventId=entry.id;
+              closeMenu();
+              this.applyEventSnapshot(entry);
+            });
+            const deleteBtn=document.createElement('button');
+            deleteBtn.type='button';
+            deleteBtn.className='nsf-event-delete';
+            deleteBtn.textContent='✖';
+            deleteBtn.title='Ereignis löschen';
+            deleteBtn.setAttribute('aria-label','Ereignis löschen');
+            deleteBtn.addEventListener('click',event=>{
+              event.preventDefault();
+              event.stopPropagation();
+              closeMenu();
+              void this.deleteEventHistoryEntry(entry);
+            });
+            item.append(selectBtn,deleteBtn);
+            historyList.appendChild(item);
+          });
+        }else{
+          const empty=document.createElement('div');
+          empty.className='nsf-event-empty';
+          empty.textContent='Keine Ereignisse gespeichert.';
+          historyList.appendChild(empty);
+        }
+        historyWrapper.appendChild(historyList);
         menuList.appendChild(historyWrapper);
 
         const handleOutsideClick=event=>{
@@ -8821,6 +8899,59 @@
       this.render();
     }
 
+    queueEventAutoUpdate(){
+      if(!this.eventHistoryKey||!this.selectedEntries.length) return;
+      if(this.eventUpdateTimer) clearTimeout(this.eventUpdateTimer);
+      this.eventUpdateTimer=setTimeout(()=>{
+        this.eventUpdateTimer=null;
+        void this.updateEventSnapshot();
+      },EVENT_AUTO_UPDATE_DEBOUNCE);
+    }
+
+    async updateEventSnapshot(){
+      if(!this.eventHistoryKey||!this.selectedEntries.length) return;
+      await this.ensureEventHistoryStore();
+      const historyList=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+      if(!historyList.length) return;
+      const targetId=this.activeEventId||historyList[0].id;
+      if(!targetId) return;
+      const storedList=this.eventHistoryStore?.events?.[this.eventHistoryKey];
+      if(!Array.isArray(storedList)) return;
+      const updatedSelections=serializeSelections(this.selectedEntries);
+      let changed=false;
+      const next=storedList.map(item=>{
+        if(!item||item.id!==targetId) return item;
+        changed=true;
+        return {
+          ...item,
+          selections:updatedSelections
+        };
+      });
+      if(!changed) return;
+      this.eventHistoryStore.events[this.eventHistoryKey]=next;
+      await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+    }
+
+    async deleteEventHistoryEntry(entry){
+      if(!entry||!this.eventHistoryKey) return;
+      const label=formatEventTimestamp(entry.createdAt);
+      const count=Array.isArray(entry.selections)?entry.selections.length:0;
+      const confirmText=label
+        ?`Ereignis vom ${label} (${count} Findings) wirklich löschen?`
+        :'Ereignis wirklich löschen?';
+      if(!window.confirm(confirmText)) return;
+      await this.ensureEventHistoryStore();
+      const removed=removeEventHistoryEntry(this.eventHistoryStore,this.eventHistoryKey,entry.id);
+      if(!removed) return;
+      await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+      if(this.activeEventId===entry.id){
+        this.activeEventId=this.eventHistory[0]?.id||'';
+      }
+      this.render();
+    }
+
     applyEventSnapshot(entry){
       if(!entry) return;
       const selections=deserializeSelections(entry);
@@ -9198,6 +9329,7 @@
 
         this.selectedEntries.push(selection);
       }
+      this.queueEventAutoUpdate();
     }
 
     useEntry(entry){
@@ -9236,6 +9368,7 @@
       this.removeRow(state);
       this.syncOutputsWithSelections({persist:false});
       this.persistState(true);
+      this.queueEventAutoUpdate();
       if(this.meldung&&this.availableEntries.length&&!this.selectionRows.some(s=>!s.locked)){
         this.addInputRow(null,true);
       }

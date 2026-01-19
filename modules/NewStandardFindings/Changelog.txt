@@ -12,6 +12,14 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.5.3] – 2026-01-19
+### Added
+- Event-Liste im Aktionsmenü zeigt beim Hover ein Löschsymbol, das ein Bestätigungsdialog für gespeicherte Ereignisse öffnet.
+
+### Changed
+- Eingeklappter Header nutzt ein klareres Rasterlayout für Meldung, Partnummer und Seriennummer.
+- Aktuelles Findings-Ereignis aktualisiert sich automatisch, sobald eine neue Auswahl hinzugefügt oder entfernt wird.
+
 ## [1.5.2] – 2026-01-19
 ### Added
 - History-Dropdown im Aktionsmenü speichert Findings-Ereignisse pro Part-/Seriennummer mit Zeitstempel und ermöglicht das Umschalten zwischen gespeicherten Events.
