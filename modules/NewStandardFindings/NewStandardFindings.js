@@ -3347,7 +3347,9 @@
     const createdMs=Date.parse(createdAt);
     const selections=Array.isArray(raw.selections)?raw.selections.filter(Boolean):[];
     if(!id||!createdAt||!Number.isFinite(createdMs)) return null;
-    return {id,createdAt,createdMs,selections};
+    const rfr=typeof raw.rfr==='string'?raw.rfr:null;
+    const reason=typeof raw.reason==='string'?raw.reason:null;
+    return {id,createdAt,createdMs,selections,rfr,reason};
   }
 
   function getEventHistoryForKey(store,key){
@@ -3371,7 +3373,9 @@
     list.unshift({
       id:entry.id,
       createdAt:entry.createdAt,
-      selections:Array.isArray(entry.selections)?entry.selections:[]
+      selections:Array.isArray(entry.selections)?entry.selections:[],
+      rfr:typeof entry.rfr==='string'?entry.rfr:'',
+      reason:typeof entry.reason==='string'?entry.reason:''
     });
     const unique=new Map();
     const filtered=[];
@@ -3383,7 +3387,9 @@
       filtered.push({
         id:normalizedEntry.id,
         createdAt:normalizedEntry.createdAt,
-        selections:normalizedEntry.selections
+        selections:normalizedEntry.selections,
+        rfr:typeof normalizedEntry.rfr==='string'?normalizedEntry.rfr:'',
+        reason:typeof normalizedEntry.reason==='string'?normalizedEntry.reason:''
       });
       if(filtered.length>=EVENT_HISTORY_LIMIT) break;
     }
@@ -3426,6 +3432,24 @@
           mods:typeof sel.mods==='string'?sel.mods:''
         }
       ));
+  }
+
+  function serializeEventHistorySelections(selections){
+    if(!Array.isArray(selections)) return [];
+    return selections
+      .filter(sel=>sel&&typeof sel.key==='string')
+      .map(sel=>{
+        const labelCandidate=typeof sel.label==='string'&&sel.label
+          ? sel.label
+          : (typeof sel.finding==='string'&&sel.finding
+            ? sel.finding
+            : (typeof sel.action==='string'?sel.action:''));
+        const label=clean(labelCandidate);
+        return {
+          key:sel.key,
+          label
+        };
+      });
   }
 
   function deserializeSelections(entry){
@@ -8800,6 +8824,7 @@
       this.undoBuffer=null;
       this.syncOutputsWithSelections({persist:false});
       this.persistState(true);
+      this.queueEventAutoUpdate();
       this.render();
     }
 
@@ -8813,6 +8838,7 @@
       }
       this.syncOutputsWithSelections({persist:false});
       this.queueStateSave();
+      this.queueEventAutoUpdate();
     }
 
     hydrateSelections(selections){
@@ -8890,7 +8916,9 @@
       const entry={
         id:createEventId(),
         createdAt:timestamp.toISOString(),
-        selections:serializeSelections(this.selectedEntries)
+        selections:serializeEventHistorySelections(this.selectedEntries),
+        rfr:clean(this.removalReason||this.activeState?.rfr||''),
+        reason:clean(this.reasonText||this.activeState?.reason||'')
       };
       pushEventHistory(this.eventHistoryStore,this.eventHistoryKey,entry);
       await writeEventHistoryStoreToFile(this.eventHistoryStore);
@@ -8917,14 +8945,18 @@
       if(!targetId) return;
       const storedList=this.eventHistoryStore?.events?.[this.eventHistoryKey];
       if(!Array.isArray(storedList)) return;
-      const updatedSelections=serializeSelections(this.selectedEntries);
+      const updatedSelections=serializeEventHistorySelections(this.selectedEntries);
+      const updatedRfr=clean(this.removalReason||this.activeState?.rfr||'');
+      const updatedReason=clean(this.reasonText||this.activeState?.reason||'');
       let changed=false;
       const next=storedList.map(item=>{
         if(!item||item.id!==targetId) return item;
         changed=true;
         return {
           ...item,
-          selections:updatedSelections
+          selections:updatedSelections,
+          rfr:updatedRfr,
+          reason:updatedReason
         };
       });
       if(!changed) return;
@@ -8956,6 +8988,17 @@
       if(!entry) return;
       const selections=deserializeSelections(entry);
       this.selectedEntries=this.hydrateSelections(selections);
+      if(this.activeState&&typeof this.activeState==='object'){
+        if(typeof entry.rfr==='string'){
+          this.removalReason=clean(entry.rfr);
+          this.activeState.rfr=this.removalReason;
+          this.removalOptionsCollapsed=!!this.removalReason;
+        }
+        if(typeof entry.reason==='string'){
+          this.reasonText=clean(entry.reason);
+          this.activeState.reason=this.reasonText;
+        }
+      }
       this.undoBuffer=null;
       this.syncOutputsWithSelections({persist:false});
       this.persistState(true);
