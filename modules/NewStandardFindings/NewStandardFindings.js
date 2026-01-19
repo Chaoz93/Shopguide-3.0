@@ -5088,7 +5088,10 @@
         btn.addEventListener('click',()=>{
           const textarea=this.textareas[def.key];
           if(!textarea) return;
-          copyText(textarea.value).then(success=>{
+          const value=def.key==='parts'
+            ? this.buildBestelllisteCopyText()
+            : textarea.value;
+          copyText(value).then(success=>{
             if(!success) return;
             btn.classList.add('copied');
             setTimeout(()=>btn.classList.remove('copied'),1200);
@@ -5623,6 +5626,24 @@
         parts:partsText,
         partsEntry:partsEntry
       };
+    }
+
+    buildBestelllisteCopyText(){
+      const partsSource=(this.partsEntry&&Array.isArray(this.partsEntry.parts)&&this.partsEntry.parts.length)
+        ? this.partsEntry.parts
+        : (Array.isArray(this.rawParts)?this.rawParts:[]);
+      const normalized=nsfNormalizeParts({parts:partsSource});
+      if(!normalized.length) return '';
+      const gap='\t\t\t\t\t';
+      return normalized
+        .map(pair=>{
+          const part=clean(pair.part||'');
+          if(!part) return '';
+          const qty=clean(pair.quantity||pair.menge)||'1';
+          return `${part}${gap}${qty}`;
+        })
+        .filter(Boolean)
+        .join('\n');
     }
 
     syncOutputsWithSelections(options){
