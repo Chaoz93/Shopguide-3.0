@@ -1503,6 +1503,10 @@
       .nsf-reason-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-reason-textarea{min-height:4.5rem;}
       .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-header-history{display:flex;align-items:center;gap:0.35rem;}
+      .nsf-header-history-label{font-size:0.7rem;opacity:0.7;}
+      .nsf-header-history-select{background:rgba(15,23,42,0.55);border:1px solid rgba(148,163,184,0.35);border-radius:0.55rem;padding:0.2rem 0.45rem;color:inherit;font:inherit;font-size:0.72rem;max-width:220px;}
+      .nsf-header-history-select:disabled{opacity:0.6;cursor:not-allowed;}
       .nsf-header-action{background:rgba(255,255,255,0.12);border:none;border-radius:999px;padding:0.25rem 0.6rem;font:inherit;font-size:0.72rem;color:inherit;line-height:1;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-header-action:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
       .nsf-context{display:flex;flex-direction:column;gap:0.6rem;font-size:0.88rem;}
@@ -3625,7 +3629,7 @@
     if(!value) return '';
     const date=new Date(value);
     if(Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    return date.toLocaleDateString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit'});
   }
 
   function autoResizeTextarea(textarea){
@@ -4353,6 +4357,40 @@
       const findingsAction=makeHeaderAction('Findings',()=>this.handleFindingsButton());
       const aspenAction=makeHeaderAction('Aspen',()=>fileInput.click());
       headerActions.append(findingsAction,aspenAction);
+      const headerHistory=document.createElement('div');
+      headerHistory.className='nsf-header-history';
+      const headerHistoryLabel=document.createElement('span');
+      headerHistoryLabel.className='nsf-header-history-label';
+      headerHistoryLabel.textContent='History';
+      const headerHistorySelect=document.createElement('select');
+      headerHistorySelect.className='nsf-header-history-select';
+      const headerHistoryPlaceholder=document.createElement('option');
+      headerHistoryPlaceholder.value='';
+      headerHistoryPlaceholder.textContent=this.eventHistoryKey
+        ?(this.eventHistory.length?'History auswählen':'Keine History')
+        :'PN/SN fehlt';
+      headerHistorySelect.appendChild(headerHistoryPlaceholder);
+      if(this.eventHistory.length){
+        this.eventHistory.forEach(entry=>{
+          const option=document.createElement('option');
+          option.value=entry.id;
+          const label=formatEventTimestamp(entry.createdAt);
+          option.textContent=label||'Event';
+          if(entry.id===this.activeEventId) option.selected=true;
+          headerHistorySelect.appendChild(option);
+        });
+      }
+      headerHistorySelect.disabled=!this.eventHistoryKey||!this.eventHistory.length;
+      headerHistorySelect.addEventListener('change',()=>{
+        const selectedId=headerHistorySelect.value;
+        if(!selectedId) return;
+        const entry=this.eventHistory.find(item=>item.id===selectedId);
+        if(!entry) return;
+        this.activeEventId=entry.id;
+        this.applyEventSnapshot(entry);
+      });
+      headerHistory.append(headerHistoryLabel,headerHistorySelect);
+      headerActions.appendChild(headerHistory);
       headerBar.appendChild(headerActions);
 
       contextSection.appendChild(headerBar);
