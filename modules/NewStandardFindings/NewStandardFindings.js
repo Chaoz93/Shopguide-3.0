@@ -5703,7 +5703,7 @@
       }
       const normalizedPairs=aggregatedParts.map(pair=>({part:pair.part,quantity:pair.quantity}));
       const partsLines=[];
-      const statusOrder=[...FINDING_STATUS_OPTIONS,DEFAULT_FINDING_STATUS];
+      const statusOrder=[...new Set([...FINDING_STATUS_OPTIONS,DEFAULT_FINDING_STATUS])];
       const extraStatuses=Array.from(groupedParts.keys()).filter(status=>!statusOrder.includes(status));
       const orderedStatuses=[...statusOrder.filter(status=>groupedParts.has(status)),...extraStatuses];
       orderedStatuses.forEach(status=>{
