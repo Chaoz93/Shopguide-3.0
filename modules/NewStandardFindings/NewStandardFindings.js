@@ -24,6 +24,29 @@
   }
   // ===== NSF READ HELPERS (END) =====
 
+  const FINDING_STATUS_OPTIONS=[
+    'Spare',
+    'Mishandling',
+    'Missing Parts',
+    'Abnormal wear and tear',
+    'SRU Exchange',
+    'SRU Exchange Mishandling',
+    'SRU Exchange Missing Parts',
+    'SRU Exchange Abnormal wear and tear',
+    'Modification 1',
+    'Modification 2',
+    'Modification 3',
+    'Modification 4'
+  ];
+  const DEFAULT_FINDING_STATUS='Ohne Status';
+
+  function normalizeFindingStatus(value){
+    const cleaned=clean(value);
+    if(!cleaned) return '';
+    const match=FINDING_STATUS_OPTIONS.find(option=>option.toLowerCase()===cleaned.toLowerCase());
+    return match||cleaned;
+  }
+
   function nsfNormalizeParts(entry){
     return nsfGetParts(entry)
       .map(item=>{
@@ -137,14 +160,56 @@
       return;
     }
 
+    const groups=Array.isArray(entry?.groups)?entry.groups:[];
+    if(groups.length){
+      groups.forEach(group=>{
+        if(!group) return;
+        const groupWrap=document.createElement('div');
+        groupWrap.className='nsf-part-group';
+        const header=document.createElement('div');
+        header.className='nsf-part-group-title';
+        header.textContent=group.status||DEFAULT_FINDING_STATUS;
+        groupWrap.appendChild(header);
+        const labelGroups=Array.isArray(group.labels)?group.labels:[];
+        labelGroups.forEach(labelGroup=>{
+          const labelText=clean(labelGroup?.label)||'';
+          const partsList=Array.isArray(labelGroup?.parts)?labelGroup.parts:[];
+          partsList.forEach(pair=>{
+            const row=document.createElement('div');
+            row.className='nsf-part-row';
+
+            const labelCol=document.createElement('div');
+            labelCol.className='nsf-col nsf-col-label';
+            labelCol.textContent=labelText;
+            row.appendChild(labelCol);
+
+            const partCol=document.createElement('div');
+            partCol.className='nsf-col nsf-col-part';
+            partCol.textContent=String(pair?.part||'');
+            row.appendChild(partCol);
+
+            const qtyCol=document.createElement('div');
+            qtyCol.className='nsf-col nsf-col-qty';
+            const rawQty=pair?.menge??pair?.quantity??1;
+            qtyCol.textContent=nsfFormatQuantity(rawQty)||'1';
+            row.appendChild(qtyCol);
+
+            groupWrap.appendChild(row);
+          });
+        });
+        list.appendChild(groupWrap);
+      });
+      return;
+    }
+
     pairs.forEach(pair=>{
       const row=document.createElement('div');
       row.className='nsf-part-row';
 
-      const pnCol=document.createElement('div');
-      pnCol.className='nsf-col nsf-col-pn';
-      pnCol.textContent='';
-      row.appendChild(pnCol);
+      const labelCol=document.createElement('div');
+      labelCol.className='nsf-col nsf-col-label';
+      labelCol.textContent='';
+      row.appendChild(labelCol);
 
       const partCol=document.createElement('div');
       partCol.className='nsf-col nsf-col-part';
@@ -307,9 +372,13 @@
     .nsf-pntext-header .nsf-pntext-master{font-weight:600}
     .nsf-pntext-applies{font-size:.9rem;color:#4b5563;margin-top:.125rem}
     .nsf-bestellliste{display:flex;flex-direction:column;gap:.25rem}
-    .nsf-part-row{display:grid;grid-template-columns:1fr 3fr 1fr;gap:.5rem;align-items:center;padding:.25rem 0;border-bottom:1px solid rgba(0,0,0,.06)}
+    .nsf-part-group{display:flex;flex-direction:column;gap:.2rem;padding:.2rem 0}
+    .nsf-part-group + .nsf-part-group{border-top:1px solid rgba(0,0,0,.08);padding-top:.5rem}
+    .nsf-part-group-title{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#374151}
+    .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:.5rem;align-items:center;padding:.25rem 0;border-bottom:1px solid rgba(0,0,0,.06)}
     .nsf-part-row:last-child{border-bottom:none}
     .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nsf-col-label{font-weight:600;color:#1f2937}
     .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums}
     .nsf-parts-info{display:flex;gap:.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);padding:.5rem;border-radius:.375rem;font-size:.95rem}
     .nsf-info-icon{opacity:.8}
@@ -1577,7 +1646,10 @@
       .nsf-input-wrapper{display:flex;flex-direction:column;gap:0.5rem;}
       .nsf-input-row{position:relative;background:rgba(15,23,42,0.18);border-radius:0.85rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.35rem;z-index:1;}
       .nsf-input-row.show-suggestions{z-index:120;}
-      .nsf-input-field{position:relative;display:flex;align-items:center;width:100%;gap:0.35rem;}
+      .nsf-input-controls{display:flex;align-items:center;gap:0.5rem;}
+      .nsf-status-select{min-width:180px;max-width:240px;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid rgba(15,23,42,0.15);border-radius:0.65rem;padding:0.5rem 0.6rem;font:inherit;}
+      .nsf-status-select:disabled{opacity:0.6;cursor:not-allowed;background:rgba(255,255,255,0.65);}
+      .nsf-input-field{position:relative;display:flex;align-items:center;width:100%;gap:0.35rem;flex:1;}
       .nsf-input-row.locked{background:rgba(15,23,42,0.28);}
       .nsf-remove-btn{position:absolute;top:50%;right:0.45rem;transform:translateY(-50%);background:rgba(248,113,113,0.25);border:none;border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
       .nsf-remove-btn:hover{background:rgba(248,113,113,0.4);opacity:1;transform:translateY(-50%) scale(1.05);}
@@ -1770,9 +1842,13 @@
       .nsf-parts-container{display:flex;flex-direction:column;gap:0.6rem;}
       .nsf-pntext-header{font-weight:600;margin-bottom:0.25rem;}
       .nsf-bestellliste{display:flex;flex-direction:column;gap:0.25rem;}
-      .nsf-part-row{display:grid;grid-template-columns:1fr 3fr 1fr;gap:0.5rem;align-items:center;padding:0.25rem 0;border-bottom:1px solid rgba(0,0,0,0.06);}
+      .nsf-part-group{display:flex;flex-direction:column;gap:0.2rem;padding:0.2rem 0;}
+      .nsf-part-group + .nsf-part-group{border-top:1px solid rgba(0,0,0,0.08);padding-top:0.5rem;}
+      .nsf-part-group-title{font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#374151;}
+      .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:0.5rem;align-items:center;padding:0.25rem 0;border-bottom:1px solid rgba(0,0,0,0.06);}
       .nsf-part-row:last-child{border-bottom:none;}
       .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      .nsf-col-label{font-weight:600;color:#1f2937;}
       .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums;}
       .nsf-parts-info{display:flex;gap:0.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.08);padding:0.5rem;border-radius:0.375rem;font-size:0.95rem;}
       .nsf-info-icon{opacity:0.8;}
@@ -3419,6 +3495,7 @@
           finding:typeof sel.finding==='string'?sel.finding:'',
           action:typeof sel.action==='string'?sel.action:'',
           label:typeof sel.label==='string'?sel.label:'',
+          status:typeof sel.status==='string'?sel.status:'',
           part:typeof sel.part==='string'?normalizePart(sel.part):'',
           routine:typeof sel.routine==='string'?sel.routine:'',
           routineFinding:typeof sel.routineFinding==='string'?sel.routineFinding:'',
@@ -3459,6 +3536,7 @@
             finding:typeof sel.finding==='string'?sel.finding:'',
             action:typeof sel.action==='string'?sel.action:'',
             label:typeof sel.label==='string'?sel.label:'',
+            status:typeof sel.status==='string'?sel.status:'',
             part:typeof sel.part==='string'?normalizePart(sel.part):'',
             routine:typeof sel.routine==='string'?sel.routine:'',
             routineFinding:typeof sel.routineFinding==='string'?sel.routineFinding:'',
@@ -5461,6 +5539,7 @@
       const modEntries=[];
       const modKeys=new Set();
       let primaryLabel='';
+      const groupedParts=new Map();
       const pushLines=(field,value)=>{
         const text=clean(value);
         if(!text) return;
@@ -5541,6 +5620,21 @@
             modEntries.push(line);
           });
       };
+      const addGroupedPart=(status,label,part,quantity)=>{
+        const statusKey=status||DEFAULT_FINDING_STATUS;
+        let statusGroup=groupedParts.get(statusKey);
+        if(!statusGroup){
+          statusGroup=new Map();
+          groupedParts.set(statusKey,statusGroup);
+        }
+        const labelKey=label||'';
+        let labelGroup=statusGroup.get(labelKey);
+        if(!labelGroup){
+          labelGroup=[];
+          statusGroup.set(labelKey,labelGroup);
+        }
+        labelGroup.push({part,quantity});
+      };
       const aggregatedParts=[];
       const partNumberDisplay=[];
       const partNumberSeen=new Set();
@@ -5552,6 +5646,8 @@
         pushLines('findings',findingText);
         const actionText=resolved.action||selection.action||'';
         pushLines('actions',actionText);
+        const statusValue=normalizeFindingStatus(selection.status)||DEFAULT_FINDING_STATUS;
+        const labelValue=clean(resolved.label||selection.label||findingText||actionText)||'Unbenannt';
         if(!primaryLabel){
           const labelCandidate=clean(resolved.label||selection.label||'');
           if(labelCandidate) primaryLabel=labelCandidate;
@@ -5600,29 +5696,57 @@
             if(!partText) return;
             const quantityText=clean(pair.quantity)||'1';
             aggregatedParts.push({part:partText,quantity:quantityText});
+            addGroupedPart(statusValue,labelValue,partText,quantityText);
           });
         }
       }
       const normalizedPairs=aggregatedParts.map(pair=>({part:pair.part,quantity:pair.quantity}));
-      const partsLines=normalizedPairs
-        .map(pair=>{
-          const qty=nsfFormatQuantity(pair.quantity||'');
-          const part=pair.part||'';
-          if(qty&&part) return `${qty}x ${part}`;
-          return part;
-        })
-        .filter(Boolean);
+      const partsLines=[];
+      const statusOrder=[...FINDING_STATUS_OPTIONS,DEFAULT_FINDING_STATUS];
+      const extraStatuses=Array.from(groupedParts.keys()).filter(status=>!statusOrder.includes(status));
+      const orderedStatuses=[...statusOrder.filter(status=>groupedParts.has(status)),...extraStatuses];
+      orderedStatuses.forEach(status=>{
+        const labelGroups=groupedParts.get(status);
+        if(!labelGroups) return;
+        partsLines.push(`${status}:`);
+        labelGroups.forEach((partsList,label)=>{
+          const labelText=label||'Unbenannt';
+          partsLines.push(`  ${labelText}:`);
+          partsList.forEach(pair=>{
+            const qty=nsfFormatQuantity(pair.quantity||'');
+            const part=pair.part||'';
+            if(!part) return;
+            partsLines.push(`    ${qty?`${qty}x `:''}${part}`);
+          });
+        });
+        partsLines.push('');
+      });
+      if(partsLines[partsLines.length-1]==='') partsLines.pop();
       const partsText=partsLines.join('\n');
       const partNumberHeader=partNumberDisplay.join(' • ');
       const appliesList=appliesDisplay.slice();
       const normalizedPartsForEntry=normalizedPairs.map(pair=>({part:pair.part,quantity:pair.quantity}));
+      const groupedPartsForEntry=orderedStatuses.map(status=>{
+        const labelGroups=groupedParts.get(status);
+        const labels=[];
+        if(labelGroups){
+          labelGroups.forEach((partsList,label)=>{
+            labels.push({
+              label,
+              parts:partsList.map(pair=>({part:pair.part,quantity:pair.quantity}))
+            });
+          });
+        }
+        return {status,labels};
+      }).filter(group=>group.labels.length);
       const partsEntry=(partNumberHeader||appliesList.length||normalizedPartsForEntry.length)
         ?{
             partNumber:partNumberHeader,
             partNumbers:partNumberDisplay.slice(),
             appliesTo:appliesList,
             parts:normalizedPartsForEntry,
-            partsPairs:normalizedPartsForEntry
+            partsPairs:normalizedPartsForEntry,
+            groups:groupedPartsForEntry
           }
         :null;
       const placeholderPairs=normalizedPairs.map(pair=>({
@@ -8893,6 +9017,7 @@
           const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
           return {
             ...resolved,
+            status:typeof sel.status==='string'?sel.status:'',
             routine:resolved.routine||sel.routine||'',
             routineFinding:resolved.routineFinding||resolved.routineFindings||sel.routineFinding||'',
             routineAction:resolved.routineAction||resolved.routineActions||sel.routineAction||'',
@@ -8937,6 +9062,7 @@
           finding:sel.finding||'',
           action:sel.action||'',
           label:sel.label||'',
+          status:typeof sel.status==='string'?sel.status:'',
           part:normalizePart(sel.part)||this.currentPart,
           routine:sel.routine||'',
           routineFinding:sel.routineFinding||'',
@@ -9058,6 +9184,19 @@
     addInputRow(prefillEntry,focusNext){
       const row=document.createElement('div');
       row.className='nsf-input-row';
+      const statusSelect=document.createElement('select');
+      statusSelect.className='nsf-status-select';
+      const statusPlaceholder=document.createElement('option');
+      statusPlaceholder.value='';
+      statusPlaceholder.textContent='Status wählen…';
+      statusSelect.appendChild(statusPlaceholder);
+      FINDING_STATUS_OPTIONS.forEach(option=>{
+        const opt=document.createElement('option');
+        opt.value=option;
+        opt.textContent=option;
+        statusSelect.appendChild(opt);
+      });
+      statusSelect.disabled=!this.meldung;
       const input=document.createElement('input');
       input.type='text';
       input.className='nsf-input';
@@ -9079,10 +9218,25 @@
       field.append(toggle,input,removeBtn);
       const suggestions=document.createElement('div');
       suggestions.className='nsf-suggestions';
-      row.append(field,suggestions);
+      const controls=document.createElement('div');
+      controls.className='nsf-input-controls';
+      controls.append(statusSelect,field);
+      row.append(controls,suggestions);
       this.inputsContainer.appendChild(row);
+      const ensureStatusOption=value=>{
+        if(!value) return;
+        const exists=Array.from(statusSelect.options).some(option=>option.value===value);
+        if(!exists){
+          const opt=document.createElement('option');
+          opt.value=value;
+          opt.textContent=value;
+          statusSelect.appendChild(opt);
+        }
+      };
       const state={
         row,
+        statusSelect,
+        ensureStatusOption,
         input,
         toggle,
         suggestions,
@@ -9091,8 +9245,23 @@
         highlightIndex:-1,
         locked:false,
         entry:null,
+        statusValue:'',
         outsideHandler:null,
         isOpen:false
+      };
+      const updateStatus=()=>{
+        const nextStatus=normalizeFindingStatus(statusSelect.value);
+        state.statusValue=nextStatus;
+        if(state.entry){
+          state.entry.status=nextStatus;
+          const match=this.selectedEntries.find(sel=>sel.key===state.entry.key);
+          if(match){
+            match.status=nextStatus;
+            this.syncOutputsWithSelections({persist:false});
+            this.queueStateSave();
+            this.queueEventAutoUpdate();
+          }
+        }
       };
       const updateHighlight=()=>{
         if(!state.isOpen) return;
@@ -9264,10 +9433,17 @@
         if(state.locked) this.removeSelection(state);
         else this.removeRow(state);
       });
+      statusSelect.addEventListener('change',updateStatus);
       state.closeSuggestions=closeSuggestions;
       state.openSuggestions=openSuggestions;
       this.selectionRows.push(state);
       if(prefillEntry){
+        const prefillStatus=normalizeFindingStatus(prefillEntry.status);
+        if(prefillStatus){
+          ensureStatusOption(prefillStatus);
+          statusSelect.value=prefillStatus;
+          state.statusValue=prefillStatus;
+        }
         this.lockRow(state,prefillEntry,{persist:false,updateState:false,syncOutputs:false});
       }else if(focusNext){
         setTimeout(()=>{
@@ -9317,11 +9493,14 @@
       const routineActionText=clean(entry.routineAction||'');
       const partsText=clean(entry.partsText||'');
       const repairOrderValue=clean(this.repairOrder||'');
+      const statusValue=normalizeFindingStatus(state.statusValue||entry.status);
+      state.statusValue=statusValue;
       state.entry={
         key:entry.key,
         finding:entry.finding||'',
         action:entry.action||'',
         label:entry.label||'',
+        status:statusValue||'',
         part:resolveMatchedPart(entry,this.currentPart),
         routine:routineText,
         routineFinding:routineFindingText,
@@ -9332,6 +9511,12 @@
         parts:partsText,
         repairOrder:repairOrderValue
       };
+      if(state.ensureStatusOption){
+        state.ensureStatusOption(statusValue);
+      }
+      if(state.statusSelect&&statusValue){
+        state.statusSelect.value=statusValue;
+      }
       state.input.value=entry.label||entry.finding||entry.action||'Auswahl';
       state.input.disabled=true;
       state.row.classList.add('locked');
@@ -9344,7 +9529,7 @@
       state.suggestionsList=[];
       state.highlightIndex=-1;
       if(opts.persist!==false){
-        this.addSelection(entry);
+        this.addSelection(entry,statusValue);
       }
       if(opts.syncOutputs!==false){
         this.syncOutputsWithSelections({persist:false});
@@ -9354,12 +9539,13 @@
       }
     }
 
-    addSelection(entry){
+    addSelection(entry,statusValue){
       if(!entry) return;
       const resolved=this.resolveEntry(entry)||entry;
       const key=resolved&&resolved.key?resolved.key:entry.key;
       if(!key) return;
       if(!this.selectedEntries.some(sel=>sel.key===key)){
+        const normalizedStatus=normalizeFindingStatus(statusValue||resolved.status||entry.status);
         const routineFinding=resolved.routineFinding||resolved.routineFindings||'';
         const routineAction=resolved.routineAction||resolved.routineActions||'';
         const nonroutineFinding=resolved.nonroutineFinding||resolved.nonroutineFindings||'';
@@ -9405,6 +9591,7 @@
           finding:resolved.finding||entry.finding||'',
           action:resolved.action||entry.action||'',
           label:resolved.label||entry.label||'',
+          status:normalizedStatus||'',
           part:resolveMatchedPart(resolved,this.currentPart),
           routine:resolved.routine||'',
           routineFinding:routineFinding||'',
