@@ -5656,13 +5656,13 @@
         : (Array.isArray(this.rawParts)?this.rawParts:[]);
       const normalized=nsfNormalizeParts({parts:partsSource});
       if(!normalized.length) return '';
-      const gap='\t\t\t\t\t';
+      const gap='\t\t\t\t';
       return normalized
         .map(pair=>{
           const part=clean(pair.part||'');
           if(!part) return '';
           const qty=nsfFormatQuantity(clean(pair.quantity||pair.menge)||'1')||'1';
-          return `${part}${gap}${qty}`;
+          return `${part}${gap}${qty}\t${qty}`;
         })
         .filter(Boolean)
         .join('\n');
