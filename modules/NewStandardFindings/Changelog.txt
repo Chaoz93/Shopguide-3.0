@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.5.8] – 2026-01-22
+### Changed
+- Kopierfunktion der Bestellliste schreibt die Menge jetzt in Spalte 5 und 6 der Bestellmatrix.
+
 ## [1.5.7] – 2026-01-19
 ### Fixed
 - Mengeneinheiten in der Bestellliste werden nun immer mit Komma angezeigt und beim Kopieren ausgegeben, auch wenn die Quelle einen Punkt enthält.
