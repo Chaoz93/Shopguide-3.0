@@ -18,6 +18,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ### Changed
 - Bestellliste gruppiert Parts jetzt nach Status und Finding-Label, inklusive Ausgabe im Bestelltext.
+- Status- und Label-Überschriften der Bestellliste übernehmen jetzt die gleiche Schriftfarbe wie die Parts.
 
 ## [1.5.8] – 2026-01-22
 ### Changed

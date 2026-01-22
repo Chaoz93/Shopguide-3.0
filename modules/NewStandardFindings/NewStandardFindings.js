@@ -374,11 +374,11 @@
     .nsf-bestellliste{display:flex;flex-direction:column;gap:.25rem}
     .nsf-part-group{display:flex;flex-direction:column;gap:.2rem;padding:.2rem 0}
     .nsf-part-group + .nsf-part-group{border-top:1px solid rgba(0,0,0,.08);padding-top:.5rem}
-    .nsf-part-group-title{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#374151}
+    .nsf-part-group-title{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:inherit}
     .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:.5rem;align-items:center;padding:.25rem 0;border-bottom:1px solid rgba(0,0,0,.06)}
     .nsf-part-row:last-child{border-bottom:none}
     .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nsf-col-label{font-weight:600;color:#1f2937}
+    .nsf-col-label{font-weight:600;color:inherit}
     .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums}
     .nsf-parts-info{display:flex;gap:.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);padding:.5rem;border-radius:.375rem;font-size:.95rem}
     .nsf-info-icon{opacity:.8}
@@ -1844,11 +1844,11 @@
       .nsf-bestellliste{display:flex;flex-direction:column;gap:0.25rem;}
       .nsf-part-group{display:flex;flex-direction:column;gap:0.2rem;padding:0.2rem 0;}
       .nsf-part-group + .nsf-part-group{border-top:1px solid rgba(0,0,0,0.08);padding-top:0.5rem;}
-      .nsf-part-group-title{font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#374151;}
+      .nsf-part-group-title{font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:inherit;}
       .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:0.5rem;align-items:center;padding:0.25rem 0;border-bottom:1px solid rgba(0,0,0,0.06);}
       .nsf-part-row:last-child{border-bottom:none;}
       .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-      .nsf-col-label{font-weight:600;color:#1f2937;}
+      .nsf-col-label{font-weight:600;color:inherit;}
       .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums;}
       .nsf-parts-info{display:flex;gap:0.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.08);padding:0.5rem;border-radius:0.375rem;font-size:0.95rem;}
       .nsf-info-icon{opacity:0.8;}
