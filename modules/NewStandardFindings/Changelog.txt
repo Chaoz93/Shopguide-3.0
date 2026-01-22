@@ -12,6 +12,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.6.1] – 2026-01-22
+### Changed
+- Bestellliste zeigt nur noch die Überschrift „Bestelliste“ ohne Geräte- oder „Also applies“-Zusatz.
+- Statusgruppen in der Bestellliste haben jetzt jeweils eine eigene Kopier-Schaltfläche, und Trennlinien erscheinen nur noch zwischen den Statusabschnitten.
+- Partnummern werden pro Finding-Label optisch gruppiert statt mit Trennlinien pro Zeile.
+
 ## [1.6.0] – 2026-01-22
 ### Added
 - Status-Dropdown je Finding, damit pro Auswahl ein Status erfasst und gespeichert werden kann.
