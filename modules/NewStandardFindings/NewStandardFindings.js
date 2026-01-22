@@ -75,34 +75,9 @@
   function nsfRenderPnTextHeader(containerEl,entry){
     if(!containerEl) return;
     try{
-      const master=clean(entry&&entry.partNumber);
-      const applies=nsfGetAppliesTo(entry).map(item=>clean(item)).filter(Boolean);
-      const fallback=master||clean(entry&&entry.pnText);
-      if(!fallback&&!applies.length){
-        const existing=containerEl.querySelector('.nsf-pntext-header');
-        if(existing&&existing.parentNode){
-          existing.parentNode.removeChild(existing);
-        }
-        return;
-      }
-      let header=containerEl.querySelector('.nsf-pntext-header');
-      if(!header){
-        header=document.createElement('div');
-        header.className='nsf-pntext-header';
-        containerEl.prepend(header);
-      }
-      header.innerHTML='';
-      if(fallback){
-        const masterLine=document.createElement('div');
-        masterLine.className='nsf-pntext-master';
-        masterLine.textContent=fallback;
-        header.appendChild(masterLine);
-      }
-      if(applies.length){
-        const appliesLine=document.createElement('div');
-        appliesLine.className='nsf-pntext-applies';
-        appliesLine.textContent=`Also applies to: ${applies.join(', ')}`;
-        header.appendChild(appliesLine);
+      const existing=containerEl.querySelector('.nsf-pntext-header');
+      if(existing&&existing.parentNode){
+        existing.parentNode.removeChild(existing);
       }
     }catch(e){/* noop */}
   }
@@ -160,6 +135,22 @@
       return;
     }
 
+    const buildCopyText=partsList=>{
+      if(!Array.isArray(partsList)||!partsList.length) return '';
+      const normalized=nsfNormalizeParts({parts:partsList});
+      if(!normalized.length) return '';
+      const gap='\t\t\t\t';
+      return normalized
+        .map(pair=>{
+          const part=clean(pair.part||'');
+          if(!part) return '';
+          const qty=nsfFormatQuantity(clean(pair.quantity||pair.menge)||'1')||'1';
+          return `${part}${gap}${qty}\t${qty}`;
+        })
+        .filter(Boolean)
+        .join('\n');
+    };
+
     const groups=Array.isArray(entry?.groups)?entry.groups:[];
     if(groups.length){
       groups.forEach(group=>{
@@ -167,21 +158,40 @@
         const groupWrap=document.createElement('div');
         groupWrap.className='nsf-part-group';
         const header=document.createElement('div');
-        header.className='nsf-part-group-title';
-        header.textContent=group.status||DEFAULT_FINDING_STATUS;
+        header.className='nsf-part-group-header';
+        const headerTitle=document.createElement('div');
+        headerTitle.className='nsf-part-group-title';
+        headerTitle.textContent=group.status||DEFAULT_FINDING_STATUS;
+        const copyBtn=document.createElement('button');
+        copyBtn.type='button';
+        copyBtn.className='nsf-copy-btn nsf-part-group-copy';
+        copyBtn.textContent='📋';
+        copyBtn.title=`${headerTitle.textContent} kopieren`;
+        const copyFeedback=document.createElement('span');
+        copyFeedback.className='nsf-copy-feedback';
+        copyFeedback.textContent='✅';
+        copyBtn.appendChild(copyFeedback);
+        header.append(headerTitle,copyBtn);
         groupWrap.appendChild(header);
         const labelGroups=Array.isArray(group.labels)?group.labels:[];
+        const groupParts=[];
         labelGroups.forEach(labelGroup=>{
           const labelText=clean(labelGroup?.label)||'';
           const partsList=Array.isArray(labelGroup?.parts)?labelGroup.parts:[];
+          const labelGroupEl=document.createElement('div');
+          labelGroupEl.className='nsf-part-label-group';
+          if(labelText){
+            const labelTitle=document.createElement('div');
+            labelTitle.className='nsf-part-label-title';
+            labelTitle.textContent=labelText;
+            labelGroupEl.appendChild(labelTitle);
+          }
+          const labelList=document.createElement('div');
+          labelList.className='nsf-part-label-list';
           partsList.forEach(pair=>{
+            if(pair) groupParts.push(pair);
             const row=document.createElement('div');
             row.className='nsf-part-row';
-
-            const labelCol=document.createElement('div');
-            labelCol.className='nsf-col nsf-col-label';
-            labelCol.textContent=labelText;
-            row.appendChild(labelCol);
 
             const partCol=document.createElement('div');
             partCol.className='nsf-col nsf-col-part';
@@ -194,9 +204,23 @@
             qtyCol.textContent=nsfFormatQuantity(rawQty)||'1';
             row.appendChild(qtyCol);
 
-            groupWrap.appendChild(row);
+            labelList.appendChild(row);
           });
+          labelGroupEl.appendChild(labelList);
+          groupWrap.appendChild(labelGroupEl);
         });
+        const copyTextValue=buildCopyText(groupParts);
+        if(copyTextValue){
+          copyBtn.addEventListener('click',()=>{
+            copyText(copyTextValue).then(success=>{
+              if(!success) return;
+              copyBtn.classList.add('copied');
+              setTimeout(()=>copyBtn.classList.remove('copied'),1200);
+            });
+          });
+        }else{
+          copyBtn.disabled=true;
+        }
         list.appendChild(groupWrap);
       });
       return;
@@ -205,11 +229,6 @@
     pairs.forEach(pair=>{
       const row=document.createElement('div');
       row.className='nsf-part-row';
-
-      const labelCol=document.createElement('div');
-      labelCol.className='nsf-col nsf-col-label';
-      labelCol.textContent='';
-      row.appendChild(labelCol);
 
       const partCol=document.createElement('div');
       partCol.className='nsf-col nsf-col-part';
@@ -368,17 +387,17 @@
     const st=document.createElement('style');
     st.id=id;
     st.textContent=`
-    .nsf-pntext-header{font-weight:600;margin-bottom:.25rem}
-    .nsf-pntext-header .nsf-pntext-master{font-weight:600}
-    .nsf-pntext-applies{font-size:.9rem;color:#4b5563;margin-top:.125rem}
     .nsf-bestellliste{display:flex;flex-direction:column;gap:.25rem}
-    .nsf-part-group{display:flex;flex-direction:column;gap:.2rem;padding:.2rem 0}
+    .nsf-part-group{display:flex;flex-direction:column;gap:.35rem;padding:.2rem 0}
     .nsf-part-group + .nsf-part-group{border-top:1px solid currentColor;padding-top:.5rem}
+    .nsf-part-group-header{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
     .nsf-part-group-title{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:inherit}
-    .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:.5rem;align-items:center;padding:.25rem 0;border-bottom:1px solid currentColor}
-    .nsf-part-row:last-child{border-bottom:none}
+    .nsf-part-group-copy{padding:.2rem .45rem;font-size:.85rem}
+    .nsf-part-label-group{display:flex;flex-direction:column;gap:.25rem;padding:.4rem .5rem;background:rgba(0,0,0,.12);border-radius:.5rem}
+    .nsf-part-label-title{font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;opacity:.85}
+    .nsf-part-label-list{display:flex;flex-direction:column;gap:.2rem}
+    .nsf-part-row{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:center;padding:.15rem 0}
     .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nsf-col-label{font-weight:600;color:inherit}
     .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums}
     .nsf-parts-info{display:flex;gap:.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.08);padding:.5rem;border-radius:.375rem;font-size:.95rem}
     .nsf-info-icon{opacity:.8}
@@ -483,7 +502,7 @@
     {key:'actions',label:'Actions'},
     {key:'routine',label:'Routine'},
     {key:'nonroutine',label:'Nonroutine'},
-    {key:'parts',label:'Bestellliste'}
+    {key:'parts',label:'Bestelliste'}
   ];
 
   const ROUTINE_EDITOR_PREVIEW_TAB_KEYS=OUTPUT_DEFS.filter(def=>def.key!=='parts').map(def=>def.key);
@@ -1842,13 +1861,16 @@
       .nsf-parts-container{display:flex;flex-direction:column;gap:0.6rem;}
       .nsf-pntext-header{font-weight:600;margin-bottom:0.25rem;}
       .nsf-bestellliste{display:flex;flex-direction:column;gap:0.25rem;}
-      .nsf-part-group{display:flex;flex-direction:column;gap:0.2rem;padding:0.2rem 0;}
+      .nsf-part-group{display:flex;flex-direction:column;gap:0.35rem;padding:0.2rem 0;}
       .nsf-part-group + .nsf-part-group{border-top:1px solid currentColor;padding-top:0.5rem;}
+      .nsf-part-group-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;}
       .nsf-part-group-title{font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:inherit;}
-      .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:0.5rem;align-items:center;padding:0.25rem 0;border-bottom:1px solid currentColor;}
-      .nsf-part-row:last-child{border-bottom:none;}
+      .nsf-part-group-copy{padding:0.2rem 0.45rem;font-size:0.85rem;}
+      .nsf-part-label-group{display:flex;flex-direction:column;gap:0.25rem;padding:0.4rem 0.5rem;background:rgba(0,0,0,0.12);border-radius:0.5rem;}
+      .nsf-part-label-title{font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;opacity:0.85;}
+      .nsf-part-label-list{display:flex;flex-direction:column;gap:0.2rem;}
+      .nsf-part-row{display:grid;grid-template-columns:1fr auto;gap:0.5rem;align-items:center;padding:0.15rem 0;}
       .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-      .nsf-col-label{font-weight:600;color:inherit;}
       .nsf-col-qty{text-align:right;font-variant-numeric:tabular-nums;}
       .nsf-parts-info{display:flex;gap:0.5rem;align-items:center;justify-content:center;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.08);padding:0.5rem;border-radius:0.375rem;font-size:0.95rem;}
       .nsf-info-icon{opacity:0.8;}

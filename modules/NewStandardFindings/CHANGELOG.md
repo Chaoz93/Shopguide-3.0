@@ -5,6 +5,16 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.6.2 – 2026-01-22
+### Changed
+- Bestelllisten-Labelgruppen erscheinen jetzt in leicht abgedunkelten, abgerundeten Kästen zur besseren optischen Trennung.
+
+## 1.6.1 – 2026-01-22
+### Changed
+- Bestellliste zeigt nur noch die Überschrift „Bestelliste“ ohne Geräte- oder „Also applies“-Zusatz.
+- Statusgruppen in der Bestellliste haben jetzt jeweils eine eigene Kopier-Schaltfläche, und Trennlinien erscheinen nur noch zwischen den Statusabschnitten.
+- Partnummern werden pro Finding-Label optisch gruppiert statt mit Trennlinien pro Zeile.
+
 ## 1.5.6 – 2026-01-19
 ### Changed
 - History-Dropdown wählt beim Laden automatisch das neueste Ereignis und zeigt einen roten Hinweis, wenn ein älteres Ereignis aktiv ist.
