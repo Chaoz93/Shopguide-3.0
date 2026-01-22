@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.6.2 – 2026-01-22
+### Changed
+- Bestelllisten-Labelgruppen erscheinen jetzt in leicht abgedunkelten, abgerundeten Kästen zur besseren optischen Trennung.
+
 ## 1.6.1 – 2026-01-22
 ### Changed
 - Bestellliste zeigt nur noch die Überschrift „Bestelliste“ ohne Geräte- oder „Also applies“-Zusatz.

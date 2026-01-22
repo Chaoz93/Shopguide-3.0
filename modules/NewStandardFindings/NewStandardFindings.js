@@ -393,7 +393,7 @@
     .nsf-part-group-header{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
     .nsf-part-group-title{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:inherit}
     .nsf-part-group-copy{padding:.2rem .45rem;font-size:.85rem}
-    .nsf-part-label-group{display:flex;flex-direction:column;gap:.25rem;padding:.15rem .15rem}
+    .nsf-part-label-group{display:flex;flex-direction:column;gap:.25rem;padding:.4rem .5rem;background:rgba(0,0,0,.12);border-radius:.5rem}
     .nsf-part-label-title{font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;opacity:.85}
     .nsf-part-label-list{display:flex;flex-direction:column;gap:.2rem}
     .nsf-part-row{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:center;padding:.15rem 0}
@@ -1866,7 +1866,7 @@
       .nsf-part-group-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;}
       .nsf-part-group-title{font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:inherit;}
       .nsf-part-group-copy{padding:0.2rem 0.45rem;font-size:0.85rem;}
-      .nsf-part-label-group{display:flex;flex-direction:column;gap:0.25rem;padding:0.15rem 0.15rem;}
+      .nsf-part-label-group{display:flex;flex-direction:column;gap:0.25rem;padding:0.4rem 0.5rem;background:rgba(0,0,0,0.12);border-radius:0.5rem;}
       .nsf-part-label-title{font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;opacity:0.85;}
       .nsf-part-label-list{display:flex;flex-direction:column;gap:0.2rem;}
       .nsf-part-row{display:grid;grid-template-columns:1fr auto;gap:0.5rem;align-items:center;padding:0.15rem 0;}
