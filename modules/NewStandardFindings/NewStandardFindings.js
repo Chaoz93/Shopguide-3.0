@@ -38,7 +38,7 @@
     'Modification 3',
     'Modification 4'
   ];
-  const DEFAULT_FINDING_STATUS='Ohne Status';
+  const DEFAULT_FINDING_STATUS='Spare';
 
   function normalizeFindingStatus(value){
     const cleaned=clean(value);
@@ -373,9 +373,9 @@
     .nsf-pntext-applies{font-size:.9rem;color:#4b5563;margin-top:.125rem}
     .nsf-bestellliste{display:flex;flex-direction:column;gap:.25rem}
     .nsf-part-group{display:flex;flex-direction:column;gap:.2rem;padding:.2rem 0}
-    .nsf-part-group + .nsf-part-group{border-top:1px solid rgba(0,0,0,.08);padding-top:.5rem}
+    .nsf-part-group + .nsf-part-group{border-top:1px solid currentColor;padding-top:.5rem}
     .nsf-part-group-title{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:inherit}
-    .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:.5rem;align-items:center;padding:.25rem 0;border-bottom:1px solid rgba(0,0,0,.06)}
+    .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:.5rem;align-items:center;padding:.25rem 0;border-bottom:1px solid currentColor}
     .nsf-part-row:last-child{border-bottom:none}
     .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .nsf-col-label{font-weight:600;color:inherit}
@@ -1843,9 +1843,9 @@
       .nsf-pntext-header{font-weight:600;margin-bottom:0.25rem;}
       .nsf-bestellliste{display:flex;flex-direction:column;gap:0.25rem;}
       .nsf-part-group{display:flex;flex-direction:column;gap:0.2rem;padding:0.2rem 0;}
-      .nsf-part-group + .nsf-part-group{border-top:1px solid rgba(0,0,0,0.08);padding-top:0.5rem;}
+      .nsf-part-group + .nsf-part-group{border-top:1px solid currentColor;padding-top:0.5rem;}
       .nsf-part-group-title{font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:inherit;}
-      .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:0.5rem;align-items:center;padding:0.25rem 0;border-bottom:1px solid rgba(0,0,0,0.06);}
+      .nsf-part-row{display:grid;grid-template-columns:1.4fr 3fr 1fr;gap:0.5rem;align-items:center;padding:0.25rem 0;border-bottom:1px solid currentColor;}
       .nsf-part-row:last-child{border-bottom:none;}
       .nsf-col{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
       .nsf-col-label{font-weight:600;color:inherit;}
@@ -3523,7 +3523,8 @@
         const label=clean(labelCandidate);
         return {
           key:sel.key,
-          label
+          label,
+          status:typeof sel.status==='string'?sel.status:''
         };
       });
   }
@@ -9197,6 +9198,7 @@
         statusSelect.appendChild(opt);
       });
       statusSelect.disabled=!this.meldung;
+      statusSelect.value=DEFAULT_FINDING_STATUS;
       const input=document.createElement('input');
       input.type='text';
       input.className='nsf-input';
@@ -9249,6 +9251,7 @@
         outsideHandler:null,
         isOpen:false
       };
+      state.statusValue=DEFAULT_FINDING_STATUS;
       const updateStatus=()=>{
         const nextStatus=normalizeFindingStatus(statusSelect.value);
         state.statusValue=nextStatus;
@@ -9438,7 +9441,7 @@
       state.openSuggestions=openSuggestions;
       this.selectionRows.push(state);
       if(prefillEntry){
-        const prefillStatus=normalizeFindingStatus(prefillEntry.status);
+        const prefillStatus=normalizeFindingStatus(prefillEntry.status)||DEFAULT_FINDING_STATUS;
         if(prefillStatus){
           ensureStatusOption(prefillStatus);
           statusSelect.value=prefillStatus;
