@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.6.4] – 2026-01-23
+### Changed
+- Routine-Platzhalter `{findings}` blendet bei Mishandling-, Missing-Parts- und Abnormal-Wear-Status (inklusive SRU-Exchange-Varianten) die Findingstexte aus und zeigt stattdessen den Hinweis auf den Non-Routine-Tab.
+
 ## [1.6.3] – 2026-01-23
 ### Changed
 - Findings-Auswahlfeld nutzt jetzt etwa 60 % der Gesamtbreite, damit das Status-Dropdown kompakter bleibt.
