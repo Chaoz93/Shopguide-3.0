@@ -1,11 +1,14 @@
 (function(){
   'use strict';
 
-  const MODULE_VERSION='1.6.0';
+  const MODULE_VERSION='1.6.1';
   const PATH_KEY='shopguide-findings-path';
   const GLOBAL_PATH_STORAGE_KEY='shopguide-findings-global-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
   const PREFILL_STORAGE_KEY='shopguide-findings-prefill';
+  const EDIT_TARGET_STORAGE_KEY='shopguide-findings-edit-target';
+  const NSF_DATA_STORAGE_KEY='sf-data';
+  const FINDINGS_EDITOR_UPDATE_EVENT='shopguide-findings-entry-updated';
   const BUNDLED_FINDINGS_DATA=[
     {
       id:'demo-entry',
@@ -83,6 +86,35 @@
         localStorage.removeItem(PREFILL_STORAGE_KEY);
       }catch(err){
         console.warn('Prefill konnte nicht entfernt werden',err);
+      }
+    }
+    if(!payload||typeof payload!=='object') return null;
+    return payload;
+  }
+
+  function consumeEditTargetPayload(){
+    let payload=null;
+    if(window.__shopguideFindingsEditTarget){
+      payload=window.__shopguideFindingsEditTarget;
+      try{
+        delete window.__shopguideFindingsEditTarget;
+      }catch(err){
+        window.__shopguideFindingsEditTarget=null;
+      }
+    }
+    if(!payload){
+      try{
+        const raw=localStorage.getItem(EDIT_TARGET_STORAGE_KEY);
+        if(raw) payload=JSON.parse(raw);
+      }catch(err){
+        console.warn('Edit-Target konnte nicht geladen werden',err);
+      }
+    }
+    if(payload){
+      try{
+        localStorage.removeItem(EDIT_TARGET_STORAGE_KEY);
+      }catch(err){
+        console.warn('Edit-Target konnte nicht entfernt werden',err);
       }
     }
     if(!payload||typeof payload!=='object') return null;
@@ -592,6 +624,11 @@
     return text.trim?text.trim():text;
   }
 
+  function normalizeMatchString(value){
+    const cleaned=cleanString(value);
+    return cleaned?cleaned.toLowerCase():'';
+  }
+
   function normalizeStoredPath(rawPath){
     let cleaned=cleanString(rawPath);
     if(!cleaned) return DEFAULT_FILE;
@@ -941,6 +978,25 @@
     }
     if(!list.length) list.push(createEmptyMods());
     return list;
+  }
+
+  function buildExternalSyncEntry(entry){
+    if(!entry||typeof entry!=='object') return null;
+    const partsPairs=normalizePartsPairs(entry).filter(pair=>cleanString(pair.part));
+    const partNumbers=getCleanPartNumbers(entry);
+    const times=normalizeTimes(entry);
+    const modsList=normalizeModsList(entry);
+    return {
+      label:cleanString(entry.label),
+      findings:cleanString(entry.findings),
+      actions:cleanString(entry.actions),
+      routineAction:cleanString(entry.routineAction),
+      nonroutine:cleanString(entry.nonroutine),
+      partsPairs,
+      partNumbers,
+      times,
+      modsList
+    };
   }
 
   function applyTimesSection(target,times){
@@ -1362,6 +1418,8 @@
       this.data=[];
       this.filtered=[];
       this.selectedId=null;
+      this.pendingEditTarget=null;
+      this.activeEditTarget=null;
       this.undoStack=[];
       this.redoStack=[];
       this.dirty=false;
@@ -1985,6 +2043,23 @@
       }
     }
 
+    dispatchExternalUpdate(){
+      const entry=this.data.find(item=>item.id===this.selectedId);
+      const payload=buildExternalSyncEntry(entry);
+      if(!payload) return;
+      const detail={
+        entry:payload,
+        target:this.activeEditTarget&&typeof this.activeEditTarget==='object'
+          ? this.activeEditTarget
+          : null
+      };
+      try{
+        window.dispatchEvent(new CustomEvent(FINDINGS_EDITOR_UPDATE_EVENT,{detail}));
+      }catch(err){
+        console.warn('Externes Update konnte nicht gesendet werden',err);
+      }
+    }
+
     applyPrefillEntry(prefill){
       if(!prefill||typeof prefill!=='object') return false;
       const entry=normalizeEntry(createEmptyFindingTemplate());
@@ -2028,6 +2103,75 @@
       return false;
     }
 
+    applyEditTarget(target){
+      if(!target||typeof target!=='object') return false;
+      const normalizedTarget={
+        label:normalizeMatchString(target.label),
+        findings:normalizeMatchString(target.findings),
+        actions:normalizeMatchString(target.actions),
+        routineAction:normalizeMatchString(target.routineAction),
+        nonroutine:normalizeMatchString(target.nonroutine),
+        partNumbers:Array.isArray(target.partNumbers)
+          ? target.partNumbers.map(item=>cleanString(item)).filter(Boolean)
+          : []
+      };
+      let best=null;
+      let bestScore=0;
+      for(const entry of this.data){
+        if(!entry) continue;
+        let score=0;
+        const entryLabel=normalizeMatchString(entry.label);
+        const entryFindings=normalizeMatchString(entry.findings);
+        const entryActions=normalizeMatchString(entry.actions);
+        const entryRoutine=normalizeMatchString(entry.routineAction);
+        const entryNonroutine=normalizeMatchString(entry.nonroutine);
+        if(normalizedTarget.label){
+          if(entryLabel===normalizedTarget.label) score+=5;
+          else if(entryLabel&&entryLabel.includes(normalizedTarget.label)) score+=2;
+        }
+        if(normalizedTarget.findings){
+          if(entryFindings===normalizedTarget.findings) score+=4;
+          else if(entryFindings&&entryFindings.includes(normalizedTarget.findings)) score+=2;
+        }
+        if(normalizedTarget.actions){
+          if(entryActions===normalizedTarget.actions) score+=4;
+          else if(entryActions&&entryActions.includes(normalizedTarget.actions)) score+=1;
+        }
+        if(normalizedTarget.routineAction){
+          if(entryRoutine===normalizedTarget.routineAction) score+=2;
+        }
+        if(normalizedTarget.nonroutine){
+          if(entryNonroutine===normalizedTarget.nonroutine) score+=2;
+        }
+        if(normalizedTarget.partNumbers.length){
+          const parts=getCleanPartNumbers(entry);
+          if(parts.some(part=>normalizedTarget.partNumbers.includes(part))) score+=2;
+        }
+        if(score>bestScore){
+          bestScore=score;
+          best=entry;
+        }
+      }
+      if(!best) return false;
+      this.selectedId=best.id;
+      this.activeEditTarget=target;
+      return true;
+    }
+
+    applyEditTargetFromStorage(){
+      const target=consumeEditTargetPayload();
+      if(!target) return false;
+      if(!this.data||!this.data.length){
+        this.pendingEditTarget=target;
+        return false;
+      }
+      const applied=this.applyEditTarget(target);
+      if(applied){
+        this.renderAll();
+      }
+      return applied;
+    }
+
     async applyExternalData(text){
       try{
         const parsed=JSON.parse(text);
@@ -2066,6 +2210,7 @@
         this.dirty=false;
         if(this.filePath) this.updateStoredPath(this.filePath);
         this.applyPrefillEntryFromStorage();
+        this.applyEditTargetFromStorage();
         this.renderAll();
         this.showError('');
 
@@ -2157,6 +2302,12 @@
           this.pendingSave=false;
           this.showError('');
           this.renderFileInfo();
+          try{
+            localStorage.setItem(NSF_DATA_STORAGE_KEY,payload);
+          }catch(err){
+            console.warn('NSF-Storage konnte nicht aktualisiert werden',err);
+          }
+          this.dispatchExternalUpdate();
         }catch(err){
           this.pendingSave=true;
           this.status('Fehler beim Speichern');
@@ -2249,6 +2400,11 @@
     }
 
     renderAll(){
+      if(this.pendingEditTarget){
+        const target=this.pendingEditTarget;
+        this.pendingEditTarget=null;
+        this.applyEditTarget(target);
+      }
       const rawTerm=this.searchInput.value.trim();
       if(rawTerm){
         this.applySearch();
