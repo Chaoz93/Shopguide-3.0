@@ -7,7 +7,7 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 
 ## 1.7.1 – 2026-01-23
 ### Changed
-- „Zuletzt verwendet“ gruppiert identische Einträge jetzt, zählt die Nutzungshäufigkeit und sortiert nach Häufigkeit statt nach dem letzten Zugriff.
+- „Zuletzt verwendet“-Chips gruppieren identische Entries, zählen die Nutzungshäufigkeit und sortieren nach Häufigkeit statt nach dem letzten Zugriff.
 
 ## 1.6.3 – 2026-01-23
 ### Changed

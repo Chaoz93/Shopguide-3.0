@@ -3388,6 +3388,7 @@
     if(!parsed||typeof parsed!=='object') parsed={};
     if(!parsed.meldungsbezogen||typeof parsed.meldungsbezogen!=='object') parsed.meldungsbezogen={};
     if(!parsed.history||typeof parsed.history!=='object') parsed.history={};
+    if(!parsed.historyUsage||typeof parsed.historyUsage!=='object') parsed.historyUsage={};
     return parsed;
   }
 
@@ -3810,25 +3811,33 @@
     }
     const list=global.history[normalized]||global.history[part];
     if(!Array.isArray(list)) return [];
-    const aggregated=new Map();
-    for(const item of list){
-      const normalizedEntry=normalizeHistoryEntry(item);
-      if(!normalizedEntry) continue;
-      const existing=aggregated.get(normalizedEntry.key);
-      if(existing){
-        existing.count+=normalizedEntry.count;
-        existing.lastUsed=Math.max(existing.lastUsed,normalizedEntry.lastUsed);
-        if(!existing.finding) existing.finding=normalizedEntry.finding;
-        if(!existing.action) existing.action=normalizedEntry.action;
-        if(!existing.label) existing.label=normalizedEntry.label;
-        if(!existing.part) existing.part=normalizedEntry.part;
-      }else{
-        aggregated.set(normalizedEntry.key,{...normalizedEntry});
-      }
-    }
-    return [...aggregated.values()]
+    const usage=getHistoryUsageForPart(global,normalized);
+    const seen=new Set();
+    const result=[];
+    list.forEach((item,index)=>{
+      if(!item||typeof item.key!=='string') return;
+      if(seen.has(item.key)) return;
+      seen.add(item.key);
+      result.push({
+        key:item.key,
+        finding:clean(item.finding),
+        action:clean(item.action),
+        label:clean(item.label),
+        part:normalizePart(item.part),
+        usageCount:Number.isFinite(usage[item.key])?usage[item.key]:1,
+        usageOrder:index
+      });
+    });
+    return result
       .sort(sortHistoryByUsage)
-      .slice(0,HISTORY_LIMIT);
+      .slice(0,HISTORY_LIMIT)
+      .map(entry=>({
+        key:entry.key,
+        finding:entry.finding,
+        action:entry.action,
+        label:entry.label,
+        part:entry.part
+      }));
   }
 
   function pushHistory(global,part,entry){
@@ -3840,75 +3849,67 @@
     }
     if(!Array.isArray(global.history[normalized])) global.history[normalized]=[];
     const list=global.history[normalized];
-    const aggregated=new Map();
+    list.unshift({
+      key:entry.key,
+      finding:entry.finding||'',
+      action:entry.action||'',
+      label:entry.label||'',
+      part:resolveMatchedPart(entry,normalized)
+    });
+    const unique=new Map();
+    const filtered=[];
     for(const item of list){
-      const normalizedEntry=normalizeHistoryEntry(item);
-      if(!normalizedEntry) continue;
-      const existing=aggregated.get(normalizedEntry.key);
-      if(existing){
-        existing.count+=normalizedEntry.count;
-        existing.lastUsed=Math.max(existing.lastUsed,normalizedEntry.lastUsed);
-        if(!existing.finding) existing.finding=normalizedEntry.finding;
-        if(!existing.action) existing.action=normalizedEntry.action;
-        if(!existing.label) existing.label=normalizedEntry.label;
-        if(!existing.part) existing.part=normalizedEntry.part;
-      }else{
-        aggregated.set(normalizedEntry.key,{...normalizedEntry});
-      }
+      if(!item||typeof item.key!=='string') continue;
+      if(unique.has(item.key)) continue;
+      unique.set(item.key,true);
+      filtered.push(item);
+      if(filtered.length>=HISTORY_LIMIT) break;
     }
-    const existing=aggregated.get(entry.key);
-    const matchedPart=resolveMatchedPart(entry,normalized);
-    const now=Date.now();
-    if(existing){
-      existing.count+=1;
-      existing.lastUsed=Math.max(existing.lastUsed,now);
-      existing.finding=entry.finding||existing.finding||'';
-      existing.action=entry.action||existing.action||'';
-      existing.label=entry.label||existing.label||'';
-      existing.part=matchedPart||existing.part;
-    }else{
-      aggregated.set(entry.key,{
-        key:entry.key,
-        finding:entry.finding||'',
-        action:entry.action||'',
-        label:entry.label||'',
-        part:matchedPart,
-        count:1,
-        lastUsed:now
-      });
-    }
-    global.history[normalized]=[...aggregated.values()]
-      .sort(sortHistoryByUsage)
-      .slice(0,HISTORY_LIMIT);
+    global.history[normalized]=filtered;
+    const usage=ensureHistoryUsageForPart(global,normalized);
+    usage[entry.key]=Number.isFinite(usage[entry.key])?usage[entry.key]+1:1;
     saveGlobalState(global);
-  }
-
-  function normalizeHistoryEntry(item){
-    if(!item||typeof item.key!=='string') return null;
-    const count=Number.isFinite(item.count)?Math.max(1,Math.floor(item.count)):1;
-    const lastUsed=Number.isFinite(item.lastUsed)?item.lastUsed:0;
-    return {
-      key:item.key,
-      finding:clean(item.finding),
-      action:clean(item.action),
-      label:clean(item.label),
-      part:normalizePart(item.part),
-      count,
-      lastUsed
-    };
   }
 
   function sortHistoryByUsage(a,b){
     if(!a&&!b) return 0;
     if(!a) return 1;
     if(!b) return -1;
-    const countDiff=(b.count||0)-(a.count||0);
+    const countDiff=(b.usageCount||0)-(a.usageCount||0);
     if(countDiff) return countDiff;
-    const usedDiff=(b.lastUsed||0)-(a.lastUsed||0);
-    if(usedDiff) return usedDiff;
+    const orderDiff=(a.usageOrder||0)-(b.usageOrder||0);
+    if(orderDiff) return orderDiff;
     const left=clean(a.label||a.finding||a.action||'');
     const right=clean(b.label||b.finding||b.action||'');
     return left.localeCompare(right);
+  }
+
+  function getHistoryUsageForPart(global,part){
+    const normalized=normalizePart(part);
+    if(!normalized) return {};
+    if(!global.historyUsage||typeof global.historyUsage!=='object') global.historyUsage={};
+    if(normalized!==part&&global.historyUsage[part]&&!global.historyUsage[normalized]){
+      global.historyUsage[normalized]=global.historyUsage[part];
+      delete global.historyUsage[part];
+      saveGlobalState(global);
+    }
+    const usage=global.historyUsage[normalized]||global.historyUsage[part];
+    if(!usage||typeof usage!=='object') return {};
+    return usage;
+  }
+
+  function ensureHistoryUsageForPart(global,part){
+    const normalized=normalizePart(part);
+    if(!normalized) return {};
+    if(!global.historyUsage||typeof global.historyUsage!=='object') global.historyUsage={};
+    if(normalized!==part&&global.historyUsage[part]&&!global.historyUsage[normalized]){
+      global.historyUsage[normalized]=global.historyUsage[part];
+      delete global.historyUsage[part];
+    }
+    if(!global.historyUsage[normalized]||typeof global.historyUsage[normalized]!=='object'){
+      global.historyUsage[normalized]={};
+    }
+    return global.historyUsage[normalized];
   }
 
   function copyText(text){
