@@ -6,6 +6,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ## [1.6.0] – 2026-01-23
 ### Added
 - Vorbefüllte Standardfinding-Entwürfe aus NewStandardFindings werden beim Start des Editors automatisch übernommen.
+- Prefill-Daten können auch von bereits geöffneten Editor-Instanzen übernommen werden.
 
 ## [1.5.0] – 2025-10-02
 ### Added

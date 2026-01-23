@@ -16,6 +16,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Added
 - Custom-Finding-Dialog für schnelle Eingabe der standardisierten Textstücke inklusive Bestellnummern & Mengen.
 - Option, Custom Findings als vorbefüllten Standardfinding-Entwurf direkt im Findings-Editor weiterzubearbeiten.
+- Prefill wird beim Speichern jetzt auch in bereits geöffneten Findings-Editor-Instanzen übernommen.
 
 ## [1.7.0] – 2026-01-23
 ### Added

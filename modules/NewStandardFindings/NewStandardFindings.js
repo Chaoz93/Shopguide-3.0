@@ -6353,6 +6353,9 @@
       modal.appendChild(container);
       if(typeof window.renderShopguideFindingsEditor==='function'){
         this.findingsEditorInstance=window.renderShopguideFindingsEditor(container);
+        if(this.findingsEditorInstance&&typeof this.findingsEditorInstance.applyPrefillEntryFromStorage==='function'){
+          this.findingsEditorInstance.applyPrefillEntryFromStorage();
+        }
       }else{
         const note=document.createElement('div');
         note.className='nsf-custom-note';
@@ -6399,6 +6402,10 @@
         console.warn('NSF: Prefill konnte nicht gespeichert werden',err);
       }
       window.__shopguideFindingsPrefill=prefill;
+      const existingEditor=window.__shopguideFindingsEditorInstance;
+      if(existingEditor&&typeof existingEditor.applyPrefillEntryFromStorage==='function'){
+        existingEditor.applyPrefillEntryFromStorage();
+      }
       this.openFindingsEditorOverlay();
     }
 

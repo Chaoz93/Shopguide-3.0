@@ -2018,6 +2018,16 @@
       return true;
     }
 
+    applyPrefillEntryFromStorage(){
+      const prefill=consumePrefillPayload();
+      if(prefill){
+        this.applyPrefillEntry(prefill);
+        this.renderAll();
+        return true;
+      }
+      return false;
+    }
+
     async applyExternalData(text){
       try{
         const parsed=JSON.parse(text);
@@ -2055,10 +2065,7 @@
         this.redoStack=[];
         this.dirty=false;
         if(this.filePath) this.updateStoredPath(this.filePath);
-        const prefill=consumePrefillPayload();
-        if(prefill){
-          this.applyPrefillEntry(prefill);
-        }
+        this.applyPrefillEntryFromStorage();
         this.renderAll();
         this.showError('');
 
@@ -3044,11 +3051,16 @@
       if(this.onWindowResize) window.removeEventListener('resize',this.onWindowResize);
       if(this.onKeyDown) window.removeEventListener('keydown',this.onKeyDown);
       this.contextMenu=null;
+      if(window.__shopguideFindingsEditorInstance===this){
+        window.__shopguideFindingsEditorInstance=null;
+      }
     }
   }
 
   window.renderShopguideFindingsEditor=function(root){
-    return new ShopguideFindingsEditor(root);
+    const instance=new ShopguideFindingsEditor(root);
+    window.__shopguideFindingsEditorInstance=instance;
+    return instance;
   };
 
   if(!window.Shopguide) window.Shopguide={};
