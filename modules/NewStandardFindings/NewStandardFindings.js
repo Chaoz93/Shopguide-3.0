@@ -5900,7 +5900,12 @@
           const sanitized=sanitizeNonRoutineOutput(stripped);
           pushLines('nonroutine',sanitized);
         }
-        const routineText=this.buildRoutineOutput(resolved);
+        const routineFindingBase=clean(resolved.routineFinding||resolved.routineFindings||selection.routineFinding||'');
+        const spareFindingText=clean(resolved.finding||selection.finding||'');
+        const routineResolved=(statusValue==='Spare'&&spareFindingText&&!routineFindingBase)
+          ? {...resolved,routineFinding:spareFindingText}
+          : resolved;
+        const routineText=this.buildRoutineOutput(routineResolved);
         pushBlock('routine',routineText);
         collectTimes(resolved);
         collectMods(resolved);
@@ -6388,13 +6393,16 @@
             quantity:clean(item.quantity)
           })).filter(item=>item.part)
         : [];
+      const partNumber=clean(this.currentPart||'');
+      const partNumbers=partNumber?[partNumber]:[];
       const prefill={
         label:clean(payload.label),
         findings:clean(payload.finding),
         actions:clean(payload.action),
         routineAction:clean(payload.routineAction),
         nonroutine:clean(payload.nonroutine),
-        partsPairs
+        partsPairs,
+        partNumbers
       };
       try{
         localStorage.setItem(FINDINGS_EDITOR_PREFILL_STORAGE_KEY,JSON.stringify(prefill));
