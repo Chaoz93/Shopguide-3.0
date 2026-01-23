@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.8.7 – 2026-01-23
+### Changed
+- Bearbeiten- und Löschen-Icons der Findings-Eingaben sind jetzt schlichter und einfarbig gestaltet.
+
 ## 1.8.5 – 2026-01-23
 ### Fixed
 - Custom-Findings speichern jetzt Bestellnummern und Mengen zuverlässig im Zustand, sodass sie nach dem Reload erhalten bleiben.

@@ -1754,11 +1754,12 @@
       .nsf-status-select:disabled{opacity:0.6;cursor:not-allowed;background:rgba(255,255,255,0.65);}
       .nsf-input-field{position:relative;display:flex;align-items:center;width:100%;gap:0.35rem;flex:0 0 60%;max-width:60%;}
       .nsf-input-row.locked{background:rgba(15,23,42,0.28);}
-      .nsf-remove-btn{position:absolute;top:50%;right:0.45rem;transform:translateY(-50%);background:rgba(248,113,113,0.25);border:none;border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
-      .nsf-remove-btn:hover{background:rgba(248,113,113,0.4);opacity:1;transform:translateY(-50%) scale(1.05);}
-      .nsf-edit-btn{position:absolute;top:50%;right:2.7rem;transform:translateY(-50%);background:rgba(59,130,246,0.18);border:none;border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
-      .nsf-edit-btn:hover{background:rgba(59,130,246,0.3);opacity:1;transform:translateY(-50%) scale(1.05);}
+      .nsf-remove-btn{position:absolute;top:50%;right:0.45rem;transform:translateY(-50%);background:transparent;border:1px solid rgba(148,163,184,0.45);border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,border-color 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
+      .nsf-remove-btn:hover{background:rgba(148,163,184,0.16);border-color:rgba(148,163,184,0.7);opacity:1;transform:translateY(-50%) scale(1.05);}
+      .nsf-edit-btn{position:absolute;top:50%;right:2.7rem;transform:translateY(-50%);background:transparent;border:1px solid rgba(148,163,184,0.45);border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,border-color 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
+      .nsf-edit-btn:hover{background:rgba(148,163,184,0.16);border-color:rgba(148,163,184,0.7);opacity:1;transform:translateY(-50%) scale(1.05);}
       .nsf-input-row:not(.locked) .nsf-edit-btn{display:none;}
+      .nsf-remove-btn svg,.nsf-edit-btn svg{width:1rem;height:1rem;pointer-events:none;}
       .nsf-input{width:100%;border:none;border-radius:0.65rem;padding:0.55rem 5rem 0.55rem 0.7rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
       .nsf-input:disabled{opacity:0.75;background:rgba(255,255,255,0.65);cursor:not-allowed;}
       .nsf-input::placeholder{color:rgba(107,114,128,0.8);}
@@ -10311,11 +10312,13 @@
       const removeBtn=document.createElement('button');
       removeBtn.type='button';
       removeBtn.className='nsf-remove-btn';
-      removeBtn.textContent='✖';
+      removeBtn.innerHTML='<svg aria-hidden="true" viewBox="0 0 20 20" focusable="false"><path fill="currentColor" d="M6.5 7.5h7v7.25a1.25 1.25 0 0 1-1.25 1.25h-4.5A1.25 1.25 0 0 1 6.5 14.75V7.5Zm2.25-3h2.5a1 1 0 0 1 1 1V6h3a.75.75 0 0 1 0 1.5H4.5a.75.75 0 0 1 0-1.5h3v-.5a1 1 0 0 1 1-1Z"/></svg>';
+      removeBtn.title='Finding löschen';
+      removeBtn.setAttribute('aria-label',removeBtn.title);
       const editBtn=document.createElement('button');
       editBtn.type='button';
       editBtn.className='nsf-edit-btn';
-      editBtn.textContent='✏️';
+      editBtn.innerHTML='<svg aria-hidden="true" viewBox="0 0 20 20" focusable="false"><path fill="currentColor" d="M4.75 13.5v1.75h1.75l6.8-6.8-1.75-1.75-6.8 6.8Zm10.45-6.2a.75.75 0 0 0 0-1.06l-1.44-1.44a.75.75 0 0 0-1.06 0l-1.1 1.1 2.5 2.5 1.1-1.1Z"/></svg>';
       editBtn.title='Finding bearbeiten';
       editBtn.setAttribute('aria-label',editBtn.title);
       editBtn.disabled=true;
