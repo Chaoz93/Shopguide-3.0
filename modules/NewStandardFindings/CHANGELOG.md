@@ -5,6 +5,11 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.6.3 – 2026-01-23
+### Changed
+- Findings-Auswahlfeld nutzt jetzt etwa 60 % der Gesamtbreite, damit das Status-Dropdown kompakter bleibt.
+- Der Nonroutine-Platzhalter übernimmt vorrangig den Text aus `nonRoutineFinding`, sofern vorhanden.
+
 ## 1.6.2 – 2026-01-22
 ### Changed
 - Bestelllisten-Labelgruppen erscheinen jetzt in leicht abgedunkelten, abgerundeten Kästen zur besseren optischen Trennung.

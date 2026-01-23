@@ -12,6 +12,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.6.3] – 2026-01-23
+### Changed
+- Findings-Auswahlfeld nutzt jetzt etwa 60 % der Gesamtbreite, damit das Status-Dropdown kompakter bleibt.
+- Der Nonroutine-Platzhalter übernimmt vorrangig den Text aus `nonRoutineFinding`, sofern vorhanden.
+
 ## [1.6.2] – 2026-01-22
 ### Changed
 - Bestelllisten-Labelgruppen erscheinen jetzt in leicht abgedunkelten, abgerundeten Kästen zur besseren optischen Trennung.
