@@ -3,6 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.6.0] – 2026-01-23
+### Added
+- Vorbefüllte Standardfinding-Entwürfe aus NewStandardFindings werden beim Start des Editors automatisch übernommen.
+
 ## [1.5.0] – 2025-10-02
 ### Added
 - Möglichkeit, mehrere Mod-Spalten über eine "+"-Schaltfläche hinzuzufügen und bei Bedarf wieder zu entfernen.

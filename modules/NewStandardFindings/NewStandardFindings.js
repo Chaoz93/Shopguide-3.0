@@ -417,6 +417,7 @@
   const DATA_URL=DEFAULT_FINDINGS_FILES[0];
   const DATA_KEY='sf-data';
   const FINDINGS_PATH_KEY='sf-findings-path';
+  const FINDINGS_EDITOR_PREFILL_STORAGE_KEY='shopguide-findings-prefill';
   const STATE_KEY='sf-state';
   const STATE_KEY_SEPARATOR='::';
   const UNIT_BOARD_EVENT='unitBoard:update';
@@ -1651,6 +1652,10 @@
       .nsf-selection-summary-chip{background:rgba(148,163,184,0.16);border-radius:999px;padding:0.2rem 0.55rem;font-weight:500;white-space:nowrap;}
       .nsf-selection-summary-more{opacity:0.75;font-weight:500;}
       .nsf-selection-summary-empty{opacity:0.6;font-style:italic;}
+      .nsf-selection-actions{display:flex;align-items:center;gap:0.4rem;}
+      .nsf-custom-finding-btn{background:rgba(59,130,246,0.18);border:1px solid rgba(96,165,250,0.4);border-radius:0.7rem;padding:0.35rem 0.75rem;font:inherit;font-size:0.82rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-custom-finding-btn:hover{background:rgba(59,130,246,0.3);transform:translateY(-1px);}
+      .nsf-custom-finding-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
       .nsf-selection-body{display:flex;flex-direction:column;gap:0.6rem;padding:0.7rem 0.85rem;overflow:visible;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-body{display:none;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-summary{margin-left:0;}
@@ -1763,6 +1768,28 @@
       .nsf-suggestion{padding:0.35rem 0.55rem;border-radius:0.6rem;cursor:pointer;display:flex;align-items:center;gap:0.35rem;}
       .nsf-suggestion:hover,.nsf-suggestion.active{background:rgba(59,130,246,0.12);}
       .nsf-suggestion-label{font-weight:600;font-size:0.9rem;}
+      .nsf-custom-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.72);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;padding:3rem 1.5rem;z-index:420;}
+      .nsf-custom-overlay.open{display:flex;}
+      .nsf-custom-modal{background:rgba(15,23,42,0.96);border-radius:1rem;border:1px solid rgba(148,163,184,0.35);box-shadow:0 24px 64px rgba(15,23,42,0.55);max-width:920px;width:100%;max-height:calc(100vh - 6rem);overflow:auto;padding:1.5rem;display:flex;flex-direction:column;gap:1rem;color:#e2e8f0;}
+      .nsf-custom-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+      .nsf-custom-title{font-size:1.1rem;font-weight:700;}
+      .nsf-custom-close{background:rgba(248,113,113,0.2);border:none;border-radius:999px;width:2.2rem;height:2.2rem;color:rgba(248,113,113,0.95);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-custom-close:hover{background:rgba(248,113,113,0.32);transform:scale(1.05);}
+      .nsf-custom-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.8rem;}
+      .nsf-custom-field{display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-custom-label{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .nsf-custom-input,.nsf-custom-textarea,.nsf-custom-select{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:none;border-radius:0.65rem;padding:0.5rem 0.65rem;font:inherit;}
+      .nsf-custom-textarea{min-height:4rem;resize:vertical;}
+      .nsf-custom-select{appearance:auto;}
+      .nsf-custom-parts{display:flex;flex-direction:column;gap:0.6rem;background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.75rem;}
+      .nsf-custom-parts-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;}
+      .nsf-custom-part-row{display:grid;grid-template-columns:1fr 120px auto;gap:0.5rem;align-items:center;}
+      .nsf-custom-part-remove{background:rgba(248,113,113,0.2);border:none;border-radius:0.6rem;width:2rem;height:2rem;color:rgba(248,113,113,0.95);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+      .nsf-custom-actions{display:flex;flex-wrap:wrap;gap:0.6rem;justify-content:flex-end;}
+      .nsf-custom-note{font-size:0.78rem;opacity:0.8;line-height:1.3;}
+      .nsf-custom-divider{height:1px;background:rgba(148,163,184,0.25);}
+      .nsf-findings-editor-modal{max-width:1400px;}
+      .nsf-findings-editor-container{min-height:70vh;}
       .nsf-suggestion-finding{font-size:0.85rem;opacity:0.85;}
       .nsf-suggestion-action{font-size:0.8rem;opacity:0.65;}
       .nsf-empty{opacity:0.75;font-style:italic;}
@@ -3683,6 +3710,12 @@
     return `nsf-custom-${Date.now().toString(36)}-${customSectionIdCounter.toString(36)}`;
   }
 
+  function createCustomFindingId(){
+    const time=Date.now().toString(36);
+    const rand=Math.random().toString(36).slice(2,8);
+    return `nsf-custom-finding-${time}-${rand}`;
+  }
+
   function cloneCustomSection(section){
     return {
       id:typeof section?.id==='string'?section.id:'',
@@ -4163,6 +4196,13 @@
       this.routineStatusOverlay=null;
       this.routineStatusModalKeyHandler=null;
       this.routineStatusBodyOverflow='';
+      this.customFindingOverlay=null;
+      this.customFindingModalKeyHandler=null;
+      this.customFindingBodyOverflow='';
+      this.findingsEditorOverlay=null;
+      this.findingsEditorInstance=null;
+      this.findingsEditorKeyHandler=null;
+      this.findingsEditorBodyOverflow='';
     }
 
     scheduleRender(){
@@ -5129,7 +5169,21 @@
         if(addEventButton.disabled) return;
         void this.createEventSnapshot();
       });
-      heading.appendChild(addEventButton);
+      const actionsWrap=document.createElement('div');
+      actionsWrap.className='nsf-selection-actions';
+      const customBtn=document.createElement('button');
+      customBtn.type='button';
+      customBtn.className='nsf-custom-finding-btn';
+      customBtn.textContent='Custom Finding';
+      customBtn.title='Custom Finding hinzufügen';
+      customBtn.setAttribute('aria-label',customBtn.title);
+      customBtn.disabled=!this.meldung;
+      customBtn.addEventListener('click',()=>{
+        if(customBtn.disabled) return;
+        this.openCustomFindingModal();
+      });
+      actionsWrap.append(addEventButton,customBtn);
+      heading.appendChild(actionsWrap);
       selectionHeader.appendChild(heading);
 
       const selectionSummary=document.createElement('div');
@@ -6233,6 +6287,401 @@
         document.body.style.overflow=this.findingJsonBodyOverflow||'';
         this.findingJsonBodyOverflow='';
       }
+    }
+
+    closeCustomFindingModal(){
+      if(this.customFindingOverlay){
+        this.customFindingOverlay.remove();
+        this.customFindingOverlay=null;
+      }
+      if(this.customFindingModalKeyHandler){
+        document.removeEventListener('keydown',this.customFindingModalKeyHandler);
+        this.customFindingModalKeyHandler=null;
+      }
+      if(this.customFindingBodyOverflow!=null){
+        document.body.style.overflow=this.customFindingBodyOverflow||'';
+        this.customFindingBodyOverflow='';
+      }
+    }
+
+    closeFindingsEditorOverlay(){
+      if(this.findingsEditorInstance&&typeof this.findingsEditorInstance.destroy==='function'){
+        this.findingsEditorInstance.destroy();
+      }
+      this.findingsEditorInstance=null;
+      if(this.findingsEditorOverlay){
+        this.findingsEditorOverlay.remove();
+        this.findingsEditorOverlay=null;
+      }
+      if(this.findingsEditorKeyHandler){
+        document.removeEventListener('keydown',this.findingsEditorKeyHandler);
+        this.findingsEditorKeyHandler=null;
+      }
+      if(this.findingsEditorBodyOverflow!=null){
+        document.body.style.overflow=this.findingsEditorBodyOverflow||'';
+        this.findingsEditorBodyOverflow='';
+      }
+    }
+
+    openFindingsEditorOverlay(){
+      if(this.destroyed) return;
+      this.closeFindingsEditorOverlay();
+      const overlay=document.createElement('div');
+      overlay.className='nsf-custom-overlay open';
+      overlay.tabIndex=-1;
+      const modal=document.createElement('div');
+      modal.className='nsf-custom-modal nsf-findings-editor-modal';
+      overlay.appendChild(modal);
+      const header=document.createElement('div');
+      header.className='nsf-custom-header';
+      const title=document.createElement('div');
+      title.className='nsf-custom-title';
+      title.textContent='Standardfinding speichern';
+      const closeBtn=document.createElement('button');
+      closeBtn.type='button';
+      closeBtn.className='nsf-custom-close';
+      closeBtn.setAttribute('aria-label','Modal schließen');
+      closeBtn.textContent='×';
+      closeBtn.addEventListener('click',()=>this.closeFindingsEditorOverlay());
+      header.append(title,closeBtn);
+      modal.appendChild(header);
+      const divider=document.createElement('div');
+      divider.className='nsf-custom-divider';
+      modal.appendChild(divider);
+      const container=document.createElement('div');
+      container.className='nsf-findings-editor-container';
+      modal.appendChild(container);
+      if(typeof window.renderShopguideFindingsEditor==='function'){
+        this.findingsEditorInstance=window.renderShopguideFindingsEditor(container);
+      }else{
+        const note=document.createElement('div');
+        note.className='nsf-custom-note';
+        note.textContent='Der Findings-Editor ist nicht geladen. Bitte Modul Shopguide_Findings Editor öffnen.';
+        container.appendChild(note);
+      }
+      overlay.addEventListener('click',event=>{
+        if(event.target===overlay) this.closeFindingsEditorOverlay();
+      });
+      const keyHandler=event=>{
+        if(event.key==='Escape'||event.key==='Esc'){
+          event.preventDefault();
+          this.closeFindingsEditorOverlay();
+        }
+      };
+      document.addEventListener('keydown',keyHandler);
+      this.findingsEditorKeyHandler=keyHandler;
+      document.body.appendChild(overlay);
+      this.findingsEditorBodyOverflow=document.body.style.overflow;
+      document.body.style.overflow='hidden';
+      this.findingsEditorOverlay=overlay;
+      requestAnimationFrame(()=>overlay.focus());
+    }
+
+    launchFindingsEditorPrefill(payload){
+      if(!payload||typeof payload!=='object') return;
+      const partsPairs=Array.isArray(payload.parts)
+        ? payload.parts.map(item=>({
+            part:clean(item.part),
+            quantity:clean(item.quantity)
+          })).filter(item=>item.part)
+        : [];
+      const prefill={
+        label:clean(payload.label),
+        findings:clean(payload.finding),
+        actions:clean(payload.action),
+        routineAction:clean(payload.routineAction),
+        nonroutine:clean(payload.nonroutine),
+        partsPairs
+      };
+      try{
+        localStorage.setItem(FINDINGS_EDITOR_PREFILL_STORAGE_KEY,JSON.stringify(prefill));
+      }catch(err){
+        console.warn('NSF: Prefill konnte nicht gespeichert werden',err);
+      }
+      window.__shopguideFindingsPrefill=prefill;
+      this.openFindingsEditorOverlay();
+    }
+
+    buildCustomFindingEntry(payload){
+      if(!payload||typeof payload!=='object') return null;
+      const parts=Array.isArray(payload.parts)
+        ? payload.parts.map(item=>{
+            const part=clean(item.part);
+            if(!part) return null;
+            const quantity=clean(item.quantity);
+            const entry={part};
+            if(quantity) entry.menge=quantity;
+            return entry;
+          }).filter(Boolean)
+        : [];
+      const partsText=parts.length
+        ? parts.map(item=>{
+            const qty=clean(item.menge);
+            if(qty&&qty!=='1') return `${qty}x ${item.part}`;
+            return item.part;
+          }).filter(Boolean).join('\n')
+        : '';
+      const partNumber=clean(this.currentPart||'');
+      return {
+        key:createCustomFindingId(),
+        part:partNumber||'',
+        partNumbers:partNumber?[partNumber]:[],
+        appliesTo:[],
+        label:clean(payload.label),
+        finding:clean(payload.finding),
+        action:clean(payload.action),
+        routineAction:clean(payload.routineAction),
+        routineFinding:'',
+        nonroutineFinding:clean(payload.nonroutine),
+        nonroutineAction:'',
+        routine:'',
+        nonroutine:'',
+        parts,
+        partsText,
+        times:{},
+        timesText:'',
+        mods:[],
+        modsText:'',
+        additional:[],
+        additionalLower:[],
+        labelLower:clean(payload.label).toLowerCase(),
+        findingLower:clean(payload.finding).toLowerCase(),
+        actionLower:clean(payload.action).toLowerCase(),
+        routineLower:clean(payload.routineAction).toLowerCase(),
+        routineFindingLower:'',
+        routineActionLower:clean(payload.routineAction).toLowerCase(),
+        nonroutineLower:clean(payload.nonroutine).toLowerCase(),
+        nonroutineFindingLower:clean(payload.nonroutine).toLowerCase(),
+        nonroutineActionLower:'',
+        partsLower:partsText.toLowerCase(),
+        timesLower:'',
+        modsLower:'',
+        raw:{}
+      };
+    }
+
+    insertCustomFindingSelection(entry,statusValue,options={}){
+      if(!entry) return;
+      const normalizedStatus=normalizeFindingStatus(statusValue)||DEFAULT_FINDING_STATUS;
+      const allowInsert=options.allowInsert!==false;
+      if(allowInsert&&this.meldung){
+        let target=this.selectionRows.find(row=>!row.locked);
+        if(!target){
+          this.addInputRow(null,false);
+          target=this.selectionRows.find(row=>!row.locked);
+        }
+        if(target){
+          if(target.ensureStatusOption) target.ensureStatusOption(normalizedStatus);
+          if(target.statusSelect) target.statusSelect.value=normalizedStatus;
+          target.statusValue=normalizedStatus;
+          this.acceptSelection(entry,target);
+          this.render();
+          return;
+        }
+      }
+      const selectionStatus=normalizedStatus||'';
+      this.addSelection(entry,selectionStatus);
+      this.syncOutputsWithSelections({persist:false});
+      this.persistState(true);
+      this.render();
+    }
+
+    openCustomFindingModal(){
+      if(this.destroyed) return;
+      this.closeCustomFindingModal();
+      const overlay=document.createElement('div');
+      overlay.className='nsf-custom-overlay open';
+      overlay.tabIndex=-1;
+      const modal=document.createElement('div');
+      modal.className='nsf-custom-modal';
+      overlay.appendChild(modal);
+      const header=document.createElement('div');
+      header.className='nsf-custom-header';
+      const title=document.createElement('div');
+      title.className='nsf-custom-title';
+      title.textContent='Custom Finding hinzufügen';
+      const closeBtn=document.createElement('button');
+      closeBtn.type='button';
+      closeBtn.className='nsf-custom-close';
+      closeBtn.setAttribute('aria-label','Modal schließen');
+      closeBtn.textContent='×';
+      closeBtn.addEventListener('click',()=>this.closeCustomFindingModal());
+      header.append(title,closeBtn);
+      modal.appendChild(header);
+      const hint=document.createElement('div');
+      hint.className='nsf-custom-note';
+      hint.textContent='Fülle die standardisierten Textstücke und die Bestellnummern aus.';
+      modal.appendChild(hint);
+      const grid=document.createElement('div');
+      grid.className='nsf-custom-grid';
+      const buildField=(labelText,input)=>{
+        const field=document.createElement('div');
+        field.className='nsf-custom-field';
+        const label=document.createElement('label');
+        label.className='nsf-custom-label';
+        label.textContent=labelText;
+        field.append(label,input);
+        return field;
+      };
+      const labelInput=document.createElement('input');
+      labelInput.type='text';
+      labelInput.className='nsf-custom-input';
+      labelInput.placeholder='Label (optional)';
+      grid.appendChild(buildField('Label',labelInput));
+      const statusSelect=document.createElement('select');
+      statusSelect.className='nsf-custom-select';
+      FINDING_STATUS_OPTIONS.forEach(option=>{
+        const opt=document.createElement('option');
+        opt.value=option;
+        opt.textContent=option;
+        statusSelect.appendChild(opt);
+      });
+      statusSelect.value=DEFAULT_FINDING_STATUS;
+      grid.appendChild(buildField('Status',statusSelect));
+      const findingTextarea=document.createElement('textarea');
+      findingTextarea.className='nsf-custom-textarea';
+      findingTextarea.placeholder='Finding-Text eingeben…';
+      grid.appendChild(buildField('Findings',findingTextarea));
+      const actionTextarea=document.createElement('textarea');
+      actionTextarea.className='nsf-custom-textarea';
+      actionTextarea.placeholder='Actions-Text eingeben…';
+      grid.appendChild(buildField('Actions',actionTextarea));
+      const routineTextarea=document.createElement('textarea');
+      routineTextarea.className='nsf-custom-textarea';
+      routineTextarea.placeholder='KV-Actions-Text eingeben…';
+      grid.appendChild(buildField('KV-Actions',routineTextarea));
+      const nonroutineTextarea=document.createElement('textarea');
+      nonroutineTextarea.className='nsf-custom-textarea';
+      nonroutineTextarea.placeholder='Nonroutine-Text eingeben…';
+      grid.appendChild(buildField('Nonroutine',nonroutineTextarea));
+      modal.appendChild(grid);
+      [findingTextarea,actionTextarea,routineTextarea,nonroutineTextarea].forEach(textarea=>{
+        textarea.addEventListener('input',()=>autoResizeTextarea(textarea));
+        ensureTextareaAutoResize(textarea);
+      });
+      const partsWrap=document.createElement('div');
+      partsWrap.className='nsf-custom-parts';
+      const partsHeader=document.createElement('div');
+      partsHeader.className='nsf-custom-parts-header';
+      const partsTitle=document.createElement('div');
+      partsTitle.className='nsf-custom-label';
+      partsTitle.textContent='Bestellnummern & Mengen';
+      const addPartBtn=document.createElement('button');
+      addPartBtn.type='button';
+      addPartBtn.className='nsf-btn secondary';
+      addPartBtn.textContent='+ Teil hinzufügen';
+      partsHeader.append(partsTitle,addPartBtn);
+      partsWrap.appendChild(partsHeader);
+      const partRowsContainer=document.createElement('div');
+      partsWrap.appendChild(partRowsContainer);
+      const partRows=[];
+      const addPartRow=(partValue='',qtyValue='')=>{
+        const row=document.createElement('div');
+        row.className='nsf-custom-part-row';
+        const partInput=document.createElement('input');
+        partInput.type='text';
+        partInput.className='nsf-custom-input';
+        partInput.placeholder='Teilenummer';
+        partInput.value=partValue;
+        const qtyInput=document.createElement('input');
+        qtyInput.type='text';
+        qtyInput.className='nsf-custom-input';
+        qtyInput.placeholder='Menge';
+        qtyInput.value=qtyValue;
+        const removeBtn=document.createElement('button');
+        removeBtn.type='button';
+        removeBtn.className='nsf-custom-part-remove';
+        removeBtn.setAttribute('aria-label','Teilezeile entfernen');
+        removeBtn.textContent='×';
+        removeBtn.addEventListener('click',()=>{
+          const index=partRows.findIndex(item=>item.row===row);
+          if(index>-1) partRows.splice(index,1);
+          row.remove();
+        });
+        row.append(partInput,qtyInput,removeBtn);
+        partRowsContainer.appendChild(row);
+        partRows.push({row,partInput,qtyInput});
+      };
+      addPartRow();
+      addPartBtn.addEventListener('click',()=>addPartRow());
+      modal.appendChild(partsWrap);
+      const divider=document.createElement('div');
+      divider.className='nsf-custom-divider';
+      modal.appendChild(divider);
+      const actions=document.createElement('div');
+      actions.className='nsf-custom-actions';
+      const insertBtn=document.createElement('button');
+      insertBtn.type='button';
+      insertBtn.className='nsf-btn';
+      insertBtn.textContent='Einfügen';
+      insertBtn.disabled=!this.meldung;
+      const saveBtn=document.createElement('button');
+      saveBtn.type='button';
+      saveBtn.className='nsf-btn secondary';
+      saveBtn.textContent='Als Standardfinding speichern';
+      const cancelBtn=document.createElement('button');
+      cancelBtn.type='button';
+      cancelBtn.className='nsf-btn';
+      cancelBtn.textContent='Abbrechen';
+      cancelBtn.addEventListener('click',()=>this.closeCustomFindingModal());
+      actions.append(insertBtn,saveBtn,cancelBtn);
+      modal.appendChild(actions);
+      const collectPayload=()=>{
+        const parts=partRows.map(row=>{
+          const part=clean(row.partInput.value);
+          const quantity=clean(row.qtyInput.value);
+          return part?{part,quantity}:null;
+        }).filter(Boolean);
+        return {
+          label:clean(labelInput.value),
+          status:statusSelect.value,
+          finding:clean(findingTextarea.value),
+          action:clean(actionTextarea.value),
+          routineAction:clean(routineTextarea.value),
+          nonroutine:clean(nonroutineTextarea.value),
+          parts
+        };
+      };
+      const hasContent=payload=>{
+        return !!(payload.label||payload.finding||payload.action||payload.routineAction||payload.nonroutine||payload.parts.length);
+      };
+      const handleInsert=(mode)=>{
+        const payload=collectPayload();
+        if(!hasContent(payload)){
+          window.alert('Bitte mindestens einen Text oder eine Teilenummer eingeben.');
+          return;
+        }
+        if(mode==='insert'&&!this.meldung){
+          window.alert('Keine Meldung aktiv – Einfügen ist aktuell deaktiviert.');
+          return;
+        }
+        if(mode==='insert'||(mode==='save'&&this.meldung)){
+          const entry=this.buildCustomFindingEntry(payload);
+          this.insertCustomFindingSelection(entry,payload.status);
+        }
+        if(mode==='save'){
+          this.launchFindingsEditorPrefill(payload);
+        }
+        this.closeCustomFindingModal();
+      };
+      insertBtn.addEventListener('click',()=>handleInsert('insert'));
+      saveBtn.addEventListener('click',()=>handleInsert('save'));
+      overlay.addEventListener('click',event=>{
+        if(event.target===overlay) this.closeCustomFindingModal();
+      });
+      const keyHandler=event=>{
+        if(event.key==='Escape'||event.key==='Esc'){
+          event.preventDefault();
+          this.closeCustomFindingModal();
+        }
+      };
+      document.addEventListener('keydown',keyHandler);
+      this.customFindingModalKeyHandler=keyHandler;
+      document.body.appendChild(overlay);
+      this.customFindingBodyOverflow=document.body.style.overflow;
+      document.body.style.overflow='hidden';
+      this.customFindingOverlay=overlay;
+      requestAnimationFrame(()=>overlay.focus());
     }
 
     getRoutineFindingsStatusConfig(){
