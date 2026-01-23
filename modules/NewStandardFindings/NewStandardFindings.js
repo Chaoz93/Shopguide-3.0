@@ -3813,12 +3813,12 @@
     if(!Array.isArray(list)) return [];
     const usage=getHistoryUsageForPart(global,normalized);
     const seen=new Set();
-    const result=[];
+    const aggregated=new Map();
     list.forEach((item,index)=>{
       if(!item||typeof item.key!=='string') return;
       if(seen.has(item.key)) return;
       seen.add(item.key);
-      result.push({
+      const entry={
         key:item.key,
         finding:clean(item.finding),
         action:clean(item.action),
@@ -3826,9 +3826,20 @@
         part:normalizePart(item.part),
         usageCount:Number.isFinite(usage[item.key])?usage[item.key]:1,
         usageOrder:index
-      });
+      };
+      const labelKey=clean(entry.label||entry.finding||entry.action||entry.key).toLowerCase();
+      const existing=aggregated.get(labelKey);
+      if(existing){
+        if(entry.usageCount>existing.usageCount){
+          aggregated.set(labelKey,entry);
+        }else if(entry.usageCount===existing.usageCount&&entry.usageOrder<existing.usageOrder){
+          aggregated.set(labelKey,entry);
+        }
+      }else{
+        aggregated.set(labelKey,entry);
+      }
     });
-    return result
+    return [...aggregated.values()]
       .sort(sortHistoryByUsage)
       .slice(0,HISTORY_LIMIT)
       .map(entry=>({
