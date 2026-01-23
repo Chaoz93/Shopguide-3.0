@@ -3661,16 +3661,44 @@
     return selections
       .filter(sel=>sel&&typeof sel.key==='string')
       .map(sel=>{
+        const hasExtendedFields=['finding','action','routine','routineFinding','routineAction','nonroutine','nonroutineFinding','nonroutineAction','parts','partsText','times','mods']
+          .some(field=>Object.prototype.hasOwnProperty.call(sel,field));
+        const isCustom=typeof sel.key==='string'&&sel.key.startsWith('nsf-custom-');
         const labelCandidate=typeof sel.label==='string'&&sel.label
           ? sel.label
           : (typeof sel.finding==='string'&&sel.finding
             ? sel.finding
             : (typeof sel.action==='string'?sel.action:''));
         const label=clean(labelCandidate);
-        return {
+        const baseEntry={
           key:sel.key,
           label,
           status:typeof sel.status==='string'?sel.status:''
+        };
+        if(!(isCustom||hasExtendedFields)) return baseEntry;
+        const parts=Array.isArray(sel.parts)
+          ? sel.parts.map(item=>{
+              const part=clean(item?.part||'');
+              if(!part) return null;
+              const quantity=clean(item?.menge??item?.quantity??'');
+              return quantity?{part,quantity}:{part};
+            }).filter(Boolean)
+          : [];
+        return {
+          ...baseEntry,
+          part:typeof sel.part==='string'?normalizePart(sel.part):'',
+          finding:typeof sel.finding==='string'?sel.finding:'',
+          action:typeof sel.action==='string'?sel.action:'',
+          routine:typeof sel.routine==='string'?sel.routine:'',
+          routineFinding:typeof sel.routineFinding==='string'?sel.routineFinding:'',
+          routineAction:typeof sel.routineAction==='string'?sel.routineAction:'',
+          nonroutine:typeof sel.nonroutine==='string'?sel.nonroutine:'',
+          nonroutineFinding:typeof sel.nonroutineFinding==='string'?sel.nonroutineFinding:'',
+          nonroutineAction:typeof sel.nonroutineAction==='string'?sel.nonroutineAction:'',
+          parts,
+          partsText:typeof sel.partsText==='string'?sel.partsText:'',
+          times:typeof sel.times==='string'?sel.times:'',
+          mods:typeof sel.mods==='string'?sel.mods:''
         };
       });
   }
@@ -3691,7 +3719,18 @@
             nonroutine:typeof sel.nonroutine==='string'?sel.nonroutine:'',
             nonroutineFinding:typeof sel.nonroutineFinding==='string'?sel.nonroutineFinding:'',
             nonroutineAction:typeof sel.nonroutineAction==='string'?sel.nonroutineAction:'',
-            parts:typeof sel.parts==='string'?sel.parts:'',
+            parts:Array.isArray(sel.parts)
+              ? sel.parts.map(item=>{
+                  const partValue=clean(item?.part||'');
+                  if(!partValue) return null;
+                  const quantityValue=clean(item?.menge??item?.quantity??'');
+                  const partEntry={part:partValue};
+                  if(quantityValue) partEntry.menge=quantityValue;
+                  return partEntry;
+                }).filter(Boolean)
+              : typeof sel.parts==='string'
+                ? sel.parts
+                : '',
             times:typeof sel.times==='string'?sel.times:'',
             mods:typeof sel.mods==='string'?sel.mods:''
           }
@@ -5946,17 +5985,6 @@
             aggregatedParts.push({part:partText,quantity:quantityText});
             addGroupedPart(statusValue,labelValue,partText,quantityText);
           });
-        }
-        const selectionPart=clean(resolved.partNumber||resolved.part||selection.partNumber||selection.part||'');
-        if(selectionPart){
-          const normalizedSelectionPart=normalizePart(selectionPart);
-          const alreadyIncluded=Array.isArray(resolvedPairs)
-            ? resolvedPairs.some(pair=>normalizePart(pair?.part)===normalizedSelectionPart)
-            : false;
-          if(!alreadyIncluded){
-            aggregatedParts.push({part:selectionPart,quantity:'1'});
-            addGroupedPart(statusValue,labelValue,selectionPart,'1');
-          }
         }
       }
       const normalizedPairs=aggregatedParts.map(pair=>({part:pair.part,quantity:pair.quantity}));
