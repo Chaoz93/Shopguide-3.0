@@ -1,10 +1,11 @@
 (function(){
   'use strict';
 
-  const MODULE_VERSION='1.5.0';
+  const MODULE_VERSION='1.6.0';
   const PATH_KEY='shopguide-findings-path';
   const GLOBAL_PATH_STORAGE_KEY='shopguide-findings-global-path';
   const DEFAULT_FILE='Shopguide_Findings.json';
+  const PREFILL_STORAGE_KEY='shopguide-findings-prefill';
   const BUNDLED_FINDINGS_DATA=[
     {
       id:'demo-entry',
@@ -58,6 +59,35 @@
     {key:'findings',label:'Findings'},
     {key:'parts',label:'Bestelltext'}
   ];
+
+  function consumePrefillPayload(){
+    let payload=null;
+    if(window.__shopguideFindingsPrefill){
+      payload=window.__shopguideFindingsPrefill;
+      try{
+        delete window.__shopguideFindingsPrefill;
+      }catch(err){
+        window.__shopguideFindingsPrefill=null;
+      }
+    }
+    if(!payload){
+      try{
+        const raw=localStorage.getItem(PREFILL_STORAGE_KEY);
+        if(raw) payload=JSON.parse(raw);
+      }catch(err){
+        console.warn('Prefill konnte nicht geladen werden',err);
+      }
+    }
+    if(payload){
+      try{
+        localStorage.removeItem(PREFILL_STORAGE_KEY);
+      }catch(err){
+        console.warn('Prefill konnte nicht entfernt werden',err);
+      }
+    }
+    if(!payload||typeof payload!=='object') return null;
+    return payload;
+  }
 
   function supportsIndexedDB(){
     try{
@@ -1955,6 +1985,49 @@
       }
     }
 
+    applyPrefillEntry(prefill){
+      if(!prefill||typeof prefill!=='object') return false;
+      const entry=normalizeEntry(createEmptyFindingTemplate());
+      entry.label=cleanString(prefill.label);
+      entry.findings=cleanString(prefill.findings);
+      entry.actions=cleanString(prefill.actions);
+      entry.routineAction=cleanString(prefill.routineAction);
+      entry.nonroutine=cleanString(prefill.nonroutine);
+      const partsSource=Array.isArray(prefill.partsPairs)
+        ? prefill.partsPairs
+        : (Array.isArray(prefill.parts)?prefill.parts:[]);
+      if(partsSource.length){
+        entry.partsPairs=normalizePartsPairs({partsPairs:partsSource,parts:partsSource});
+      }
+      if(Array.isArray(prefill.partNumbers)&&prefill.partNumbers.length){
+        entry.partNumbers=prefill.partNumbers.map(item=>cleanString(item)).filter(Boolean);
+      }
+      if(prefill.times&&typeof prefill.times==='object'){
+        entry.times=normalizeTimes(prefill.times);
+      }
+      if(Array.isArray(prefill.modsList)){
+        entry.modsList=normalizeModsList({modsList:prefill.modsList});
+        entry.mods=entry.modsList[0]||createEmptyMods();
+      }
+      this.data.unshift(entry);
+      this.selectedId=entry.id;
+      this.dirty=true;
+      this.activeHistorySignature=null;
+      if(this.searchInput) this.searchInput.value='';
+      this.status('Vorbefülltes Finding erstellt');
+      return true;
+    }
+
+    applyPrefillEntryFromStorage(){
+      const prefill=consumePrefillPayload();
+      if(prefill){
+        this.applyPrefillEntry(prefill);
+        this.renderAll();
+        return true;
+      }
+      return false;
+    }
+
     async applyExternalData(text){
       try{
         const parsed=JSON.parse(text);
@@ -1992,6 +2065,7 @@
         this.redoStack=[];
         this.dirty=false;
         if(this.filePath) this.updateStoredPath(this.filePath);
+        this.applyPrefillEntryFromStorage();
         this.renderAll();
         this.showError('');
 
@@ -2977,11 +3051,16 @@
       if(this.onWindowResize) window.removeEventListener('resize',this.onWindowResize);
       if(this.onKeyDown) window.removeEventListener('keydown',this.onKeyDown);
       this.contextMenu=null;
+      if(window.__shopguideFindingsEditorInstance===this){
+        window.__shopguideFindingsEditorInstance=null;
+      }
     }
   }
 
   window.renderShopguideFindingsEditor=function(root){
-    return new ShopguideFindingsEditor(root);
+    const instance=new ShopguideFindingsEditor(root);
+    window.__shopguideFindingsEditorInstance=instance;
+    return instance;
   };
 
   if(!window.Shopguide) window.Shopguide={};
