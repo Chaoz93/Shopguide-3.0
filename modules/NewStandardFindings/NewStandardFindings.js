@@ -418,6 +418,8 @@
   const DATA_KEY='sf-data';
   const FINDINGS_PATH_KEY='sf-findings-path';
   const FINDINGS_EDITOR_PREFILL_STORAGE_KEY='shopguide-findings-prefill';
+  const FINDINGS_EDITOR_EDIT_STORAGE_KEY='shopguide-findings-edit-target';
+  const FINDINGS_EDITOR_UPDATE_EVENT='shopguide-findings-entry-updated';
   const STATE_KEY='sf-state';
   const STATE_KEY_SEPARATOR='::';
   const UNIT_BOARD_EVENT='unitBoard:update';
@@ -1754,6 +1756,9 @@
       .nsf-input-row.locked{background:rgba(15,23,42,0.28);}
       .nsf-remove-btn{position:absolute;top:50%;right:0.45rem;transform:translateY(-50%);background:rgba(248,113,113,0.25);border:none;border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
       .nsf-remove-btn:hover{background:rgba(248,113,113,0.4);opacity:1;transform:translateY(-50%) scale(1.05);}
+      .nsf-edit-btn{position:absolute;top:50%;right:2.7rem;transform:translateY(-50%);background:rgba(59,130,246,0.18);border:none;border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
+      .nsf-edit-btn:hover{background:rgba(59,130,246,0.3);opacity:1;transform:translateY(-50%) scale(1.05);}
+      .nsf-input-row:not(.locked) .nsf-edit-btn{display:none;}
       .nsf-input{width:100%;border:none;border-radius:0.65rem;padding:0.55rem 5rem 0.55rem 0.7rem;font:inherit;color:var(--sidebar-module-card-text,#111);background:var(--sidebar-module-card-bg,#fff);}
       .nsf-input:disabled{opacity:0.75;background:rgba(255,255,255,0.65);cursor:not-allowed;}
       .nsf-input::placeholder{color:rgba(107,114,128,0.8);}
@@ -2044,6 +2049,14 @@
       }
     });
     window.addEventListener(UNIT_BOARD_EVENT,()=>scheduleAll());
+    window.addEventListener(FINDINGS_EDITOR_UPDATE_EVENT,event=>{
+      const detail=event&&event.detail?event.detail:null;
+      for(const inst of instances){
+        if(inst&&typeof inst.handleFindingsEditorUpdate==='function'){
+          inst.handleFindingsEditorUpdate(detail);
+        }
+      }
+    });
     setInterval(()=>{
       const boardDoc=localStorage.getItem(BOARD_DOC_KEY);
       if(boardDoc!==lastValues[BOARD_DOC_KEY]){lastValues[BOARD_DOC_KEY]=boardDoc;scheduleAll();}
@@ -6411,6 +6424,9 @@
         if(this.findingsEditorInstance&&typeof this.findingsEditorInstance.applyPrefillEntryFromStorage==='function'){
           this.findingsEditorInstance.applyPrefillEntryFromStorage();
         }
+        if(this.findingsEditorInstance&&typeof this.findingsEditorInstance.applyEditTargetFromStorage==='function'){
+          this.findingsEditorInstance.applyEditTargetFromStorage();
+        }
       }else{
         const note=document.createElement('div');
         note.className='nsf-custom-note';
@@ -6433,6 +6449,42 @@
       document.body.style.overflow='hidden';
       this.findingsEditorOverlay=overlay;
       requestAnimationFrame(()=>overlay.focus());
+    }
+
+    openFindingsEditorForEntry(entry){
+      if(this.destroyed||!entry) return;
+      const resolved=this.resolveEntry(entry)||entry;
+      const partNumbers=Array.isArray(resolved.partNumbers)
+        ? resolved.partNumbers.map(item=>clean(item)).filter(Boolean)
+        : [];
+      const partsPairs=Array.isArray(resolved.parts)
+        ? resolved.parts.map(item=>{
+            const part=clean(item?.part||'');
+            if(!part) return null;
+            const quantity=clean(item?.menge??item?.quantity??'');
+            return {part,quantity};
+          }).filter(Boolean)
+        : [];
+      const target={
+        sourceKey:clean(resolved.key||entry.key),
+        label:clean(resolved.label||''),
+        findings:clean(resolved.finding||''),
+        actions:clean(resolved.action||''),
+        routineAction:clean(resolved.routineAction||resolved.routineActions||''),
+        nonroutine:clean(resolved.nonroutine||''),
+        partNumbers,
+        partsPairs
+      };
+      try{
+        localStorage.setItem(FINDINGS_EDITOR_EDIT_STORAGE_KEY,JSON.stringify(target));
+      }catch(err){
+        console.warn('NSF: Edit-Target konnte nicht gespeichert werden',err);
+      }
+      window.__shopguideFindingsEditTarget=target;
+      this.openFindingsEditorOverlay();
+      if(this.findingsEditorInstance&&typeof this.findingsEditorInstance.applyEditTargetFromStorage==='function'){
+        this.findingsEditorInstance.applyEditTargetFromStorage();
+      }
     }
 
     launchFindingsEditorPrefill(payload){
@@ -9947,15 +9999,122 @@
       this.queueEventAutoUpdate();
     }
 
+    handleFindingsEditorUpdate(detail){
+      if(!detail||typeof detail!=='object') return;
+      const updated=detail.entry&&typeof detail.entry==='object'?detail.entry:null;
+      if(!updated) return;
+      const target=detail.target&&typeof detail.target==='object'?detail.target:null;
+      const updatedAny=this.applyFindingsEditorUpdate(updated,target);
+      if(updatedAny){
+        this.syncOutputsWithSelections({persist:false});
+        this.persistState(true);
+        this.queueEventAutoUpdate();
+        this.render();
+      }
+    }
+
+    applyFindingsEditorUpdate(updated,target){
+      const sourceKey=clean(target?.sourceKey||'');
+      const matchLabel=clean(target?.label||updated.label||'').toLowerCase();
+      const matchFinding=clean(target?.findings||updated.findings||'').toLowerCase();
+      const matchAction=clean(target?.actions||updated.actions||'').toLowerCase();
+      const partsPairs=Array.isArray(updated.partsPairs)
+        ? updated.partsPairs
+        : Array.isArray(updated.parts)
+          ? updated.parts
+          : [];
+      const normalizedParts=nsfNormalizeParts({parts:partsPairs});
+      const partsArray=normalizedParts.map(pair=>({part:pair.part,menge:pair.quantity}));
+      const partsText=normalizedParts.length
+        ? normalizedParts
+            .map(pair=>{
+              const qty=clean(pair.quantity);
+              const part=clean(pair.part);
+              if(qty&&qty!=='1') return `${qty}x ${part}`;
+              return part;
+            })
+            .filter(Boolean)
+            .join('\n')
+        : '';
+      let updatedAny=false;
+      this.selectedEntries=this.selectedEntries.map(sel=>{
+        if(!sel) return sel;
+        const label=clean(sel.label).toLowerCase();
+        const finding=clean(sel.finding).toLowerCase();
+        const action=clean(sel.action).toLowerCase();
+        const matchesKey=sourceKey&&sel.key===sourceKey;
+        const matchesText=(!sourceKey&&matchLabel&&label===matchLabel)
+          ||(matchFinding&&finding===matchFinding)
+          ||(matchAction&&action===matchAction);
+        if(!matchesKey&&!matchesText) return sel;
+        updatedAny=true;
+        return {
+          ...sel,
+          label:clean(updated.label||''),
+          finding:clean(updated.findings||''),
+          action:clean(updated.actions||''),
+          routineAction:clean(updated.routineAction||''),
+          nonroutine:clean(updated.nonroutine||''),
+          parts:partsArray,
+          partsText
+        };
+      });
+      return updatedAny;
+    }
+
+    findMatchingEntryForSelection(selection){
+      if(!selection||!Array.isArray(this.allEntries)) return null;
+      const targetLabel=clean(selection.label).toLowerCase();
+      const targetFinding=clean(selection.finding).toLowerCase();
+      const targetAction=clean(selection.action).toLowerCase();
+      const targetRoutine=clean(selection.routineAction||selection.routine||'').toLowerCase();
+      const targetNonroutine=clean(selection.nonroutine||'').toLowerCase();
+      const targetPart=normalizePart(selection.part||this.currentPart||'');
+      let best=null;
+      let bestScore=0;
+      for(const entry of this.allEntries){
+        if(!entry) continue;
+        let score=0;
+        if(targetLabel){
+          if(entry.labelLower===targetLabel) score+=5;
+          else if(entry.labelLower&&entry.labelLower.includes(targetLabel)) score+=2;
+        }
+        if(targetFinding){
+          if(entry.findingLower===targetFinding) score+=4;
+          else if(entry.findingLower&&entry.findingLower.includes(targetFinding)) score+=2;
+        }
+        if(targetAction){
+          if(entry.actionLower===targetAction) score+=3;
+          else if(entry.actionLower&&entry.actionLower.includes(targetAction)) score+=1;
+        }
+        if(targetRoutine){
+          if(entry.routineAction&&entry.routineAction.toLowerCase()===targetRoutine) score+=2;
+        }
+        if(targetNonroutine){
+          if(entry.nonroutine&&entry.nonroutine.toLowerCase()===targetNonroutine) score+=2;
+        }
+        if(targetPart&&Array.isArray(entry.partNumbers)){
+          const normalizedParts=entry.partNumbers.map(item=>normalizePart(item)).filter(Boolean);
+          if(normalizedParts.includes(targetPart)) score+=2;
+        }
+        if(score>bestScore){
+          bestScore=score;
+          best=entry;
+        }
+      }
+      return bestScore>0?best:null;
+    }
+
     hydrateSelections(selections){
       const normalized=Array.isArray(selections)?selections:[];
       return normalized.map(sel=>{
-        const resolved=this.entryMap.get(sel.key);
+        const resolved=this.entryMap.get(sel.key)||this.findMatchingEntryForSelection(sel);
         if(resolved){
           const storedPart=normalizePart(sel.part);
           const matchedPart=storedPart||resolveMatchedPart(resolved,this.currentPart);
           return {
             ...resolved,
+            key:resolved.key,
             status:typeof sel.status==='string'?sel.status:'',
             routine:resolved.routine||sel.routine||'',
             routineFinding:resolved.routineFinding||resolved.routineFindings||sel.routineFinding||'',
@@ -10153,9 +10312,16 @@
       removeBtn.type='button';
       removeBtn.className='nsf-remove-btn';
       removeBtn.textContent='✖';
+      const editBtn=document.createElement('button');
+      editBtn.type='button';
+      editBtn.className='nsf-edit-btn';
+      editBtn.textContent='✏️';
+      editBtn.title='Finding bearbeiten';
+      editBtn.setAttribute('aria-label',editBtn.title);
+      editBtn.disabled=true;
       const field=document.createElement('div');
       field.className='nsf-input-field';
-      field.append(toggle,input,removeBtn);
+      field.append(toggle,input,editBtn,removeBtn);
       const suggestions=document.createElement('div');
       suggestions.className='nsf-suggestions';
       const controls=document.createElement('div');
@@ -10187,7 +10353,8 @@
         entry:null,
         statusValue:'',
         outsideHandler:null,
-        isOpen:false
+        isOpen:false,
+        editBtn
       };
       state.statusValue=DEFAULT_FINDING_STATUS;
       const updateStatus=()=>{
@@ -10374,6 +10541,10 @@
         if(state.locked) this.removeSelection(state);
         else this.removeRow(state);
       });
+      editBtn.addEventListener('click',()=>{
+        if(editBtn.disabled||!state.entry) return;
+        this.openFindingsEditorForEntry(state.entry);
+      });
       statusSelect.addEventListener('change',updateStatus);
       state.closeSuggestions=closeSuggestions;
       state.openSuggestions=openSuggestions;
@@ -10461,6 +10632,9 @@
       state.input.value=entry.label||entry.finding||entry.action||'Auswahl';
       state.input.disabled=true;
       state.row.classList.add('locked');
+      if(state.editBtn){
+        state.editBtn.disabled=false;
+      }
       if(state.toggle){
         state.toggle.disabled=true;
         state.toggle.classList.remove('is-active');
