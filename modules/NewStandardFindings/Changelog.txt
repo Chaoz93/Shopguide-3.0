@@ -12,6 +12,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.4] – 2026-01-23
+### Fixed
+- Bestellliste zeigt nur noch hinterlegte Teilenummern und blendet Geräte-Partnummern aus.
+- Customfindings werden inklusive Bestellnummern und Texte in der PN/SN-History gespeichert und nach Reload wiederhergestellt.
+
 ## [1.8.3] – 2026-01-23
 ### Added
 - Spare-Customfindings ergänzen das Keyword `{findings}` auch in der Routine-Ausgabe.

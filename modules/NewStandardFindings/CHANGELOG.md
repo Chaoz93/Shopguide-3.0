@@ -5,6 +5,11 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.8.4 – 2026-01-23
+### Fixed
+- Bestellliste zeigt nur noch die hinterlegten Teilenummern statt Geräte-Partnummern.
+- Customfindings werden inklusive Bestellnummern und Texten in der PN/SN-History gesichert, damit sie nach Reload wiederhergestellt werden.
+
 ## 1.7.1 – 2026-01-23
 ### Changed
 - „Zuletzt verwendet“-Chips gruppieren identische Entries, zählen die Nutzungshäufigkeit, entfernen doppelte Labels in der Anzeige und sortieren nach Häufigkeit statt nach dem letzten Zugriff.
