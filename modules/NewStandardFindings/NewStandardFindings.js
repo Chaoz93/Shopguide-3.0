@@ -5756,6 +5756,7 @@
         this.rawFindings=[];
         this.rawActions=[];
         this.rawRoutine=[];
+        this.rawSpareFindings=[];
         this.rawNonroutineFindings=[];
         this.rawParts=[];
         this.rawTimes=[];
@@ -5768,13 +5769,15 @@
         findings:[],
         actions:[],
         routine:[],
-        nonroutine:[]
+        nonroutine:[],
+        spareFindings:[]
       };
       const seen={
         findings:new Set(),
         actions:new Set(),
         routine:new Set(),
-        nonroutine:new Set()
+        nonroutine:new Set(),
+        spareFindings:new Set()
       };
       const timeEntries=[];
       const timeKeys=new Set();
@@ -5894,6 +5897,9 @@
           const labelCandidate=clean(resolved.label||selection.label||'');
           if(labelCandidate) primaryLabel=labelCandidate;
         }
+        if(statusValue==='Spare'){
+          pushLines('spareFindings',findingText);
+        }
         const nonroutineText=resolved.nonroutineFinding||resolved.nonroutine||selection.nonroutineFinding||selection.nonroutine||'';
         if(nonroutineText){
           const stripped=stripNonRoutineFindingPrefix(nonroutineText);
@@ -5940,6 +5946,17 @@
             aggregatedParts.push({part:partText,quantity:quantityText});
             addGroupedPart(statusValue,labelValue,partText,quantityText);
           });
+        }
+        const selectionPart=clean(resolved.partNumber||resolved.part||selection.partNumber||selection.part||'');
+        if(selectionPart){
+          const normalizedSelectionPart=normalizePart(selectionPart);
+          const alreadyIncluded=Array.isArray(resolvedPairs)
+            ? resolvedPairs.some(pair=>normalizePart(pair?.part)===normalizedSelectionPart)
+            : false;
+          if(!alreadyIncluded){
+            aggregatedParts.push({part:selectionPart,quantity:'1'});
+            addGroupedPart(statusValue,labelValue,selectionPart,'1');
+          }
         }
       }
       const normalizedPairs=aggregatedParts.map(pair=>({part:pair.part,quantity:pair.quantity}));
@@ -6000,6 +6017,7 @@
       this.rawFindings=lists.findings.slice();
       this.rawActions=lists.actions.slice();
       this.rawRoutine=lists.routine.slice();
+      this.rawSpareFindings=lists.spareFindings.slice();
       this.rawNonroutineFindings=lists.nonroutine.slice();
       this.rawParts=placeholderPairs;
       this.rawTimes=timeEntries.slice();
@@ -6388,13 +6406,16 @@
             quantity:clean(item.quantity)
           })).filter(item=>item.part)
         : [];
+      const partNumber=clean(this.currentPart||'');
+      const partNumbers=partNumber?[partNumber]:[];
       const prefill={
         label:clean(payload.label),
         findings:clean(payload.finding),
         actions:clean(payload.action),
         routineAction:clean(payload.routineAction),
         nonroutine:clean(payload.nonroutine),
-        partsPairs
+        partsPairs,
+        partNumbers
       };
       try{
         localStorage.setItem(FINDINGS_EDITOR_PREFILL_STORAGE_KEY,JSON.stringify(prefill));
@@ -9496,8 +9517,12 @@
         :'';
       const modsText=toLineString(this.rawMods);
       const routineFindingsNotice=resolvedTab==='routine'?this.getRoutineFindingsStatusNotice():'';
+      const spareFindingsText=toLineString(this.rawSpareFindings);
+      const findingsText=(routineFindingsNotice&&spareFindingsText)
+        ? `${routineFindingsNotice}\n${spareFindingsText}`
+        : (routineFindingsNotice||toLineString(this.rawFindings));
       const replacements={
-        findings:routineFindingsNotice||toLineString(this.rawFindings),
+        findings:findingsText,
         nonroutine:toLineString(this.rawNonroutineFindings),
         actions:toLineString(this.rawActions),
         routine:toLineString(this.rawRoutine),

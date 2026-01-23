@@ -12,6 +12,24 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.3] – 2026-01-23
+### Added
+- Spare-Customfindings ergänzen das Keyword `{findings}` auch in der Routine-Ausgabe.
+
+### Changed
+- Geräte-Partnummern erscheinen in der Bestellliste mit Menge 1, falls keine eigene Teileliste vorhanden ist.
+
+## [1.8.2] – 2026-01-23
+### Changed
+- Spare-Customfindings bleiben im normalen Finding-Output, ohne zusätzlichen Routine-Eintrag.
+
+## [1.8.1] – 2026-01-23
+### Added
+- Vorbefüllung der Geräte-Partnummer beim Übergang vom Custom-Finding-Dialog in den Findings-Editor.
+
+### Changed
+- Routine-Ausgabe ergänzt bei Status „Spare“ den Findingstext, damit Custom-Findings vollständig angezeigt werden.
+
 ## [1.8.0] – 2026-01-23
 ### Added
 - Custom-Finding-Dialog für schnelle Eingabe der standardisierten Textstücke inklusive Bestellnummern & Mengen.
