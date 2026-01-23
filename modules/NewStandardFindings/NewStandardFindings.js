@@ -5852,11 +5852,11 @@
         let value=opts.forceEmpty?'' : computed[key]||'';
         if(!opts.forceEmpty){
           if(key==='routine'&&effectiveTemplate){
-            value=this.expandPlaceholders(effectiveTemplate);
+            value=this.expandPlaceholders(effectiveTemplate,{tabKey:key});
           }else{
             const template=this.getRoutineEditorFreitextTemplate(key);
             if(template){
-              value=this.expandPlaceholders(template);
+              value=this.expandPlaceholders(template,{tabKey:key});
             }
           }
         }
@@ -8606,8 +8606,46 @@
       this.updateFreitextPreview();
     }
 
-    expandPlaceholders(text){
+    getRoutineFindingsStatusNotice(){
+      const statusLookup=new Map([
+        ['mishandling','Mishandling'],
+        ['sru exchange mishandling','Mishandling'],
+        ['missing parts','Missing Parts'],
+        ['sru exchange missing parts','Missing Parts'],
+        ['abnormal wear and tear','Abnormal wear and tear'],
+        ['sru exchange abnormal wear and tear','Abnormal wear and tear']
+      ]);
+      const found=new Set();
+      const selections=Array.isArray(this.selectedEntries)?this.selectedEntries:[];
+      selections.forEach(selection=>{
+        const normalized=normalizeFindingStatus(selection?.status||'');
+        if(!normalized) return;
+        const base=statusLookup.get(normalized.toLowerCase());
+        if(base) found.add(base);
+      });
+      if(!found.size) return '';
+      const order=['Mishandling','Missing Parts','Abnormal wear and tear'];
+      const displayMap={
+        'Mishandling':'Mishandling',
+        'Missing Parts':'Missing Parts',
+        'Abnormal wear and tear':'abnormal wear and tear'
+      };
+      const items=order.filter(item=>found.has(item)).map(item=>displayMap[item]||item);
+      if(!items.length) return '';
+      const joinList=list=>{
+        if(list.length===1) return list[0];
+        if(list.length===2) return `${list[0]} and ${list[1]}`;
+        return `${list.slice(0,-1).join(', ')} and ${list[list.length-1]}`;
+      };
+      return `${joinList(items)} filled in the Non Routine tab.`;
+    }
+
+    expandPlaceholders(text,options={}){
       const raw=typeof text==='string'?text:'';
+      const rawTabKey=typeof options.tabKey==='string'?options.tabKey:'';
+      const resolvedTab=typeof getRoutineEditorTabKey==='function'
+        ?getRoutineEditorTabKey(rawTabKey)
+        :rawTabKey;
       const toLineString=array=>Array.isArray(array)
         ? array
             .map(item=>typeof item==='string'?item:(item==null?'':String(item)))
@@ -8642,8 +8680,9 @@
             .join('\n')
         :'';
       const modsText=toLineString(this.rawMods);
+      const routineFindingsNotice=resolvedTab==='routine'?this.getRoutineFindingsStatusNotice():'';
       const replacements={
-        findings:toLineString(this.rawFindings),
+        findings:routineFindingsNotice||toLineString(this.rawFindings),
         nonroutine:toLineString(this.rawNonroutineFindings),
         actions:toLineString(this.rawActions),
         routine:toLineString(this.rawRoutine),
@@ -8669,7 +8708,7 @@
 
     updateFreitextPreview(){
       const rawText=typeof this.freitextDraft==='string'?this.freitextDraft:'';
-      const expanded=this.expandPlaceholders(rawText);
+      const expanded=this.expandPlaceholders(rawText,{tabKey:this.getActiveRoutineEditorTab()});
       this.updateFreitextPreviewWithExpanded(expanded);
     }
 
@@ -8695,7 +8734,7 @@
       if(this.freitextTextarea&&this.freitextTextarea.value!==rawText){
         this.freitextTextarea.value=rawText;
       }
-      const expanded=this.expandPlaceholders(rawText);
+      const expanded=this.expandPlaceholders(rawText,{tabKey:activeTab});
       const targetTextarea=this.textareas&&this.textareas[targetKey];
       if(targetTextarea&&targetTextarea.value!==expanded){
         targetTextarea.value=expanded;
