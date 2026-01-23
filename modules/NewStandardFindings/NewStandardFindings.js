@@ -3388,6 +3388,7 @@
     if(!parsed||typeof parsed!=='object') parsed={};
     if(!parsed.meldungsbezogen||typeof parsed.meldungsbezogen!=='object') parsed.meldungsbezogen={};
     if(!parsed.history||typeof parsed.history!=='object') parsed.history={};
+    if(!parsed.historyUsage||typeof parsed.historyUsage!=='object') parsed.historyUsage={};
     return parsed;
   }
 
@@ -3810,22 +3811,44 @@
     }
     const list=global.history[normalized]||global.history[part];
     if(!Array.isArray(list)) return [];
+    const usage=getHistoryUsageForPart(global,normalized);
     const seen=new Set();
-    const result=[];
-    for(const item of list){
-      if(!item||typeof item.key!=='string') continue;
-      if(seen.has(item.key)) continue;
+    const aggregated=new Map();
+    list.forEach((item,index)=>{
+      if(!item||typeof item.key!=='string') return;
+      if(seen.has(item.key)) return;
       seen.add(item.key);
-      result.push({
+      const entry={
         key:item.key,
         finding:clean(item.finding),
         action:clean(item.action),
         label:clean(item.label),
-        part:normalizePart(item.part)
-      });
-      if(result.length>=HISTORY_LIMIT) break;
-    }
-    return result;
+        part:normalizePart(item.part),
+        usageCount:Number.isFinite(usage[item.key])?usage[item.key]:1,
+        usageOrder:index
+      };
+      const labelKey=clean(entry.label||entry.finding||entry.action||entry.key).toLowerCase();
+      const existing=aggregated.get(labelKey);
+      if(existing){
+        if(entry.usageCount>existing.usageCount){
+          aggregated.set(labelKey,entry);
+        }else if(entry.usageCount===existing.usageCount&&entry.usageOrder<existing.usageOrder){
+          aggregated.set(labelKey,entry);
+        }
+      }else{
+        aggregated.set(labelKey,entry);
+      }
+    });
+    return [...aggregated.values()]
+      .sort(sortHistoryByUsage)
+      .slice(0,HISTORY_LIMIT)
+      .map(entry=>({
+        key:entry.key,
+        finding:entry.finding,
+        action:entry.action,
+        label:entry.label,
+        part:entry.part
+      }));
   }
 
   function pushHistory(global,part,entry){
@@ -3854,7 +3877,50 @@
       if(filtered.length>=HISTORY_LIMIT) break;
     }
     global.history[normalized]=filtered;
+    const usage=ensureHistoryUsageForPart(global,normalized);
+    usage[entry.key]=Number.isFinite(usage[entry.key])?usage[entry.key]+1:1;
     saveGlobalState(global);
+  }
+
+  function sortHistoryByUsage(a,b){
+    if(!a&&!b) return 0;
+    if(!a) return 1;
+    if(!b) return -1;
+    const countDiff=(b.usageCount||0)-(a.usageCount||0);
+    if(countDiff) return countDiff;
+    const orderDiff=(a.usageOrder||0)-(b.usageOrder||0);
+    if(orderDiff) return orderDiff;
+    const left=clean(a.label||a.finding||a.action||'');
+    const right=clean(b.label||b.finding||b.action||'');
+    return left.localeCompare(right);
+  }
+
+  function getHistoryUsageForPart(global,part){
+    const normalized=normalizePart(part);
+    if(!normalized) return {};
+    if(!global.historyUsage||typeof global.historyUsage!=='object') global.historyUsage={};
+    if(normalized!==part&&global.historyUsage[part]&&!global.historyUsage[normalized]){
+      global.historyUsage[normalized]=global.historyUsage[part];
+      delete global.historyUsage[part];
+      saveGlobalState(global);
+    }
+    const usage=global.historyUsage[normalized]||global.historyUsage[part];
+    if(!usage||typeof usage!=='object') return {};
+    return usage;
+  }
+
+  function ensureHistoryUsageForPart(global,part){
+    const normalized=normalizePart(part);
+    if(!normalized) return {};
+    if(!global.historyUsage||typeof global.historyUsage!=='object') global.historyUsage={};
+    if(normalized!==part&&global.historyUsage[part]&&!global.historyUsage[normalized]){
+      global.historyUsage[normalized]=global.historyUsage[part];
+      delete global.historyUsage[part];
+    }
+    if(!global.historyUsage[normalized]||typeof global.historyUsage[normalized]!=='object'){
+      global.historyUsage[normalized]={};
+    }
+    return global.historyUsage[normalized];
   }
 
   function copyText(text){

@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.7.1 – 2026-01-23
+### Changed
+- „Zuletzt verwendet“-Chips gruppieren identische Entries, zählen die Nutzungshäufigkeit, entfernen doppelte Labels in der Anzeige und sortieren nach Häufigkeit statt nach dem letzten Zugriff.
+
 ## 1.6.3 – 2026-01-23
 ### Changed
 - Findings-Auswahlfeld nutzt jetzt etwa 60 % der Gesamtbreite, damit das Status-Dropdown kompakter bleibt.
