@@ -1419,6 +1419,7 @@
       this.filtered=[];
       this.selectedId=null;
       this.pendingEditTarget=null;
+      this.pendingSearchTerm='';
       this.activeEditTarget=null;
       this.undoStack=[];
       this.redoStack=[];
@@ -2105,6 +2106,7 @@
 
     applyEditTarget(target){
       if(!target||typeof target!=='object') return false;
+      const searchLabel=cleanString(target.label);
       const normalizedTarget={
         label:normalizeMatchString(target.label),
         findings:normalizeMatchString(target.findings),
@@ -2115,6 +2117,13 @@
           ? target.partNumbers.map(item=>cleanString(item)).filter(Boolean)
           : []
       };
+      if(searchLabel){
+        if(this.searchInput){
+          this.searchInput.value=searchLabel;
+        }else{
+          this.pendingSearchTerm=searchLabel;
+        }
+      }
       let best=null;
       let bestScore=0;
       for(const entry of this.data){
@@ -2404,6 +2413,10 @@
         const target=this.pendingEditTarget;
         this.pendingEditTarget=null;
         this.applyEditTarget(target);
+      }
+      if(this.pendingSearchTerm && this.searchInput){
+        this.searchInput.value=this.pendingSearchTerm;
+        this.pendingSearchTerm='';
       }
       const rawTerm=this.searchInput.value.trim();
       if(rawTerm){
