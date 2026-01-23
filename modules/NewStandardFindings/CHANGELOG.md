@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.8.5 – 2026-01-23
+### Fixed
+- Custom-Findings speichern jetzt Bestellnummern und Mengen zuverlässig im Zustand, sodass sie nach dem Reload erhalten bleiben.
+
 ## 1.8.4 – 2026-01-23
 ### Fixed
 - Bestellliste zeigt nur noch die hinterlegten Teilenummern statt Geräte-Partnummern.

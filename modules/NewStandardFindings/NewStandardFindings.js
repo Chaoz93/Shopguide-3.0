@@ -3649,7 +3649,16 @@
           nonroutine:typeof sel.nonroutine==='string'?sel.nonroutine:'',
           nonroutineFinding:typeof sel.nonroutineFinding==='string'?sel.nonroutineFinding:'',
           nonroutineAction:typeof sel.nonroutineAction==='string'?sel.nonroutineAction:'',
-          parts:typeof sel.parts==='string'?sel.parts:'',
+          parts:Array.isArray(sel.parts)
+            ? sel.parts.map(item=>{
+                const partValue=clean(item?.part||'');
+                if(!partValue) return null;
+                const quantityValue=clean(item?.menge??item?.quantity??'');
+                const partEntry={part:partValue};
+                if(quantityValue) partEntry.menge=quantityValue;
+                return partEntry;
+              }).filter(Boolean)
+            : (typeof sel.parts==='string'?sel.parts:''),
           times:typeof sel.times==='string'?sel.times:'',
           mods:typeof sel.mods==='string'?sel.mods:''
         }
