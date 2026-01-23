@@ -5900,12 +5900,7 @@
           const sanitized=sanitizeNonRoutineOutput(stripped);
           pushLines('nonroutine',sanitized);
         }
-        const routineFindingBase=clean(resolved.routineFinding||resolved.routineFindings||selection.routineFinding||'');
-        const spareFindingText=clean(resolved.finding||selection.finding||'');
-        const routineResolved=(statusValue==='Spare'&&spareFindingText&&!routineFindingBase)
-          ? {...resolved,routineFinding:spareFindingText}
-          : resolved;
-        const routineText=this.buildRoutineOutput(routineResolved);
+        const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
         collectTimes(resolved);
         collectMods(resolved);
