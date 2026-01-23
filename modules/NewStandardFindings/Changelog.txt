@@ -12,6 +12,13 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.7.0] – 2026-01-23
+### Added
+- Routine-Kontextmenü enthält jetzt ein Einstellfenster für den Non-Routine-Hinweis inklusive `{items}`-Platzhalter und anpassbaren Status-Anzeigen.
+
+### Changed
+- Statusdarstellungen im Routine-Hinweis sind jetzt konfigurierbar (z. B. Abnormal wear and tear → AWAT).
+
 ## [1.6.4] – 2026-01-23
 ### Changed
 - Routine-Platzhalter `{findings}` blendet bei Mishandling-, Missing-Parts- und Abnormal-Wear-Status (inklusive SRU-Exchange-Varianten) die Findingstexte aus und zeigt stattdessen den Hinweis auf den Non-Routine-Tab.

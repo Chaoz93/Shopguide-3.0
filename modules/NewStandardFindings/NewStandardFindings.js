@@ -442,6 +442,32 @@
     {key:'actions',label:'Actions',defaultLabel:'Actions',editable:false,persist:false,removable:true},
     {key:'suffix',label:'Suffix',defaultLabel:'Suffix',editable:true,persist:true,removable:true}
   ];
+  const ROUTINE_FINDINGS_STATUS_ENTRIES=[
+    {
+      key:'mishandling',
+      label:'Mishandling',
+      defaultDisplay:'Mishandling',
+      matches:['mishandling','sru exchange mishandling']
+    },
+    {
+      key:'missing parts',
+      label:'Missing Parts',
+      defaultDisplay:'Missing Parts',
+      matches:['missing parts','sru exchange missing parts']
+    },
+    {
+      key:'abnormal wear and tear',
+      label:'Abnormal wear and tear',
+      defaultDisplay:'abnormal wear and tear',
+      matches:['abnormal wear and tear','sru exchange abnormal wear and tear']
+    }
+  ];
+  const ROUTINE_FINDINGS_NOTICE_DEFAULT_TEMPLATE='{items} filled in the Non Routine tab.';
+  const ROUTINE_FINDINGS_STATUS_MATCH_MAP=new Map(
+    ROUTINE_FINDINGS_STATUS_ENTRIES.flatMap(entry=>
+      entry.matches.map(match=>[match.toLowerCase(),entry.key])
+    )
+  );
   const ROUTINE_EDITOR_LINE_BREAK_TOKEN='__nsf_line_break__';
   const ROUTINE_EDITOR_PARAMETER_FAVORITES_KEY='nsf-routine-parameter-favorites';
   const ROUTINE_EDITOR_ACTIVE_TAB_KEY='nsf-routine-editor-active-tab';
@@ -794,6 +820,47 @@
     return templates;
   }
 
+  function createDefaultRoutineFindingsStatusConfig(){
+    return {
+      template:ROUTINE_FINDINGS_NOTICE_DEFAULT_TEMPLATE,
+      statuses:ROUTINE_FINDINGS_STATUS_ENTRIES.map(entry=>({
+        key:entry.key,
+        label:entry.label,
+        display:entry.defaultDisplay
+      }))
+    };
+  }
+
+  function normalizeRoutineFindingsStatusConfig(raw){
+    const base=createDefaultRoutineFindingsStatusConfig();
+    if(!raw||typeof raw!=='object') return base;
+    const template=typeof raw.template==='string'?raw.template:base.template;
+    const list=Array.isArray(raw.statuses)?raw.statuses:Array.isArray(raw.items)?raw.items:[];
+    const entryMap=new Map();
+    list.forEach(entry=>{
+      if(!entry||typeof entry!=='object') return;
+      const key=typeof entry.key==='string'?entry.key:'';
+      if(!key) return;
+      entryMap.set(key,{
+        key,
+        label:typeof entry.label==='string'?entry.label:'',
+        display:typeof entry.display==='string'?entry.display:''
+      });
+    });
+    return {
+      template,
+      statuses:ROUTINE_FINDINGS_STATUS_ENTRIES.map(entry=>{
+        const saved=entryMap.get(entry.key);
+        const display=clean(saved?.display)||entry.defaultDisplay;
+        return {
+          key:entry.key,
+          label:entry.label,
+          display
+        };
+      })
+    };
+  }
+
   function normalizeFreitextTemplates(raw){
     const templates=createDefaultFreitextTemplates();
     if(typeof raw==='string'){
@@ -829,7 +896,11 @@
     ROUTINE_EDITOR_PREVIEW_TAB_KEYS.forEach(key=>{
       tabs[key]=createDefaultRoutineEditorTabState(key);
     });
-    return {tabs,freitextTemplates:createDefaultFreitextTemplates()};
+    return {
+      tabs,
+      freitextTemplates:createDefaultFreitextTemplates(),
+      routineStatusNotice: createDefaultRoutineFindingsStatusConfig()
+    };
   }
 
   function normalizeRoutineEditorTabState(raw,tabKey){
@@ -971,6 +1042,11 @@
       freitextSource=raw;
     }
     normalized.freitextTemplates=normalizeFreitextTemplates(freitextSource);
+    if(raw&&typeof raw==='object'){
+      normalized.routineStatusNotice=normalizeRoutineFindingsStatusConfig(raw.routineStatusNotice);
+    }else{
+      normalized.routineStatusNotice=createDefaultRoutineFindingsStatusConfig();
+    }
     return normalized;
   }
 
@@ -1061,6 +1137,7 @@
       if(Object.keys(templatePayload).length){
         payload.freitextTemplates=templatePayload;
       }
+      payload.routineStatusNotice=normalizeRoutineFindingsStatusConfig(normalized.routineStatusNotice);
       localStorage.setItem(ROUTINE_EDITOR_STORAGE_KEY,JSON.stringify(payload));
     }catch(err){
       console.warn('NSF: Routine-Editor konnte nicht gespeichert werden',err);
@@ -1896,6 +1973,25 @@
       .nsf-json-modal-copy:hover:not(:disabled){background:rgba(255,255,255,0.28);transform:translateY(-1px);}
       .nsf-json-modal-copy.copied{background:rgba(16,185,129,0.35);}
       .nsf-json-modal-empty{font-size:0.95rem;color:rgba(71,85,105,0.95);}
+      .nsf-status-modal-overlay{position:fixed;inset:0;background:rgba(17,24,39,0.55);display:flex;align-items:center;justify-content:center;padding:2.5rem;z-index:9998;backdrop-filter:blur(2px);}
+      .nsf-status-modal{background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border-radius:1rem;box-shadow:0 25px 60px rgba(15,23,42,0.45);max-width:min(720px,95vw);max-height:90vh;display:flex;flex-direction:column;width:100%;overflow:hidden;}
+      .nsf-status-modal-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid rgba(148,163,184,0.35);gap:1rem;}
+      .nsf-status-modal-title{font-size:1.05rem;font-weight:600;margin:0;}
+      .nsf-status-modal-close{background:none;border:none;color:inherit;font:inherit;font-size:1.5rem;cursor:pointer;line-height:1;padding:0.25rem;border-radius:0.5rem;}
+      .nsf-status-modal-close:hover{background:rgba(100,116,139,0.15);}
+      .nsf-status-modal-content{padding:1.25rem 1.5rem;overflow:auto;display:flex;flex-direction:column;gap:1rem;}
+      .nsf-status-modal-section{display:flex;flex-direction:column;gap:0.5rem;}
+      .nsf-status-modal-label{font-size:0.8rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.7;}
+      .nsf-status-modal-hint{font-size:0.8rem;opacity:0.7;line-height:1.4;}
+      .nsf-status-modal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;}
+      .nsf-status-modal-field{display:flex;flex-direction:column;gap:0.35rem;}
+      .nsf-status-modal-input{border:1px solid rgba(148,163,184,0.45);border-radius:0.6rem;padding:0.45rem 0.6rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);}
+      .nsf-status-modal-input:focus{outline:2px solid rgba(59,130,246,0.35);outline-offset:2px;}
+      .nsf-status-modal-actions{display:flex;gap:0.65rem;justify-content:flex-end;flex-wrap:wrap;margin-top:0.25rem;}
+      .nsf-status-modal-button{background:rgba(59,130,246,0.16);border:1px solid rgba(59,130,246,0.35);border-radius:0.65rem;padding:0.45rem 0.9rem;font:inherit;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
+      .nsf-status-modal-button:hover{background:rgba(59,130,246,0.24);transform:translateY(-1px);}
+      .nsf-status-modal-button.secondary{background:rgba(148,163,184,0.16);border-color:rgba(148,163,184,0.35);}
+      .nsf-status-modal-button.secondary:hover{background:rgba(148,163,184,0.26);}
     `;
     document.head.appendChild(tag);
   }
@@ -3998,6 +4094,9 @@
       this.findingJsonOverlay=null;
       this.findingJsonModalKeyHandler=null;
       this.findingJsonBodyOverflow='';
+      this.routineStatusOverlay=null;
+      this.routineStatusModalKeyHandler=null;
+      this.routineStatusBodyOverflow='';
     }
 
     scheduleRender(){
@@ -6070,6 +6169,185 @@
       }
     }
 
+    getRoutineFindingsStatusConfig(){
+      this.ensureRoutineEditorState();
+      let config=this.routineEditorState?.routineStatusNotice;
+      if(!config||typeof config!=='object'){
+        config=createDefaultRoutineFindingsStatusConfig();
+        this.routineEditorState.routineStatusNotice=config;
+      }
+      return normalizeRoutineFindingsStatusConfig(config);
+    }
+
+    setRoutineFindingsStatusConfig(config){
+      const normalized=normalizeRoutineFindingsStatusConfig(config);
+      this.ensureRoutineEditorState();
+      this.routineEditorState.routineStatusNotice=normalized;
+      this.saveRoutineEditorState(this.routineEditorState);
+      this.refreshRoutineEditorPreview();
+    }
+
+    closeRoutineStatusModal(){
+      if(this.routineStatusOverlay){
+        this.routineStatusOverlay.remove();
+        this.routineStatusOverlay=null;
+      }
+      if(this.routineStatusModalKeyHandler){
+        document.removeEventListener('keydown',this.routineStatusModalKeyHandler);
+        this.routineStatusModalKeyHandler=null;
+      }
+      if(this.routineStatusBodyOverflow!=null){
+        document.body.style.overflow=this.routineStatusBodyOverflow||'';
+        this.routineStatusBodyOverflow='';
+      }
+    }
+
+    openRoutineStatusModal(){
+      if(this.destroyed) return;
+      const currentConfig=this.getRoutineFindingsStatusConfig();
+      const statusEntries=Array.isArray(currentConfig.statuses)?currentConfig.statuses:[];
+      let workingConfig={
+        template:currentConfig.template,
+        statuses:statusEntries.map(entry=>({
+          key:entry.key,
+          label:entry.label,
+          display:entry.display
+        }))
+      };
+      this.closeRoutineStatusModal();
+      const overlay=document.createElement('div');
+      overlay.className='nsf-status-modal-overlay';
+      overlay.tabIndex=-1;
+      const dialog=document.createElement('div');
+      dialog.className='nsf-status-modal';
+      overlay.appendChild(dialog);
+      const header=document.createElement('div');
+      header.className='nsf-status-modal-header';
+      const title=document.createElement('h2');
+      title.className='nsf-status-modal-title';
+      title.textContent='Routine-Statushinweis konfigurieren';
+      header.appendChild(title);
+      const closeBtn=document.createElement('button');
+      closeBtn.type='button';
+      closeBtn.className='nsf-status-modal-close';
+      closeBtn.setAttribute('aria-label','Modal schließen');
+      closeBtn.textContent='×';
+      closeBtn.addEventListener('click',()=>this.closeRoutineStatusModal());
+      header.appendChild(closeBtn);
+      dialog.appendChild(header);
+      const content=document.createElement('div');
+      content.className='nsf-status-modal-content';
+      const templateSection=document.createElement('div');
+      templateSection.className='nsf-status-modal-section';
+      const templateLabel=document.createElement('div');
+      templateLabel.className='nsf-status-modal-label';
+      templateLabel.textContent='Ersatztext';
+      const templateHint=document.createElement('div');
+      templateHint.className='nsf-status-modal-hint';
+      templateHint.textContent='Nutze {items} als Platzhalter für die ausgewählten Statusnamen.';
+      const templateInput=document.createElement('textarea');
+      templateInput.className='nsf-textarea nsf-status-modal-input';
+      templateInput.rows=2;
+      templateInput.value=workingConfig.template||'';
+      templateInput.addEventListener('input',()=>{
+        workingConfig={
+          ...workingConfig,
+          template:templateInput.value
+        };
+        this.setRoutineFindingsStatusConfig(workingConfig);
+      });
+      templateSection.append(templateLabel,templateHint,templateInput);
+      content.appendChild(templateSection);
+      const statusSection=document.createElement('div');
+      statusSection.className='nsf-status-modal-section';
+      const statusLabel=document.createElement('div');
+      statusLabel.className='nsf-status-modal-label';
+      statusLabel.textContent='Status-Darstellung';
+      statusSection.appendChild(statusLabel);
+      const grid=document.createElement('div');
+      grid.className='nsf-status-modal-grid';
+      const updateStatusValue=(key,value)=>{
+        const nextStatuses=workingConfig.statuses.map(entry=>{
+          if(entry.key!==key) return entry;
+          return {
+            ...entry,
+            display:value
+          };
+        });
+        workingConfig={
+          ...workingConfig,
+          statuses:nextStatuses
+        };
+        this.setRoutineFindingsStatusConfig(workingConfig);
+      };
+      statusEntries.forEach(entry=>{
+        const field=document.createElement('div');
+        field.className='nsf-status-modal-field';
+        const label=document.createElement('label');
+        label.className='nsf-status-modal-hint';
+        label.textContent=entry.label;
+        const input=document.createElement('input');
+        input.type='text';
+        input.className='nsf-status-modal-input';
+        input.value=entry.display||'';
+        input.addEventListener('input',()=>{
+          updateStatusValue(entry.key,input.value);
+        });
+        field.append(label,input);
+        grid.appendChild(field);
+      });
+      statusSection.appendChild(grid);
+      content.appendChild(statusSection);
+      const actions=document.createElement('div');
+      actions.className='nsf-status-modal-actions';
+      const resetBtn=document.createElement('button');
+      resetBtn.type='button';
+      resetBtn.className='nsf-status-modal-button secondary';
+      resetBtn.textContent='Zurücksetzen';
+      resetBtn.addEventListener('click',()=>{
+        const defaults=createDefaultRoutineFindingsStatusConfig();
+        workingConfig={
+          template:defaults.template,
+          statuses:defaults.statuses.map(entry=>({
+            key:entry.key,
+            label:entry.label,
+            display:entry.display
+          }))
+        };
+        templateInput.value=workingConfig.template||'';
+        const inputs=grid.querySelectorAll('input.nsf-status-modal-input');
+        workingConfig.statuses.forEach((entry,index)=>{
+          const input=inputs[index];
+          if(input) input.value=entry.display||'';
+        });
+        this.setRoutineFindingsStatusConfig(workingConfig);
+      });
+      const closeAction=document.createElement('button');
+      closeAction.type='button';
+      closeAction.className='nsf-status-modal-button';
+      closeAction.textContent='Schließen';
+      closeAction.addEventListener('click',()=>this.closeRoutineStatusModal());
+      actions.append(resetBtn,closeAction);
+      content.appendChild(actions);
+      dialog.appendChild(content);
+      overlay.addEventListener('click',event=>{
+        if(event.target===overlay) this.closeRoutineStatusModal();
+      });
+      const keyHandler=event=>{
+        if(event.key==='Escape'){
+          event.preventDefault();
+          this.closeRoutineStatusModal();
+        }
+      };
+      document.addEventListener('keydown',keyHandler);
+      this.routineStatusModalKeyHandler=keyHandler;
+      document.body.appendChild(overlay);
+      this.routineStatusBodyOverflow=document.body.style.overflow;
+      document.body.style.overflow='hidden';
+      this.routineStatusOverlay=overlay;
+      requestAnimationFrame(()=>overlay.focus());
+    }
+
     openFindingJsonModal(sourceEntries,context={}){
       if(this.destroyed) return;
       const entries=Array.isArray(sourceEntries)?sourceEntries.filter(src=>src&&typeof src==='object'):[];
@@ -6217,6 +6495,11 @@
         this.routineEditorState.freitextTemplates=createDefaultFreitextTemplates();
       }else{
         this.routineEditorState.freitextTemplates=normalizeFreitextTemplates(this.routineEditorState.freitextTemplates);
+      }
+      if(!this.routineEditorState.routineStatusNotice||typeof this.routineEditorState.routineStatusNotice!=='object'){
+        this.routineEditorState.routineStatusNotice=createDefaultRoutineFindingsStatusConfig();
+      }else{
+        this.routineEditorState.routineStatusNotice=normalizeRoutineFindingsStatusConfig(this.routineEditorState.routineStatusNotice);
       }
       if(typeof tabKey!=='string'){
         return this.routineEditorState;
@@ -6431,6 +6714,18 @@
       });
       menu.appendChild(editBtn);
 
+      if(targetTab==='routine'){
+        const statusBtn=document.createElement('button');
+        statusBtn.type='button';
+        statusBtn.className='nsf-editor-menu-btn';
+        statusBtn.textContent='Routine-Status konfigurieren';
+        statusBtn.addEventListener('click',()=>{
+          this.closeRoutineEditorMenu();
+          this.openRoutineStatusModal();
+        });
+        menu.appendChild(statusBtn);
+      }
+
       document.body.appendChild(menu);
       const rect=menu.getBoundingClientRect();
       const maxLeft=Math.max(0,window.innerWidth-rect.width-12);
@@ -6571,7 +6866,9 @@
       if(!id) return;
       const preset=this.routineEditorPresets.find(entry=>entry.id===id);
       if(!preset) return;
+      const statusConfig=this.getRoutineFindingsStatusConfig();
       const state=cloneRoutineEditorState(preset.state);
+      state.routineStatusNotice=normalizeRoutineFindingsStatusConfig(statusConfig);
       this.routineEditorState=state;
       this.saveRoutineEditorState(state);
       this.updateAspenBlocksFromDoc();
@@ -8607,37 +8904,33 @@
     }
 
     getRoutineFindingsStatusNotice(){
-      const statusLookup=new Map([
-        ['mishandling','Mishandling'],
-        ['sru exchange mishandling','Mishandling'],
-        ['missing parts','Missing Parts'],
-        ['sru exchange missing parts','Missing Parts'],
-        ['abnormal wear and tear','Abnormal wear and tear'],
-        ['sru exchange abnormal wear and tear','Abnormal wear and tear']
-      ]);
+      const config=this.getRoutineFindingsStatusConfig();
       const found=new Set();
       const selections=Array.isArray(this.selectedEntries)?this.selectedEntries:[];
       selections.forEach(selection=>{
         const normalized=normalizeFindingStatus(selection?.status||'');
         if(!normalized) return;
-        const base=statusLookup.get(normalized.toLowerCase());
-        if(base) found.add(base);
+        const matchedKey=ROUTINE_FINDINGS_STATUS_MATCH_MAP.get(normalized.toLowerCase());
+        if(matchedKey) found.add(matchedKey);
       });
       if(!found.size) return '';
-      const order=['Mishandling','Missing Parts','Abnormal wear and tear'];
-      const displayMap={
-        'Mishandling':'Mishandling',
-        'Missing Parts':'Missing Parts',
-        'Abnormal wear and tear':'abnormal wear and tear'
-      };
-      const items=order.filter(item=>found.has(item)).map(item=>displayMap[item]||item);
+      const statusMap=new Map(
+        (config.statuses||[]).map(entry=>[entry.key,entry.display||entry.label])
+      );
+      const order=ROUTINE_FINDINGS_STATUS_ENTRIES.map(entry=>entry.key);
+      const items=order.filter(item=>found.has(item)).map(item=>statusMap.get(item)||item);
       if(!items.length) return '';
+      let template=typeof config.template==='string'?config.template.trim():'';
+      if(!template) template=ROUTINE_FINDINGS_NOTICE_DEFAULT_TEMPLATE;
       const joinList=list=>{
         if(list.length===1) return list[0];
         if(list.length===2) return `${list[0]} and ${list[1]}`;
         return `${list.slice(0,-1).join(', ')} and ${list[list.length-1]}`;
       };
-      return `${joinList(items)} filled in the Non Routine tab.`;
+      const payload=joinList(items);
+      return template.includes('{items}')
+        ?template.replace(/\{items\}/g,payload)
+        :template;
     }
 
     expandPlaceholders(text,options={}){
