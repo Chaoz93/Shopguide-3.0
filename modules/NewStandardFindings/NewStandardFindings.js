@@ -1666,9 +1666,9 @@
       .nsf-input-row{position:relative;background:rgba(15,23,42,0.18);border-radius:0.85rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.35rem;z-index:1;}
       .nsf-input-row.show-suggestions{z-index:120;}
       .nsf-input-controls{display:flex;align-items:center;gap:0.5rem;}
-      .nsf-status-select{min-width:180px;max-width:240px;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid rgba(15,23,42,0.15);border-radius:0.65rem;padding:0.5rem 0.6rem;font:inherit;}
+      .nsf-status-select{flex:1 1 0;min-width:0;max-width:40%;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);border:1px solid rgba(15,23,42,0.15);border-radius:0.65rem;padding:0.5rem 0.6rem;font:inherit;}
       .nsf-status-select:disabled{opacity:0.6;cursor:not-allowed;background:rgba(255,255,255,0.65);}
-      .nsf-input-field{position:relative;display:flex;align-items:center;width:100%;gap:0.35rem;flex:1;}
+      .nsf-input-field{position:relative;display:flex;align-items:center;width:100%;gap:0.35rem;flex:0 0 60%;max-width:60%;}
       .nsf-input-row.locked{background:rgba(15,23,42,0.28);}
       .nsf-remove-btn{position:absolute;top:50%;right:0.45rem;transform:translateY(-50%);background:rgba(248,113,113,0.25);border:none;border-radius:999px;color:inherit;width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;opacity:0.9;transition:background 0.15s ease,opacity 0.15s ease,transform 0.15s ease;}
       .nsf-remove-btn:hover{background:rgba(248,113,113,0.4);opacity:1;transform:translateY(-50%) scale(1.05);}
@@ -5675,12 +5675,12 @@
           const labelCandidate=clean(resolved.label||selection.label||'');
           if(labelCandidate) primaryLabel=labelCandidate;
         }
-        const nonroutineCandidates=[resolved.nonroutineFinding||'',resolved.nonroutine||''];
-        nonroutineCandidates.forEach(text=>{
-          const stripped=stripNonRoutineFindingPrefix(text);
+        const nonroutineText=resolved.nonroutineFinding||resolved.nonroutine||selection.nonroutineFinding||selection.nonroutine||'';
+        if(nonroutineText){
+          const stripped=stripNonRoutineFindingPrefix(nonroutineText);
           const sanitized=sanitizeNonRoutineOutput(stripped);
           pushLines('nonroutine',sanitized);
-        });
+        }
         const routineText=this.buildRoutineOutput(resolved);
         pushBlock('routine',routineText);
         collectTimes(resolved);
