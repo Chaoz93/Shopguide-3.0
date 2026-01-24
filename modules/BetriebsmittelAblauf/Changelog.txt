@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.3.2] – 2026-01-24
+### Added
+- Kurzform-Eingaben im Ablaufmonat (z. B. 1026/102026/126) werden automatisch als Monat/Jahr interpretiert.
+
 ## [1.3.1] – 2026-01-24
 ### Fixed
 - Doppelten Mailvordruck-Button in den Aktionen entfernt.

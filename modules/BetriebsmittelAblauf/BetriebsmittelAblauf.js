@@ -246,6 +246,37 @@
     return { year, month };
   }
 
+  function parseCompactMonthInput(value){
+    if(!value) return null;
+    if(value.includes('-')) return null;
+    const digits = value.replace(/\D/g, '');
+    if(digits.length < 3) return null;
+    let month = null;
+    let year = null;
+    if(digits.length === 3){
+      month = Number(digits.slice(0, 1));
+      year = 2000 + Number(digits.slice(1, 3));
+    }else if(digits.length === 4){
+      month = Number(digits.slice(0, 2));
+      year = 2000 + Number(digits.slice(2, 4));
+    }else if(digits.length === 5){
+      month = Number(digits.slice(0, 1));
+      year = Number(digits.slice(1, 5));
+    }else{
+      month = Number(digits.slice(0, 2));
+      year = Number(digits.slice(2, 6));
+    }
+    if(!Number.isFinite(month) || !Number.isFinite(year)) return null;
+    if(month < 1 || month > 12) return null;
+    return `${year}-${String(month).padStart(2, '0')}`;
+  }
+
+  function normalizeMonthInput(value){
+    if(!value) return '';
+    if(value.includes('-')) return value;
+    return parseCompactMonthInput(value) || '';
+  }
+
   function formatMonth(value){
     const parsed = parseMonth(value);
     if(!parsed) return '-';
@@ -828,7 +859,14 @@
 
     function saveItem(){
       const name = formFields.name.value.trim();
-      const month = formFields.month.value;
+      let month = formFields.month.value.trim();
+      const normalizedMonth = normalizeMonthInput(month);
+      if(normalizedMonth){
+        month = normalizedMonth;
+        formFields.month.value = normalizedMonth;
+      }else if(!month || !month.includes('-')){
+        month = '';
+      }
       if(!name || !month){
         alert('Bitte Name und Ablaufmonat angeben.');
         return;
@@ -1129,6 +1167,12 @@
     if(swapFields.cancel){
       swapFields.cancel.addEventListener('click', resetForm);
     }
+    formFields.month.addEventListener('blur', () => {
+      const normalizedMonth = normalizeMonthInput(formFields.month.value.trim());
+      if(normalizedMonth){
+        formFields.month.value = normalizedMonth;
+      }
+    });
     searchInput.addEventListener('input', renderList);
     statusSelect.addEventListener('change', renderList);
     sortSelect.addEventListener('change', renderList);
