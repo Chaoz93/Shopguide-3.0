@@ -48,6 +48,9 @@
       .bma-form label{display:flex;flex-direction:column;gap:.3rem;font-size:.75rem;text-transform:uppercase;letter-spacing:.08rem;opacity:.75;}
       .bma-form input,.bma-form select,.bma-form textarea{background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.25);color:inherit;border-radius:.6rem;padding:.45rem .6rem;font-size:.85rem;}
       .bma-form textarea{min-height:70px;resize:vertical;}
+      .bma-swap-banner{display:flex;flex-direction:column;gap:.35rem;padding:.6rem .75rem;border-radius:.75rem;background:rgba(148,163,184,.15);border:1px dashed rgba(148,163,184,.35);font-size:.8rem;}
+      .bma-swap-title{font-weight:700;}
+      .bma-swap-actions{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;}
       .bma-reminder-options{display:flex;flex-wrap:wrap;gap:.5rem;}
       .bma-reminder-chip{display:flex;align-items:center;gap:.35rem;padding:.3rem .55rem;border-radius:.6rem;background:rgba(148,163,184,.18);font-size:.78rem;}
       .bma-form-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
@@ -394,6 +397,10 @@
               <input type="text" class="bma-input-name" placeholder="z. B. Druckmessgerät" />
             </label>
             <label>
+              Betriebsmittelnummer (optional)
+              <input type="text" class="bma-input-asset" placeholder="z. B. BM-2048" />
+            </label>
+            <label>
               Kategorie
               <select class="bma-input-type">
                 <option value="Gerät">Gerät</option>
@@ -419,6 +426,14 @@
             Beschreibung
             <textarea class="bma-input-desc" placeholder="Kurzinfo, Standort, Seriennummer..."></textarea>
           </label>
+          <div class="bma-swap-banner" data-bma-swap>
+            <div class="bma-swap-title">Tauschmodus aktiv</div>
+            <div class="bma-swap-info" data-bma-swap-info></div>
+            <div class="bma-swap-actions">
+              <label class="bma-reminder-chip"><input type="checkbox" class="bma-swap-delete" /> Altes Gerät nach dem Speichern löschen</label>
+              <button type="button" class="bma-btn bma-btn-secondary bma-swap-cancel">Tausch abbrechen</button>
+            </div>
+          </div>
           <div class="bma-hint">Tipp: Mit Enter springst du zum nächsten Feld, mit Strg+Enter speicherst du sofort.</div>
           <div>
             <div class="bma-hint">Reminder setzen (Standard: 7 Tage vorher + am Tag des Ablaufs).</div>
@@ -484,6 +499,7 @@
 
     const formFields = {
       name: root.querySelector('.bma-input-name'),
+      asset: root.querySelector('.bma-input-asset'),
       type: root.querySelector('.bma-input-type'),
       month: root.querySelector('.bma-input-month'),
       kind: root.querySelector('.bma-input-kind'),
@@ -492,6 +508,17 @@
       remZero: root.querySelector('.bma-reminder-zero'),
       remExtra: root.querySelector('.bma-reminder-extra')
     };
+
+    const swapFields = {
+      banner: root.querySelector('[data-bma-swap]'),
+      info: root.querySelector('[data-bma-swap-info]'),
+      deleteOld: root.querySelector('.bma-swap-delete'),
+      cancel: root.querySelector('.bma-swap-cancel')
+    };
+
+    if(swapFields.banner){
+      swapFields.banner.style.display = 'none';
+    }
 
     const settingsFields = {
       cardLayer: root.querySelector('.bma-setting-card-layer'),
@@ -513,6 +540,7 @@
     const settingsSaveBtn = root.querySelector('.bma-settings-save');
 
     let editId = null;
+    let swapSourceId = null;
 
     function persist(){
       saveDoc(doc);
@@ -573,12 +601,23 @@
 
     function resetForm(){
       formFields.name.value = '';
+      formFields.asset.value = '';
       formFields.desc.value = '';
       formFields.month.value = '';
       formFields.type.value = 'Gerät';
       formFields.kind.value = 'DGUV';
       setDefaultReminderFields();
       editId = null;
+      swapSourceId = null;
+      if(swapFields.banner){
+        swapFields.banner.style.display = 'none';
+      }
+      if(swapFields.info){
+        swapFields.info.textContent = '';
+      }
+      if(swapFields.deleteOld){
+        swapFields.deleteOld.checked = false;
+      }
       cancelBtn.style.display = 'none';
       saveBtn.textContent = 'Eintrag speichern';
     }
@@ -595,6 +634,39 @@
       return normalizeReminders(list);
     }
 
+    function buildMailTemplate(item){
+      const subject = `Betriebsmittel bei mir: ${item.name}`;
+      const assetLine = item.assetNumber ? `Betriebsmittelnummer: ${item.assetNumber}` : 'Betriebsmittelnummer: (nicht hinterlegt)';
+      const bodyLines = [
+        `Hallo zusammen,`,
+        '',
+        `das folgende Betriebsmittel befindet sich aktuell bei mir:`,
+        `- Name: ${item.name}`,
+        `- Kategorie: ${item.type}`,
+        `- Prüftyp: ${item.kind}`,
+        `- Ablaufmonat: ${formatMonth(item.expiryMonth)} (${formatDate(item.expiryDate)})`,
+        `- ${assetLine}`,
+        item.desc ? `- Hinweis: ${item.desc}` : null,
+        '',
+        `Bitte berücksichtigt den Standort bzw. aktualisiert die Trackbarkeit.`,
+        '',
+        `Danke & viele Grüße`
+      ].filter(Boolean);
+      return { subject, body: bodyLines.join('\n') };
+    }
+
+    function copyMailTemplate(item){
+      const template = buildMailTemplate(item);
+      const content = `Betreff: ${template.subject}\n\n${template.body}`;
+      if(navigator?.clipboard?.writeText){
+        navigator.clipboard.writeText(content)
+          .then(() => alert('Mailvordruck wurde in die Zwischenablage kopiert.'))
+          .catch(() => prompt('Kopiere den Mailvordruck:', content));
+      }else{
+        prompt('Kopiere den Mailvordruck:', content);
+      }
+    }
+
     function saveItem(){
       const name = formFields.name.value.trim();
       const month = formFields.month.value;
@@ -602,9 +674,11 @@
         alert('Bitte Name und Ablaufmonat angeben.');
         return;
       }
+      const assetNumber = formFields.asset.value.trim();
       const item = {
         id: editId || `item-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
         name,
+        assetNumber: assetNumber || '',
         type: formFields.type.value,
         kind: formFields.kind.value,
         desc: formFields.desc.value.trim(),
@@ -619,6 +693,12 @@
         }
       }else{
         state.items.push(item);
+      }
+      if(!editId && swapSourceId && swapFields.deleteOld?.checked){
+        const idx = state.items.findIndex(entry => entry.id === swapSourceId);
+        if(idx >= 0){
+          state.items.splice(idx, 1);
+        }
       }
       persist();
       resetForm();
@@ -640,6 +720,7 @@
     function setupFormNavigation(){
       const orderedFields = [
         formFields.name,
+        formFields.asset,
         formFields.type,
         formFields.month,
         formFields.kind,
@@ -674,7 +755,9 @@
 
     function editItem(item){
       editId = item.id;
+      swapSourceId = null;
       formFields.name.value = item.name;
+      formFields.asset.value = item.assetNumber || '';
       formFields.type.value = item.type;
       formFields.kind.value = item.kind;
       formFields.desc.value = item.desc || '';
@@ -685,6 +768,36 @@
       formFields.remExtra.value = extras.join(', ');
       saveBtn.textContent = 'Änderungen speichern';
       cancelBtn.style.display = 'inline-flex';
+      if(swapFields.banner){
+        swapFields.banner.style.display = 'none';
+      }
+      formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function startSwap(item){
+      editId = null;
+      swapSourceId = item.id;
+      formFields.name.value = item.name;
+      formFields.asset.value = item.assetNumber || '';
+      formFields.type.value = item.type;
+      formFields.kind.value = item.kind;
+      formFields.desc.value = item.desc || '';
+      formFields.month.value = '';
+      formFields.remSeven.checked = (item.reminders || []).includes(7);
+      formFields.remZero.checked = (item.reminders || []).includes(0);
+      const extras = (item.reminders || []).filter(val => val !== 7 && val !== 0);
+      formFields.remExtra.value = extras.join(', ');
+      saveBtn.textContent = 'Tausch speichern';
+      cancelBtn.style.display = 'none';
+      if(swapFields.banner){
+        swapFields.banner.style.display = 'flex';
+      }
+      if(swapFields.info){
+        swapFields.info.textContent = `Altgerät: ${item.name} (${formatMonth(item.expiryMonth)})`;
+      }
+      if(swapFields.deleteOld){
+        swapFields.deleteOld.checked = true;
+      }
       formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -708,7 +821,7 @@
 
       const filtered = sorted.filter(item => {
         if(query){
-          const haystack = `${item.name} ${item.type} ${item.kind} ${item.desc}`.toLowerCase();
+          const haystack = `${item.name} ${item.type} ${item.kind} ${item.desc} ${item.assetNumber || ''}`.toLowerCase();
           if(!haystack.includes(query)) return false;
         }
         if(status === 'all') return true;
@@ -769,6 +882,7 @@
           <div class="bma-row">
             <span class="bma-pill">Ablauf: ${formatMonth(item.expiryMonth)}</span>
             <span class="bma-pill">Stichtag: ${formatDate(item.expiryDate)}</span>
+            ${item.assetNumber ? `<span class="bma-pill">Betriebsmittel-Nr.: ${item.assetNumber}</span>` : ''}
             ${nextReminder ? `<span class="bma-pill bma-tag-accent">Nächster Reminder: ${formatDate(nextReminder.date)}</span>` : ''}
           </div>
           <div class="bma-desc">${item.desc ? item.desc : 'Keine Beschreibung hinterlegt.'}</div>
@@ -782,10 +896,14 @@
           </div>
           <div class="bma-item-actions">
             <button type="button" class="primary" data-action="edit">Bearbeiten</button>
+            <button type="button" data-action="swap">Tauschen</button>
+            <button type="button" data-action="mail">Mailvordruck</button>
             <button type="button" data-action="delete">Löschen</button>
           </div>
         `;
         card.querySelector('[data-action="edit"]').addEventListener('click', () => editItem(item));
+        card.querySelector('[data-action="swap"]').addEventListener('click', () => startSwap(item));
+        card.querySelector('[data-action="mail"]').addEventListener('click', () => copyMailTemplate(item));
         card.querySelector('[data-action="delete"]').addEventListener('click', () => deleteItem(item.id));
         listEl.appendChild(card);
       });
@@ -822,6 +940,9 @@
 
     saveBtn.addEventListener('click', saveItem);
     cancelBtn.addEventListener('click', resetForm);
+    if(swapFields.cancel){
+      swapFields.cancel.addEventListener('click', resetForm);
+    }
     searchInput.addEventListener('input', renderList);
     statusSelect.addEventListener('change', renderList);
     sortSelect.addEventListener('change', renderList);

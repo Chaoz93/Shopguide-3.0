@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.2.0] – 2026-01-24
+### Added
+- Optionales Feld für Betriebsmittelnummern ergänzt und in der Suche berücksichtigt.
+- Mailvordruck pro Eintrag ergänzt, um den aktuellen Gerätestandort zu kommunizieren.
+- Tauschmodus hinzugefügt, um Altgeräte durch neue Einträge zu ersetzen und optional zu löschen.
+
 ## [1.1.0] – 2026-01-24
 ### Added
 - Tastatur-Workflow für die Geräteeingabe ergänzt (Enter zum Weiter, Strg+Enter zum Speichern).
