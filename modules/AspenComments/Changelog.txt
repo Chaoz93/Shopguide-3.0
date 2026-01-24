@@ -5,6 +5,13 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.0] – 2026-01-24
+### Added
+- Umschalter im Modal, um Meldung, Partnummer und Seriennummer als Copy-Buttons ein- oder auszublenden.
+
+### Changed
+- Meldung, Partnummer und Seriennummer sind standardmäßig ausgeblendet und erscheinen erst nach Aktivierung im Modal.
+
 ## [1.3.0] – 2025-10-23
 ### Added
 - Einstellung zum Ausblenden des Modulnamens und neue Voreinstellung zum Starten mit eingeklappten Dateifeldern.

@@ -30,8 +30,15 @@
     .dc-value-pill.is-empty{background:rgba(20,44,74,.68);color:rgba(217,229,247,.78);}
     .dc-unit{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;}
     .dc-field{background:rgba(20,44,74,.82);color:var(--module-header-text,#fff);border-radius:.85rem;padding:.6rem .85rem;box-shadow:0 14px 30px rgba(12,24,41,.48);border:1px solid rgba(76,114,163,.32);}
+    .dc-field.is-hidden{display:none;}
     .dc-field-label{font-size:.78rem;opacity:.95;text-transform:uppercase;letter-spacing:.04em;color:rgba(226,232,240,.85);}
     .dc-field-value{font-weight:700;font-size:1.05rem;color:#fff;}
+    .dc-copy-btn{appearance:none;border:none;background:none;color:inherit;font:inherit;padding:0;text-align:left;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;}
+    .dc-copy-btn::after{content:'⧉';font-size:.85rem;opacity:.75;}
+    .dc-copy-btn.is-empty{opacity:.65;cursor:not-allowed;}
+    .dc-copy-btn:disabled{opacity:.55;cursor:not-allowed;}
+    .dc-copy-btn:disabled::after{opacity:.4;}
+    .dc-copy-btn:focus-visible{outline:2px solid rgba(191,219,254,.85);outline-offset:2px;border-radius:.35rem;}
     .dc-editor{flex:1;display:flex;flex-direction:column;gap:.45rem;}
     .dc-editor-label{font-weight:600;font-size:.9rem;color:var(--text-color);}
     .dc-textarea{flex:1;min-height:180px;border-radius:.8rem;border:1px solid var(--border-color,#d1d5db);padding:.65rem .75rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);resize:vertical;}
@@ -65,6 +72,9 @@
     .dc-modal-select-label{font-size:.82rem;font-weight:600;opacity:.85;}
     .dc-modal-select{width:100%;padding:.55rem .75rem;border-radius:.7rem;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.58);color:inherit;font:inherit;box-shadow:0 12px 28px rgba(8,15,35,.35);}
     .dc-modal-select:disabled{opacity:.6;cursor:not-allowed;}
+    .dc-modal-toggles{display:flex;flex-direction:column;gap:.6rem;}
+    .dc-toggle-row{display:flex;align-items:center;gap:.55rem;font-size:.9rem;font-weight:600;}
+    .dc-toggle-row input{accent-color:#3b82f6;width:1rem;height:1rem;}
   `;
 
   const XLSX_URLS=[
@@ -327,17 +337,17 @@
         <span class="dc-compact-pill is-empty" data-comments-summary>Keine Datei</span>
       </div>
       <div class="dc-unit">
-        <div class="dc-field">
+        <div class="dc-field" data-field="meldung">
           <div class="dc-field-label">Meldung</div>
-          <div class="dc-field-value" data-meldung>—</div>
+          <button type="button" class="dc-field-value dc-copy-btn" data-copy="meldung" data-meldung>—</button>
         </div>
-        <div class="dc-field">
+        <div class="dc-field" data-field="part">
           <div class="dc-field-label">Partnummer</div>
-          <div class="dc-field-value" data-part>—</div>
+          <button type="button" class="dc-field-value dc-copy-btn" data-copy="part" data-part>—</button>
         </div>
-        <div class="dc-field">
+        <div class="dc-field" data-field="serial">
           <div class="dc-field-label">Seriennummer</div>
-          <div class="dc-field-value" data-serial>—</div>
+          <button type="button" class="dc-field-value dc-copy-btn" data-copy="serial" data-serial>—</button>
         </div>
       </div>
       <div class="dc-editor">
@@ -368,6 +378,15 @@
             <div class="dc-modal-actions">
               <button type="button" class="dc-action-btn" data-action="pick-aspen">📄 Aspen-Datei wählen</button>
               <button type="button" class="dc-action-btn secondary" data-action="reload-aspen">🔁 Aspen neu laden</button>
+            </div>
+          </section>
+          <section class="dc-modal-section">
+            <h3>Anzeige & Copy</h3>
+            <p>Aktiviere Meldung, Partnummer und Seriennummer für die Ansicht und als Copy-Buttons.</p>
+            <div class="dc-modal-toggles">
+              <label class="dc-toggle-row"><input type="checkbox" data-toggle-visibility="meldung"> Meldung anzeigen</label>
+              <label class="dc-toggle-row"><input type="checkbox" data-toggle-visibility="part"> Partnummer anzeigen</label>
+              <label class="dc-toggle-row"><input type="checkbox" data-toggle-visibility="serial"> Seriennummer anzeigen</label>
             </div>
           </section>
           <section class="dc-modal-section">
@@ -406,6 +425,12 @@
       meldung:root.querySelector('[data-meldung]'),
       part:root.querySelector('[data-part]'),
       serial:root.querySelector('[data-serial]'),
+      meldungField:root.querySelector('[data-field="meldung"]'),
+      partField:root.querySelector('[data-field="part"]'),
+      serialField:root.querySelector('[data-field="serial"]'),
+      toggleMeldung:modalOverlay.querySelector('[data-toggle-visibility="meldung"]'),
+      togglePart:modalOverlay.querySelector('[data-toggle-visibility="part"]'),
+      toggleSerial:modalOverlay.querySelector('[data-toggle-visibility="serial"]'),
       textarea:root.querySelector('.dc-textarea'),
       note:root.querySelector('[data-note]')
     };
@@ -822,6 +847,38 @@
     }
   }
 
+  function setCopyButton(button,value,label){
+    if(!button) return;
+    const text=trim(value);
+    const hasValue=!!text;
+    button.textContent=text||'—';
+    button.dataset.copyValue=text||'';
+    button.classList.toggle('is-empty',!hasValue);
+    button.disabled=!hasValue;
+    const title=hasValue?`${label} kopieren`:`${label} nicht verfügbar`;
+    button.setAttribute('title',title);
+    button.setAttribute('aria-label',title);
+  }
+
+  async function copyToClipboard(text){
+    if(!text) return false;
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    const helper=document.createElement('textarea');
+    helper.value=text;
+    helper.setAttribute('readonly','');
+    helper.style.position='fixed';
+    helper.style.opacity='0';
+    document.body.appendChild(helper);
+    helper.focus();
+    helper.select();
+    const ok=document.execCommand('copy');
+    helper.remove();
+    return ok;
+  }
+
   window.renderAspenComments=async function(targetDiv,opts){
     injectStyles();
     if(!('showOpenFilePicker' in window) || !('showSaveFilePicker' in window)){
@@ -833,6 +890,9 @@
     const title=settings.title||'';
     const showTitle=settings.showTitle!==false;
     const defaultCollapsed=!!settings.collapseFilePanel;
+    const defaultShowMeldung=!!settings.showMeldung;
+    const defaultShowPart=!!settings.showPart;
+    const defaultShowSerial=!!settings.showSerial;
     const instanceId=instanceIdOf(targetDiv);
     const handleKey=`unitComments:comments:${instanceId}`;
     const aspenHandleKey=`unitComments:aspen:${instanceId}`;
@@ -865,7 +925,10 @@
       writeTimer:null,
       updatingTextarea:false,
       baseNote:null,
-      statusCollapsed:defaultCollapsed
+      statusCollapsed:defaultCollapsed,
+      showMeldung:defaultShowMeldung,
+      showPart:defaultShowPart,
+      showSerial:defaultShowSerial
     };
 
     let aspenLoadPromise=null;
@@ -891,6 +954,15 @@
       }
       if(typeof stored.statusCollapsed==='boolean'){
         state.statusCollapsed=stored.statusCollapsed;
+      }
+      if(typeof stored.showMeldung==='boolean'){
+        state.showMeldung=stored.showMeldung;
+      }
+      if(typeof stored.showPart==='boolean'){
+        state.showPart=stored.showPart;
+      }
+      if(typeof stored.showSerial==='boolean'){
+        state.showSerial=stored.showSerial;
       }
       if(Array.isArray(stored.comments)){
         stored.comments.forEach(entry=>{
@@ -928,9 +1000,35 @@
           comment:entry.comment||'',
           meldung:entry.meldung||''
         })),
-        statusCollapsed:!!state.statusCollapsed
+        statusCollapsed:!!state.statusCollapsed,
+        showMeldung:!!state.showMeldung,
+        showPart:!!state.showPart,
+        showSerial:!!state.showSerial
       };
       saveLocalState(instanceId,payload);
+    }
+
+    function applyIdentifierVisibility(){
+      if(elements.meldungField){
+        elements.meldungField.classList.toggle('is-hidden',!state.showMeldung);
+      }
+      if(elements.partField){
+        elements.partField.classList.toggle('is-hidden',!state.showPart);
+      }
+      if(elements.serialField){
+        elements.serialField.classList.toggle('is-hidden',!state.showSerial);
+      }
+      if(elements.toggleMeldung) elements.toggleMeldung.checked=!!state.showMeldung;
+      if(elements.togglePart) elements.togglePart.checked=!!state.showPart;
+      if(elements.toggleSerial) elements.toggleSerial.checked=!!state.showSerial;
+    }
+
+    function updateVisibilitySetting(key,enabled){
+      if(key==='meldung') state.showMeldung=!!enabled;
+      if(key==='part') state.showPart=!!enabled;
+      if(key==='serial') state.showSerial=!!enabled;
+      applyIdentifierVisibility();
+      persistState();
     }
 
     function applyStatusCollapsed(collapsed){
@@ -956,6 +1054,7 @@
     }
 
     applyStatusCollapsed(state.statusCollapsed);
+    applyIdentifierVisibility();
     elements.statusToggle?.addEventListener('click',()=>{
       applyStatusCollapsed(!state.statusCollapsed);
       persistState();
@@ -1409,8 +1508,8 @@
       }
       state.activePart=part;
       state.activeSerial=serial;
-      elements.part.textContent=part||'—';
-      elements.serial.textContent=serial||'—';
+      setCopyButton(elements.part,part,'Partnummer');
+      setCopyButton(elements.serial,serial,'Seriennummer');
       updateGeneralPartSerial(state,part,serial);
       updateTextareaState();
       refreshBaseNote();
@@ -1421,7 +1520,7 @@
       const changed=current!==state.activeMeldung;
       if(changed||force){
         state.activeMeldung=current;
-        elements.meldung.textContent=current||'—';
+        setCopyButton(elements.meldung,current,'Meldung');
         updateAspenSelectOptions();
       }
       updateUnitInfo();
@@ -1607,6 +1706,13 @@
       else if(action==='clear-comment') clearActiveComment();
     });
 
+    elements.modalOverlay.addEventListener('change',event=>{
+      const input=event.target.closest('input[data-toggle-visibility]');
+      if(!input) return;
+      const key=input.dataset.toggleVisibility;
+      updateVisibilitySetting(key,input.checked);
+    });
+
     const aspenSelect=elements.aspenSelect;
     if(aspenSelect){
       aspenSelect.addEventListener('change',()=>{
@@ -1652,6 +1758,24 @@
     elements.textarea.addEventListener('input',()=>{
       if(state.updatingTextarea) return;
       updateCommentEntry(elements.textarea.value);
+    });
+
+    elements.root.addEventListener('click',event=>{
+      const button=event.target.closest('[data-copy]');
+      if(!button || !elements.root.contains(button)) return;
+      const value=button.dataset.copyValue||'';
+      if(!value) return;
+      const key=button.dataset.copy||'';
+      const labelMap={meldung:'Meldung',part:'Partnummer',serial:'Seriennummer'};
+      const label=labelMap[key]||'Wert';
+      copyToClipboard(value)
+        .then(ok=>{
+          if(ok) flashNote(`${label} kopiert`,'success',1400);
+          else flashNote('Kopieren fehlgeschlagen','error',2000);
+        })
+        .catch(()=>{
+          flashNote('Kopieren fehlgeschlagen','error',2000);
+        });
     });
 
     const storageListener=event=>{
