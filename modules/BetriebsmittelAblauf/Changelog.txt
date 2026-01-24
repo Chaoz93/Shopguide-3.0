@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.1.0] – 2026-01-24
+### Added
+- Tastatur-Workflow für die Geräteeingabe ergänzt (Enter zum Weiter, Strg+Enter zum Speichern).
+
 ## [1.0.0] – 2026-01-24
 ### Added
 - Neues Modul zum Verwalten von Betriebsmitteln mit Ablaufmonat, Reminder-Logik und Statusübersicht hinzugefügt.
