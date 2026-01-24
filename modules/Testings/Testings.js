@@ -23,8 +23,16 @@
       .ts-file{font-size:.85rem;opacity:.85;}
       .ts-table-wrap{flex:1;overflow:auto;border-radius:.75rem;border:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.3)));}
       .ts-table{width:100%;border-collapse:collapse;font-size:.82rem;}
-      .ts-table th,.ts-table td{padding:.35rem .5rem;border-bottom:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.15)));vertical-align:top;}
+      .ts-table th,.ts-table td{padding:.35rem .5rem;border-right:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.2)));vertical-align:top;}
+      .ts-table th:last-child,.ts-table td:last-child{border-right:none;}
       .ts-table thead th{position:sticky;top:0;background:var(--testing-main-bg,var(--module-bg,rgba(15,23,42,.85)));z-index:1;text-align:left;font-weight:600;}
+      .ts-table tbody tr:not(.ts-block-row) td{border-bottom:none;}
+      .ts-data-row{background:linear-gradient(90deg,var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25))) 0 6px,transparent 6px);}
+      .ts-row--block-start td{border-top:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));}
+      .ts-block-row td{padding:.45rem .6rem;font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;background:var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25)));color:var(--testing-alt-text,var(--text-color,#fff));border-top:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));border-bottom:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));}
+      .ts-block-label{display:inline-flex;align-items:center;gap:.35rem;}
+      .ts-block-label::before{content:'';width:.6rem;height:.6rem;border-radius:.2rem;background:var(--testing-accent-bg,var(--module-bg,rgba(59,130,246,.45)));border:1px solid var(--testing-accent-border,transparent);}
+      .ts-block-title{font-weight:500;text-transform:none;letter-spacing:normal;opacity:.85;margin-left:.35rem;}
       .ts-row--go{background:color-mix(in srgb,var(--testing-accent-bg,var(--module-bg,#1e293b)) 18%, transparent);}
       .ts-row--nogo{background:color-mix(in srgb,var(--testing-alt-bg,var(--module-bg,#0f172a)) 28%, transparent);}
       .ts-row--warn{background:color-mix(in srgb,var(--testing-main-bg,var(--module-bg,#0f172a)) 40%, transparent);}
@@ -446,8 +454,22 @@
     function renderTable(){
       tableBody.innerHTML = '';
       rowEls = [];
+      let currentBlock = null;
       rows.forEach((row, idx) => {
+        const blockChanged = row.block !== null && row.block !== currentBlock;
+        if(blockChanged){
+          const blockRow = document.createElement('tr');
+          blockRow.className = 'ts-block-row';
+          const blockCell = document.createElement('td');
+          blockCell.colSpan = 12;
+          blockCell.innerHTML = `<span class="ts-block-label">Block ${row.block}</span>${row.title ? `<span class="ts-block-title">– ${row.title}</span>` : ''}`;
+          blockRow.appendChild(blockCell);
+          tableBody.appendChild(blockRow);
+          currentBlock = row.block;
+        }
         const tr = document.createElement('tr');
+        tr.classList.add('ts-data-row');
+        if(blockChanged) tr.classList.add('ts-row--block-start');
         rowEls[idx] = tr;
         const baseCells = row.raw.map(value => {
           const td = document.createElement('td');
