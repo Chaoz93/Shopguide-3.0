@@ -31,10 +31,20 @@
       color:inherit;font-size:clamp(.9rem,.9vw + .2vh,1.05rem);font-weight:600;letter-spacing:.2px;
       box-shadow:0 6px 16px rgba(8,15,35,.25);transition:transform .12s ease,box-shadow .12s ease,background .12s ease;
     }
+    .tabnav-button-content{display:flex;align-items:center;justify-content:center;gap:.5rem;}
+    .tabnav-button-label{flex:1;min-width:0;}
+    .tabnav-button-handle{display:inline-flex;align-items:center;justify-content:center;width:1.55rem;height:1.55rem;border-radius:.55rem;
+      background:rgba(148,163,184,.16);border:1px solid rgba(148,163,184,.25);cursor:grab;color:inherit;font-size:1.05rem;
+      transition:transform .12s ease,background .12s ease,border-color .12s ease;
+    }
+    .tabnav-button-handle:active{cursor:grabbing;transform:scale(.95);}
+    .tabnav-button-handle:hover{background:rgba(37,99,235,.22);border-color:rgba(59,130,246,.45);}
+    .tabnav-button[data-draggable="false"] .tabnav-button-handle{opacity:.35;cursor:not-allowed;}
     .tabnav-button:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(8,15,35,.32);background:rgba(37,99,235,.18);}
     .tabnav-button.tabnav-button-active,
     .tabnav-button.tabnav-button-active:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(8,15,35,.32);background:rgba(37,99,235,.18);}
     .tabnav-button:active{transform:none;box-shadow:0 4px 12px rgba(8,15,35,.2);}
+    .tabnav-button-ghost{opacity:.6;}
     .tabnav-empty{margin:0;font-size:.88rem;opacity:.75;text-align:center;padding:1.4rem 1rem;border-radius:.75rem;
       background:rgba(15,23,42,.55);border:1px dashed rgba(148,163,184,.24);
     }
@@ -394,6 +404,8 @@
     let observer = null;
     let containerCheckTimer = null;
     let lastFocusedBeforeModal = null;
+    let buttonsSortable = null;
+    let buttonDragInProgress = false;
 
     const container = document.createElement('div');
     container.className = 'tabnav-root';
@@ -852,6 +864,50 @@
       renderButtons();
     }
 
+    function setButtonDraggingState(isDragging){
+      buttonDragInProgress = isDragging;
+      buttonsWrap.classList.toggle('tabnav-buttons-dragging', isDragging);
+    }
+
+    function destroyButtonsSortable(){
+      if (buttonsSortable) {
+        buttonsSortable.destroy();
+        buttonsSortable = null;
+      }
+    }
+
+    function canReorderTabs(tabList){
+      return state.mode === 'all'
+        && (!Array.isArray(state.customOrder) || !state.customOrder.length)
+        && Array.isArray(tabList)
+        && tabList.length > 1
+        && typeof Sortable !== 'undefined';
+    }
+
+    function setupButtonsSortable(tabList){
+      const draggable = canReorderTabs(tabList);
+      destroyButtonsSortable();
+      if (!draggable) return;
+      buttonsSortable = Sortable.create(buttonsWrap, {
+        animation: 150,
+        ghostClass: 'tabnav-button-ghost',
+        handle: '.tabnav-button-handle',
+        onStart: () => setButtonDraggingState(true),
+        onEnd: (evt) => {
+          setButtonDraggingState(false);
+          handleButtonReorder(evt);
+        }
+      });
+    }
+
+    function handleButtonReorder(evt){
+      if (!evt || evt.oldIndex === undefined || evt.newIndex === undefined) return;
+      if (evt.oldIndex === evt.newIndex) return;
+      if (typeof window.handleTabReorder === 'function') {
+        window.handleTabReorder({ oldIndex: evt.oldIndex, newIndex: evt.newIndex });
+      }
+    }
+
     function renderButtons(){
       currentTabs = readTabs();
       const defaultOrderMap = buildDefaultOrderMap(currentTabs);
@@ -879,6 +935,7 @@
 
       buttonsWrap.innerHTML = '';
       buttonsWrap.dataset.pattern = state.pattern;
+      const dragEnabled = canReorderTabs(orderedTabs);
       if (orderedTabs.length) {
         buttonsWrap.style.display = '';
         emptyState.style.display = 'none';
@@ -887,12 +944,26 @@
           btn.type = 'button';
           btn.className = 'tabnav-button';
           btn.dataset.tabIndex = String(tab.index);
-          btn.textContent = tab.name;
+          btn.dataset.draggable = dragEnabled ? 'true' : 'false';
+          const content = document.createElement('span');
+          content.className = 'tabnav-button-content';
+          const label = document.createElement('span');
+          label.className = 'tabnav-button-label';
+          label.textContent = tab.name;
+          content.appendChild(label);
+          const handle = document.createElement('span');
+          handle.className = 'tabnav-button-handle';
+          handle.textContent = '↕';
+          handle.setAttribute('aria-hidden', 'true');
+          handle.title = dragEnabled ? 'Ziehen, um Tabs zu verschieben' : 'Drag nur in „Alle Tabs“ ohne eigene Sortierung';
+          content.appendChild(handle);
+          btn.appendChild(content);
           if (tab.isActive) {
             btn.classList.add('tabnav-button-active');
             btn.setAttribute('aria-current', 'page');
           }
           btn.addEventListener('click', () => {
+            if (buttonDragInProgress) return;
             try {
               if (typeof window.activateTab === 'function') {
                 window.activateTab(tab.index);
@@ -906,6 +977,7 @@
             }
           });
           btn.addEventListener('dblclick', () => {
+            if (buttonDragInProgress) return;
             try {
               if (typeof window.renameTab === 'function') {
                 window.renameTab(tab.index);
@@ -929,6 +1001,7 @@
       updateOverlayTabs();
       updatePatternRadios();
       updateModeRadios();
+      setupButtonsSortable(orderedTabs);
       if (stateChanged) persist();
     }
 
@@ -1057,6 +1130,7 @@
     root.__tabNavCleanup = () => {
       if (observer) observer.disconnect();
       if (containerCheckTimer) clearInterval(containerCheckTimer);
+      destroyButtonsSortable();
       if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
       if (!document.querySelector('.tabnav-overlay.open')) {
         document.body.classList.remove('tabnav-modal-open');
