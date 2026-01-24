@@ -110,6 +110,9 @@
       .bma-text-presets-empty{font-size:.8rem;opacity:.7;border:1px dashed rgba(148,163,184,.35);padding:.7rem;border-radius:.75rem;text-align:center;}
       .bma-keyword-list{display:flex;flex-wrap:wrap;gap:.35rem;}
       .bma-keyword-tag{padding:.2rem .45rem;border-radius:.5rem;background:rgba(148,163,184,.2);font-size:.72rem;}
+      .bma-modal-panel-wide{width:98vw;max-height:92vh;}
+      .bma-modal-panel-wide .bma-text-presets{max-height:50vh;overflow:auto;}
+      .bma-modal-panel-wide .bma-text-preset textarea{min-height:160px;}
     `;
     document.head.appendChild(style);
   }
@@ -497,7 +500,7 @@
         </div>
       </div>
       <div class="bma-modal" data-bma-modal>
-        <div class="bma-modal-panel">
+        <div class="bma-modal-panel bma-modal-panel-wide">
           <div class="bma-modal-header">
             <h4 class="bma-modal-title">Einstellungen – Betriebsmittel Ablauf</h4>
             <button type="button" class="bma-modal-close" aria-label="Schließen">×</button>
@@ -532,7 +535,7 @@
         </div>
       </div>
       <div class="bma-modal" data-bma-text-modal>
-        <div class="bma-modal-panel">
+        <div class="bma-modal-panel bma-modal-panel-wide">
           <div class="bma-modal-header">
             <h4 class="bma-modal-title">Textbausteine – Betriebsmittel Ablauf</h4>
             <button type="button" class="bma-modal-close" aria-label="Schließen">×</button>
