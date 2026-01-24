@@ -5,6 +5,13 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.0] – 2026-01-24
+### Added
+- Gerätekarten sind standardmäßig kompakt und lassen sich per Klick aufklappen, inklusive Accent-Rahmen für den aktiven Eintrag.
+
+### Changed
+- Die Kartenansicht begrenzt die maximale Anzahl sichtbarer Betriebsmittel auf fünf pro Zeile.
+
 ## [1.3.3] – 2026-01-24
 ### Added
 - Ablaufmonat-Eingabe liest Kurzformate zuverlässig aus Tastatureingaben, normalisiert sie beim Tab-Wechsel zu Monat/Jahr und setzt den Fokus auf den Prüftyp.

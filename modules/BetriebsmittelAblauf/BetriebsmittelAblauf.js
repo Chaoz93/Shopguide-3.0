@@ -57,8 +57,11 @@
       .bma-controls{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;}
       .bma-controls input,.bma-controls select{background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.25);color:inherit;border-radius:.6rem;padding:.45rem .6rem;font-size:.85rem;}
       .bma-controls label{display:flex;flex-direction:column;gap:.25rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.08rem;opacity:.7;}
-      .bma-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.7rem;}
-      .bma-item{display:flex;flex-direction:column;gap:.6rem;}
+      .bma-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.7rem;max-width:calc(5 * 240px + 4 * .7rem);margin:0 auto;}
+      .bma-item{display:flex;flex-direction:column;gap:.6rem;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease;}
+      .bma-item.is-expanded{border-color:var(--bma-accent-border,rgba(59,130,246,.55));box-shadow:0 14px 30px rgba(8,15,35,.35);}
+      .bma-item-details{display:none;flex-direction:column;gap:.6rem;}
+      .bma-item.is-expanded .bma-item-details{display:flex;}
       .bma-item-header{display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start;}
       .bma-item-title{margin:0;font-size:.95rem;font-weight:700;}
       .bma-item-type{font-size:.75rem;opacity:.75;}
@@ -420,6 +423,7 @@
     if(!state.settings.textPresets.length){
       state.settings.textPresets = DEFAULT_TEXT_PRESETS.map(preset => ({ ...preset }));
     }
+    const expandedItems = new Set();
 
     root.innerHTML = `
       <div class="bma-root">
@@ -1084,6 +1088,9 @@
         const statusClass = item.status.tone === 'default' ? '' : item.status.tone;
         const daysLabel = item.status.days === null ? '' : `(${item.status.days} Tage)`;
 
+        const isExpanded = expandedItems.has(item.id);
+        card.classList.toggle('is-expanded', isExpanded);
+        card.setAttribute('aria-expanded', String(isExpanded));
         card.innerHTML = `
           <div class="bma-item-header">
             <div>
@@ -1092,33 +1099,46 @@
             </div>
             <div class="bma-status ${statusClass}">${item.status.label} ${daysLabel}</div>
           </div>
-          <div class="bma-row">
-            <span class="bma-pill">Ablauf: ${formatMonth(item.expiryMonth)}</span>
-            <span class="bma-pill">Stichtag: ${formatDate(item.expiryDate)}</span>
-            ${item.assetNumber ? `<span class="bma-pill">Betriebsmittel-Nr.: ${item.assetNumber}</span>` : ''}
-            ${nextReminder ? `<span class="bma-pill bma-tag-accent">Nächster Reminder: ${formatDate(nextReminder.date)}</span>` : ''}
-          </div>
-          <div class="bma-desc">${item.desc ? item.desc : 'Keine Beschreibung hinterlegt.'}</div>
-          <div class="bma-reminders">
-            <div><strong>Reminder:</strong></div>
+          <div class="bma-item-details">
             <div class="bma-row">
-              ${reminderDates.length ? reminderDates.map(reminder => `
-                <span class="bma-reminder-tag">${reminder.days} Tage vorher · ${formatDate(reminder.date)}</span>
-              `).join('') : '<span class="bma-reminder-tag">Keine Reminder gesetzt.</span>'}
+              <span class="bma-pill">Ablauf: ${formatMonth(item.expiryMonth)}</span>
+              <span class="bma-pill">Stichtag: ${formatDate(item.expiryDate)}</span>
+              ${item.assetNumber ? `<span class="bma-pill">Betriebsmittel-Nr.: ${item.assetNumber}</span>` : ''}
+              ${nextReminder ? `<span class="bma-pill bma-tag-accent">Nächster Reminder: ${formatDate(nextReminder.date)}</span>` : ''}
+            </div>
+            <div class="bma-desc">${item.desc ? item.desc : 'Keine Beschreibung hinterlegt.'}</div>
+            <div class="bma-reminders">
+              <div><strong>Reminder:</strong></div>
+              <div class="bma-row">
+                ${reminderDates.length ? reminderDates.map(reminder => `
+                  <span class="bma-reminder-tag">${reminder.days} Tage vorher · ${formatDate(reminder.date)}</span>
+                `).join('') : '<span class="bma-reminder-tag">Keine Reminder gesetzt.</span>'}
+              </div>
+            </div>
+            ${state.settings.textPresets?.length ? `
+              <div class="bma-item-presets" data-bma-presets></div>
+            ` : ''}
+            <div class="bma-item-actions">
+              <button type="button" class="primary" data-action="edit">Bearbeiten</button>
+              <button type="button" data-action="swap">Tauschen</button>
+              <button type="button" data-action="delete">Löschen</button>
             </div>
           </div>
-          ${state.settings.textPresets?.length ? `
-            <div class="bma-item-presets" data-bma-presets></div>
-          ` : ''}
-          <div class="bma-item-actions">
-            <button type="button" class="primary" data-action="edit">Bearbeiten</button>
-            <button type="button" data-action="swap">Tauschen</button>
-            <button type="button" data-action="delete">Löschen</button>
-          </div>
         `;
-        card.querySelector('[data-action="edit"]').addEventListener('click', () => editItem(item));
-        card.querySelector('[data-action="swap"]').addEventListener('click', () => startSwap(item));
-        card.querySelector('[data-action="delete"]').addEventListener('click', () => deleteItem(item.id));
+        card.addEventListener('click', () => {
+          if(expandedItems.has(item.id)){
+            expandedItems.delete(item.id);
+          }else{
+            expandedItems.add(item.id);
+          }
+          renderList();
+        });
+        const editBtn = card.querySelector('[data-action="edit"]');
+        const swapBtn = card.querySelector('[data-action="swap"]');
+        const deleteBtn = card.querySelector('[data-action="delete"]');
+        editBtn.addEventListener('click', event => { event.stopPropagation(); editItem(item); });
+        swapBtn.addEventListener('click', event => { event.stopPropagation(); startSwap(item); });
+        deleteBtn.addEventListener('click', event => { event.stopPropagation(); deleteItem(item.id); });
         const presetWrap = card.querySelector('[data-bma-presets]');
         if(presetWrap && state.settings.textPresets?.length){
           state.settings.textPresets.forEach(preset => {
@@ -1126,7 +1146,10 @@
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = preset.title;
-            btn.addEventListener('click', () => copyPresetText(preset, item));
+            btn.addEventListener('click', event => {
+              event.stopPropagation();
+              copyPresetText(preset, item);
+            });
             presetWrap.appendChild(btn);
           });
         }
