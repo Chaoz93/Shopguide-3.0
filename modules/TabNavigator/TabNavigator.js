@@ -157,7 +157,8 @@
         selectedTabs: Array.isArray(parsed.selectedTabs) ? parsed.selectedTabs : [],
         showTitle: typeof parsed.showTitle === 'boolean' ? parsed.showTitle : undefined,
         showSubtitle: typeof parsed.showSubtitle === 'boolean' ? parsed.showSubtitle : undefined,
-        customOrder: Array.isArray(parsed.customOrder) ? parsed.customOrder : []
+        customOrder: Array.isArray(parsed.customOrder) ? parsed.customOrder : [],
+        allowDrag: typeof parsed.allowDrag === 'boolean' ? parsed.allowDrag : undefined
       };
     } catch (err) {
       console.warn('TabNavigator: Konnte Zustand nicht laden', err);
@@ -176,7 +177,8 @@
         selectedTabs: state.selectedTabs,
         showTitle: state.showTitle,
         showSubtitle: state.showSubtitle,
-        customOrder: state.customOrder
+        customOrder: state.customOrder,
+        allowDrag: state.allowDrag
       }));
     } catch (err) {
       console.warn('TabNavigator: Konnte Zustand nicht speichern', err);
@@ -394,7 +396,10 @@
       showSubtitle: typeof stored?.showSubtitle === 'boolean'
         ? stored.showSubtitle
         : (typeof defaults.showSubtitle === 'boolean' ? defaults.showSubtitle : true),
-      customOrder: uniqueSelection(normalizeSelection(stored?.customOrder || defaults.customOrder || []))
+      customOrder: uniqueSelection(normalizeSelection(stored?.customOrder || defaults.customOrder || [])),
+      allowDrag: typeof stored?.allowDrag === 'boolean'
+        ? stored.allowDrag
+        : (typeof defaults.allowDrag === 'boolean' ? defaults.allowDrag : false)
     };
 
     let currentTabs = readTabs();
@@ -461,7 +466,8 @@
     let modeRadios = Array.from(overlay.querySelectorAll(`input[name="${modeRadioName}"]`));
     const displayToggleInputs = {
       showTitle: overlay.querySelector('input[data-setting="showTitle"]'),
-      showSubtitle: overlay.querySelector('input[data-setting="showSubtitle"]')
+      showSubtitle: overlay.querySelector('input[data-setting="showSubtitle"]'),
+      allowDrag: overlay.querySelector('input[data-setting="allowDrag"]')
     };
     let dragHandlersBound = false;
     let draggingKey = null;
@@ -494,6 +500,7 @@
               <div class="tabnav-toggle-group" data-role="display-toggles">
                 <label class="tabnav-toggle"><input type="checkbox" data-setting="showTitle" /> <span>Modulname anzeigen</span></label>
                 <label class="tabnav-toggle"><input type="checkbox" data-setting="showSubtitle" /> <span>Hinweistext anzeigen</span></label>
+                <label class="tabnav-toggle"><input type="checkbox" data-setting="allowDrag" /> <span>Draggen der Tabs aktivieren</span></label>
               </div>
             </section>
             <section class="tabnav-section">
@@ -875,6 +882,7 @@
 
     function canReorderTabs(tabList){
       return state.mode === 'all'
+        && state.allowDrag
         && (!Array.isArray(state.customOrder) || !state.customOrder.length)
         && Array.isArray(tabList)
         && tabList.length > 1
@@ -1026,6 +1034,9 @@
         applyPatternLabel();
         applyHeaderVisibility();
         syncDisplayToggles();
+        if (key === 'allowDrag') {
+          renderButtons();
+        }
       });
     });
 
