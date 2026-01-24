@@ -3,6 +3,38 @@
   const STORAGE_KEY = 'betriebsmittel-ablauf-v1';
   const DEFAULT_REMINDERS = [7, 0];
   const PALETTE_PRESETS = ['Main', 'Alternative', 'Accent'];
+  const DEFAULT_TEXT_PRESETS = [
+    {
+      id: 'mail-template',
+      title: 'Mailvordruck',
+      body: [
+        'Betreff: Betriebsmittel bei mir: {name}',
+        '',
+        'Hallo zusammen,',
+        '',
+        'das folgende Betriebsmittel befindet sich aktuell bei mir:',
+        '- Name: {name}',
+        '- Kategorie: {type}',
+        '- Prüftyp: {kind}',
+        '- Ablaufmonat: {expiryMonth} ({expiryDate})',
+        '- Betriebsmittelnummer: {assetNumber}',
+        '{desc}',
+        '',
+        'Bitte berücksichtigt den Standort bzw. aktualisiert die Trackbarkeit.',
+        '',
+        'Danke & viele Grüße'
+      ].join('\n')
+    }
+  ];
+  const TEXT_PRESET_KEYWORDS = [
+    '{name}',
+    '{assetNumber}',
+    '{type}',
+    '{kind}',
+    '{expiryMonth}',
+    '{expiryDate}',
+    '{desc}'
+  ];
 
   if(!document.getElementById(STYLE_ID)){
     const style = document.createElement('style');
@@ -76,6 +108,8 @@
       .bma-text-preset textarea{min-height:90px;resize:vertical;}
       .bma-text-preset-actions{display:flex;justify-content:flex-end;gap:.4rem;flex-wrap:wrap;}
       .bma-text-presets-empty{font-size:.8rem;opacity:.7;border:1px dashed rgba(148,163,184,.35);padding:.7rem;border-radius:.75rem;text-align:center;}
+      .bma-keyword-list{display:flex;flex-wrap:wrap;gap:.35rem;}
+      .bma-keyword-tag{padding:.2rem .45rem;border-radius:.5rem;background:rgba(148,163,184,.2);font-size:.72rem;}
     `;
     document.head.appendChild(style);
   }
@@ -323,7 +357,8 @@
         settings: {
           defaultReminders: DEFAULT_REMINDERS.slice(),
           cardLayer: layers[0]?.id || 'primary',
-          accentLayer: layers[2]?.id || layers[0]?.id || 'primary'
+          accentLayer: layers[2]?.id || layers[0]?.id || 'primary',
+          textPresets: DEFAULT_TEXT_PRESETS.map(preset => ({ ...preset }))
         }
       };
     }
@@ -340,7 +375,10 @@
       state.settings.accentLayer = layers[2]?.id || layers[0]?.id || 'primary';
     }
     if(!Array.isArray(state.settings.textPresets)){
-      state.settings.textPresets = [];
+      state.settings.textPresets = DEFAULT_TEXT_PRESETS.map(preset => ({ ...preset }));
+    }
+    if(!state.settings.textPresets.length){
+      state.settings.textPresets = DEFAULT_TEXT_PRESETS.map(preset => ({ ...preset }));
     }
 
     root.innerHTML = `
@@ -501,6 +539,12 @@
           </div>
           <div class="bma-settings-section">
             <div class="bma-settings-note">Hier kannst du vordefinierte Texte für häufige Hinweise pflegen.</div>
+            <div class="bma-settings-note">
+              Verfügbare Platzhalter:
+              <div class="bma-keyword-list">
+                ${TEXT_PRESET_KEYWORDS.map(keyword => `<span class="bma-keyword-tag">${keyword}</span>`).join('')}
+              </div>
+            </div>
             <div class="bma-text-presets" data-bma-text-presets></div>
             <button type="button" class="bma-btn bma-btn-secondary bma-text-add">➕ Textbaustein hinzufügen</button>
           </div>
