@@ -70,6 +70,12 @@
       .bma-settings-actions{display:flex;justify-content:flex-end;gap:.5rem;}
       .bma-tag-accent{background:var(--bma-accent-bg,rgba(59,130,246,.2));color:var(--bma-accent-text,#fff);border:1px solid var(--bma-accent-border,rgba(59,130,246,.5));}
       .bma-hint{font-size:.78rem;opacity:.7;}
+      .bma-text-presets{display:flex;flex-direction:column;gap:.8rem;}
+      .bma-text-preset{display:flex;flex-direction:column;gap:.5rem;padding:.7rem;border-radius:.8rem;border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.35);}
+      .bma-text-preset input,.bma-text-preset textarea{background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.25);color:inherit;border-radius:.6rem;padding:.45rem .6rem;font-size:.85rem;}
+      .bma-text-preset textarea{min-height:90px;resize:vertical;}
+      .bma-text-preset-actions{display:flex;justify-content:flex-end;gap:.4rem;flex-wrap:wrap;}
+      .bma-text-presets-empty{font-size:.8rem;opacity:.7;border:1px dashed rgba(148,163,184,.35);padding:.7rem;border-radius:.75rem;text-align:center;}
     `;
     document.head.appendChild(style);
   }
@@ -333,6 +339,9 @@
     if(!state.settings.accentLayer){
       state.settings.accentLayer = layers[2]?.id || layers[0]?.id || 'primary';
     }
+    if(!Array.isArray(state.settings.textPresets)){
+      state.settings.textPresets = [];
+    }
 
     root.innerHTML = `
       <div class="bma-root">
@@ -484,12 +493,30 @@
           </div>
         </div>
       </div>
+      <div class="bma-modal" data-bma-text-modal>
+        <div class="bma-modal-panel">
+          <div class="bma-modal-header">
+            <h4 class="bma-modal-title">Textbausteine – Betriebsmittel Ablauf</h4>
+            <button type="button" class="bma-modal-close" aria-label="Schließen">×</button>
+          </div>
+          <div class="bma-settings-section">
+            <div class="bma-settings-note">Hier kannst du vordefinierte Texte für häufige Hinweise pflegen.</div>
+            <div class="bma-text-presets" data-bma-text-presets></div>
+            <button type="button" class="bma-btn bma-btn-secondary bma-text-add">➕ Textbaustein hinzufügen</button>
+          </div>
+          <div class="bma-settings-actions">
+            <button type="button" class="bma-btn bma-btn-secondary bma-text-cancel">Schließen</button>
+            <button type="button" class="bma-btn bma-btn-primary bma-text-save">Speichern</button>
+          </div>
+        </div>
+      </div>
     `;
 
     const rootEl = root.querySelector('.bma-root');
     const listEl = root.querySelector('[data-bma-list]');
     const formEl = root.querySelector('[data-bma-form]');
     const modalEl = root.querySelector('[data-bma-modal]');
+    const textModalEl = root.querySelector('[data-bma-text-modal]');
     const summaryEls = {
       total: root.querySelector('[data-bma-summary="total"]'),
       soon: root.querySelector('[data-bma-summary="soon"]'),
@@ -538,9 +565,15 @@
     const scrollFormBtn = root.querySelector('.bma-scroll-form');
     const modalCloseBtns = root.querySelectorAll('.bma-modal-close');
     const settingsSaveBtn = root.querySelector('.bma-settings-save');
+    const textPresetList = root.querySelector('[data-bma-text-presets]');
+    const textPresetAddBtn = root.querySelector('.bma-text-add');
+    const textPresetSaveBtn = root.querySelector('.bma-text-save');
+    const textPresetCancelBtn = root.querySelector('.bma-text-cancel');
+    const headerEl = root.querySelector('.bma-header');
 
     let editId = null;
     let swapSourceId = null;
+    let textPresetDraft = [];
 
     function persist(){
       saveDoc(doc);
@@ -597,6 +630,53 @@
     function closeModal(){
       modalEl.classList.remove('open');
       document.body.classList.remove('bma-modal-open');
+    }
+
+    function openTextModal(){
+      textModalEl.classList.add('open');
+      document.body.classList.add('bma-modal-open');
+    }
+
+    function closeTextModal(){
+      textModalEl.classList.remove('open');
+      document.body.classList.remove('bma-modal-open');
+    }
+
+    function createPreset(id){
+      return { id, title: '', body: '' };
+    }
+
+    function syncPresetDraft(){
+      textPresetDraft = (state.settings.textPresets || []).map(preset => ({ ...preset }));
+    }
+
+    function renderPresetList(){
+      textPresetList.innerHTML = '';
+      if(!textPresetDraft.length){
+        const empty = document.createElement('div');
+        empty.className = 'bma-text-presets-empty';
+        empty.textContent = 'Noch keine Textbausteine hinterlegt. Lege einen neuen Textbaustein an.';
+        textPresetList.appendChild(empty);
+        return;
+      }
+      textPresetDraft.forEach((preset, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'bma-text-preset';
+        wrapper.innerHTML = `
+          <label>
+            Titel
+            <input type="text" value="${preset.title || ''}" data-preset-field="title" data-preset-index="${index}" placeholder="z. B. Standortinfo" />
+          </label>
+          <label>
+            Text
+            <textarea data-preset-field="body" data-preset-index="${index}" placeholder="Dein Textbaustein...">${preset.body || ''}</textarea>
+          </label>
+          <div class="bma-text-preset-actions">
+            <button type="button" class="bma-btn bma-btn-secondary" data-preset-action="remove" data-preset-index="${index}">Entfernen</button>
+          </div>
+        `;
+        textPresetList.appendChild(wrapper);
+      });
     }
 
     function resetForm(){
@@ -932,6 +1012,21 @@
       renderList();
     }
 
+    function applyTextPresets(){
+      state.settings.textPresets = textPresetDraft.map(preset => ({
+        id: preset.id,
+        title: preset.title.trim(),
+        body: preset.body.trim()
+      })).filter(preset => preset.title || preset.body);
+      persist();
+    }
+
+    function updatePresetField(index, field, value){
+      const target = textPresetDraft[index];
+      if(!target) return;
+      target[field] = value;
+    }
+
     applyLayerVars(rootEl, layers, state.settings);
     setDefaultReminderFields();
     renderList();
@@ -949,8 +1044,58 @@
     openSettingsBtn.addEventListener('click', () => { syncSettings(); openModal(); });
     scrollFormBtn.addEventListener('click', () => formEl.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     settingsSaveBtn.addEventListener('click', () => { applySettings(); closeModal(); });
-    modalCloseBtns.forEach(btn => btn.addEventListener('click', closeModal));
+    modalCloseBtns.forEach(btn => btn.addEventListener('click', event => {
+      const target = event.currentTarget;
+      if(target.closest('[data-bma-text-modal]')){
+        closeTextModal();
+      }else{
+        closeModal();
+      }
+    }));
     modalEl.addEventListener('click', event => { if(event.target === modalEl) closeModal(); });
+    if(headerEl){
+      headerEl.addEventListener('contextmenu', event => {
+        event.preventDefault();
+        syncPresetDraft();
+        renderPresetList();
+        openTextModal();
+      });
+    }
+    if(textPresetAddBtn){
+      textPresetAddBtn.addEventListener('click', () => {
+        textPresetDraft.push(createPreset(`preset-${Date.now()}-${Math.random().toString(36).slice(2,6)}`));
+        renderPresetList();
+      });
+    }
+    if(textPresetList){
+      textPresetList.addEventListener('input', event => {
+        const target = event.target;
+        const index = Number(target?.dataset?.presetIndex);
+        const field = target?.dataset?.presetField;
+        if(!Number.isFinite(index) || !field) return;
+        updatePresetField(index, field, target.value);
+      });
+      textPresetList.addEventListener('click', event => {
+        const target = event.target;
+        if(target?.dataset?.presetAction !== 'remove') return;
+        const index = Number(target?.dataset?.presetIndex);
+        if(!Number.isFinite(index)) return;
+        textPresetDraft.splice(index, 1);
+        renderPresetList();
+      });
+    }
+    if(textPresetSaveBtn){
+      textPresetSaveBtn.addEventListener('click', () => {
+        applyTextPresets();
+        closeTextModal();
+      });
+    }
+    if(textPresetCancelBtn){
+      textPresetCancelBtn.addEventListener('click', closeTextModal);
+    }
+    if(textModalEl){
+      textModalEl.addEventListener('click', event => { if(event.target === textModalEl) closeTextModal(); });
+    }
   }
 
   window.renderBetriebsmittelAblauf = render;

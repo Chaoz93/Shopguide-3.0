@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.3.0] – 2026-01-24
+### Added
+- Kontextmenü per Rechtsklick auf den Header ergänzt, um Textbausteine direkt im Modal zu pflegen.
+- Verwaltung der Textbausteine (Hinzufügen, Entfernen, Speichern) im Modulzustand gespeichert.
+
 ## [1.2.0] – 2026-01-24
 ### Added
 - Optionales Feld für Betriebsmittelnummern ergänzt und in der Suche berücksichtigt.
