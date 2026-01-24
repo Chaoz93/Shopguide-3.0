@@ -905,6 +905,15 @@
               console.warn('TabNavigator: Konnte Tab nicht aktivieren', err);
             }
           });
+          btn.addEventListener('dblclick', () => {
+            try {
+              if (typeof window.renameTab === 'function') {
+                window.renameTab(tab.index);
+              }
+            } catch (err) {
+              console.warn('TabNavigator: Konnte Tab nicht umbenennen', err);
+            }
+          });
           buttonsWrap.appendChild(btn);
         });
       } else {
