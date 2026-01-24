@@ -419,6 +419,7 @@
             Beschreibung
             <textarea class="bma-input-desc" placeholder="Kurzinfo, Standort, Seriennummer..."></textarea>
           </label>
+          <div class="bma-hint">Tipp: Mit Enter springst du zum nächsten Feld, mit Strg+Enter speicherst du sofort.</div>
           <div>
             <div class="bma-hint">Reminder setzen (Standard: 7 Tage vorher + am Tag des Ablaufs).</div>
             <div class="bma-reminder-options">
@@ -624,6 +625,53 @@
       renderList();
     }
 
+    function focusNextField(target, fields){
+      const index = fields.indexOf(target);
+      if(index === -1) return;
+      for(let i=index + 1;i<fields.length;i+=1){
+        const next = fields[i];
+        if(next && !next.disabled){
+          next.focus();
+          return;
+        }
+      }
+    }
+
+    function setupFormNavigation(){
+      const orderedFields = [
+        formFields.name,
+        formFields.type,
+        formFields.month,
+        formFields.kind,
+        formFields.desc,
+        formFields.remSeven,
+        formFields.remZero,
+        formFields.remExtra,
+        saveBtn
+      ];
+
+      orderedFields.forEach(field => {
+        if(!field) return;
+        field.addEventListener('keydown', event => {
+          if(event.key !== 'Enter') return;
+          if(field === saveBtn) return;
+          const isTextarea = field.tagName === 'TEXTAREA';
+          if(isTextarea && !event.ctrlKey && !event.metaKey){
+            return;
+          }
+          event.preventDefault();
+          if(isTextarea && (event.ctrlKey || event.metaKey)){
+            saveItem();
+            return;
+          }
+          if(field.type === 'checkbox'){
+            field.checked = !field.checked;
+          }
+          focusNextField(field, orderedFields);
+        });
+      });
+    }
+
     function editItem(item){
       editId = item.id;
       formFields.name.value = item.name;
@@ -770,6 +818,7 @@
     setDefaultReminderFields();
     renderList();
     syncSettings();
+    setupFormNavigation();
 
     saveBtn.addEventListener('click', saveItem);
     cancelBtn.addEventListener('click', resetForm);
