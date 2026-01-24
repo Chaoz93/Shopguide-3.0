@@ -7,7 +7,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ## [1.3.3] – 2026-01-24
 ### Added
-- Ablaufmonat-Eingabe normalisiert Kurzformate beim Tab-Wechsel direkt auf Monat/Jahr und setzt den Fokus auf den Prüftyp.
+- Ablaufmonat-Eingabe liest Kurzformate zuverlässig aus Tastatureingaben, normalisiert sie beim Tab-Wechsel zu Monat/Jahr und setzt den Fokus auf den Prüftyp.
 
 ## [1.3.2] – 2026-01-24
 ### Added

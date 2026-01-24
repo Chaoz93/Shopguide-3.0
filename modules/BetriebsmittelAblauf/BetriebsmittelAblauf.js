@@ -271,7 +271,11 @@
     return `${year}-${String(month).padStart(2, '0')}`;
   }
 
-  function normalizeMonthInput(value){
+  function normalizeMonthInput(value, rawDigits){
+    if(rawDigits){
+      const normalized = parseCompactMonthInput(rawDigits);
+      if(normalized) return normalized;
+    }
     if(!value) return '';
     if(value.includes('-')) return value;
     return parseCompactMonthInput(value) || '';
@@ -654,6 +658,7 @@
     let editId = null;
     let swapSourceId = null;
     let textPresetDraft = [];
+    let rawMonthDigits = '';
 
     function persist(){
       saveDoc(doc);
@@ -860,7 +865,7 @@
     function saveItem(){
       const name = formFields.name.value.trim();
       let month = formFields.month.value.trim();
-      const normalizedMonth = normalizeMonthInput(month);
+      const normalizedMonth = normalizeMonthInput(month, rawMonthDigits);
       if(normalizedMonth){
         month = normalizedMonth;
         formFields.month.value = normalizedMonth;
@@ -951,10 +956,11 @@
     }
 
     function normalizeAndFocusKind(){
-      const normalizedMonth = normalizeMonthInput(formFields.month.value.trim());
+      const normalizedMonth = normalizeMonthInput(formFields.month.value.trim(), rawMonthDigits);
       if(normalizedMonth){
         formFields.month.value = normalizedMonth;
       }
+      rawMonthDigits = '';
       if(formFields.kind){
         formFields.kind.focus();
       }
@@ -1177,16 +1183,34 @@
     if(swapFields.cancel){
       swapFields.cancel.addEventListener('click', resetForm);
     }
+    formFields.month.addEventListener('focus', () => {
+      rawMonthDigits = '';
+    });
     formFields.month.addEventListener('keydown', event => {
-      if(event.key !== 'Tab' || event.shiftKey) return;
-      event.preventDefault();
-      normalizeAndFocusKind();
+      if(event.key === 'Tab' && !event.shiftKey){
+        event.preventDefault();
+        normalizeAndFocusKind();
+        return;
+      }
+      if(event.ctrlKey || event.metaKey || event.altKey) return;
+      if(event.key === 'Backspace'){
+        rawMonthDigits = rawMonthDigits.slice(0, -1);
+        return;
+      }
+      if(event.key === 'Delete'){
+        rawMonthDigits = '';
+        return;
+      }
+      if(/^\d$/.test(event.key)){
+        rawMonthDigits += event.key;
+      }
     });
     formFields.month.addEventListener('blur', () => {
-      const normalizedMonth = normalizeMonthInput(formFields.month.value.trim());
+      const normalizedMonth = normalizeMonthInput(formFields.month.value.trim(), rawMonthDigits);
       if(normalizedMonth){
         formFields.month.value = normalizedMonth;
       }
+      rawMonthDigits = '';
     });
     searchInput.addEventListener('input', renderList);
     statusSelect.addEventListener('change', renderList);
