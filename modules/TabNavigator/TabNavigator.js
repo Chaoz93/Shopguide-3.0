@@ -404,6 +404,7 @@
 
     let currentTabs = readTabs();
     let observer = null;
+    let sidebarObserver = null;
     let containerCheckTimer = null;
     let lastFocusedBeforeModal = null;
     let buttonsSortable = null;
@@ -883,6 +884,7 @@
     function canReorderTabs(tabList){
       return state.mode === 'all'
         && state.allowDrag
+        && !isLayoutLocked()
         && (!Array.isArray(state.customOrder) || !state.customOrder.length)
         && Array.isArray(tabList)
         && tabList.length > 1
@@ -913,6 +915,17 @@
       }
     }
 
+    function isLayoutLocked(){
+      const sidebarEl = document.getElementById('sidebar');
+      if (sidebarEl && sidebarEl.classList) {
+        return sidebarEl.classList.contains('collapsed');
+      }
+      if (typeof window !== 'undefined' && typeof window.isSidebarOpen === 'boolean') {
+        return !window.isSidebarOpen;
+      }
+      return false;
+    }
+
     function renderButtons(){
       currentTabs = readTabs();
       const defaultOrderMap = buildDefaultOrderMap(currentTabs);
@@ -940,7 +953,9 @@
 
       buttonsWrap.innerHTML = '';
       buttonsWrap.dataset.pattern = state.pattern;
+      const isLocked = isLayoutLocked();
       const dragEnabled = canReorderTabs(orderedTabs);
+      const showHandle = state.allowDrag && !isLocked;
       if (orderedTabs.length) {
         buttonsWrap.style.display = '';
         emptyState.style.display = 'none';
@@ -953,13 +968,15 @@
           const label = document.createElement('span');
           label.className = 'tabnav-button-label';
           label.textContent = tab.name;
-          const handle = document.createElement('span');
-          handle.className = 'tabnav-button-handle';
-          handle.textContent = '⋮⋮';
-          handle.setAttribute('aria-hidden', 'true');
-          handle.title = dragEnabled ? 'Ziehen, um Tabs zu verschieben' : 'Drag nur in „Alle Tabs“ ohne eigene Sortierung';
           btn.appendChild(label);
-          btn.appendChild(handle);
+          if (showHandle) {
+            const handle = document.createElement('span');
+            handle.className = 'tabnav-button-handle';
+            handle.textContent = '⋮⋮';
+            handle.setAttribute('aria-hidden', 'true');
+            handle.title = dragEnabled ? 'Ziehen, um Tabs zu verschieben' : 'Drag nur in „Alle Tabs“ ohne eigene Sortierung';
+            btn.appendChild(handle);
+          }
           if (tab.isActive) {
             btn.classList.add('tabnav-button-active');
             btn.setAttribute('aria-current', 'page');
@@ -1108,14 +1125,25 @@
       observer.observe(containerEl, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] });
     }
 
+    function attachSidebarObserver(){
+      const sidebarEl = document.getElementById('sidebar');
+      if (!sidebarEl || typeof MutationObserver === 'undefined') return;
+      sidebarObserver = new MutationObserver(() => {
+        renderButtons();
+      });
+      sidebarObserver.observe(sidebarEl, { attributes: true, attributeFilter: ['class'] });
+    }
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         renderButtons();
         attachObserver();
+        attachSidebarObserver();
       }, { once: true });
     } else {
       renderButtons();
       attachObserver();
+      attachSidebarObserver();
     }
 
     if (!observer && typeof window !== 'undefined') {
@@ -1134,6 +1162,7 @@
 
     root.__tabNavCleanup = () => {
       if (observer) observer.disconnect();
+      if (sidebarObserver) sidebarObserver.disconnect();
       if (containerCheckTimer) clearInterval(containerCheckTimer);
       destroyButtonsSortable();
       if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);

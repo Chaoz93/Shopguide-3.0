@@ -1,7 +1,7 @@
 # Tab Navigator – Änderungsverlauf
 
 ## [1.1.0] – 2026-01-24
-- Tab-Buttons lassen sich per Drag-Handle verschieben, solange alle Tabs angezeigt werden; per Toggle aktivierbar.
+- Tab-Buttons lassen sich per Drag-Handle verschieben, solange alle Tabs angezeigt werden; per Toggle aktivierbar (im Lock-Zustand wird das Icon ausgeblendet).
 
 ## [1.0.1] – 2026-01-24
 - Doppelklick auf einen Tab-Button benennt den Tab direkt um.
