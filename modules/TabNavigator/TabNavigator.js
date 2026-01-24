@@ -26,19 +26,16 @@
     .tabnav-buttons[data-pattern="grid"]{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}
     .tabnav-buttons[data-pattern="columns"]{grid-template-columns:repeat(2,minmax(0,1fr));}
     .tabnav-buttons[data-pattern="list"]{display:flex;flex-direction:column;}
-    .tabnav-button{appearance:none;border:none;border-radius:.75rem;padding:.7rem .9rem;text-align:center;cursor:pointer;
+    .tabnav-button{appearance:none;border:none;border-radius:.75rem;padding:.7rem .9rem;text-align:center;cursor:pointer;position:relative;
       background:rgba(15,23,42,.78);
       color:inherit;font-size:clamp(.9rem,.9vw + .2vh,1.05rem);font-weight:600;letter-spacing:.2px;
       box-shadow:0 6px 16px rgba(8,15,35,.25);transition:transform .12s ease,box-shadow .12s ease,background .12s ease;
     }
-    .tabnav-button-content{display:flex;align-items:center;justify-content:center;gap:.5rem;}
-    .tabnav-button-label{flex:1;min-width:0;}
-    .tabnav-button-handle{display:inline-flex;align-items:center;justify-content:center;width:1.55rem;height:1.55rem;border-radius:.55rem;
-      background:rgba(148,163,184,.16);border:1px solid rgba(148,163,184,.25);cursor:grab;color:inherit;font-size:1.05rem;
-      transition:transform .12s ease,background .12s ease,border-color .12s ease;
+    .tabnav-button-label{display:block;min-width:0;padding-right:1.2rem;}
+    .tabnav-button-handle{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);cursor:grab;color:inherit;font-size:1em;
+      line-height:1;transition:transform .12s ease;
     }
-    .tabnav-button-handle:active{cursor:grabbing;transform:scale(.95);}
-    .tabnav-button-handle:hover{background:rgba(37,99,235,.22);border-color:rgba(59,130,246,.45);}
+    .tabnav-button-handle:active{cursor:grabbing;transform:translateY(-50%) scale(.95);}
     .tabnav-button[data-draggable="false"] .tabnav-button-handle{opacity:.35;cursor:not-allowed;}
     .tabnav-button:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(8,15,35,.32);background:rgba(37,99,235,.18);}
     .tabnav-button.tabnav-button-active,
@@ -945,19 +942,16 @@
           btn.className = 'tabnav-button';
           btn.dataset.tabIndex = String(tab.index);
           btn.dataset.draggable = dragEnabled ? 'true' : 'false';
-          const content = document.createElement('span');
-          content.className = 'tabnav-button-content';
           const label = document.createElement('span');
           label.className = 'tabnav-button-label';
           label.textContent = tab.name;
-          content.appendChild(label);
           const handle = document.createElement('span');
           handle.className = 'tabnav-button-handle';
-          handle.textContent = '↕';
+          handle.textContent = '⋮⋮';
           handle.setAttribute('aria-hidden', 'true');
           handle.title = dragEnabled ? 'Ziehen, um Tabs zu verschieben' : 'Drag nur in „Alle Tabs“ ohne eigene Sortierung';
-          content.appendChild(handle);
-          btn.appendChild(content);
+          btn.appendChild(label);
+          btn.appendChild(handle);
           if (tab.isActive) {
             btn.classList.add('tabnav-button-active');
             btn.setAttribute('aria-current', 'page');
