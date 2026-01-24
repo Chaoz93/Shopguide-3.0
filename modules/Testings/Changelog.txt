@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.0.2] – 2026-01-24
+### Changed
+- Modernisiertes Testings-UI mit Karten-Layout, Status-Chip und überarbeitetem Tabellen-Design für konsistentes Gesamtkonzept
+
 ## [1.0.1] – 2026-01-24
 ### Changed
 - Testings-Tabelle grafisch gruppiert, mehr vertikale Trennlinien und reduzierte horizontale Linien für bessere Blockstruktur
