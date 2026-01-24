@@ -1059,13 +1059,11 @@
           <div class="bma-item-actions">
             <button type="button" class="primary" data-action="edit">Bearbeiten</button>
             <button type="button" data-action="swap">Tauschen</button>
-            <button type="button" data-action="mail">Mailvordruck</button>
             <button type="button" data-action="delete">Löschen</button>
           </div>
         `;
         card.querySelector('[data-action="edit"]').addEventListener('click', () => editItem(item));
         card.querySelector('[data-action="swap"]').addEventListener('click', () => startSwap(item));
-        card.querySelector('[data-action="mail"]').addEventListener('click', () => copyMailTemplate(item));
         card.querySelector('[data-action="delete"]').addEventListener('click', () => deleteItem(item.id));
         const presetWrap = card.querySelector('[data-bma-presets]');
         if(presetWrap && state.settings.textPresets?.length){
