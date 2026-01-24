@@ -1,0 +1,14 @@
+{
+  "name": "Betriebsmittel Ablauf",
+  "icon": "🧰",
+  "script": "renderBetriebsmittelAblauf",
+  "minW": 2,
+  "minH": 6,
+  "w": 3,
+  "h": 8,
+  "settings": {
+    "title": "Betriebsmittel Ablauf"
+  },
+  "moduleId": "BetriebsmittelAblauf",
+  "version": "1.0.0"
+}
