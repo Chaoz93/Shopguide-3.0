@@ -5,6 +5,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.1] – 2026-01-24
+### Changed
+- Eingabeformular vor die Such- und Filterzeile verschoben.
+- Gerätekacheln mit mehr Fläche und größerer Mindestbreite dargestellt.
+- Fünf Gerätekacheln skalieren jetzt auf die volle Modulbreite.
+
 ## [1.4.0] – 2026-01-24
 ### Added
 - Gerätekarten sind standardmäßig kompakt und lassen sich per Klick aufklappen, inklusive Accent-Rahmen für den aktiven Eintrag.
