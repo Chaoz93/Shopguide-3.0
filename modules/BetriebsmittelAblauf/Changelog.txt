@@ -11,6 +11,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Verwaltung der Textbausteine (Hinzufügen, Entfernen, Speichern) im Modulzustand gespeichert.
 - Standard-Textbaustein (Mailvordruck) ergänzt und Liste der verfügbaren Platzhalter im Modal ergänzt.
 - Textbaustein-Modal und Textfeld größer skaliert, um die Bearbeitung zu erleichtern.
+- Textbaustein-Eingabefeld breiter gemacht und Textbausteine als Buttons an den Geräten ergänzt.
 
 ## [1.2.0] – 2026-01-24
 ### Added

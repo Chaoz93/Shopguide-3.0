@@ -105,7 +105,7 @@
       .bma-text-presets{display:flex;flex-direction:column;gap:.8rem;}
       .bma-text-preset{display:flex;flex-direction:column;gap:.5rem;padding:.7rem;border-radius:.8rem;border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.35);}
       .bma-text-preset input,.bma-text-preset textarea{background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.25);color:inherit;border-radius:.6rem;padding:.45rem .6rem;font-size:.85rem;}
-      .bma-text-preset textarea{min-height:90px;resize:vertical;}
+      .bma-text-preset textarea{min-height:90px;resize:vertical;width:100%;box-sizing:border-box;}
       .bma-text-preset-actions{display:flex;justify-content:flex-end;gap:.4rem;flex-wrap:wrap;}
       .bma-text-presets-empty{font-size:.8rem;opacity:.7;border:1px dashed rgba(148,163,184,.35);padding:.7rem;border-radius:.75rem;text-align:center;}
       .bma-keyword-list{display:flex;flex-wrap:wrap;gap:.35rem;}
@@ -113,6 +113,8 @@
       .bma-modal-panel-wide{width:98vw;max-height:92vh;}
       .bma-modal-panel-wide .bma-text-presets{max-height:50vh;overflow:auto;}
       .bma-modal-panel-wide .bma-text-preset textarea{min-height:160px;}
+      .bma-item-presets{display:flex;flex-wrap:wrap;gap:.4rem;}
+      .bma-item-presets button{border:none;border-radius:.6rem;padding:.3rem .6rem;font-size:.72rem;cursor:pointer;background:rgba(148,163,184,.18);color:inherit;}
     `;
     document.head.appendChild(style);
   }
@@ -782,6 +784,36 @@
       return { subject, body: bodyLines.join('\n') };
     }
 
+    function fillTextPreset(preset, item){
+      const descLine = item.desc ? item.desc : '(keine Beschreibung)';
+      const assetNumber = item.assetNumber ? item.assetNumber : '(nicht hinterlegt)';
+      const replacements = {
+        '{name}': item.name,
+        '{assetNumber}': assetNumber,
+        '{type}': item.type,
+        '{kind}': item.kind,
+        '{expiryMonth}': formatMonth(item.expiryMonth),
+        '{expiryDate}': formatDate(item.expiryDate),
+        '{desc}': descLine
+      };
+      let text = preset.body || '';
+      Object.entries(replacements).forEach(([token, value]) => {
+        text = text.split(token).join(value);
+      });
+      return text;
+    }
+
+    function copyPresetText(preset, item){
+      const content = fillTextPreset(preset, item);
+      if(navigator?.clipboard?.writeText){
+        navigator.clipboard.writeText(content)
+          .then(() => alert('Textbaustein wurde in die Zwischenablage kopiert.'))
+          .catch(() => prompt('Kopiere den Textbaustein:', content));
+      }else{
+        prompt('Kopiere den Textbaustein:', content);
+      }
+    }
+
     function copyMailTemplate(item){
       const template = buildMailTemplate(item);
       const content = `Betreff: ${template.subject}\n\n${template.body}`;
@@ -1021,6 +1053,9 @@
               `).join('') : '<span class="bma-reminder-tag">Keine Reminder gesetzt.</span>'}
             </div>
           </div>
+          ${state.settings.textPresets?.length ? `
+            <div class="bma-item-presets" data-bma-presets></div>
+          ` : ''}
           <div class="bma-item-actions">
             <button type="button" class="primary" data-action="edit">Bearbeiten</button>
             <button type="button" data-action="swap">Tauschen</button>
@@ -1032,6 +1067,17 @@
         card.querySelector('[data-action="swap"]').addEventListener('click', () => startSwap(item));
         card.querySelector('[data-action="mail"]').addEventListener('click', () => copyMailTemplate(item));
         card.querySelector('[data-action="delete"]').addEventListener('click', () => deleteItem(item.id));
+        const presetWrap = card.querySelector('[data-bma-presets]');
+        if(presetWrap && state.settings.textPresets?.length){
+          state.settings.textPresets.forEach(preset => {
+            if(!preset?.title) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = preset.title;
+            btn.addEventListener('click', () => copyPresetText(preset, item));
+            presetWrap.appendChild(btn);
+          });
+        }
         listEl.appendChild(card);
       });
 
