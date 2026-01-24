@@ -26,15 +26,22 @@
     .tabnav-buttons[data-pattern="grid"]{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}
     .tabnav-buttons[data-pattern="columns"]{grid-template-columns:repeat(2,minmax(0,1fr));}
     .tabnav-buttons[data-pattern="list"]{display:flex;flex-direction:column;}
-    .tabnav-button{appearance:none;border:none;border-radius:.75rem;padding:.7rem .9rem;text-align:center;cursor:pointer;
+    .tabnav-button{appearance:none;border:none;border-radius:.75rem;padding:.7rem .9rem;text-align:center;cursor:pointer;position:relative;
       background:rgba(15,23,42,.78);
       color:inherit;font-size:clamp(.9rem,.9vw + .2vh,1.05rem);font-weight:600;letter-spacing:.2px;
       box-shadow:0 6px 16px rgba(8,15,35,.25);transition:transform .12s ease,box-shadow .12s ease,background .12s ease;
     }
+    .tabnav-button-label{display:block;min-width:0;padding-right:1.2rem;}
+    .tabnav-button-handle{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);cursor:grab;color:inherit;font-size:1em;
+      line-height:1;transition:transform .12s ease;
+    }
+    .tabnav-button-handle:active{cursor:grabbing;transform:translateY(-50%) scale(.95);}
+    .tabnav-button[data-draggable="false"] .tabnav-button-handle{opacity:.35;cursor:not-allowed;}
     .tabnav-button:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(8,15,35,.32);background:rgba(37,99,235,.18);}
     .tabnav-button.tabnav-button-active,
     .tabnav-button.tabnav-button-active:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(8,15,35,.32);background:rgba(37,99,235,.18);}
     .tabnav-button:active{transform:none;box-shadow:0 4px 12px rgba(8,15,35,.2);}
+    .tabnav-button-ghost{opacity:.6;}
     .tabnav-empty{margin:0;font-size:.88rem;opacity:.75;text-align:center;padding:1.4rem 1rem;border-radius:.75rem;
       background:rgba(15,23,42,.55);border:1px dashed rgba(148,163,184,.24);
     }
@@ -150,7 +157,8 @@
         selectedTabs: Array.isArray(parsed.selectedTabs) ? parsed.selectedTabs : [],
         showTitle: typeof parsed.showTitle === 'boolean' ? parsed.showTitle : undefined,
         showSubtitle: typeof parsed.showSubtitle === 'boolean' ? parsed.showSubtitle : undefined,
-        customOrder: Array.isArray(parsed.customOrder) ? parsed.customOrder : []
+        customOrder: Array.isArray(parsed.customOrder) ? parsed.customOrder : [],
+        allowDrag: typeof parsed.allowDrag === 'boolean' ? parsed.allowDrag : undefined
       };
     } catch (err) {
       console.warn('TabNavigator: Konnte Zustand nicht laden', err);
@@ -169,7 +177,8 @@
         selectedTabs: state.selectedTabs,
         showTitle: state.showTitle,
         showSubtitle: state.showSubtitle,
-        customOrder: state.customOrder
+        customOrder: state.customOrder,
+        allowDrag: state.allowDrag
       }));
     } catch (err) {
       console.warn('TabNavigator: Konnte Zustand nicht speichern', err);
@@ -387,13 +396,19 @@
       showSubtitle: typeof stored?.showSubtitle === 'boolean'
         ? stored.showSubtitle
         : (typeof defaults.showSubtitle === 'boolean' ? defaults.showSubtitle : true),
-      customOrder: uniqueSelection(normalizeSelection(stored?.customOrder || defaults.customOrder || []))
+      customOrder: uniqueSelection(normalizeSelection(stored?.customOrder || defaults.customOrder || [])),
+      allowDrag: typeof stored?.allowDrag === 'boolean'
+        ? stored.allowDrag
+        : (typeof defaults.allowDrag === 'boolean' ? defaults.allowDrag : false)
     };
 
     let currentTabs = readTabs();
     let observer = null;
+    let sidebarObserver = null;
     let containerCheckTimer = null;
     let lastFocusedBeforeModal = null;
+    let buttonsSortable = null;
+    let buttonDragInProgress = false;
 
     const container = document.createElement('div');
     container.className = 'tabnav-root';
@@ -452,7 +467,8 @@
     let modeRadios = Array.from(overlay.querySelectorAll(`input[name="${modeRadioName}"]`));
     const displayToggleInputs = {
       showTitle: overlay.querySelector('input[data-setting="showTitle"]'),
-      showSubtitle: overlay.querySelector('input[data-setting="showSubtitle"]')
+      showSubtitle: overlay.querySelector('input[data-setting="showSubtitle"]'),
+      allowDrag: overlay.querySelector('input[data-setting="allowDrag"]')
     };
     let dragHandlersBound = false;
     let draggingKey = null;
@@ -485,6 +501,7 @@
               <div class="tabnav-toggle-group" data-role="display-toggles">
                 <label class="tabnav-toggle"><input type="checkbox" data-setting="showTitle" /> <span>Modulname anzeigen</span></label>
                 <label class="tabnav-toggle"><input type="checkbox" data-setting="showSubtitle" /> <span>Hinweistext anzeigen</span></label>
+                <label class="tabnav-toggle"><input type="checkbox" data-setting="allowDrag" /> <span>Draggen der Tabs aktivieren</span></label>
               </div>
             </section>
             <section class="tabnav-section">
@@ -852,6 +869,63 @@
       renderButtons();
     }
 
+    function setButtonDraggingState(isDragging){
+      buttonDragInProgress = isDragging;
+      buttonsWrap.classList.toggle('tabnav-buttons-dragging', isDragging);
+    }
+
+    function destroyButtonsSortable(){
+      if (buttonsSortable) {
+        buttonsSortable.destroy();
+        buttonsSortable = null;
+      }
+    }
+
+    function canReorderTabs(tabList){
+      return state.mode === 'all'
+        && state.allowDrag
+        && !isLayoutLocked()
+        && (!Array.isArray(state.customOrder) || !state.customOrder.length)
+        && Array.isArray(tabList)
+        && tabList.length > 1
+        && typeof Sortable !== 'undefined';
+    }
+
+    function setupButtonsSortable(tabList){
+      const draggable = canReorderTabs(tabList);
+      destroyButtonsSortable();
+      if (!draggable) return;
+      buttonsSortable = Sortable.create(buttonsWrap, {
+        animation: 150,
+        ghostClass: 'tabnav-button-ghost',
+        handle: '.tabnav-button-handle',
+        onStart: () => setButtonDraggingState(true),
+        onEnd: (evt) => {
+          setButtonDraggingState(false);
+          handleButtonReorder(evt);
+        }
+      });
+    }
+
+    function handleButtonReorder(evt){
+      if (!evt || evt.oldIndex === undefined || evt.newIndex === undefined) return;
+      if (evt.oldIndex === evt.newIndex) return;
+      if (typeof window.handleTabReorder === 'function') {
+        window.handleTabReorder({ oldIndex: evt.oldIndex, newIndex: evt.newIndex });
+      }
+    }
+
+    function isLayoutLocked(){
+      const sidebarEl = document.getElementById('sidebar');
+      if (sidebarEl && sidebarEl.classList) {
+        return sidebarEl.classList.contains('collapsed');
+      }
+      if (typeof window !== 'undefined' && typeof window.isSidebarOpen === 'boolean') {
+        return !window.isSidebarOpen;
+      }
+      return false;
+    }
+
     function renderButtons(){
       currentTabs = readTabs();
       const defaultOrderMap = buildDefaultOrderMap(currentTabs);
@@ -879,6 +953,9 @@
 
       buttonsWrap.innerHTML = '';
       buttonsWrap.dataset.pattern = state.pattern;
+      const isLocked = isLayoutLocked();
+      const dragEnabled = canReorderTabs(orderedTabs);
+      const showHandle = state.allowDrag && !isLocked;
       if (orderedTabs.length) {
         buttonsWrap.style.display = '';
         emptyState.style.display = 'none';
@@ -887,12 +964,25 @@
           btn.type = 'button';
           btn.className = 'tabnav-button';
           btn.dataset.tabIndex = String(tab.index);
-          btn.textContent = tab.name;
+          btn.dataset.draggable = dragEnabled ? 'true' : 'false';
+          const label = document.createElement('span');
+          label.className = 'tabnav-button-label';
+          label.textContent = tab.name;
+          btn.appendChild(label);
+          if (showHandle) {
+            const handle = document.createElement('span');
+            handle.className = 'tabnav-button-handle';
+            handle.textContent = '⋮⋮';
+            handle.setAttribute('aria-hidden', 'true');
+            handle.title = dragEnabled ? 'Ziehen, um Tabs zu verschieben' : 'Drag nur in „Alle Tabs“ ohne eigene Sortierung';
+            btn.appendChild(handle);
+          }
           if (tab.isActive) {
             btn.classList.add('tabnav-button-active');
             btn.setAttribute('aria-current', 'page');
           }
           btn.addEventListener('click', () => {
+            if (buttonDragInProgress) return;
             try {
               if (typeof window.activateTab === 'function') {
                 window.activateTab(tab.index);
@@ -906,6 +996,7 @@
             }
           });
           btn.addEventListener('dblclick', () => {
+            if (buttonDragInProgress) return;
             try {
               if (typeof window.renameTab === 'function') {
                 window.renameTab(tab.index);
@@ -929,6 +1020,7 @@
       updateOverlayTabs();
       updatePatternRadios();
       updateModeRadios();
+      setupButtonsSortable(orderedTabs);
       if (stateChanged) persist();
     }
 
@@ -959,6 +1051,9 @@
         applyPatternLabel();
         applyHeaderVisibility();
         syncDisplayToggles();
+        if (key === 'allowDrag') {
+          renderButtons();
+        }
       });
     });
 
@@ -1030,14 +1125,25 @@
       observer.observe(containerEl, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] });
     }
 
+    function attachSidebarObserver(){
+      const sidebarEl = document.getElementById('sidebar');
+      if (!sidebarEl || typeof MutationObserver === 'undefined') return;
+      sidebarObserver = new MutationObserver(() => {
+        renderButtons();
+      });
+      sidebarObserver.observe(sidebarEl, { attributes: true, attributeFilter: ['class'] });
+    }
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         renderButtons();
         attachObserver();
+        attachSidebarObserver();
       }, { once: true });
     } else {
       renderButtons();
       attachObserver();
+      attachSidebarObserver();
     }
 
     if (!observer && typeof window !== 'undefined') {
@@ -1056,7 +1162,9 @@
 
     root.__tabNavCleanup = () => {
       if (observer) observer.disconnect();
+      if (sidebarObserver) sidebarObserver.disconnect();
       if (containerCheckTimer) clearInterval(containerCheckTimer);
+      destroyButtonsSortable();
       if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
       if (!document.querySelector('.tabnav-overlay.open')) {
         document.body.classList.remove('tabnav-modal-open');
