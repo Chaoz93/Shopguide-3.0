@@ -246,6 +246,41 @@
     return { year, month };
   }
 
+  function parseCompactMonthInput(value){
+    if(!value) return null;
+    if(value.includes('-')) return null;
+    const digits = value.replace(/\D/g, '');
+    if(digits.length < 3) return null;
+    let month = null;
+    let year = null;
+    if(digits.length === 3){
+      month = Number(digits.slice(0, 1));
+      year = 2000 + Number(digits.slice(1, 3));
+    }else if(digits.length === 4){
+      month = Number(digits.slice(0, 2));
+      year = 2000 + Number(digits.slice(2, 4));
+    }else if(digits.length === 5){
+      month = Number(digits.slice(0, 1));
+      year = Number(digits.slice(1, 5));
+    }else{
+      month = Number(digits.slice(0, 2));
+      year = Number(digits.slice(2, 6));
+    }
+    if(!Number.isFinite(month) || !Number.isFinite(year)) return null;
+    if(month < 1 || month > 12) return null;
+    return `${year}-${String(month).padStart(2, '0')}`;
+  }
+
+  function normalizeMonthInput(value, rawDigits){
+    if(rawDigits){
+      const normalized = parseCompactMonthInput(rawDigits);
+      if(normalized) return normalized;
+    }
+    if(!value) return '';
+    if(value.includes('-')) return value;
+    return parseCompactMonthInput(value) || '';
+  }
+
   function formatMonth(value){
     const parsed = parseMonth(value);
     if(!parsed) return '-';
@@ -463,7 +498,7 @@
             </label>
             <label>
               Ablaufmonat
-              <input type="month" class="bma-input-month" />
+              <input type="month" class="bma-input-month" inputmode="numeric" />
             </label>
             <label>
               Prüftyp
@@ -623,6 +658,7 @@
     let editId = null;
     let swapSourceId = null;
     let textPresetDraft = [];
+    let rawMonthDigits = '';
 
     function persist(){
       saveDoc(doc);
@@ -828,7 +864,14 @@
 
     function saveItem(){
       const name = formFields.name.value.trim();
-      const month = formFields.month.value;
+      let month = formFields.month.value.trim();
+      const normalizedMonth = normalizeMonthInput(month, rawMonthDigits);
+      if(normalizedMonth){
+        month = normalizedMonth;
+        formFields.month.value = normalizedMonth;
+      }else if(!month || !month.includes('-')){
+        month = '';
+      }
       if(!name || !month){
         alert('Bitte Name und Ablaufmonat angeben.');
         return;
@@ -910,6 +953,17 @@
           focusNextField(field, orderedFields);
         });
       });
+    }
+
+    function normalizeAndFocusKind(){
+      const normalizedMonth = normalizeMonthInput(formFields.month.value.trim(), rawMonthDigits);
+      if(normalizedMonth){
+        formFields.month.value = normalizedMonth;
+      }
+      rawMonthDigits = '';
+      if(formFields.kind){
+        formFields.kind.focus();
+      }
     }
 
     function editItem(item){
@@ -1129,6 +1183,35 @@
     if(swapFields.cancel){
       swapFields.cancel.addEventListener('click', resetForm);
     }
+    formFields.month.addEventListener('focus', () => {
+      rawMonthDigits = '';
+    });
+    formFields.month.addEventListener('keydown', event => {
+      if(event.key === 'Tab' && !event.shiftKey){
+        event.preventDefault();
+        normalizeAndFocusKind();
+        return;
+      }
+      if(event.ctrlKey || event.metaKey || event.altKey) return;
+      if(event.key === 'Backspace'){
+        rawMonthDigits = rawMonthDigits.slice(0, -1);
+        return;
+      }
+      if(event.key === 'Delete'){
+        rawMonthDigits = '';
+        return;
+      }
+      if(/^\d$/.test(event.key)){
+        rawMonthDigits += event.key;
+      }
+    });
+    formFields.month.addEventListener('blur', () => {
+      const normalizedMonth = normalizeMonthInput(formFields.month.value.trim(), rawMonthDigits);
+      if(normalizedMonth){
+        formFields.month.value = normalizedMonth;
+      }
+      rawMonthDigits = '';
+    });
     searchInput.addEventListener('input', renderList);
     statusSelect.addEventListener('change', renderList);
     sortSelect.addEventListener('change', renderList);
