@@ -57,7 +57,7 @@
       .bma-controls{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;}
       .bma-controls input,.bma-controls select{background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.25);color:inherit;border-radius:.6rem;padding:.45rem .6rem;font-size:.85rem;}
       .bma-controls label{display:flex;flex-direction:column;gap:.25rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.08rem;opacity:.7;}
-      .bma-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.7rem;max-width:calc(5 * 260px + 4 * .7rem);margin:0 auto;}
+      .bma-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.7rem;width:100%;}
       .bma-item{display:flex;flex-direction:column;gap:.6rem;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease;padding:1rem;}
       .bma-item.is-expanded{border-color:var(--bma-accent-border,rgba(59,130,246,.55));box-shadow:0 14px 30px rgba(8,15,35,.35);}
       .bma-item-details{display:none;flex-direction:column;gap:.6rem;}

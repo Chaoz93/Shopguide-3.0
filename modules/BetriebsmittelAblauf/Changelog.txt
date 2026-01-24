@@ -9,6 +9,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Changed
 - Eingabeformular vor die Such- und Filterzeile verschoben.
 - Gerätekacheln mit mehr Fläche und größerer Mindestbreite dargestellt.
+- Fünf Gerätekacheln skalieren jetzt auf die volle Modulbreite.
 
 ## [1.4.0] – 2026-01-24
 ### Added
