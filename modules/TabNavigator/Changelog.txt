@@ -1,4 +1,7 @@
 # Tab Navigator – Änderungsverlauf
 
+## [1.0.1] – 2026-01-24
+- Doppelklick auf einen Tab-Button benennt den Tab direkt um.
+
 ## [1.0.0] – 2025-10-10
 - Erstveröffentlichung mit konfigurierbarer Tab-Auswahl und Musterlayouts für die Navigationsbuttons.

@@ -1,4 +1,4 @@
-<!-- Version: 3.6.16 -->
+<!-- Version: 3.6.15 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -8911,7 +8911,6 @@ function renderTabs() {
     label.textContent = tab.name;
     item.appendChild(label);
     item.addEventListener('click', () => activateTab(idx));
-    item.addEventListener('dblclick', () => renameTab(idx));
     item.addEventListener('contextmenu', e => openTabContextMenu(e, idx));
     tabsContainer.appendChild(item);
   });
