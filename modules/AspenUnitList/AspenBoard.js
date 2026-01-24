@@ -1503,6 +1503,7 @@
       items:[],
       excluded:new Set(),
       customEntries:{},
+      customLabel:'',
       filePath:'',
       searchQuery:'',
       partFilter:'',
@@ -1903,6 +1904,11 @@
       }
       if(Array.isArray(saved.excluded)) state.excluded=new Set(saved.excluded);
       state.customEntries=sanitizeCustomEntries(saved.customEntries);
+      state.customLabel=normalizeCustomLabel(saved.customLabel);
+      if(!state.customLabel){
+        const firstLabel=Object.values(state.customEntries).find(entry=>entry?.label)?.label;
+        state.customLabel=normalizeCustomLabel(firstLabel);
+      }
       state.filePath=typeof saved.filePath==='string'?saved.filePath:state.filePath;
       state.searchQuery=typeof saved.searchQuery==='string'?saved.searchQuery:'';
       state.partFilter=typeof saved.partFilter==='string'?saved.partFilter:'';
@@ -1973,6 +1979,7 @@
       items:Array.isArray(state.items)?state.items.slice():[],
       excluded:Array.from(state.excluded),
       customEntries:sanitizeCustomEntries(state.customEntries),
+      customLabel:normalizeCustomLabel(state.customLabel),
       filePath:state.filePath,
       searchQuery:state.searchQuery||'',
       partFilter:state.partFilter||'',
@@ -2012,6 +2019,7 @@
         }),
         excluded:payload.excluded.slice(),
         customEntries:{...payload.customEntries},
+        customLabel:payload.customLabel,
         filePath:payload.filePath,
         searchQuery:payload.searchQuery,
         partFilter:payload.partFilter,
@@ -2454,6 +2462,16 @@
     return output;
   }
 
+  function normalizeCustomLabel(value){
+    return typeof value==='string'?value.trim():'';
+  }
+
+  function resolveCustomLabel(state,entryLabel){
+    const fromState=normalizeCustomLabel(state?.customLabel);
+    if(fromState) return fromState;
+    return normalizeCustomLabel(entryLabel);
+  }
+
   function getCustomEntry(state,meldung){
     const key=String(meldung||'').trim();
     if(!key) return {label:'',value:''};
@@ -2546,7 +2564,7 @@
     const titleValue=item.data?.[TITLE_FIELD]||'';
     const meldung=item.meldung||'';
     const customEntry=getCustomEntry(state,meldung);
-    const customLabel=customEntry.label||'KV-Arbeitsstunden';
+    const customLabel=resolveCustomLabel(state,customEntry.label)||'KV-Arbeitsstunden';
     const customValue=customEntry.value||'';
     const calcFormula=state?.config?.customCalcFormula||'';
     const calcLabel=(state?.config?.customCalcLabel||'').trim()||'Berechnung';
@@ -2783,7 +2801,8 @@
     if(item?.meldung) values.push(item.meldung);
     if(item?.part) values.push(item.part);
     const customEntry=getCustomEntry(state,item?.meldung);
-    if(customEntry.label) values.push(customEntry.label);
+    const customLabel=resolveCustomLabel(state,customEntry.label);
+    if(customLabel) values.push(customLabel);
     if(customEntry.value) values.push(customEntry.value);
     const calcFormula=state?.config?.customCalcFormula||'';
     if(calcFormula){
@@ -5179,7 +5198,8 @@
       const key=String(meldung||'').trim();
       if(!key) return;
       const current=getCustomEntry(state,key);
-      const nextLabel=typeof updates?.label==='string'?updates.label.trim():current.label;
+      const resolvedLabel=resolveCustomLabel(state,current.label);
+      const nextLabel=typeof updates?.label==='string'?updates.label.trim():resolvedLabel;
       const nextValue=typeof updates?.value==='string'?updates.value.trim():current.value;
       state.customEntries ||= {};
       if(!nextLabel && !nextValue){
@@ -5187,6 +5207,18 @@
       }else{
         state.customEntries[key]={label:nextLabel,value:nextValue};
       }
+      persistState(state,instanceId,stateStorageKey);
+      render();
+    };
+
+    const updateCustomLabel=nextLabel=>{
+      const normalized=normalizeCustomLabel(nextLabel);
+      state.customLabel=normalized;
+      Object.values(state.customEntries||{}).forEach(entry=>{
+        if(!entry || typeof entry!=='object') return;
+        if(!entry.label && !entry.value) return;
+        entry.label=normalized;
+      });
       persistState(state,instanceId,stateStorageKey);
       render();
     };
@@ -5201,13 +5233,14 @@
       if(!meldung) return;
       const entry=getCustomEntry(state,meldung);
       if(labelEl){
-        const next=showPrompt('Custom-Feldname',entry.label||'');
+        const currentLabel=resolveCustomLabel(state,entry.label);
+        const next=showPrompt('Custom-Feldname',currentLabel||'');
         if(next===null) return;
-        updateCustomEntry(meldung,{label:next});
+        updateCustomLabel(next);
       }else if(valueEl){
         const next=showPrompt('KV-Arbeitsstunden',entry.value||'');
         if(next===null) return;
-        updateCustomEntry(meldung,{label:entry.label||'KV-Arbeitsstunden',value:next});
+        updateCustomEntry(meldung,{label:resolveCustomLabel(state,entry.label)||'KV-Arbeitsstunden',value:next});
       }
     };
     const handleCardDblClick=event=>{
@@ -5219,7 +5252,7 @@
       const entry=getCustomEntry(state,meldung);
       const next=showPrompt('KV-Arbeitsstunden',entry.value||'');
       if(next===null) return;
-      updateCustomEntry(meldung,{label:entry.label||'KV-Arbeitsstunden',value:next});
+      updateCustomEntry(meldung,{label:resolveCustomLabel(state,entry.label)||'KV-Arbeitsstunden',value:next});
     };
     elements.list.addEventListener('click',handleCardClick);
     elements.list.addEventListener('dblclick',handleCustomDblClick);
