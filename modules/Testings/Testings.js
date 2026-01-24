@@ -9,22 +9,39 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .ts-root{height:100%;display:flex;flex-direction:column;gap:.75rem;padding:.75rem;box-sizing:border-box;color:var(--testing-main-text,var(--text-color,#fff));}
-      .ts-panel{flex:1;display:flex;flex-direction:column;gap:.65rem;min-height:0;padding:.75rem;border-radius:1rem;background:var(--testing-main-bg,var(--module-bg,rgba(17,24,39,.3)));border:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.4)));box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
-      .ts-header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem;}
-      .ts-title{font-weight:700;font-size:1rem;}
+      .ts-root{height:100%;display:flex;flex-direction:column;gap:.85rem;padding:.85rem;box-sizing:border-box;color:var(--testing-main-text,var(--text-color,#fff));}
+      .ts-panel{flex:1;display:flex;flex-direction:column;gap:.75rem;min-height:0;padding:.85rem;border-radius:1.1rem;background:linear-gradient(180deg,color-mix(in srgb,var(--testing-main-bg,var(--module-bg,rgba(17,24,39,.3))) 88%, transparent),color-mix(in srgb,var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25))) 28%, transparent));border:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.4)));box-shadow:0 18px 40px rgba(15,23,42,.28), inset 0 1px 0 rgba(255,255,255,.06);}
+      .ts-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:.65rem;padding-bottom:.4rem;border-bottom:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.2)));}
+      .ts-title{font-weight:700;font-size:1.1rem;display:flex;align-items:center;gap:.45rem;}
+      .ts-title::before{content:'🧪';font-size:1rem;}
       .ts-status{font-size:.85rem;opacity:.85;min-height:1.2rem;}
-      .ts-controls{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;padding:.55rem;border-radius:.75rem;background:var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25)));border:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));}
+      .ts-status-tag{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .55rem;border-radius:999px;border:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));background:color-mix(in srgb,var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25))) 70%, transparent);font-weight:600;}
+      .ts-toolbar{display:grid;grid-template-columns:minmax(0,1fr);gap:.65rem;}
+      .ts-card{padding:.65rem;border-radius:.9rem;background:var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25)));border:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));display:flex;flex-direction:column;gap:.55rem;}
+      .ts-section-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;opacity:.7;}
+      .ts-controls{display:flex;flex-wrap:wrap;gap:.55rem;align-items:center;}
+      .ts-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;}
       .ts-controls label{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
-      .ts-controls input{width:88px;padding:.25rem .4rem;border-radius:.4rem;border:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));background:rgba(255,255,255,.08);color:inherit;}
-      .ts-btn{border:none;border-radius:.6rem;padding:.35rem .75rem;font-weight:600;cursor:pointer;background:var(--testing-accent-bg,var(--module-bg,rgba(59,130,246,.45)));color:var(--testing-accent-text,var(--text-color,#fff));border:1px solid var(--testing-accent-border,transparent);}
-      .ts-btn.secondary{background:transparent;color:inherit;border:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.4)));}
+      .ts-controls input{width:88px;padding:.3rem .45rem;border-radius:.5rem;border:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));background:rgba(255,255,255,.08);color:inherit;}
+      .ts-btn{border:none;border-radius:.65rem;padding:.4rem .85rem;font-weight:600;cursor:pointer;background:var(--testing-accent-bg,var(--module-bg,rgba(59,130,246,.45)));color:var(--testing-accent-text,var(--text-color,#fff));border:1px solid var(--testing-accent-border,transparent);box-shadow:0 10px 20px rgba(15,23,42,.2);}
+      .ts-btn.secondary{background:transparent;color:inherit;border:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.4)));box-shadow:none;}
+      .ts-btn.ghost{background:color-mix(in srgb,var(--testing-main-bg,var(--module-bg,rgba(17,24,39,.3))) 30%, transparent);color:inherit;border:1px dashed var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.4)));box-shadow:none;}
       .ts-btn:disabled{opacity:.6;cursor:not-allowed;}
-      .ts-file{font-size:.85rem;opacity:.85;}
-      .ts-table-wrap{flex:1;overflow:auto;border-radius:.75rem;border:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.3)));}
-      .ts-table{width:100%;border-collapse:collapse;font-size:.82rem;}
-      .ts-table th,.ts-table td{padding:.35rem .5rem;border-bottom:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.15)));vertical-align:top;}
-      .ts-table thead th{position:sticky;top:0;background:var(--testing-main-bg,var(--module-bg,rgba(15,23,42,.85)));z-index:1;text-align:left;font-weight:600;}
+      .ts-file{font-size:.85rem;opacity:.85;display:flex;align-items:center;gap:.4rem;}
+      .ts-file-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .5rem;border-radius:.6rem;border:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));background:color-mix(in srgb,var(--testing-main-bg,var(--module-bg,rgba(17,24,39,.3))) 45%, transparent);font-weight:600;}
+      .ts-table-wrap{flex:1;overflow:auto;border-radius:1rem;border:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.3)));background:color-mix(in srgb,var(--testing-main-bg,var(--module-bg,rgba(17,24,39,.3))) 80%, transparent);}
+      .ts-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.82rem;}
+      .ts-table th,.ts-table td{padding:.45rem .55rem;border-right:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.2)));vertical-align:top;}
+      .ts-table th:last-child,.ts-table td:last-child{border-right:none;}
+      .ts-table thead th{position:sticky;top:0;background:linear-gradient(180deg,color-mix(in srgb,var(--testing-main-bg,var(--module-bg,rgba(15,23,42,.85))) 92%, transparent),color-mix(in srgb,var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25))) 30%, transparent));z-index:1;text-align:left;font-weight:600;border-bottom:1px solid var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.25)));}
+      .ts-table tbody tr:not(.ts-block-row) td{border-bottom:1px solid color-mix(in srgb,var(--testing-main-border,var(--module-border-color,rgba(148,163,184,.15))) 50%, transparent);}
+      .ts-data-row{background:linear-gradient(90deg,color-mix(in srgb,var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25))) 70%, transparent) 0 8px,transparent 8px);}
+      .ts-data-row:hover{background:color-mix(in srgb,var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25))) 45%, transparent);}
+      .ts-row--block-start td{border-top:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));}
+      .ts-block-row td{padding:.5rem .75rem;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;background:linear-gradient(90deg,color-mix(in srgb,var(--testing-alt-bg,var(--module-bg,rgba(15,23,42,.25))) 70%, transparent),transparent);color:var(--testing-alt-text,var(--text-color,#fff));border-top:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));border-bottom:1px solid var(--testing-alt-border,var(--module-border-color,rgba(148,163,184,.2)));}
+      .ts-block-label{display:inline-flex;align-items:center;gap:.35rem;}
+      .ts-block-label::before{content:'';width:.6rem;height:.6rem;border-radius:.2rem;background:var(--testing-accent-bg,var(--module-bg,rgba(59,130,246,.45)));border:1px solid var(--testing-accent-border,transparent);}
+      .ts-block-title{font-weight:500;text-transform:none;letter-spacing:normal;opacity:.85;margin-left:.35rem;}
       .ts-row--go{background:color-mix(in srgb,var(--testing-accent-bg,var(--module-bg,#1e293b)) 18%, transparent);}
       .ts-row--nogo{background:color-mix(in srgb,var(--testing-alt-bg,var(--module-bg,#0f172a)) 28%, transparent);}
       .ts-row--warn{background:color-mix(in srgb,var(--testing-main-bg,var(--module-bg,#0f172a)) 40%, transparent);}
@@ -317,16 +334,26 @@
         <div class="ts-panel">
           <div class="ts-header">
             <div class="ts-title">Testings</div>
-            <div class="ts-status">Bereit.</div>
+            <div class="ts-status"><span class="ts-status-tag">Bereit.</span></div>
           </div>
-          <div class="ts-controls">
-            <button class="ts-btn ts-pick" type="button">Datei auswählen</button>
-            <span class="ts-file">Keine Datei gewählt</span>
-            <label>Startblock
-              <input class="ts-start" type="number" min="0" step="1" value="1" />
-            </label>
-            <button class="ts-btn ts-run" type="button">Test starten</button>
-            <button class="ts-btn secondary ts-clear" type="button">Ergebnisse löschen</button>
+          <div class="ts-toolbar">
+            <div class="ts-card">
+              <div class="ts-section-title">Datei &amp; Start</div>
+              <div class="ts-controls">
+                <button class="ts-btn ts-pick" type="button">Datei auswählen</button>
+                <span class="ts-file"><span class="ts-file-badge">XLSX</span><span class="ts-file-name">Keine Datei gewählt</span></span>
+                <label>Startblock
+                  <input class="ts-start" type="number" min="0" step="1" value="1" />
+                </label>
+              </div>
+            </div>
+            <div class="ts-card">
+              <div class="ts-section-title">Aktionen</div>
+              <div class="ts-actions">
+                <button class="ts-btn ts-run" type="button">Test starten</button>
+                <button class="ts-btn secondary ts-clear" type="button">Ergebnisse löschen</button>
+              </div>
+            </div>
           </div>
           <div class="ts-table-wrap">
             <table class="ts-table">
@@ -356,11 +383,11 @@
       </div>
     `;
 
-    const statusEl = root.querySelector('.ts-status');
+    const statusEl = root.querySelector('.ts-status-tag');
     const pickBtn = root.querySelector('.ts-pick');
     const runBtn = root.querySelector('.ts-run');
     const clearBtn = root.querySelector('.ts-clear');
-    const fileLabel = root.querySelector('.ts-file');
+    const fileLabel = root.querySelector('.ts-file-name');
     const startInput = root.querySelector('.ts-start');
     const tableBody = root.querySelector('tbody');
     const palettesEl = root.querySelector('.ts-palettes');
@@ -446,8 +473,22 @@
     function renderTable(){
       tableBody.innerHTML = '';
       rowEls = [];
+      let currentBlock = null;
       rows.forEach((row, idx) => {
+        const blockChanged = row.block !== null && row.block !== currentBlock;
+        if(blockChanged){
+          const blockRow = document.createElement('tr');
+          blockRow.className = 'ts-block-row';
+          const blockCell = document.createElement('td');
+          blockCell.colSpan = 12;
+          blockCell.innerHTML = `<span class="ts-block-label">Block ${row.block}</span>${row.title ? `<span class="ts-block-title">– ${row.title}</span>` : ''}`;
+          blockRow.appendChild(blockCell);
+          tableBody.appendChild(blockRow);
+          currentBlock = row.block;
+        }
         const tr = document.createElement('tr');
+        tr.classList.add('ts-data-row');
+        if(blockChanged) tr.classList.add('ts-row--block-start');
         rowEls[idx] = tr;
         const baseCells = row.raw.map(value => {
           const td = document.createElement('td');
