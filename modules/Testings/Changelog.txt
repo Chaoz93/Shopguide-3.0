@@ -1,0 +1,10 @@
+# Changelog – Testings
+
+Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
+Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
+
+---
+
+## [1.0.0] – 2026-01-24
+### Added
+- Erstveröffentlichung des Testings-Moduls mit Excel-Import und Testablauf

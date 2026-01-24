@@ -1,0 +1,12 @@
+{
+  "name": "Testings",
+  "icon": "🧪",
+  "script": "renderTestings",
+  "minW": 3,
+  "minH": 4,
+  "w": 4,
+  "h": 5,
+  "settings": {},
+  "moduleId": "Testings",
+  "version": "1.0.0"
+}
