@@ -494,7 +494,7 @@
             </label>
             <label>
               Ablaufmonat
-              <input type="month" class="bma-input-month" />
+              <input type="month" class="bma-input-month" inputmode="numeric" />
             </label>
             <label>
               Prüftyp
@@ -950,6 +950,16 @@
       });
     }
 
+    function normalizeAndFocusKind(){
+      const normalizedMonth = normalizeMonthInput(formFields.month.value.trim());
+      if(normalizedMonth){
+        formFields.month.value = normalizedMonth;
+      }
+      if(formFields.kind){
+        formFields.kind.focus();
+      }
+    }
+
     function editItem(item){
       editId = item.id;
       swapSourceId = null;
@@ -1167,6 +1177,11 @@
     if(swapFields.cancel){
       swapFields.cancel.addEventListener('click', resetForm);
     }
+    formFields.month.addEventListener('keydown', event => {
+      if(event.key !== 'Tab' || event.shiftKey) return;
+      event.preventDefault();
+      normalizeAndFocusKind();
+    });
     formFields.month.addEventListener('blur', () => {
       const normalizedMonth = normalizeMonthInput(formFields.month.value.trim());
       if(normalizedMonth){
