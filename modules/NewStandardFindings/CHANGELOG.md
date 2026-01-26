@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.8.10 – 2026-01-26
+### Fixed
+- Nonroutine-Ausgabefeld reagiert jetzt sofort auf Statuswechsel und blendet sich ohne Seitenreload ein oder aus.
+
 ## 1.8.7 – 2026-01-23
 ### Changed
 - Bearbeiten- und Löschen-Icons der Findings-Eingaben sind jetzt schlichter und einfarbig gestaltet.

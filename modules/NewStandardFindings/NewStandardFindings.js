@@ -10374,6 +10374,7 @@
       };
       state.statusValue=DEFAULT_FINDING_STATUS;
       const updateStatus=()=>{
+        const hideBefore=this.shouldHideNonroutineOutput();
         const nextStatus=normalizeFindingStatus(statusSelect.value);
         state.statusValue=nextStatus;
         if(state.entry){
@@ -10385,6 +10386,10 @@
             this.queueStateSave();
             this.queueEventAutoUpdate();
           }
+        }
+        const hideAfter=this.shouldHideNonroutineOutput();
+        if(hideBefore!==hideAfter){
+          this.scheduleRender();
         }
       };
       const updateHighlight=()=>{
