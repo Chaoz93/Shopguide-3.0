@@ -4,6 +4,10 @@ Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 
+## [1.8.4] – 2026-01-26
+### Changed
+- Klammer-Icon im Header entfernt und Auto-Update-Anzeige ohne abgerundete Kachel dargestellt.
+
 ## [1.8.3] – 2026-01-26
 ### Changed
 - Standard-Header-Titel entfernt, damit die Kopfzeile leer bleibt, wenn kein eigener Titel gesetzt ist.
