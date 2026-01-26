@@ -10378,13 +10378,25 @@
         state.statusValue=nextStatus;
         if(state.entry){
           state.entry.status=nextStatus;
-          const match=this.selectedEntries.find(sel=>sel.key===state.entry.key);
-          if(match){
-            match.status=nextStatus;
+          const entryKey=state.entry.key;
+          const fallbackMatch=sel=>sel.label===state.entry.label
+            && sel.finding===state.entry.finding
+            && sel.action===state.entry.action;
+          let selectionUpdated=false;
+          this.selectedEntries.forEach(sel=>{
+            if((entryKey&&sel.key===entryKey)||(!entryKey&&fallbackMatch(sel))){
+              if(sel.status!==nextStatus){
+                sel.status=nextStatus;
+                selectionUpdated=true;
+              }
+            }
+          });
+          if(selectionUpdated){
             this.syncOutputsWithSelections({persist:false});
             this.queueStateSave();
             this.queueEventAutoUpdate();
           }
+          this.scheduleRender();
         }
       };
       const updateHighlight=()=>{
@@ -10605,6 +10617,7 @@
     lockRow(state,entry,options){
       if(!state||!entry) return;
       const opts=options||{};
+      const hideBefore=this.shouldHideNonroutineOutput();
       if(state.outsideHandler){
         document.removeEventListener('pointerdown',state.outsideHandler,true);
         state.outsideHandler=null;
@@ -10664,6 +10677,10 @@
       }
       if(opts.syncOutputs!==false){
         this.syncOutputsWithSelections({persist:false});
+      }
+      const hideAfter=this.shouldHideNonroutineOutput();
+      if(hideBefore!==hideAfter){
+        this.scheduleRender();
       }
       if(opts.updateState!==false){
         this.flushStateSave(true);
