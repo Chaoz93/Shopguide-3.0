@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.8.4] – 2026-01-26
+### Changed
+- Header zeigt keinen Titeltext mehr und nutzt für die Aspen-Datei das Auto-Update-Badge wie LinkButtonsPlus, inkl. Status-Hinweis im Optionen-Dialog.
+
 ## [1.8.3] – 2026-01-26
 ### Changed
 - Header-Layout an das LinkButtonsPlus-Design angepasst, inkl. kompakter Titel- und Aktionsleiste.

@@ -11,25 +11,23 @@
   @supports(color-mix(in srgb, #000 0%, transparent)){
     .rs-root{--rs-button-shadow:color-mix(in srgb, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)))) 32%, transparent);--rs-button-shadow-strong:color-mix(in srgb, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)))) 38%, transparent)}
   }
-  .rs-header{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.55rem .95rem;border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);background:var(--module-header-bg);color:var(--module-header-text);font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem);font-weight:700;letter-spacing:.4px;text-transform:uppercase;box-shadow:0 12px 28px rgba(12,24,41,.45);border:1px solid var(--rs-header-border,var(--module-header-bg))}
-  .rs-title{display:flex;align-items:center;gap:.45rem;user-select:none;color:inherit;flex:0 0 auto}
+  .rs-header{display:flex;align-items:center;justify-content:flex-end;gap:.75rem;padding:.55rem .95rem;border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);background:var(--module-header-bg);color:var(--module-header-text);font-size:clamp(.9rem, 1vw + .35vh, 1.15rem);font-weight:700;letter-spacing:.4px;text-transform:uppercase;box-shadow:0 12px 28px rgba(12,24,41,.45);border:1px solid var(--rs-header-border,var(--module-header-bg))}
   .rs-form{flex:1;overflow:auto;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none}
   .rs-form::-webkit-scrollbar{width:0;height:0;display:none}
-  .rs-actions{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;justify-content:flex-end;flex:1;min-width:0}
-  .rs-inline-file{font-size:.8rem;opacity:.8;flex:1;min-width:120px}
-  .rs-aspen-status{display:none;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;line-height:1;margin-left:.35rem;transition:background .2s,color .2s}
-  .rs-aspen-status.ok{display:inline-flex;background:rgba(16,185,129,.18);color:#10b981}
-  .rs-aspen-status.warn{display:inline-flex;background:rgba(234,179,8,.18);color:#ca8a04}
-  .rs-aspen-refresh{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text);cursor:pointer}
-  .rs-aspen-refresh:hover{background:rgba(255,255,255,.12)}
-  .rs-aspen-refresh:active{transform:scale(.96)}
-  .rs-aspen-refresh:disabled{opacity:.45;cursor:default;transform:none}
-  .rs-custom-buttons{margin-left:auto;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+  .rs-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;flex:1;min-width:0}
+  .rs-custom-buttons{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+  .rs-autorefresh{display:inline-flex;align-items:center;gap:.4rem;padding:0;border:none;border-radius:0;background:transparent;color:inherit;font-size:.78rem;font-weight:700;letter-spacing:.25px;cursor:default;transition:opacity .15s ease}
+  .rs-autorefresh[data-state="active"]{opacity:1}
+  .rs-autorefresh[data-state="idle"],
+  .rs-autorefresh[data-state="paused"]{opacity:.7}
+  .rs-autorefresh[data-state="error"]{opacity:.9}
+  .rs-autorefresh-icon{font-size:1rem;line-height:1}
+  .rs-autorefresh-label{font-weight:700}
+  .rs-autorefresh-time{font-size:.72rem;font-weight:500;opacity:.85}
   .rs-custom-button{border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text);padding:.3rem .55rem;border-radius:.45rem;font-weight:600;cursor:pointer;transition:background .2s ease,color .2s ease,transform .1s ease}
   .rs-custom-button:hover{background:rgba(255,255,255,.14)}
   .rs-custom-button:active{transform:scale(.97)}
   .rs-custom-button:disabled{opacity:.45;cursor:default;transform:none}
-  .rs-aspen-hint{font-size:.8rem;opacity:.7;margin-bottom:.45rem;color:var(--text-color)}
   .rs-grid{display:grid;gap:.9rem}
   .rs-field{display:flex;flex-direction:column;gap:.35rem}
   .rs-labelwrap{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;color:var(--text-color)}
@@ -221,6 +219,14 @@
     }catch{return'';}
   }
 
+  function formatTimeShort(timestamp){
+    const value=Number(timestamp);
+    if(!Number.isFinite(value)||value<=0)return'';
+    try{
+      return new Date(value).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+    }catch{return'';}
+  }
+
   const slugify=str=>String(str||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'feld';
   function labelHash(str){let h=0;const s=String(str||'').trim().toLowerCase();for(let i=0;i<s.length;i++){h=(h<<5)-h+s.charCodeAt(i);h|=0;}return Math.abs(h).toString(36);}
   function defaultLabelForKey(key){const base=String(key||'').trim();if(!base)return'Feld';return base.replace(/[_-]+/g,' ').replace(/\s+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
@@ -357,16 +363,16 @@
     root.innerHTML=`
       <div class="rs-root">
         <div class="rs-header">
-          <div class="rs-title"></div>
           <div class="rs-actions">
-            <span class="rs-inline-file"></span>
-            <span class="rs-aspen-status" role="img" aria-live="polite"></span>
             <div class="rs-custom-buttons" style="display:none"></div>
-            <button type="button" class="rs-aspen-refresh" title="Aspen aktualisieren" aria-label="Aspen aktualisieren">↻</button>
+            <div class="rs-autorefresh" data-state="idle" hidden role="status" aria-live="polite">
+              <span class="rs-autorefresh-icon" aria-hidden="true">🔄</span>
+              <span class="rs-autorefresh-label">Auto-Update</span>
+              <span class="rs-autorefresh-time">Bereit</span>
+            </div>
           </div>
         </div>
         <div class="rs-form">
-          <div class="rs-aspen-hint"></div>
           <div class="rs-grid"></div>
           <div class="rs-note"></div>
         </div>
@@ -389,6 +395,7 @@
               <button class="db-btn rs-aspen-pick" style="background:rgba(0,0,0,.08);border-radius:.5rem;padding:.35rem .6rem">Aspen wählen</button>
               <span class="rs-aspen-file db-file"></span>
             </div>
+            <div class="rs-aspen-file-hint" style="font-size:.78rem;opacity:.75;margin-top:.35rem;"></div>
           </div>
           <div class="db-field" style="margin-top:1rem;">
             <label style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.25rem">Modul-Farbgruppen (Main · Alternative · Accent)</label>
@@ -465,15 +472,13 @@
       note:root.querySelector('.rs-note'),
       customButtons:root.querySelector('.rs-custom-buttons'),
       modal:root.querySelector('.rs-modal'),
-      head:root.querySelector('.rs-title'),
-      aspenInlineFile:root.querySelector('.rs-inline-file'),
-      aspenStatus:root.querySelector('.rs-aspen-status'),
-      aspenRefresh:root.querySelector('.rs-aspen-refresh'),
-      aspenHint:root.querySelector('.rs-aspen-hint'),
+      aspenAutoRefresh:root.querySelector('.rs-autorefresh'),
+      aspenAutoRefreshTime:root.querySelector('.rs-autorefresh-time'),
       mRulePick:root.querySelector('.rs-rule-pick'),
       mRuleFile:root.querySelector('.rs-rule-file'),
       mAspenPick:root.querySelector('.rs-aspen-pick'),
       mAspenFile:root.querySelector('.rs-aspen-file'),
+      mAspenFileHint:root.querySelector('.rs-aspen-file-hint'),
       mList:root.querySelector('.rs-list'),
       mCols:root.querySelector('.rs-cols'),
       mUndo:root.querySelector('.rs-undo'),
@@ -616,7 +621,6 @@
       updateColorSelectValues();
       if(applyTheme&&(changed||before!==JSON.stringify(cfg?.colors||{})))applyColorTheme();
     };
-    const DEFAULT_TITLE='Gerätedaten';
     let debugInfo='';
     let deviceName='';
     const instanceId=instanceIdOf(root);
@@ -648,19 +652,8 @@
     function removeCfg(){const doc=loadDoc();if(doc?.instances?.[instanceId]){delete doc.instances[instanceId].recordSheet;if(!Object.keys(doc.instances[instanceId]).length)delete doc.instances[instanceId];saveDoc(doc);}}
 
     const setNote=s=>els.note.textContent=s||'';
-    function renderHead(){
-      if(debugInfo){
-        els.head.textContent=`⚠️ ${debugInfo}`;
-        return;
-      }
-      if(deviceName){
-        els.head.textContent=deviceName;
-        return;
-      }
-      els.head.textContent=DEFAULT_TITLE;
-    }
-    const setDebugInfo=message=>{debugInfo=String(message||'').trim();renderHead();};
-    const clearDebugInfo=()=>{debugInfo='';renderHead();};
+    const setDebugInfo=message=>{debugInfo=String(message||'').trim();updateAspenDisplays();};
+    const clearDebugInfo=()=>{debugInfo='';updateAspenDisplays();};
 
     let calculationMap=new Map();
     cfg=loadCfg();
@@ -698,7 +691,6 @@
     let customButtonEls=new Map();
     els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
     updateAspenDisplays();
-    renderHead();
     renderCustomButtons();
     renderCalculationEditor();
     syncCalculationFields();
@@ -753,10 +745,10 @@
       const ageRelative=formatRelativeTime(aspenFileMeta?.lastModified);
       const ageLabel=ageRelative?`Stand: ${ageRelative}`:'';
       const ageExact=formatDateTime(aspenFileMeta?.lastModified);
+      const shortTime=formatTimeShort(aspenFileMeta?.lastModified);
       if(els.mAspenFile){
         if(hasFileName){
-          const ageSuffix=ageLabel?` (${ageLabel})`:'';
-          els.mAspenFile.textContent=`• ${fileName}${ageSuffix}`;
+          els.mAspenFile.textContent=`• ${fileName}`;
           const modalTitle=[fileName];
           if(ageLabel)modalTitle.push(ageLabel);
           if(ageExact)modalTitle.push(ageExact);
@@ -766,54 +758,47 @@
           els.mAspenFile.removeAttribute('title');
         }
       }
-      if(els.aspenInlineFile){
-        if(hasFileName){
-          const inlineLabel=`Aspen: ${fileName}${ageLabel?` · ${ageLabel}`:''}`;
-          els.aspenInlineFile.textContent=inlineLabel;
-          const inlineTitle=[`Aspen: ${fileName}`];
-          if(ageLabel)inlineTitle.push(ageLabel);
-          if(ageExact)inlineTitle.push(ageExact);
-          els.aspenInlineFile.title=inlineTitle.join(' · ');
+      if(els.mAspenFileHint){
+        if(debugInfo){
+          els.mAspenFileHint.textContent=`⚠️ ${debugInfo}`;
+        }else if(!hasFileName){
+          els.mAspenFileHint.textContent='Hinweis: Bisher keine Aspen-Datei gewählt.';
+        }else if(!hasHandle){
+          els.mAspenFileHint.textContent='Automatisches Update gestoppt – Kein Zugriff auf Aspen-Datei.';
         }else{
-          els.aspenInlineFile.textContent='Aspen: keine Datei';
-          els.aspenInlineFile.removeAttribute('title');
+          els.mAspenFileHint.textContent=ageExact
+            ?`Automatisches Update aktiv – Stand ${ageExact}`
+            :'Automatisches Update aktiv.';
         }
       }
-      if(els.aspenRefresh){
-        const refreshLabel=hasHandle?'Aspen aktualisieren':'Keine Aspen-Datei verbunden';
-        els.aspenRefresh.disabled=!hasHandle;
-        els.aspenRefresh.setAttribute('aria-label',refreshLabel);
-        els.aspenRefresh.title=refreshLabel;
-      }
-      if(els.aspenStatus){
-        els.aspenStatus.classList.remove('ok','warn');
-        if(hasHandle){
-          els.aspenStatus.textContent='✓';
-          els.aspenStatus.classList.add('ok');
-          els.aspenStatus.style.display='inline-flex';
-          els.aspenStatus.title='Aspen-Autoabgleich aktiv.';
-          els.aspenStatus.setAttribute('aria-label','Aspen-Autoabgleich aktiv.');
-        }else if(hasFileName){
-          els.aspenStatus.textContent='!';
-          els.aspenStatus.classList.add('warn');
-          els.aspenStatus.style.display='inline-flex';
-          els.aspenStatus.title='Kein Zugriff – bitte neu verbinden.';
-          els.aspenStatus.setAttribute('aria-label','Kein Zugriff – bitte neu verbinden.');
+      if(els.aspenAutoRefresh){
+        if(!hasFileName){
+          els.aspenAutoRefresh.hidden=true;
+          els.aspenAutoRefresh.setAttribute('aria-hidden','true');
+          els.aspenAutoRefresh.dataset.state='idle';
         }else{
-          els.aspenStatus.textContent='';
-          els.aspenStatus.style.display='none';
-          els.aspenStatus.removeAttribute('title');
-          els.aspenStatus.removeAttribute('aria-label');
+          els.aspenAutoRefresh.hidden=false;
+          els.aspenAutoRefresh.removeAttribute('aria-hidden');
+          const state=hasHandle?'active':'error';
+          els.aspenAutoRefresh.dataset.state=state;
+          let title='Auto-Update bereit';
+          let display='Bereit';
+          if(state==='active'){
+            title=ageExact?`Auto-Update aktiv – Stand ${ageExact}`:'Auto-Update aktiv';
+            display=shortTime?`Stand ${shortTime}`:'Aktiv';
+          }else if(state==='error'){
+            title='Auto-Update gestoppt – Kein Zugriff auf Aspen-Datei.';
+            display='Fehler';
+          }
+          if(debugInfo){
+            title+=` (${debugInfo})`;
+          }
+          els.aspenAutoRefresh.title=title;
+          els.aspenAutoRefresh.setAttribute('aria-label',title);
+          if(els.aspenAutoRefreshTime){
+            els.aspenAutoRefreshTime.textContent=display;
+          }
         }
-      }
-      if(els.aspenHint){
-        const hint=!hasHandle
-          ?hasFileName
-            ?'Kein Zugriff – bitte neu verbinden.'
-            :'Aspen-Datei auswählen, um Daten zu laden.'
-          :'';
-        els.aspenHint.textContent=hint;
-        els.aspenHint.style.display=hint?'block':'none';
       }
       if(!hasHandle&&!hasFileName){
         setNote('');
@@ -863,7 +848,7 @@
       return`${field?.label||DEFAULT_CALCULATION_LABEL} – (${GROUP_LABELS.calc})`;}
       return tooltipForField(field);
     };
-    function updateName(){if(!rules.length){deviceName='';renderHead();return;}const partField=cfg.fields.find(f=>f.key==='part'&&f.enabled);const pn=partField?(fieldEls[partField.id]?.input?.value||'').trim():'';const name=lookupName(pn);deviceName=name||'Unbekanntes Gerät';renderHead();}
+    function updateName(){if(!rules.length){deviceName='';return;}const partField=cfg.fields.find(f=>f.key==='part'&&f.enabled);const pn=partField?(fieldEls[partField.id]?.input?.value||'').trim():'';const name=lookupName(pn);deviceName=name||'Unbekanntes Gerät';}
 
     function applyColumns(){const cols=Math.max(1,parseInt(cfg.columns)||1);els.grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;}
     function renderFields(){
@@ -1084,7 +1069,6 @@
       }
     };
     if(els.mAspenPick)els.mAspenPick.addEventListener('click',openAspenPicker);
-    if(els.aspenRefresh)els.aspenRefresh.addEventListener('click',()=>refreshAspenData({silent:false}));
     updateAspenFieldList();
     (async()=>{try{const stored=await idbGet(cfg.aspenIdbKey);if(stored&&await ensureRPermission(stored)){aspenHandle=stored;if(!cfg.aspenFileName){cfg.aspenFileName=stored.name||'Aspen.xlsx';saveCfg(cfg);}updateAspenDisplays();try{const result=await readAspenFile(stored);aspenHeaders=result.headers||[];aspenData=result.rows||[];rememberAspenMeta(result.meta);alignFieldSources();clearDebugInfo();}catch(err){console.warn('Aspen-Daten konnten nicht gelesen werden:',err);aspenHeaders=[];aspenData=[];rememberAspenMeta(null);setDebugInfo(`Aspen-Init fehlgeschlagen: ${err?.message||err}`);}}}catch(err){console.warn('Lesen der Aspen-Datei fehlgeschlagen:',err);rememberAspenMeta(null);setDebugInfo(`Aspen-Zugriff fehlgeschlagen: ${err?.message||err}`);}finally{rebuildAspenHeaderMaps();updateAspenFieldList();if(isModalOpen())renderCustomButtonEditor();refreshFromAspen();updateAspenDisplays();startAspenWatcher();}})();
 
