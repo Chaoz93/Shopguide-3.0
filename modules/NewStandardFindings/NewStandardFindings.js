@@ -4502,7 +4502,7 @@
       if(!this.selectedEntries.length) return false;
       const allowedStatuses=new Set(['Spare','SRU Exchange']);
       return this.selectedEntries.every(entry=>{
-        const normalizedStatus=normalizeFindingStatus(entry?.status);
+        const normalizedStatus=normalizeFindingStatus(entry?.status)||DEFAULT_FINDING_STATUS;
         return normalizedStatus && allowedStatuses.has(normalizedStatus);
       });
     }
