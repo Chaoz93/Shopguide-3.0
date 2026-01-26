@@ -11,11 +11,11 @@
   @supports(color-mix(in srgb, #000 0%, transparent)){
     .rs-root{--rs-button-shadow:color-mix(in srgb, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)))) 32%, transparent);--rs-button-shadow-strong:color-mix(in srgb, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)))) 38%, transparent)}
   }
-  .rs-header{display:flex;align-items:center;justify-content:flex-end;gap:.75rem;padding:.55rem .95rem;border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);background:var(--module-header-bg);color:var(--module-header-text);font-size:clamp(.9rem, 1vw + .35vh, 1.15rem);font-weight:700;letter-spacing:.4px;text-transform:uppercase;box-shadow:0 12px 28px rgba(12,24,41,.45);border:1px solid var(--rs-header-border,var(--module-header-bg))}
+  .rs-header{display:flex;align-items:flex-start;justify-content:flex-end;gap:.75rem;padding:.55rem .95rem;border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);background:var(--module-header-bg);color:var(--module-header-text);font-size:clamp(.9rem, 1vw + .35vh, 1.15rem);font-weight:700;letter-spacing:.4px;text-transform:uppercase;box-shadow:0 12px 28px rgba(12,24,41,.45);border:1px solid var(--rs-header-border,var(--module-header-bg))}
   .rs-form{flex:1;overflow:auto;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none}
   .rs-form::-webkit-scrollbar{width:0;height:0;display:none}
-  .rs-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;flex:1;min-width:0}
-  .rs-custom-buttons{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+  .rs-actions{display:flex;flex-direction:column;align-items:flex-end;gap:.35rem;flex-wrap:wrap;justify-content:flex-end;flex:1;min-width:0}
+  .rs-custom-buttons{display:flex;align-items:center;justify-content:flex-end;gap:.35rem;flex-wrap:wrap}
   .rs-autorefresh{display:inline-flex;align-items:center;gap:.4rem;padding:0;border:none;border-radius:0;background:transparent;color:inherit;font-size:.78rem;font-weight:700;letter-spacing:.25px;cursor:default;transition:opacity .15s ease}
   .rs-autorefresh[data-state="active"]{opacity:1}
   .rs-autorefresh[data-state="idle"],
@@ -24,7 +24,7 @@
   .rs-autorefresh-icon{font-size:1rem;line-height:1}
   .rs-autorefresh-label{font-weight:700}
   .rs-autorefresh-time{font-size:.72rem;font-weight:500;opacity:.85}
-  .rs-custom-button{border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text);padding:.3rem .55rem;border-radius:.45rem;font-weight:600;cursor:pointer;transition:background .2s ease,color .2s ease,transform .1s ease}
+  .rs-custom-button{border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text);padding:.2rem .45rem;border-radius:.35rem;font-weight:600;font-size:.72rem;cursor:pointer;transition:background .2s ease,color .2s ease,transform .1s ease}
   .rs-custom-button:hover{background:rgba(255,255,255,.14)}
   .rs-custom-button:active{transform:scale(.97)}
   .rs-custom-button:disabled{opacity:.45;cursor:default;transform:none}
