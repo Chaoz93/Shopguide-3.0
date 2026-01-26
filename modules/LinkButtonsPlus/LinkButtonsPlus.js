@@ -19,6 +19,7 @@
     .ops-autorefresh{
       display:inline-flex; align-items:center; gap:.4rem;
       padding:0; border-radius:0;
+      border:none;
       color:var(--lbp-header-text, #f8fafc);
       background:transparent; box-shadow:none;
       font-size:.78rem; font-weight:600; letter-spacing:.25px;
@@ -27,7 +28,7 @@
     .ops-autorefresh[data-state="active"]{ opacity:1; }
     .ops-autorefresh[data-state="idle"],
     .ops-autorefresh[data-state="paused"]{ opacity:.7; }
-    .ops-autorefresh[data-state="error"]{ background:rgba(185,28,28,.94); }
+    .ops-autorefresh[data-state="error"]{ background:transparent; }
     .ops-autorefresh .ops-autorefresh-icon{ font-size:1rem; line-height:1; }
     .ops-autorefresh .ops-autorefresh-label{ font-weight:700; }
     .ops-autorefresh .ops-autorefresh-time{ font-size:.72rem; font-weight:500; opacity:.85; }
