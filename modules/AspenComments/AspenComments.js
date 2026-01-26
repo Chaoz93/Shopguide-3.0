@@ -311,9 +311,9 @@
       <div class="dc-header">
         <div class="dc-header-actions">
           <div class="dc-file-status" data-file-status data-state="idle" role="status" aria-live="polite">
-            <span class="dc-file-status-icon" aria-hidden="true">📁</span>
-            <span class="dc-file-status-label">Dateien</span>
-            <span class="dc-file-status-text" data-file-status-text>Nicht geladen</span>
+            <span class="dc-file-status-icon" aria-hidden="true">🔄</span>
+            <span class="dc-file-status-label">Auto-Update</span>
+            <span class="dc-file-status-text" data-file-status-text>Bereit</span>
           </div>
         </div>
       </div>
@@ -1388,11 +1388,11 @@
       const hasAspen=!!(state.aspenHandle||state.aspenPath||state.aspenName);
       const hasComments=!!(state.commentHandle||state.commentPath||state.commentName);
       let stateLabel='idle';
-      let text='Keine Datei';
+      let text='Bereit';
       if(hasAspen && hasComments){
         stateLabel='active';
         const timeLabel=formatTimeShort(state.lastFileUpdateAt||Date.now());
-        text=timeLabel?`Auto-Update Stand ${timeLabel}`:'Auto-Update';
+        text=timeLabel?`Stand ${timeLabel}`:'Stand';
       }else if(hasAspen || hasComments){
         stateLabel='error';
         text='Datei fehlt';
