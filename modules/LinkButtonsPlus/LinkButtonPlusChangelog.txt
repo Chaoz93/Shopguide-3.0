@@ -7,6 +7,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ## [1.8.3] – 2026-01-26
 ### Changed
 - Standard-Header-Titel entfernt, damit die Kopfzeile leer bleibt, wenn kein eigener Titel gesetzt ist.
+- Option zur Titelanpassung aus dem Einstellungsdialog entfernt.
 
 ## [1.8.2] – 2025-11-06
 ### Fixed
