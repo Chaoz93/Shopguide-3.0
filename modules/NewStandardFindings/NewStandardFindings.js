@@ -4498,6 +4498,15 @@
       void this.pollFindingsFileOnce();
     }
 
+    shouldHideNonroutineOutput(){
+      if(!this.selectedEntries.length) return false;
+      const allowedStatuses=new Set(['Spare','SRU Exchange']);
+      return this.selectedEntries.every(entry=>{
+        const normalizedStatus=normalizeFindingStatus(entry?.status);
+        return normalizedStatus && allowedStatuses.has(normalizedStatus);
+      });
+    }
+
     async pollFindingsFileOnce(){
       if(this.findingsPollInProgress) return;
       if(!this.findingsFileHandle||this.findingsHandlePermission!=='granted'){
@@ -5471,9 +5480,13 @@
       this.textareas={};
       this.partsFieldContainer=null;
       this.customSlots=[];
+      const hideNonroutineOutput=this.shouldHideNonroutineOutput();
       OUTPUT_DEFS.forEach((def,idx)=>{
         const targetContainer=resolveOutputContainer(def.key)||primaryColumn;
         targetContainer.appendChild(this.createCustomSlot(idx));
+        if(def.key==='nonroutine'&&hideNonroutineOutput){
+          return;
+        }
         const box=document.createElement('div');
         box.className='nsf-output';
         const head=document.createElement('div');
