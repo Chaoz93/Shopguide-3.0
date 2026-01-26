@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.11] – 2026-01-26
+### Fixed
+- Nonroutine-Ausgabefeld blendet sich jetzt sofort ein, sobald ein Finding mit Nonroutine-Status hinzugefügt wird.
+
 ## [1.8.10] – 2026-01-26
 ### Fixed
 - Nonroutine-Ausgabefeld reagiert jetzt sofort auf Statuswechsel und blendet sich ohne Seitenreload ein oder aus.

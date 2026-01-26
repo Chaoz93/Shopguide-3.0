@@ -5,6 +5,10 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 ## Unreleased
 - Keine Einträge.
 
+## 1.8.11 – 2026-01-26
+### Fixed
+- Nonroutine-Ausgabefeld blendet sich jetzt sofort ein, sobald ein Finding mit Nonroutine-Status hinzugefügt wird.
+
 ## 1.8.10 – 2026-01-26
 ### Fixed
 - Nonroutine-Ausgabefeld reagiert jetzt sofort auf Statuswechsel und blendet sich ohne Seitenreload ein oder aus.

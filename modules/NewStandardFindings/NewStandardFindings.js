@@ -10617,6 +10617,7 @@
     lockRow(state,entry,options){
       if(!state||!entry) return;
       const opts=options||{};
+      const hideBefore=this.shouldHideNonroutineOutput();
       if(state.outsideHandler){
         document.removeEventListener('pointerdown',state.outsideHandler,true);
         state.outsideHandler=null;
@@ -10676,6 +10677,10 @@
       }
       if(opts.syncOutputs!==false){
         this.syncOutputsWithSelections({persist:false});
+      }
+      const hideAfter=this.shouldHideNonroutineOutput();
+      if(hideBefore!==hideAfter){
+        this.scheduleRender();
       }
       if(opts.updateState!==false){
         this.flushStateSave(true);
