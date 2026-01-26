@@ -4,17 +4,17 @@
   const STYLE_ID='unit-comments-styles';
   const CSS=`
     .dc-root{height:100%;display:flex;flex-direction:column;gap:.75rem;}
-    .dc-toolbar{display:flex;align-items:center;gap:.5rem;}
-    .dc-toolbar-left{flex:1;min-width:0;display:flex;align-items:center;}
-    .dc-toolbar-left:empty{display:none;}
-    .dc-toolbar-actions{display:flex;align-items:center;gap:.4rem;margin-left:auto;}
-    .dc-toggle-status{appearance:none;border:none;background:rgba(15,23,42,.5);color:var(--module-header-text,#fff);font-weight:600;font-size:.75rem;padding:.45rem .75rem;border-radius:.65rem;display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;box-shadow:0 8px 22px rgba(12,24,41,.4);transition:background .15s ease,transform .15s ease,box-shadow .15s ease;}
+    .dc-header{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.55rem .95rem;border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);background:var(--module-header-bg, rgba(21,45,76,.86));color:var(--module-header-text, #f8fafc);font-size:clamp(1rem, 1.1vw + .4vh, 1.2rem);font-weight:700;letter-spacing:.4px;text-transform:uppercase;box-shadow:0 12px 28px rgba(12,24,41,.45);border:1px solid var(--module-header-border, rgba(76,114,163,.32));}
+    .dc-header-title{display:flex;align-items:center;gap:.45rem;min-width:0;flex:1;}
+    .dc-header-title:empty{display:none;}
+    .dc-header-actions{display:flex;align-items:center;gap:.4rem;margin-left:auto;}
+    .dc-toggle-status{appearance:none;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.5);color:var(--module-header-text,#fff);font-weight:600;font-size:.72rem;padding:.4rem .65rem;border-radius:.65rem;display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;box-shadow:0 8px 22px rgba(12,24,41,.4);transition:background .15s ease,transform .15s ease,box-shadow .15s ease;}
     .dc-toggle-status:hover{background:rgba(37,99,235,.5);transform:translateY(-1px);box-shadow:0 12px 26px rgba(12,24,41,.45);}
     .dc-toggle-status:active{transform:none;box-shadow:0 8px 18px rgba(12,24,41,.35);}
     .dc-toggle-status:focus-visible{outline:2px solid rgba(191,219,254,.9);outline-offset:2px;}
     .dc-toggle-icon{display:inline-flex;transition:transform .2s ease;}
     .dc-toggle-status[aria-expanded="false"] .dc-toggle-icon{transform:rotate(-90deg);}
-    .dc-title{font-weight:600;font-size:1.05rem;color:var(--text-color);padding:0 .2rem;}
+    .dc-title{font-weight:700;font-size:inherit;color:inherit;padding:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .dc-status{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem;}
     .dc-status.is-collapsed{display:none;}
     .dc-status-summary{display:none;align-items:center;gap:.45rem;flex-wrap:wrap;padding:0 .2rem;}
@@ -305,11 +305,11 @@
     const summaryClass=statusCollapsed?'dc-status-summary is-visible':'dc-status-summary';
     const toggleText=statusCollapsed?'Dateifelder anzeigen':'Dateifelder verbergen';
     root.innerHTML=`
-      <div class="dc-toolbar">
-        <div class="dc-toolbar-left">
+      <div class="dc-header">
+        <div class="dc-header-title">
           ${hasTitle?`<div class="dc-title">${title}</div>`:''}
         </div>
-        <div class="dc-toolbar-actions">
+        <div class="dc-header-actions">
           <button type="button" class="dc-toggle-status" data-toggle-status aria-expanded="${statusCollapsed?'false':'true'}" title="${toggleText}" aria-label="${toggleText}">
             <span class="dc-toggle-icon" data-toggle-icon aria-hidden="true">▾</span>
             <span data-toggle-text>${toggleText}</span>

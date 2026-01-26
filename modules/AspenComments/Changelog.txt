@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.1] – 2026-01-26
+### Changed
+- Header-Layout an die Struktur von LinkButtons Plus angepasst.
+
 ## [1.4.0] – 2026-01-24
 ### Added
 - Umschalter im Modal, um Meldung, Partnummer und Seriennummer als Copy-Buttons ein- oder auszublenden.
