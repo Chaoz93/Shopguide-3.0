@@ -11,11 +11,12 @@
   @supports(color-mix(in srgb, #000 0%, transparent)){
     .rs-root{--rs-button-shadow:color-mix(in srgb, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)))) 32%, transparent);--rs-button-shadow-strong:color-mix(in srgb, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)))) 38%, transparent)}
   }
-  .rs-head{font-weight:700;font-size:1.35rem;text-align:center;margin:.2rem 0 .2rem;user-select:none;color:var(--text-color)}
+  .rs-header{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.55rem .95rem;border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);background:var(--module-header-bg);color:var(--module-header-text);font-size:clamp(1rem, 1.1vw + .4vh, 1.25rem);font-weight:700;letter-spacing:.4px;text-transform:uppercase;box-shadow:0 12px 28px rgba(12,24,41,.45);border:1px solid var(--rs-header-border,var(--module-header-bg))}
+  .rs-title{display:flex;align-items:center;gap:.45rem;user-select:none;color:inherit;flex:0 0 auto}
   .rs-form{flex:1;overflow:auto;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none}
   .rs-form::-webkit-scrollbar{width:0;height:0;display:none}
-  .rs-actions{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;flex-wrap:wrap}
-  .rs-inline-file{font-size:.85rem;opacity:.8;flex:1}
+  .rs-actions{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;justify-content:flex-end;flex:1;min-width:0}
+  .rs-inline-file{font-size:.8rem;opacity:.8;flex:1;min-width:120px}
   .rs-aspen-status{display:none;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;line-height:1;margin-left:.35rem;transition:background .2s,color .2s}
   .rs-aspen-status.ok{display:inline-flex;background:rgba(16,185,129,.18);color:#10b981}
   .rs-aspen-status.warn{display:inline-flex;background:rgba(234,179,8,.18);color:#ca8a04}
@@ -355,14 +356,16 @@
   function buildUI(root){
     root.innerHTML=`
       <div class="rs-root">
-        <div class="rs-head" style="display:none"></div>
-        <div class="rs-form">
+        <div class="rs-header">
+          <div class="rs-title"></div>
           <div class="rs-actions">
             <span class="rs-inline-file"></span>
             <span class="rs-aspen-status" role="img" aria-live="polite"></span>
             <div class="rs-custom-buttons" style="display:none"></div>
             <button type="button" class="rs-aspen-refresh" title="Aspen aktualisieren" aria-label="Aspen aktualisieren">↻</button>
           </div>
+        </div>
+        <div class="rs-form">
           <div class="rs-aspen-hint"></div>
           <div class="rs-grid"></div>
           <div class="rs-note"></div>
@@ -462,7 +465,7 @@
       note:root.querySelector('.rs-note'),
       customButtons:root.querySelector('.rs-custom-buttons'),
       modal:root.querySelector('.rs-modal'),
-      head:root.querySelector('.rs-head'),
+      head:root.querySelector('.rs-title'),
       aspenInlineFile:root.querySelector('.rs-inline-file'),
       aspenStatus:root.querySelector('.rs-aspen-status'),
       aspenRefresh:root.querySelector('.rs-aspen-refresh'),
@@ -613,6 +616,7 @@
       updateColorSelectValues();
       if(applyTheme&&(changed||before!==JSON.stringify(cfg?.colors||{})))applyColorTheme();
     };
+    const DEFAULT_TITLE='Gerätedaten';
     let debugInfo='';
     let deviceName='';
     const instanceId=instanceIdOf(root);
@@ -646,17 +650,14 @@
     const setNote=s=>els.note.textContent=s||'';
     function renderHead(){
       if(debugInfo){
-        els.head.style.display='block';
         els.head.textContent=`⚠️ ${debugInfo}`;
         return;
       }
       if(deviceName){
-        els.head.style.display='block';
         els.head.textContent=deviceName;
         return;
       }
-      els.head.style.display='none';
-      els.head.textContent='';
+      els.head.textContent=DEFAULT_TITLE;
     }
     const setDebugInfo=message=>{debugInfo=String(message||'').trim();renderHead();};
     const clearDebugInfo=()=>{debugInfo='';renderHead();};
@@ -697,7 +698,7 @@
     let customButtonEls=new Map();
     els.mRuleFile.textContent=cfg.ruleFileName?`• ${cfg.ruleFileName}`:'Keine Namensregeln';
     updateAspenDisplays();
-    els.head.style.display='none';
+    renderHead();
     renderCustomButtons();
     renderCalculationEditor();
     syncCalculationFields();
