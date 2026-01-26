@@ -10393,7 +10393,7 @@
           });
           if(selectionUpdated){
             this.syncOutputsWithSelections({persist:false});
-            this.queueStateSave();
+            this.flushStateSave(true);
             this.queueEventAutoUpdate();
           }
           this.scheduleRender();
