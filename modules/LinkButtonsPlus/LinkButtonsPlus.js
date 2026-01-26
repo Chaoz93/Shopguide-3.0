@@ -2993,7 +2993,7 @@
     const gridItem = root.closest('.grid-stack-item');
     const hostEl = root.closest('.grid-stack-item-content');
     const instanceId = gridItem?.dataset.instanceId || 'default';
-    const defaultHeaderTitle = sanitizeHeaderTitle(s.headerTitle) || 'LinkButtons Plus';
+    const defaultHeaderTitle = sanitizeHeaderTitle(s.headerTitle) || '';
     let headerOverrides = loadHeaderOverrides();
     if(!headerOverrides || typeof headerOverrides !== 'object') headerOverrides = {};
     let headerOverride = sanitizeHeaderTitle(headerOverrides[instanceId] || '');
