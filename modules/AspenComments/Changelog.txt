@@ -9,6 +9,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Changed
 - Titelbereich auf eine transparente Statusanzeige reduziert, ohne Titelnamen.
 - Dateifelder standardmäßig ausgeblendet und Datei-Statusindikator im Header ergänzt.
+- Header-Status zeigt den Auto-Update-Stand und markiert fehlende Dateien rot.
 
 ## [1.4.0] – 2026-01-24
 ### Added

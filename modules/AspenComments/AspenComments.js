@@ -14,6 +14,7 @@
     .dc-file-status-icon{font-size:1rem;line-height:1;}
     .dc-file-status-label{font-weight:700;}
     .dc-file-status-text{font-size:.72rem;font-weight:500;opacity:.85;}
+    .dc-file-status[data-state="error"] .dc-file-status-text{color:#fca5a5;}
     .dc-status{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem;}
     .dc-status.is-collapsed{display:none;}
     .dc-status-summary{display:none;align-items:center;gap:.45rem;flex-wrap:wrap;padding:0 .2rem;}
@@ -206,6 +207,14 @@
     if(!Number.isFinite(value)||value<=0)return'';
     try{
       return new Date(value).toLocaleString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    }catch{return'';}
+  }
+
+  function formatTimeShort(timestamp){
+    const value=Number(timestamp);
+    if(!Number.isFinite(value)||value<=0)return'';
+    try{
+      return new Date(value).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
     }catch{return'';}
   }
 
@@ -913,6 +922,7 @@
       writeTimer:null,
       updatingTextarea:false,
       baseNote:null,
+      lastFileUpdateAt:0,
       statusCollapsed:defaultCollapsed,
       showMeldung:defaultShowMeldung,
       showPart:defaultShowPart,
@@ -1352,6 +1362,7 @@
         elements.aspenSummary.title=titleParts.join(' · ');
         elements.aspenSummary.classList.toggle('is-empty',!hasFile);
       }
+      if(hasFile) state.lastFileUpdateAt=Date.now();
       updateFileStatusIndicator();
     }
 
@@ -1368,6 +1379,7 @@
         elements.commentsSummary.title=text;
         elements.commentsSummary.classList.toggle('is-empty',!hasFile);
       }
+      if(hasFile) state.lastFileUpdateAt=Date.now();
       updateFileStatusIndicator();
     }
 
@@ -1376,13 +1388,14 @@
       const hasAspen=!!(state.aspenHandle||state.aspenPath||state.aspenName);
       const hasComments=!!(state.commentHandle||state.commentPath||state.commentName);
       let stateLabel='idle';
-      let text='Nicht geladen';
+      let text='Keine Datei';
       if(hasAspen && hasComments){
         stateLabel='active';
-        text='Geladen';
+        const timeLabel=formatTimeShort(state.lastFileUpdateAt||Date.now());
+        text=timeLabel?`Auto-Update Stand ${timeLabel}`:'Auto-Update';
       }else if(hasAspen || hasComments){
         stateLabel='error';
-        text='Teilweise';
+        text='Datei fehlt';
       }
       elements.fileStatus.dataset.state=stateLabel;
       elements.fileStatusText.textContent=text;
