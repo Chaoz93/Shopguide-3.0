@@ -7,7 +7,8 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ## [1.4.1] – 2026-01-26
 ### Changed
-- Header-Layout an die Struktur von LinkButtons Plus angepasst.
+- Titelbereich auf eine transparente Statusanzeige reduziert, ohne Titelnamen.
+- Dateifelder standardmäßig ausgeblendet und Datei-Statusindikator im Header ergänzt.
 
 ## [1.4.0] – 2026-01-24
 ### Added

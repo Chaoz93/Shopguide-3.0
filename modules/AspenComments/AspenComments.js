@@ -4,17 +4,16 @@
   const STYLE_ID='unit-comments-styles';
   const CSS=`
     .dc-root{height:100%;display:flex;flex-direction:column;gap:.75rem;}
-    .dc-header{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.55rem .95rem;border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);background:var(--module-header-bg, rgba(21,45,76,.86));color:var(--module-header-text, #f8fafc);font-size:clamp(1rem, 1.1vw + .4vh, 1.2rem);font-weight:700;letter-spacing:.4px;text-transform:uppercase;box-shadow:0 12px 28px rgba(12,24,41,.45);border:1px solid var(--module-header-border, rgba(76,114,163,.32));}
-    .dc-header-title{display:flex;align-items:center;gap:.45rem;min-width:0;flex:1;}
-    .dc-header-title:empty{display:none;}
+    .dc-header{display:flex;align-items:center;justify-content:flex-end;gap:.75rem;padding:0;color:var(--module-header-text, #f8fafc);}
+    .dc-header-title{display:none;}
     .dc-header-actions{display:flex;align-items:center;gap:.4rem;margin-left:auto;}
-    .dc-toggle-status{appearance:none;border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.5);color:var(--module-header-text,#fff);font-weight:600;font-size:.72rem;padding:.4rem .65rem;border-radius:.65rem;display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;box-shadow:0 8px 22px rgba(12,24,41,.4);transition:background .15s ease,transform .15s ease,box-shadow .15s ease;}
-    .dc-toggle-status:hover{background:rgba(37,99,235,.5);transform:translateY(-1px);box-shadow:0 12px 26px rgba(12,24,41,.45);}
-    .dc-toggle-status:active{transform:none;box-shadow:0 8px 18px rgba(12,24,41,.35);}
-    .dc-toggle-status:focus-visible{outline:2px solid rgba(191,219,254,.9);outline-offset:2px;}
-    .dc-toggle-icon{display:inline-flex;transition:transform .2s ease;}
-    .dc-toggle-status[aria-expanded="false"] .dc-toggle-icon{transform:rotate(-90deg);}
-    .dc-title{font-weight:700;font-size:inherit;color:inherit;padding:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .dc-file-status{display:inline-flex;align-items:center;gap:.4rem;padding:0;border-radius:0;border:none;color:var(--module-header-text, #f8fafc);background:transparent;box-shadow:none;font-size:.78rem;font-weight:600;letter-spacing:.25px;cursor:default;transition:opacity .15s ease;}
+    .dc-file-status[data-state="active"]{opacity:1;}
+    .dc-file-status[data-state="idle"],
+    .dc-file-status[data-state="error"]{opacity:.7;}
+    .dc-file-status-icon{font-size:1rem;line-height:1;}
+    .dc-file-status-label{font-weight:700;}
+    .dc-file-status-text{font-size:.72rem;font-weight:500;opacity:.85;}
     .dc-status{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem;}
     .dc-status.is-collapsed{display:none;}
     .dc-status-summary{display:none;align-items:center;gap:.45rem;flex-wrap:wrap;padding:0 .2rem;}
@@ -294,26 +293,19 @@
     return Math.max(min,Math.min(max,n));
   }
 
-  function createUI(options){
-    const title=options?.title||'';
-    const showTitle=options?.showTitle!==false;
-    const statusCollapsed=!!options?.statusCollapsed;
+  function createUI(){
+    const statusCollapsed=true;
     const root=document.createElement('div');
     root.className='dc-root';
-    const hasTitle=showTitle&&title.trim();
     const statusClass=statusCollapsed?'dc-status is-collapsed':'dc-status';
-    const summaryClass=statusCollapsed?'dc-status-summary is-visible':'dc-status-summary';
-    const toggleText=statusCollapsed?'Dateifelder anzeigen':'Dateifelder verbergen';
     root.innerHTML=`
       <div class="dc-header">
-        <div class="dc-header-title">
-          ${hasTitle?`<div class="dc-title">${title}</div>`:''}
-        </div>
         <div class="dc-header-actions">
-          <button type="button" class="dc-toggle-status" data-toggle-status aria-expanded="${statusCollapsed?'false':'true'}" title="${toggleText}" aria-label="${toggleText}">
-            <span class="dc-toggle-icon" data-toggle-icon aria-hidden="true">▾</span>
-            <span data-toggle-text>${toggleText}</span>
-          </button>
+          <div class="dc-file-status" data-file-status data-state="idle" role="status" aria-live="polite">
+            <span class="dc-file-status-icon" aria-hidden="true">📁</span>
+            <span class="dc-file-status-label">Dateien</span>
+            <span class="dc-file-status-text" data-file-status-text>Nicht geladen</span>
+          </div>
         </div>
       </div>
       <div class="${statusClass}" data-status aria-hidden="${statusCollapsed?'true':'false'}">
@@ -331,10 +323,6 @@
           </div>
           <div class="dc-status-value"><span class="dc-value-pill is-empty" data-comments>Keine Datei</span></div>
         </div>
-      </div>
-      <div class="${summaryClass}" data-status-summary aria-hidden="${statusCollapsed?'false':'true'}">
-        <span class="dc-compact-pill is-empty" data-aspen-summary>Keine Aspen-Datei</span>
-        <span class="dc-compact-pill is-empty" data-comments-summary>Keine Datei</span>
       </div>
       <div class="dc-unit">
         <div class="dc-field" data-field="meldung">
@@ -418,6 +406,8 @@
       statusSummary:root.querySelector('[data-status-summary]'),
       statusToggle:root.querySelector('[data-toggle-status]'),
       statusToggleText:root.querySelector('[data-toggle-text]'),
+      fileStatus:root.querySelector('[data-file-status]'),
+      fileStatusText:root.querySelector('[data-file-status-text]'),
       aspenLabel:root.querySelector('[data-aspen]'),
       commentsLabel:root.querySelector('[data-comments]'),
       aspenSummary:root.querySelector('[data-aspen-summary]'),
@@ -887,8 +877,6 @@
     }
 
     const settings=opts?.moduleJson?.settings||{};
-    const title=settings.title||'';
-    const showTitle=settings.showTitle!==false;
     const defaultCollapsed=!!settings.collapseFilePanel;
     const defaultShowMeldung=!!settings.showMeldung;
     const defaultShowPart=!!settings.showPart;
@@ -983,7 +971,8 @@
       state.aspenPath=state.aspenName;
     }
 
-    const elements=createUI({title,showTitle,statusCollapsed:state.statusCollapsed});
+    state.statusCollapsed=true;
+    const elements=createUI();
     targetDiv.appendChild(elements.root);
 
     function persistState(){
@@ -1363,6 +1352,7 @@
         elements.aspenSummary.title=titleParts.join(' · ');
         elements.aspenSummary.classList.toggle('is-empty',!hasFile);
       }
+      updateFileStatusIndicator();
     }
 
     function updateFileLabels(){
@@ -1378,6 +1368,24 @@
         elements.commentsSummary.title=text;
         elements.commentsSummary.classList.toggle('is-empty',!hasFile);
       }
+      updateFileStatusIndicator();
+    }
+
+    function updateFileStatusIndicator(){
+      if(!elements.fileStatus || !elements.fileStatusText) return;
+      const hasAspen=!!(state.aspenHandle||state.aspenPath||state.aspenName);
+      const hasComments=!!(state.commentHandle||state.commentPath||state.commentName);
+      let stateLabel='idle';
+      let text='Nicht geladen';
+      if(hasAspen && hasComments){
+        stateLabel='active';
+        text='Geladen';
+      }else if(hasAspen || hasComments){
+        stateLabel='error';
+        text='Teilweise';
+      }
+      elements.fileStatus.dataset.state=stateLabel;
+      elements.fileStatusText.textContent=text;
     }
 
     function getActiveCommentEntry(){

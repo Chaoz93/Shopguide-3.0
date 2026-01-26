@@ -9,8 +9,8 @@
   "h": 14,
   "settings": {
     "title": "Unit Comments",
-    "showTitle": true,
-    "collapseFilePanel": false
+    "showTitle": false,
+    "collapseFilePanel": true
   },
   "moduleId": "AspenComments",
   "version": "1.4.1"
