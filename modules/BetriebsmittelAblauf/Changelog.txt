@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.5.0] – 2026-01-27
+### Added
+- Kategorie „Consumable“ ergänzt, inklusive Ablauftag (Tag/Monat/Jahr) nur für Verbrauchsmaterial.
+- Prüftyp wird bei Consumables automatisch auf „Ablauf“ gesetzt.
+
 ## [1.4.1] – 2026-01-24
 ### Changed
 - Eingabeformular vor die Such- und Filterzeile verschoben.
