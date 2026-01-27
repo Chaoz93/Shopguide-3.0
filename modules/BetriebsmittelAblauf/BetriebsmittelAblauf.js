@@ -504,6 +504,7 @@
                 <option value="DGUV">DGUV</option>
                 <option value="Kalibrierung">Kalibrierung</option>
                 <option value="Wartung">Wartung</option>
+                <option value="Ablauf">Ablauf</option>
               </select>
             </label>
           </div>
@@ -824,6 +825,11 @@
       }
       if(monthLabel){
         monthLabel.textContent = isConsumable ? 'Ablaufmonat & Jahr' : 'Ablaufmonat';
+      }
+      if(isConsumable && formFields.kind){
+        formFields.kind.value = 'Ablauf';
+      }else if(!isConsumable && formFields.kind?.value === 'Ablauf'){
+        formFields.kind.value = 'DGUV';
       }
       if(!isConsumable){
         formFields.day.value = '';
