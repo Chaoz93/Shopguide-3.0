@@ -1389,13 +1389,15 @@
       const hasComments=!!(state.commentHandle||state.commentPath||state.commentName);
       let stateLabel='idle';
       let text='Bereit';
-      if(hasAspen && hasComments){
-        stateLabel='active';
-        const timeLabel=formatTimeShort(state.lastFileUpdateAt||Date.now());
-        text=timeLabel?`Stand ${timeLabel}`:'Stand';
-      }else if(hasAspen || hasComments){
+      if(!hasComments){
         stateLabel='error';
-        text='Datei fehlt';
+        text='Kommentar-Datei fehlt';
+      }else if(hasAspen){
+        stateLabel='active';
+        const timeLabel=formatTimeShort(state.aspenMeta?.lastModified);
+        text=timeLabel?`Aspen Stand ${timeLabel}`:'Aspen geladen';
+      }else{
+        text='Keine Aspen-Datei';
       }
       elements.fileStatus.dataset.state=stateLabel;
       elements.fileStatusText.textContent=text;

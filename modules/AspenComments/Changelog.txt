@@ -5,6 +5,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.2] – 2026-01-27
+### Changed
+- Header-Status zeigt nur noch den Aktualisierungszeitpunkt der Aspen-Datei.
+- Roter Hinweis erscheint nur, wenn keine Kommentar-Datei ausgewählt ist.
+
 ## [1.4.1] – 2026-01-26
 ### Changed
 - Titelbereich auf eine transparente Statusanzeige reduziert, ohne Titelnamen.
