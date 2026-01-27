@@ -430,8 +430,10 @@
   const UNIT_BOARD_EVENT='unitBoard:update';
   const BOARD_DOC_KEY='module_data_v1';
   const ASPEN_DOC_KEY='nsf-aspen-doc';
+  const ASPEN_LAST_MODIFIED_KEY='nsf-aspen-last-modified';
   const WATCH_INTERVAL=600;
   const FINDINGS_POLL_INTERVAL=5000;
+  const ASPEN_POLL_INTERVAL=5000;
   const SAVE_DEBOUNCE=250;
   const EVENT_AUTO_UPDATE_DEBOUNCE=600;
   const HISTORY_LIMIT=10;
@@ -440,6 +442,7 @@
   const EVENT_HISTORY_STORAGE_KEY='nsf-event-history-cache';
   const STYLE_ID='nsf-styles';
   const ASPEN_BOARD_STATE_KEY='aspenUnitListState';
+  let aspenDocMemory='';
   const ROUTINE_EDITOR_STORAGE_KEY='nsf-routine-editor';
   const ROUTINE_EDITOR_CUSTOM_PREFIX='custom:';
   const ROUTINE_EDITOR_PRESETS_KEY='nsf-routine-editor-presets';
@@ -594,6 +597,30 @@
     }
   }
 
+  function loadAspenLastModified(){
+    try{
+      const raw=localStorage.getItem(ASPEN_LAST_MODIFIED_KEY);
+      if(!raw) return null;
+      const value=Number(raw);
+      return Number.isFinite(value)?value:null;
+    }catch(err){
+      console.warn('NSF: Aspen-Zeitstempel konnte nicht geladen werden',err);
+      return null;
+    }
+  }
+
+  function storeAspenLastModified(value){
+    try{
+      if(typeof value!=='number'||!Number.isFinite(value)){
+        localStorage.removeItem(ASPEN_LAST_MODIFIED_KEY);
+        return;
+      }
+      localStorage.setItem(ASPEN_LAST_MODIFIED_KEY,String(value));
+    }catch(err){
+      console.warn('NSF: Aspen-Zeitstempel konnte nicht gespeichert werden',err);
+    }
+  }
+
   const textareaAutoResizeObservers=new WeakMap();
 
   function autoSizeTextarea(textarea){
@@ -614,6 +641,7 @@
   const FINDINGS_HANDLE_DB_NAME='NewStandardFindingsHandles';
   const FINDINGS_HANDLE_STORE_NAME='handles';
   const FINDINGS_HANDLE_KEY='nsf-findings-handle';
+  const ASPEN_HANDLE_KEY='nsf-aspen-handle';
 
   async function openFindingsHandleStore(){
     if(typeof indexedDB==='undefined') return null;
@@ -675,6 +703,70 @@
     }catch(err){
       console.warn('[UnitBoard] Findings-Dateihandle konnte nicht gelesen werden',err);
       return null;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function storeAspenHandle(handle){
+    if(!handle) return false;
+    let db=null;
+    try{
+      db=await openFindingsHandleStore();
+      if(!db) return false;
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(FINDINGS_HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(FINDINGS_HANDLE_STORE_NAME).put(handle,ASPEN_HANDLE_KEY);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      return true;
+    }catch(err){
+      console.warn('[UnitBoard] Aspen-Dateihandle konnte nicht gespeichert werden',err);
+      return false;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function loadStoredAspenHandle(){
+    let db=null;
+    try{
+      db=await openFindingsHandleStore();
+      if(!db) return null;
+      const handle=await new Promise((resolve,reject)=>{
+        const tx=db.transaction(FINDINGS_HANDLE_STORE_NAME,'readonly');
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const store=tx.objectStore(FINDINGS_HANDLE_STORE_NAME);
+        const request=store.get(ASPEN_HANDLE_KEY);
+        request.onsuccess=()=>resolve(request.result||null);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+      if(handle) console.log('[UnitBoard] Aspen-Handle geladen');
+      return handle||null;
+    }catch(err){
+      console.warn('[UnitBoard] Aspen-Handle konnte nicht geladen werden',err);
+      return null;
+    }finally{
+      try{db?.close();}catch{/* ignore */}
+    }
+  }
+
+  async function clearStoredAspenHandle(){
+    let db=null;
+    try{
+      db=await openFindingsHandleStore();
+      if(!db) return;
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(FINDINGS_HANDLE_STORE_NAME,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=event=>{event?.preventDefault?.();reject(tx.error);};
+        const request=tx.objectStore(FINDINGS_HANDLE_STORE_NAME).delete(ASPEN_HANDLE_KEY);
+        request.onerror=event=>{event?.preventDefault?.();reject(request.error);};
+      });
+    }catch(err){
+      console.warn('[UnitBoard] Aspen-Handle konnte nicht gelöscht werden',err);
     }finally{
       try{db?.close();}catch{/* ignore */}
     }
@@ -1648,7 +1740,8 @@
       .nsf-header-summary{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
       .nsf-header-section.collapsed .nsf-header-summary{order:2;width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.35rem 0.6rem;align-items:center;}
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
-      .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;}
+      .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;display:flex;flex-direction:column;gap:0.1rem;}
+      .nsf-header-debug-line{display:block;}
       .nsf-header-section.collapsed .nsf-header-debug{grid-column:1/-1;flex-basis:auto;}
       .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
       .nsf-selection-section.nsf-selection-collapsed{overflow:hidden;}
@@ -2053,12 +2146,13 @@
     const updateValue=(key)=>{lastValues[key]=localStorage.getItem(key);};
     updateValue(BOARD_DOC_KEY);
     updateValue(ASPEN_DOC_KEY);
+    updateValue(ASPEN_LAST_MODIFIED_KEY);
     updateValue(DATA_KEY);
     updateValue(STATE_KEY);
     updateValue(FINDINGS_PATH_KEY);
     window.addEventListener('storage',e=>{
       if(!e) return;
-      if(e.key===BOARD_DOC_KEY||e.key===ASPEN_DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
+      if(e.key===BOARD_DOC_KEY||e.key===ASPEN_DOC_KEY||e.key===ASPEN_LAST_MODIFIED_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
         lastValues[e.key]=localStorage.getItem(e.key);
         scheduleAll();
       }
@@ -2077,6 +2171,8 @@
       if(boardDoc!==lastValues[BOARD_DOC_KEY]){lastValues[BOARD_DOC_KEY]=boardDoc;scheduleAll();}
       const aspenDoc=localStorage.getItem(ASPEN_DOC_KEY);
       if(aspenDoc!==lastValues[ASPEN_DOC_KEY]){lastValues[ASPEN_DOC_KEY]=aspenDoc;scheduleAll();}
+      const aspenStamp=localStorage.getItem(ASPEN_LAST_MODIFIED_KEY);
+      if(aspenStamp!==lastValues[ASPEN_LAST_MODIFIED_KEY]){lastValues[ASPEN_LAST_MODIFIED_KEY]=aspenStamp;scheduleAll();}
       const data=localStorage.getItem(DATA_KEY);
       if(data!==lastValues[DATA_KEY]){lastValues[DATA_KEY]=data;scheduleAll();}
       const state=localStorage.getItem(STATE_KEY);
@@ -2089,6 +2185,37 @@
   function clean(value){return value==null?'':String(value).trim();}
 
   function nsfIsObj(v){ return v && typeof v === 'object' && !Array.isArray(v); }
+
+  function setAspenDocPayload(payload){
+    if(typeof payload!=='string'||!payload){
+      aspenDocMemory='';
+      return;
+    }
+    try{
+      localStorage.setItem(ASPEN_DOC_KEY,payload);
+      aspenDocMemory='';
+    }catch(err){
+      const isQuota=err&&typeof err==='object'&&(
+        err.name==='QuotaExceededError'
+        || err.name==='NS_ERROR_DOM_QUOTA_REACHED'
+        || err.code===22
+      );
+      if(isQuota){
+        console.warn('NSF: Aspen-Daten zu groß für localStorage, nutze Speicher im Tab.');
+        aspenDocMemory=payload;
+        try{localStorage.removeItem(ASPEN_DOC_KEY);}catch{/* ignore */}
+      }else{
+        throw err;
+      }
+    }
+  }
+
+  function formatTimeShort(value){
+    if(typeof value!=='number') return '–';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime())) return '–';
+    return date.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  }
 
   // PATCH START: NSF Local persistence helpers
   function nsfStorageKeyForSelection(selection,resolved){
@@ -3089,6 +3216,9 @@
     let doc=null;
     try{docRaw=localStorage.getItem(ASPEN_DOC_KEY)||'';}
     catch(err){console.warn('NSF: nsf-aspen-doc konnte nicht gelesen werden',err);}
+    if(!docRaw&&aspenDocMemory){
+      docRaw=aspenDocMemory;
+    }
     if(docRaw){
       try{doc=JSON.parse(docRaw);}
       catch(err){console.warn('NSF: Aspen-Daten konnten nicht geparst werden',err);doc=null;docRaw='';}
@@ -4287,6 +4417,14 @@
       this.findingsPollInterval=null;
       this.findingsPollInProgress=false;
       this.findingsLastModified=null;
+      this.aspenFileHandle=null;
+      this.aspenHandlePermission='prompt';
+      this.aspenHandleInitPromise=null;
+      this.aspenHandleBusy=false;
+      this.aspenPollInterval=null;
+      this.aspenPollInProgress=false;
+      this.aspenLastModified=loadAspenLastModified();
+      this.aspenLastSize=null;
       this.legacyFindingsInput=null;
       this.findingJsonOverlay=null;
       this.findingJsonModalKeyHandler=null;
@@ -4356,6 +4494,7 @@
       setupWatchers();
       await ensureData();
       await this.ensureFindingsHandleInitialized();
+      await this.ensureAspenHandleInitialized();
       await this.ensureEventHistoryStore();
       this.globalState=loadGlobalState();
       this.findingsPath=clean(localStorage.getItem(FINDINGS_PATH_KEY)||'');
@@ -4521,6 +4660,23 @@
       return changed;
     }
 
+    updateAspenContext(updates){
+      if(!updates||typeof updates!=='object') return false;
+      let changed=false;
+      let permissionChanged=false;
+      if(Object.prototype.hasOwnProperty.call(updates,'permission')&&this.aspenHandlePermission!==updates.permission){
+        this.aspenHandlePermission=updates.permission;
+        changed=true;
+        permissionChanged=true;
+      }
+      if(permissionChanged){
+        if(this.aspenHandlePermission!=='granted'){
+          this.stopAspenPolling();
+        }
+      }
+      return changed;
+    }
+
     stopFindingsPolling(){
       if(this.findingsPollInterval){
         clearInterval(this.findingsPollInterval);
@@ -4534,6 +4690,21 @@
       if(!this.findingsFileHandle||this.findingsHandlePermission!=='granted') return;
       this.findingsPollInterval=setInterval(()=>{void this.pollFindingsFileOnce();},FINDINGS_POLL_INTERVAL);
       void this.pollFindingsFileOnce();
+    }
+
+    stopAspenPolling(){
+      if(this.aspenPollInterval){
+        clearInterval(this.aspenPollInterval);
+        this.aspenPollInterval=null;
+      }
+      this.aspenPollInProgress=false;
+    }
+
+    startAspenPolling(){
+      this.stopAspenPolling();
+      if(!this.aspenFileHandle||this.aspenHandlePermission!=='granted') return;
+      this.aspenPollInterval=setInterval(()=>{void this.pollAspenFileOnce();},ASPEN_POLL_INTERVAL);
+      void this.pollAspenFileOnce();
     }
 
     shouldHideNonroutineOutput(){
@@ -4600,6 +4771,54 @@
       }
     }
 
+    async pollAspenFileOnce(){
+      if(this.aspenPollInProgress) return;
+      if(!this.aspenFileHandle||this.aspenHandlePermission!=='granted'){
+        this.stopAspenPolling();
+        return;
+      }
+      this.aspenPollInProgress=true;
+      try{
+        const file=await this.aspenFileHandle.getFile();
+        const modified=typeof file?.lastModified==='number'?file.lastModified:null;
+        const size=typeof file?.size==='number'?file.size:null;
+        if(modified==null||size==null){
+          return;
+        }
+        const currentStamp=this.aspenLastModified;
+        const currentSize=this.aspenLastSize;
+        if(currentStamp==null||currentSize==null){
+          this.aspenLastModified=modified;
+          this.aspenLastSize=size;
+          storeAspenLastModified(modified);
+          return;
+        }
+        if(modified>currentStamp||size!==currentSize){
+          this.aspenLastModified=modified;
+          this.aspenLastSize=size;
+          storeAspenLastModified(modified);
+          await this.handleAspenFile(file);
+          this.updateAspenContext({permission:'granted'});
+          this.scheduleRender();
+        }
+      }catch(err){
+        if(err&&(err.name==='NotAllowedError'||err.name==='SecurityError')){
+          console.info('[UnitBoard] Aspen-Datei: Zugriff verloren',err);
+          this.stopAspenPolling();
+          this.aspenLastModified=null;
+          this.aspenLastSize=null;
+          this.aspenFileHandle=null;
+          try{await clearStoredAspenHandle();}catch{/* ignore */}
+          this.updateAspenContext({permission:'denied'});
+          this.scheduleRender();
+        }else{
+          console.warn('NSF: Polling der Aspen-Datei fehlgeschlagen',err);
+        }
+      }finally{
+        this.aspenPollInProgress=false;
+      }
+    }
+
     async ensureFindingsHandleInitialized(){
       if(this.findingsHandleInitPromise) return this.findingsHandleInitPromise;
       this.findingsHandleInitPromise=(async()=>{
@@ -4620,6 +4839,26 @@
       return this.findingsHandleInitPromise;
     }
 
+    async ensureAspenHandleInitialized(){
+      if(this.aspenHandleInitPromise) return this.aspenHandleInitPromise;
+      this.aspenHandleInitPromise=(async()=>{
+        let handle=null;
+        try{
+          handle=await loadStoredAspenHandle();
+        }catch(err){
+          console.warn('NSF: Persistiertes Aspen-Handle konnte nicht geladen werden',err);
+          handle=null;
+        }
+        if(handle){
+          this.aspenFileHandle=handle;
+          await this.handleRestoredAspenHandle(handle);
+        }else{
+          this.updateAspenContext({permission:'prompt'});
+        }
+      })();
+      return this.aspenHandleInitPromise;
+    }
+
     async handleRestoredFindingsHandle(handle){
       if(!handle) return;
       const perm=await queryHandlePermission(handle);
@@ -4633,6 +4872,19 @@
         await this.loadFindingsFromHandle(handle);
       }else if(perm==='prompt'||perm==='denied'){
         this.updateFindingsContext({message:'Bitte Datei erneut auswählen.'});
+      }
+    }
+
+    async handleRestoredAspenHandle(handle){
+      if(!handle) return;
+      const perm=await queryHandlePermission(handle);
+      console.log('[UnitBoard] Aspen Permission:',perm);
+      const baseUpdates={permission:perm};
+      this.updateAspenContext(baseUpdates);
+      if(perm==='granted'){
+        await this.loadAspenFromHandle(handle);
+      }else if(perm==='prompt'||perm==='denied'){
+        this.updateAspenContext({permission:perm});
       }
     }
 
@@ -4665,6 +4917,42 @@
       }
     }
 
+    async loadAspenFromHandle(handle){
+      if(!handle) return;
+      try{
+        const file=await handle.getFile();
+        if(file&&typeof file.name==='string'){
+          console.log('[UnitBoard] Aspen-Datei geöffnet:',file.name);
+        }
+        const modified=typeof file?.lastModified==='number'?file.lastModified:null;
+        if(modified!=null){
+          this.aspenLastModified=modified;
+          storeAspenLastModified(modified);
+        }
+        const size=typeof file?.size==='number'?file.size:null;
+        if(size!=null){
+          this.aspenLastSize=size;
+        }
+        await this.handleAspenFile(file);
+        this.updateAspenContext({permission:'granted'});
+        this.scheduleRender();
+        this.startAspenPolling();
+      }catch(err){
+        console.warn('NSF: Aspen-Datei konnte nicht gelesen werden',err);
+        if(err&&typeof err==='object'&&(err.name==='NotFoundError'||err.name==='NotAllowedError')){
+          await clearStoredAspenHandle();
+          this.aspenFileHandle=null;
+          this.stopAspenPolling();
+          this.aspenLastModified=null;
+          this.aspenLastSize=null;
+          storeAspenLastModified(null);
+        }
+        if(this.updateAspenContext({permission:'denied'})){
+          this.scheduleRender();
+        }
+      }
+    }
+
     async bindFindingsHandle(handle){
       if(!handle) return;
       this.stopFindingsPolling();
@@ -4672,6 +4960,16 @@
       this.findingsFileHandle=handle;
       await storeFindingsHandle(handle);
       await this.loadFindingsFromHandle(handle);
+    }
+
+    async bindAspenHandle(handle){
+      if(!handle) return;
+      this.stopAspenPolling();
+      this.aspenLastModified=null;
+      this.aspenLastSize=null;
+      this.aspenFileHandle=handle;
+      await storeAspenHandle(handle);
+      await this.loadAspenFromHandle(handle);
     }
 
     async pickFindingsHandle(){
@@ -4699,6 +4997,42 @@
       }catch(err){
         if(err&&err.name==='AbortError') return;
         console.warn('NSF: Findings-Datei konnte nicht ausgewählt werden',err);
+      }
+    }
+
+    async pickAspenHandle(){
+      if(typeof window==='undefined'||typeof window.showOpenFilePicker!=='function'){
+        if(this.aspenFileInput){
+          this.aspenFileInput.click();
+        }
+        return;
+      }
+      try{
+        const [handle]=await window.showOpenFilePicker({
+          types:[
+            {description:'Excel / CSV / JSON',accept:{
+              'application/json':['.json'],
+              'text/csv':['.csv'],
+              'text/plain':['.txt'],
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
+              'application/vnd.ms-excel':['.xls','.xlsm']
+            }}
+          ],
+          multiple:false
+        });
+        if(!handle) return;
+        const status=await ensurePermission(handle);
+        console.log('[UnitBoard] Aspen Permission:',status);
+        if(status!=='granted'){
+          if(this.updateAspenContext({permission:status})){
+            this.scheduleRender();
+          }
+          return;
+        }
+        await this.bindAspenHandle(handle);
+      }catch(err){
+        if(err&&err.name==='AbortError') return;
+        console.warn('NSF: Aspen-Datei konnte nicht ausgewählt werden',err);
       }
     }
 
@@ -4732,11 +5066,64 @@
       }
     }
 
+    async handleAspenButton(){
+      if(this.aspenHandleBusy) return;
+      if(typeof window==='undefined'||typeof window.showOpenFilePicker!=='function'){
+        if(this.aspenFileInput){
+          this.aspenFileInput.click();
+        }
+        return;
+      }
+      this.aspenHandleBusy=true;
+      try{
+        if(this.aspenFileHandle){
+          const status=await ensurePermission(this.aspenFileHandle);
+          console.log('[UnitBoard] Aspen Permission:',status);
+          if(status==='granted'){
+            await this.loadAspenFromHandle(this.aspenFileHandle);
+            return;
+          }
+          if(this.updateAspenContext({permission:status})){
+            this.scheduleRender();
+          }
+        }
+        await this.pickAspenHandle();
+      }catch(err){
+        if(err&&err.name==='AbortError') return;
+        console.warn('NSF: Aspen-Datei konnte nicht geöffnet werden',err);
+      }finally{
+        this.aspenHandleBusy=false;
+      }
+    }
+
+    async handleLegacyAspenFile(file){
+      if(!file) return;
+      this.aspenFileHandle=null;
+      this.stopAspenPolling();
+      this.aspenLastModified=null;
+      this.aspenLastSize=null;
+      if(typeof file.lastModified==='number'){
+        this.aspenLastModified=file.lastModified;
+        storeAspenLastModified(file.lastModified);
+      }
+      if(typeof file.size==='number'){
+        this.aspenLastSize=file.size;
+      }
+      await clearStoredAspenHandle();
+      await this.handleAspenFile(file);
+      if(this.updateAspenContext({permission:'prompt'})){
+        this.scheduleRender();
+      }
+    }
+
     async handleLegacyFindingsFile(file){
       if(!file) return;
       this.findingsFileHandle=null;
       this.stopFindingsPolling();
       this.findingsLastModified=null;
+      if(typeof file.lastModified==='number'){
+        this.findingsLastModified=file.lastModified;
+      }
       await clearStoredFindingsHandle();
       await this.handleFindingsFile(file);
       if(this.updateFindingsContext({fileName:file.name||'',message:'',permission:'prompt'})){
@@ -4788,7 +5175,7 @@
       fileInput.addEventListener('change',()=>{
         const file=fileInput.files&&fileInput.files[0];
         if(file){
-          this.handleAspenFile(file).finally(()=>{fileInput.value='';});
+          this.handleLegacyAspenFile(file).finally(()=>{fileInput.value='';});
         }
       });
       this.aspenFileInput=fileInput;
@@ -4824,10 +5211,19 @@
       }
       const debugSpan=document.createElement('span');
       debugSpan.className='nsf-header-debug';
-      const statusText=this.serialStatus||'';
-      const lookupText=this.serialLookupMeldung||'';
-      const lookupDisplay=lookupText||'–';
-      debugSpan.textContent=`Seriennummer-Status: ${statusText||'–'} | Aspen-Meldung gesucht: ${lookupDisplay}`;
+      const storedAspenLastModified=loadAspenLastModified();
+      if(storedAspenLastModified!=null&&storedAspenLastModified!==this.aspenLastModified){
+        this.aspenLastModified=storedAspenLastModified;
+      }
+      const findingsStand=formatTimeShort(this.findingsLastModified);
+      const aspenStand=formatTimeShort(this.aspenLastModified);
+      const findingsLine=document.createElement('span');
+      findingsLine.className='nsf-header-debug-line';
+      findingsLine.textContent=`Auto-Update Findings Stand ${findingsStand}`;
+      const aspenLine=document.createElement('span');
+      aspenLine.className='nsf-header-debug-line';
+      aspenLine.textContent=`Auto-Update Aspen Stand ${aspenStand}`;
+      debugSpan.append(findingsLine,aspenLine);
       summary.appendChild(debugSpan);
       headerBar.appendChild(summary);
 
@@ -4848,7 +5244,7 @@
       };
 
       const findingsAction=makeHeaderAction('Findings',()=>this.handleFindingsButton());
-      const aspenAction=makeHeaderAction('Aspen',()=>fileInput.click());
+      const aspenAction=makeHeaderAction('Aspen',()=>this.handleAspenButton());
       headerActions.append(findingsAction,aspenAction);
       const headerHistory=document.createElement('div');
       headerHistory.className='nsf-header-history';
@@ -5173,7 +5569,7 @@
         const saveBtn=makeIconButton('💾','Alles speichern',handleSave,!this.stateKey);
 
         addMenuItem('🧾 Findings-Datei wählen …',()=>findingsInput.click());
-        addMenuItem('📂 Aspen-Datei wählen …',()=>fileInput.click());
+        addMenuItem('📂 Aspen-Datei wählen …',()=>this.handleAspenButton());
         const toggleItem=addMenuItem(
           this.filterAll?'🔒 PN-Filter aktivieren':'🔍 Alle Findings anzeigen',
           toggleFilter,
@@ -11013,6 +11409,13 @@
     async handleAspenFile(file){
       if(!file) return;
       try{
+        if(typeof file.lastModified==='number'){
+          this.aspenLastModified=file.lastModified;
+          storeAspenLastModified(file.lastModified);
+        }
+        if(typeof file.size==='number'){
+          this.aspenLastSize=file.size;
+        }
         let payload='';
         const fileName=typeof file.name==='string'?file.name.toLowerCase():'';
         const fileType=typeof file.type==='string'?file.type.toLowerCase():'';
@@ -11041,8 +11444,12 @@
               inst.prepareForAspenReload();
             }
           });
-          localStorage.setItem(ASPEN_DOC_KEY,payload);
-          lastValues[ASPEN_DOC_KEY]=payload;
+          try{
+            setAspenDocPayload(payload);
+            lastValues[ASPEN_DOC_KEY]=payload;
+          }catch(err){
+            console.warn('NSF: Aspen-Daten konnten nicht gespeichert werden',err);
+          }
           scheduleAll();
         }
       }catch(err){
