@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.13] – 2026-01-27
+### Added
+- SRU-Exchange-Eingaben für "Exchange Input" und "Exchange Output" ergänzt, die bei SRU-Exchange-Status (inkl. Suffixe) angezeigt werden und als Keywords `{sn_in}` bzw. `{sn_out}` in Ausgaben genutzt werden können.
+
 ## [1.8.12] – 2026-01-26
 ### Fixed
 - Statuswechsel in Findings-Eingaben speichern sofort, damit ein Umstellen nicht mehr auf den letzten Zustand zurückspringt.
