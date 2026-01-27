@@ -16,7 +16,7 @@
         '- Name: {name}',
         '- Kategorie: {type}',
         '- Prüftyp: {kind}',
-        '- Ablaufmonat: {expiryMonth} ({expiryDate})',
+        '- Ablauf: {expiryMonth} ({expiryDate})',
         '- Betriebsmittelnummer: {assetNumber}',
         '{desc}',
         '',
@@ -118,6 +118,7 @@
       .bma-modal-panel-wide .bma-text-preset textarea{min-height:160px;}
       .bma-item-presets{display:flex;flex-wrap:wrap;gap:.4rem;}
       .bma-item-presets button{border:none;border-radius:.6rem;padding:.3rem .6rem;font-size:.72rem;cursor:pointer;background:rgba(148,163,184,.18);color:inherit;}
+      .bma-hidden{display:none !important;}
     `;
     document.head.appendChild(style);
   }
@@ -297,6 +298,18 @@
     return new Date(parsed.year, parsed.month, 0);
   }
 
+  function getExpiryDateForItem(item){
+    const parsed = parseMonth(item.expiryMonth);
+    if(!parsed) return null;
+    if(item.type === 'Consumable'){
+      const day = Number(item.expiryDay);
+      const maxDay = new Date(parsed.year, parsed.month, 0).getDate();
+      if(!Number.isFinite(day) || day < 1 || day > maxDay) return null;
+      return new Date(parsed.year, parsed.month - 1, day);
+    }
+    return getExpiryDate(item.expiryMonth);
+  }
+
   function startOfDay(date){
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
@@ -467,17 +480,22 @@
               Betriebsmittelnummer (optional)
               <input type="text" class="bma-input-asset" placeholder="z. B. BM-2048" />
             </label>
-            <label>
-              Kategorie
-              <select class="bma-input-type">
-                <option value="Gerät">Gerät</option>
-                <option value="Kabel">Kabel</option>
-                <option value="Zubehör">Zubehör</option>
-                <option value="Sonstiges">Sonstiges</option>
-              </select>
+          <label>
+            Kategorie
+            <select class="bma-input-type">
+              <option value="Gerät">Gerät</option>
+              <option value="Kabel">Kabel</option>
+              <option value="Zubehör">Zubehör</option>
+              <option value="Consumable">Consumable</option>
+              <option value="Sonstiges">Sonstiges</option>
+            </select>
+          </label>
+            <label class="bma-hidden" data-bma-day-field>
+              Ablauftag
+              <input type="number" class="bma-input-day" inputmode="numeric" min="1" max="31" placeholder="TT" />
             </label>
             <label>
-              Ablaufmonat
+              <span data-bma-month-label>Ablaufmonat</span>
               <input type="month" class="bma-input-month" inputmode="numeric" />
             </label>
             <label>
@@ -616,6 +634,7 @@
       name: root.querySelector('.bma-input-name'),
       asset: root.querySelector('.bma-input-asset'),
       type: root.querySelector('.bma-input-type'),
+      day: root.querySelector('.bma-input-day'),
       month: root.querySelector('.bma-input-month'),
       kind: root.querySelector('.bma-input-kind'),
       desc: root.querySelector('.bma-input-desc'),
@@ -658,6 +677,8 @@
     const textPresetSaveBtn = root.querySelector('.bma-text-save');
     const textPresetCancelBtn = root.querySelector('.bma-text-cancel');
     const headerEl = root.querySelector('.bma-header');
+    const dayFieldWrap = root.querySelector('[data-bma-day-field]');
+    const monthLabel = root.querySelector('[data-bma-month-label]');
 
     let editId = null;
     let swapSourceId = null;
@@ -772,6 +793,7 @@
       formFields.name.value = '';
       formFields.asset.value = '';
       formFields.desc.value = '';
+      formFields.day.value = '';
       formFields.month.value = '';
       formFields.type.value = 'Gerät';
       formFields.kind.value = 'DGUV';
@@ -789,6 +811,23 @@
       }
       cancelBtn.style.display = 'none';
       saveBtn.textContent = 'Eintrag speichern';
+      updateDateFields();
+    }
+
+    function updateDateFields(){
+      const isConsumable = formFields.type.value === 'Consumable';
+      if(dayFieldWrap){
+        dayFieldWrap.classList.toggle('bma-hidden', !isConsumable);
+      }
+      if(formFields.day){
+        formFields.day.disabled = !isConsumable;
+      }
+      if(monthLabel){
+        monthLabel.textContent = isConsumable ? 'Ablaufmonat & Jahr' : 'Ablaufmonat';
+      }
+      if(!isConsumable){
+        formFields.day.value = '';
+      }
     }
 
     function collectReminders(isSettings){
@@ -806,6 +845,10 @@
     function buildMailTemplate(item){
       const subject = `Betriebsmittel bei mir: ${item.name}`;
       const assetLine = item.assetNumber ? `Betriebsmittelnummer: ${item.assetNumber}` : 'Betriebsmittelnummer: (nicht hinterlegt)';
+      const isConsumable = item.type === 'Consumable';
+      const expiryLine = isConsumable
+        ? `- Ablaufdatum: ${formatDate(item.expiryDate)}`
+        : `- Ablaufmonat: ${formatMonth(item.expiryMonth)} (${formatDate(item.expiryDate)})`;
       const bodyLines = [
         `Hallo zusammen,`,
         '',
@@ -813,7 +856,7 @@
         `- Name: ${item.name}`,
         `- Kategorie: ${item.type}`,
         `- Prüftyp: ${item.kind}`,
-        `- Ablaufmonat: ${formatMonth(item.expiryMonth)} (${formatDate(item.expiryDate)})`,
+        expiryLine,
         `- ${assetLine}`,
         item.desc ? `- Hinweis: ${item.desc}` : null,
         '',
@@ -876,9 +919,25 @@
       }else if(!month || !month.includes('-')){
         month = '';
       }
+      const isConsumable = formFields.type.value === 'Consumable';
       if(!name || !month){
-        alert('Bitte Name und Ablaufmonat angeben.');
+        alert(isConsumable ? 'Bitte Name und Ablaufdatum angeben.' : 'Bitte Name und Ablaufmonat angeben.');
         return;
+      }
+      let expiryDay = '';
+      if(isConsumable){
+        const dayValue = Number(formFields.day.value.trim());
+        const parsedMonth = parseMonth(month);
+        if(!parsedMonth || !Number.isInteger(dayValue)){
+          alert('Bitte ein gültiges Ablaufdatum mit Tag, Monat und Jahr angeben.');
+          return;
+        }
+        const maxDay = new Date(parsedMonth.year, parsedMonth.month, 0).getDate();
+        if(dayValue < 1 || dayValue > maxDay){
+          alert('Der Ablauftag ist für den gewählten Monat ungültig.');
+          return;
+        }
+        expiryDay = dayValue;
       }
       const assetNumber = formFields.asset.value.trim();
       const item = {
@@ -889,6 +948,7 @@
         kind: formFields.kind.value,
         desc: formFields.desc.value.trim(),
         expiryMonth: month,
+        expiryDay,
         reminders: collectReminders(false),
         updatedAt: new Date().toISOString()
       };
@@ -928,6 +988,7 @@
         formFields.name,
         formFields.asset,
         formFields.type,
+        formFields.day,
         formFields.month,
         formFields.kind,
         formFields.desc,
@@ -978,6 +1039,7 @@
       formFields.type.value = item.type;
       formFields.kind.value = item.kind;
       formFields.desc.value = item.desc || '';
+      formFields.day.value = item.expiryDay || '';
       formFields.month.value = item.expiryMonth;
       formFields.remSeven.checked = (item.reminders || []).includes(7);
       formFields.remZero.checked = (item.reminders || []).includes(0);
@@ -988,6 +1050,7 @@
       if(swapFields.banner){
         swapFields.banner.style.display = 'none';
       }
+      updateDateFields();
       formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -999,6 +1062,7 @@
       formFields.type.value = item.type;
       formFields.kind.value = item.kind;
       formFields.desc.value = item.desc || '';
+      formFields.day.value = '';
       formFields.month.value = '';
       formFields.remSeven.checked = (item.reminders || []).includes(7);
       formFields.remZero.checked = (item.reminders || []).includes(0);
@@ -1010,11 +1074,15 @@
         swapFields.banner.style.display = 'flex';
       }
       if(swapFields.info){
-        swapFields.info.textContent = `Altgerät: ${item.name} (${formatMonth(item.expiryMonth)})`;
+        const expiryLabel = item.type === 'Consumable'
+          ? formatDate(item.expiryDate)
+          : formatMonth(item.expiryMonth);
+        swapFields.info.textContent = `Altgerät: ${item.name} (${expiryLabel})`;
       }
       if(swapFields.deleteOld){
         swapFields.deleteOld.checked = true;
       }
+      updateDateFields();
       formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -1030,11 +1098,14 @@
     function getFilteredItems(){
       const query = searchInput.value.trim().toLowerCase();
       const status = statusSelect.value;
-      const sorted = [...state.items].map(item => ({
-        ...item,
-        expiryDate: getExpiryDate(item.expiryMonth),
-        status: getStatus(getExpiryDate(item.expiryMonth))
-      }));
+      const sorted = [...state.items].map(item => {
+        const expiryDate = getExpiryDateForItem(item);
+        return {
+          ...item,
+          expiryDate,
+          status: getStatus(expiryDate)
+        };
+      });
 
       const filtered = sorted.filter(item => {
         if(query){
@@ -1101,8 +1172,10 @@
           </div>
           <div class="bma-item-details">
             <div class="bma-row">
-              <span class="bma-pill">Ablauf: ${formatMonth(item.expiryMonth)}</span>
-              <span class="bma-pill">Stichtag: ${formatDate(item.expiryDate)}</span>
+              ${item.type === 'Consumable'
+                ? `<span class="bma-pill">Ablaufdatum: ${formatDate(item.expiryDate)}</span>`
+                : `<span class="bma-pill">Ablauf: ${formatMonth(item.expiryMonth)}</span>
+              <span class="bma-pill">Stichtag: ${formatDate(item.expiryDate)}</span>`}
               ${item.assetNumber ? `<span class="bma-pill">Betriebsmittel-Nr.: ${item.assetNumber}</span>` : ''}
               ${nextReminder ? `<span class="bma-pill bma-tag-accent">Nächster Reminder: ${formatDate(nextReminder.date)}</span>` : ''}
             </div>
@@ -1197,6 +1270,7 @@
 
     applyLayerVars(rootEl, layers, state.settings);
     setDefaultReminderFields();
+    updateDateFields();
     renderList();
     syncSettings();
     setupFormNavigation();
@@ -1206,6 +1280,7 @@
     if(swapFields.cancel){
       swapFields.cancel.addEventListener('click', resetForm);
     }
+    formFields.type.addEventListener('change', updateDateFields);
     formFields.month.addEventListener('focus', () => {
       rawMonthDigits = '';
     });
