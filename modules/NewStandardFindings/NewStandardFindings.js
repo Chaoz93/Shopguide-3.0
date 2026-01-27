@@ -47,6 +47,11 @@
     return match||cleaned;
   }
 
+  function isSruExchangeStatus(value){
+    const normalized=normalizeFindingStatus(value);
+    return normalized && normalized.toLowerCase().startsWith('sru exchange');
+  }
+
   function nsfNormalizeParts(entry){
     return nsfGetParts(entry)
       .map(item=>{
@@ -543,6 +548,8 @@
     {key:'routine',label:'{routine}',description:'Routine-Text'},
     {key:'times',label:'{times}',description:'Arbeitszeiten'},
     {key:'mods',label:'{mods}',description:'Modifikationen'},
+    {key:'sn_in',label:'{sn_in}',description:'SRU Exchange Input'},
+    {key:'sn_out',label:'{sn_out}',description:'SRU Exchange Output'},
     {key:'rfr',label:'{RfR}',description:'Removal-Grund'},
     {key:'reason',label:'{Reason}',description:'Pilot-Reason-Text'},
     {key:'label',label:'{label}',description:'Aktuelles Profil-Label'}
@@ -1677,6 +1684,13 @@
       .nsf-reason-panel{background:rgba(15,23,42,0.16);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-reason-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-reason-textarea{min-height:4.5rem;}
+      .nsf-exchange-panel{background:rgba(15,23,42,0.16);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.5rem;}
+      .nsf-exchange-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .nsf-exchange-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.5rem;}
+      .nsf-exchange-field{display:flex;flex-direction:column;gap:0.25rem;}
+      .nsf-exchange-label{font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;opacity:0.7;}
+      .nsf-exchange-input{padding:0.45rem 0.6rem;border-radius:0.6rem;border:1px solid rgba(148,163,184,0.45);background:rgba(15,23,42,0.18);color:inherit;font:inherit;font-size:0.85rem;}
+      .nsf-exchange-input:disabled{opacity:0.5;cursor:not-allowed;}
       .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
       .nsf-header-section.collapsed .nsf-header-actions{order:3;width:100%;justify-content:flex-end;flex-wrap:wrap;}
       .nsf-header-history{display:flex;align-items:center;gap:0.35rem;}
@@ -3584,7 +3598,9 @@
     if(!id||!createdAt||!Number.isFinite(createdMs)) return null;
     const rfr=typeof raw.rfr==='string'?raw.rfr:null;
     const reason=typeof raw.reason==='string'?raw.reason:null;
-    return {id,createdAt,createdMs,selections,rfr,reason};
+    const exchangeInput=typeof raw.exchangeInput==='string'?raw.exchangeInput:null;
+    const exchangeOutput=typeof raw.exchangeOutput==='string'?raw.exchangeOutput:null;
+    return {id,createdAt,createdMs,selections,rfr,reason,exchangeInput,exchangeOutput};
   }
 
   function getEventHistoryForKey(store,key){
@@ -3610,7 +3626,9 @@
       createdAt:entry.createdAt,
       selections:Array.isArray(entry.selections)?entry.selections:[],
       rfr:typeof entry.rfr==='string'?entry.rfr:'',
-      reason:typeof entry.reason==='string'?entry.reason:''
+      reason:typeof entry.reason==='string'?entry.reason:'',
+      exchangeInput:typeof entry.exchangeInput==='string'?entry.exchangeInput:'',
+      exchangeOutput:typeof entry.exchangeOutput==='string'?entry.exchangeOutput:''
     });
     const unique=new Map();
     const filtered=[];
@@ -3624,7 +3642,9 @@
         createdAt:normalizedEntry.createdAt,
         selections:normalizedEntry.selections,
         rfr:typeof normalizedEntry.rfr==='string'?normalizedEntry.rfr:'',
-        reason:typeof normalizedEntry.reason==='string'?normalizedEntry.reason:''
+        reason:typeof normalizedEntry.reason==='string'?normalizedEntry.reason:'',
+        exchangeInput:typeof normalizedEntry.exchangeInput==='string'?normalizedEntry.exchangeInput:'',
+        exchangeOutput:typeof normalizedEntry.exchangeOutput==='string'?normalizedEntry.exchangeOutput:''
       });
       if(filtered.length>=EVENT_HISTORY_LIMIT) break;
     }
@@ -3762,7 +3782,19 @@
   }
 
   function createEmptyActiveState(){
-    return {findings:'',actions:'',routine:'',nonroutine:'',parts:'',freitextTemplate:'',rfr:'',reason:'',customSections:[]};
+    return {
+      findings:'',
+      actions:'',
+      routine:'',
+      nonroutine:'',
+      parts:'',
+      freitextTemplate:'',
+      rfr:'',
+      reason:'',
+      exchangeInput:'',
+      exchangeOutput:'',
+      customSections:[]
+    };
   }
 
   let customSectionIdCounter=0;
@@ -3797,6 +3829,8 @@
       freitextTemplate:typeof state.freitextTemplate==='string'?state.freitextTemplate:'',
       rfr:typeof state.rfr==='string'?state.rfr:'',
       reason:typeof state.reason==='string'?state.reason:'',
+      exchangeInput:typeof state.exchangeInput==='string'?state.exchangeInput:'',
+      exchangeOutput:typeof state.exchangeOutput==='string'?state.exchangeOutput:'',
       customSections:Array.isArray(state.customSections)
         ?state.customSections.map(cloneCustomSection)
         :[]
@@ -4237,6 +4271,8 @@
       this.removalOptionsInitialized=false;
       this.reasonText='';
       this.reasonTextarea=null;
+      this.exchangeInputText='';
+      this.exchangeOutputText='';
       this.menuCleanup=null;
       this.partsContextMenu=null;
       this.partsContextMenuCleanup=null;
@@ -4441,6 +4477,8 @@
       }
       this.removalOptionsInitialized=true;
       this.reasonText=clean(this.activeState.reason||'');
+      this.exchangeInputText=clean(this.activeState.exchangeInput||'');
+      this.exchangeOutputText=clean(this.activeState.exchangeOutput||'');
       this.customSections=normalizeCustomSections(this.activeState.customSections);
       this.rebuildCustomSectionMap();
       this.syncCustomSectionsToActiveState({save:false});
@@ -4505,6 +4543,21 @@
         const normalizedStatus=normalizeFindingStatus(entry?.status)||DEFAULT_FINDING_STATUS;
         return normalizedStatus && allowedStatuses.has(normalizedStatus);
       });
+    }
+
+    shouldShowExchangeInputs(){
+      if(!this.selectedEntries.length) return false;
+      return this.selectedEntries.some(entry=>isSruExchangeStatus(entry?.status));
+    }
+
+    replaceExchangeKeywords(text){
+      const raw=typeof text==='string'?text:'';
+      if(!raw) return '';
+      const input=clean(this.exchangeInputText||this.activeState?.exchangeInput||'');
+      const output=clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'');
+      return raw
+        .replace(/\{sn_in\}/gi,input)
+        .replace(/\{sn_out\}/gi,output);
     }
 
     async pollFindingsFileOnce(){
@@ -5422,6 +5475,39 @@
       selectionBody.appendChild(inputsWrapper);
       this.inputsContainer=inputsWrapper;
 
+      const showExchangeInputs=this.shouldShowExchangeInputs();
+      if(showExchangeInputs){
+        const exchangePanel=document.createElement('div');
+        exchangePanel.className='nsf-exchange-panel';
+        const exchangeTitle=document.createElement('div');
+        exchangeTitle.className='nsf-exchange-title';
+        exchangeTitle.textContent='SRU Exchange';
+        const exchangeFields=document.createElement('div');
+        exchangeFields.className='nsf-exchange-fields';
+        const buildField=(labelText,value,handler)=>{
+          const field=document.createElement('div');
+          field.className='nsf-exchange-field';
+          const label=document.createElement('label');
+          label.className='nsf-exchange-label';
+          label.textContent=labelText;
+          const input=document.createElement('input');
+          input.type='text';
+          input.className='nsf-exchange-input';
+          input.value=value||'';
+          input.disabled=!this.meldung;
+          input.placeholder=`${labelText}…`;
+          input.addEventListener('input',()=>handler(input.value));
+          field.append(label,input);
+          return field;
+        };
+        exchangeFields.append(
+          buildField('Exchange Input',this.exchangeInputText,value=>this.setExchangeInputText(value)),
+          buildField('Exchange Output',this.exchangeOutputText,value=>this.setExchangeOutputText(value))
+        );
+        exchangePanel.append(exchangeTitle,exchangeFields);
+        selectionBody.appendChild(exchangePanel);
+      }
+
       inputSection.append(selectionHeader,selectionBody);
 
       if(this.meldung){
@@ -5962,9 +6048,9 @@
       const appliesSeen=new Set();
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
-        const findingText=resolved.finding||selection.finding||'';
+        const findingText=this.replaceExchangeKeywords(resolved.finding||selection.finding||'');
         pushLines('findings',findingText);
-        const actionText=resolved.action||selection.action||'';
+        const actionText=this.replaceExchangeKeywords(resolved.action||selection.action||'');
         pushLines('actions',actionText);
         const statusValue=normalizeFindingStatus(selection.status)||DEFAULT_FINDING_STATUS;
         const labelValue=clean(resolved.label||selection.label||findingText||actionText)||'Unbenannt';
@@ -5975,13 +6061,15 @@
         if(statusValue==='Spare'){
           pushLines('spareFindings',findingText);
         }
-        const nonroutineText=resolved.nonroutineFinding||resolved.nonroutine||selection.nonroutineFinding||selection.nonroutine||'';
+        const nonroutineText=this.replaceExchangeKeywords(
+          resolved.nonroutineFinding||resolved.nonroutine||selection.nonroutineFinding||selection.nonroutine||''
+        );
         if(nonroutineText){
           const stripped=stripNonRoutineFindingPrefix(nonroutineText);
           const sanitized=sanitizeNonRoutineOutput(stripped);
           pushLines('nonroutine',sanitized);
         }
-        const routineText=this.buildRoutineOutput(resolved);
+        const routineText=this.replaceExchangeKeywords(this.buildRoutineOutput(resolved));
         pushBlock('routine',routineText);
         collectTimes(resolved);
         collectMods(resolved);
@@ -9632,11 +9720,13 @@
         mods:modsText,
         parts:partsText,
         times:timesText,
+        sn_in:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
+        sn_out:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||''),
         rfr:clean(this.removalReason||this.activeState?.rfr||''),
         reason:clean(this.reasonText||this.activeState?.reason||''),
         label:typeof this.currentLabel==='string'?this.currentLabel:''
       };
-      const expanded=raw.replace(/\{([a-z]+)\}/gi,(match,key)=>{
+      const expanded=raw.replace(/\{([a-z_]+)\}/gi,(match,key)=>{
         const normalized=key.toLowerCase();
         if(Object.prototype.hasOwnProperty.call(replacements,normalized)){
           return replacements[normalized];
@@ -10013,6 +10103,32 @@
       this.queueEventAutoUpdate();
     }
 
+    setExchangeInputText(exchangeText){
+      if(!this.meldung) return;
+      const cleaned=clean(exchangeText);
+      if(this.exchangeInputText===cleaned) return;
+      this.exchangeInputText=cleaned;
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.exchangeInput=cleaned;
+      }
+      this.syncOutputsWithSelections({persist:false});
+      this.queueStateSave();
+      this.queueEventAutoUpdate();
+    }
+
+    setExchangeOutputText(exchangeText){
+      if(!this.meldung) return;
+      const cleaned=clean(exchangeText);
+      if(this.exchangeOutputText===cleaned) return;
+      this.exchangeOutputText=cleaned;
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.exchangeOutput=cleaned;
+      }
+      this.syncOutputsWithSelections({persist:false});
+      this.queueStateSave();
+      this.queueEventAutoUpdate();
+    }
+
     handleFindingsEditorUpdate(detail){
       if(!detail||typeof detail!=='object') return;
       const updated=detail.entry&&typeof detail.entry==='object'?detail.entry:null;
@@ -10199,7 +10315,9 @@
         createdAt:timestamp.toISOString(),
         selections:serializeEventHistorySelections(this.selectedEntries),
         rfr:clean(this.removalReason||this.activeState?.rfr||''),
-        reason:clean(this.reasonText||this.activeState?.reason||'')
+        reason:clean(this.reasonText||this.activeState?.reason||''),
+        exchangeInput:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
+        exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'')
       };
       pushEventHistory(this.eventHistoryStore,this.eventHistoryKey,entry);
       await writeEventHistoryStoreToFile(this.eventHistoryStore);
@@ -10229,6 +10347,8 @@
       const updatedSelections=serializeEventHistorySelections(this.selectedEntries);
       const updatedRfr=clean(this.removalReason||this.activeState?.rfr||'');
       const updatedReason=clean(this.reasonText||this.activeState?.reason||'');
+      const updatedExchangeInput=clean(this.exchangeInputText||this.activeState?.exchangeInput||'');
+      const updatedExchangeOutput=clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'');
       let changed=false;
       const next=storedList.map(item=>{
         if(!item||item.id!==targetId) return item;
@@ -10237,7 +10357,9 @@
           ...item,
           selections:updatedSelections,
           rfr:updatedRfr,
-          reason:updatedReason
+          reason:updatedReason,
+          exchangeInput:updatedExchangeInput,
+          exchangeOutput:updatedExchangeOutput
         };
       });
       if(!changed) return;
@@ -10278,6 +10400,14 @@
         if(typeof entry.reason==='string'){
           this.reasonText=clean(entry.reason);
           this.activeState.reason=this.reasonText;
+        }
+        if(typeof entry.exchangeInput==='string'){
+          this.exchangeInputText=clean(entry.exchangeInput);
+          this.activeState.exchangeInput=this.exchangeInputText;
+        }
+        if(typeof entry.exchangeOutput==='string'){
+          this.exchangeOutputText=clean(entry.exchangeOutput);
+          this.activeState.exchangeOutput=this.exchangeOutputText;
         }
       }
       this.undoBuffer=null;
@@ -10822,6 +10952,8 @@
       this.removalOptionsCollapsed=false;
       this.removalOptionsInitialized=false;
       this.reasonText='';
+      this.exchangeInputText='';
+      this.exchangeOutputText='';
       this.undoBuffer=null;
       for(const key of Object.keys(this.textareas||{})){
         const textarea=this.textareas[key];
