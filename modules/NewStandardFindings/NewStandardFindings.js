@@ -4550,6 +4550,16 @@
       return this.selectedEntries.some(entry=>isSruExchangeStatus(entry?.status));
     }
 
+    replaceExchangeKeywords(text){
+      const raw=typeof text==='string'?text:'';
+      if(!raw) return '';
+      const input=clean(this.exchangeInputText||this.activeState?.exchangeInput||'');
+      const output=clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'');
+      return raw
+        .replace(/\{sn_in\}/gi,input)
+        .replace(/\{sn_out\}/gi,output);
+    }
+
     async pollFindingsFileOnce(){
       if(this.findingsPollInProgress) return;
       if(!this.findingsFileHandle||this.findingsHandlePermission!=='granted'){
@@ -6038,9 +6048,9 @@
       const appliesSeen=new Set();
       for(const selection of this.selectedEntries){
         const resolved=this.resolveEntry(selection)||selection;
-        const findingText=resolved.finding||selection.finding||'';
+        const findingText=this.replaceExchangeKeywords(resolved.finding||selection.finding||'');
         pushLines('findings',findingText);
-        const actionText=resolved.action||selection.action||'';
+        const actionText=this.replaceExchangeKeywords(resolved.action||selection.action||'');
         pushLines('actions',actionText);
         const statusValue=normalizeFindingStatus(selection.status)||DEFAULT_FINDING_STATUS;
         const labelValue=clean(resolved.label||selection.label||findingText||actionText)||'Unbenannt';
@@ -6051,13 +6061,15 @@
         if(statusValue==='Spare'){
           pushLines('spareFindings',findingText);
         }
-        const nonroutineText=resolved.nonroutineFinding||resolved.nonroutine||selection.nonroutineFinding||selection.nonroutine||'';
+        const nonroutineText=this.replaceExchangeKeywords(
+          resolved.nonroutineFinding||resolved.nonroutine||selection.nonroutineFinding||selection.nonroutine||''
+        );
         if(nonroutineText){
           const stripped=stripNonRoutineFindingPrefix(nonroutineText);
           const sanitized=sanitizeNonRoutineOutput(stripped);
           pushLines('nonroutine',sanitized);
         }
-        const routineText=this.buildRoutineOutput(resolved);
+        const routineText=this.replaceExchangeKeywords(this.buildRoutineOutput(resolved));
         pushBlock('routine',routineText);
         collectTimes(resolved);
         collectMods(resolved);
