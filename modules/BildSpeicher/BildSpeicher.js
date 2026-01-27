@@ -6,7 +6,7 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .bs-root{height:100%;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;border-radius:.85rem;border:1px solid var(--bs-main-border,rgba(148,163,184,.5));background:var(--bs-main-bg,rgba(15,23,42,.7));color:var(--bs-main-text,#f8fafc);font-family:inherit;}
+      .bs-root{height:100%;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;border-radius:.85rem;border:1px solid var(--bs-main-border,rgba(148,163,184,.5));background:var(--bs-main-bg,rgba(15,23,42,.7));color:var(--bs-main-text,#f8fafc);font-family:inherit;position:relative;}
       .bs-header{display:flex;justify-content:space-between;gap:.75rem;align-items:flex-start;}
       .bs-title{font-weight:700;font-size:1rem;}
       .bs-sub{font-size:.85rem;opacity:.78;}
@@ -19,6 +19,14 @@
       .bs-status{min-height:1.1rem;font-size:.78rem;opacity:.8;}
       .bs-preview{flex:1;display:flex;align-items:center;justify-content:center;border-radius:.6rem;border:1px solid var(--bs-alt-border,rgba(148,163,184,.35));background:var(--bs-alt-bg,rgba(30,41,59,.4));padding:.35rem;overflow:hidden;}
       .bs-preview img{max-width:100%;max-height:100%;object-fit:contain;border-radius:.45rem;}
+      .bs-root.bs-has-image{padding:0;gap:0;}
+      .bs-root.bs-has-image .bs-header,
+      .bs-root.bs-has-image .bs-upload,
+      .bs-root.bs-has-image .bs-status{display:none;}
+      .bs-root.bs-has-image .bs-preview{border:none;border-radius:.85rem;background:transparent;padding:0;}
+      .bs-root.bs-has-image .bs-preview img{width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;border-radius:0;}
+      .bs-caption{font-size:.70rem;opacity:.6;text-align:center;padding:.2rem .4rem;}
+      .bs-root:not(.bs-has-image) .bs-caption{display:none;}
       .bs-placeholder{text-align:center;font-size:.85rem;opacity:.7;}
       .bs-meta{font-size:.72rem;opacity:.75;}
     `;
@@ -203,6 +211,7 @@
         <div class="bs-placeholder">Noch kein Bild gespeichert.</div>
         <img class="bs-image" alt="" />
       </div>
+      <div class="bs-caption">Shopguide 3.0 powered by Luna and Marcel</div>
     `;
 
     root.appendChild(container);
@@ -244,6 +253,7 @@
       if(!entry?.dataUrl){
         if(imgEl) imgEl.removeAttribute('src');
         if(placeholderEl) placeholderEl.style.display = 'block';
+        container.classList.remove('bs-has-image');
         setMeta(null);
         return;
       }
@@ -251,6 +261,7 @@
         imgEl.src = entry.dataUrl;
       }
       if(placeholderEl) placeholderEl.style.display = 'none';
+      container.classList.add('bs-has-image');
       setMeta(entry);
     }
 
@@ -311,6 +322,13 @@
     if(clearBtn){
       clearBtn.addEventListener('click', () => clearImage());
     }
+
+    container.addEventListener('contextmenu', (event) => {
+      if(fileInput){
+        event.preventDefault();
+        fileInput.click();
+      }
+    });
 
     loadInitial();
   }
