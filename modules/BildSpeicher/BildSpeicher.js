@@ -6,7 +6,7 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .bs-root{height:100%;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;border-radius:.85rem;border:1px solid var(--bs-main-border,rgba(148,163,184,.5));background:var(--bs-main-bg,rgba(15,23,42,.7));color:var(--bs-main-text,#f8fafc);font-family:inherit;position:relative;}
+      .bs-root{height:100%;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:.75rem;padding:.85rem;border-radius:.85rem;border:1px solid var(--bs-main-border,rgba(148,163,184,.5));background:var(--bs-main-bg,rgba(15,23,42,.7));color:var(--bs-main-text,#f8fafc);font-family:inherit;position:relative;overflow:hidden;}
       .bs-header{display:flex;justify-content:space-between;gap:.75rem;align-items:flex-start;}
       .bs-title{font-weight:700;font-size:1rem;}
       .bs-sub{font-size:.85rem;opacity:.78;}
@@ -17,7 +17,7 @@
       .bs-upload-btn input{display:none;}
       .bs-clear-btn{display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .75rem;border-radius:.55rem;border:1px solid var(--bs-main-border,rgba(148,163,184,.6));background:transparent;color:var(--bs-main-text,#f8fafc);font-weight:600;cursor:pointer;}
       .bs-status{min-height:1.1rem;font-size:.78rem;opacity:.8;}
-      .bs-preview{flex:1;display:flex;align-items:center;justify-content:center;border-radius:.6rem;border:1px solid var(--bs-alt-border,rgba(148,163,184,.35));background:var(--bs-alt-bg,rgba(30,41,59,.4));padding:.35rem;overflow:hidden;}
+      .bs-preview{flex:1;display:flex;align-items:center;justify-content:center;border-radius:.6rem;border:1px solid var(--bs-alt-border,rgba(148,163,184,.35));background:var(--bs-alt-bg,rgba(30,41,59,.4));padding:.35rem;overflow:hidden;min-height:0;}
       .bs-preview img{max-width:100%;max-height:100%;object-fit:contain;border-radius:.45rem;}
       .bs-root.bs-has-image{padding:0;gap:0;}
       .bs-root.bs-has-image .bs-header,
@@ -187,6 +187,7 @@
     const title = ctx?.moduleJson?.name || 'Bildspeicher';
 
     root.innerHTML = '';
+    root.style.overflow = 'hidden';
     const container = document.createElement('div');
     container.className = 'bs-root';
 
