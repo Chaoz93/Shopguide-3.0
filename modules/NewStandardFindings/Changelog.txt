@@ -16,6 +16,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Changed
 - Auto-Update-Status im Kopfbereich zeigt nun getrennt den Stand für Findings- und Aspen-Datei an.
 - Aspen-Datei wird jetzt wie das Aspen-Board automatisch geprüft und bei Änderungen neu geladen.
+- Bei zu großen Aspen-Dateien wird ein Tab-internes Fallback genutzt, damit kein localStorage-Quota-Fehler mehr erscheint.
 
 ## [1.8.13] – 2026-01-27
 ### Added

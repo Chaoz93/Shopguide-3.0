@@ -442,6 +442,7 @@
   const EVENT_HISTORY_STORAGE_KEY='nsf-event-history-cache';
   const STYLE_ID='nsf-styles';
   const ASPEN_BOARD_STATE_KEY='aspenUnitListState';
+  let aspenDocMemory='';
   const ROUTINE_EDITOR_STORAGE_KEY='nsf-routine-editor';
   const ROUTINE_EDITOR_CUSTOM_PREFIX='custom:';
   const ROUTINE_EDITOR_PRESETS_KEY='nsf-routine-editor-presets';
@@ -2185,6 +2186,30 @@
 
   function nsfIsObj(v){ return v && typeof v === 'object' && !Array.isArray(v); }
 
+  function setAspenDocPayload(payload){
+    if(typeof payload!=='string'||!payload){
+      aspenDocMemory='';
+      return;
+    }
+    try{
+      localStorage.setItem(ASPEN_DOC_KEY,payload);
+      aspenDocMemory='';
+    }catch(err){
+      const isQuota=err&&typeof err==='object'&&(
+        err.name==='QuotaExceededError'
+        || err.name==='NS_ERROR_DOM_QUOTA_REACHED'
+        || err.code===22
+      );
+      if(isQuota){
+        console.warn('NSF: Aspen-Daten zu groß für localStorage, nutze Speicher im Tab.');
+        aspenDocMemory=payload;
+        try{localStorage.removeItem(ASPEN_DOC_KEY);}catch{/* ignore */}
+      }else{
+        throw err;
+      }
+    }
+  }
+
   function formatTimeShort(value){
     if(typeof value!=='number') return '–';
     const date=new Date(value);
@@ -3191,6 +3216,9 @@
     let doc=null;
     try{docRaw=localStorage.getItem(ASPEN_DOC_KEY)||'';}
     catch(err){console.warn('NSF: nsf-aspen-doc konnte nicht gelesen werden',err);}
+    if(!docRaw&&aspenDocMemory){
+      docRaw=aspenDocMemory;
+    }
     if(docRaw){
       try{doc=JSON.parse(docRaw);}
       catch(err){console.warn('NSF: Aspen-Daten konnten nicht geparst werden',err);doc=null;docRaw='';}
@@ -11416,8 +11444,12 @@
               inst.prepareForAspenReload();
             }
           });
-          localStorage.setItem(ASPEN_DOC_KEY,payload);
-          lastValues[ASPEN_DOC_KEY]=payload;
+          try{
+            setAspenDocPayload(payload);
+            lastValues[ASPEN_DOC_KEY]=payload;
+          }catch(err){
+            console.warn('NSF: Aspen-Daten konnten nicht gespeichert werden',err);
+          }
           scheduleAll();
         }
       }catch(err){
