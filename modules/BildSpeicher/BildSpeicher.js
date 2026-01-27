@@ -25,6 +25,8 @@
       .bs-root.bs-has-image .bs-status{display:none;}
       .bs-root.bs-has-image .bs-preview{border:none;border-radius:.85rem;background:transparent;padding:0;}
       .bs-root.bs-has-image .bs-preview img{width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;border-radius:0;}
+      .bs-caption{font-size:.55rem;opacity:.6;text-align:center;padding:.2rem .4rem;}
+      .bs-root:not(.bs-has-image) .bs-caption{display:none;}
       .bs-placeholder{text-align:center;font-size:.85rem;opacity:.7;}
       .bs-meta{font-size:.72rem;opacity:.75;}
     `;
@@ -209,6 +211,7 @@
         <div class="bs-placeholder">Noch kein Bild gespeichert.</div>
         <img class="bs-image" alt="" />
       </div>
+      <div class="bs-caption">Shopguide 3.0 powered by Luna and Marcel</div>
     `;
 
     root.appendChild(container);
