@@ -430,6 +430,7 @@
   const UNIT_BOARD_EVENT='unitBoard:update';
   const BOARD_DOC_KEY='module_data_v1';
   const ASPEN_DOC_KEY='nsf-aspen-doc';
+  const ASPEN_LAST_MODIFIED_KEY='nsf-aspen-last-modified';
   const WATCH_INTERVAL=600;
   const FINDINGS_POLL_INTERVAL=5000;
   const SAVE_DEBOUNCE=250;
@@ -591,6 +592,30 @@
       localStorage.setItem(OUTPUT_COLUMNS_STORAGE_KEY,String(normalized));
     }catch(err){
       console.warn('NSF: Spalteneinstellung konnte nicht gespeichert werden',err);
+    }
+  }
+
+  function loadAspenLastModified(){
+    try{
+      const raw=localStorage.getItem(ASPEN_LAST_MODIFIED_KEY);
+      if(!raw) return null;
+      const value=Number(raw);
+      return Number.isFinite(value)?value:null;
+    }catch(err){
+      console.warn('NSF: Aspen-Zeitstempel konnte nicht geladen werden',err);
+      return null;
+    }
+  }
+
+  function storeAspenLastModified(value){
+    try{
+      if(typeof value!=='number'||!Number.isFinite(value)){
+        localStorage.removeItem(ASPEN_LAST_MODIFIED_KEY);
+        return;
+      }
+      localStorage.setItem(ASPEN_LAST_MODIFIED_KEY,String(value));
+    }catch(err){
+      console.warn('NSF: Aspen-Zeitstempel konnte nicht gespeichert werden',err);
     }
   }
 
@@ -1648,7 +1673,8 @@
       .nsf-header-summary{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
       .nsf-header-section.collapsed .nsf-header-summary{order:2;width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.35rem 0.6rem;align-items:center;}
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
-      .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;}
+      .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;display:flex;flex-direction:column;gap:0.1rem;}
+      .nsf-header-debug-line{display:block;}
       .nsf-header-section.collapsed .nsf-header-debug{grid-column:1/-1;flex-basis:auto;}
       .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
       .nsf-selection-section.nsf-selection-collapsed{overflow:hidden;}
@@ -2053,12 +2079,13 @@
     const updateValue=(key)=>{lastValues[key]=localStorage.getItem(key);};
     updateValue(BOARD_DOC_KEY);
     updateValue(ASPEN_DOC_KEY);
+    updateValue(ASPEN_LAST_MODIFIED_KEY);
     updateValue(DATA_KEY);
     updateValue(STATE_KEY);
     updateValue(FINDINGS_PATH_KEY);
     window.addEventListener('storage',e=>{
       if(!e) return;
-      if(e.key===BOARD_DOC_KEY||e.key===ASPEN_DOC_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
+      if(e.key===BOARD_DOC_KEY||e.key===ASPEN_DOC_KEY||e.key===ASPEN_LAST_MODIFIED_KEY||e.key===DATA_KEY||e.key===STATE_KEY||e.key===FINDINGS_PATH_KEY){
         lastValues[e.key]=localStorage.getItem(e.key);
         scheduleAll();
       }
@@ -2077,6 +2104,8 @@
       if(boardDoc!==lastValues[BOARD_DOC_KEY]){lastValues[BOARD_DOC_KEY]=boardDoc;scheduleAll();}
       const aspenDoc=localStorage.getItem(ASPEN_DOC_KEY);
       if(aspenDoc!==lastValues[ASPEN_DOC_KEY]){lastValues[ASPEN_DOC_KEY]=aspenDoc;scheduleAll();}
+      const aspenStamp=localStorage.getItem(ASPEN_LAST_MODIFIED_KEY);
+      if(aspenStamp!==lastValues[ASPEN_LAST_MODIFIED_KEY]){lastValues[ASPEN_LAST_MODIFIED_KEY]=aspenStamp;scheduleAll();}
       const data=localStorage.getItem(DATA_KEY);
       if(data!==lastValues[DATA_KEY]){lastValues[DATA_KEY]=data;scheduleAll();}
       const state=localStorage.getItem(STATE_KEY);
@@ -2089,6 +2118,13 @@
   function clean(value){return value==null?'':String(value).trim();}
 
   function nsfIsObj(v){ return v && typeof v === 'object' && !Array.isArray(v); }
+
+  function formatTimeShort(value){
+    if(typeof value!=='number') return '–';
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime())) return '–';
+    return date.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  }
 
   // PATCH START: NSF Local persistence helpers
   function nsfStorageKeyForSelection(selection,resolved){
@@ -4287,6 +4323,7 @@
       this.findingsPollInterval=null;
       this.findingsPollInProgress=false;
       this.findingsLastModified=null;
+      this.aspenLastModified=loadAspenLastModified();
       this.legacyFindingsInput=null;
       this.findingJsonOverlay=null;
       this.findingJsonModalKeyHandler=null;
@@ -4737,6 +4774,9 @@
       this.findingsFileHandle=null;
       this.stopFindingsPolling();
       this.findingsLastModified=null;
+      if(typeof file.lastModified==='number'){
+        this.findingsLastModified=file.lastModified;
+      }
       await clearStoredFindingsHandle();
       await this.handleFindingsFile(file);
       if(this.updateFindingsContext({fileName:file.name||'',message:'',permission:'prompt'})){
@@ -4824,10 +4864,19 @@
       }
       const debugSpan=document.createElement('span');
       debugSpan.className='nsf-header-debug';
-      const statusText=this.serialStatus||'';
-      const lookupText=this.serialLookupMeldung||'';
-      const lookupDisplay=lookupText||'–';
-      debugSpan.textContent=`Seriennummer-Status: ${statusText||'–'} | Aspen-Meldung gesucht: ${lookupDisplay}`;
+      const storedAspenLastModified=loadAspenLastModified();
+      if(storedAspenLastModified!=null&&storedAspenLastModified!==this.aspenLastModified){
+        this.aspenLastModified=storedAspenLastModified;
+      }
+      const findingsStand=formatTimeShort(this.findingsLastModified);
+      const aspenStand=formatTimeShort(this.aspenLastModified);
+      const findingsLine=document.createElement('span');
+      findingsLine.className='nsf-header-debug-line';
+      findingsLine.textContent=`Auto-Update Findings Stand ${findingsStand}`;
+      const aspenLine=document.createElement('span');
+      aspenLine.className='nsf-header-debug-line';
+      aspenLine.textContent=`Auto-Update Aspen Stand ${aspenStand}`;
+      debugSpan.append(findingsLine,aspenLine);
       summary.appendChild(debugSpan);
       headerBar.appendChild(summary);
 
@@ -11013,6 +11062,10 @@
     async handleAspenFile(file){
       if(!file) return;
       try{
+        if(typeof file.lastModified==='number'){
+          this.aspenLastModified=file.lastModified;
+          storeAspenLastModified(file.lastModified);
+        }
         let payload='';
         const fileName=typeof file.name==='string'?file.name.toLowerCase():'';
         const fileType=typeof file.type==='string'?file.type.toLowerCase():'';
