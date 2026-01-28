@@ -434,6 +434,7 @@
   const WATCH_INTERVAL=600;
   const FINDINGS_POLL_INTERVAL=5000;
   const ASPEN_POLL_INTERVAL=5000;
+  const HISTORY_POLL_INTERVAL=5000;
   const SAVE_DEBOUNCE=250;
   const EVENT_AUTO_UPDATE_DEBOUNCE=600;
   const HISTORY_LIMIT=10;
@@ -3678,7 +3679,10 @@
       const parsed=JSON.parse(text||'{}');
       const normalized=normalizeEventHistoryStore(parsed);
       cacheEventHistoryStore(normalized);
-      return normalized;
+      return {
+        store:normalized,
+        modified:typeof file?.lastModified==='number'?file.lastModified:null
+      };
     }catch(err){
       if(err&&err.name==='NotFoundError'){
         return null;
@@ -3690,9 +3694,9 @@
 
   async function writeEventHistoryStoreToFile(store){
     const rootHandle=getRootHistoryHandle();
-    if(!rootHandle) return false;
+    if(!rootHandle) return {ok:false,modified:null};
     const granted=await ensureRootPermission(rootHandle);
-    if(!granted) return false;
+    if(!granted) return {ok:false,modified:null};
     try{
       const normalized=normalizeEventHistoryStore(store);
       normalized.updatedAt=new Date().toISOString();
@@ -3701,22 +3705,26 @@
       const writable=await fileHandle.createWritable();
       await writable.write(payload);
       await writable.close();
+      const file=await fileHandle.getFile();
       cacheEventHistoryStore(normalized);
-      return true;
+      return {
+        ok:true,
+        modified:typeof file?.lastModified==='number'?file.lastModified:null
+      };
     }catch(err){
       console.warn('NSF: Event-History-Datei konnte nicht geschrieben werden',err);
-      return false;
+      return {ok:false,modified:null};
     }
   }
 
   async function loadEventHistoryStore(){
     const fromFile=await readEventHistoryStoreFromFile();
-    if(fromFile){
+    if(fromFile&&fromFile.store){
       return fromFile;
     }
     const fallback=loadEventHistoryStoreFromLocalStorage();
-    await writeEventHistoryStoreToFile(fallback);
-    return fallback;
+    const writeResult=await writeEventHistoryStoreToFile(fallback);
+    return {store:fallback,modified:writeResult?.modified??null};
   }
 
   function normalizeEventHistoryEntry(raw){
@@ -4425,6 +4433,9 @@
       this.aspenPollInProgress=false;
       this.aspenLastModified=loadAspenLastModified();
       this.aspenLastSize=null;
+      this.historyPollInterval=null;
+      this.historyPollInProgress=false;
+      this.historyLastModified=null;
       this.legacyFindingsInput=null;
       this.findingJsonOverlay=null;
       this.findingJsonModalKeyHandler=null;
@@ -4454,7 +4465,12 @@
     async ensureEventHistoryStore(){
       if(this.eventHistoryStorePromise) return this.eventHistoryStorePromise;
       this.eventHistoryStorePromise=(async()=>{
-        this.eventHistoryStore=await loadEventHistoryStore();
+        const result=await loadEventHistoryStore();
+        this.eventHistoryStore=result?.store||createEmptyEventHistoryStore();
+        if(result&&typeof result.modified==='number'){
+          this.historyLastModified=result.modified;
+        }
+        this.startHistoryPolling();
         return this.eventHistoryStore;
       })().finally(()=>{
         this.eventHistoryStorePromise=null;
@@ -4547,9 +4563,6 @@
       if(this.activeEventId&&!this.eventHistory.some(entry=>entry.id===this.activeEventId)){
         this.activeEventId='';
       }
-      const defaultEventEntry=!this.activeEventId&&this.eventHistory.length
-        ?this.eventHistory[0]
-        :null;
       this.dictionaryUsed=partSource==='dictionary'&&!!part;
       if(previousPart!==part){
         this.filterAll=false;
@@ -4623,6 +4636,10 @@
       this.syncCustomSectionsToActiveState({save:false});
       this.history=getHistoryForPart(this.globalState,this.currentPart);
       this.selectedEntries=this.hydrateSelections(selections);
+      await this.ensureDefaultEventHistoryEntry();
+      const defaultEventEntry=!this.activeEventId&&this.eventHistory.length
+        ?this.eventHistory[0]
+        :null;
       if(defaultEventEntry){
         this.activeEventId=defaultEventEntry.id;
         this.applyEventSnapshotToState(defaultEventEntry,{persist:true});
@@ -4705,6 +4722,22 @@
       if(!this.aspenFileHandle||this.aspenHandlePermission!=='granted') return;
       this.aspenPollInterval=setInterval(()=>{void this.pollAspenFileOnce();},ASPEN_POLL_INTERVAL);
       void this.pollAspenFileOnce();
+    }
+
+    stopHistoryPolling(){
+      if(this.historyPollInterval){
+        clearInterval(this.historyPollInterval);
+        this.historyPollInterval=null;
+      }
+      this.historyPollInProgress=false;
+    }
+
+    startHistoryPolling(){
+      if(this.historyPollInterval) return;
+      const rootHandle=getRootHistoryHandle();
+      if(!rootHandle) return;
+      this.historyPollInterval=setInterval(()=>{void this.pollHistoryFileOnce();},HISTORY_POLL_INTERVAL);
+      void this.pollHistoryFileOnce();
     }
 
     shouldHideNonroutineOutput(){
@@ -4816,6 +4849,58 @@
         }
       }finally{
         this.aspenPollInProgress=false;
+      }
+    }
+
+    async pollHistoryFileOnce(){
+      if(this.historyPollInProgress) return;
+      const rootHandle=getRootHistoryHandle();
+      if(!rootHandle){
+        this.stopHistoryPolling();
+        return;
+      }
+      this.historyPollInProgress=true;
+      try{
+        const granted=await ensureRootPermission(rootHandle);
+        if(!granted){
+          this.stopHistoryPolling();
+          return;
+        }
+        const fileHandle=await rootHandle.getFileHandle(EVENT_HISTORY_FILE_NAME,{create:false});
+        const file=await fileHandle.getFile();
+        const modified=typeof file?.lastModified==='number'?file.lastModified:null;
+        if(modified==null){
+          return;
+        }
+        if(this.historyLastModified==null){
+          this.historyLastModified=modified;
+          return;
+        }
+        if(modified>this.historyLastModified){
+          const text=await file.text();
+          const parsed=JSON.parse(text||'{}');
+          const normalized=normalizeEventHistoryStore(parsed);
+          cacheEventHistoryStore(normalized);
+          this.eventHistoryStore=normalized;
+          this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+          if(this.activeEventId&&!this.eventHistory.some(entry=>entry.id===this.activeEventId)){
+            this.activeEventId=this.eventHistory[0]?.id||'';
+          }
+          this.historyLastModified=modified;
+          this.scheduleRender();
+        }
+      }catch(err){
+        if(err&&err.name==='NotFoundError'){
+          const fallback=this.eventHistoryStore||createEmptyEventHistoryStore();
+          const writeResult=await writeEventHistoryStoreToFile(fallback);
+          if(writeResult?.modified!=null){
+            this.historyLastModified=writeResult.modified;
+          }
+          return;
+        }
+        console.warn('NSF: Polling der History-Datei fehlgeschlagen',err);
+      }finally{
+        this.historyPollInProgress=false;
       }
     }
 
@@ -5198,15 +5283,14 @@
 
       const summary=document.createElement('div');
       summary.className='nsf-header-summary';
-      const summaryItems=[
-        {label:'M',value:this.meldung},
-        {label:'P/N',value:this.currentPart},
-        {label:'S/N',value:this.serial}
-      ];
-      for(const item of summaryItems){
+      const missingHints=[];
+      if(!this.meldung) missingHints.push('Meldung fehlt');
+      if(!this.currentPart) missingHints.push('Partnummer fehlt');
+      if(!this.serial) missingHints.push('Seriennummer fehlt');
+      for(const hint of missingHints){
         const span=document.createElement('span');
         span.className='nsf-header-summary-item';
-        span.textContent=`${item.label}: ${item.value||'–'}`;
+        span.textContent=hint;
         summary.appendChild(span);
       }
       const debugSpan=document.createElement('span');
@@ -5217,13 +5301,17 @@
       }
       const findingsStand=formatTimeShort(this.findingsLastModified);
       const aspenStand=formatTimeShort(this.aspenLastModified);
+      const historyStand=formatTimeShort(this.historyLastModified);
       const findingsLine=document.createElement('span');
       findingsLine.className='nsf-header-debug-line';
       findingsLine.textContent=`Auto-Update Findings Stand ${findingsStand}`;
       const aspenLine=document.createElement('span');
       aspenLine.className='nsf-header-debug-line';
       aspenLine.textContent=`Auto-Update Aspen Stand ${aspenStand}`;
-      debugSpan.append(findingsLine,aspenLine);
+      const historyLine=document.createElement('span');
+      historyLine.className='nsf-header-debug-line';
+      historyLine.textContent=`Auto-Update History Stand ${historyStand}`;
+      debugSpan.append(findingsLine,aspenLine,historyLine);
       summary.appendChild(debugSpan);
       headerBar.appendChild(summary);
 
@@ -5295,39 +5383,13 @@
         hint.className='nsf-alert';
         hint.textContent=this.findingsHandleMessage;
         contextSection.appendChild(hint);
-      }else if(this.findingsFileName){
-        const info=document.createElement('div');
-        info.className='nsf-inline-info';
-        info.textContent=`Aktive Findings-Datei: ${this.findingsFileName}`;
-        contextSection.appendChild(info);
       }
       contextSection.appendChild(findingsInput);
       contextSection.appendChild(fileInput);
 
-      const makeContextItem=(label,value)=>{
-        const container=document.createElement('div');
-        container.className='nsf-context-item';
-        const lbl=document.createElement('span');
-        lbl.className='nsf-context-label';
-        lbl.textContent=`${label}:`;
-        const val=document.createElement('span');
-        val.className='nsf-context-value';
-        val.textContent=value||'–';
-        container.append(lbl,val);
-        return container;
-      };
-
       if(!this.headerCollapsed){
         const contextWrap=document.createElement('div');
         contextWrap.className='nsf-context';
-
-        const headerRow=document.createElement('div');
-        headerRow.className='nsf-context-header';
-        headerRow.append(
-          makeContextItem('Meldung',this.meldung),
-          makeContextItem('Partnummer',this.currentPart),
-          makeContextItem('Seriennummer',this.serial)
-        );
 
         const visibleCount=this.availableEntries.length;
         const totalForPart=this.partEntries.length;
@@ -5596,7 +5658,6 @@
 
         const infoStack=document.createElement('div');
         infoStack.className='nsf-context-info';
-        infoStack.appendChild(headerRow);
         if(statsWrap.childElementCount){
           infoStack.appendChild(statsWrap);
         }
@@ -10716,10 +10777,37 @@
         exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'')
       };
       pushEventHistory(this.eventHistoryStore,this.eventHistoryKey,entry);
-      await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      const writeResult=await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      if(writeResult?.modified!=null){
+        this.historyLastModified=writeResult.modified;
+      }
       this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
       this.activeEventId=entry.id;
       this.render();
+    }
+
+    async ensureDefaultEventHistoryEntry(){
+      if(!this.eventHistoryKey) return;
+      await this.ensureEventHistoryStore();
+      const historyList=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+      if(historyList.length) return;
+      const timestamp=new Date();
+      const entry={
+        id:createEventId(),
+        createdAt:timestamp.toISOString(),
+        selections:serializeEventHistorySelections(this.selectedEntries),
+        rfr:clean(this.removalReason||this.activeState?.rfr||''),
+        reason:clean(this.reasonText||this.activeState?.reason||''),
+        exchangeInput:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
+        exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'')
+      };
+      pushEventHistory(this.eventHistoryStore,this.eventHistoryKey,entry);
+      const writeResult=await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      if(writeResult?.modified!=null){
+        this.historyLastModified=writeResult.modified;
+      }
+      this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+      this.activeEventId=entry.id;
     }
 
     queueEventAutoUpdate(){
@@ -10760,7 +10848,10 @@
       });
       if(!changed) return;
       this.eventHistoryStore.events[this.eventHistoryKey]=next;
-      await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      const writeResult=await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      if(writeResult?.modified!=null){
+        this.historyLastModified=writeResult.modified;
+      }
       this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
     }
 
@@ -10775,7 +10866,10 @@
       await this.ensureEventHistoryStore();
       const removed=removeEventHistoryEntry(this.eventHistoryStore,this.eventHistoryKey,entry.id);
       if(!removed) return;
-      await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      const writeResult=await writeEventHistoryStoreToFile(this.eventHistoryStore);
+      if(writeResult?.modified!=null){
+        this.historyLastModified=writeResult.modified;
+      }
       this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
       if(this.activeEventId===entry.id){
         this.activeEventId=this.eventHistory[0]?.id||'';
