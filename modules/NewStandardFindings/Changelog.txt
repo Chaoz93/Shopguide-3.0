@@ -12,6 +12,15 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.15] – 2026-01-27
+### Added
+- Event-History-Datei wird automatisch gepollt und der Auto-Update-Status im Kopfbereich um die History ergänzt.
+- Wenn für eine PN/SN noch keine History existiert, wird automatisch ein erster Eintrag erzeugt und ausgewählt.
+
+### Changed
+- Kopfbereich zeigt keine Meldung/Part-/Seriennummern mehr an; stattdessen erscheinen nur Hinweise, wenn Daten fehlen.
+- Hinweis auf die aktive Findings-Datei im Kopfbereich entfernt, da der Auto-Update-Status bereits den Stand anzeigt.
+
 ## [1.8.14] – 2026-01-27
 ### Changed
 - Auto-Update-Status im Kopfbereich zeigt nun getrennt den Stand für Findings- und Aspen-Datei an.
