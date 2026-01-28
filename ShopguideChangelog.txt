@@ -4,10 +4,6 @@ Alle relevanten Änderungen an der Hauptanwendung werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
  ---
-## [3.6.16] – 2026-01-28
-### Changed
-- Aktive Tabs erhalten einen dickeren Akzentrahmen und Spaltenbuttons nutzen den Farbton der inaktiven Tabs.
-
 ## [3.6.15] – 2025-12-03
 ### Fixed
 - Snapshot-Log ergänzt jetzt auch neu angelegte Ordner, damit Reverts keine leeren Verzeichnisse zurücklassen.

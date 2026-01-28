@@ -3,6 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.2.4] – 2026-01-28
+### Changed
+- Spalten-Buttons und aktive Einstellungs-Tabs übernehmen die Akzentfarbe der inaktiven Tabs; aktive Tabs erhalten einen dickeren Rahmen.
+
 ## [1.2.3] – 2026-01-24
 ### Changed
 - Umbenennungen des Custom-Feldnamens werden jetzt für alle Gerätekarten vereinheitlicht gespeichert und angezeigt.
