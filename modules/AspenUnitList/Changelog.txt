@@ -3,9 +3,9 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
-## [1.2.5] – 2026-01-28
+## [1.2.6] – 2026-01-28
 ### Changed
-- Spalten-, Vorfilter-Buttons und Einstellungs-Tabs verwenden identische Farben für aktive/inaktive Zustände; aktive Tabs erhalten einen dickeren Rahmen.
+- Spalten-, Vorfilter-Buttons und Einstellungs-Tabs verwenden identische Farben für aktive/inaktive Zustände; aktive Tabs erhalten einen dickeren Rahmen in Akzentfarbe.
 
 ## [1.2.3] – 2026-01-24
 ### Changed
