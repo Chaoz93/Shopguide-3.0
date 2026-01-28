@@ -1,5 +1,8 @@
 # Tab Navigator – Änderungsverlauf
 
+## [1.1.1] – 2026-01-28
+- Spalten-Buttons übernehmen die Akzentfarbe der inaktiven Tabs, damit das Layout konsistenter wirkt.
+
 ## [1.1.0] – 2026-01-24
 - Tab-Buttons lassen sich per Drag-Handle verschieben, solange alle Tabs angezeigt werden; per Toggle aktivierbar (im Lock-Zustand wird das Icon ausgeblendet).
 
