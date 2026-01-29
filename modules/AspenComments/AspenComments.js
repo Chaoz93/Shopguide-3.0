@@ -40,7 +40,7 @@
     .dc-copy-btn:disabled::after{opacity:.4;}
     .dc-copy-btn:focus-visible{outline:2px solid rgba(191,219,254,.85);outline-offset:2px;border-radius:.35rem;}
     .dc-editor{flex:1;display:flex;flex-direction:column;gap:.45rem;min-height:0;}
-    .dc-textarea{flex:1;border-radius:.8rem;border:1px solid var(--border-color,#d1d5db);padding:.65rem .75rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);resize:none;overflow:hidden;}
+    .dc-textarea{flex:1;border-radius:.8rem;border:1px solid var(--border-color,#d1d5db);padding:.65rem .75rem;font:inherit;background:var(--sidebar-module-card-bg,#fff);color:var(--sidebar-module-card-text,#111);resize:vertical;overflow:auto;}
     .dc-textarea:disabled{opacity:.6;cursor:not-allowed;background:rgba(148,163,184,.12);}
     .dc-note{min-height:1.2rem;font-size:.8rem;color:rgba(217,229,247,.78);}
     .dc-note.warn{color:#b45309;}
@@ -1020,10 +1020,8 @@
       if(availableHeight>0){
         const nextHeight=Math.max(0,availableHeight*2);
         textarea.style.height=`${nextHeight}px`;
-        textarea.style.overflowY='hidden';
       }else{
-        textarea.style.height=`${desiredHeight}px`;
-        textarea.style.overflowY='hidden';
+        textarea.style.height=`${Math.max(0,desiredHeight*2)}px`;
       }
     };
     elements.resizeTextarea=resizeTextarea;

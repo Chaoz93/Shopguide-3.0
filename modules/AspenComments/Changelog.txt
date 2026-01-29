@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.7] – 2026-01-29
+### Changed
+- Begrenzende Textfeld-Einstellungen entfernt und Eingabefeldhöhe verdoppelt.
+
 ## [1.4.6] – 2026-01-29
 ### Changed
 - Textfeldhöhe um 100% erhöht.
