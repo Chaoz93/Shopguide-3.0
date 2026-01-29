@@ -112,7 +112,7 @@
     .ops-grid-settings-row{display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap;}
     .ops-grid-settings label{font-weight:600; font-size:.95rem;}
     .ops-grid-controls{display:flex; align-items:center; gap:.65rem;}
-    .ops-grid-input{width:8.5rem; padding:.45rem .6rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
+    .ops-grid-input{width:12.5rem; padding:.55rem .75rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
       background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
     .ops-grid-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
     .ops-grid-hint{font-size:.78rem; opacity:.7; margin-left:.1rem;}

@@ -10,6 +10,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Changed
 - Layout der Button-Reihen-Einstellung kompakter ausgerichtet.
 - Breitere Eingabe für die Button-Reihen-Anzahl.
+- Eingabefeld deutlich vergrößert für bessere Bedienbarkeit.
 
 ## [1.8.5] – 2026-01-26
 ### Changed
