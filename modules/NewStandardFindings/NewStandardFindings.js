@@ -1760,6 +1760,7 @@
       .nsf-custom-finding-btn:hover{background:rgba(59,130,246,0.3);transform:translateY(-1px);}
       .nsf-custom-finding-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
       .nsf-selection-body{display:flex;flex-direction:column;gap:0.6rem;padding:0.7rem 0.85rem;overflow:visible;}
+      .nsf-selection-grid{display:flex;flex-direction:column;gap:0.6rem;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-body{display:none;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-summary{margin-left:0;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-header{border-bottom:none;}
@@ -1778,6 +1779,9 @@
       .nsf-reason-panel{background:rgba(15,23,42,0.16);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-reason-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-reason-textarea{min-height:4.5rem;}
+      @media (min-width:1100px){
+        .nsf-selection-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;}
+      }
       .nsf-exchange-panel{background:rgba(15,23,42,0.16);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.5rem;}
       .nsf-exchange-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-exchange-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.5rem;}
@@ -5821,6 +5825,10 @@
       const selectionBody=document.createElement('div');
       selectionBody.className='nsf-selection-body';
 
+      const selectionGrid=document.createElement('div');
+      selectionGrid.className='nsf-selection-grid';
+      selectionBody.appendChild(selectionGrid);
+
       const removalPanel=document.createElement('div');
       removalPanel.className='nsf-removal-panel';
       const removalHeader=document.createElement('div');
@@ -5883,7 +5891,7 @@
         this.setRemovalReason(input.trim());
       });
       removalPanel.appendChild(removalActions);
-      selectionBody.appendChild(removalPanel);
+      selectionGrid.appendChild(removalPanel);
 
       const reasonPanel=document.createElement('div');
       reasonPanel.className='nsf-reason-panel';
@@ -5901,7 +5909,7 @@
         autoResizeTextarea(reasonInput);
       });
       reasonPanel.append(reasonTitle,reasonInput);
-      selectionBody.appendChild(reasonPanel);
+      selectionGrid.appendChild(reasonPanel);
       this.reasonTextarea=reasonInput;
       ensureTextareaAutoResize(reasonInput);
 
@@ -5952,7 +5960,7 @@
 
       const inputsWrapper=document.createElement('div');
       inputsWrapper.className='nsf-input-wrapper';
-      selectionBody.appendChild(inputsWrapper);
+      selectionGrid.appendChild(inputsWrapper);
       this.inputsContainer=inputsWrapper;
 
       const showExchangeInputs=this.shouldShowExchangeInputs();
