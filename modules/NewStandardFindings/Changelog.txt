@@ -19,6 +19,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ### Changed
 - Kopfzeile ordnet Auto-Update links und die Datei-/History-Buttons rechts in der obersten Zeile an.
 - Aufklapp-Button sitzt jetzt rechts neben dem History-Dropdown, damit die Kopfzeile in einer Zeile bleibt.
+- Auto-Update-Zeile ist linksbündig, während Datei-/History-Steuerung rechtsbündig in der ersten Zeile bleiben.
 
 ## [1.8.18] – 2026-01-29
 ### Changed

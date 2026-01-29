@@ -1735,6 +1735,7 @@
       .nsf-header-section.collapsed{padding:0.3rem 0.5rem;}
       .nsf-header-bar{display:flex;flex-direction:column;gap:0.35rem;font-size:0.78rem;line-height:1.2;}
       .nsf-header-row{display:flex;align-items:center;gap:0.5rem;}
+      .nsf-header-row-top{justify-content:space-between;}
       .nsf-header-section.collapsed .nsf-header-row{flex-wrap:wrap;align-items:flex-start;}
       .nsf-header-section.collapsed .nsf-header-toggle{order:1;}
       .nsf-header-toggle{background:rgba(255,255,255,0.12);border:none;border-radius:0.45rem;width:1.6rem;height:1.6rem;display:flex;align-items:center;justify-content:center;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
