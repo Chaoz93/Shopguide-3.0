@@ -157,6 +157,7 @@
     };
 
     const groups=Array.isArray(entry?.groups)?entry.groups:[];
+    list.classList.toggle('nsf-bestellliste-has-groups',groups.length>0);
     if(groups.length){
       groups.forEach(group=>{
         if(!group) return;
@@ -393,6 +394,9 @@
     st.id=id;
     st.textContent=`
     .nsf-bestellliste{display:flex;flex-direction:column;gap:.25rem}
+    .nsf-bestellliste.nsf-bestellliste-has-groups{flex-direction:row;flex-wrap:wrap;gap:.6rem}
+    .nsf-bestellliste.nsf-bestellliste-has-groups .nsf-part-group{flex:1 1 240px;min-width:220px}
+    .nsf-bestellliste.nsf-bestellliste-has-groups .nsf-part-group + .nsf-part-group{border-top:none;padding-top:0}
     .nsf-part-group{display:flex;flex-direction:column;gap:.35rem;padding:.2rem 0}
     .nsf-part-group + .nsf-part-group{border-top:1px solid currentColor;padding-top:.5rem}
     .nsf-part-group-header{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
