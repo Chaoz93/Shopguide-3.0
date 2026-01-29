@@ -15,6 +15,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ## [1.8.23] – 2026-01-29
 ### Fixed
 - Gerätestatus-Auswahl bleibt jetzt stabil und springt nach dem Wechsel nicht mehr auf den vorherigen Status zurück.
+- Manuelle Statuswechsel werden sofort gespeichert, sodass der gewählte Gerätestatus im aktiven History-Ereignis erhalten bleibt.
 
 ## [1.8.22] – 2026-01-29
 ### Fixed

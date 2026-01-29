@@ -10762,8 +10762,8 @@
       if(this.activeState&&typeof this.activeState==='object'){
         this.activeState.deviceStatus=this.deviceStatus;
       }
-      this.applyDeviceStatusRule({persist:true,render:false,enforceScrap:false});
-      this.queueStateSave();
+      this.applyDeviceStatusRule({persist:false,render:false,enforceScrap:false});
+      this.persistState(true);
       this.queueEventAutoUpdate();
       this.render();
     }
