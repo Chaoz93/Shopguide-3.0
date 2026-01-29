@@ -12,6 +12,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.20] – 2026-01-29
+### Changed
+- Statusgruppen der Bestellliste nutzen in breiteren Modulen eine mehrspaltige Darstellung, damit die Abschnitte nebeneinander angezeigt werden.
+
 ## [1.8.19] – 2026-01-29
 ### Added
 - "Zuletzt verwendet"-Chips zeigen beim Hover ein Tonnen-Icon, über das Einträge direkt entfernt werden können.
