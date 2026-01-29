@@ -3,7 +3,7 @@
   "icon": "📋",
   "script": "renderRecordSheet",
   "minW": 2,
-  "minH": 12,
+  "minH": 5,
   "w": 2,
   "h": 16,
   "settings": {
