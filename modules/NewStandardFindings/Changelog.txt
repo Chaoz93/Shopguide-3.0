@@ -12,6 +12,12 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.24] – 2026-01-29
+### Changed
+- History-Ereignisse werden jetzt pro Meldungsnummer automatisch erzeugt, sodass jede Meldung für die gleiche PN/SN-Kombination ein eigenes Event erhält.
+- Der Gerätestatus aktualisiert die History-Auswahl sofort, damit der Statuswechsel direkt im Dropdown sichtbar ist.
+- Manuelles Anlegen von History-Ereignissen entfällt, da neue Events automatisch beim Wechsel der Meldungsnummer entstehen.
+
 ## [1.8.23] – 2026-01-29
 ### Fixed
 - Gerätestatus-Auswahl bleibt jetzt stabil und springt nach dem Wechsel nicht mehr auf den vorherigen Status zurück.
