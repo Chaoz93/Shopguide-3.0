@@ -3,7 +3,7 @@
   "icon": "📟",
   "script": "renderLinkButtonsPlus",
   "minW": 2,
-  "minH": 10,
+  "minH": 5,
   "w": 2,
   "h": 12,
   "settings": {
