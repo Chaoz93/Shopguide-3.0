@@ -39,6 +39,10 @@
       grid-auto-flow: row;
       gap:.6rem;
     }
+    .ops-grid[data-grid-rows]{
+      grid-auto-flow: column;
+      grid-template-rows: repeat(var(--lbp-grid-rows, 3), minmax(0, 1fr));
+    }
     .ops-compact .ops-grid{
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     }
@@ -103,6 +107,15 @@
     .ops-tab-buttons input{width:1.1rem; height:1.1rem;}
     .ops-tab-buttons .ops-action-button{margin-top:.45rem;}
     .ops-button-list{display:flex; flex-direction:column; gap:.45rem; margin-top:.65rem;}
+    .ops-grid-settings{display:flex; flex-direction:column; gap:.55rem; padding:.65rem .75rem; border-radius:.75rem;
+      border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55);}
+    .ops-grid-settings-row{display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap;}
+    .ops-grid-settings label{font-weight:600; font-size:.95rem;}
+    .ops-grid-controls{display:flex; align-items:center; gap:.65rem;}
+    .ops-grid-input{width:12.5rem; padding:.55rem .75rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
+      background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
+    .ops-grid-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
+    .ops-grid-hint{font-size:.78rem; opacity:.7; margin-left:.1rem;}
     .ops-button-row{display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap; position:relative;
       transition:background .18s ease, border-color .18s ease, transform .18s ease; will-change:transform;}
@@ -276,6 +289,7 @@
   };
   const WORKFORCE_FILTER_KEY = 'linkbuttonsplus-filters';
   const BUTTON_ORDER_KEY = 'linkbuttonsplus-order';
+  const GRID_ROWS_KEY = 'linkbuttonsplus-grid-rows';
   const COLOR_CONFIG_KEY = 'linkbuttonsplus-colors-v1';
   const COLOR_AREAS = ['main','header','buttons'];
   const COLOR_PRESETS = ['Main','Alternative','Accent'];
@@ -290,6 +304,8 @@
   const FARBLAYER_ELEMENT_STORAGE_KEY = `flvElements:${FARBLAYER_MODULE_NAME}`;
   const FARBLAYER_VIEWER_SCRIPT_URL = 'modules/FarblayerViewer/FarblayerViewer.js';
   const FARBLAYER_VIEWER_HOST_ID = 'farblayer-viewer-host';
+  const GRID_ROWS_MIN = 1;
+  const GRID_ROWS_MAX = 8;
 
   function clampNumber(value, min, max){
     if (typeof value !== 'number' || Number.isNaN(value)) return min;
@@ -325,6 +341,22 @@
   function saveButtonOrders(value){
     try{
       localStorage.setItem(BUTTON_ORDER_KEY, JSON.stringify(value));
+    }catch{}
+  }
+
+  function loadGridRows(){
+    try{
+      const raw = localStorage.getItem(GRID_ROWS_KEY);
+      if(!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    }catch{}
+    return {};
+  }
+
+  function saveGridRows(value){
+    try{
+      localStorage.setItem(GRID_ROWS_KEY, JSON.stringify(value));
     }catch{}
   }
 
@@ -2970,6 +3002,11 @@
 
 
     const normalizeLabel = value => (typeof value === 'string' ? value.trim() : '');
+    const normalizeGridRowValue = value => {
+      const numeric = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
+      if(!Number.isFinite(numeric)) return null;
+      return clampNumber(Math.round(numeric), GRID_ROWS_MIN, GRID_ROWS_MAX);
+    };
     const normalizeKey = value => normalizeLabel(value).toUpperCase();
 
     const leftTop = normalizeLabel(s.leftTop) || 'Event';
@@ -3031,6 +3068,19 @@
       saveButtonOrders(buttonOrders);
     };
 
+    let gridRowsConfig = loadGridRows();
+    if (!gridRowsConfig || typeof gridRowsConfig !== 'object') gridRowsConfig = {};
+    let gridRows = normalizeGridRowValue(gridRowsConfig[instanceId]);
+    const persistGridRows = value => {
+      if(value == null){
+        delete gridRowsConfig[instanceId];
+        saveGridRows(gridRowsConfig);
+        return;
+      }
+      gridRowsConfig = { ...gridRowsConfig, [instanceId]: value };
+      saveGridRows(gridRowsConfig);
+    };
+
     root.classList.add('ops-root');
 
     root.innerHTML = `
@@ -3054,6 +3104,19 @@
     const gridEl = root.querySelector('[data-button-grid]');
     const labelToCard = new Map();
     const usedSlots = new Set();
+
+    const applyGridRows = value => {
+      if(!gridEl) return;
+      if(typeof value === 'number' && Number.isFinite(value)){
+        gridEl.style.setProperty('--lbp-grid-rows', String(value));
+        gridEl.dataset.gridRows = String(value);
+      }else{
+        gridEl.style.removeProperty('--lbp-grid-rows');
+        gridEl.removeAttribute('data-grid-rows');
+      }
+    };
+
+    applyGridRows(gridRows);
 
     const buildSlotName = (label, index) => {
       const base = normalizeLabel(label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `slot-${index}`;
@@ -3694,6 +3757,15 @@
             <button type="button" class="ops-tab-btn" data-tab="colors">Farben anpassen</button>
           </div>
           <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
+            <div class="ops-grid-settings">
+              <div class="ops-grid-settings-row">
+                <label for="ops-grid-rows">Button-Reihen</label>
+                <div class="ops-grid-controls">
+                  <input type="number" id="ops-grid-rows" class="ops-grid-input" min="1" max="8" step="1" placeholder="Auto" data-grid-rows-input>
+                  <span class="ops-grid-hint">Leer lassen = automatisch.</span>
+                </div>
+              </div>
+            </div>
             <div class="ops-button-list" data-button-list></div>
             <div class="ops-aspen-section">
               <button type="button" class="ops-pick ops-action-button">Aspen-Datei wählen</button>
@@ -3762,6 +3834,7 @@
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
     const ownedSections = menu.querySelectorAll('[data-tab-owner]');
     buttonListEl = menu.querySelector('[data-button-list]');
+    const gridRowsInput = menu.querySelector('[data-grid-rows-input]');
 
     const dragState = {
       activeLabel: '',
@@ -3782,6 +3855,38 @@
       `;
       dragState.previewRow = preview;
       return preview;
+    }
+
+    function setGridRows(nextValue, { persist = true } = {}){
+      const normalized = normalizeGridRowValue(nextValue);
+      gridRows = normalized;
+      if(persist){
+        persistGridRows(gridRows);
+      }
+      applyGridRows(gridRows);
+      if(gridRowsInput){
+        gridRowsInput.value = gridRows ? String(gridRows) : '';
+      }
+    }
+
+    if(gridRowsInput){
+      gridRowsInput.value = gridRows ? String(gridRows) : '';
+      const handleGridRowsInput = value => {
+        if(typeof value !== 'string') return;
+        if(value.trim() === ''){
+          setGridRows(null);
+          return;
+        }
+        const normalized = normalizeGridRowValue(value);
+        if(normalized == null) return;
+        setGridRows(normalized);
+      };
+      gridRowsInput.addEventListener('input', event => {
+        handleGridRowsInput(event.target.value);
+      });
+      gridRowsInput.addEventListener('blur', event => {
+        handleGridRowsInput(event.target.value);
+      });
     }
 
     function getLastButtonRow(){
