@@ -1002,7 +1002,7 @@
       }
       const desiredHeight=textarea.scrollHeight;
       if(availableHeight>0){
-        const nextHeight=Math.min(desiredHeight,Math.max(0,availableHeight));
+        const nextHeight=Math.max(0,availableHeight);
         textarea.style.height=`${nextHeight}px`;
         textarea.style.overflowY=desiredHeight>availableHeight?'auto':'hidden';
       }else{
@@ -1014,6 +1014,9 @@
     const resizeObserver=new ResizeObserver(()=>requestAnimationFrame(resizeTextarea));
     if(elements.editor){
       resizeObserver.observe(elements.editor);
+    }
+    if(elements.root){
+      resizeObserver.observe(elements.root);
     }
 
     function persistState(){
