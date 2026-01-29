@@ -40,12 +40,17 @@
   ];
   const DEFAULT_FINDING_STATUS='Spare';
   const DEVICE_STATUS_OPTIONS=['Repair','Tested','Scrap'];
+  const DEFAULT_DEVICE_STATUS='Repair';
 
   function normalizeDeviceStatus(value){
     const cleaned=clean(value);
     if(!cleaned) return '';
     const match=DEVICE_STATUS_OPTIONS.find(option=>option.toLowerCase()===cleaned.toLowerCase());
     return match||cleaned;
+  }
+
+  function resolveDeviceStatus(value){
+    return normalizeDeviceStatus(value)||DEFAULT_DEVICE_STATUS;
   }
 
   function selectionContainsScrap(selection){
@@ -3988,7 +3993,7 @@
       parts:'',
       freitextTemplate:'',
       rfr:'',
-      deviceStatus:'',
+      deviceStatus:DEFAULT_DEVICE_STATUS,
       reason:'',
       exchangeInput:'',
       exchangeOutput:'',
@@ -4027,7 +4032,7 @@
       parts:typeof state.parts==='string'?state.parts:'',
       freitextTemplate:typeof state.freitextTemplate==='string'?state.freitextTemplate:'',
       rfr:typeof state.rfr==='string'?state.rfr:'',
-      deviceStatus:typeof state.deviceStatus==='string'?state.deviceStatus:'',
+      deviceStatus:resolveDeviceStatus(state.deviceStatus),
       reason:typeof state.reason==='string'?state.reason:'',
       exchangeInput:typeof state.exchangeInput==='string'?state.exchangeInput:'',
       exchangeOutput:typeof state.exchangeOutput==='string'?state.exchangeOutput:'',
@@ -4733,7 +4738,8 @@
         this.removalOptionsCollapsed=false;
       }
       this.removalOptionsInitialized=true;
-      this.deviceStatus=normalizeDeviceStatus(this.activeState.deviceStatus||'');
+      this.deviceStatus=resolveDeviceStatus(this.activeState.deviceStatus);
+      this.activeState.deviceStatus=this.deviceStatus;
       this.reasonText=clean(this.activeState.reason||'');
       this.exchangeInputText=clean(this.activeState.exchangeInput||'');
       this.exchangeOutputText=clean(this.activeState.exchangeOutput||'');
@@ -10734,7 +10740,7 @@
 
     applyDeviceStatusRule(options){
       const hasScrap=selectionsContainScrap(this.selectedEntries);
-      const normalized=normalizeDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||'');
+      const normalized=resolveDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||'');
       const nextStatus=hasScrap ? 'Scrap' : normalized;
       if(nextStatus===this.deviceStatus) return;
       this.deviceStatus=nextStatus;
@@ -10751,7 +10757,7 @@
 
     setDeviceStatus(status){
       if(!this.meldung) return;
-      this.deviceStatus=normalizeDeviceStatus(status);
+      this.deviceStatus=resolveDeviceStatus(status);
       if(this.activeState&&typeof this.activeState==='object'){
         this.activeState.deviceStatus=this.deviceStatus;
       }
@@ -10987,7 +10993,7 @@
         createdAt:timestamp.toISOString(),
         selections:serializeEventHistorySelections(this.selectedEntries),
         rfr:clean(this.removalReason||this.activeState?.rfr||''),
-        deviceStatus:normalizeDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||''),
+        deviceStatus:resolveDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||''),
         reason:clean(this.reasonText||this.activeState?.reason||''),
         exchangeInput:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
         exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'')
@@ -11013,7 +11019,7 @@
         createdAt:timestamp.toISOString(),
         selections:serializeEventHistorySelections(this.selectedEntries),
         rfr:clean(this.removalReason||this.activeState?.rfr||''),
-        deviceStatus:normalizeDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||''),
+        deviceStatus:resolveDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||''),
         reason:clean(this.reasonText||this.activeState?.reason||''),
         exchangeInput:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
         exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'')
@@ -11047,7 +11053,7 @@
       if(!Array.isArray(storedList)) return;
       const updatedSelections=serializeEventHistorySelections(this.selectedEntries);
       const updatedRfr=clean(this.removalReason||this.activeState?.rfr||'');
-      const updatedDeviceStatus=normalizeDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||'');
+      const updatedDeviceStatus=resolveDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||'');
       const updatedReason=clean(this.reasonText||this.activeState?.reason||'');
       const updatedExchangeInput=clean(this.exchangeInputText||this.activeState?.exchangeInput||'');
       const updatedExchangeOutput=clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'');
@@ -11107,7 +11113,7 @@
           this.removalOptionsCollapsed=!!this.removalReason;
         }
         if(typeof entry.deviceStatus==='string'){
-          this.deviceStatus=normalizeDeviceStatus(entry.deviceStatus);
+          this.deviceStatus=resolveDeviceStatus(entry.deviceStatus);
           this.activeState.deviceStatus=this.deviceStatus;
         }
         if(typeof entry.reason==='string'){
