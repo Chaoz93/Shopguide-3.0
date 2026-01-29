@@ -109,13 +109,13 @@
     .ops-button-list{display:flex; flex-direction:column; gap:.45rem; margin-top:.65rem;}
     .ops-grid-settings{display:flex; flex-direction:column; gap:.55rem; padding:.65rem .75rem; border-radius:.75rem;
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55);}
-    .ops-grid-settings-row{display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap;}
+    .ops-grid-settings-row{display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; flex-wrap:wrap;}
     .ops-grid-settings label{font-weight:600; font-size:.95rem;}
-    .ops-grid-controls{display:flex; align-items:center; gap:.65rem; width:100%;}
-    .ops-grid-input{width:100%; padding:.55rem .75rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
-      background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
+    .ops-grid-controls{display:flex; align-items:center; gap:.65rem; width:100%; flex:1; min-width:240px;}
+    .ops-grid-input{width:100%; min-height:2.6rem; padding:.55rem .75rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
+      background:rgba(15,23,42,.58); color:inherit; font-size:1rem;}
     .ops-grid-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
-    .ops-grid-range{width:100%;}
+    .ops-grid-range{width:100%; height:2.4rem;}
     .ops-grid-hint{font-size:.78rem; opacity:.7; margin-left:.1rem;}
     .ops-button-row{display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap; position:relative;
