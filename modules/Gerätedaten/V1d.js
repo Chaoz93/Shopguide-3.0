@@ -7,12 +7,12 @@
 (function(){
   // ----- styles -----
   const CSS = `
-  .rs-root{height:100%;display:flex;flex-direction:column;gap:.6rem;--rs-surface-bg:rgba(21,45,76,.82);--rs-surface-text:var(--text-color);--rs-surface-border:rgba(76,114,163,.32);--rs-inline-bg:rgba(21,45,76,.72);--rs-inline-border:var(--module-border-color);--rs-button-bg:var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)));--rs-button-text:var(--module-button-text, var(--text-color, var(--button-text,#fff)));--rs-button-border:var(--module-button-border, var(--module-border-color, var(--button-border,#0f6ab4)));--rs-button-secondary-bg:#6b7280;--rs-button-secondary-text:#fff;--rs-button-shadow:rgba(0,57,96,.28);--rs-button-shadow-strong:rgba(0,57,96,.34)}
+  .rs-root{height:100%;display:flex;flex-direction:column;gap:.6rem;--rs-density:1;--rs-surface-bg:rgba(21,45,76,.82);--rs-surface-text:var(--text-color);--rs-surface-border:rgba(76,114,163,.32);--rs-inline-bg:rgba(21,45,76,.72);--rs-inline-border:var(--module-border-color);--rs-button-bg:var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)));--rs-button-text:var(--module-button-text, var(--text-color, var(--button-text,#fff)));--rs-button-border:var(--module-button-border, var(--module-border-color, var(--button-border,#0f6ab4)));--rs-button-secondary-bg:#6b7280;--rs-button-secondary-text:#fff;--rs-button-shadow:rgba(0,57,96,.28);--rs-button-shadow-strong:rgba(0,57,96,.34)}
   @supports(color-mix(in srgb, #000 0%, transparent)){
     .rs-root{--rs-button-shadow:color-mix(in srgb, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)))) 32%, transparent);--rs-button-shadow-strong:color-mix(in srgb, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983)))) 38%, transparent)}
   }
   .rs-header{display:flex;align-items:flex-start;justify-content:flex-end;gap:.75rem;padding:.55rem .95rem;border-radius:calc(var(--module-border-radius, 1.25rem) - .25rem);background:var(--module-header-bg);color:var(--module-header-text);font-size:clamp(.9rem, 1vw + .35vh, 1.15rem);font-weight:700;letter-spacing:.4px;text-transform:uppercase;box-shadow:0 12px 28px rgba(12,24,41,.45);border:1px solid var(--rs-header-border,var(--module-header-bg))}
-  .rs-form{flex:1;overflow:auto;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none}
+  .rs-form{flex:1;overflow:hidden;padding:.25rem .1rem .1rem .1rem;scrollbar-width:none;-ms-overflow-style:none}
   .rs-form::-webkit-scrollbar{width:0;height:0;display:none}
   .rs-actions{display:flex;flex-direction:column;align-items:flex-end;gap:.35rem;flex-wrap:wrap;justify-content:flex-end;flex:1;min-width:0}
   .rs-custom-buttons{display:flex;align-items:center;justify-content:flex-end;gap:.35rem;flex-wrap:wrap}
@@ -28,15 +28,15 @@
   .rs-custom-button:hover{background:rgba(255,255,255,.14)}
   .rs-custom-button:active{transform:scale(.97)}
   .rs-custom-button:disabled{opacity:.45;cursor:default;transform:none}
-  .rs-grid{display:grid;gap:.9rem}
-  .rs-field{display:flex;flex-direction:column;gap:.35rem}
+  .rs-grid{display:grid;gap:calc(.9rem * var(--rs-density))}
+  .rs-field{display:flex;flex-direction:column;gap:calc(.35rem * var(--rs-density))}
   .rs-labelwrap{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;color:var(--text-color)}
-  .rs-label{font-weight:600;opacity:.95;color:inherit;cursor:default}
+  .rs-label{font-weight:600;opacity:.95;color:inherit;cursor:default;font-size:calc(.95rem * var(--rs-density))}
   .rs-label-info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.18);color:inherit;opacity:.85;cursor:help}
   .rs-inline-input{min-width:140px;padding:.25rem .45rem;border-radius:.35rem;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text)}
   .rs-inline-input.invalid,.rs-item-label.invalid{border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.35)}
   .rs-inputwrap{display:flex;align-items:center;width:100%}
-  .rs-root .rs-input{width:100%;background:var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983))));border:1px solid var(--rs-button-border, var(--module-button-border, var(--module-border-color, var(--button-border, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983))))))));color:var(--rs-button-text, var(--module-button-text, var(--text-color, var(--button-text,#fff))));padding:.45rem .55rem;border-radius:.4rem;cursor:pointer;font-weight:600;box-shadow:0 8px 20px var(--rs-button-shadow, rgba(0,57,96,.28));transition:filter .2s ease,transform .12s ease,box-shadow .2s ease}
+  .rs-root .rs-input{width:100%;background:var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983))));border:1px solid var(--rs-button-border, var(--module-button-border, var(--module-border-color, var(--button-border, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983))))))));color:var(--rs-button-text, var(--module-button-text, var(--text-color, var(--button-text,#fff))));padding:calc(.45rem * var(--rs-density)) calc(.55rem * var(--rs-density));border-radius:.4rem;cursor:pointer;font-weight:600;font-size:calc(.95rem * var(--rs-density));box-shadow:0 8px 20px var(--rs-button-shadow, rgba(0,57,96,.28));transition:filter .2s ease,transform .12s ease,box-shadow .2s ease}
   .rs-root .rs-input:hover{filter:brightness(1.05);box-shadow:0 12px 26px var(--rs-button-shadow-strong, rgba(0,57,96,.34))}
   .rs-root .rs-input:active{transform:scale(.99)}
   .rs-root .rs-input:focus-visible{outline:2px solid rgba(255,255,255,.65);outline-offset:2px}
@@ -468,6 +468,7 @@
     `;
     return {
       rootEl:root.querySelector('.rs-root'),
+      form:root.querySelector('.rs-form'),
       grid:root.querySelector('.rs-grid'),
       note:root.querySelector('.rs-note'),
       customButtons:root.querySelector('.rs-custom-buttons'),
@@ -621,6 +622,9 @@
       updateColorSelectValues();
       if(applyTheme&&(changed||before!==JSON.stringify(cfg?.colors||{})))applyColorTheme();
     };
+    const densityMin=0.65;
+    const densityMax=1;
+    const scheduleDensityUpdate=debounce(80,()=>requestAnimationFrame(updateFieldDensity));
     let debugInfo='';
     let deviceName='';
     const instanceId=instanceIdOf(root);
@@ -651,7 +655,7 @@
     function saveCfg(current){const doc=loadDoc();doc.instances=doc.instances||{};doc.instances[instanceId]=doc.instances[instanceId]||{};doc.instances[instanceId].recordSheet={ruleIdbKey:current.ruleIdbKey,ruleFileName:current.ruleFileName,aspenIdbKey:current.aspenIdbKey,aspenFileName:current.aspenFileName,fields:serializeFields(current.fields),calculations:serializeCalculations(current.calculations),columns:current.columns,colors:sanitizeColorSelection(current.colors),customButtons:serializeCustomButtons(current.customButtons)};saveDoc(doc);}
     function removeCfg(){const doc=loadDoc();if(doc?.instances?.[instanceId]){delete doc.instances[instanceId].recordSheet;if(!Object.keys(doc.instances[instanceId]).length)delete doc.instances[instanceId];saveDoc(doc);}}
 
-    const setNote=s=>els.note.textContent=s||'';
+    const setNote=s=>{els.note.textContent=s||'';scheduleDensityUpdate();};
     const setDebugInfo=message=>{debugInfo=String(message||'').trim();updateAspenDisplays();};
     const clearDebugInfo=()=>{debugInfo='';updateAspenDisplays();};
 
@@ -850,7 +854,32 @@
     };
     function updateName(){if(!rules.length){deviceName='';return;}const partField=cfg.fields.find(f=>f.key==='part'&&f.enabled);const pn=partField?(fieldEls[partField.id]?.input?.value||'').trim():'';const name=lookupName(pn);deviceName=name||'Unbekanntes Gerät';}
 
-    function applyColumns(){const cols=Math.max(1,parseInt(cfg.columns)||1);els.grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;}
+    function applyColumns(){
+      const cols=Math.max(1,parseInt(cfg.columns)||1);
+      els.grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+      scheduleDensityUpdate();
+    }
+    function updateFieldDensity(){
+      if(!els.form||!els.grid||!els.rootEl)return;
+      const fields=Array.from(els.grid.children);
+      if(!fields.length){
+        els.rootEl.style.removeProperty('--rs-density');
+        return;
+      }
+      const noteHeight=els.note?.offsetHeight||0;
+      const available=els.form.clientHeight-noteHeight;
+      if(!(available>0))return;
+      const gridStyles=window.getComputedStyle(els.grid);
+      const gap=parseFloat(gridStyles.rowGap||gridStyles.gap||'0')||0;
+      const total=fields.reduce((sum,field)=>sum+field.offsetHeight,0)+gap*Math.max(0,fields.length-1);
+      if(!(total>0))return;
+      const rootStyles=window.getComputedStyle(els.rootEl);
+      const currentDensity=parseFloat(rootStyles.getPropertyValue('--rs-density'))||1;
+      const target=Math.min(densityMax,Math.max(densityMin,(available/total)*currentDensity));
+      if(Math.abs(target-currentDensity)>0.01){
+        els.rootEl.style.setProperty('--rs-density',target.toFixed(3));
+      }
+    }
     function renderFields(){
       els.grid.innerHTML='';fieldEls={};
       cfg.fields.filter(f=>f.enabled).forEach(f=>{
@@ -890,6 +919,7 @@
       });
       applyColumns();
       refreshFromAspen();
+      scheduleDensityUpdate();
     }
 
     function renderFieldList(){
@@ -1046,6 +1076,17 @@
     }
     const colorPoller=setInterval(()=>refreshColorLayers({repopulate:false,applyTheme:true}),COLOR_WATCH_INTERVAL);
     cleanupTasks.push(()=>clearInterval(colorPoller));
+    if(typeof ResizeObserver==='function'){
+      const resizeObserver=new ResizeObserver(()=>scheduleDensityUpdate());
+      if(els.rootEl)resizeObserver.observe(els.rootEl);
+      if(els.form)resizeObserver.observe(els.form);
+      if(moduleHost)resizeObserver.observe(moduleHost);
+      cleanupTasks.push(()=>resizeObserver.disconnect());
+    }else{
+      const handleResize=()=>scheduleDensityUpdate();
+      addEventListener('resize',handleResize);
+      cleanupTasks.push(()=>removeEventListener('resize',handleResize));
+    }
     addEventListener('storage',e=>{if(e.key===LS_DOC)refreshFromAspen();if(e.key==='appSettings')refreshColorLayers();});
     addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromAspen();});
     let lastDocString=getDocString();
