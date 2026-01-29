@@ -348,8 +348,7 @@
         </div>
       </div>
       <div class="dc-editor">
-        <label class="dc-editor-label">Kommentar</label>
-        <textarea class="dc-textarea" placeholder="Keine PN/SN verfügbar" disabled></textarea>
+        <textarea class="dc-textarea" placeholder="Keine PN/SN verfügbar" aria-label="Kommentar" disabled></textarea>
         <div class="dc-note" data-note></div>
       </div>
     `;
