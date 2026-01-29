@@ -5417,10 +5417,10 @@
         this.applyEventSnapshot(entry);
       });
       headerHistory.append(headerHistoryLabel,headerHistorySelect);
-      headerActions.appendChild(headerHistory);
+      headerActions.append(headerHistory,toggleButton);
       const headerTop=document.createElement('div');
       headerTop.className='nsf-header-row nsf-header-row-top';
-      headerTop.append(toggleButton,debugSpan,headerActions);
+      headerTop.append(debugSpan,headerActions);
       headerBar.appendChild(headerTop);
       if(summary.childElementCount){
         headerBar.appendChild(summary);
