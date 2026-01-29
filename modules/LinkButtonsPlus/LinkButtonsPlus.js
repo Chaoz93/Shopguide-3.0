@@ -1,5 +1,5 @@
 /* Ops Panel — extended with toggleable links and Testreport deeplink */
-// v5.1 – Spalten-Layout & Notizsteuerung ergänzt
+// v5.2 – Spalten-Layout & Slider-Layout angepasst
 (function () {
   // ---------- styles ----------
   if (!document.getElementById('ops-panel-styles')) {
@@ -111,14 +111,11 @@
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55);}
     .ops-grid-settings-row{display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap;}
     .ops-grid-settings label{font-weight:600; font-size:.95rem;}
-    .ops-grid-controls{display:flex; align-items:center; gap:.65rem;}
-    .ops-grid-input{width:12.5rem; padding:.55rem .75rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
+    .ops-grid-controls{display:flex; align-items:center; gap:.65rem; width:100%;}
+    .ops-grid-input{width:100%; padding:.55rem .75rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
       background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
     .ops-grid-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
-    .ops-grid-textarea{width:100%; min-height:140px; padding:.65rem .75rem; border-radius:.7rem; border:1px solid rgba(148,163,184,.35);
-      background:rgba(15,23,42,.58); color:inherit; font-size:.95rem; resize:vertical; box-sizing:border-box;}
-    .ops-grid-textarea:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
-    .ops-grid-range{width:12.5rem;}
+    .ops-grid-range{width:100%;}
     .ops-grid-hint{font-size:.78rem; opacity:.7; margin-left:.1rem;}
     .ops-button-row{display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap; position:relative;
@@ -296,7 +293,6 @@
   const GRID_COLUMNS_KEY = 'linkbuttonsplus-grid-columns';
   const LEGACY_GRID_ROWS_KEY = 'linkbuttonsplus-grid-rows';
   const COLOR_CONFIG_KEY = 'linkbuttonsplus-colors-v1';
-  const NOTE_TEXT_KEY = 'linkbuttonsplus-note-text';
   const NOTE_SCALE_KEY = 'linkbuttonsplus-note-scale';
   const COLOR_AREAS = ['main','header','buttons'];
   const COLOR_PRESETS = ['Main','Alternative','Accent'];
@@ -378,22 +374,6 @@
   function saveGridColumns(value){
     try{
       localStorage.setItem(GRID_COLUMNS_KEY, JSON.stringify(value));
-    }catch{}
-  }
-
-  function loadNoteText(){
-    try{
-      const raw = localStorage.getItem(NOTE_TEXT_KEY);
-      if(!raw) return {};
-      const parsed = JSON.parse(raw);
-      return (parsed && typeof parsed === 'object') ? parsed : {};
-    }catch{}
-    return {};
-  }
-
-  function saveNoteText(value){
-    try{
-      localStorage.setItem(NOTE_TEXT_KEY, JSON.stringify(value));
     }catch{}
   }
 
@@ -3060,7 +3040,6 @@
       if(!Number.isFinite(numeric)) return null;
       return clampNumber(Math.round(numeric), GRID_COLUMNS_MIN, GRID_COLUMNS_MAX);
     };
-    const normalizeNoteText = value => (typeof value === 'string' ? value : '');
     const normalizeNoteScale = value => {
       const numeric = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
       if(!Number.isFinite(numeric)) return 1;
@@ -3138,20 +3117,6 @@
       }
       gridColumnsConfig = { ...gridColumnsConfig, [instanceId]: value };
       saveGridColumns(gridColumnsConfig);
-    };
-
-    let noteTextConfig = loadNoteText();
-    if (!noteTextConfig || typeof noteTextConfig !== 'object') noteTextConfig = {};
-    let noteText = normalizeNoteText(noteTextConfig[instanceId]);
-    const persistNoteText = value => {
-      const normalized = normalizeNoteText(value);
-      if(!normalized){
-        delete noteTextConfig[instanceId];
-        saveNoteText(noteTextConfig);
-        return;
-      }
-      noteTextConfig = { ...noteTextConfig, [instanceId]: normalized };
-      saveNoteText(noteTextConfig);
     };
 
     let noteScaleConfig = loadNoteScale();
@@ -3848,10 +3813,6 @@
                 </div>
               </div>
               <div class="ops-grid-settings-row">
-                <label for="ops-note-text">Notizfeld</label>
-                <textarea id="ops-note-text" class="ops-grid-textarea" placeholder="Notiz eingeben..." data-note-input></textarea>
-              </div>
-              <div class="ops-grid-settings-row">
                 <label for="ops-note-scale">Notiz-Skala</label>
                 <div class="ops-grid-controls">
                   <input type="range" id="ops-note-scale" class="ops-grid-range" min="1" max="10" step="1" data-note-scale-input>
@@ -3928,7 +3889,6 @@
     const ownedSections = menu.querySelectorAll('[data-tab-owner]');
     buttonListEl = menu.querySelector('[data-button-list]');
     const gridColumnsInput = menu.querySelector('[data-grid-columns-input]');
-    const noteInput = menu.querySelector('[data-note-input]');
     const noteScaleInput = menu.querySelector('[data-note-scale-input]');
     const noteScaleValue = menu.querySelector('[data-note-scale-value]');
 
@@ -3982,14 +3942,6 @@
       });
       gridColumnsInput.addEventListener('blur', event => {
         handleGridColumnsInput(event.target.value);
-      });
-    }
-
-    if(noteInput){
-      noteInput.value = noteText;
-      noteInput.addEventListener('input', event => {
-        noteText = normalizeNoteText(event.target.value);
-        persistNoteText(noteText);
       });
     }
 
