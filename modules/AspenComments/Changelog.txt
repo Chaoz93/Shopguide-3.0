@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.3] – 2026-01-29
+### Changed
+- Kommentarüberschrift entfernt und Textfeld dynamisch an die Modulhöhe angepasst, um Scrollleisten zu vermeiden.
+
 ## [1.4.2] – 2026-01-27
 ### Changed
 - Header-Status zeigt nur noch den Aktualisierungszeitpunkt der Aspen-Datei.
