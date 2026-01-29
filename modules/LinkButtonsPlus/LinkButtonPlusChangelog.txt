@@ -4,6 +4,10 @@ Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
 
+## [1.8.6] – 2026-01-29
+### Added
+- Einstellungsoption für die gewünschte Anzahl an Button-Reihen im Modal ergänzt.
+
 ## [1.8.5] – 2026-01-26
 ### Changed
 - Rahmen der Auto-Update-Anzeige entfernt.
