@@ -1018,7 +1018,7 @@
       }
       const desiredHeight=textarea.scrollHeight;
       if(availableHeight>0){
-        const nextHeight=Math.max(0,availableHeight);
+        const nextHeight=Math.max(0,availableHeight*2);
         textarea.style.height=`${nextHeight}px`;
         textarea.style.overflowY='hidden';
       }else{

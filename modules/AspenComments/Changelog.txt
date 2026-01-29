@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.6] – 2026-01-29
+### Changed
+- Textfeldhöhe um 100% erhöht.
+
 ## [1.4.5] – 2026-01-29
 ### Changed
 - Textfeldhöhe wird anhand der aktuellen Modulhöhe berechnet, damit die Größe nicht an der Mindesthöhe hängen bleibt.
