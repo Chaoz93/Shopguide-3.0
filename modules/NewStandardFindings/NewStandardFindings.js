@@ -3801,7 +3801,19 @@
     const reason=typeof raw.reason==='string'?raw.reason:null;
     const exchangeInput=typeof raw.exchangeInput==='string'?raw.exchangeInput:null;
     const exchangeOutput=typeof raw.exchangeOutput==='string'?raw.exchangeOutput:null;
-    return {id,createdAt,createdMs,selections,rfr,deviceStatus,reason,exchangeInput,exchangeOutput};
+    const meldung=typeof raw.meldung==='string'?raw.meldung:null;
+    return {
+      id,
+      createdAt,
+      createdMs,
+      selections,
+      rfr,
+      deviceStatus,
+      reason,
+      exchangeInput,
+      exchangeOutput,
+      meldung
+    };
   }
 
   function getEventHistoryForKey(store,key){
@@ -3830,7 +3842,8 @@
       deviceStatus:typeof entry.deviceStatus==='string'?entry.deviceStatus:'',
       reason:typeof entry.reason==='string'?entry.reason:'',
       exchangeInput:typeof entry.exchangeInput==='string'?entry.exchangeInput:'',
-      exchangeOutput:typeof entry.exchangeOutput==='string'?entry.exchangeOutput:''
+      exchangeOutput:typeof entry.exchangeOutput==='string'?entry.exchangeOutput:'',
+      meldung:typeof entry.meldung==='string'?entry.meldung:''
     });
     const unique=new Map();
     const filtered=[];
@@ -3847,7 +3860,8 @@
         deviceStatus:typeof normalizedEntry.deviceStatus==='string'?normalizedEntry.deviceStatus:'',
         reason:typeof normalizedEntry.reason==='string'?normalizedEntry.reason:'',
         exchangeInput:typeof normalizedEntry.exchangeInput==='string'?normalizedEntry.exchangeInput:'',
-        exchangeOutput:typeof normalizedEntry.exchangeOutput==='string'?normalizedEntry.exchangeOutput:''
+        exchangeOutput:typeof normalizedEntry.exchangeOutput==='string'?normalizedEntry.exchangeOutput:'',
+        meldung:typeof normalizedEntry.meldung==='string'?normalizedEntry.meldung:''
       });
       if(filtered.length>=EVENT_HISTORY_LIMIT) break;
     }
@@ -4305,6 +4319,13 @@
     return date.toLocaleDateString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit'});
   }
 
+  function findEventHistoryEntryForMeldung(historyList,meldung){
+    if(!Array.isArray(historyList)) return null;
+    const normalized=clean(meldung);
+    if(!normalized) return null;
+    return historyList.find(entry=>clean(entry?.meldung||'')===normalized) || null;
+  }
+
   function formatEventHistoryLabel(entry,options){
     if(!entry) return '';
     const dateLabel=formatEventTimestamp(entry.createdAt);
@@ -4630,6 +4651,7 @@
       this.totalEntries=this.allEntries.length;
       const boardDocInfo=parseBoardDocument();
       const aspenDocInfo=parseAspenDocument();
+      const previousMeldung=this.meldung;
       this.repairOrder=boardDocInfo.repairOrder||'';
       this.aspenDoc=aspenDocInfo.doc&&typeof aspenDocInfo.doc==='object'?aspenDocInfo.doc:null;
       const boardInfo=findAspenBoardRecord(boardDocInfo.meldung,this.repairOrder);
@@ -4749,13 +4771,18 @@
       this.history=getHistoryForPart(this.globalState,this.currentPart);
       this.selectedEntries=this.hydrateSelections(selections);
       this.applyDeviceStatusRule({persist:true,render:false});
-      await this.ensureDefaultEventHistoryEntry();
-      const defaultEventEntry=!this.activeEventId&&this.eventHistory.length
-        ?this.eventHistory[0]
-        :null;
-      if(defaultEventEntry){
-        this.activeEventId=defaultEventEntry.id;
-        this.applyEventSnapshotToState(defaultEventEntry,{persist:true});
+      const meldungChanged=clean(previousMeldung)!==clean(this.meldung);
+      const ensureResult=await this.ensureEventHistoryEntryForMeldung({forceSelect:meldungChanged});
+      if(ensureResult?.entry&&meldungChanged){
+        this.applyEventSnapshotToState(ensureResult.entry,{persist:true});
+      }else{
+        const defaultEventEntry=!this.activeEventId&&this.eventHistory.length
+          ?this.eventHistory[0]
+          :null;
+        if(defaultEventEntry){
+          this.activeEventId=defaultEventEntry.id;
+          this.applyEventSnapshotToState(defaultEventEntry,{persist:true});
+        }
       }
       this.selectionRows=[];
       this.renderDom();
@@ -5589,18 +5616,6 @@
           });
         }
         historySelect.disabled=!this.eventHistoryKey||!this.eventHistory.length;
-        const historyAddButton=document.createElement('button');
-        historyAddButton.type='button';
-        historyAddButton.className='nsf-menu-add';
-        historyAddButton.textContent='+';
-        historyAddButton.title='Neues Findings-Ereignis speichern';
-        historyAddButton.setAttribute('aria-label',historyAddButton.title);
-        historyAddButton.disabled=!this.eventHistoryKey||!this.selectedEntries.length;
-        historyAddButton.addEventListener('click',()=>{
-          if(historyAddButton.disabled) return;
-          closeMenu();
-          void this.createEventSnapshot();
-        });
         historySelect.addEventListener('change',()=>{
           const selectedId=historySelect.value;
           if(!selectedId) return;
@@ -5610,7 +5625,7 @@
           closeMenu();
           this.applyEventSnapshot(entry);
         });
-        historyRow.append(historySelect,historyAddButton);
+        historyRow.append(historySelect);
         historyWrapper.append(historyLabel,historyRow);
         const historyList=document.createElement('div');
         historyList.className='nsf-event-list';
@@ -10748,6 +10763,10 @@
       if(this.activeState&&typeof this.activeState==='object'){
         this.activeState.deviceStatus=nextStatus;
       }
+      this.updateActiveEventCache({
+        deviceStatus:nextStatus,
+        meldung:clean(this.meldung||'')
+      });
       if(options&&options.persist===false) return;
       this.queueStateSave();
       this.queueEventAutoUpdate();
@@ -10763,6 +10782,10 @@
         this.activeState.deviceStatus=this.deviceStatus;
       }
       this.applyDeviceStatusRule({persist:false,render:false,enforceScrap:false});
+      this.updateActiveEventCache({
+        deviceStatus:this.deviceStatus,
+        meldung:clean(this.meldung||'')
+      });
       this.persistState(true);
       this.queueEventAutoUpdate();
       this.render();
@@ -10985,8 +11008,47 @@
       });
     }
 
+    updateActiveEventCache(fields){
+      if(!fields||typeof fields!=='object') return false;
+      if(!this.eventHistoryKey||!this.eventHistoryStore||!this.activeEventId) return false;
+      const storedList=this.eventHistoryStore?.events?.[this.eventHistoryKey];
+      if(!Array.isArray(storedList)) return false;
+      let changed=false;
+      const next=storedList.map(item=>{
+        if(!item||item.id!==this.activeEventId) return item;
+        const updated={...item};
+        if(Object.prototype.hasOwnProperty.call(fields,'selections')){
+          updated.selections=Array.isArray(fields.selections)?fields.selections:[];
+        }
+        if(Object.prototype.hasOwnProperty.call(fields,'rfr')){
+          updated.rfr=typeof fields.rfr==='string'?fields.rfr:'';
+        }
+        if(Object.prototype.hasOwnProperty.call(fields,'deviceStatus')){
+          updated.deviceStatus=typeof fields.deviceStatus==='string'?fields.deviceStatus:'';
+        }
+        if(Object.prototype.hasOwnProperty.call(fields,'reason')){
+          updated.reason=typeof fields.reason==='string'?fields.reason:'';
+        }
+        if(Object.prototype.hasOwnProperty.call(fields,'exchangeInput')){
+          updated.exchangeInput=typeof fields.exchangeInput==='string'?fields.exchangeInput:'';
+        }
+        if(Object.prototype.hasOwnProperty.call(fields,'exchangeOutput')){
+          updated.exchangeOutput=typeof fields.exchangeOutput==='string'?fields.exchangeOutput:'';
+        }
+        if(Object.prototype.hasOwnProperty.call(fields,'meldung')){
+          updated.meldung=typeof fields.meldung==='string'?fields.meldung:'';
+        }
+        changed=true;
+        return updated;
+      });
+      if(!changed) return false;
+      this.eventHistoryStore.events[this.eventHistoryKey]=next;
+      this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+      return true;
+    }
+
     async createEventSnapshot(){
-      if(!this.eventHistoryKey||!this.selectedEntries.length) return;
+      if(!this.eventHistoryKey) return;
       await this.ensureEventHistoryStore();
       const timestamp=new Date();
       const entry={
@@ -10997,7 +11059,8 @@
         deviceStatus:resolveDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||''),
         reason:clean(this.reasonText||this.activeState?.reason||''),
         exchangeInput:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
-        exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'')
+        exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||''),
+        meldung:clean(this.meldung||'')
       };
       pushEventHistory(this.eventHistoryStore,this.eventHistoryKey,entry);
       const writeResult=await writeEventHistoryStoreToFile(this.eventHistoryStore);
@@ -11009,33 +11072,50 @@
       this.render();
     }
 
-    async ensureDefaultEventHistoryEntry(){
-      if(!this.eventHistoryKey) return;
+    async ensureEventHistoryEntryForMeldung(options){
+      if(!this.eventHistoryKey) return {entry:null,created:false};
       await this.ensureEventHistoryStore();
-      const historyList=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
-      if(historyList.length) return;
-      const timestamp=new Date();
-      const entry={
-        id:createEventId(),
-        createdAt:timestamp.toISOString(),
-        selections:serializeEventHistorySelections(this.selectedEntries),
-        rfr:clean(this.removalReason||this.activeState?.rfr||''),
-        deviceStatus:resolveDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||''),
-        reason:clean(this.reasonText||this.activeState?.reason||''),
-        exchangeInput:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
-        exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'')
-      };
-      pushEventHistory(this.eventHistoryStore,this.eventHistoryKey,entry);
-      const writeResult=await writeEventHistoryStoreToFile(this.eventHistoryStore);
-      if(writeResult?.modified!=null){
-        this.historyLastModified=writeResult.modified;
+      const currentMeldung=clean(this.meldung||'');
+      if(!currentMeldung) return {entry:null,created:false};
+      let historyList=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+      let targetEntry=findEventHistoryEntryForMeldung(historyList,currentMeldung);
+      let created=false;
+      if(!targetEntry){
+        const timestamp=new Date();
+        const entry={
+          id:createEventId(),
+          createdAt:timestamp.toISOString(),
+          selections:serializeEventHistorySelections(this.selectedEntries),
+          rfr:clean(this.removalReason||this.activeState?.rfr||''),
+          deviceStatus:resolveDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||''),
+          reason:clean(this.reasonText||this.activeState?.reason||''),
+          exchangeInput:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
+          exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||''),
+          meldung:currentMeldung
+        };
+        pushEventHistory(this.eventHistoryStore,this.eventHistoryKey,entry);
+        const writeResult=await writeEventHistoryStoreToFile(this.eventHistoryStore);
+        if(writeResult?.modified!=null){
+          this.historyLastModified=writeResult.modified;
+        }
+        this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+        historyList=this.eventHistory;
+        targetEntry=findEventHistoryEntryForMeldung(historyList,currentMeldung);
+        created=true;
+      }else{
+        this.eventHistory=historyList;
       }
-      this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
-      this.activeEventId=entry.id;
+      const shouldSelect=options?.forceSelect
+        ||!this.activeEventId
+        ||!historyList.some(entry=>entry.id===this.activeEventId);
+      if(targetEntry&&shouldSelect){
+        this.activeEventId=targetEntry.id;
+      }
+      return {entry:targetEntry,created};
     }
 
     queueEventAutoUpdate(){
-      if(!this.eventHistoryKey||!this.selectedEntries.length) return;
+      if(!this.eventHistoryKey) return;
       if(this.eventUpdateTimer) clearTimeout(this.eventUpdateTimer);
       this.eventUpdateTimer=setTimeout(()=>{
         this.eventUpdateTimer=null;
@@ -11043,8 +11123,8 @@
       },EVENT_AUTO_UPDATE_DEBOUNCE);
     }
 
-    async updateEventSnapshot(){
-      if(!this.eventHistoryKey||!this.selectedEntries.length) return;
+    async updateEventSnapshot(options){
+      if(!this.eventHistoryKey) return;
       await this.ensureEventHistoryStore();
       const historyList=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
       if(!historyList.length) return;
@@ -11058,6 +11138,7 @@
       const updatedReason=clean(this.reasonText||this.activeState?.reason||'');
       const updatedExchangeInput=clean(this.exchangeInputText||this.activeState?.exchangeInput||'');
       const updatedExchangeOutput=clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'');
+      const updatedMeldung=clean(this.meldung||'');
       let changed=false;
       const next=storedList.map(item=>{
         if(!item||item.id!==targetId) return item;
@@ -11069,7 +11150,8 @@
           deviceStatus:updatedDeviceStatus,
           reason:updatedReason,
           exchangeInput:updatedExchangeInput,
-          exchangeOutput:updatedExchangeOutput
+          exchangeOutput:updatedExchangeOutput,
+          meldung:updatedMeldung||item.meldung||''
         };
       });
       if(!changed) return;
@@ -11079,6 +11161,9 @@
         this.historyLastModified=writeResult.modified;
       }
       this.eventHistory=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
+      if(options&&options.render){
+        this.render();
+      }
     }
 
     async deleteEventHistoryEntry(entry){
