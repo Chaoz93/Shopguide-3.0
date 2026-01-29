@@ -7,7 +7,7 @@ Alle relevanten Änderungen ab Version 1.2.0 werden hier in Kurzform dokumentier
 
 ## 1.8.21 – 2026-01-29
 ### Added
-- Dropdown „Gerätestatus“ unter Reason for Removal ergänzt; Status wird in der History gespeichert und in den History-Dropdowns vor dem Datum angezeigt, mit automatischer Scrap-Auswahl bei passenden Findings-Labels.
+- Dropdown „Gerätestatus“ unter Reason for Removal ergänzt und grafisch mit dem Removal-Bereich gruppiert; Status wird in der History gespeichert und in den History-Dropdowns vor dem Datum angezeigt, mit automatischer Scrap-Auswahl bei passenden Findings-Labels.
 
 ## 1.8.11 – 2026-01-26
 ### Fixed

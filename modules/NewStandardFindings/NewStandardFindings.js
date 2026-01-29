@@ -1789,7 +1789,8 @@
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-body{display:none;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-summary{margin-left:0;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-header{border-bottom:none;}
-      .nsf-removal-panel{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-removal-group{background:rgba(15,23,42,0.18);border-radius:1rem;padding:0.65rem 0.75rem;display:flex;flex-direction:column;gap:0.6rem;border:1px solid rgba(148,163,184,0.12);}
+      .nsf-removal-panel{background:rgba(255,255,255,0.04);border-radius:0.8rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-removal-header{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;}
       .nsf-removal-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-removal-chip{background:rgba(148,163,184,0.18);border-radius:999px;padding:0.18rem 0.6rem;font-size:0.75rem;font-weight:600;letter-spacing:0.01em;}
@@ -1801,7 +1802,7 @@
       .nsf-removal-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.65rem;padding:0.35rem 0.7rem;font:inherit;font-size:0.78rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-removal-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
       .nsf-removal-btn:disabled{opacity:0.45;cursor:not-allowed;background:rgba(255,255,255,0.12);transform:none;}
-      .nsf-device-status-panel{background:rgba(15,23,42,0.16);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-device-status-panel{background:rgba(255,255,255,0.04);border-radius:0.8rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-device-status-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-device-status-select{padding:0.45rem 0.6rem;border-radius:0.6rem;border:1px solid rgba(148,163,184,0.45);background:rgba(15,23,42,0.18);color:inherit;font:inherit;font-size:0.85rem;}
       .nsf-device-status-select:disabled{opacity:0.5;cursor:not-allowed;}
@@ -5903,6 +5904,8 @@
       selectionGrid.className='nsf-selection-grid';
       selectionBody.appendChild(selectionGrid);
 
+      const removalGroup=document.createElement('div');
+      removalGroup.className='nsf-removal-group';
       const removalPanel=document.createElement('div');
       removalPanel.className='nsf-removal-panel';
       const removalHeader=document.createElement('div');
@@ -5965,7 +5968,6 @@
         this.setRemovalReason(input.trim());
       });
       removalPanel.appendChild(removalActions);
-      selectionGrid.appendChild(removalPanel);
 
       const deviceStatusPanel=document.createElement('div');
       deviceStatusPanel.className='nsf-device-status-panel';
@@ -5997,7 +5999,8 @@
         this.setDeviceStatus(deviceStatusSelect.value);
       });
       deviceStatusPanel.append(deviceStatusTitle,deviceStatusSelect);
-      selectionGrid.appendChild(deviceStatusPanel);
+      removalGroup.append(removalPanel,deviceStatusPanel);
+      selectionGrid.appendChild(removalGroup);
 
       const reasonPanel=document.createElement('div');
       reasonPanel.className='nsf-reason-panel';
