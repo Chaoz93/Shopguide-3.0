@@ -10741,7 +10741,8 @@
     applyDeviceStatusRule(options){
       const hasScrap=selectionsContainScrap(this.selectedEntries);
       const normalized=resolveDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||'');
-      const nextStatus=hasScrap ? 'Scrap' : normalized;
+      const enforceScrap=!(options&&options.enforceScrap===false);
+      const nextStatus=(enforceScrap&&hasScrap) ? 'Scrap' : normalized;
       if(nextStatus===this.deviceStatus) return;
       this.deviceStatus=nextStatus;
       if(this.activeState&&typeof this.activeState==='object'){
@@ -10761,8 +10762,8 @@
       if(this.activeState&&typeof this.activeState==='object'){
         this.activeState.deviceStatus=this.deviceStatus;
       }
-      this.applyDeviceStatusRule({persist:true,render:false});
-      this.queueStateSave();
+      this.applyDeviceStatusRule({persist:false,render:false,enforceScrap:false});
+      this.persistState(true);
       this.queueEventAutoUpdate();
       this.render();
     }

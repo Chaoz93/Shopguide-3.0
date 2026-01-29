@@ -12,6 +12,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.23] – 2026-01-29
+### Fixed
+- Gerätestatus-Auswahl bleibt jetzt stabil und springt nach dem Wechsel nicht mehr auf den vorherigen Status zurück.
+- Manuelle Statuswechsel werden sofort gespeichert, sodass der gewählte Gerätestatus im aktiven History-Ereignis erhalten bleibt.
+
 ## [1.8.22] – 2026-01-29
 ### Fixed
 - Gerätestatus startet nun standardmäßig mit "Repair" und wird bei Auswahl (z. B. "Tested") zuverlässig in das aktuelle History-Ereignis übernommen.
