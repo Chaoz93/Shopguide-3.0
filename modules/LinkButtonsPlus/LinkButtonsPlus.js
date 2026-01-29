@@ -1,5 +1,5 @@
 /* Ops Panel — extended with toggleable links and Testreport deeplink */
-// v5.0 – Config-Palette-Sync über JSON
+// v5.1 – Spalten-Layout & Notizsteuerung ergänzt
 (function () {
   // ---------- styles ----------
   if (!document.getElementById('ops-panel-styles')) {
@@ -39,9 +39,9 @@
       grid-auto-flow: row;
       gap:.6rem;
     }
-    .ops-grid[data-grid-rows]{
-      grid-auto-flow: column;
-      grid-template-rows: repeat(var(--lbp-grid-rows, 3), minmax(0, 1fr));
+    .ops-grid[data-grid-columns]{
+      grid-template-columns: repeat(var(--lbp-grid-columns, 3), minmax(160px, 1fr));
+      grid-auto-flow: row;
     }
     .ops-compact .ops-grid{
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -115,6 +115,10 @@
     .ops-grid-input{width:12.5rem; padding:.55rem .75rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
       background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
     .ops-grid-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
+    .ops-grid-textarea{width:100%; min-height:140px; padding:.65rem .75rem; border-radius:.7rem; border:1px solid rgba(148,163,184,.35);
+      background:rgba(15,23,42,.58); color:inherit; font-size:.95rem; resize:vertical; box-sizing:border-box;}
+    .ops-grid-textarea:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
+    .ops-grid-range{width:12.5rem;}
     .ops-grid-hint{font-size:.78rem; opacity:.7; margin-left:.1rem;}
     .ops-button-row{display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap; position:relative;
@@ -289,8 +293,11 @@
   };
   const WORKFORCE_FILTER_KEY = 'linkbuttonsplus-filters';
   const BUTTON_ORDER_KEY = 'linkbuttonsplus-order';
-  const GRID_ROWS_KEY = 'linkbuttonsplus-grid-rows';
+  const GRID_COLUMNS_KEY = 'linkbuttonsplus-grid-columns';
+  const LEGACY_GRID_ROWS_KEY = 'linkbuttonsplus-grid-rows';
   const COLOR_CONFIG_KEY = 'linkbuttonsplus-colors-v1';
+  const NOTE_TEXT_KEY = 'linkbuttonsplus-note-text';
+  const NOTE_SCALE_KEY = 'linkbuttonsplus-note-scale';
   const COLOR_AREAS = ['main','header','buttons'];
   const COLOR_PRESETS = ['Main','Alternative','Accent'];
   const FARBLAYER_GROUP_CONFIG_KEY = 'linkbuttonsplus-group-config-v1';
@@ -304,8 +311,8 @@
   const FARBLAYER_ELEMENT_STORAGE_KEY = `flvElements:${FARBLAYER_MODULE_NAME}`;
   const FARBLAYER_VIEWER_SCRIPT_URL = 'modules/FarblayerViewer/FarblayerViewer.js';
   const FARBLAYER_VIEWER_HOST_ID = 'farblayer-viewer-host';
-  const GRID_ROWS_MIN = 1;
-  const GRID_ROWS_MAX = 8;
+  const GRID_COLUMNS_MIN = 1;
+  const GRID_COLUMNS_MAX = 8;
 
   function clampNumber(value, min, max){
     if (typeof value !== 'number' || Number.isNaN(value)) return min;
@@ -344,9 +351,39 @@
     }catch{}
   }
 
-  function loadGridRows(){
+  function loadGridColumns(){
     try{
-      const raw = localStorage.getItem(GRID_ROWS_KEY);
+      const raw = localStorage.getItem(GRID_COLUMNS_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        return (parsed && typeof parsed === 'object') ? parsed : {};
+      }
+    }catch{}
+    let legacy = {};
+    try{
+      const raw = localStorage.getItem(LEGACY_GRID_ROWS_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        legacy = (parsed && typeof parsed === 'object') ? parsed : {};
+      }
+    }catch{}
+    if(Object.keys(legacy).length){
+      try{
+        localStorage.setItem(GRID_COLUMNS_KEY, JSON.stringify(legacy));
+      }catch{}
+    }
+    return legacy;
+  }
+
+  function saveGridColumns(value){
+    try{
+      localStorage.setItem(GRID_COLUMNS_KEY, JSON.stringify(value));
+    }catch{}
+  }
+
+  function loadNoteText(){
+    try{
+      const raw = localStorage.getItem(NOTE_TEXT_KEY);
       if(!raw) return {};
       const parsed = JSON.parse(raw);
       return (parsed && typeof parsed === 'object') ? parsed : {};
@@ -354,9 +391,25 @@
     return {};
   }
 
-  function saveGridRows(value){
+  function saveNoteText(value){
     try{
-      localStorage.setItem(GRID_ROWS_KEY, JSON.stringify(value));
+      localStorage.setItem(NOTE_TEXT_KEY, JSON.stringify(value));
+    }catch{}
+  }
+
+  function loadNoteScale(){
+    try{
+      const raw = localStorage.getItem(NOTE_SCALE_KEY);
+      if(!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    }catch{}
+    return {};
+  }
+
+  function saveNoteScale(value){
+    try{
+      localStorage.setItem(NOTE_SCALE_KEY, JSON.stringify(value));
     }catch{}
   }
 
@@ -3002,10 +3055,16 @@
 
 
     const normalizeLabel = value => (typeof value === 'string' ? value.trim() : '');
-    const normalizeGridRowValue = value => {
+    const normalizeGridColumnValue = value => {
       const numeric = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
       if(!Number.isFinite(numeric)) return null;
-      return clampNumber(Math.round(numeric), GRID_ROWS_MIN, GRID_ROWS_MAX);
+      return clampNumber(Math.round(numeric), GRID_COLUMNS_MIN, GRID_COLUMNS_MAX);
+    };
+    const normalizeNoteText = value => (typeof value === 'string' ? value : '');
+    const normalizeNoteScale = value => {
+      const numeric = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
+      if(!Number.isFinite(numeric)) return 1;
+      return clampNumber(Math.round(numeric), 1, 10);
     };
     const normalizeKey = value => normalizeLabel(value).toUpperCase();
 
@@ -3068,17 +3127,40 @@
       saveButtonOrders(buttonOrders);
     };
 
-    let gridRowsConfig = loadGridRows();
-    if (!gridRowsConfig || typeof gridRowsConfig !== 'object') gridRowsConfig = {};
-    let gridRows = normalizeGridRowValue(gridRowsConfig[instanceId]);
-    const persistGridRows = value => {
+    let gridColumnsConfig = loadGridColumns();
+    if (!gridColumnsConfig || typeof gridColumnsConfig !== 'object') gridColumnsConfig = {};
+    let gridColumns = normalizeGridColumnValue(gridColumnsConfig[instanceId]);
+    const persistGridColumns = value => {
       if(value == null){
-        delete gridRowsConfig[instanceId];
-        saveGridRows(gridRowsConfig);
+        delete gridColumnsConfig[instanceId];
+        saveGridColumns(gridColumnsConfig);
         return;
       }
-      gridRowsConfig = { ...gridRowsConfig, [instanceId]: value };
-      saveGridRows(gridRowsConfig);
+      gridColumnsConfig = { ...gridColumnsConfig, [instanceId]: value };
+      saveGridColumns(gridColumnsConfig);
+    };
+
+    let noteTextConfig = loadNoteText();
+    if (!noteTextConfig || typeof noteTextConfig !== 'object') noteTextConfig = {};
+    let noteText = normalizeNoteText(noteTextConfig[instanceId]);
+    const persistNoteText = value => {
+      const normalized = normalizeNoteText(value);
+      if(!normalized){
+        delete noteTextConfig[instanceId];
+        saveNoteText(noteTextConfig);
+        return;
+      }
+      noteTextConfig = { ...noteTextConfig, [instanceId]: normalized };
+      saveNoteText(noteTextConfig);
+    };
+
+    let noteScaleConfig = loadNoteScale();
+    if (!noteScaleConfig || typeof noteScaleConfig !== 'object') noteScaleConfig = {};
+    let noteScale = normalizeNoteScale(noteScaleConfig[instanceId] ?? 1);
+    const persistNoteScale = value => {
+      const normalized = normalizeNoteScale(value);
+      noteScaleConfig = { ...noteScaleConfig, [instanceId]: normalized };
+      saveNoteScale(noteScaleConfig);
     };
 
     root.classList.add('ops-root');
@@ -3105,18 +3187,18 @@
     const labelToCard = new Map();
     const usedSlots = new Set();
 
-    const applyGridRows = value => {
+    const applyGridColumns = value => {
       if(!gridEl) return;
       if(typeof value === 'number' && Number.isFinite(value)){
-        gridEl.style.setProperty('--lbp-grid-rows', String(value));
-        gridEl.dataset.gridRows = String(value);
+        gridEl.style.setProperty('--lbp-grid-columns', String(value));
+        gridEl.dataset.gridColumns = String(value);
       }else{
-        gridEl.style.removeProperty('--lbp-grid-rows');
-        gridEl.removeAttribute('data-grid-rows');
+        gridEl.style.removeProperty('--lbp-grid-columns');
+        gridEl.removeAttribute('data-grid-columns');
       }
     };
 
-    applyGridRows(gridRows);
+    applyGridColumns(gridColumns);
 
     const buildSlotName = (label, index) => {
       const base = normalizeLabel(label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `slot-${index}`;
@@ -3759,10 +3841,21 @@
           <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
             <div class="ops-grid-settings">
               <div class="ops-grid-settings-row">
-                <label for="ops-grid-rows">Button-Reihen</label>
+                <label for="ops-grid-columns">Button-Spalten</label>
                 <div class="ops-grid-controls">
-                  <input type="number" id="ops-grid-rows" class="ops-grid-input" min="1" max="8" step="1" placeholder="Auto" data-grid-rows-input>
+                  <input type="number" id="ops-grid-columns" class="ops-grid-input" min="1" max="8" step="1" placeholder="Auto" data-grid-columns-input>
                   <span class="ops-grid-hint">Leer lassen = automatisch.</span>
+                </div>
+              </div>
+              <div class="ops-grid-settings-row">
+                <label for="ops-note-text">Notizfeld</label>
+                <textarea id="ops-note-text" class="ops-grid-textarea" placeholder="Notiz eingeben..." data-note-input></textarea>
+              </div>
+              <div class="ops-grid-settings-row">
+                <label for="ops-note-scale">Notiz-Skala</label>
+                <div class="ops-grid-controls">
+                  <input type="range" id="ops-note-scale" class="ops-grid-range" min="1" max="10" step="1" data-note-scale-input>
+                  <span class="ops-grid-hint" data-note-scale-value>1</span>
                 </div>
               </div>
             </div>
@@ -3834,7 +3927,10 @@
     const tabButtons = menu.querySelectorAll('.ops-tab-btn');
     const ownedSections = menu.querySelectorAll('[data-tab-owner]');
     buttonListEl = menu.querySelector('[data-button-list]');
-    const gridRowsInput = menu.querySelector('[data-grid-rows-input]');
+    const gridColumnsInput = menu.querySelector('[data-grid-columns-input]');
+    const noteInput = menu.querySelector('[data-note-input]');
+    const noteScaleInput = menu.querySelector('[data-note-scale-input]');
+    const noteScaleValue = menu.querySelector('[data-note-scale-value]');
 
     const dragState = {
       activeLabel: '',
@@ -3857,35 +3953,58 @@
       return preview;
     }
 
-    function setGridRows(nextValue, { persist = true } = {}){
-      const normalized = normalizeGridRowValue(nextValue);
-      gridRows = normalized;
+    function setGridColumns(nextValue, { persist = true } = {}){
+      const normalized = normalizeGridColumnValue(nextValue);
+      gridColumns = normalized;
       if(persist){
-        persistGridRows(gridRows);
+        persistGridColumns(gridColumns);
       }
-      applyGridRows(gridRows);
-      if(gridRowsInput){
-        gridRowsInput.value = gridRows ? String(gridRows) : '';
+      applyGridColumns(gridColumns);
+      if(gridColumnsInput){
+        gridColumnsInput.value = gridColumns ? String(gridColumns) : '';
       }
     }
 
-    if(gridRowsInput){
-      gridRowsInput.value = gridRows ? String(gridRows) : '';
-      const handleGridRowsInput = value => {
+    if(gridColumnsInput){
+      gridColumnsInput.value = gridColumns ? String(gridColumns) : '';
+      const handleGridColumnsInput = value => {
         if(typeof value !== 'string') return;
         if(value.trim() === ''){
-          setGridRows(null);
+          setGridColumns(null);
           return;
         }
-        const normalized = normalizeGridRowValue(value);
+        const normalized = normalizeGridColumnValue(value);
         if(normalized == null) return;
-        setGridRows(normalized);
+        setGridColumns(normalized);
       };
-      gridRowsInput.addEventListener('input', event => {
-        handleGridRowsInput(event.target.value);
+      gridColumnsInput.addEventListener('input', event => {
+        handleGridColumnsInput(event.target.value);
       });
-      gridRowsInput.addEventListener('blur', event => {
-        handleGridRowsInput(event.target.value);
+      gridColumnsInput.addEventListener('blur', event => {
+        handleGridColumnsInput(event.target.value);
+      });
+    }
+
+    if(noteInput){
+      noteInput.value = noteText;
+      noteInput.addEventListener('input', event => {
+        noteText = normalizeNoteText(event.target.value);
+        persistNoteText(noteText);
+      });
+    }
+
+    if(noteScaleInput){
+      noteScaleInput.value = String(noteScale);
+      if(noteScaleValue){
+        noteScaleValue.textContent = String(noteScale);
+      }
+      noteScaleInput.addEventListener('input', event => {
+        noteScale = normalizeNoteScale(event.target.value);
+        noteScaleInput.value = String(noteScale);
+        if(noteScaleValue){
+          noteScaleValue.textContent = String(noteScale);
+        }
+        persistNoteScale(noteScale);
       });
     }
 
