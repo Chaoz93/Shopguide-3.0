@@ -409,12 +409,14 @@
       modalOverlay,
       modal:modalOverlay.querySelector('.dc-modal'),
       aspenSelect:modalOverlay.querySelector('[data-aspen-select]'),
+      header:root.querySelector('.dc-header'),
       status:root.querySelector('[data-status]'),
       statusSummary:root.querySelector('[data-status-summary]'),
       statusToggle:root.querySelector('[data-toggle-status]'),
       statusToggleText:root.querySelector('[data-toggle-text]'),
       fileStatus:root.querySelector('[data-file-status]'),
       fileStatusText:root.querySelector('[data-file-status-text]'),
+      unit:root.querySelector('.dc-unit'),
       aspenLabel:root.querySelector('[data-aspen]'),
       commentsLabel:root.querySelector('[data-comments]'),
       aspenSummary:root.querySelector('[data-aspen-summary]'),
@@ -993,7 +995,21 @@
       textarea.style.height='auto';
       const editor=elements.editor;
       let availableHeight=0;
-      if(editor){
+      const root=elements.root;
+      if(root){
+        const rootHeight=root.getBoundingClientRect().height;
+        const headerHeight=elements.header?elements.header.getBoundingClientRect().height:0;
+        const statusHeight=elements.status?elements.status.getBoundingClientRect().height:0;
+        const unitHeight=elements.unit?elements.unit.getBoundingClientRect().height:0;
+        const noteHeight=elements.note?elements.note.getBoundingClientRect().height:0;
+        const rootStyles=window.getComputedStyle(root);
+        const rootGap=parseFloat(rootStyles.rowGap||rootStyles.gap||'0')||0;
+        const visibleBlocks=[elements.header,elements.status,elements.unit,editor].filter(el=>el && el.getBoundingClientRect().height>0);
+        const rootGaps=Math.max(0,visibleBlocks.length-1)*rootGap;
+        const editorStyles=editor?window.getComputedStyle(editor):null;
+        const editorGap=parseFloat(editorStyles?.rowGap||editorStyles?.gap||'0')||0;
+        availableHeight=rootHeight-headerHeight-statusHeight-unitHeight-rootGaps-noteHeight-editorGap;
+      }else if(editor){
         const styles=window.getComputedStyle(editor);
         const gapValue=parseFloat(styles.rowGap||styles.gap||'0')||0;
         const editorHeight=editor.getBoundingClientRect().height;
@@ -1004,7 +1020,7 @@
       if(availableHeight>0){
         const nextHeight=Math.max(0,availableHeight);
         textarea.style.height=`${nextHeight}px`;
-        textarea.style.overflowY=desiredHeight>availableHeight?'auto':'hidden';
+        textarea.style.overflowY='hidden';
       }else{
         textarea.style.height=`${desiredHeight}px`;
         textarea.style.overflowY='hidden';

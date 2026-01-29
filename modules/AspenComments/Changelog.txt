@@ -5,6 +5,10 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.4.5] – 2026-01-29
+### Changed
+- Textfeldhöhe wird anhand der aktuellen Modulhöhe berechnet, damit die Größe nicht an der Mindesthöhe hängen bleibt.
+
 ## [1.4.4] – 2026-01-29
 ### Changed
 - Textfeld passt sich zuverlässig an die verfügbare Modulhöhe an, damit das Modul keine Scrollleisten zeigt.
