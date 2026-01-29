@@ -39,6 +39,25 @@
     'Modification 4'
   ];
   const DEFAULT_FINDING_STATUS='Spare';
+  const DEVICE_STATUS_OPTIONS=['Repair','Tested','Scrap'];
+
+  function normalizeDeviceStatus(value){
+    const cleaned=clean(value);
+    if(!cleaned) return '';
+    const match=DEVICE_STATUS_OPTIONS.find(option=>option.toLowerCase()===cleaned.toLowerCase());
+    return match||cleaned;
+  }
+
+  function selectionContainsScrap(selection){
+    if(!selection||typeof selection!=='object') return false;
+    const candidates=[selection.label,selection.finding,selection.action].filter(Boolean);
+    return candidates.some(text=>String(text).toLowerCase().includes('scrap'));
+  }
+
+  function selectionsContainScrap(selections){
+    if(!Array.isArray(selections)) return false;
+    return selections.some(selectionContainsScrap);
+  }
 
   function normalizeFindingStatus(value){
     const cleaned=clean(value);
@@ -1770,7 +1789,8 @@
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-body{display:none;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-summary{margin-left:0;}
       .nsf-selection-section.nsf-selection-collapsed .nsf-selection-header{border-bottom:none;}
-      .nsf-removal-panel{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-removal-group{background:rgba(15,23,42,0.18);border-radius:1rem;padding:0.65rem 0.75rem;display:flex;flex-direction:column;gap:0.6rem;border:1px solid rgba(148,163,184,0.12);}
+      .nsf-removal-panel{background:rgba(255,255,255,0.04);border-radius:0.8rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-removal-header{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;}
       .nsf-removal-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-removal-chip{background:rgba(148,163,184,0.18);border-radius:999px;padding:0.18rem 0.6rem;font-size:0.75rem;font-weight:600;letter-spacing:0.01em;}
@@ -1782,6 +1802,10 @@
       .nsf-removal-btn{background:rgba(255,255,255,0.14);border:none;border-radius:0.65rem;padding:0.35rem 0.7rem;font:inherit;font-size:0.78rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-removal-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px);}
       .nsf-removal-btn:disabled{opacity:0.45;cursor:not-allowed;background:rgba(255,255,255,0.12);transform:none;}
+      .nsf-device-status-panel{background:rgba(255,255,255,0.04);border-radius:0.8rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.45rem;}
+      .nsf-device-status-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
+      .nsf-device-status-select{padding:0.45rem 0.6rem;border-radius:0.6rem;border:1px solid rgba(148,163,184,0.45);background:rgba(15,23,42,0.18);color:inherit;font:inherit;font-size:0.85rem;}
+      .nsf-device-status-select:disabled{opacity:0.5;cursor:not-allowed;}
       .nsf-reason-panel{background:rgba(15,23,42,0.16);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-reason-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;}
       .nsf-reason-textarea{min-height:4.5rem;}
@@ -3768,10 +3792,11 @@
     const selections=Array.isArray(raw.selections)?raw.selections.filter(Boolean):[];
     if(!id||!createdAt||!Number.isFinite(createdMs)) return null;
     const rfr=typeof raw.rfr==='string'?raw.rfr:null;
+    const deviceStatus=typeof raw.deviceStatus==='string'?raw.deviceStatus:null;
     const reason=typeof raw.reason==='string'?raw.reason:null;
     const exchangeInput=typeof raw.exchangeInput==='string'?raw.exchangeInput:null;
     const exchangeOutput=typeof raw.exchangeOutput==='string'?raw.exchangeOutput:null;
-    return {id,createdAt,createdMs,selections,rfr,reason,exchangeInput,exchangeOutput};
+    return {id,createdAt,createdMs,selections,rfr,deviceStatus,reason,exchangeInput,exchangeOutput};
   }
 
   function getEventHistoryForKey(store,key){
@@ -3797,6 +3822,7 @@
       createdAt:entry.createdAt,
       selections:Array.isArray(entry.selections)?entry.selections:[],
       rfr:typeof entry.rfr==='string'?entry.rfr:'',
+      deviceStatus:typeof entry.deviceStatus==='string'?entry.deviceStatus:'',
       reason:typeof entry.reason==='string'?entry.reason:'',
       exchangeInput:typeof entry.exchangeInput==='string'?entry.exchangeInput:'',
       exchangeOutput:typeof entry.exchangeOutput==='string'?entry.exchangeOutput:''
@@ -3813,6 +3839,7 @@
         createdAt:normalizedEntry.createdAt,
         selections:normalizedEntry.selections,
         rfr:typeof normalizedEntry.rfr==='string'?normalizedEntry.rfr:'',
+        deviceStatus:typeof normalizedEntry.deviceStatus==='string'?normalizedEntry.deviceStatus:'',
         reason:typeof normalizedEntry.reason==='string'?normalizedEntry.reason:'',
         exchangeInput:typeof normalizedEntry.exchangeInput==='string'?normalizedEntry.exchangeInput:'',
         exchangeOutput:typeof normalizedEntry.exchangeOutput==='string'?normalizedEntry.exchangeOutput:''
@@ -3961,6 +3988,7 @@
       parts:'',
       freitextTemplate:'',
       rfr:'',
+      deviceStatus:'',
       reason:'',
       exchangeInput:'',
       exchangeOutput:'',
@@ -3999,6 +4027,7 @@
       parts:typeof state.parts==='string'?state.parts:'',
       freitextTemplate:typeof state.freitextTemplate==='string'?state.freitextTemplate:'',
       rfr:typeof state.rfr==='string'?state.rfr:'',
+      deviceStatus:typeof state.deviceStatus==='string'?state.deviceStatus:'',
       reason:typeof state.reason==='string'?state.reason:'',
       exchangeInput:typeof state.exchangeInput==='string'?state.exchangeInput:'',
       exchangeOutput:typeof state.exchangeOutput==='string'?state.exchangeOutput:'',
@@ -4037,6 +4066,7 @@
       nonroutine: typeof entry?.nonroutine==='string'?entry.nonroutine:'',
       parts: typeof entry?.partsText==='string'?entry.partsText:'',
       rfr: typeof entry?.rfr==='string'?entry.rfr:'',
+      deviceStatus: typeof entry?.deviceStatus==='string'?entry.deviceStatus:'',
       reason: typeof entry?.reason==='string'?entry.reason:'',
       customSections: normalizeCustomSections(entry?.customSections)
     };
@@ -4091,6 +4121,7 @@
       nonroutine: typeof state.nonroutine==='string'?state.nonroutine:'',
       parts: typeof state.parts==='string'?state.parts:'',
       rfr: typeof state.rfr==='string'?state.rfr:'',
+      deviceStatus: typeof state.deviceStatus==='string'?state.deviceStatus:'',
       reason: typeof state.reason==='string'?state.reason:'',
       customSections: Array.isArray(state.customSections)?state.customSections.map(cloneCustomSection):[],
       selections: serializeSelections(selections)
@@ -4267,6 +4298,21 @@
     const date=new Date(value);
     if(Number.isNaN(date.getTime())) return value;
     return date.toLocaleDateString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit'});
+  }
+
+  function formatEventHistoryLabel(entry,options){
+    if(!entry) return '';
+    const dateLabel=formatEventTimestamp(entry.createdAt);
+    const statusLabel=normalizeDeviceStatus(entry.deviceStatus);
+    const baseLabel=statusLabel
+      ?(dateLabel?`${statusLabel} · ${dateLabel}`:statusLabel)
+      :dateLabel;
+    if(options&&options.includeCount){
+      const count=Array.isArray(entry.selections)?entry.selections.length:0;
+      if(!baseLabel) return `${count} Findings`;
+      return `${baseLabel} • ${count}`;
+    }
+    return baseLabel;
   }
 
   function autoResizeTextarea(textarea){
@@ -4465,6 +4511,7 @@
       this.removalReason='';
       this.removalOptionsCollapsed=false;
       this.removalOptionsInitialized=false;
+      this.deviceStatus='';
       this.reasonText='';
       this.reasonTextarea=null;
       this.exchangeInputText='';
@@ -4686,6 +4733,7 @@
         this.removalOptionsCollapsed=false;
       }
       this.removalOptionsInitialized=true;
+      this.deviceStatus=normalizeDeviceStatus(this.activeState.deviceStatus||'');
       this.reasonText=clean(this.activeState.reason||'');
       this.exchangeInputText=clean(this.activeState.exchangeInput||'');
       this.exchangeOutputText=clean(this.activeState.exchangeOutput||'');
@@ -4694,6 +4742,7 @@
       this.syncCustomSectionsToActiveState({save:false});
       this.history=getHistoryForPart(this.globalState,this.currentPart);
       this.selectedEntries=this.hydrateSelections(selections);
+      this.applyDeviceStatusRule({persist:true,render:false});
       await this.ensureDefaultEventHistoryEntry();
       const defaultEventEntry=!this.activeEventId&&this.eventHistory.length
         ?this.eventHistory[0]
@@ -5406,7 +5455,7 @@
         this.eventHistory.forEach(entry=>{
           const option=document.createElement('option');
           option.value=entry.id;
-          const label=formatEventTimestamp(entry.createdAt);
+          const label=formatEventHistoryLabel(entry);
           option.textContent=label||'Event';
           if(entry.id===this.activeEventId) option.selected=true;
           headerHistorySelect.appendChild(option);
@@ -5527,9 +5576,8 @@
           this.eventHistory.forEach(entry=>{
             const option=document.createElement('option');
             option.value=entry.id;
-            const count=Array.isArray(entry.selections)?entry.selections.length:0;
-            const label=formatEventTimestamp(entry.createdAt);
-            option.textContent=label?`${label} • ${count}`:`${count} Findings`;
+            const label=formatEventHistoryLabel(entry,{includeCount:true});
+            option.textContent=label||'Event';
             if(entry.id===this.activeEventId) option.selected=true;
             historySelect.appendChild(option);
           });
@@ -5571,7 +5619,7 @@
               selectBtn.classList.add('is-active');
             }
             const count=Array.isArray(entry.selections)?entry.selections.length:0;
-            const label=formatEventTimestamp(entry.createdAt);
+            const label=formatEventHistoryLabel(entry);
             const textLabel=document.createElement('span');
             textLabel.textContent=label?`Ereignis ${label}`:'Ereignis';
             const meta=document.createElement('span');
@@ -5856,6 +5904,8 @@
       selectionGrid.className='nsf-selection-grid';
       selectionBody.appendChild(selectionGrid);
 
+      const removalGroup=document.createElement('div');
+      removalGroup.className='nsf-removal-group';
       const removalPanel=document.createElement('div');
       removalPanel.className='nsf-removal-panel';
       const removalHeader=document.createElement('div');
@@ -5918,7 +5968,39 @@
         this.setRemovalReason(input.trim());
       });
       removalPanel.appendChild(removalActions);
-      selectionGrid.appendChild(removalPanel);
+
+      const deviceStatusPanel=document.createElement('div');
+      deviceStatusPanel.className='nsf-device-status-panel';
+      const deviceStatusTitle=document.createElement('div');
+      deviceStatusTitle.className='nsf-device-status-title';
+      deviceStatusTitle.textContent='Gerätestatus';
+      const deviceStatusSelect=document.createElement('select');
+      deviceStatusSelect.className='nsf-device-status-select';
+      const deviceStatusPlaceholder=document.createElement('option');
+      deviceStatusPlaceholder.value='';
+      deviceStatusPlaceholder.textContent='Gerätestatus wählen…';
+      deviceStatusSelect.appendChild(deviceStatusPlaceholder);
+      DEVICE_STATUS_OPTIONS.forEach(option=>{
+        const opt=document.createElement('option');
+        opt.value=option;
+        opt.textContent=option;
+        deviceStatusSelect.appendChild(opt);
+      });
+      const normalizedDeviceStatus=normalizeDeviceStatus(this.deviceStatus);
+      if(normalizedDeviceStatus&&!DEVICE_STATUS_OPTIONS.includes(normalizedDeviceStatus)){
+        const opt=document.createElement('option');
+        opt.value=normalizedDeviceStatus;
+        opt.textContent=normalizedDeviceStatus;
+        deviceStatusSelect.appendChild(opt);
+      }
+      deviceStatusSelect.value=normalizedDeviceStatus||'';
+      deviceStatusSelect.disabled=!this.meldung;
+      deviceStatusSelect.addEventListener('change',()=>{
+        this.setDeviceStatus(deviceStatusSelect.value);
+      });
+      deviceStatusPanel.append(deviceStatusTitle,deviceStatusSelect);
+      removalGroup.append(removalPanel,deviceStatusPanel);
+      selectionGrid.appendChild(removalGroup);
 
       const reasonPanel=document.createElement('div');
       reasonPanel.className='nsf-reason-panel';
@@ -10650,6 +10732,35 @@
       this.render();
     }
 
+    applyDeviceStatusRule(options){
+      const hasScrap=selectionsContainScrap(this.selectedEntries);
+      const normalized=normalizeDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||'');
+      const nextStatus=hasScrap ? 'Scrap' : normalized;
+      if(nextStatus===this.deviceStatus) return;
+      this.deviceStatus=nextStatus;
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.deviceStatus=nextStatus;
+      }
+      if(options&&options.persist===false) return;
+      this.queueStateSave();
+      this.queueEventAutoUpdate();
+      if(!(options&&options.render===false)){
+        this.render();
+      }
+    }
+
+    setDeviceStatus(status){
+      if(!this.meldung) return;
+      this.deviceStatus=normalizeDeviceStatus(status);
+      if(this.activeState&&typeof this.activeState==='object'){
+        this.activeState.deviceStatus=this.deviceStatus;
+      }
+      this.applyDeviceStatusRule({persist:true,render:false});
+      this.queueStateSave();
+      this.queueEventAutoUpdate();
+      this.render();
+    }
+
     setReasonText(reasonText){
       if(!this.meldung) return;
       const cleaned=typeof reasonText==='string'?reasonText.trim():'';
@@ -10696,6 +10807,7 @@
       const target=detail.target&&typeof detail.target==='object'?detail.target:null;
       const updatedAny=this.applyFindingsEditorUpdate(updated,target);
       if(updatedAny){
+        this.applyDeviceStatusRule({persist:false,render:false});
         this.syncOutputsWithSelections({persist:false});
         this.persistState(true);
         this.queueEventAutoUpdate();
@@ -10875,6 +10987,7 @@
         createdAt:timestamp.toISOString(),
         selections:serializeEventHistorySelections(this.selectedEntries),
         rfr:clean(this.removalReason||this.activeState?.rfr||''),
+        deviceStatus:normalizeDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||''),
         reason:clean(this.reasonText||this.activeState?.reason||''),
         exchangeInput:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
         exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'')
@@ -10900,6 +11013,7 @@
         createdAt:timestamp.toISOString(),
         selections:serializeEventHistorySelections(this.selectedEntries),
         rfr:clean(this.removalReason||this.activeState?.rfr||''),
+        deviceStatus:normalizeDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||''),
         reason:clean(this.reasonText||this.activeState?.reason||''),
         exchangeInput:clean(this.exchangeInputText||this.activeState?.exchangeInput||''),
         exchangeOutput:clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'')
@@ -10933,6 +11047,7 @@
       if(!Array.isArray(storedList)) return;
       const updatedSelections=serializeEventHistorySelections(this.selectedEntries);
       const updatedRfr=clean(this.removalReason||this.activeState?.rfr||'');
+      const updatedDeviceStatus=normalizeDeviceStatus(this.deviceStatus||this.activeState?.deviceStatus||'');
       const updatedReason=clean(this.reasonText||this.activeState?.reason||'');
       const updatedExchangeInput=clean(this.exchangeInputText||this.activeState?.exchangeInput||'');
       const updatedExchangeOutput=clean(this.exchangeOutputText||this.activeState?.exchangeOutput||'');
@@ -10944,6 +11059,7 @@
           ...item,
           selections:updatedSelections,
           rfr:updatedRfr,
+          deviceStatus:updatedDeviceStatus,
           reason:updatedReason,
           exchangeInput:updatedExchangeInput,
           exchangeOutput:updatedExchangeOutput
@@ -10990,6 +11106,10 @@
           this.activeState.rfr=this.removalReason;
           this.removalOptionsCollapsed=!!this.removalReason;
         }
+        if(typeof entry.deviceStatus==='string'){
+          this.deviceStatus=normalizeDeviceStatus(entry.deviceStatus);
+          this.activeState.deviceStatus=this.deviceStatus;
+        }
         if(typeof entry.reason==='string'){
           this.reasonText=clean(entry.reason);
           this.activeState.reason=this.reasonText;
@@ -11003,6 +11123,7 @@
           this.activeState.exchangeOutput=this.exchangeOutputText;
         }
       }
+      this.applyDeviceStatusRule({persist:false,render:false});
       this.undoBuffer=null;
       this.syncOutputsWithSelections({persist:false});
       if(options&&options.persist){
@@ -11480,6 +11601,7 @@
 
         this.selectedEntries.push(selection);
       }
+      this.applyDeviceStatusRule({persist:true,render:false});
       this.queueEventAutoUpdate();
     }
 
@@ -11516,6 +11638,7 @@
         this.selectedEntries=this.selectedEntries.filter(sel=>sel.key!==entry.key);
         this.undoBuffer={entry:{...entry}};
       }
+      this.applyDeviceStatusRule({persist:true,render:false});
       this.removeRow(state);
       this.syncOutputsWithSelections({persist:false});
       this.persistState(true);
@@ -11544,6 +11667,7 @@
       this.removalReason='';
       this.removalOptionsCollapsed=false;
       this.removalOptionsInitialized=false;
+      this.deviceStatus='';
       this.reasonText='';
       this.exchangeInputText='';
       this.exchangeOutputText='';
