@@ -643,7 +643,11 @@
       const calculations=normalizeCalculations(calcRaw.length?calcRaw:defaultCalculations);
       const defaultColorSelection=(raw.colors&&Object.keys(raw.colors).length)
         ? raw.colors
-        : {buttons:COLOR_PRESETS[1]?.id||'alternative'};
+        : {
+          module:COLOR_PRESETS[0]?.id||'main',
+          header:COLOR_PRESETS[1]?.id||'alternative',
+          buttons:COLOR_PRESETS[1]?.id||'alternative'
+        };
       return{
         ruleIdbKey:raw.ruleIdbKey||ruleIdbKey,
         ruleFileName:raw.ruleFileName||general.nameFileName||'',
