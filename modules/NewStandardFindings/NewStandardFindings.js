@@ -1733,17 +1733,19 @@
       .nsf-section{background:rgba(255,255,255,0.08);border-radius:1rem;padding:0.65rem 0.85rem;display:flex;flex-direction:column;gap:0.55rem;}
       .nsf-header-section{padding:0.4rem 0.6rem;gap:0.35rem;}
       .nsf-header-section.collapsed{padding:0.3rem 0.5rem;}
-      .nsf-header-bar{display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;line-height:1.2;}
-      .nsf-header-section.collapsed .nsf-header-bar{flex-wrap:wrap;align-items:flex-start;}
+      .nsf-header-bar{display:flex;flex-direction:column;gap:0.35rem;font-size:0.78rem;line-height:1.2;}
+      .nsf-header-row{display:flex;align-items:center;gap:0.5rem;}
+      .nsf-header-row-top{justify-content:space-between;}
+      .nsf-header-section.collapsed .nsf-header-row{flex-wrap:wrap;align-items:flex-start;}
       .nsf-header-section.collapsed .nsf-header-toggle{order:1;}
       .nsf-header-toggle{background:rgba(255,255,255,0.12);border:none;border-radius:0.45rem;width:1.6rem;height:1.6rem;display:flex;align-items:center;justify-content:center;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease;}
       .nsf-header-toggle:hover{background:rgba(255,255,255,0.22);transform:translateY(-1px);}
-      .nsf-header-summary{flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
+      .nsf-header-summary{display:flex;align-items:center;flex-wrap:wrap;gap:0.55rem;font-weight:600;}
       .nsf-header-section.collapsed .nsf-header-summary{order:2;width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.35rem 0.6rem;align-items:center;}
       .nsf-header-summary-item{white-space:nowrap;opacity:0.9;}
-      .nsf-header-debug{flex-basis:100%;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;display:flex;flex-direction:column;gap:0.1rem;}
-      .nsf-header-debug-line{display:block;}
-      .nsf-header-section.collapsed .nsf-header-debug{grid-column:1/-1;flex-basis:auto;}
+      .nsf-header-debug{flex:1;font-size:0.7rem;font-weight:500;opacity:0.65;line-height:1.2;white-space:normal;display:flex;flex-wrap:wrap;gap:0.35rem;}
+      .nsf-header-debug-line{display:inline-flex;gap:0.2rem;white-space:nowrap;}
+      .nsf-header-section.collapsed .nsf-header-debug{width:100%;}
       .nsf-selection-section{padding:0;gap:0;overflow:visible;position:relative;}
       .nsf-selection-section.nsf-selection-collapsed{overflow:hidden;}
       .nsf-selection-header{display:flex;align-items:center;gap:0.55rem;padding:0.55rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;}
@@ -1789,8 +1791,8 @@
       .nsf-exchange-label{font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;opacity:0.7;}
       .nsf-exchange-input{padding:0.45rem 0.6rem;border-radius:0.6rem;border:1px solid rgba(148,163,184,0.45);background:rgba(15,23,42,0.18);color:inherit;font:inherit;font-size:0.85rem;}
       .nsf-exchange-input:disabled{opacity:0.5;cursor:not-allowed;}
-      .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;}
-      .nsf-header-section.collapsed .nsf-header-actions{order:3;width:100%;justify-content:flex-end;flex-wrap:wrap;}
+      .nsf-header-actions{display:flex;align-items:center;gap:0.35rem;margin-left:auto;}
+      .nsf-header-section.collapsed .nsf-header-actions{order:3;width:100%;justify-content:flex-end;flex-wrap:wrap;margin-left:0;}
       .nsf-header-history{display:flex;align-items:center;gap:0.35rem;}
       .nsf-header-history-label{font-size:0.7rem;opacity:0.7;display:inline-flex;align-items:center;gap:0.25rem;}
       .nsf-history-warning{width:0.45rem;height:0.45rem;border-radius:999px;background:rgba(248,113,113,0.95);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px rgba(248,113,113,0.25);flex:0 0 auto;}
@@ -1854,10 +1856,14 @@
       .nsf-history-container{background:rgba(15,23,42,0.18);border-radius:0.9rem;padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.45rem;}
       .nsf-history-header{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;opacity:0.75;display:flex;align-items:center;gap:0.35rem;}
       .nsf-history{display:flex;flex-wrap:wrap;gap:0.45rem;}
-      .nsf-history-chip{background:rgba(148,163,184,0.16);border:1px solid rgba(148,163,184,0.35);border-radius:0.65rem;padding:0.35rem 0.65rem;font:inherit;font-size:0.78rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;display:inline-flex;align-items:center;gap:0.35rem;line-height:1;}
+      .nsf-history-chip{background:rgba(148,163,184,0.16);border:1px solid rgba(148,163,184,0.35);border-radius:0.65rem;padding:0.35rem 1.45rem 0.35rem 0.65rem;font:inherit;font-size:0.78rem;color:inherit;cursor:pointer;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;display:inline-flex;align-items:center;gap:0.35rem;line-height:1;position:relative;}
       .nsf-history-chip:hover{background:rgba(59,130,246,0.2);transform:translateY(-1px);box-shadow:0 10px 18px rgba(15,23,42,0.3);}
       .nsf-chip-icon{font-size:0.85rem;opacity:0.75;}
       .nsf-chip-text{font-weight:500;}
+      .nsf-history-remove{position:absolute;top:50%;right:0.3rem;transform:translateY(-50%);width:1.1rem;height:1.1rem;border-radius:999px;border:none;background:rgba(255,255,255,0.12);color:inherit;font:inherit;font-size:0.75rem;display:inline-flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.15s ease,background 0.15s ease,transform 0.15s ease;}
+      .nsf-history-chip:hover .nsf-history-remove,
+      .nsf-history-chip:focus-within .nsf-history-remove{opacity:0.9;pointer-events:auto;}
+      .nsf-history-remove:hover{background:rgba(248,113,113,0.28);transform:translateY(-50%) scale(1.05);}
       .nsf-input-wrapper{display:flex;flex-direction:column;gap:0.5rem;}
       .nsf-input-row{position:relative;background:rgba(15,23,42,0.18);border-radius:0.85rem;padding:0.55rem 0.65rem;display:flex;flex-direction:column;gap:0.35rem;z-index:1;}
       .nsf-input-row.show-suggestions{z-index:120;}
@@ -4172,6 +4178,27 @@
     saveGlobalState(global);
   }
 
+  function removeHistoryEntry(global,part,entryKey){
+    const normalized=normalizePart(part);
+    if(!normalized||!entryKey) return false;
+    if(normalized!==part&&Array.isArray(global.history[part])&&!Array.isArray(global.history[normalized])){
+      global.history[normalized]=global.history[part];
+      delete global.history[part];
+    }
+    if(!Array.isArray(global.history[normalized])) return false;
+    const before=global.history[normalized].length;
+    global.history[normalized]=global.history[normalized].filter(item=>item&&item.key!==entryKey);
+    const usage=ensureHistoryUsageForPart(global,normalized);
+    if(usage&&Object.prototype.hasOwnProperty.call(usage,entryKey)){
+      delete usage[entryKey];
+    }
+    if(global.history[normalized].length!==before){
+      saveGlobalState(global);
+      return true;
+    }
+    return false;
+  }
+
   function sortHistoryByUsage(a,b){
     if(!a&&!b) return 0;
     if(!a) return 1;
@@ -5306,8 +5333,6 @@
         this.headerCollapsed=!this.headerCollapsed;
         this.render();
       });
-      headerBar.appendChild(toggleButton);
-
       const summary=document.createElement('div');
       summary.className='nsf-header-summary';
       const missingHints=[];
@@ -5329,18 +5354,10 @@
       const findingsStand=formatTimeShort(this.findingsLastModified);
       const aspenStand=formatTimeShort(this.aspenLastModified);
       const historyStand=formatTimeShort(this.historyLastModified);
-      const findingsLine=document.createElement('span');
-      findingsLine.className='nsf-header-debug-line';
-      findingsLine.textContent=`Auto-Update Findings Stand ${findingsStand}`;
-      const aspenLine=document.createElement('span');
-      aspenLine.className='nsf-header-debug-line';
-      aspenLine.textContent=`Auto-Update Aspen Stand ${aspenStand}`;
-      const historyLine=document.createElement('span');
-      historyLine.className='nsf-header-debug-line';
-      historyLine.textContent=`Auto-Update History Stand ${historyStand}`;
-      debugSpan.append(findingsLine,aspenLine,historyLine);
-      summary.appendChild(debugSpan);
-      headerBar.appendChild(summary);
+      const autoUpdateLine=document.createElement('span');
+      autoUpdateLine.className='nsf-header-debug-line';
+      autoUpdateLine.textContent=`Auto-Update Findings ${findingsStand} · Aspen ${aspenStand} · History ${historyStand}`;
+      debugSpan.append(autoUpdateLine);
 
       const headerActions=document.createElement('div');
       headerActions.className='nsf-header-actions';
@@ -5401,8 +5418,14 @@
         this.applyEventSnapshot(entry);
       });
       headerHistory.append(headerHistoryLabel,headerHistorySelect);
-      headerActions.appendChild(headerHistory);
-      headerBar.appendChild(headerActions);
+      headerActions.append(headerHistory,toggleButton);
+      const headerTop=document.createElement('div');
+      headerTop.className='nsf-header-row nsf-header-row-top';
+      headerTop.append(debugSpan,headerActions);
+      headerBar.appendChild(headerTop);
+      if(summary.childElementCount){
+        headerBar.appendChild(summary);
+      }
 
       contextSection.appendChild(headerBar);
       if(this.findingsHandleMessage){
@@ -5950,7 +5973,23 @@
           const label=document.createElement('span');
           label.className='nsf-chip-text';
           label.textContent=entry.label||entry.finding||'Eintrag';
-          chip.append(icon,label);
+          const removeBtn=document.createElement('button');
+          removeBtn.type='button';
+          removeBtn.className='nsf-history-remove';
+          removeBtn.textContent='🗑️';
+          removeBtn.title='Aus Verlauf entfernen';
+          removeBtn.setAttribute('aria-label',removeBtn.title);
+          removeBtn.addEventListener('click',event=>{
+            event.preventDefault();
+            event.stopPropagation();
+            if(!this.currentPart) return;
+            const removed=removeHistoryEntry(this.globalState,this.currentPart,entry.key);
+            if(removed){
+              this.history=getHistoryForPart(this.globalState,this.currentPart);
+              this.render();
+            }
+          });
+          chip.append(icon,label,removeBtn);
           chip.addEventListener('click',()=>this.useEntry(entry));
           historyList.appendChild(chip);
         }
