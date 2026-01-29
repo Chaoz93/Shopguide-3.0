@@ -107,14 +107,15 @@
     .ops-tab-buttons input{width:1.1rem; height:1.1rem;}
     .ops-tab-buttons .ops-action-button{margin-top:.45rem;}
     .ops-button-list{display:flex; flex-direction:column; gap:.45rem; margin-top:.65rem;}
-    .ops-grid-settings{display:flex; flex-direction:column; gap:.45rem; padding:.65rem .75rem; border-radius:.75rem;
+    .ops-grid-settings{display:flex; flex-direction:column; gap:.55rem; padding:.65rem .75rem; border-radius:.75rem;
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55);}
+    .ops-grid-settings-row{display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap;}
     .ops-grid-settings label{font-weight:600; font-size:.95rem;}
-    .ops-grid-controls{display:flex; align-items:center; gap:.65rem; flex-wrap:wrap;}
-    .ops-grid-input{width:5.5rem; padding:.45rem .6rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
+    .ops-grid-controls{display:flex; align-items:center; gap:.65rem;}
+    .ops-grid-input{width:5.75rem; padding:.45rem .6rem; border-radius:.6rem; border:1px solid rgba(148,163,184,.35);
       background:rgba(15,23,42,.58); color:inherit; font-size:.95rem;}
     .ops-grid-input:focus{outline:2px solid rgba(59,130,246,.55); outline-offset:2px;}
-    .ops-grid-hint{font-size:.78rem; opacity:.7;}
+    .ops-grid-hint{font-size:.78rem; opacity:.7; margin-left:.1rem;}
     .ops-button-row{display:flex; align-items:center; gap:.65rem; padding:.55rem .75rem; border-radius:.75rem;
       border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.55); flex-wrap:wrap; position:relative;
       transition:background .18s ease, border-color .18s ease, transform .18s ease; will-change:transform;}
@@ -3757,10 +3758,12 @@
           </div>
           <div class="ops-tab ops-tab-buttons active" data-tab="buttons">
             <div class="ops-grid-settings">
-              <label for="ops-grid-rows">Button-Reihen</label>
-              <div class="ops-grid-controls">
-                <input type="number" id="ops-grid-rows" class="ops-grid-input" min="1" max="8" step="1" placeholder="Auto" data-grid-rows-input>
-                <span class="ops-grid-hint">Leer lassen = automatische Reihenanzahl.</span>
+              <div class="ops-grid-settings-row">
+                <label for="ops-grid-rows">Button-Reihen</label>
+                <div class="ops-grid-controls">
+                  <input type="number" id="ops-grid-rows" class="ops-grid-input" min="1" max="8" step="1" placeholder="Auto" data-grid-rows-input>
+                  <span class="ops-grid-hint">Leer lassen = automatisch.</span>
+                </div>
               </div>
             </div>
             <div class="ops-button-list" data-button-list></div>

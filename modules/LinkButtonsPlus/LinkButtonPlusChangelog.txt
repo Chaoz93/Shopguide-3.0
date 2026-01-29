@@ -7,6 +7,8 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ## [1.8.6] – 2026-01-29
 ### Added
 - Einstellungsoption für die gewünschte Anzahl an Button-Reihen im Modal ergänzt.
+### Changed
+- Layout der Button-Reihen-Einstellung kompakter ausgerichtet.
 
 ## [1.8.5] – 2026-01-26
 ### Changed
