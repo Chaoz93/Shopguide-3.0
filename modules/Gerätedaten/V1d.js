@@ -31,12 +31,12 @@
   .rs-grid{display:grid;gap:calc(.9rem * var(--rs-density))}
   .rs-field{display:flex;flex-direction:column;gap:calc(.35rem * var(--rs-density))}
   .rs-labelwrap{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;color:var(--text-color)}
-  .rs-label{font-weight:600;opacity:.95;color:inherit;cursor:default;font-size:calc(.95rem * var(--rs-density))}
+  .rs-label{font-weight:600;opacity:.95;color:inherit;cursor:default}
   .rs-label-info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.18);color:inherit;opacity:.85;cursor:help}
   .rs-inline-input{min-width:140px;padding:.25rem .45rem;border-radius:.35rem;border:1px solid var(--rs-inline-border);background:var(--rs-inline-bg);color:var(--rs-surface-text)}
   .rs-inline-input.invalid,.rs-item-label.invalid{border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.35)}
   .rs-inputwrap{display:flex;align-items:center;width:100%}
-  .rs-root .rs-input{width:100%;background:var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983))));border:1px solid var(--rs-button-border, var(--module-button-border, var(--module-border-color, var(--button-border, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983))))))));color:var(--rs-button-text, var(--module-button-text, var(--text-color, var(--button-text,#fff))));padding:calc(.45rem * var(--rs-density)) calc(.55rem * var(--rs-density));border-radius:.4rem;cursor:pointer;font-weight:600;font-size:calc(.95rem * var(--rs-density));box-shadow:0 8px 20px var(--rs-button-shadow, rgba(0,57,96,.28));transition:filter .2s ease,transform .12s ease,box-shadow .2s ease}
+  .rs-root .rs-input{width:100%;background:var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983))));border:1px solid var(--rs-button-border, var(--module-button-border, var(--module-border-color, var(--button-border, var(--rs-button-bg, var(--module-button-bg, var(--module-bg, var(--button-bg,#005983))))))));color:var(--rs-button-text, var(--module-button-text, var(--text-color, var(--button-text,#fff))));padding:calc(.45rem * var(--rs-density)) calc(.55rem * var(--rs-density));border-radius:.4rem;cursor:pointer;font-weight:600;box-shadow:0 8px 20px var(--rs-button-shadow, rgba(0,57,96,.28));transition:filter .2s ease,transform .12s ease,box-shadow .2s ease}
   .rs-root .rs-input:hover{filter:brightness(1.05);box-shadow:0 12px 26px var(--rs-button-shadow-strong, rgba(0,57,96,.34))}
   .rs-root .rs-input:active{transform:scale(.99)}
   .rs-root .rs-input:focus-visible{outline:2px solid rgba(255,255,255,.65);outline-offset:2px}
