@@ -12,6 +12,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.16] – 2026-01-29
+### Changed
+- Die vier Ausgabetextfelder kopieren ihren Inhalt jetzt per Linksklick, wodurch die separaten Kopierbuttons entfallen.
+- Kopierte Ausgaben blitzen sehr kurz in reduzierter Akzentfarbe auf, und die Ausgabetextfelder haben keinen Größenänderungs-Handle mehr.
+
 ## [1.8.15] – 2026-01-27
 ### Added
 - Event-History-Datei wird automatisch gepollt und der Auto-Update-Status im Kopfbereich um die History ergänzt.
