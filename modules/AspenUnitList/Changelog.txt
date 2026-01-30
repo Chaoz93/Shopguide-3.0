@@ -3,6 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.4.9] – 2026-01-30
+### Changed
+- Die ToDo-Untertabs nutzen nun den Akzentrahmen mit voller Deckkraft.
+
 ## [1.4.8] – 2026-01-30
 ### Changed
 - Die ToDo-Untertabs erhalten einen dickeren Akzentrahmen.
