@@ -135,13 +135,13 @@
     .db-tab-panel.db-tab-todo{max-height:68vh;overflow:auto;padding-right:.25rem;}
     .db-tab-panel.db-tab-design{gap:1.25rem;}
     .db-todo-card{display:flex;flex-direction:column;gap:.65rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
-    .db-todo-card-title{font-weight:700;color:var(--ab-text);}
+    .db-todo-card-title{font-weight:700;color:var(--ab-text);display:flex;align-items:center;gap:.5rem;justify-content:space-between;flex-wrap:wrap;}
     .db-todo-card-hint{font-size:.85rem;color:var(--ab-muted);}
     .db-todo-list{display:flex;flex-direction:column;gap:.6rem;}
     .db-todo-library-tabs{display:flex;flex-wrap:wrap;gap:.35rem;}
     .db-todo-tab{flex:0 0 auto;padding:.35rem .6rem;border:1px solid var(--ab-border);border-radius:.55rem;background:var(--ab-section);color:var(--ab-text);font-weight:600;font-size:.85rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
     .db-todo-tab:hover{background:var(--ab-surface);border-color:var(--ab-border);}
-    .db-todo-tab.is-active{background:var(--ab-accent-quiet);border-color:var(--ab-accent-border,var(--ab-accent));color:var(--ab-text);box-shadow:0 0 0 2px var(--ab-accent-glow);}
+    .db-todo-tab.is-active{background:var(--ab-accent-quiet);border:2px solid var(--ab-accent-border,var(--ab-accent));color:var(--ab-text);box-shadow:0 0 0 2px var(--ab-accent-glow);}
     .db-todo-column{display:flex;flex-direction:column;gap:.45rem;padding:.75rem;border-radius:.75rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);}
     .db-todo-column-header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-todo-column-title{font-weight:700;color:var(--ab-text);}
@@ -1478,11 +1478,13 @@
                 <div class="db-todo-assign-list"></div>
               </div>
               <div class="db-todo-card">
-                <div class="db-todo-card-title">ToDo-Listen</div>
+                <div class="db-todo-card-title">
+                  <span>ToDo-Listen</span>
+                  <button type="button" class="db-add-sub db-todo-add-list">Neue ToDo</button>
+                </div>
                 <div class="db-todo-card-hint">Erstelle Listen mit Info- oder Ja/Nein-Schritten, inklusive separater Ja/Nein-Pfade.</div>
                 <div class="db-todo-library-tabs"></div>
                 <div class="db-todo-library-list"></div>
-                <button type="button" class="db-add-sub db-todo-add-list">Liste hinzufügen</button>
               </div>
             </div>
           </div>

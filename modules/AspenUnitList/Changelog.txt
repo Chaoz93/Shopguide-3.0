@@ -6,6 +6,8 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ## [1.4.7] – 2026-01-30
 ### Changed
 - Der Listenname wird ausschließlich im Tab angezeigt und lässt sich per Doppelklick im Tab umbenennen.
+- Der Button zum Anlegen neuer ToDo-Listen sitzt jetzt neben der Überschrift und heißt „Neue ToDo“.
+- Der aktive ToDo-Tab hebt sich mit einem dickeren Akzentrahmen hervor.
 
 ## [1.4.6] – 2026-01-30
 ### Changed
