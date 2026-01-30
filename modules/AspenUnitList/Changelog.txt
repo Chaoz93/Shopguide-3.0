@@ -3,6 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.4.8] – 2026-01-30
+### Changed
+- Die ToDo-Untertabs erhalten einen dickeren Akzentrahmen.
+
 ## [1.4.7] – 2026-01-30
 ### Changed
 - Der Listenname wird ausschließlich im Tab angezeigt und lässt sich per Doppelklick im Tab umbenennen.

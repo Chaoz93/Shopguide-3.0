@@ -139,7 +139,7 @@
     .db-todo-card-hint{font-size:.85rem;color:var(--ab-muted);}
     .db-todo-list{display:flex;flex-direction:column;gap:.6rem;}
     .db-todo-library-tabs{display:flex;flex-wrap:wrap;gap:.35rem;}
-    .db-todo-tab{flex:0 0 auto;padding:.35rem .6rem;border:1px solid var(--ab-border);border-radius:.55rem;background:var(--ab-section);color:var(--ab-text);font-weight:600;font-size:.85rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
+    .db-todo-tab{flex:0 0 auto;padding:.35rem .6rem;border:2px solid var(--ab-accent-border,var(--ab-accent));border-radius:.55rem;background:var(--ab-section);color:var(--ab-text);font-weight:600;font-size:.85rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
     .db-todo-tab:hover{background:var(--ab-surface);border-color:var(--ab-border);}
     .db-todo-tab.is-active{background:var(--ab-accent-quiet);border:2px solid var(--ab-accent-border,var(--ab-accent));color:var(--ab-text);box-shadow:0 0 0 2px var(--ab-accent-glow);}
     .db-todo-column{display:flex;flex-direction:column;gap:.45rem;padding:.75rem;border-radius:.75rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);}
