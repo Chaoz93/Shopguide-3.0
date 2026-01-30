@@ -12,6 +12,11 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 - Beschädigte Regulärausdrücke für Zeilenumbrüche repariert, damit das Modul wieder ohne Syntaxfehler geladen werden kann.
 - Automatischer Import versucht nun mehrere Varianten des Standard-Dateinamens (z. B. `Shopguide_Findings.json` sowie ältere `Findings_Shopguide.json`), damit vorhandene Installationen ohne Umbenennung funktionieren.
 
+## [1.8.25] – 2026-01-30
+### Changed
+- Reason for Removal, Gerätestatus und Reason sind jetzt gemeinsam gruppiert, damit zusammengehörige Eingaben kompakt beieinander stehen.
+- Findings-Bereich und die neue Gruppierung teilen sich die Modulbreite nun 50/50.
+
 ## [1.8.24] – 2026-01-29
 ### Changed
 - History-Ereignisse werden jetzt pro Meldungsnummer automatisch erzeugt, sodass jede Meldung für die gleiche PN/SN-Kombination ein eigenes Event erhält.
