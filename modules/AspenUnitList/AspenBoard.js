@@ -5393,6 +5393,15 @@
             activeTodoListId=list.id;
             renderTodoControls();
           });
+          tab.addEventListener('dblclick',()=>{
+            const current=resolveTodoListLabel(list,index);
+            const nextLabel=showPrompt('Listenname ändern',current);
+            if(nextLabel===null) return;
+            const normalized=nextLabel.trim();
+            tempTodoLists[index]={...tempTodoLists[index],label:normalized};
+            scheduleOptionPersist();
+            renderTodoControls();
+          });
           tabsFragment.appendChild(tab);
         });
         elements.todoLibraryTabs.appendChild(tabsFragment);
@@ -5407,22 +5416,6 @@
       card.className='db-todo-template';
       const header=document.createElement('div');
       header.className='db-todo-template-header';
-      const nameInput=document.createElement('input');
-      nameInput.type='text';
-      nameInput.className='db-todo-template-name';
-      nameInput.value=list.label||'';
-      nameInput.placeholder='Listenname';
-      nameInput.addEventListener('input',()=>{
-        tempTodoLists[targetIndex]={...tempTodoLists[targetIndex],label:nameInput.value};
-        if(elements.todoLibraryTabs){
-          const tab=elements.todoLibraryTabs.querySelector(`[data-list-id="${list.id}"]`);
-          if(tab){
-            tab.textContent=resolveTodoListLabel(tempTodoLists[targetIndex],targetIndex);
-          }
-        }
-        scheduleOptionPersist();
-      });
-      header.appendChild(nameInput);
       const remove=document.createElement('button');
       remove.type='button';
       remove.className='db-rule-remove db-todo-step-remove';
