@@ -11012,10 +11012,18 @@
       if(!this.eventHistoryKey||!this.eventHistoryStore||!this.activeEventId) return false;
       const storedList=this.eventHistoryStore?.events?.[this.eventHistoryKey];
       if(!Array.isArray(storedList)) return false;
+      const createdAtLookup=new Map(
+        (Array.isArray(this.eventHistory)?this.eventHistory:[])
+          .filter(entry=>entry&&typeof entry.id==='string'&&typeof entry.createdAt==='string')
+          .map(entry=>[entry.id,entry.createdAt])
+      );
       let changed=false;
       const next=storedList.map(item=>{
         if(!item||item.id!==this.activeEventId) return item;
         const updated={...item};
+        if(typeof updated.createdAt!=='string'&&createdAtLookup.has(this.activeEventId)){
+          updated.createdAt=createdAtLookup.get(this.activeEventId);
+        }
         if(Object.prototype.hasOwnProperty.call(fields,'selections')){
           updated.selections=Array.isArray(fields.selections)?fields.selections:[];
         }
@@ -11127,6 +11135,11 @@
       await this.ensureEventHistoryStore();
       const historyList=getEventHistoryForKey(this.eventHistoryStore,this.eventHistoryKey);
       if(!historyList.length) return;
+      const createdAtLookup=new Map(
+        historyList
+          .filter(entry=>entry&&typeof entry.id==='string'&&typeof entry.createdAt==='string')
+          .map(entry=>[entry.id,entry.createdAt])
+      );
       const targetId=this.activeEventId||historyList[0].id;
       if(!targetId) return;
       const storedList=this.eventHistoryStore?.events?.[this.eventHistoryKey];
@@ -11142,8 +11155,12 @@
       const next=storedList.map(item=>{
         if(!item||item.id!==targetId) return item;
         changed=true;
+        const createdAt=typeof item.createdAt==='string'
+          ?item.createdAt
+          :createdAtLookup.get(targetId)||'';
         return {
           ...item,
+          createdAt,
           selections:updatedSelections,
           rfr:updatedRfr,
           deviceStatus:updatedDeviceStatus,
