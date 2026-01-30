@@ -157,7 +157,7 @@
     .db-todo-branch-list{display:flex;flex-direction:column;gap:.35rem;}
     .db-todo-branch-add{align-self:flex-start;padding:.3rem .55rem;}
     .db-todo-add-step{align-self:flex-start;padding:.35rem .6rem;}
-    .db-todo-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:1rem;}
+    .db-todo-layout{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.45fr);gap:1rem;}
     .db-todo-assign-list{display:flex;flex-direction:column;gap:.6rem;}
     .db-todo-column-select{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;color:var(--ab-muted);}
     .db-todo-column-select label{font-weight:600;color:var(--ab-text);}
@@ -1799,9 +1799,11 @@
     const valid=new Set((lists||[]).map(list=>list.id));
     return (columns||[]).map(column=>{
       const listId=typeof column.todoListId==='string'?column.todoListId.trim():'';
+      const hasList=!!(listId && valid.has(listId));
       return {
         ...column,
-        todoListId:listId && valid.has(listId) ? listId : ''
+        todoListId:hasList ? listId : '',
+        todoEnabled:hasList
       };
     });
   }
@@ -4976,28 +4978,6 @@
         input.addEventListener('change',handleExtraNameCommit);
         label.appendChild(input);
         header.appendChild(label);
-        const todoToggle=document.createElement('label');
-        todoToggle.className='db-extra-uc-switch db-extra-todo-switch';
-        todoToggle.dataset.columnId=column.id;
-        const todoInput=document.createElement('input');
-        todoInput.type='checkbox';
-        todoInput.checked=!!column.todoEnabled;
-        todoInput.addEventListener('change',()=>{
-          updateTempTodoConfig(column.id,{
-            todoEnabled:todoInput.checked
-          });
-          renderTodoControls();
-          scheduleOptionPersist(true);
-        });
-        const todoText=document.createElement('span');
-        todoText.className='db-extra-uc-switch-text';
-        todoText.textContent='ToDo Popup';
-        const todoControl=document.createElement('span');
-        todoControl.className='db-extra-uc-switch-control';
-        todoToggle.appendChild(todoInput);
-        todoToggle.appendChild(todoText);
-        todoToggle.appendChild(todoControl);
-        header.appendChild(todoToggle);
         if(index===0){
           const inlineHint=document.createElement('span');
           inlineHint.className='db-inline-hint';
@@ -5292,7 +5272,11 @@
       if(!elements.todoAssignList || !elements.todoLibraryList){
         return;
       }
-      const sanitizedColumns=sanitizeExtraColumns(tempExtraColumns).map(col=>({
+      const normalizedLists=sanitizeTodoLists(tempTodoLists);
+      const sanitizedColumns=normalizeTodoListAssignments(
+        sanitizeExtraColumns(tempExtraColumns),
+        normalizedLists
+      ).map(col=>({
         ...col,
         rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
       }));
@@ -5300,8 +5284,7 @@
         ...col,
         rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
       }));
-      const sanitizedLists=sanitizeTodoLists(tempTodoLists);
-      tempTodoLists=sanitizedLists.map(list=>({
+      tempTodoLists=normalizedLists.map(list=>({
         id:list.id,
         label:list.label,
         steps:list.steps.map(step=>({...(step||{})}))
@@ -5348,7 +5331,8 @@
           select.value=column.todoListId||'';
           select.addEventListener('change',()=>{
             updateTempTodoConfig(column.id,{
-              todoListId:select.value
+              todoListId:select.value,
+              todoEnabled:!!select.value
             });
             scheduleOptionPersist();
             renderTodoControls();
@@ -5398,7 +5382,7 @@
           tempTodoLists.splice(index,1);
           tempExtraColumns=tempExtraColumns.map(column=>{
             if(column.todoListId===removedId){
-              return {...column,todoListId:''};
+              return {...column,todoListId:'',todoEnabled:false};
             }
             return column;
           });

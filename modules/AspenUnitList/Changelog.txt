@@ -3,6 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.4.5] – 2026-01-30
+### Changed
+- ToDo-Tab breiter auf Listenlayout ausgerichtet; ToDo-Zuweisung ist kompakter.
+- ToDo-Aktivierung erfolgt jetzt automatisch über die Listen-Zuweisung (kein separater Toggle).
+
 ## [1.4.4] – 2026-01-30
 ### Added
 - Ja/Nein-Schritte können nun eigene Folgepfade (Ja/Nein) enthalten, sodass ToDos verzweigen.
