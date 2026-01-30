@@ -3,6 +3,12 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.4.6] – 2026-01-30
+### Changed
+- ToDo-Listen werden im Optionsmenü als Tabs unter der Überschrift dargestellt, sodass jeweils eine Liste im Fokus steht.
+### Fixed
+- Beim Entfernen einer ToDo-Liste erscheint nun eine Bestätigungsabfrage und die Liste wird zuverlässig gelöscht.
+
 ## [1.4.5] – 2026-01-30
 ### Changed
 - ToDo-Tab breiter auf Listenlayout ausgerichtet; ToDo-Zuweisung ist kompakter.
