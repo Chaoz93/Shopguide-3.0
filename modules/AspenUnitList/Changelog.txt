@@ -3,6 +3,11 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.3.0] – 2026-01-30
+### Added
+- Hauptspalten-Name im Extraspalten-Dialog ergänzt und als Überschrift über der Hauptliste angezeigt.
+- ToDo-Popup pro Extraspalte mit eigenem Tab zur Konfiguration der Schrittfolge ergänzt.
+
 ## [1.2.7] – 2026-01-30
 ### Fixed
 - Drag-&-Drop-Updates bündeln das Persistieren/Rendern auf den nächsten Frame, damit Gerätekacheln nach dem Ablegen ohne spürbare Verzögerung aktualisiert werden.

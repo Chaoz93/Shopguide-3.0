@@ -6,6 +6,7 @@
   const MAX_EXTRA_COLUMNS=6;
   const ACTIVE_COLUMN_ID='__active__';
   const DEFAULT_ACTIVE_COLUMN_LABEL='Aktive Geräte';
+  const DEFAULT_MAIN_COLUMN_LABEL='Geräte';
   const CUSTOM_FIELD_KEY='custom';
   const CUSTOM_CALC_FIELD_KEY='custom_calc';
 
@@ -131,7 +132,23 @@
     .db-tab-panel{display:none;flex-direction:column;gap:1rem;}
     .db-tab-panel.is-active{display:flex;}
     .db-tab-panel.db-tab-extras{max-height:68vh;overflow:auto;padding-right:.25rem;}
+    .db-tab-panel.db-tab-todo{max-height:68vh;overflow:auto;padding-right:.25rem;}
     .db-tab-panel.db-tab-design{gap:1.25rem;}
+    .db-todo-card{display:flex;flex-direction:column;gap:.65rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
+    .db-todo-card-title{font-weight:700;color:var(--ab-text);}
+    .db-todo-card-hint{font-size:.85rem;color:var(--ab-muted);}
+    .db-todo-list{display:flex;flex-direction:column;gap:.6rem;}
+    .db-todo-column{display:flex;flex-direction:column;gap:.45rem;padding:.75rem;border-radius:.75rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);}
+    .db-todo-column-header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+    .db-todo-column-title{font-weight:700;color:var(--ab-text);}
+    .db-todo-column-status{font-size:.75rem;padding:.15rem .5rem;border-radius:999px;background:var(--ab-accent-quiet);color:var(--ab-text);}
+    .db-todo-column-status.is-disabled{background:var(--ab-section);color:var(--ab-muted);}
+    .db-todo-steps{display:flex;flex-direction:column;gap:.35rem;}
+    .db-todo-step-row{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
+    .db-todo-step-row input{flex:1 1 220px;min-width:180px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-todo-step-row input:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
+    .db-todo-step-remove{padding:.35rem .55rem;}
+    .db-todo-add-step{align-self:flex-start;padding:.35rem .6rem;}
     .db-design-card{display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
     .db-design-header{display:flex;align-items:flex-end;flex-wrap:wrap;gap:.75rem;justify-content:space-between;}
     .db-design-title{display:flex;flex-direction:column;gap:.15rem;color:var(--ab-text);}
@@ -159,6 +176,20 @@
     .db-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;}
     .db-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:var(--ab-overlay);z-index:2150;}
     .db-modal.open{display:flex;}
+    .db-todo-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:var(--ab-overlay);z-index:2260;}
+    .db-todo-modal.open{display:flex;}
+    .db-todo-panel{background:var(--ab-panel);color:var(--ab-text);padding:1rem;border-radius:.85rem;min-width:280px;max-width:min(92vw,520px);width:100%;box-shadow:var(--ab-shadow);border:1px solid var(--ab-border);display:flex;flex-direction:column;gap:.75rem;}
+    .db-todo-header{display:flex;flex-direction:column;gap:.2rem;}
+    .db-todo-title{font-weight:700;color:var(--ab-text);}
+    .db-todo-subtitle{font-size:.85rem;color:var(--ab-muted);}
+    .db-todo-body{display:flex;flex-direction:column;gap:.5rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);border-radius:.75rem;padding:.75rem;}
+    .db-todo-step{font-size:1rem;font-weight:600;color:var(--ab-text);}
+    .db-todo-progress{font-size:.8rem;color:var(--ab-muted);}
+    .db-todo-actions{display:flex;justify-content:flex-end;gap:.5rem;flex-wrap:wrap;}
+    .db-todo-actions button{padding:.4rem .75rem;border-radius:.55rem;border:1px solid var(--ab-border);background:var(--ab-section);color:var(--ab-text);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease;}
+    .db-todo-actions button:hover{background:var(--ab-surface);}
+    .db-todo-next{background:var(--ab-accent);color:var(--ab-accent-contrast);border-color:var(--ab-accent-border,var(--ab-accent));}
+    .db-todo-next:hover{box-shadow:0 0 0 2px var(--ab-accent-glow);}
     .db-panel{background:var(--ab-panel);color:var(--ab-text);padding:1rem;border-radius:.75rem;min-width:320px;max-width:min(96vw,1600px);width:100%;box-shadow:var(--ab-shadow);position:relative;z-index:2210;border:1px solid var(--ab-border);}
     .db-panel .row{margin-bottom:.75rem;}
     .db-panel label{display:block;font-size:.85rem;margin-bottom:.25rem;}
@@ -1282,6 +1313,7 @@
         </div>
         <div class="db-lists">
           <div class="db-list-wrap db-main-wrap">
+            <div class="db-list-title db-main-title" hidden></div>
             <div class="db-list db-main-list" data-board-type="aspen-unit"></div>
           </div>
           <div class="db-extra-container"></div>
@@ -1296,6 +1328,7 @@
           <div class="db-config-tabs" role="tablist" aria-label="Einstellungsbereiche">
             <button type="button" class="db-config-tab is-active" role="tab" aria-selected="true" data-tab="general">Allgemein</button>
             <button type="button" class="db-config-tab" role="tab" aria-selected="false" data-tab="extras">Extraspalten</button>
+            <button type="button" class="db-config-tab" role="tab" aria-selected="false" data-tab="todo">ToDo</button>
             <button type="button" class="db-config-tab" role="tab" aria-selected="false" data-tab="design">Design</button>
           </div>
           <div class="db-tab-panel db-tab-general is-active" data-tab="general">
@@ -1384,8 +1417,9 @@
                   <div class="db-extra-section db-extra-columns">
                     <div class="db-extra-section-header">
                       <div class="db-extra-section-title">Spalten</div>
-                      <div class="db-extra-section-hint">Bezeichnung und Anzahl der Zusatzspalten.</div>
+                      <div class="db-extra-section-hint">Bezeichnung der Haupt- und Zusatzspalten.</div>
                     </div>
+                    <label class="db-extra-count-label">Name der Hauptspalte<input type="text" class="db-main-column-input" placeholder="z.B. Geräte"></label>
                     <label class="db-extra-count-label">Anzahl Extraspalten<input type="number" class="db-extra-count" min="0" max="6" step="1" value="0"></label>
                     <div class="db-extra-name-list"></div>
                   </div>
@@ -1398,6 +1432,13 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          <div class="db-tab-panel db-tab-todo" data-tab="todo" hidden>
+            <div class="db-todo-card">
+              <div class="db-todo-card-title">ToDo Popup</div>
+              <div class="db-todo-card-hint">Konfiguriere die Schritte, die beim Ablegen in aktivierte Extraspalten nacheinander abgefragt werden.</div>
+              <div class="db-todo-list"></div>
             </div>
           </div>
           <div class="db-tab-panel db-tab-design" data-tab="design" hidden>
@@ -1424,6 +1465,22 @@
           </div>
         </div>
       </div>
+      <div class="db-todo-modal" hidden>
+        <div class="db-todo-panel" role="dialog" aria-modal="true" aria-labelledby="db-todo-title">
+          <div class="db-todo-header">
+            <div class="db-todo-title" id="db-todo-title"></div>
+            <div class="db-todo-subtitle"></div>
+          </div>
+          <div class="db-todo-body">
+            <div class="db-todo-step"></div>
+            <div class="db-todo-progress"></div>
+          </div>
+          <div class="db-todo-actions">
+            <button type="button" class="db-todo-cancel">Schließen</button>
+            <button type="button" class="db-todo-next">Weiter</button>
+          </div>
+        </div>
+      </div>
     `;
 
     const titleBar=root.querySelector('.db-titlebar');
@@ -1439,6 +1496,7 @@
       activeWrap:root.querySelector('.db-active-wrap'),
       activeList:root.querySelector('.db-active-list'),
       activeTitle:root.querySelector('.db-active-title'),
+      mainTitle:root.querySelector('.db-main-title'),
       extraContainer:root.querySelector('.db-extra-container'),
       toggleGroup:root.querySelector('.db-toggle-group'),
       searchFilterGroup:root.querySelector('.db-search-filter-group'),
@@ -1468,6 +1526,7 @@
       partSelectWrap:root.querySelector('.db-part-select'),
       partSelectInput:root.querySelector('.db-part-select-input'),
       partSelectOptions:root.querySelector('.db-part-options'),
+      mainColumnInput:root.querySelector('.db-main-column-input'),
       extraCount:root.querySelector('.db-extra-count'),
       extraNameList:root.querySelector('.db-extra-name-list'),
       extraRuleBoard:root.querySelector('.db-extra-rule-board'),
@@ -1481,7 +1540,15 @@
       designRange:root.querySelector('.db-design-font-range'),
       designInput:root.querySelector('.db-design-font-input'),
       designChipInput:root.querySelector('.db-design-chip-count'),
-      designPreview:root.querySelector('.db-design-preview')
+      designPreview:root.querySelector('.db-design-preview'),
+      todoList:root.querySelector('.db-todo-list'),
+      todoModal:root.querySelector('.db-todo-modal'),
+      todoTitle:root.querySelector('.db-todo-title'),
+      todoSubtitle:root.querySelector('.db-todo-subtitle'),
+      todoStep:root.querySelector('.db-todo-step'),
+      todoProgress:root.querySelector('.db-todo-progress'),
+      todoNext:root.querySelector('.db-todo-next'),
+      todoCancel:root.querySelector('.db-todo-cancel')
     };
   }
 
@@ -1492,6 +1559,7 @@
         subFields:[createSubFieldConfig(DEFAULT_SUB_FIELD)],
         partField:TITLE_FIELD,
         title:initialTitle,
+        mainColumnLabel:DEFAULT_MAIN_COLUMN_LABEL,
         titleRules:[],
         extraColumns:[],
         activeColumn:sanitizeActiveColumn({}),
@@ -1577,6 +1645,13 @@
     return sanitized.filter(rule=>rule && typeof rule==='object');
   }
 
+  function sanitizeTodoSteps(steps){
+    if(!Array.isArray(steps)) return [];
+    return steps
+      .map(step=>typeof step==='string'?step.trim():String(step||'').trim())
+      .filter(Boolean);
+  }
+
   function clampCardFontScale(value){
     const num=Number(value);
     if(!Number.isFinite(num)) return 1;
@@ -1606,6 +1681,8 @@
       const source=entry&&typeof entry==='object'?entry:{};
       let id=typeof source.id==='string'?source.id.trim():'';
       const label=typeof source.label==='string'?source.label.trim():'';
+      const todoEnabled=!!source.todoEnabled;
+      const todoSteps=sanitizeTodoSteps(source.todoSteps);
       while(!id || seen.has(id)){
         id=generateExtraColumnId();
       }
@@ -1627,7 +1704,13 @@
           ...baseRules
         ];
       })();
-      sanitized.push({id,label,rules});
+      sanitized.push({
+        id,
+        label,
+        rules,
+        todoEnabled,
+        todoSteps
+      });
     }
     return sanitized;
   }
@@ -1644,6 +1727,11 @@
       enabled=!!source.show;
     }
     return {id:ACTIVE_COLUMN_ID,label:label||DEFAULT_ACTIVE_COLUMN_LABEL,enabled};
+  }
+
+  function normalizeMainColumnLabel(value,{fallback=DEFAULT_MAIN_COLUMN_LABEL}={}){
+    const raw=typeof value==='string'?value.trim():'';
+    return raw||fallback;
   }
 
   function ensureExtraColumns(config){
@@ -1883,6 +1971,7 @@
           subFields:savedSubFields,
           partField:saved.config.partField||state.config.partField,
           title:typeof saved.config.title==='string'?saved.config.title:state.config.title,
+          mainColumnLabel:normalizeMainColumnLabel(saved.config.mainColumnLabel||state.config.mainColumnLabel),
           titleRules:savedRules,
           extraColumns:sanitizeExtraColumns(saved.config.extraColumns||state.config.extraColumns||[]),
           activeColumn:sanitizeActiveColumn(saved.config.activeColumn||{label:saved.config.activeColumnLabel||state.config.activeColumn?.label}),
@@ -1965,6 +2054,7 @@
         subFields:Array.isArray(state.config.subFields)?state.config.subFields.map(sub=>({...sub})):[],
         partField:state.config.partField,
         title:state.config.title,
+        mainColumnLabel:normalizeMainColumnLabel(state.config.mainColumnLabel),
         titleRules:Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>normalizeTitleRule(rule)):[],
         extraColumns:Array.isArray(state.config.extraColumns)?state.config.extraColumns.map(col=>({
           ...col,
@@ -2867,6 +2957,7 @@
     let tempSubFields=[];
     let tempTitleRules=[];
     let tempExtraColumns=[];
+    let tempMainColumnLabel='';
     let tempActiveColumnLabel='';
     let tempActiveColumnEnabled=true;
     let tempSearchFilters=[];
@@ -2884,7 +2975,7 @@
     let activeConfigTab='general';
 
     function activateConfigTab(tab){
-      const allowedTabs=['general','extras','design'];
+      const allowedTabs=['general','extras','todo','design'];
       const target=allowedTabs.includes(tab)?tab:'general';
       activeConfigTab=target;
       (elements.configTabs||[]).forEach(btn=>{
@@ -2917,6 +3008,9 @@
         if(elements.titleInput){
           state.config.title=elements.titleInput.value.trim();
         }
+        if(elements.mainColumnInput){
+          tempMainColumnLabel=elements.mainColumnInput.value;
+        }
         if(elements.customFormulaInput){
           state.config.customCalcFormula=elements.customFormulaInput.value.trim();
         }
@@ -2939,6 +3033,18 @@
         if(optionsOpen){
           tempSubFields=sanitizedSubs.map(sub=>({...sub}));
         }
+        const mainLabelSource=optionsOpen
+          ? tempMainColumnLabel
+          : state.config.mainColumnLabel;
+        const normalizedMainLabel=normalizeMainColumnLabel(mainLabelSource);
+        state.config.mainColumnLabel=normalizedMainLabel;
+        if(optionsOpen){
+          tempMainColumnLabel=normalizedMainLabel;
+          if(elements.mainColumnInput){
+            elements.mainColumnInput.value=normalizedMainLabel;
+          }
+        }
+        applyMainColumnTitle(normalizedMainLabel);
         const ruleSource=optionsOpen && Array.isArray(tempTitleRules)
           ? tempTitleRules
           : Array.isArray(state.config.titleRules)?state.config.titleRules:[];
@@ -3014,6 +3120,7 @@
         ensureHiddenExtraColumns(state);
         if(optionsOpen){
           renderExtraControls();
+          renderTodoControls();
           renderSearchFilterControls();
         }
         refreshTitleBar();
@@ -3152,6 +3259,70 @@
         return true;
       }
       return false;
+    }
+
+    let activeTodoPopup=null;
+    function closeTodoPopup(){
+      if(elements.todoModal){
+        elements.todoModal.classList.remove('open');
+        elements.todoModal.hidden=true;
+      }
+      activeTodoPopup=null;
+    }
+
+    function getExtraColumnLabelById(columnId){
+      const columns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
+      const index=columns.findIndex(col=>col.id===columnId);
+      if(index===-1){
+        return 'Extraspalte';
+      }
+      const column=columns[index]||{};
+      return column.label?.trim()||`Extraspalte ${index+1}`;
+    }
+
+    function updateTodoPopup(){
+      if(!activeTodoPopup || !elements.todoModal) return;
+      const {columnId,steps,index}=activeTodoPopup;
+      if(elements.todoTitle){
+        elements.todoTitle.textContent=`ToDo für ${getExtraColumnLabelById(columnId)}`;
+      }
+      if(elements.todoSubtitle){
+        elements.todoSubtitle.textContent='Bitte Schritt für Schritt bestätigen.';
+      }
+      if(elements.todoStep){
+        elements.todoStep.textContent=steps[index]||'';
+      }
+      if(elements.todoProgress){
+        elements.todoProgress.textContent=`Schritt ${index+1} von ${steps.length}`;
+      }
+      if(elements.todoNext){
+        elements.todoNext.textContent=index+1>=steps.length?'Fertig':'Weiter';
+      }
+    }
+
+    function openTodoPopup(columnId){
+      if(!columnId) return;
+      ensureExtraColumns(state.config);
+      const column=(state.config.extraColumns||[]).find(col=>col.id===columnId);
+      if(!column?.todoEnabled) return;
+      const steps=sanitizeTodoSteps(column.todoSteps);
+      if(!steps.length) return;
+      activeTodoPopup={columnId,steps,index:0};
+      if(elements.todoModal){
+        elements.todoModal.hidden=false;
+        elements.todoModal.classList.add('open');
+      }
+      updateTodoPopup();
+    }
+
+    function advanceTodoPopup(){
+      if(!activeTodoPopup) return;
+      if(activeTodoPopup.index+1>=activeTodoPopup.steps.length){
+        closeTodoPopup();
+        return;
+      }
+      activeTodoPopup.index+=1;
+      updateTodoPopup();
     }
 
     const handleBeforeUnload=()=>{
@@ -3482,6 +3653,19 @@
       });
     }
 
+    if(elements.mainColumnInput){
+      elements.mainColumnInput.addEventListener('input',()=>{
+        tempMainColumnLabel=elements.mainColumnInput.value;
+        applyMainColumnTitle(tempMainColumnLabel);
+        scheduleOptionPersist();
+      });
+      elements.mainColumnInput.addEventListener('change',()=>{
+        tempMainColumnLabel=elements.mainColumnInput.value;
+        applyMainColumnTitle(tempMainColumnLabel);
+        scheduleOptionPersist(true);
+      });
+    }
+
     function populateFieldSelects(){
       ensureSubFields(state.config);
       const options=getAvailableFieldList(state,[state.config.partField]);
@@ -3522,7 +3706,11 @@
         const sortable=new Sortable(wrap.list,{
           ...baseSortableConfig,
           onSort:syncRenderPersist,
-          onAdd:syncRenderPersist,
+          onAdd:evt=>{
+            syncRenderPersist();
+            const columnId=evt?.to?.dataset?.columnId||'';
+            openTodoPopup(columnId);
+          },
           onRemove:syncRenderPersist
         });
         extraSortableInstances.set(id,sortable);
@@ -3813,9 +4001,11 @@
       }
       ensureExtraColumns(state.config);
       ensureActiveColumn(state.config);
+      state.config.mainColumnLabel=normalizeMainColumnLabel(state.config.mainColumnLabel);
       ensureSearchFilters(state.config);
       ensureColumnAssignments(state);
       ensureHiddenExtraColumns(state);
+      applyMainColumnTitle(state.config.mainColumnLabel);
       if(!(state.activeSearchFilters instanceof Set)){
         state.activeSearchFilters=new Set(Array.isArray(state.activeSearchFilters)?state.activeSearchFilters:[]);
       }
@@ -4232,6 +4422,16 @@
     tempExtraColumns[index]={...tempExtraColumns[index],label:value};
   }
 
+  function updateTempTodoConfig(columnId,partial){
+    if(!columnId) return;
+    const index=tempExtraColumns.findIndex(col=>col.id===columnId);
+    if(index===-1) return;
+    tempExtraColumns[index]={
+      ...tempExtraColumns[index],
+      ...partial
+    };
+  }
+
   function applyColumnLabel(columnId,value,{persist=true,refresh=true}={}){
     if(!columnId) return;
     const nextLabel=(value||'').trim();
@@ -4355,6 +4555,14 @@
       }
     }
 
+    function applyMainColumnTitle(label){
+      const text=String(label||'').trim();
+      if(elements.mainTitle){
+        elements.mainTitle.textContent=text;
+        elements.mainTitle.hidden=!text;
+      }
+    }
+
     function handleExtraNameInput(event){
       const input=event.target;
       if(!input || typeof input.value!=='string') return;
@@ -4447,6 +4655,28 @@
         input.addEventListener('change',handleExtraNameCommit);
         label.appendChild(input);
         header.appendChild(label);
+        const todoToggle=document.createElement('label');
+        todoToggle.className='db-extra-uc-switch db-extra-todo-switch';
+        todoToggle.dataset.columnId=column.id;
+        const todoInput=document.createElement('input');
+        todoInput.type='checkbox';
+        todoInput.checked=!!column.todoEnabled;
+        todoInput.addEventListener('change',()=>{
+          updateTempTodoConfig(column.id,{
+            todoEnabled:todoInput.checked
+          });
+          renderTodoControls();
+          scheduleOptionPersist(true);
+        });
+        const todoText=document.createElement('span');
+        todoText.className='db-extra-uc-switch-text';
+        todoText.textContent='ToDo Popup';
+        const todoControl=document.createElement('span');
+        todoControl.className='db-extra-uc-switch-control';
+        todoToggle.appendChild(todoInput);
+        todoToggle.appendChild(todoText);
+        todoToggle.appendChild(todoControl);
+        header.appendChild(todoToggle);
         if(index===0){
           const inlineHint=document.createElement('span');
           inlineHint.className='db-inline-hint';
@@ -4737,6 +4967,107 @@
       }
     }
 
+    function renderTodoControls(){
+      if(!elements.todoList){
+        return;
+      }
+      const sanitized=sanitizeExtraColumns(tempExtraColumns).map(col=>({
+        ...col,
+        rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+      }));
+      tempExtraColumns=sanitized.map(col=>({
+        ...col,
+        rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+      }));
+      elements.todoList.innerHTML='';
+      if(!tempExtraColumns.length){
+        const empty=document.createElement('div');
+        empty.className='db-empty';
+        empty.textContent='Keine Extraspalten vorhanden.';
+        elements.todoList.appendChild(empty);
+        return;
+      }
+      tempExtraColumns.forEach((column,index)=>{
+        const card=document.createElement('div');
+        card.className='db-todo-column';
+        card.dataset.columnId=column.id;
+        const header=document.createElement('div');
+        header.className='db-todo-column-header';
+        const title=document.createElement('div');
+        title.className='db-todo-column-title';
+        title.textContent=column.label?.trim()||`Extraspalte ${index+1}`;
+        const status=document.createElement('span');
+        status.className='db-todo-column-status';
+        status.textContent=column.todoEnabled?'Popup aktiv':'Popup aus';
+        status.classList.toggle('is-disabled',!column.todoEnabled);
+        header.appendChild(title);
+        header.appendChild(status);
+        card.appendChild(header);
+        const stepsWrap=document.createElement('div');
+        stepsWrap.className='db-todo-steps';
+        const steps=Array.isArray(column.todoSteps)?column.todoSteps.slice():[];
+        const commitSteps=nextSteps=>{
+          updateTempTodoConfig(column.id,{
+            todoSteps:nextSteps
+          });
+          scheduleOptionPersist();
+        };
+        const renderSteps=()=>{
+          stepsWrap.innerHTML='';
+          if(!steps.length){
+            const empty=document.createElement('div');
+            empty.className='db-hint';
+            empty.textContent='Keine Schritte hinterlegt.';
+            stepsWrap.appendChild(empty);
+            return;
+          }
+          steps.forEach((stepText,stepIndex)=>{
+            const row=document.createElement('div');
+            row.className='db-todo-step-row';
+            const input=document.createElement('input');
+            input.type='text';
+            input.value=stepText||'';
+            input.placeholder='ToDo-Schritt';
+            input.addEventListener('input',()=>{
+              steps[stepIndex]=input.value;
+              commitSteps(steps);
+            });
+            input.addEventListener('change',()=>{
+              steps[stepIndex]=input.value;
+              commitSteps(steps);
+              renderTodoControls();
+            });
+            row.appendChild(input);
+            const remove=document.createElement('button');
+            remove.type='button';
+            remove.className='db-rule-remove db-todo-step-remove';
+            remove.textContent='✕';
+            remove.title='Schritt entfernen';
+            remove.addEventListener('click',()=>{
+              steps.splice(stepIndex,1);
+              commitSteps(steps);
+              renderTodoControls();
+            });
+            row.appendChild(remove);
+            stepsWrap.appendChild(row);
+          });
+        };
+        renderSteps();
+        card.appendChild(stepsWrap);
+        const addStep=document.createElement('button');
+        addStep.type='button';
+        addStep.className='db-add-sub db-todo-add-step';
+        addStep.textContent='Schritt hinzufügen';
+        addStep.addEventListener('click',()=>{
+          steps.push('Neuer Schritt');
+          commitSteps(steps);
+          renderTodoControls();
+        });
+        card.appendChild(addStep);
+        elements.todoList.appendChild(card);
+      });
+    }
+
     function setExtraColumnCount(nextCount,immediate=false){
       const desired=Number.isFinite(nextCount)?nextCount:tempExtraColumns.length;
       const clamped=clamp(Math.round(desired),0,MAX_EXTRA_COLUMNS);
@@ -4749,12 +5080,13 @@
       if(clamped>tempExtraColumns.length){
         for(let i=tempExtraColumns.length;i<clamped;i+=1){
           const id=generateExtraColumnId();
-          tempExtraColumns.push({id,label:'',rules:[]});
+          tempExtraColumns.push({id,label:'',rules:[],todoEnabled:false,todoSteps:[]});
         }
       }else{
         tempExtraColumns=tempExtraColumns.slice(0,clamped);
       }
       renderExtraControls();
+      renderTodoControls();
       scheduleOptionPersist(immediate);
     }
 
@@ -4973,6 +5305,7 @@
             rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
           }))
         : [];
+      tempMainColumnLabel=state.config.mainColumnLabel||DEFAULT_MAIN_COLUMN_LABEL;
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
       tempActiveColumnEnabled=state.config.activeColumn?.enabled!==false;
       tempSearchFilters=Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[];
@@ -4981,6 +5314,7 @@
       renderSubFieldControls();
       renderSearchFilterControls();
       renderExtraControls();
+      renderTodoControls();
       renderRuleControls();
       renderDesignPreview(tempDesignConfig);
       syncDesignInputs(tempDesignConfig);
@@ -4988,6 +5322,9 @@
       refreshPartControls(elements,state,render);
       activateConfigTab(activeConfigTab);
       elements.titleInput.value=state.config.title||'';
+      if(elements.mainColumnInput){
+        elements.mainColumnInput.value=tempMainColumnLabel||DEFAULT_MAIN_COLUMN_LABEL;
+      }
       if(elements.customFormulaInput){
         elements.customFormulaInput.value=state.config.customCalcFormula||'';
       }
@@ -5003,6 +5340,7 @@
       tempSubFields=[];
       tempTitleRules=[];
       tempExtraColumns=[];
+      tempMainColumnLabel='';
       tempActiveColumnLabel='';
       tempActiveColumnEnabled=true;
       tempSearchFilters=[];
@@ -5018,10 +5356,28 @@
         }
       });
     }
+    if(elements.todoModal){
+      elements.todoModal.addEventListener('mousedown',event=>{
+        if(event.target===elements.todoModal){
+          closeTodoPopup();
+        }
+      });
+    }
+    if(elements.todoNext){
+      elements.todoNext.addEventListener('click',()=>advanceTodoPopup());
+    }
+    if(elements.todoCancel){
+      elements.todoCancel.addEventListener('click',()=>closeTodoPopup());
+    }
 
     const handleGlobalKeydown=event=>{
       if(event.key==='Escape'){
         if(event.defaultPrevented) return;
+        if(elements.todoModal?.classList.contains('open')){
+          event.preventDefault();
+          closeTodoPopup();
+          return;
+        }
         if(elements.modal?.classList.contains('open')){
           if(partSelectOpen){
             return;
