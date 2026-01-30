@@ -15,6 +15,7 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 ## [1.8.25] – 2026-01-30
 ### Changed
 - Reason for Removal, Gerätestatus und Reason sind jetzt gemeinsam gruppiert, damit zusammengehörige Eingaben kompakt beieinander stehen.
+- Findings-Bereich und die neue Gruppierung teilen sich die Modulbreite nun 50/50.
 
 ## [1.8.24] – 2026-01-29
 ### Changed
