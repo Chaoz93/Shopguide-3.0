@@ -3,6 +3,12 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.4.4] – 2026-01-30
+### Added
+- Ja/Nein-Schritte können nun eigene Folgepfade (Ja/Nein) enthalten, sodass ToDos verzweigen.
+### Changed
+- ToDo-Popup visualisiert den aktiven Pfad und verzweigt je nach Auswahl.
+
 ## [1.4.3] – 2026-01-30
 ### Added
 - ToDo-Schritte unterstützen nun Info- und Ja/Nein-Abfragen inklusive Auswahl im Listen-Editor.
