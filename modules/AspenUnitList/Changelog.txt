@@ -3,6 +3,30 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.4.10] – 2026-01-30
+### Changed
+- Die ToDo-Untertabs zeigen inaktiv keinen Rahmen, während der aktive Tab einen dickeren Akzentrahmen erhält.
+
+## [1.4.9] – 2026-01-30
+### Changed
+- Die ToDo-Untertabs nutzen nun den Akzentrahmen mit voller Deckkraft.
+
+## [1.4.8] – 2026-01-30
+### Changed
+- Die ToDo-Untertabs erhalten einen dickeren Akzentrahmen.
+
+## [1.4.7] – 2026-01-30
+### Changed
+- Der Listenname wird ausschließlich im Tab angezeigt und lässt sich per Doppelklick im Tab umbenennen.
+- Der Button zum Anlegen neuer ToDo-Listen sitzt jetzt neben der Überschrift und heißt „Neue ToDo“.
+- Der aktive ToDo-Tab hebt sich mit einem dickeren Akzentrahmen hervor.
+
+## [1.4.6] – 2026-01-30
+### Changed
+- ToDo-Listen werden im Optionsmenü als Tabs unter der Überschrift dargestellt, sodass jeweils eine Liste im Fokus steht.
+### Fixed
+- Beim Entfernen einer ToDo-Liste erscheint nun eine Bestätigungsabfrage und die Liste wird zuverlässig gelöscht.
+
 ## [1.4.5] – 2026-01-30
 ### Changed
 - ToDo-Tab breiter auf Listenlayout ausgerichtet; ToDo-Zuweisung ist kompakter.

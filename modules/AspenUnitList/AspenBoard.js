@@ -135,9 +135,13 @@
     .db-tab-panel.db-tab-todo{max-height:68vh;overflow:auto;padding-right:.25rem;}
     .db-tab-panel.db-tab-design{gap:1.25rem;}
     .db-todo-card{display:flex;flex-direction:column;gap:.65rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
-    .db-todo-card-title{font-weight:700;color:var(--ab-text);}
+    .db-todo-card-title{font-weight:700;color:var(--ab-text);display:flex;align-items:center;gap:.5rem;justify-content:space-between;flex-wrap:wrap;}
     .db-todo-card-hint{font-size:.85rem;color:var(--ab-muted);}
     .db-todo-list{display:flex;flex-direction:column;gap:.6rem;}
+    .db-todo-library-tabs{display:flex;flex-wrap:wrap;gap:.35rem;}
+    .db-todo-tab{flex:0 0 auto;padding:.35rem .6rem;border:2px solid transparent;border-radius:.55rem;background:var(--ab-section);color:var(--ab-text);font-weight:600;font-size:.85rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;}
+    .db-todo-tab:hover{background:var(--ab-surface);border-color:transparent;}
+    .db-todo-tab.is-active{background:var(--ab-accent-quiet);border:3px solid var(--ab-accent);color:var(--ab-text);box-shadow:0 0 0 2px var(--ab-accent-glow);}
     .db-todo-column{display:flex;flex-direction:column;gap:.45rem;padding:.75rem;border-radius:.75rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);}
     .db-todo-column-header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
     .db-todo-column-title{font-weight:700;color:var(--ab-text);}
@@ -1474,10 +1478,13 @@
                 <div class="db-todo-assign-list"></div>
               </div>
               <div class="db-todo-card">
-                <div class="db-todo-card-title">ToDo-Listen</div>
+                <div class="db-todo-card-title">
+                  <span>ToDo-Listen</span>
+                  <button type="button" class="db-add-sub db-todo-add-list">Neue ToDo</button>
+                </div>
                 <div class="db-todo-card-hint">Erstelle Listen mit Info- oder Ja/Nein-Schritten, inklusive separater Ja/Nein-Pfade.</div>
+                <div class="db-todo-library-tabs"></div>
                 <div class="db-todo-library-list"></div>
-                <button type="button" class="db-add-sub db-todo-add-list">Liste hinzufügen</button>
               </div>
             </div>
           </div>
@@ -1587,6 +1594,7 @@
       designChipInput:root.querySelector('.db-design-chip-count'),
       designPreview:root.querySelector('.db-design-preview'),
       todoAssignList:root.querySelector('.db-todo-assign-list'),
+      todoLibraryTabs:root.querySelector('.db-todo-library-tabs'),
       todoLibraryList:root.querySelector('.db-todo-library-list'),
       todoAddList:root.querySelector('.db-todo-add-list'),
       todoModal:root.querySelector('.db-todo-modal'),
@@ -3126,6 +3134,7 @@
     let tempTitleRules=[];
     let tempExtraColumns=[];
     let tempTodoLists=[];
+    let activeTodoListId='';
     let tempMainColumnLabel='';
     let tempActiveColumnLabel='';
     let tempActiveColumnEnabled=true;
@@ -3660,6 +3669,13 @@
       }else{
         console.info(message);
       }
+    }
+
+    function showConfirm(message){
+      if(typeof window!=='undefined' && typeof window.confirm==='function'){
+        return window.confirm(message);
+      }
+      return true;
     }
 
     function showPrompt(message,defaultValue=''){
@@ -5291,6 +5307,9 @@
       }));
       elements.todoAssignList.innerHTML='';
       elements.todoLibraryList.innerHTML='';
+      if(elements.todoLibraryTabs){
+        elements.todoLibraryTabs.innerHTML='';
+      }
       if(!tempExtraColumns.length){
         const empty=document.createElement('div');
         empty.className='db-empty';
@@ -5351,193 +5370,226 @@
         });
       }
       if(!tempTodoLists.length){
+        activeTodoListId='';
         const empty=document.createElement('div');
         empty.className='db-empty';
         empty.textContent='Noch keine ToDo-Listen vorhanden.';
         elements.todoLibraryList.appendChild(empty);
         return;
       }
-      tempTodoLists.forEach((list,index)=>{
-        const card=document.createElement('div');
-        card.className='db-todo-template';
-        const header=document.createElement('div');
-        header.className='db-todo-template-header';
-        const nameInput=document.createElement('input');
-        nameInput.type='text';
-        nameInput.className='db-todo-template-name';
-        nameInput.value=list.label||'';
-        nameInput.placeholder='Listenname';
-        nameInput.addEventListener('input',()=>{
-          tempTodoLists[index]={...tempTodoLists[index],label:nameInput.value};
-          scheduleOptionPersist();
-        });
-        header.appendChild(nameInput);
-        const remove=document.createElement('button');
-        remove.type='button';
-        remove.className='db-rule-remove db-todo-step-remove';
-        remove.title='Liste entfernen';
-        remove.textContent='✕';
-        remove.addEventListener('click',()=>{
-          const removedId=list.id;
-          tempTodoLists.splice(index,1);
-          tempExtraColumns=tempExtraColumns.map(column=>{
-            if(column.todoListId===removedId){
-              return {...column,todoListId:'',todoEnabled:false};
-            }
-            return column;
+      if(!activeTodoListId || !tempTodoLists.some(list=>list.id===activeTodoListId)){
+        activeTodoListId=tempTodoLists[0].id;
+      }
+      if(elements.todoLibraryTabs){
+        const tabsFragment=document.createDocumentFragment();
+        tempTodoLists.forEach((list,index)=>{
+          const tab=document.createElement('button');
+          tab.type='button';
+          tab.className='db-todo-tab';
+          tab.dataset.listId=list.id;
+          const label=resolveTodoListLabel(list,index);
+          tab.textContent=label;
+          tab.classList.toggle('is-active',list.id===activeTodoListId);
+          tab.addEventListener('click',()=>{
+            if(activeTodoListId===list.id) return;
+            activeTodoListId=list.id;
+            renderTodoControls();
           });
-          renderTodoControls();
-          scheduleOptionPersist();
-        });
-        header.appendChild(remove);
-        card.appendChild(header);
-        const stepsWrap=document.createElement('div');
-        stepsWrap.className='db-todo-template-steps';
-        const steps=Array.isArray(list.steps)?sanitizeTodoSteps(list.steps).map(step=>({...(step||{})})):[];
-        const commitSteps=nextSteps=>{
-          tempTodoLists[index]={...tempTodoLists[index],steps:nextSteps};
-          scheduleOptionPersist();
-        };
-        const ensureStepDefaults=step=>{
-          const normalized=normalizeTodoStep(step);
-          return {
-            ...normalized,
-            yesSteps:Array.isArray(normalized.yesSteps)?normalized.yesSteps:[],
-            noSteps:Array.isArray(normalized.noSteps)?normalized.noSteps:[]
-          };
-        };
-        function renderStepGroup(groupSteps,container,rootSteps){
-          groupSteps.forEach((step,stepIndex)=>{
-            const row=document.createElement('div');
-            row.className='db-todo-step-row';
-            const normalized=ensureStepDefaults(step);
-            groupSteps[stepIndex]=normalized;
-            const input=document.createElement('input');
-            input.type='text';
-            input.value=normalized.text||'';
-            input.placeholder='ToDo-Schritt';
-            input.addEventListener('input',()=>{
-              groupSteps[stepIndex]={...groupSteps[stepIndex],text:input.value};
-              commitSteps(rootSteps);
-            });
-            input.addEventListener('change',()=>{
-              groupSteps[stepIndex]={...groupSteps[stepIndex],text:input.value};
-              commitSteps(rootSteps);
-            });
-            row.appendChild(input);
-            const typeSelect=document.createElement('select');
-            typeSelect.className='db-todo-step-type';
-            const infoOption=document.createElement('option');
-            infoOption.value='info';
-            infoOption.textContent='Info';
-            const confirmOption=document.createElement('option');
-            confirmOption.value='confirm';
-            confirmOption.textContent='Ja/Nein';
-            typeSelect.appendChild(infoOption);
-            typeSelect.appendChild(confirmOption);
-            typeSelect.value=normalized.type==='confirm' ? 'confirm' : 'info';
-            typeSelect.addEventListener('change',()=>{
-              const nextType=typeSelect.value==='confirm' ? 'confirm' : 'info';
-              const base={...groupSteps[stepIndex],type:nextType,defaultYes:true};
-              if(nextType==='confirm'){
-                base.yesSteps=Array.isArray(base.yesSteps)?base.yesSteps:[];
-                base.noSteps=Array.isArray(base.noSteps)?base.noSteps:[];
-              }else{
-                base.yesSteps=[];
-                base.noSteps=[];
-              }
-              groupSteps[stepIndex]=base;
-              commitSteps(rootSteps);
-              renderTodoControls();
-            });
-            row.appendChild(typeSelect);
-            const removeStep=document.createElement('button');
-            removeStep.type='button';
-            removeStep.className='db-rule-remove db-todo-step-remove';
-            removeStep.textContent='✕';
-            removeStep.title='Schritt entfernen';
-            removeStep.addEventListener('click',()=>{
-              groupSteps.splice(stepIndex,1);
-              commitSteps(rootSteps);
-              renderTodoControls();
-            });
-            row.appendChild(removeStep);
-            container.appendChild(row);
-            if(normalized.type==='confirm'){
-              const branch=document.createElement('div');
-              branch.className='db-todo-branch';
-              branch.appendChild(renderBranchEditor(normalized.yesSteps,'Ja-Pfad','✔',rootSteps,()=>{
-                commitSteps(rootSteps);
-                renderTodoControls();
-              }));
-              branch.appendChild(renderBranchEditor(normalized.noSteps,'Nein-Pfad','✖',rootSteps,()=>{
-                commitSteps(rootSteps);
-                renderTodoControls();
-              }));
-              container.appendChild(branch);
-            }
+          tab.addEventListener('dblclick',()=>{
+            const current=resolveTodoListLabel(list,index);
+            const nextLabel=showPrompt('Listenname ändern',current);
+            if(nextLabel===null) return;
+            const normalized=nextLabel.trim();
+            tempTodoLists[index]={...tempTodoLists[index],label:normalized};
+            scheduleOptionPersist();
+            renderTodoControls();
           });
+          tabsFragment.appendChild(tab);
+        });
+        elements.todoLibraryTabs.appendChild(tabsFragment);
+      }
+      const activeIndex=tempTodoLists.findIndex(list=>list.id===activeTodoListId);
+      const targetIndex=activeIndex>=0 ? activeIndex : 0;
+      const list=tempTodoLists[targetIndex];
+      if(!list){
+        return;
+      }
+      const card=document.createElement('div');
+      card.className='db-todo-template';
+      const header=document.createElement('div');
+      header.className='db-todo-template-header';
+      const remove=document.createElement('button');
+      remove.type='button';
+      remove.className='db-rule-remove db-todo-step-remove';
+      remove.title='Liste entfernen';
+      remove.textContent='✕';
+      remove.addEventListener('click',()=>{
+        const label=resolveTodoListLabel(list,targetIndex);
+        const confirmed=showConfirm(`Liste "${label}" wirklich löschen?`);
+        if(!confirmed){
+          return;
         }
-        function renderBranchEditor(branchSteps,branchLabel,branchIcon,rootSteps,onChange){
-          const group=document.createElement('div');
-          group.className='db-todo-branch-group';
-          const title=document.createElement('div');
-          title.className='db-todo-branch-title';
-          const icon=document.createElement('span');
-          icon.textContent=branchIcon;
-          title.appendChild(icon);
-          title.appendChild(document.createTextNode(branchLabel));
-          group.appendChild(title);
-          const listWrap=document.createElement('div');
-          listWrap.className='db-todo-branch-list';
-          if(!branchSteps.length){
-            const empty=document.createElement('div');
-            empty.className='db-hint';
-            empty.textContent='Noch keine Schritte.';
-            listWrap.appendChild(empty);
-          }else{
-            renderStepGroup(branchSteps,listWrap,rootSteps);
+        const removedId=list.id;
+        tempTodoLists.splice(targetIndex,1);
+        tempExtraColumns=tempExtraColumns.map(column=>{
+          if(column.todoListId===removedId){
+            return {...column,todoListId:'',todoEnabled:false};
           }
-          const addBtn=document.createElement('button');
-          addBtn.type='button';
-          addBtn.className='db-add-sub db-todo-branch-add';
-          addBtn.textContent='Schritt hinzufügen';
-          addBtn.addEventListener('click',()=>{
-            branchSteps.push({text:'Neuer Schritt',type:'info',defaultYes:true,yesSteps:[],noSteps:[]});
-            onChange();
-          });
-          group.appendChild(listWrap);
-          group.appendChild(addBtn);
-          return group;
-        }
-        const renderSteps=()=>{
-          stepsWrap.innerHTML='';
-          if(!steps.length){
-            const empty=document.createElement('div');
-            empty.className='db-hint';
-            empty.textContent='Noch keine Schritte hinterlegt.';
-            stepsWrap.appendChild(empty);
-            return;
-          }
-          renderStepGroup(steps,stepsWrap,steps);
-        };
-        renderSteps();
-        card.appendChild(stepsWrap);
-        const actions=document.createElement('div');
-        actions.className='db-todo-template-actions';
-        const addStep=document.createElement('button');
-        addStep.type='button';
-        addStep.className='db-add-sub db-todo-add-step';
-        addStep.textContent='Schritt hinzufügen';
-        addStep.addEventListener('click',()=>{
-          steps.push({text:'Neuer Schritt',type:'info',defaultYes:true,yesSteps:[],noSteps:[]});
-          commitSteps(steps);
-          renderTodoControls();
+          return column;
         });
-        actions.appendChild(addStep);
-        card.appendChild(actions);
-        elements.todoLibraryList.appendChild(card);
+        const nextList=tempTodoLists[targetIndex]||tempTodoLists[targetIndex-1];
+        activeTodoListId=nextList?nextList.id:'';
+        renderTodoControls();
+        scheduleOptionPersist();
       });
+      header.appendChild(remove);
+      card.appendChild(header);
+      const stepsWrap=document.createElement('div');
+      stepsWrap.className='db-todo-template-steps';
+      const steps=Array.isArray(list.steps)?sanitizeTodoSteps(list.steps).map(step=>({...(step||{})})):[];
+      const commitSteps=nextSteps=>{
+        tempTodoLists[targetIndex]={...tempTodoLists[targetIndex],steps:nextSteps};
+        scheduleOptionPersist();
+      };
+      const ensureStepDefaults=step=>{
+        const normalized=normalizeTodoStep(step);
+        return {
+          ...normalized,
+          yesSteps:Array.isArray(normalized.yesSteps)?normalized.yesSteps:[],
+          noSteps:Array.isArray(normalized.noSteps)?normalized.noSteps:[]
+        };
+      };
+      function renderStepGroup(groupSteps,container,rootSteps){
+        groupSteps.forEach((step,stepIndex)=>{
+          const row=document.createElement('div');
+          row.className='db-todo-step-row';
+          const normalized=ensureStepDefaults(step);
+          groupSteps[stepIndex]=normalized;
+          const input=document.createElement('input');
+          input.type='text';
+          input.value=normalized.text||'';
+          input.placeholder='ToDo-Schritt';
+          input.addEventListener('input',()=>{
+            groupSteps[stepIndex]={...groupSteps[stepIndex],text:input.value};
+            commitSteps(rootSteps);
+          });
+          input.addEventListener('change',()=>{
+            groupSteps[stepIndex]={...groupSteps[stepIndex],text:input.value};
+            commitSteps(rootSteps);
+          });
+          row.appendChild(input);
+          const typeSelect=document.createElement('select');
+          typeSelect.className='db-todo-step-type';
+          const infoOption=document.createElement('option');
+          infoOption.value='info';
+          infoOption.textContent='Info';
+          const confirmOption=document.createElement('option');
+          confirmOption.value='confirm';
+          confirmOption.textContent='Ja/Nein';
+          typeSelect.appendChild(infoOption);
+          typeSelect.appendChild(confirmOption);
+          typeSelect.value=normalized.type==='confirm' ? 'confirm' : 'info';
+          typeSelect.addEventListener('change',()=>{
+            const nextType=typeSelect.value==='confirm' ? 'confirm' : 'info';
+            const base={...groupSteps[stepIndex],type:nextType,defaultYes:true};
+            if(nextType==='confirm'){
+              base.yesSteps=Array.isArray(base.yesSteps)?base.yesSteps:[];
+              base.noSteps=Array.isArray(base.noSteps)?base.noSteps:[];
+            }else{
+              base.yesSteps=[];
+              base.noSteps=[];
+            }
+            groupSteps[stepIndex]=base;
+            commitSteps(rootSteps);
+            renderTodoControls();
+          });
+          row.appendChild(typeSelect);
+          const removeStep=document.createElement('button');
+          removeStep.type='button';
+          removeStep.className='db-rule-remove db-todo-step-remove';
+          removeStep.textContent='✕';
+          removeStep.title='Schritt entfernen';
+          removeStep.addEventListener('click',()=>{
+            groupSteps.splice(stepIndex,1);
+            commitSteps(rootSteps);
+            renderTodoControls();
+          });
+          row.appendChild(removeStep);
+          container.appendChild(row);
+          if(normalized.type==='confirm'){
+            const branch=document.createElement('div');
+            branch.className='db-todo-branch';
+            branch.appendChild(renderBranchEditor(normalized.yesSteps,'Ja-Pfad','✔',rootSteps,()=>{
+              commitSteps(rootSteps);
+              renderTodoControls();
+            }));
+            branch.appendChild(renderBranchEditor(normalized.noSteps,'Nein-Pfad','✖',rootSteps,()=>{
+              commitSteps(rootSteps);
+              renderTodoControls();
+            }));
+            container.appendChild(branch);
+          }
+        });
+      }
+      function renderBranchEditor(branchSteps,branchLabel,branchIcon,rootSteps,onChange){
+        const group=document.createElement('div');
+        group.className='db-todo-branch-group';
+        const title=document.createElement('div');
+        title.className='db-todo-branch-title';
+        const icon=document.createElement('span');
+        icon.textContent=branchIcon;
+        title.appendChild(icon);
+        title.appendChild(document.createTextNode(branchLabel));
+        group.appendChild(title);
+        const listWrap=document.createElement('div');
+        listWrap.className='db-todo-branch-list';
+        if(!branchSteps.length){
+          const empty=document.createElement('div');
+          empty.className='db-hint';
+          empty.textContent='Noch keine Schritte.';
+          listWrap.appendChild(empty);
+        }else{
+          renderStepGroup(branchSteps,listWrap,rootSteps);
+        }
+        const addBtn=document.createElement('button');
+        addBtn.type='button';
+        addBtn.className='db-add-sub db-todo-branch-add';
+        addBtn.textContent='Schritt hinzufügen';
+        addBtn.addEventListener('click',()=>{
+          branchSteps.push({text:'Neuer Schritt',type:'info',defaultYes:true,yesSteps:[],noSteps:[]});
+          onChange();
+        });
+        group.appendChild(listWrap);
+        group.appendChild(addBtn);
+        return group;
+      }
+      const renderSteps=()=>{
+        stepsWrap.innerHTML='';
+        if(!steps.length){
+          const empty=document.createElement('div');
+          empty.className='db-hint';
+          empty.textContent='Noch keine Schritte hinterlegt.';
+          stepsWrap.appendChild(empty);
+          return;
+        }
+        renderStepGroup(steps,stepsWrap,steps);
+      };
+      renderSteps();
+      card.appendChild(stepsWrap);
+      const actions=document.createElement('div');
+      actions.className='db-todo-template-actions';
+      const addStep=document.createElement('button');
+      addStep.type='button';
+      addStep.className='db-add-sub db-todo-add-step';
+      addStep.textContent='Schritt hinzufügen';
+      addStep.addEventListener('click',()=>{
+        steps.push({text:'Neuer Schritt',type:'info',defaultYes:true,yesSteps:[],noSteps:[]});
+        commitSteps(steps);
+        renderTodoControls();
+      });
+      actions.appendChild(addStep);
+      card.appendChild(actions);
+      elements.todoLibraryList.appendChild(card);
     }
 
     function setExtraColumnCount(nextCount,immediate=false){
@@ -5930,6 +5982,7 @@
           id=generateTodoListId();
         }
         tempTodoLists.push({id,label:'Neue Liste',steps:[]});
+        activeTodoListId=id;
         renderTodoControls();
         scheduleOptionPersist();
       });
