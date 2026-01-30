@@ -3794,10 +3794,16 @@
       ensureColumnAssignments(state);
     }
 
+    let syncRenderPending=false;
     function syncRenderPersist(){
-      syncFromDOM();
-      render();
-      persistState(state,instanceId,stateStorageKey);
+      if(syncRenderPending) return;
+      syncRenderPending=true;
+      requestAnimationFrame(()=>{
+        syncRenderPending=false;
+        syncFromDOM();
+        render();
+        persistState(state,instanceId,stateStorageKey);
+      });
     }
 
     function render(){
