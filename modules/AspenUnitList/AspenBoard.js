@@ -169,6 +169,21 @@
     .db-todo-template-name{flex:1 1 200px;min-width:160px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:var(--ab-section);color:inherit;font-weight:600;}
     .db-todo-template-name:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
     .db-todo-template-steps{display:flex;flex-direction:column;gap:.35rem;padding-left:.6rem;border-left:2px solid var(--ab-section-border);}
+    .db-todo-tree{display:flex;flex-direction:column;gap:.65rem;padding:.75rem;border-radius:.75rem;border:1px solid var(--ab-border);background:var(--ab-section);}
+    .db-todo-tree-title{font-size:.72rem;font-weight:700;color:var(--ab-muted);text-transform:uppercase;letter-spacing:.05em;}
+    .db-todo-tree-graph{display:flex;flex-direction:column;align-items:center;gap:.65rem;min-width:240px;}
+    .db-todo-tree-node{display:flex;align-items:center;gap:.35rem;padding:.45rem .6rem;border-radius:.55rem;background:var(--ab-surface);border:1px solid var(--ab-border);box-shadow:var(--ab-shadow);font-size:.82rem;color:var(--ab-text);text-align:center;max-width:220px;}
+    .db-todo-tree-node.is-branch{background:var(--ab-surface-quiet);}
+    .db-todo-tree-node-badge{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:var(--ab-accent-quiet);color:var(--ab-text);white-space:nowrap;}
+    .db-todo-tree-node-badge.is-branch{background:var(--ab-section);color:var(--ab-muted);}
+    .db-todo-tree-node-text{display:block;font-weight:600;line-height:1.25;}
+    .db-todo-tree-node-sub{display:block;font-size:.68rem;color:var(--ab-muted);}
+    .db-todo-tree-children{display:flex;justify-content:center;gap:1.1rem;position:relative;padding-top:1.1rem;width:100%;flex-wrap:wrap;}
+    .db-todo-tree-children::before{content:'';position:absolute;top:.45rem;left:0;right:0;border-top:1px solid var(--ab-border);}
+    .db-todo-tree-child{position:relative;display:flex;flex-direction:column;align-items:center;gap:.55rem;min-width:120px;}
+    .db-todo-tree-child::before{content:'';position:absolute;top:0;left:50%;height:.6rem;border-left:1px solid var(--ab-border);}
+    .db-todo-tree-branch-label{display:inline-flex;align-items:center;gap:.35rem;font-size:.68rem;font-weight:700;color:var(--ab-muted);text-transform:uppercase;letter-spacing:.04em;}
+    .db-todo-tree-empty{font-size:.75rem;color:var(--ab-muted);}
     .db-todo-template-actions{display:flex;flex-wrap:wrap;gap:.35rem;}
     @media (max-width: 980px){
       .db-todo-layout{grid-template-columns:1fr;}
@@ -1632,7 +1647,8 @@
       showActiveList:false,
       columnAssignments:new Map(),
       hiddenExtraColumns:new Set(),
-      autoAssignments:new Map()
+      autoAssignments:new Map(),
+      manualAssignmentOverrides:new Set()
     };
   }
 
@@ -2186,6 +2202,10 @@
       state.columnAssignments=normalizeColumnAssignments(saved.columnAssignments);
       ensureColumnAssignments(state);
       ensureHiddenExtraColumns(state);
+      if(Array.isArray(saved.manualAssignmentOverrides)){
+        const normalized=saved.manualAssignmentOverrides.map(val=>String(val||'').trim()).filter(Boolean);
+        state.manualAssignmentOverrides=new Set(normalized);
+      }
       state.autoAssignments=new Map();
       if(!restoredOrder){
         state.items=dedupeByMeldung(state.items);
@@ -2245,7 +2265,8 @@
       activeMeldungen:Array.from(state.activeMeldungen||[]).map(val=>String(val||'').trim()).filter(Boolean),
       showActiveList:!!state.showActiveList,
       columnAssignments:columnAssignmentsToObject(state.columnAssignments),
-      hiddenExtraColumns:Array.from(state.hiddenExtraColumns||[])
+      hiddenExtraColumns:Array.from(state.hiddenExtraColumns||[]),
+      manualAssignmentOverrides:Array.from(state.manualAssignmentOverrides||[])
     };
     const key=normalizeStateKey(storageKey);
     try{persistStateBundle(key,payload);}catch{}
@@ -2285,7 +2306,8 @@
         activeMeldungen:payload.activeMeldungen.slice(),
         showActiveList:payload.showActiveList,
         columnAssignments:{...payload.columnAssignments},
-        hiddenExtraColumns:payload.hiddenExtraColumns.slice()
+        hiddenExtraColumns:payload.hiddenExtraColumns.slice(),
+        manualAssignmentOverrides:payload.manualAssignmentOverrides.slice()
       };
       snapshot.instanceId=instanceId;
       snapshot.lastUpdated=Date.now();
@@ -3532,17 +3554,101 @@
       return column.label?.trim()||`Extraspalte ${index+1}`;
     }
 
-    function getTodoStepsForColumn(column,lists){
-      if(!column) return [];
-      const listId=typeof column.todoListId==='string'?column.todoListId.trim():'';
-      if(listId){
-        const list=(lists||[]).find(entry=>entry.id===listId);
-        if(list){
-          return sanitizeTodoSteps(list.steps);
-        }
+  function getTodoStepsForColumn(column,lists){
+    if(!column) return [];
+    const listId=typeof column.todoListId==='string'?column.todoListId.trim():'';
+    if(listId){
+      const list=(lists||[]).find(entry=>entry.id===listId);
+      if(list){
+        return sanitizeTodoSteps(list.steps);
       }
-      return sanitizeTodoSteps(column.todoSteps);
     }
+    return sanitizeTodoSteps(column.todoSteps);
+  }
+
+  function buildTodoTreeNode({badge,text,subText,variant}){
+    const node=document.createElement('div');
+    node.className='db-todo-tree-node';
+    if(variant) node.classList.add(`is-${variant}`);
+    if(badge){
+      const badgeNode=document.createElement('span');
+      badgeNode.className='db-todo-tree-node-badge';
+      if(variant) badgeNode.classList.add(`is-${variant}`);
+      badgeNode.textContent=badge;
+      node.appendChild(badgeNode);
+    }
+    const content=document.createElement('span');
+    content.className='db-todo-tree-node-text';
+    content.textContent=text||'Leerer Schritt';
+    node.appendChild(content);
+    if(subText){
+      const sub=document.createElement('span');
+      sub.className='db-todo-tree-node-sub';
+      sub.textContent=subText;
+      node.appendChild(sub);
+    }
+    return node;
+  }
+
+  function buildTodoTreeGraph(steps){
+    const graph=document.createElement('div');
+    graph.className='db-todo-tree-graph';
+    graph.appendChild(buildTodoTreeNode({badge:'Start',text:'ToDo-Liste'}));
+    if(!steps.length){
+      return graph;
+    }
+    graph.appendChild(buildTodoTreeChildren(steps,''));
+    return graph;
+  }
+
+  function buildTodoTreeChildren(steps,prefix){
+    const children=document.createElement('div');
+    children.className='db-todo-tree-children';
+    steps.forEach((step,index)=>{
+      const normalized=normalizeTodoStep(step);
+      const numberLabel=prefix ? `${prefix}.${index+1}` : `${index+1}`;
+      const child=document.createElement('div');
+      child.className='db-todo-tree-child';
+      const node=buildTodoTreeNode({
+        badge:numberLabel,
+        text:normalized.text||'Leerer Schritt',
+        subText:normalized.type==='confirm'?'Ja/Nein' : 'Info'
+      });
+      child.appendChild(node);
+      if(normalized.type==='confirm'){
+        const branchGroup=document.createElement('div');
+        branchGroup.className='db-todo-tree-children';
+        branchGroup.appendChild(buildTodoTreeBranch('Ja',normalized.yesSteps,numberLabel));
+        branchGroup.appendChild(buildTodoTreeBranch('Nein',normalized.noSteps,numberLabel));
+        child.appendChild(branchGroup);
+      }
+      children.appendChild(child);
+    });
+    return children;
+  }
+
+  function buildTodoTreeBranch(label,steps,prefix){
+    const wrapper=document.createElement('div');
+    wrapper.className='db-todo-tree-child';
+    const node=buildTodoTreeNode({
+      badge:label,
+      text:label==='Ja' ? 'Ja-Pfad' : 'Nein-Pfad',
+      subText:prefix ? `Pfad ${prefix}` : '',
+      variant:'branch'
+    });
+    wrapper.appendChild(node);
+    const sanitized=sanitizeTodoSteps(steps);
+    if(sanitized.length){
+      const branchPrefix=`${prefix}.${label==='Ja' ? '1' : '2'}`;
+      wrapper.appendChild(buildTodoTreeChildren(sanitized,branchPrefix));
+    }else{
+      const empty=document.createElement('div');
+      empty.className='db-todo-tree-empty';
+      empty.textContent='Keine Schritte';
+      wrapper.appendChild(empty);
+    }
+    return wrapper;
+  }
 
     function updateTodoPopup(){
       if(!activeTodoPopup || !elements.todoModal) return;
@@ -4244,6 +4350,7 @@
       const removedAssignments=new Set();
       const activeMeldungen=new Set();
       const autoAssignments=state.autoAssignments instanceof Map?state.autoAssignments:new Map();
+      const manualOverrides=new Set();
       const collect=(container,target,columnId)=>{
         if(!container) return;
         container.querySelectorAll('.db-card').forEach(node=>{
@@ -4274,12 +4381,25 @@
             if(columnId===ACTIVE_COLUMN_ID){
               activeMeldungen.add(meldung);
               removedAssignments.add(meldung);
+              if(hasAutoAssignment){
+                manualOverrides.add(meldung);
+              }
             }else if(columnId){
-              if(!hasAutoAssignment){
+              if(columnId!==autoColumn){
+                newAssignments.set(meldung,columnId);
+                if(hasAutoAssignment){
+                  manualOverrides.add(meldung);
+                }
+              }else if(hasAutoAssignment){
+                removedAssignments.add(meldung);
+              }else{
                 newAssignments.set(meldung,columnId);
               }
-            }else if(!hasAutoAssignment){
+            }else{
               removedAssignments.add(meldung);
+              if(hasAutoAssignment){
+                manualOverrides.add(meldung);
+              }
             }
           }
           seen.add(id);
@@ -4303,6 +4423,9 @@
       mergedAssignments.forEach((_,meldung)=>{if(!validMeldungen.has(meldung)) mergedAssignments.delete(meldung);});
       state.columnAssignments=mergedAssignments;
       ensureColumnAssignments(state);
+      state.manualAssignmentOverrides=new Set(
+        Array.from(manualOverrides).filter(meldung=>validMeldungen.has(meldung))
+      );
     }
 
     let syncRenderPending=false;
@@ -4349,6 +4472,9 @@
       const activeSet=state.activeMeldungen;
       const assignments=state.columnAssignments instanceof Map?state.columnAssignments:new Map();
       const extraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
+      const manualOverrides=state.manualAssignmentOverrides instanceof Set
+        ? state.manualAssignmentOverrides
+        : new Set();
       const hiddenExtras=state.hiddenExtraColumns instanceof Set?state.hiddenExtraColumns:new Set();
       const extraBuckets=new Map(extraColumns.map(col=>[col.id,[]]));
       const autoAssignments=new Map();
@@ -4364,20 +4490,20 @@
             autoAssignments.set(meldung,ruleTarget);
           }
         }
-        if(autoColumnId && extraBuckets.has(autoColumnId)){
-          extraBuckets.get(autoColumnId).push(item);
-          return;
-        }
         const assigned=meldung?assignments.get(meldung):undefined;
-        if(assigned && extraBuckets.has(assigned)){
-          extraBuckets.get(assigned).push(item);
-          return;
-        }
         if(activeSet.has(meldung)){
           activeItems.push(item);
           if(state.showActiveList){
             return;
           }
+        }
+        if(assigned && extraBuckets.has(assigned)){
+          extraBuckets.get(assigned).push(item);
+          return;
+        }
+        if(!manualOverrides.has(meldung) && autoColumnId && extraBuckets.has(autoColumnId)){
+          extraBuckets.get(autoColumnId).push(item);
+          return;
         }
         mainItems.push(item);
       });
@@ -5523,6 +5649,21 @@
         };
         renderSteps();
         card.appendChild(stepsWrap);
+        const tree=document.createElement('div');
+        tree.className='db-todo-tree';
+        const treeTitle=document.createElement('div');
+        treeTitle.className='db-todo-tree-title';
+        treeTitle.textContent='Baumdiagramm';
+        tree.appendChild(treeTitle);
+        if(steps.length){
+          tree.appendChild(buildTodoTreeGraph(steps));
+        }else{
+          const empty=document.createElement('div');
+          empty.className='db-todo-tree-empty';
+          empty.textContent='Noch keine Schritte hinterlegt.';
+          tree.appendChild(empty);
+        }
+        card.appendChild(tree);
         const actions=document.createElement('div');
         actions.className='db-todo-template-actions';
         const addStep=document.createElement('button');
@@ -6271,6 +6412,14 @@
           }
         });
         state.columnAssignments=filteredAssignments;
+        if(!(state.manualAssignmentOverrides instanceof Set)){
+          state.manualAssignmentOverrides=new Set(
+            Array.isArray(state.manualAssignmentOverrides)?state.manualAssignmentOverrides:[]
+          );
+        }
+        state.manualAssignmentOverrides=new Set(
+          Array.from(state.manualAssignmentOverrides).filter(meldung=>availableMeldungen.has(meldung))
+        );
         const availableParts=new Set(deduped.map(item=>item.part).filter(Boolean));
         if(!(state.excluded instanceof Set)){
           state.excluded=new Set(Array.isArray(state.excluded)?state.excluded:[]);

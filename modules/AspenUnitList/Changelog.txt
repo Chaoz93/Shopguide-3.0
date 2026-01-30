@@ -3,10 +3,17 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.5.0] – 2026-01-30
+### Added
+- Grafisches Baumdiagramm in den ToDo-Listen für eine klarere Darstellung von Ja/Nein-Pfaden.
+### Fixed
+- Manuelle Zuweisungen bleiben bestehen, wenn Geräte aus automatischen Extraspalten entfernt oder neu zugeordnet werden.
+
 ## [1.4.5] – 2026-01-30
 ### Changed
 - ToDo-Tab breiter auf Listenlayout ausgerichtet; ToDo-Zuweisung ist kompakter.
 - ToDo-Aktivierung erfolgt jetzt automatisch über die Listen-Zuweisung (kein separater Toggle).
+
 
 ## [1.4.4] – 2026-01-30
 ### Added
