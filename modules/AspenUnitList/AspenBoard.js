@@ -169,16 +169,20 @@
     .db-todo-template-name{flex:1 1 200px;min-width:160px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:var(--ab-section);color:inherit;font-weight:600;}
     .db-todo-template-name:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
     .db-todo-template-steps{display:flex;flex-direction:column;gap:.35rem;padding-left:.6rem;border-left:2px solid var(--ab-section-border);}
-    .db-todo-tree{display:flex;flex-direction:column;gap:.45rem;padding:.6rem;border-radius:.65rem;border:1px dashed var(--ab-border);background:var(--ab-section);}
+    .db-todo-tree{display:flex;flex-direction:column;gap:.65rem;padding:.75rem;border-radius:.75rem;border:1px solid var(--ab-border);background:var(--ab-section);}
     .db-todo-tree-title{font-size:.72rem;font-weight:700;color:var(--ab-muted);text-transform:uppercase;letter-spacing:.05em;}
-    .db-todo-tree-list{list-style:none;margin:0;padding-left:1rem;display:flex;flex-direction:column;gap:.35rem;position:relative;}
-    .db-todo-tree-list::before{content:'';position:absolute;left:.35rem;top:.2rem;bottom:.2rem;border-left:1px solid var(--ab-border);}
-    .db-todo-tree-item{position:relative;padding-left:.85rem;}
-    .db-todo-tree-item::before{content:'';position:absolute;left:.25rem;top:.6rem;width:.5rem;border-top:1px solid var(--ab-border);}
-    .db-todo-tree-node{display:flex;align-items:center;gap:.4rem;padding:.25rem .45rem;border-radius:.45rem;background:var(--ab-surface);border:1px solid var(--ab-border);font-size:.8rem;color:var(--ab-text);}
-    .db-todo-tree-badge{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:var(--ab-accent-quiet);color:var(--ab-text);}
-    .db-todo-tree-branch{display:flex;flex-direction:column;gap:.35rem;margin-top:.25rem;padding-left:.65rem;border-left:1px dashed var(--ab-border);}
-    .db-todo-tree-branch-label{font-size:.68rem;font-weight:700;color:var(--ab-muted);display:flex;align-items:center;gap:.35rem;}
+    .db-todo-tree-graph{display:flex;flex-direction:column;align-items:center;gap:.65rem;min-width:240px;}
+    .db-todo-tree-node{display:flex;align-items:center;gap:.35rem;padding:.45rem .6rem;border-radius:.55rem;background:var(--ab-surface);border:1px solid var(--ab-border);box-shadow:var(--ab-shadow);font-size:.82rem;color:var(--ab-text);text-align:center;max-width:220px;}
+    .db-todo-tree-node.is-branch{background:var(--ab-surface-quiet);}
+    .db-todo-tree-node-badge{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:var(--ab-accent-quiet);color:var(--ab-text);white-space:nowrap;}
+    .db-todo-tree-node-badge.is-branch{background:var(--ab-section);color:var(--ab-muted);}
+    .db-todo-tree-node-text{display:block;font-weight:600;line-height:1.25;}
+    .db-todo-tree-node-sub{display:block;font-size:.68rem;color:var(--ab-muted);}
+    .db-todo-tree-children{display:flex;justify-content:center;gap:1.1rem;position:relative;padding-top:1.1rem;width:100%;flex-wrap:wrap;}
+    .db-todo-tree-children::before{content:'';position:absolute;top:.45rem;left:0;right:0;border-top:1px solid var(--ab-border);}
+    .db-todo-tree-child{position:relative;display:flex;flex-direction:column;align-items:center;gap:.55rem;min-width:120px;}
+    .db-todo-tree-child::before{content:'';position:absolute;top:0;left:50%;height:.6rem;border-left:1px solid var(--ab-border);}
+    .db-todo-tree-branch-label{display:inline-flex;align-items:center;gap:.35rem;font-size:.68rem;font-weight:700;color:var(--ab-muted);text-transform:uppercase;letter-spacing:.04em;}
     .db-todo-tree-empty{font-size:.75rem;color:var(--ab-muted);}
     .db-todo-template-actions{display:flex;flex-wrap:wrap;gap:.35rem;}
     @media (max-width: 980px){
@@ -3562,50 +3566,88 @@
     return sanitizeTodoSteps(column.todoSteps);
   }
 
-  function buildTodoTreeList(steps){
-    const list=document.createElement('ul');
-    list.className='db-todo-tree-list';
-    steps.forEach(step=>{
-      const normalized=normalizeTodoStep(step);
-      const item=document.createElement('li');
-      item.className='db-todo-tree-item';
-      const node=document.createElement('div');
-      node.className='db-todo-tree-node';
-      const badge=document.createElement('span');
-      badge.className='db-todo-tree-badge';
-      badge.textContent=normalized.type==='confirm'?'Ja/Nein':'Info';
-      node.appendChild(badge);
-      const text=document.createElement('span');
-      text.textContent=normalized.text||'Leerer Schritt';
-      node.appendChild(text);
-      item.appendChild(node);
-      if(normalized.type==='confirm'){
-        const yesSteps=sanitizeTodoSteps(normalized.yesSteps);
-        const noSteps=sanitizeTodoSteps(normalized.noSteps);
-        item.appendChild(buildTodoTreeBranch('Ja',yesSteps));
-        item.appendChild(buildTodoTreeBranch('Nein',noSteps));
-      }
-      list.appendChild(item);
-    });
-    return list;
+  function buildTodoTreeNode({badge,text,subText,variant}){
+    const node=document.createElement('div');
+    node.className='db-todo-tree-node';
+    if(variant) node.classList.add(`is-${variant}`);
+    if(badge){
+      const badgeNode=document.createElement('span');
+      badgeNode.className='db-todo-tree-node-badge';
+      if(variant) badgeNode.classList.add(`is-${variant}`);
+      badgeNode.textContent=badge;
+      node.appendChild(badgeNode);
+    }
+    const content=document.createElement('span');
+    content.className='db-todo-tree-node-text';
+    content.textContent=text||'Leerer Schritt';
+    node.appendChild(content);
+    if(subText){
+      const sub=document.createElement('span');
+      sub.className='db-todo-tree-node-sub';
+      sub.textContent=subText;
+      node.appendChild(sub);
+    }
+    return node;
   }
 
-  function buildTodoTreeBranch(label,steps){
-    const branch=document.createElement('div');
-    branch.className='db-todo-tree-branch';
-    const title=document.createElement('div');
-    title.className='db-todo-tree-branch-label';
-    title.textContent=label;
-    branch.appendChild(title);
-    if(steps.length){
-      branch.appendChild(buildTodoTreeList(steps));
+  function buildTodoTreeGraph(steps){
+    const graph=document.createElement('div');
+    graph.className='db-todo-tree-graph';
+    graph.appendChild(buildTodoTreeNode({badge:'Start',text:'ToDo-Liste'}));
+    if(!steps.length){
+      return graph;
+    }
+    graph.appendChild(buildTodoTreeChildren(steps,''));
+    return graph;
+  }
+
+  function buildTodoTreeChildren(steps,prefix){
+    const children=document.createElement('div');
+    children.className='db-todo-tree-children';
+    steps.forEach((step,index)=>{
+      const normalized=normalizeTodoStep(step);
+      const numberLabel=prefix ? `${prefix}.${index+1}` : `${index+1}`;
+      const child=document.createElement('div');
+      child.className='db-todo-tree-child';
+      const node=buildTodoTreeNode({
+        badge:numberLabel,
+        text:normalized.text||'Leerer Schritt',
+        subText:normalized.type==='confirm'?'Ja/Nein' : 'Info'
+      });
+      child.appendChild(node);
+      if(normalized.type==='confirm'){
+        const branchGroup=document.createElement('div');
+        branchGroup.className='db-todo-tree-children';
+        branchGroup.appendChild(buildTodoTreeBranch('Ja',normalized.yesSteps,numberLabel));
+        branchGroup.appendChild(buildTodoTreeBranch('Nein',normalized.noSteps,numberLabel));
+        child.appendChild(branchGroup);
+      }
+      children.appendChild(child);
+    });
+    return children;
+  }
+
+  function buildTodoTreeBranch(label,steps,prefix){
+    const wrapper=document.createElement('div');
+    wrapper.className='db-todo-tree-child';
+    const node=buildTodoTreeNode({
+      badge:label,
+      text:label==='Ja' ? 'Ja-Pfad' : 'Nein-Pfad',
+      subText:prefix ? `Pfad ${prefix}` : '',
+      variant:'branch'
+    });
+    wrapper.appendChild(node);
+    const sanitized=sanitizeTodoSteps(steps);
+    if(sanitized.length){
+      const branchPrefix=`${prefix}.${label==='Ja' ? '1' : '2'}`;
+      wrapper.appendChild(buildTodoTreeChildren(sanitized,branchPrefix));
     }else{
       const empty=document.createElement('div');
       empty.className='db-todo-tree-empty';
       empty.textContent='Keine Schritte';
-      branch.appendChild(empty);
+      wrapper.appendChild(empty);
     }
-    return branch;
+    return wrapper;
   }
 
     function updateTodoPopup(){
@@ -5614,7 +5656,7 @@
         treeTitle.textContent='Baumdiagramm';
         tree.appendChild(treeTitle);
         if(steps.length){
-          tree.appendChild(buildTodoTreeList(steps));
+          tree.appendChild(buildTodoTreeGraph(steps));
         }else{
           const empty=document.createElement('div');
           empty.className='db-todo-tree-empty';
