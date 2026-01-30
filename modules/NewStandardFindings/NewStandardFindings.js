@@ -6020,8 +6020,6 @@
         this.setDeviceStatus(deviceStatusSelect.value);
       });
       deviceStatusPanel.append(deviceStatusTitle,deviceStatusSelect);
-      removalGroup.append(removalPanel,deviceStatusPanel);
-      selectionGrid.appendChild(removalGroup);
 
       const reasonPanel=document.createElement('div');
       reasonPanel.className='nsf-reason-panel';
@@ -6039,7 +6037,8 @@
         autoResizeTextarea(reasonInput);
       });
       reasonPanel.append(reasonTitle,reasonInput);
-      selectionGrid.appendChild(reasonPanel);
+      removalGroup.append(removalPanel,deviceStatusPanel,reasonPanel);
+      selectionGrid.appendChild(removalGroup);
       this.reasonTextarea=reasonInput;
       ensureTextareaAutoResize(reasonInput);
 
