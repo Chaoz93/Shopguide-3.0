@@ -147,9 +147,17 @@
     .db-todo-step-row{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;}
     .db-todo-step-row input{flex:1 1 220px;min-width:180px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
     .db-todo-step-row input:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
+    .db-todo-step-type{flex:0 0 auto;min-width:120px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:var(--ab-section);color:inherit;font-weight:600;}
+    .db-todo-step-type:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
     .db-todo-step-remove{padding:.35rem .55rem;}
+    .db-todo-branch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;width:100%;padding:.5rem .6rem;border-radius:.65rem;border:1px dashed var(--ab-border);background:var(--ab-section);}
+    .db-todo-branch-group{display:flex;flex-direction:column;gap:.35rem;}
+    .db-todo-branch-title{font-size:.78rem;font-weight:700;color:var(--ab-text);display:flex;align-items:center;gap:.35rem;}
+    .db-todo-branch-title span{display:inline-flex;align-items:center;justify-content:center;min-width:1.3rem;height:1.3rem;border-radius:999px;background:var(--ab-surface);border:1px solid var(--ab-border);font-size:.7rem;}
+    .db-todo-branch-list{display:flex;flex-direction:column;gap:.35rem;}
+    .db-todo-branch-add{align-self:flex-start;padding:.3rem .55rem;}
     .db-todo-add-step{align-self:flex-start;padding:.35rem .6rem;}
-    .db-todo-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:1rem;}
+    .db-todo-layout{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.45fr);gap:1rem;}
     .db-todo-assign-list{display:flex;flex-direction:column;gap:.6rem;}
     .db-todo-column-select{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;color:var(--ab-muted);}
     .db-todo-column-select label{font-weight:600;color:var(--ab-text);}
@@ -164,6 +172,7 @@
     .db-todo-template-actions{display:flex;flex-wrap:wrap;gap:.35rem;}
     @media (max-width: 980px){
       .db-todo-layout{grid-template-columns:1fr;}
+      .db-todo-branch{grid-template-columns:1fr;}
     }
     .db-design-card{display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
     .db-design-header{display:flex;align-items:flex-end;flex-wrap:wrap;gap:.75rem;justify-content:space-between;}
@@ -198,9 +207,16 @@
     .db-todo-header{display:flex;flex-direction:column;gap:.2rem;}
     .db-todo-title{font-weight:700;color:var(--ab-text);}
     .db-todo-subtitle{font-size:.85rem;color:var(--ab-muted);}
+    .db-todo-path{display:flex;flex-wrap:wrap;gap:.35rem;font-size:.75rem;color:var(--ab-muted);}
+    .db-todo-path-pill{display:inline-flex;align-items:center;gap:.25rem;padding:.15rem .5rem;border-radius:999px;border:1px solid var(--ab-border);background:var(--ab-section);color:var(--ab-text);font-weight:600;}
+    .db-todo-path-pill.is-active{background:var(--ab-accent);color:var(--ab-accent-contrast);border-color:var(--ab-accent-border,var(--ab-accent));box-shadow:0 0 0 2px var(--ab-accent-glow);}
     .db-todo-body{display:flex;flex-direction:column;gap:.5rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);border-radius:.75rem;padding:.75rem;}
     .db-todo-step{font-size:1rem;font-weight:600;color:var(--ab-text);}
     .db-todo-progress{font-size:.8rem;color:var(--ab-muted);}
+    .db-todo-choice{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .db-todo-choice-btn{padding:.4rem .75rem;border-radius:.55rem;border:1px solid var(--ab-border);background:var(--ab-section);color:var(--ab-text);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease;}
+    .db-todo-choice-btn:hover{background:var(--ab-surface);}
+    .db-todo-choice-btn.is-selected{background:var(--ab-accent);color:var(--ab-accent-contrast);border-color:var(--ab-accent-border,var(--ab-accent));box-shadow:0 0 0 2px var(--ab-accent-glow);}
     .db-todo-actions{display:flex;justify-content:flex-end;gap:.5rem;flex-wrap:wrap;}
     .db-todo-actions button{padding:.4rem .75rem;border-radius:.55rem;border:1px solid var(--ab-border);background:var(--ab-section);color:var(--ab-text);font-weight:600;cursor:pointer;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease;}
     .db-todo-actions button:hover{background:var(--ab-surface);}
@@ -1459,7 +1475,7 @@
               </div>
               <div class="db-todo-card">
                 <div class="db-todo-card-title">ToDo-Listen</div>
-                <div class="db-todo-card-hint">Erstelle Listen und pflege die Schritte. Diese kannst du links per Dropdown zuweisen.</div>
+                <div class="db-todo-card-hint">Erstelle Listen mit Info- oder Ja/Nein-Schritten, inklusive separater Ja/Nein-Pfade.</div>
                 <div class="db-todo-library-list"></div>
                 <button type="button" class="db-add-sub db-todo-add-list">Liste hinzufügen</button>
               </div>
@@ -1494,10 +1510,15 @@
           <div class="db-todo-header">
             <div class="db-todo-title" id="db-todo-title"></div>
             <div class="db-todo-subtitle"></div>
+            <div class="db-todo-path" aria-live="polite"></div>
           </div>
           <div class="db-todo-body">
             <div class="db-todo-step"></div>
             <div class="db-todo-progress"></div>
+            <div class="db-todo-choice" role="group" aria-label="Antwort wählen" hidden>
+              <button type="button" class="db-todo-choice-btn" data-choice="yes">Ja</button>
+              <button type="button" class="db-todo-choice-btn" data-choice="no">Nein</button>
+            </div>
           </div>
           <div class="db-todo-actions">
             <button type="button" class="db-todo-cancel">Schließen</button>
@@ -1571,8 +1592,12 @@
       todoModal:root.querySelector('.db-todo-modal'),
       todoTitle:root.querySelector('.db-todo-title'),
       todoSubtitle:root.querySelector('.db-todo-subtitle'),
+      todoPath:root.querySelector('.db-todo-path'),
       todoStep:root.querySelector('.db-todo-step'),
       todoProgress:root.querySelector('.db-todo-progress'),
+      todoChoice:root.querySelector('.db-todo-choice'),
+      todoChoiceYes:root.querySelector('.db-todo-choice-btn[data-choice="yes"]'),
+      todoChoiceNo:root.querySelector('.db-todo-choice-btn[data-choice="no"]'),
       todoNext:root.querySelector('.db-todo-next'),
       todoCancel:root.querySelector('.db-todo-cancel')
     };
@@ -1675,8 +1700,40 @@
   function sanitizeTodoSteps(steps){
     if(!Array.isArray(steps)) return [];
     return steps
-      .map(step=>typeof step==='string'?step.trim():String(step||'').trim())
-      .filter(Boolean);
+      .map(step=>{
+        if(step && typeof step==='object'){
+          const rawType=typeof step.type==='string'
+            ? step.type
+            : typeof step.kind==='string'
+              ? step.kind
+              : '';
+          const normalizedType=rawType.trim().toLowerCase();
+          let type=normalizedType;
+          if(type==='yesno' || type==='yes/no' || type==='ja/nein'){
+            type='confirm';
+          }
+          if(type!=='confirm'){
+            type='info';
+          }
+          const text=typeof step.text==='string'
+            ? step.text.trim()
+            : typeof step.label==='string'
+              ? step.label.trim()
+              : String(step.text ?? step.label ?? '').trim();
+          const yesSteps=sanitizeTodoSteps(step.yesSteps);
+          const noSteps=sanitizeTodoSteps(step.noSteps);
+          return {
+            text,
+            type,
+            defaultYes:step.defaultYes !== undefined ? !!step.defaultYes : true,
+            yesSteps,
+            noSteps
+          };
+        }
+        const text=typeof step==='string'?step.trim():String(step||'').trim();
+        return {text,type:'info',defaultYes:true,yesSteps:[],noSteps:[]};
+      })
+      .filter(step=>step.text);
   }
 
   function generateTodoListId(){
@@ -1742,9 +1799,11 @@
     const valid=new Set((lists||[]).map(list=>list.id));
     return (columns||[]).map(column=>{
       const listId=typeof column.todoListId==='string'?column.todoListId.trim():'';
+      const hasList=!!(listId && valid.has(listId));
       return {
         ...column,
-        todoListId:listId && valid.has(listId) ? listId : ''
+        todoListId:hasList ? listId : '',
+        todoEnabled:hasList
       };
     });
   }
@@ -3391,6 +3450,70 @@
     }
 
     let activeTodoPopup=null;
+    function updateTodoChoiceUI(value){
+      if(!elements.todoChoiceYes || !elements.todoChoiceNo) return;
+      elements.todoChoiceYes.classList.toggle('is-selected',value===true);
+      elements.todoChoiceNo.classList.toggle('is-selected',value===false);
+    }
+
+    function setTodoChoice(value){
+      if(!activeTodoPopup) return;
+      const key=getCurrentStepKey();
+      if(!activeTodoPopup.responses){
+        activeTodoPopup.responses=new Map();
+      }
+      activeTodoPopup.responses.set(key,!!value);
+      updateTodoChoiceUI(!!value);
+    }
+
+    function normalizeTodoStep(step){
+      const cleaned=sanitizeTodoSteps([step])[0];
+      return cleaned || {text:'',type:'info',defaultYes:true,yesSteps:[],noSteps:[]};
+    }
+
+    function getActiveTodoFrame(){
+      return activeTodoPopup?.frames?.[activeTodoPopup.frames.length-1] || null;
+    }
+
+    function getCurrentStepKey(){
+      const frame=getActiveTodoFrame();
+      if(!frame) return '';
+      return `${frame.path}:${frame.index}`;
+    }
+
+    function getActiveTodoPath(){
+      if(!activeTodoPopup?.frames) return [];
+      return activeTodoPopup.frames.map((frame,index)=>({
+        label:frame.label || (index===0 ? 'Hauptpfad' : 'Pfad'),
+        isActive:index===activeTodoPopup.frames.length-1
+      }));
+    }
+
+    function getTodoResponseForStep(step,key){
+      const defaultYes=step.defaultYes !== false;
+      const stored=activeTodoPopup?.responses?.get(key);
+      return typeof stored==='boolean' ? stored : defaultYes;
+    }
+
+    function hasRemainingTodoSteps(frame,step){
+      if(!activeTodoPopup) return false;
+      const key=getCurrentStepKey();
+      const choice=getTodoResponseForStep(step,key);
+      const branchSteps=choice ? step.yesSteps : step.noSteps;
+      if(step.type==='confirm' && Array.isArray(branchSteps) && branchSteps.length){
+        return true;
+      }
+      if(frame.index + 1 < frame.steps.length){
+        return true;
+      }
+      for(let i=activeTodoPopup.frames.length-2;i>=0;i-=1){
+        const other=activeTodoPopup.frames[i];
+        if(other.index < other.steps.length){
+          return true;
+        }
+      }
+      return false;
+    }
     function closeTodoPopup(){
       if(elements.todoModal){
         elements.todoModal.classList.remove('open');
@@ -3423,21 +3546,55 @@
 
     function updateTodoPopup(){
       if(!activeTodoPopup || !elements.todoModal) return;
-      const {columnId,steps,index}=activeTodoPopup;
+      const frame=getActiveTodoFrame();
+      if(!frame) return;
+      const {columnId}=activeTodoPopup;
+      const current=normalizeTodoStep(frame.steps[frame.index]);
       if(elements.todoTitle){
         elements.todoTitle.textContent=`ToDo für ${getExtraColumnLabelById(columnId)}`;
       }
       if(elements.todoSubtitle){
-        elements.todoSubtitle.textContent='Bitte Schritt für Schritt bestätigen.';
+        elements.todoSubtitle.textContent=current.type==='confirm'
+          ? 'Bitte mit Ja oder Nein antworten.'
+          : 'Bitte Schritt für Schritt bestätigen.';
+      }
+      if(elements.todoPath){
+        const pathItems=getActiveTodoPath();
+        elements.todoPath.innerHTML='';
+        if(pathItems.length){
+          pathItems.forEach(item=>{
+            const pill=document.createElement('span');
+            pill.className='db-todo-path-pill';
+            if(item.isActive) pill.classList.add('is-active');
+            pill.textContent=item.label;
+            elements.todoPath.appendChild(pill);
+          });
+        }else{
+          elements.todoPath.textContent='';
+        }
       }
       if(elements.todoStep){
-        elements.todoStep.textContent=steps[index]||'';
+        elements.todoStep.textContent=current.text||'';
       }
       if(elements.todoProgress){
-        elements.todoProgress.textContent=`Schritt ${index+1} von ${steps.length}`;
+        elements.todoProgress.textContent=`Schritt ${frame.index+1} von ${frame.steps.length}`;
       }
       if(elements.todoNext){
-        elements.todoNext.textContent=index+1>=steps.length?'Fertig':'Weiter';
+        const hasNext=hasRemainingTodoSteps(frame,current);
+        elements.todoNext.textContent=hasNext ? 'Weiter' : 'Fertig';
+      }
+      if(elements.todoChoice){
+        const isConfirm=current.type==='confirm';
+        elements.todoChoice.hidden=!isConfirm;
+        if(isConfirm){
+          const key=getCurrentStepKey();
+          if(!activeTodoPopup.responses){
+            activeTodoPopup.responses=new Map();
+          }
+          const resolved=getTodoResponseForStep(current,key);
+          activeTodoPopup.responses.set(key,resolved);
+          updateTodoChoiceUI(resolved);
+        }
       }
     }
 
@@ -3448,7 +3605,11 @@
       if(!column?.todoEnabled) return;
       const steps=getTodoStepsForColumn(column,state.config.todoLists);
       if(!steps.length) return;
-      activeTodoPopup={columnId,steps,index:0};
+      activeTodoPopup={
+        columnId,
+        frames:[{steps, index:0, path:'root', label:'Hauptpfad'}],
+        responses:new Map()
+      };
       if(elements.todoModal){
         elements.todoModal.hidden=false;
         elements.todoModal.classList.add('open');
@@ -3458,11 +3619,32 @@
 
     function advanceTodoPopup(){
       if(!activeTodoPopup) return;
-      if(activeTodoPopup.index+1>=activeTodoPopup.steps.length){
+      const frame=getActiveTodoFrame();
+      if(!frame){
         closeTodoPopup();
         return;
       }
-      activeTodoPopup.index+=1;
+      const current=normalizeTodoStep(frame.steps[frame.index]);
+      const key=getCurrentStepKey();
+      const stored=activeTodoPopup.responses?.get(key);
+      const choice=typeof stored==='boolean' ? stored : current.defaultYes !== false;
+      const branchSteps=choice ? current.yesSteps : current.noSteps;
+      frame.index+=1;
+      if(current.type==='confirm' && Array.isArray(branchSteps) && branchSteps.length){
+        activeTodoPopup.frames.push({
+          steps:branchSteps,
+          index:0,
+          path:`${frame.path}.${frame.index}-${choice ? 'yes' : 'no'}`,
+          label:choice ? 'Ja' : 'Nein'
+        });
+      }
+      while(activeTodoPopup.frames.length && getActiveTodoFrame()?.index >= getActiveTodoFrame().steps.length){
+        activeTodoPopup.frames.pop();
+      }
+      if(!activeTodoPopup.frames.length){
+        closeTodoPopup();
+        return;
+      }
       updateTodoPopup();
     }
 
@@ -4796,28 +4978,6 @@
         input.addEventListener('change',handleExtraNameCommit);
         label.appendChild(input);
         header.appendChild(label);
-        const todoToggle=document.createElement('label');
-        todoToggle.className='db-extra-uc-switch db-extra-todo-switch';
-        todoToggle.dataset.columnId=column.id;
-        const todoInput=document.createElement('input');
-        todoInput.type='checkbox';
-        todoInput.checked=!!column.todoEnabled;
-        todoInput.addEventListener('change',()=>{
-          updateTempTodoConfig(column.id,{
-            todoEnabled:todoInput.checked
-          });
-          renderTodoControls();
-          scheduleOptionPersist(true);
-        });
-        const todoText=document.createElement('span');
-        todoText.className='db-extra-uc-switch-text';
-        todoText.textContent='ToDo Popup';
-        const todoControl=document.createElement('span');
-        todoControl.className='db-extra-uc-switch-control';
-        todoToggle.appendChild(todoInput);
-        todoToggle.appendChild(todoText);
-        todoToggle.appendChild(todoControl);
-        header.appendChild(todoToggle);
         if(index===0){
           const inlineHint=document.createElement('span');
           inlineHint.className='db-inline-hint';
@@ -5112,7 +5272,11 @@
       if(!elements.todoAssignList || !elements.todoLibraryList){
         return;
       }
-      const sanitizedColumns=sanitizeExtraColumns(tempExtraColumns).map(col=>({
+      const normalizedLists=sanitizeTodoLists(tempTodoLists);
+      const sanitizedColumns=normalizeTodoListAssignments(
+        sanitizeExtraColumns(tempExtraColumns),
+        normalizedLists
+      ).map(col=>({
         ...col,
         rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
       }));
@@ -5120,8 +5284,11 @@
         ...col,
         rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
       }));
-      const sanitizedLists=sanitizeTodoLists(tempTodoLists);
-      tempTodoLists=sanitizedLists.map(list=>({id:list.id,label:list.label,steps:list.steps.slice()}));
+      tempTodoLists=normalizedLists.map(list=>({
+        id:list.id,
+        label:list.label,
+        steps:list.steps.map(step=>({...(step||{})}))
+      }));
       elements.todoAssignList.innerHTML='';
       elements.todoLibraryList.innerHTML='';
       if(!tempExtraColumns.length){
@@ -5164,7 +5331,8 @@
           select.value=column.todoListId||'';
           select.addEventListener('change',()=>{
             updateTempTodoConfig(column.id,{
-              todoListId:select.value
+              todoListId:select.value,
+              todoEnabled:!!select.value
             });
             scheduleOptionPersist();
             renderTodoControls();
@@ -5214,7 +5382,7 @@
           tempTodoLists.splice(index,1);
           tempExtraColumns=tempExtraColumns.map(column=>{
             if(column.todoListId===removedId){
-              return {...column,todoListId:''};
+              return {...column,todoListId:'',todoEnabled:false};
             }
             return column;
           });
@@ -5225,11 +5393,123 @@
         card.appendChild(header);
         const stepsWrap=document.createElement('div');
         stepsWrap.className='db-todo-template-steps';
-        const steps=Array.isArray(list.steps)?list.steps.slice():[];
+        const steps=Array.isArray(list.steps)?sanitizeTodoSteps(list.steps).map(step=>({...(step||{})})):[];
         const commitSteps=nextSteps=>{
           tempTodoLists[index]={...tempTodoLists[index],steps:nextSteps};
           scheduleOptionPersist();
         };
+        const ensureStepDefaults=step=>{
+          const normalized=normalizeTodoStep(step);
+          return {
+            ...normalized,
+            yesSteps:Array.isArray(normalized.yesSteps)?normalized.yesSteps:[],
+            noSteps:Array.isArray(normalized.noSteps)?normalized.noSteps:[]
+          };
+        };
+        function renderStepGroup(groupSteps,container,rootSteps){
+          groupSteps.forEach((step,stepIndex)=>{
+            const row=document.createElement('div');
+            row.className='db-todo-step-row';
+            const normalized=ensureStepDefaults(step);
+            groupSteps[stepIndex]=normalized;
+            const input=document.createElement('input');
+            input.type='text';
+            input.value=normalized.text||'';
+            input.placeholder='ToDo-Schritt';
+            input.addEventListener('input',()=>{
+              groupSteps[stepIndex]={...groupSteps[stepIndex],text:input.value};
+              commitSteps(rootSteps);
+            });
+            input.addEventListener('change',()=>{
+              groupSteps[stepIndex]={...groupSteps[stepIndex],text:input.value};
+              commitSteps(rootSteps);
+            });
+            row.appendChild(input);
+            const typeSelect=document.createElement('select');
+            typeSelect.className='db-todo-step-type';
+            const infoOption=document.createElement('option');
+            infoOption.value='info';
+            infoOption.textContent='Info';
+            const confirmOption=document.createElement('option');
+            confirmOption.value='confirm';
+            confirmOption.textContent='Ja/Nein';
+            typeSelect.appendChild(infoOption);
+            typeSelect.appendChild(confirmOption);
+            typeSelect.value=normalized.type==='confirm' ? 'confirm' : 'info';
+            typeSelect.addEventListener('change',()=>{
+              const nextType=typeSelect.value==='confirm' ? 'confirm' : 'info';
+              const base={...groupSteps[stepIndex],type:nextType,defaultYes:true};
+              if(nextType==='confirm'){
+                base.yesSteps=Array.isArray(base.yesSteps)?base.yesSteps:[];
+                base.noSteps=Array.isArray(base.noSteps)?base.noSteps:[];
+              }else{
+                base.yesSteps=[];
+                base.noSteps=[];
+              }
+              groupSteps[stepIndex]=base;
+              commitSteps(rootSteps);
+              renderTodoControls();
+            });
+            row.appendChild(typeSelect);
+            const removeStep=document.createElement('button');
+            removeStep.type='button';
+            removeStep.className='db-rule-remove db-todo-step-remove';
+            removeStep.textContent='✕';
+            removeStep.title='Schritt entfernen';
+            removeStep.addEventListener('click',()=>{
+              groupSteps.splice(stepIndex,1);
+              commitSteps(rootSteps);
+              renderTodoControls();
+            });
+            row.appendChild(removeStep);
+            container.appendChild(row);
+            if(normalized.type==='confirm'){
+              const branch=document.createElement('div');
+              branch.className='db-todo-branch';
+              branch.appendChild(renderBranchEditor(normalized.yesSteps,'Ja-Pfad','✔',rootSteps,()=>{
+                commitSteps(rootSteps);
+                renderTodoControls();
+              }));
+              branch.appendChild(renderBranchEditor(normalized.noSteps,'Nein-Pfad','✖',rootSteps,()=>{
+                commitSteps(rootSteps);
+                renderTodoControls();
+              }));
+              container.appendChild(branch);
+            }
+          });
+        }
+        function renderBranchEditor(branchSteps,branchLabel,branchIcon,rootSteps,onChange){
+          const group=document.createElement('div');
+          group.className='db-todo-branch-group';
+          const title=document.createElement('div');
+          title.className='db-todo-branch-title';
+          const icon=document.createElement('span');
+          icon.textContent=branchIcon;
+          title.appendChild(icon);
+          title.appendChild(document.createTextNode(branchLabel));
+          group.appendChild(title);
+          const listWrap=document.createElement('div');
+          listWrap.className='db-todo-branch-list';
+          if(!branchSteps.length){
+            const empty=document.createElement('div');
+            empty.className='db-hint';
+            empty.textContent='Noch keine Schritte.';
+            listWrap.appendChild(empty);
+          }else{
+            renderStepGroup(branchSteps,listWrap,rootSteps);
+          }
+          const addBtn=document.createElement('button');
+          addBtn.type='button';
+          addBtn.className='db-add-sub db-todo-branch-add';
+          addBtn.textContent='Schritt hinzufügen';
+          addBtn.addEventListener('click',()=>{
+            branchSteps.push({text:'Neuer Schritt',type:'info',defaultYes:true,yesSteps:[],noSteps:[]});
+            onChange();
+          });
+          group.appendChild(listWrap);
+          group.appendChild(addBtn);
+          return group;
+        }
         const renderSteps=()=>{
           stepsWrap.innerHTML='';
           if(!steps.length){
@@ -5239,35 +5519,7 @@
             stepsWrap.appendChild(empty);
             return;
           }
-          steps.forEach((stepText,stepIndex)=>{
-            const row=document.createElement('div');
-            row.className='db-todo-step-row';
-            const input=document.createElement('input');
-            input.type='text';
-            input.value=stepText||'';
-            input.placeholder='ToDo-Schritt';
-            input.addEventListener('input',()=>{
-              steps[stepIndex]=input.value;
-              commitSteps(steps);
-            });
-            input.addEventListener('change',()=>{
-              steps[stepIndex]=input.value;
-              commitSteps(steps);
-            });
-            row.appendChild(input);
-            const removeStep=document.createElement('button');
-            removeStep.type='button';
-            removeStep.className='db-rule-remove db-todo-step-remove';
-            removeStep.textContent='✕';
-            removeStep.title='Schritt entfernen';
-            removeStep.addEventListener('click',()=>{
-              steps.splice(stepIndex,1);
-              commitSteps(steps);
-              renderTodoControls();
-            });
-            row.appendChild(removeStep);
-            stepsWrap.appendChild(row);
-          });
+          renderStepGroup(steps,stepsWrap,steps);
         };
         renderSteps();
         card.appendChild(stepsWrap);
@@ -5278,7 +5530,7 @@
         addStep.className='db-add-sub db-todo-add-step';
         addStep.textContent='Schritt hinzufügen';
         addStep.addEventListener('click',()=>{
-          steps.push('Neuer Schritt');
+          steps.push({text:'Neuer Schritt',type:'info',defaultYes:true,yesSteps:[],noSteps:[]});
           commitSteps(steps);
           renderTodoControls();
         });
@@ -5594,8 +5846,22 @@
     if(elements.todoCancel){
       elements.todoCancel.addEventListener('click',()=>closeTodoPopup());
     }
+    if(elements.todoChoiceYes){
+      elements.todoChoiceYes.addEventListener('click',()=>setTodoChoice(true));
+    }
+    if(elements.todoChoiceNo){
+      elements.todoChoiceNo.addEventListener('click',()=>setTodoChoice(false));
+    }
 
     const handleGlobalKeydown=event=>{
+      if(elements.todoModal?.classList.contains('open')){
+        if(event.key==='Enter' || event.key===' ' || event.key==='Spacebar'){
+          if(event.defaultPrevented) return;
+          event.preventDefault();
+          advanceTodoPopup();
+          return;
+        }
+      }
       if(event.key==='Escape'){
         if(event.defaultPrevented) return;
         if(elements.todoModal?.classList.contains('open')){
