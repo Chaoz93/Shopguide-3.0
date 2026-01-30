@@ -149,6 +149,22 @@
     .db-todo-step-row input:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
     .db-todo-step-remove{padding:.35rem .55rem;}
     .db-todo-add-step{align-self:flex-start;padding:.35rem .6rem;}
+    .db-todo-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:1rem;}
+    .db-todo-assign-list{display:flex;flex-direction:column;gap:.6rem;}
+    .db-todo-column-select{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;color:var(--ab-muted);}
+    .db-todo-column-select label{font-weight:600;color:var(--ab-text);}
+    .db-todo-column-select select{width:100%;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-todo-column-meta{font-size:.8rem;color:var(--ab-muted);}
+    .db-todo-library-list{display:flex;flex-direction:column;gap:.75rem;}
+    .db-todo-template{display:flex;flex-direction:column;gap:.5rem;padding:.65rem;border-radius:.75rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);}
+    .db-todo-template-header{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
+    .db-todo-template-name{flex:1 1 200px;min-width:160px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-todo-template-name:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
+    .db-todo-template-steps{display:flex;flex-direction:column;gap:.35rem;}
+    .db-todo-template-actions{display:flex;flex-wrap:wrap;gap:.35rem;}
+    @media (max-width: 980px){
+      .db-todo-layout{grid-template-columns:1fr;}
+    }
     .db-design-card{display:flex;flex-direction:column;gap:.85rem;padding:1rem;border-radius:.85rem;border:1px solid var(--ab-border);background:var(--ab-surface);box-shadow:var(--ab-shadow);}
     .db-design-header{display:flex;align-items:flex-end;flex-wrap:wrap;gap:.75rem;justify-content:space-between;}
     .db-design-title{display:flex;flex-direction:column;gap:.15rem;color:var(--ab-text);}
@@ -1435,10 +1451,18 @@
             </div>
           </div>
           <div class="db-tab-panel db-tab-todo" data-tab="todo" hidden>
-            <div class="db-todo-card">
-              <div class="db-todo-card-title">ToDo Popup</div>
-              <div class="db-todo-card-hint">Konfiguriere die Schritte, die beim Ablegen in aktivierte Extraspalten nacheinander abgefragt werden.</div>
-              <div class="db-todo-list"></div>
+            <div class="db-todo-layout">
+              <div class="db-todo-card">
+                <div class="db-todo-card-title">ToDo-Zuweisung</div>
+                <div class="db-todo-card-hint">Weise ToDo-Listen den Extraspalten zu, damit das Popup die richtigen Schritte abfragt.</div>
+                <div class="db-todo-assign-list"></div>
+              </div>
+              <div class="db-todo-card">
+                <div class="db-todo-card-title">ToDo-Listen</div>
+                <div class="db-todo-card-hint">Erstelle Listen und pflege die Schritte. Diese kannst du links per Dropdown zuweisen.</div>
+                <div class="db-todo-library-list"></div>
+                <button type="button" class="db-add-sub db-todo-add-list">Liste hinzufügen</button>
+              </div>
             </div>
           </div>
           <div class="db-tab-panel db-tab-design" data-tab="design" hidden>
@@ -1541,7 +1565,9 @@
       designInput:root.querySelector('.db-design-font-input'),
       designChipInput:root.querySelector('.db-design-chip-count'),
       designPreview:root.querySelector('.db-design-preview'),
-      todoList:root.querySelector('.db-todo-list'),
+      todoAssignList:root.querySelector('.db-todo-assign-list'),
+      todoLibraryList:root.querySelector('.db-todo-library-list'),
+      todoAddList:root.querySelector('.db-todo-add-list'),
       todoModal:root.querySelector('.db-todo-modal'),
       todoTitle:root.querySelector('.db-todo-title'),
       todoSubtitle:root.querySelector('.db-todo-subtitle'),
@@ -1562,6 +1588,7 @@
         mainColumnLabel:DEFAULT_MAIN_COLUMN_LABEL,
         titleRules:[],
         extraColumns:[],
+        todoLists:[],
         activeColumn:sanitizeActiveColumn({}),
         design:sanitizeDesignConfig({}),
         searchFilters:[],
@@ -1652,6 +1679,82 @@
       .filter(Boolean);
   }
 
+  function generateTodoListId(){
+    return `todo-${Math.random().toString(36).slice(2,9)}`;
+  }
+
+  function sanitizeTodoList(entry){
+    const source=entry&&typeof entry==='object'?entry:{};
+    const label=typeof source.label==='string'?source.label.trim():'';
+    const steps=sanitizeTodoSteps(source.steps);
+    return {label,steps};
+  }
+
+  function sanitizeTodoLists(lists){
+    if(!Array.isArray(lists)) return [];
+    const sanitized=[];
+    const seen=new Set();
+    lists.forEach(entry=>{
+      const source=entry&&typeof entry==='object'?entry:{};
+      let id=typeof source.id==='string'?source.id.trim():'';
+      while(!id || seen.has(id)){
+        id=generateTodoListId();
+      }
+      seen.add(id);
+      const cleaned=sanitizeTodoList(source);
+      sanitized.push({id,...cleaned});
+    });
+    return sanitized;
+  }
+
+  function ensureTodoLists(config){
+    if(!config||typeof config!=='object') return;
+    const sanitized=sanitizeTodoLists(config.todoLists||[]);
+    const columns=Array.isArray(config.extraColumns)?config.extraColumns:[];
+    const ids=new Set(sanitized.map(list=>list.id));
+    let changed=false;
+    columns.forEach((column,index)=>{
+      if(!column||typeof column!=='object') return;
+      const listId=typeof column.todoListId==='string'?column.todoListId.trim():'';
+      if(listId){
+        column.todoListId=listId;
+        return;
+      }
+      const steps=sanitizeTodoSteps(column.todoSteps);
+      if(!steps.length) return;
+      let nextId=generateTodoListId();
+      while(ids.has(nextId)){
+        nextId=generateTodoListId();
+      }
+      ids.add(nextId);
+      const labelBase=column.label?.trim()||`Extraspalte ${index+1}`;
+      sanitized.push({id:nextId,label:`ToDo ${labelBase}`,steps});
+      column.todoListId=nextId;
+      changed=true;
+    });
+    config.todoLists=sanitized;
+    if(changed){
+      config.extraColumns=columns;
+    }
+  }
+
+  function normalizeTodoListAssignments(columns,lists){
+    const valid=new Set((lists||[]).map(list=>list.id));
+    return (columns||[]).map(column=>{
+      const listId=typeof column.todoListId==='string'?column.todoListId.trim():'';
+      return {
+        ...column,
+        todoListId:listId && valid.has(listId) ? listId : ''
+      };
+    });
+  }
+
+  function resolveTodoListLabel(list,index){
+    if(!list) return '';
+    const label=list.label?.trim();
+    return label||`ToDo-Liste ${index+1}`;
+  }
+
   function clampCardFontScale(value){
     const num=Number(value);
     if(!Number.isFinite(num)) return 1;
@@ -1682,6 +1785,7 @@
       let id=typeof source.id==='string'?source.id.trim():'';
       const label=typeof source.label==='string'?source.label.trim():'';
       const todoEnabled=!!source.todoEnabled;
+      const todoListId=typeof source.todoListId==='string'?source.todoListId.trim():'';
       const todoSteps=sanitizeTodoSteps(source.todoSteps);
       while(!id || seen.has(id)){
         id=generateExtraColumnId();
@@ -1709,6 +1813,7 @@
         label,
         rules,
         todoEnabled,
+        todoListId,
         todoSteps
       });
     }
@@ -1974,6 +2079,7 @@
           mainColumnLabel:normalizeMainColumnLabel(saved.config.mainColumnLabel||state.config.mainColumnLabel),
           titleRules:savedRules,
           extraColumns:sanitizeExtraColumns(saved.config.extraColumns||state.config.extraColumns||[]),
+          todoLists:sanitizeTodoLists(saved.config.todoLists||state.config.todoLists||[]),
           activeColumn:sanitizeActiveColumn(saved.config.activeColumn||{label:saved.config.activeColumnLabel||state.config.activeColumn?.label}),
           design:sanitizeDesignConfig(saved.config.design||state.config.design||{}),
           searchFilters:sanitizeSearchFilters(saved.config.searchFilters||state.config.searchFilters||[]),
@@ -1986,6 +2092,7 @@
       ensureActiveColumn(state.config);
       ensureDesignConfig(state.config);
       ensureSearchFilters(state.config);
+      ensureTodoLists(state.config);
       let restoredOrder=false;
       if(Array.isArray(saved.items) && saved.items.length){
         state.items=dedupeByMeldung(saved.items);
@@ -2046,6 +2153,7 @@
     ensureActiveColumn(state.config);
     ensureDesignConfig(state.config);
     ensureSearchFilters(state.config);
+    ensureTodoLists(state.config);
     ensureColumnAssignments(state);
     ensureHiddenExtraColumns(state);
     const payload={
@@ -2060,6 +2168,7 @@
           ...col,
           rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
         })) : [],
+        todoLists:Array.isArray(state.config.todoLists)?state.config.todoLists.map(list=>({id:list.id,label:list.label,steps:sanitizeTodoSteps(list.steps)})):[],
         activeColumn:{...sanitizeActiveColumn(state.config.activeColumn)},
         design:{...sanitizeDesignConfig(state.config.design)},
         searchFilters:Array.isArray(state.config.searchFilters)?state.config.searchFilters.map(filter=>({...filter})):[],
@@ -2957,6 +3066,7 @@
     let tempSubFields=[];
     let tempTitleRules=[];
     let tempExtraColumns=[];
+    let tempTodoLists=[];
     let tempMainColumnLabel='';
     let tempActiveColumnLabel='';
     let tempActiveColumnEnabled=true;
@@ -2989,6 +3099,13 @@
         panel.classList.toggle('is-active',isActive);
         panel.hidden=!isActive;
       });
+    }
+
+    function isTodoEditorActive(){
+      if(!elements.modal?.classList.contains('open')) return false;
+      const active=document.activeElement;
+      if(!active || typeof active.matches!=='function') return false;
+      return active.matches('.db-todo-step-row input, .db-todo-template-name');
     }
 
     function applyOptionChanges(){
@@ -3077,19 +3194,29 @@
         const extraSource=optionsOpen && Array.isArray(tempExtraColumns)
           ? tempExtraColumns
           : Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
-        const sanitizedExtras=sanitizeExtraColumns(extraSource).map(col=>({
-          ...col,
-          rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
-        }));
+        const todoListSource=optionsOpen && Array.isArray(tempTodoLists)
+          ? tempTodoLists
+          : Array.isArray(state.config.todoLists)?state.config.todoLists:[];
+        const sanitizedTodoLists=sanitizeTodoLists(todoListSource);
+        const sanitizedExtras=normalizeTodoListAssignments(
+          sanitizeExtraColumns(extraSource).map(col=>({
+            ...col,
+            rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
+          })),
+          sanitizedTodoLists
+        );
         state.config.extraColumns=sanitizedExtras.map(col=>({
           ...col,
           rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
         }));
+        state.config.todoLists=sanitizedTodoLists.map(list=>({id:list.id,label:list.label,steps:sanitizeTodoSteps(list.steps)}));
+        ensureTodoLists(state.config);
         if(optionsOpen){
-          tempExtraColumns=sanitizedExtras.map(col=>({
+          tempExtraColumns=state.config.extraColumns.map(col=>({
             ...col,
             rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
           }));
+          tempTodoLists=state.config.todoLists.map(list=>({id:list.id,label:list.label,steps:sanitizeTodoSteps(list.steps)}));
         }
         const filterSource=optionsOpen && Array.isArray(tempSearchFilters)
           ? tempSearchFilters
@@ -3120,7 +3247,9 @@
         ensureHiddenExtraColumns(state);
         if(optionsOpen){
           renderExtraControls();
-          renderTodoControls();
+          if(!isTodoEditorActive()){
+            renderTodoControls();
+          }
           renderSearchFilterControls();
         }
         refreshTitleBar();
@@ -3280,6 +3409,18 @@
       return column.label?.trim()||`Extraspalte ${index+1}`;
     }
 
+    function getTodoStepsForColumn(column,lists){
+      if(!column) return [];
+      const listId=typeof column.todoListId==='string'?column.todoListId.trim():'';
+      if(listId){
+        const list=(lists||[]).find(entry=>entry.id===listId);
+        if(list){
+          return sanitizeTodoSteps(list.steps);
+        }
+      }
+      return sanitizeTodoSteps(column.todoSteps);
+    }
+
     function updateTodoPopup(){
       if(!activeTodoPopup || !elements.todoModal) return;
       const {columnId,steps,index}=activeTodoPopup;
@@ -3305,7 +3446,7 @@
       ensureExtraColumns(state.config);
       const column=(state.config.extraColumns||[]).find(col=>col.id===columnId);
       if(!column?.todoEnabled) return;
-      const steps=sanitizeTodoSteps(column.todoSteps);
+      const steps=getTodoStepsForColumn(column,state.config.todoLists);
       if(!steps.length) return;
       activeTodoPopup={columnId,steps,index:0};
       if(elements.todoModal){
@@ -4968,48 +5109,125 @@
     }
 
     function renderTodoControls(){
-      if(!elements.todoList){
+      if(!elements.todoAssignList || !elements.todoLibraryList){
         return;
       }
-      const sanitized=sanitizeExtraColumns(tempExtraColumns).map(col=>({
+      const sanitizedColumns=sanitizeExtraColumns(tempExtraColumns).map(col=>({
         ...col,
         rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
       }));
-      tempExtraColumns=sanitized.map(col=>({
+      tempExtraColumns=sanitizedColumns.map(col=>({
         ...col,
         rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
       }));
-      elements.todoList.innerHTML='';
+      const sanitizedLists=sanitizeTodoLists(tempTodoLists);
+      tempTodoLists=sanitizedLists.map(list=>({id:list.id,label:list.label,steps:list.steps.slice()}));
+      elements.todoAssignList.innerHTML='';
+      elements.todoLibraryList.innerHTML='';
       if(!tempExtraColumns.length){
         const empty=document.createElement('div');
         empty.className='db-empty';
         empty.textContent='Keine Extraspalten vorhanden.';
-        elements.todoList.appendChild(empty);
+        elements.todoAssignList.appendChild(empty);
+      }else{
+        tempExtraColumns.forEach((column,index)=>{
+          const card=document.createElement('div');
+          card.className='db-todo-column';
+          card.dataset.columnId=column.id;
+          const header=document.createElement('div');
+          header.className='db-todo-column-header';
+          const title=document.createElement('div');
+          title.className='db-todo-column-title';
+          title.textContent=column.label?.trim()||`Extraspalte ${index+1}`;
+          const status=document.createElement('span');
+          status.className='db-todo-column-status';
+          status.textContent=column.todoEnabled?'Popup aktiv':'Popup aus';
+          status.classList.toggle('is-disabled',!column.todoEnabled);
+          header.appendChild(title);
+          header.appendChild(status);
+          card.appendChild(header);
+          const selectWrap=document.createElement('div');
+          selectWrap.className='db-todo-column-select';
+          const selectLabel=document.createElement('label');
+          selectLabel.textContent='ToDo-Liste';
+          const select=document.createElement('select');
+          const placeholder=document.createElement('option');
+          placeholder.value='';
+          placeholder.textContent='Keine Liste';
+          select.appendChild(placeholder);
+          tempTodoLists.forEach((list,listIndex)=>{
+            const option=document.createElement('option');
+            option.value=list.id;
+            option.textContent=resolveTodoListLabel(list,listIndex);
+            select.appendChild(option);
+          });
+          select.value=column.todoListId||'';
+          select.addEventListener('change',()=>{
+            updateTempTodoConfig(column.id,{
+              todoListId:select.value
+            });
+            scheduleOptionPersist();
+            renderTodoControls();
+          });
+          selectWrap.appendChild(selectLabel);
+          selectWrap.appendChild(select);
+          card.appendChild(selectWrap);
+          const meta=document.createElement('div');
+          meta.className='db-todo-column-meta';
+          const listSteps=getTodoStepsForColumn(column,tempTodoLists);
+          meta.textContent=listSteps.length
+            ? `${listSteps.length} Schritt${listSteps.length===1?'':'e'} hinterlegt`
+            : 'Keine Schritte hinterlegt.';
+          card.appendChild(meta);
+          elements.todoAssignList.appendChild(card);
+        });
+      }
+      if(!tempTodoLists.length){
+        const empty=document.createElement('div');
+        empty.className='db-empty';
+        empty.textContent='Noch keine ToDo-Listen vorhanden.';
+        elements.todoLibraryList.appendChild(empty);
         return;
       }
-      tempExtraColumns.forEach((column,index)=>{
+      tempTodoLists.forEach((list,index)=>{
         const card=document.createElement('div');
-        card.className='db-todo-column';
-        card.dataset.columnId=column.id;
+        card.className='db-todo-template';
         const header=document.createElement('div');
-        header.className='db-todo-column-header';
-        const title=document.createElement('div');
-        title.className='db-todo-column-title';
-        title.textContent=column.label?.trim()||`Extraspalte ${index+1}`;
-        const status=document.createElement('span');
-        status.className='db-todo-column-status';
-        status.textContent=column.todoEnabled?'Popup aktiv':'Popup aus';
-        status.classList.toggle('is-disabled',!column.todoEnabled);
-        header.appendChild(title);
-        header.appendChild(status);
+        header.className='db-todo-template-header';
+        const nameInput=document.createElement('input');
+        nameInput.type='text';
+        nameInput.className='db-todo-template-name';
+        nameInput.value=list.label||'';
+        nameInput.placeholder='Listenname';
+        nameInput.addEventListener('input',()=>{
+          tempTodoLists[index]={...tempTodoLists[index],label:nameInput.value};
+          scheduleOptionPersist();
+        });
+        header.appendChild(nameInput);
+        const remove=document.createElement('button');
+        remove.type='button';
+        remove.className='db-rule-remove db-todo-step-remove';
+        remove.title='Liste entfernen';
+        remove.textContent='✕';
+        remove.addEventListener('click',()=>{
+          const removedId=list.id;
+          tempTodoLists.splice(index,1);
+          tempExtraColumns=tempExtraColumns.map(column=>{
+            if(column.todoListId===removedId){
+              return {...column,todoListId:''};
+            }
+            return column;
+          });
+          renderTodoControls();
+          scheduleOptionPersist();
+        });
+        header.appendChild(remove);
         card.appendChild(header);
         const stepsWrap=document.createElement('div');
-        stepsWrap.className='db-todo-steps';
-        const steps=Array.isArray(column.todoSteps)?column.todoSteps.slice():[];
+        stepsWrap.className='db-todo-template-steps';
+        const steps=Array.isArray(list.steps)?list.steps.slice():[];
         const commitSteps=nextSteps=>{
-          updateTempTodoConfig(column.id,{
-            todoSteps:nextSteps
-          });
+          tempTodoLists[index]={...tempTodoLists[index],steps:nextSteps};
           scheduleOptionPersist();
         };
         const renderSteps=()=>{
@@ -5017,7 +5235,7 @@
           if(!steps.length){
             const empty=document.createElement('div');
             empty.className='db-hint';
-            empty.textContent='Keine Schritte hinterlegt.';
+            empty.textContent='Noch keine Schritte hinterlegt.';
             stepsWrap.appendChild(empty);
             return;
           }
@@ -5035,25 +5253,26 @@
             input.addEventListener('change',()=>{
               steps[stepIndex]=input.value;
               commitSteps(steps);
-              renderTodoControls();
             });
             row.appendChild(input);
-            const remove=document.createElement('button');
-            remove.type='button';
-            remove.className='db-rule-remove db-todo-step-remove';
-            remove.textContent='✕';
-            remove.title='Schritt entfernen';
-            remove.addEventListener('click',()=>{
+            const removeStep=document.createElement('button');
+            removeStep.type='button';
+            removeStep.className='db-rule-remove db-todo-step-remove';
+            removeStep.textContent='✕';
+            removeStep.title='Schritt entfernen';
+            removeStep.addEventListener('click',()=>{
               steps.splice(stepIndex,1);
               commitSteps(steps);
               renderTodoControls();
             });
-            row.appendChild(remove);
+            row.appendChild(removeStep);
             stepsWrap.appendChild(row);
           });
         };
         renderSteps();
         card.appendChild(stepsWrap);
+        const actions=document.createElement('div');
+        actions.className='db-todo-template-actions';
         const addStep=document.createElement('button');
         addStep.type='button';
         addStep.className='db-add-sub db-todo-add-step';
@@ -5063,8 +5282,9 @@
           commitSteps(steps);
           renderTodoControls();
         });
-        card.appendChild(addStep);
-        elements.todoList.appendChild(card);
+        actions.appendChild(addStep);
+        card.appendChild(actions);
+        elements.todoLibraryList.appendChild(card);
       });
     }
 
@@ -5080,7 +5300,7 @@
       if(clamped>tempExtraColumns.length){
         for(let i=tempExtraColumns.length;i<clamped;i+=1){
           const id=generateExtraColumnId();
-          tempExtraColumns.push({id,label:'',rules:[],todoEnabled:false,todoSteps:[]});
+          tempExtraColumns.push({id,label:'',rules:[],todoEnabled:false,todoListId:'',todoSteps:[]});
         }
       }else{
         tempExtraColumns=tempExtraColumns.slice(0,clamped);
@@ -5294,6 +5514,7 @@
 
     function openOptions(){
       closePartSelectDropdown();
+      ensureTodoLists(state.config);
       tempSubFields=Array.isArray(state.config.subFields)?state.config.subFields.map(sub=>({...sub})):[];
       tempTitleRules=Array.isArray(state.config.titleRules)?state.config.titleRules.map(rule=>{
         const normalized=normalizeTitleRule(rule);
@@ -5304,6 +5525,9 @@
             ...col,
             rules:Array.isArray(col.rules)?col.rules.map(rule=>({...rule})):[]
           }))
+        : [];
+      tempTodoLists=Array.isArray(state.config.todoLists)
+        ? state.config.todoLists.map(list=>({id:list.id,label:list.label,steps:sanitizeTodoSteps(list.steps)}))
         : [];
       tempMainColumnLabel=state.config.mainColumnLabel||DEFAULT_MAIN_COLUMN_LABEL;
       tempActiveColumnLabel=state.config.activeColumn?.label||DEFAULT_ACTIVE_COLUMN_LABEL;
@@ -5340,6 +5564,7 @@
       tempSubFields=[];
       tempTitleRules=[];
       tempExtraColumns=[];
+      tempTodoLists=[];
       tempMainColumnLabel='';
       tempActiveColumnLabel='';
       tempActiveColumnEnabled=true;
@@ -5427,6 +5652,19 @@
         const id=generateSearchFilterId();
         tempSearchFilters.push({id,label:'',query:'',defaultActive:false});
         renderSearchFilterControls();
+        scheduleOptionPersist();
+      });
+    }
+
+    if(elements.todoAddList){
+      elements.todoAddList.addEventListener('click',()=>{
+        const used=new Set(tempTodoLists.map(list=>list.id));
+        let id=generateTodoListId();
+        while(used.has(id)){
+          id=generateTodoListId();
+        }
+        tempTodoLists.push({id,label:'Neue Liste',steps:[]});
+        renderTodoControls();
         scheduleOptionPersist();
       });
     }

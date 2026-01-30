@@ -3,6 +3,15 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.4.1] – 2026-01-30
+### Fixed
+- Fokus in ToDo-Schritten bleibt beim Tippen erhalten, ohne das Feld erneut anklicken zu müssen.
+
+## [1.4.0] – 2026-01-30
+### Added
+- ToDo-Listen zentral im ToDo-Tab anlegen und über Dropdowns den Extraspalten zuweisen.
+- ToDo-Zuweisungen zeigen den Status der hinterlegten Schritte pro Extraspalte.
+
 ## [1.3.0] – 2026-01-30
 ### Added
 - Hauptspalten-Name im Extraspalten-Dialog ergänzt und als Überschrift über der Hauptliste angezeigt.
