@@ -158,9 +158,9 @@
     .db-todo-library-list{display:flex;flex-direction:column;gap:.75rem;}
     .db-todo-template{display:flex;flex-direction:column;gap:.5rem;padding:.65rem;border-radius:.75rem;background:var(--ab-surface-quiet);border:1px solid var(--ab-border);}
     .db-todo-template-header{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
-    .db-todo-template-name{flex:1 1 200px;min-width:160px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:transparent;color:inherit;}
+    .db-todo-template-name{flex:1 1 200px;min-width:160px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:var(--ab-section);color:inherit;font-weight:600;}
     .db-todo-template-name:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
-    .db-todo-template-steps{display:flex;flex-direction:column;gap:.35rem;}
+    .db-todo-template-steps{display:flex;flex-direction:column;gap:.35rem;padding-left:.6rem;border-left:2px solid var(--ab-section-border);}
     .db-todo-template-actions{display:flex;flex-wrap:wrap;gap:.35rem;}
     @media (max-width: 980px){
       .db-todo-layout{grid-template-columns:1fr;}

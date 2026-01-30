@@ -3,6 +3,10 @@
 Alle relevanten Änderungen an diesem Modul werden hier dokumentiert.
 Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und [SemVer](https://semver.org/lang/de/).
 
+## [1.4.2] – 2026-01-30
+### Changed
+- ToDo-Listen heben den Listentitel gegenüber den eingerückten Schritten optisch deutlicher ab.
+
 ## [1.4.1] – 2026-01-30
 ### Fixed
 - Fokus in ToDo-Schritten bleibt beim Tippen erhalten, ohne das Feld erneut anklicken zu müssen.
