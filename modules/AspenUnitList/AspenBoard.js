@@ -3101,6 +3101,13 @@
       });
     }
 
+    function isTodoEditorActive(){
+      if(!elements.modal?.classList.contains('open')) return false;
+      const active=document.activeElement;
+      if(!active || typeof active.matches!=='function') return false;
+      return active.matches('.db-todo-step-row input, .db-todo-template-name');
+    }
+
     function applyOptionChanges(){
       if(applyingOptionChanges) return;
       applyingOptionChanges=true;
@@ -3240,7 +3247,9 @@
         ensureHiddenExtraColumns(state);
         if(optionsOpen){
           renderExtraControls();
-          renderTodoControls();
+          if(!isTodoEditorActive()){
+            renderTodoControls();
+          }
           renderSearchFilterControls();
         }
         refreshTitleBar();
