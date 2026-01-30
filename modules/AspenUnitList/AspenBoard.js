@@ -169,6 +169,17 @@
     .db-todo-template-name{flex:1 1 200px;min-width:160px;padding:.35rem .5rem;border:1px solid var(--ab-border);border-radius:.4rem;background:var(--ab-section);color:inherit;font-weight:600;}
     .db-todo-template-name:focus{outline:none;border-color:var(--ab-accent);box-shadow:0 0 0 3px var(--ab-accent-glow);}
     .db-todo-template-steps{display:flex;flex-direction:column;gap:.35rem;padding-left:.6rem;border-left:2px solid var(--ab-section-border);}
+    .db-todo-tree{display:flex;flex-direction:column;gap:.45rem;padding:.6rem;border-radius:.65rem;border:1px dashed var(--ab-border);background:var(--ab-section);}
+    .db-todo-tree-title{font-size:.72rem;font-weight:700;color:var(--ab-muted);text-transform:uppercase;letter-spacing:.05em;}
+    .db-todo-tree-list{list-style:none;margin:0;padding-left:1rem;display:flex;flex-direction:column;gap:.35rem;position:relative;}
+    .db-todo-tree-list::before{content:'';position:absolute;left:.35rem;top:.2rem;bottom:.2rem;border-left:1px solid var(--ab-border);}
+    .db-todo-tree-item{position:relative;padding-left:.85rem;}
+    .db-todo-tree-item::before{content:'';position:absolute;left:.25rem;top:.6rem;width:.5rem;border-top:1px solid var(--ab-border);}
+    .db-todo-tree-node{display:flex;align-items:center;gap:.4rem;padding:.25rem .45rem;border-radius:.45rem;background:var(--ab-surface);border:1px solid var(--ab-border);font-size:.8rem;color:var(--ab-text);}
+    .db-todo-tree-badge{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:999px;background:var(--ab-accent-quiet);color:var(--ab-text);}
+    .db-todo-tree-branch{display:flex;flex-direction:column;gap:.35rem;margin-top:.25rem;padding-left:.65rem;border-left:1px dashed var(--ab-border);}
+    .db-todo-tree-branch-label{font-size:.68rem;font-weight:700;color:var(--ab-muted);display:flex;align-items:center;gap:.35rem;}
+    .db-todo-tree-empty{font-size:.75rem;color:var(--ab-muted);}
     .db-todo-template-actions{display:flex;flex-wrap:wrap;gap:.35rem;}
     @media (max-width: 980px){
       .db-todo-layout{grid-template-columns:1fr;}
@@ -1632,7 +1643,8 @@
       showActiveList:false,
       columnAssignments:new Map(),
       hiddenExtraColumns:new Set(),
-      autoAssignments:new Map()
+      autoAssignments:new Map(),
+      manualAssignmentOverrides:new Set()
     };
   }
 
@@ -2186,6 +2198,10 @@
       state.columnAssignments=normalizeColumnAssignments(saved.columnAssignments);
       ensureColumnAssignments(state);
       ensureHiddenExtraColumns(state);
+      if(Array.isArray(saved.manualAssignmentOverrides)){
+        const normalized=saved.manualAssignmentOverrides.map(val=>String(val||'').trim()).filter(Boolean);
+        state.manualAssignmentOverrides=new Set(normalized);
+      }
       state.autoAssignments=new Map();
       if(!restoredOrder){
         state.items=dedupeByMeldung(state.items);
@@ -2245,7 +2261,8 @@
       activeMeldungen:Array.from(state.activeMeldungen||[]).map(val=>String(val||'').trim()).filter(Boolean),
       showActiveList:!!state.showActiveList,
       columnAssignments:columnAssignmentsToObject(state.columnAssignments),
-      hiddenExtraColumns:Array.from(state.hiddenExtraColumns||[])
+      hiddenExtraColumns:Array.from(state.hiddenExtraColumns||[]),
+      manualAssignmentOverrides:Array.from(state.manualAssignmentOverrides||[])
     };
     const key=normalizeStateKey(storageKey);
     try{persistStateBundle(key,payload);}catch{}
@@ -2285,7 +2302,8 @@
         activeMeldungen:payload.activeMeldungen.slice(),
         showActiveList:payload.showActiveList,
         columnAssignments:{...payload.columnAssignments},
-        hiddenExtraColumns:payload.hiddenExtraColumns.slice()
+        hiddenExtraColumns:payload.hiddenExtraColumns.slice(),
+        manualAssignmentOverrides:payload.manualAssignmentOverrides.slice()
       };
       snapshot.instanceId=instanceId;
       snapshot.lastUpdated=Date.now();
@@ -3532,17 +3550,63 @@
       return column.label?.trim()||`Extraspalte ${index+1}`;
     }
 
-    function getTodoStepsForColumn(column,lists){
-      if(!column) return [];
-      const listId=typeof column.todoListId==='string'?column.todoListId.trim():'';
-      if(listId){
-        const list=(lists||[]).find(entry=>entry.id===listId);
-        if(list){
-          return sanitizeTodoSteps(list.steps);
-        }
+  function getTodoStepsForColumn(column,lists){
+    if(!column) return [];
+    const listId=typeof column.todoListId==='string'?column.todoListId.trim():'';
+    if(listId){
+      const list=(lists||[]).find(entry=>entry.id===listId);
+      if(list){
+        return sanitizeTodoSteps(list.steps);
       }
-      return sanitizeTodoSteps(column.todoSteps);
     }
+    return sanitizeTodoSteps(column.todoSteps);
+  }
+
+  function buildTodoTreeList(steps){
+    const list=document.createElement('ul');
+    list.className='db-todo-tree-list';
+    steps.forEach(step=>{
+      const normalized=normalizeTodoStep(step);
+      const item=document.createElement('li');
+      item.className='db-todo-tree-item';
+      const node=document.createElement('div');
+      node.className='db-todo-tree-node';
+      const badge=document.createElement('span');
+      badge.className='db-todo-tree-badge';
+      badge.textContent=normalized.type==='confirm'?'Ja/Nein':'Info';
+      node.appendChild(badge);
+      const text=document.createElement('span');
+      text.textContent=normalized.text||'Leerer Schritt';
+      node.appendChild(text);
+      item.appendChild(node);
+      if(normalized.type==='confirm'){
+        const yesSteps=sanitizeTodoSteps(normalized.yesSteps);
+        const noSteps=sanitizeTodoSteps(normalized.noSteps);
+        item.appendChild(buildTodoTreeBranch('Ja',yesSteps));
+        item.appendChild(buildTodoTreeBranch('Nein',noSteps));
+      }
+      list.appendChild(item);
+    });
+    return list;
+  }
+
+  function buildTodoTreeBranch(label,steps){
+    const branch=document.createElement('div');
+    branch.className='db-todo-tree-branch';
+    const title=document.createElement('div');
+    title.className='db-todo-tree-branch-label';
+    title.textContent=label;
+    branch.appendChild(title);
+    if(steps.length){
+      branch.appendChild(buildTodoTreeList(steps));
+    }else{
+      const empty=document.createElement('div');
+      empty.className='db-todo-tree-empty';
+      empty.textContent='Keine Schritte';
+      branch.appendChild(empty);
+    }
+    return branch;
+  }
 
     function updateTodoPopup(){
       if(!activeTodoPopup || !elements.todoModal) return;
@@ -4244,6 +4308,7 @@
       const removedAssignments=new Set();
       const activeMeldungen=new Set();
       const autoAssignments=state.autoAssignments instanceof Map?state.autoAssignments:new Map();
+      const manualOverrides=new Set();
       const collect=(container,target,columnId)=>{
         if(!container) return;
         container.querySelectorAll('.db-card').forEach(node=>{
@@ -4274,12 +4339,25 @@
             if(columnId===ACTIVE_COLUMN_ID){
               activeMeldungen.add(meldung);
               removedAssignments.add(meldung);
+              if(hasAutoAssignment){
+                manualOverrides.add(meldung);
+              }
             }else if(columnId){
-              if(!hasAutoAssignment){
+              if(columnId!==autoColumn){
+                newAssignments.set(meldung,columnId);
+                if(hasAutoAssignment){
+                  manualOverrides.add(meldung);
+                }
+              }else if(hasAutoAssignment){
+                removedAssignments.add(meldung);
+              }else{
                 newAssignments.set(meldung,columnId);
               }
-            }else if(!hasAutoAssignment){
+            }else{
               removedAssignments.add(meldung);
+              if(hasAutoAssignment){
+                manualOverrides.add(meldung);
+              }
             }
           }
           seen.add(id);
@@ -4303,6 +4381,9 @@
       mergedAssignments.forEach((_,meldung)=>{if(!validMeldungen.has(meldung)) mergedAssignments.delete(meldung);});
       state.columnAssignments=mergedAssignments;
       ensureColumnAssignments(state);
+      state.manualAssignmentOverrides=new Set(
+        Array.from(manualOverrides).filter(meldung=>validMeldungen.has(meldung))
+      );
     }
 
     let syncRenderPending=false;
@@ -4349,6 +4430,9 @@
       const activeSet=state.activeMeldungen;
       const assignments=state.columnAssignments instanceof Map?state.columnAssignments:new Map();
       const extraColumns=Array.isArray(state.config.extraColumns)?state.config.extraColumns:[];
+      const manualOverrides=state.manualAssignmentOverrides instanceof Set
+        ? state.manualAssignmentOverrides
+        : new Set();
       const hiddenExtras=state.hiddenExtraColumns instanceof Set?state.hiddenExtraColumns:new Set();
       const extraBuckets=new Map(extraColumns.map(col=>[col.id,[]]));
       const autoAssignments=new Map();
@@ -4364,20 +4448,20 @@
             autoAssignments.set(meldung,ruleTarget);
           }
         }
-        if(autoColumnId && extraBuckets.has(autoColumnId)){
-          extraBuckets.get(autoColumnId).push(item);
-          return;
-        }
         const assigned=meldung?assignments.get(meldung):undefined;
-        if(assigned && extraBuckets.has(assigned)){
-          extraBuckets.get(assigned).push(item);
-          return;
-        }
         if(activeSet.has(meldung)){
           activeItems.push(item);
           if(state.showActiveList){
             return;
           }
+        }
+        if(assigned && extraBuckets.has(assigned)){
+          extraBuckets.get(assigned).push(item);
+          return;
+        }
+        if(!manualOverrides.has(meldung) && autoColumnId && extraBuckets.has(autoColumnId)){
+          extraBuckets.get(autoColumnId).push(item);
+          return;
         }
         mainItems.push(item);
       });
@@ -5523,6 +5607,21 @@
         };
         renderSteps();
         card.appendChild(stepsWrap);
+        const tree=document.createElement('div');
+        tree.className='db-todo-tree';
+        const treeTitle=document.createElement('div');
+        treeTitle.className='db-todo-tree-title';
+        treeTitle.textContent='Baumdiagramm';
+        tree.appendChild(treeTitle);
+        if(steps.length){
+          tree.appendChild(buildTodoTreeList(steps));
+        }else{
+          const empty=document.createElement('div');
+          empty.className='db-todo-tree-empty';
+          empty.textContent='Noch keine Schritte hinterlegt.';
+          tree.appendChild(empty);
+        }
+        card.appendChild(tree);
         const actions=document.createElement('div');
         actions.className='db-todo-template-actions';
         const addStep=document.createElement('button');
@@ -6271,6 +6370,14 @@
           }
         });
         state.columnAssignments=filteredAssignments;
+        if(!(state.manualAssignmentOverrides instanceof Set)){
+          state.manualAssignmentOverrides=new Set(
+            Array.isArray(state.manualAssignmentOverrides)?state.manualAssignmentOverrides:[]
+          );
+        }
+        state.manualAssignmentOverrides=new Set(
+          Array.from(state.manualAssignmentOverrides).filter(meldung=>availableMeldungen.has(meldung))
+        );
         const availableParts=new Set(deduped.map(item=>item.part).filter(Boolean));
         if(!(state.excluded instanceof Set)){
           state.excluded=new Set(Array.isArray(state.excluded)?state.excluded:[]);
