@@ -5,6 +5,14 @@ Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/) und 
 
 ---
 
+## [1.8.7] – 2026-01-29
+### Changed
+- Standardfarben: Modulfläche Main, Header und Buttons Alternative, Akzent bleibt ungenutzt.
+
+## [1.8.6] – 2026-01-29
+### Changed
+- Kachelpalette des Gerätedaten-Moduls setzt standardmäßig auf das Alternative-Farbschema.
+
 ## [1.8.5] – 2026-01-29
 ### Changed
 - Aspen-Feldabstände skalieren jetzt gleichmäßig mit der Modulhöhe, der Header ist etwas kompakter und die Schriftgröße bleibt unverändert (keine Scrollbalken nötig).

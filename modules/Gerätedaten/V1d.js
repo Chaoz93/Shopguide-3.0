@@ -641,6 +641,13 @@
       const fields=cloneFields(Array.isArray(raw.fields)?raw.fields:defaultFields);
       const calcRaw=Array.isArray(raw.calculations)?raw.calculations:defaultCalculations;
       const calculations=normalizeCalculations(calcRaw.length?calcRaw:defaultCalculations);
+      const defaultColorSelection=(raw.colors&&Object.keys(raw.colors).length)
+        ? raw.colors
+        : {
+          module:COLOR_PRESETS[0]?.id||'main',
+          header:COLOR_PRESETS[1]?.id||'alternative',
+          buttons:COLOR_PRESETS[1]?.id||'alternative'
+        };
       return{
         ruleIdbKey:raw.ruleIdbKey||ruleIdbKey,
         ruleFileName:raw.ruleFileName||general.nameFileName||'',
@@ -649,7 +656,7 @@
         fields,
         calculations,
         columns:raw.columns||defaultColumns,
-        colors:sanitizeColorSelection(raw.colors),
+        colors:sanitizeColorSelection(defaultColorSelection),
         customButtons:normalizeCustomButtons(raw.customButtons)
       };
     }
