@@ -1035,8 +1035,11 @@
   }
 
   function normalizeRoutineEditorTabState(raw,tabKey){
-    const base=createDefaultRoutineEditorTabState(tabKey);
-    if(!raw||typeof raw!=='object') return base;
+    const tabState=createDefaultRoutineEditorTabState(tabKey);
+    if(!Array.isArray(tabState.customBlocks)){
+      tabState.customBlocks=[];
+    }
+    if(!raw||typeof raw!=='object') return tabState;
     const baseBlocks=getRoutineEditorBaseBlocksForTab(tabKey);
     const rawOrder=Array.isArray(raw.order)?raw.order:[];
     const allowedKeys=new Set(baseBlocks.map(block=>block.key));
@@ -1096,9 +1099,10 @@
         value:type==='aspenfield'?value:''
       });
     });
-    base.customBlocks=customBlocks;
-    if(!Array.isArray(base.customBlocks)){
-      base.customBlocks=[];
+    if(Array.isArray(tabState.customBlocks)){
+      tabState.customBlocks.splice(0,tabState.customBlocks.length,...customBlocks);
+    }else{
+      tabState.customBlocks=customBlocks;
     }
     const customKeys=new Set(customBlocks.map(block=>`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`));
     const normalizedOrder=[];
@@ -1121,15 +1125,15 @@
       const key=`${ROUTINE_EDITOR_CUSTOM_PREFIX}${block.id}`;
       if(!normalizedOrder.includes(key)) normalizedOrder.push(key);
     });
-    base.order=normalizedOrder;
-    base.hiddenBaseBlocks=Array.from(hiddenBaseBlocks);
+    tabState.order=normalizedOrder;
+    tabState.hiddenBaseBlocks=Array.from(hiddenBaseBlocks);
     const rawBlocks=raw.blocks&&typeof raw.blocks==='object'?raw.blocks:null;
     baseBlocks.forEach(block=>{
       const legacyEntry=raw[block.key];
       const entry=rawBlocks&&rawBlocks[block.key]?rawBlocks[block.key]:legacyEntry;
       const rawLines=Array.isArray(entry&&entry.lines)?entry.lines:Array.isArray(entry)?entry:[];
       const lines=rawLines.map(value=>typeof value==='string'?value:'');
-      base.blocks[block.key]={
+      tabState.blocks[block.key]={
         lines:lines.length?lines:['']
       };
     });
@@ -1144,8 +1148,8 @@
         blockMeta[block.key]={label};
       }
     });
-    base.blockMeta=blockMeta;
-    return base;
+    tabState.blockMeta=blockMeta;
+    return tabState;
   }
 
   function normalizeRoutineEditorState(raw){
