@@ -4,7 +4,17 @@
   // ---------- styles ----------
   if (!document.getElementById('ops-panel-styles')) {
     const css = `
-    .ops-root{ height:100%; }
+    .ops-root{
+      height:100%;
+      --lbp-header-bg: var(--module-layer-2-header-bg, var(--module-layer-2-module-bg, var(--module-header-bg, rgba(21,45,76,.86))));
+      --lbp-header-text: var(--module-layer-2-header-text, var(--module-layer-2-module-text, var(--module-header-text, #f8fafc)));
+      --lbp-header-border: var(--module-layer-2-header-border, var(--module-layer-2-module-border, var(--module-header-border, rgba(76,114,163,.32))));
+      --lbp-card-bg: var(--module-layer-2-module-bg, var(--module-bg, rgba(21,45,76,.82)));
+      --lbp-card-text: var(--module-layer-2-module-text, var(--module-text, var(--module-header-text, #fff)));
+      --lbp-card-border: var(--module-layer-2-module-border, var(--module-border, rgba(76,114,163,.34)));
+      --lbp-card-hover-border: color-mix(in srgb, var(--module-layer-2-module-border, var(--module-border, rgba(37,99,235,.45))) 70%, transparent);
+      --lbp-card-active-bg: color-mix(in srgb, var(--module-layer-2-module-bg, var(--module-bg, rgba(37,99,235,.32))) 85%, transparent);
+    }
     .ops-outer{ height:100%; width:100%; padding:.6rem; box-sizing:border-box; overflow:hidden; position:relative; display:flex; flex-direction:column; gap:.6rem; color:var(--lbp-main-text, var(--module-header-text,#fff)); }
     .ops-header{
       display:flex; align-items:center; justify-content:space-between; gap:.75rem;
