@@ -1,5 +1,57 @@
 # SAP-Automatisierung Changelog
 
+## [0.2.19] - 2026-01-15
+### Changed
+- Process all non-empty left-column rows, writing the detected radio label into the right column per row.
+
+## [0.2.18] - 2026-01-15
+### Changed
+- Match the SAP checked radio class string in a case-insensitive way.
+
+## [0.2.17] - 2026-01-15
+### Changed
+- Enabled text selection in the debug log panel.
+
+## [0.2.16] - 2026-01-15
+### Changed
+- Unified radio debug strings with detection and included descendant class names in the debug payload.
+
+## [0.2.15] - 2026-01-15
+### Changed
+- Always log debug info for all four SAP radio options to aid troubleshooting.
+
+## [0.2.14] - 2026-01-15
+### Changed
+- Simplified radio detection to rely on the debug info string containing the checked class marker.
+
+## [0.2.13] - 2026-01-15
+### Changed
+- Expanded radio debug logging to cover all four options when checked/unchecked class strings are present.
+
+## [0.2.12] - 2026-01-15
+### Changed
+- Detect SAP radio selection by searching for the checked/unchecked class strings in the debug output text.
+
+## [0.2.11] - 2026-01-15
+### Changed
+- Handle SVG-style className.baseVal so SAP checked/unchecked classes are detected reliably.
+
+## [0.2.10] - 2026-01-15
+### Changed
+- Switched radio class detection to token-based checks so SAP checked/unchecked classes are evaluated reliably.
+
+## [0.2.9] - 2026-01-15
+### Changed
+- Tightened radio class checks to avoid matching generic "on" substrings and prioritize SAP checked classes.
+
+## [0.2.8] - 2026-01-15
+### Changed
+- Updated radio detection to recognize SAP checked/unchecked class names without false positives.
+
+## [0.2.7] - 2026-01-15
+### Changed
+- Added debug logging that dumps the first two radio option details for troubleshooting detection.
+
 ## [0.2.6] - 2026-01-14
 ### Changed
 - Expanded radio detection to associate labels with inputs and check state attributes/class markers.
